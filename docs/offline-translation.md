@@ -43,7 +43,13 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   now holds translator/aligner ownership through the shared runner, bridges job
   cancellation to native alignment and retains the existing atomic save cutoff.
   Its alignment load hook remains internal and unused by public starts; exact
-  piece planning, word links and strict formatting projection are still pending.
+  piece integration, word links and strict formatting projection are still pending.
+- [Stage 4 exact-piece/literal-island planning](#stage-4-exact-pieces-and-literal-islands--2026-10-20)
+  now retains DOM-owned identities, exact source/target ranges, whitespace joins
+  and attachment ownership. Its internal CTranslate2 path admits both source
+  tokenizers before inference and rejects target overflow/decoder cutoffs.
+  Public jobs, caches and rendering do not consume this strict path yet;
+  word-link extraction and formatting acceptance remain open.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -252,6 +258,10 @@ Feature-on/off builds pass without changing search/TTS runtime behavior. A real
 model load test must pass separately from mocked inference tests.
 
 #### 4. Carry exact translation pieces through bounded planning
+
+**Status 2026-10-20:** internal exact-piece/literal-island planner and maintained
+CTranslate2 adapter implemented and tested below. No public strict-path caller,
+word links, projection or mapped-cache/save admission is enabled by this slice.
 
 **Tasks.** Reuse the shared DOM's normalized text and stable block ordinals.
 Retain CTranslate2's actual token-bounded source pieces and corresponding target
@@ -1683,6 +1693,133 @@ planning. Word-link extraction, strict source-owned projection, mapping/cache
 integration, mandatory auxiliary-scope success, numeric/held-out semantics and
 runtime redistribution/resource/platform qualification remain open. Candidate
 enablement, benchmarks, broader smoke and the app version bump stay deferred.
+
+## Stage 4 exact pieces and literal islands — 2026-10-20
+
+**Internal bounded planning and provider execution, not formatting enablement.**
+`inline_markup/provider/pieces.rs` reuses `ProtectedSource`/`ProtectedPlan` and
+the stable public segment ID, source block ordinal and scalar start. It does
+not introduce another DOM parser, identity tree, translation selector, model
+manager, serialized reply/cache field, dependency or build flag. Public runner
+starts keep their current text/worker path; this new planner has no command or
+writer caller. Stage 5 projection/mapping admission is still required.
+
+### Exact source ownership and model pairs
+
+- One retained source plan owns all original tags, attributes, literals and
+  parent relationships. Exact scalar ranges partition its text into prose,
+  immutable literal islands and whitespace joins. Emphasis alone never causes
+  an inference boundary. A fitting sentence stays whole across nested styles.
+- Literal content is copied through the retained plan and never enters either
+  tokenizer or translation inference. No invented placeholders or marker echo
+  are used. This intentionally reduces model context across a literal. A
+  literal-only unit needs no model call and grants no prose-mapping approval.
+- Zero-width notes/images/empty identities retain source ID, parent, source
+  offset and exactly one unit owner. A marker on a cut belongs to the preceding
+  unit; a marker at source start belongs to the first. Interior positions retain
+  their exact source coordinate. This is **source ownership**, not a guessed
+  target placement; semantic/quote/punctuation attachment evidence and actual
+  source-owned DOM reconstruction remain later gates.
+- The planner tests the actual translator and aligner admission functions before
+  model inference. Only oversized prose is split, preferring Unicode sentence,
+  then clause, then whitespace boundaries. Balanced cuts bound repeated
+  tokenization. A word/indivisible prose unit that cannot fit rejects; it is not
+  chopped into characters. Authored identities remain in the single retained
+  tree across internal pieces. A supplied outer segment that already cuts an
+  authored ID or literal rejects rather than clipping it.
+- Boundaries are grapheme-safe, with exact half-open scalar coordinates. Source
+  whitespace joins are explicit units, not reconstructed from sentence counts.
+  Leading/trailing whitespace and decoded targets are retained exactly. The
+  returned translation borrows its producing source plan and records one exact
+  target range per source unit, including copied literals and joins. Providers
+  translate each admitted input once; there is no hidden subdivision/join or
+  independent splitting of an oversized target against unrelated source text.
+
+Engineering bounds are 32 KiB source/combined target, 128 total units including
+joins, 900 scalars per prose piece, at most 256 planning probes per prose island
+and 16 inference inputs per call. Existing protected-tree/payload bounds also
+apply. The actual tokenizer limits can be lower. Every source is re-admitted
+immediately before inference; every target is checked afterward. Unknown or
+normalization failures reject, while only size overflow is eligible for source
+subdivision. A bad count, empty/oversized target, grapheme-crossing join or
+cancellation returns no completed translation. No cache/write occurs here.
+
+### CTranslate2 and alignment tokenizer seam
+
+The two-method `ExactPieceTranslator` seam owns source-token admission and one
+target per actual source input. CTranslate2 implements it only for the two pinned
+French/Spanish OPUS-MT IDs. Future providers must implement their own framing,
+decoder-completion and target-limit checks; HY-MT2 is not implicitly admitted.
+
+The adapter now uses the maintained `ct2rs::sys::Translator` API with the existing
+tokenizer. This exposes actual generated token sequences before decoding and
+removes the high-level wrapper's duplicate tokenizer. Normal jobs retain their
+existing splitter, native defaults, unknown replacement, decoding and output
+joining. The new strict path includes source EOS in the existing 448-token
+budget, disables native input truncation, requests returned EOS and rejects
+missing EOS, empty output or generation beyond Marian's 512-position bound.
+It removes only the verified terminal EOS before decoding; output token counts
+are not guessed by re-tokenizing translated text. Actual aligner target
+admission then applies its own 256-token limit including framing.
+
+`CandidateTokenizer::text_fits` treats only size overflow as splittable. It
+preserves unknown/reserved-token and normalization/provenance rejection. An
+existing `AlignmentSession` exposes the same tokenizer check without creating
+another graph/session. This slice does not implement word-link extraction or
+make the unresolved auxiliary-word scope case pass.
+
+### Regression receipt and reproduction
+
+Synthetic regressions cover complete source/target coverage, stable public IDs,
+unclipped identity ownership, nested inline styles, literal exclusion,
+literal-only input, notes exactly on a cut, batching/work limits, token-dense
+source, both framing budgets, the 900/901-scalar boundary, Unicode scalar versus
+byte offsets, combining/Arabic marks, whitespace joins, cancellation, malformed
+reply counts, target overflow and native EOS/position-limit rejection. Actual
+tokenizer-library tests include protected unknown literals and strict rejection
+of unknown prose; they are not semantic alignment tests.
+
+An explicit native regression passed with the existing pinned French and
+Spanish packs. Every file was verified against the current manifest; packs were
+downloaded only to `/tmp` for correctness validation, outside the repository.
+The normal adapter produced exactly the same short-sentence outputs as the
+previous maintained high-level adapter with identical options. Strict outputs
+also matched; both real tokenizers admitted the literal/note planning cases.
+This is native correctness evidence, not a quality, speed/RAM benchmark or app
+smoke test. The native backend's existing float16-to-float32 CPU fallback warning
+was unchanged; low-power resource qualification remains open.
+
+Reproduce with externally cached packs in model-ID subdirectories and the
+original seven-file pinned alignment pack:
+
+```sh
+PAPERCUT_CT2_MODELS_DIR=/path/to/ct2-models \
+PAPERCUT_ALIGNMENT_ASSETS_DIR=/path/to/pinned-alignment-pack \
+  cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib \
+  --no-default-features \
+  --features native-translation-ctranslate2,native-translation-alignment-runtime \
+  pinned_native_legacy_parity_and_exact_piece_outputs -- --ignored
+```
+
+Ordinary tests skip this external-pack case and download no models. Private
+sample documents and weights are not committed. No new benchmark tooling was
+added. Fresh CI, packaged/mobile acceptance and wider model-quality acceptance
+are not claimed.
+
+Final full Rust suites passed **491 tests with features off** (four ignored),
+**512 with the alignment runtime** (nine ignored), and **511 with CTranslate2
+plus alignment runtime** (ten ignored). The explicit pinned-model parity and
+planning test above passed separately for both language pairs. The native-only
+translation suite and combined-feature compile check also passed. Formatting,
+diff and documentation-link checks passed. Existing feature-off unused-import
+and native CPU compute-type warnings are not new acceptance failures.
+
+**Next:** review Stage 4, then Stage 5 reference-compatible word-link extraction
+and conservative projection over these exact pairs. Stage 6 attachment/DOM
+reconstruction and Stage 7 mapped-cache/save integration remain separate work.
+Mandatory auxiliary-scope semantics, numeric/held-out acceptance and packaged
+runtime/resource/platform qualification still block public alignment enablement.
+Benchmarks, broader smoke and the app version bump remain deferred.
 
 ## Product Goals
 

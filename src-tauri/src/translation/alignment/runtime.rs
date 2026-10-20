@@ -123,6 +123,12 @@ pub(crate) struct AlignmentSession {
 }
 
 impl AlignmentSession {
+    /// Reuse the session's verified tokenizer for Stage 4 admission without running or duplicating the graph.
+    pub(crate) fn text_fits(&self, text: &str, side: Side) -> Result<bool, SessionError> {
+        self.tokenizer
+            .text_fits(text, side)
+            .map_err(SessionError::from)
+    }
     /// Pin bytes under the existing state guard; never reopen a verified graph filename for ORT.
     pub(crate) fn load(
         state: &TranslationState,

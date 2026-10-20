@@ -2,7 +2,7 @@
 //!
 //! The real native binding remains feature-gated so normal builds do not pull
 //! in C++/SentencePiece dependencies. When `native-translation-ctranslate2` is
-//! enabled, this adapter loads `ct2rs::Translator` from a verified on-disk
+//! enabled, this adapter loads the maintained `ct2rs::sys::Translator` from a verified on-disk
 //! model directory and translates bounded batches for the document pipeline.
 
 // Several config fields and helpers are only read when the native feature is
@@ -17,9 +17,10 @@ use unicode_segmentation::UnicodeSegmentation;
 #[cfg(feature = "native-translation-ctranslate2")]
 use super::engine::TranslationSegmentInput;
 use super::engine::{TranslationBatchInput, TranslationEngine, TranslationSegmentOutput};
+use super::inline_markup::provider::pieces::ExactPieceTranslator;
 
 #[cfg(feature = "native-translation-ctranslate2")]
-type NativeTranslator = ct2rs::Translator<ct2rs::tokenizers::auto::Tokenizer>;
+type NativeTranslator = ct2rs::sys::Translator;
 #[cfg(feature = "native-translation-ctranslate2")]
 type NativeTokenizer = ct2rs::tokenizers::auto::Tokenizer;
 
@@ -96,8 +97,8 @@ impl CTranslate2Engine {
         #[cfg(feature = "native-translation-ctranslate2")]
         {
             let translator_config = native_config(&config);
-            let translator = ct2rs::Translator::new(&config.model_dir, &translator_config)
-                .map_err(|err| {
+            let translator =
+                NativeTranslator::new(&config.model_dir, &translator_config).map_err(|err| {
                     format!(
                         "Failed to load CTranslate2 model {} at {}: {err}",
                         config.model_id,
@@ -124,6 +125,121 @@ impl CTranslate2Engine {
             Ok(Self::new(config))
         }
     }
+
+    /// The maintained low-level API retains actual generated tokens; legacy options and decoding stay unchanged.
+    #[cfg(feature = "native-translation-ctranslate2")]
+    fn translate_texts(&self, sources: &[&str], strict: bool) -> Result<Vec<String>, String> {
+        use ct2rs::Tokenizer as _;
+        let translator = self
+            .translator
+            .as_ref()
+            .ok_or("CTranslate2 runtime was not loaded")?;
+        let tokenizer = self
+            .tokenizer
+            .as_ref()
+            .ok_or("CTranslate2 tokenizer was not loaded")?;
+        let encoded = sources
+            .iter()
+            .map(|s| {
+                tokenizer
+                    .encode(s)
+                    .map_err(|_| "CTranslate2 source tokenization failed".to_string())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut options: ct2rs::TranslationOptions<String, String> = Default::default();
+        options.max_batch_size = sources.len().max(1);
+        options.replace_unknowns = true;
+        if strict {
+            options.max_input_length = 0; // Checked sources must never be silently truncated by the native engine.
+            options.max_decoding_length = MARIAN_POSITION_LIMIT_TOKENS;
+            options.return_end_token = true;
+        }
+        let results = translator
+            .translate_batch(&encoded, &options, None)
+            .map_err(|_| "CTranslate2 batch translation failed".to_string())?;
+        if results.len() != sources.len() {
+            return Err("CTranslate2 source/output count mismatch".into());
+        }
+        results
+            .into_iter()
+            .map(|result| {
+                let mut tokens = result
+                    .hypotheses
+                    .into_iter()
+                    .next()
+                    .ok_or("CTranslate2 returned no hypothesis")?;
+                if strict {
+                    check_exact_target(&tokens)?;
+                    tokens.pop();
+                }
+                tokenizer
+                    .decode(tokens)
+                    .map_err(|_| "CTranslate2 target decoding failed".to_string())
+            })
+            .collect()
+    }
+}
+
+impl ExactPieceTranslator for CTranslate2Engine {
+    /// Strict OPUS-MT uses the actual tokenizer's EOS-inclusive count; other future providers must opt in explicitly.
+    fn source_fits(&self, source: &str) -> Result<bool, String> {
+        if !matches!(
+            self.config.model_id.as_str(),
+            "opus-mt-fr-en-ctranslate2" | "opus-mt-es-en-ctranslate2"
+        ) {
+            return Err("Exact-piece provider is not supported".into());
+        }
+        #[cfg(feature = "native-translation-ctranslate2")]
+        {
+            use ct2rs::Tokenizer as _;
+            let tokens = self
+                .tokenizer
+                .as_ref()
+                .ok_or("CTranslate2 tokenizer was not loaded")?
+                .encode(source)
+                .map_err(|_| "CTranslate2 source tokenization failed")?;
+            Ok(!source.trim().is_empty()
+                && tokens.last().is_some_and(|s| s == "</s>")
+                && tokens.len() <= source_token_budget(&self.config.model_id))
+        }
+        #[cfg(not(feature = "native-translation-ctranslate2"))]
+        {
+            let _ = source;
+            Err("Exact-piece CTranslate2 requires the native feature".into())
+        }
+    }
+
+    /// Every input is already planned against both tokenizers; no private subdivision or sentence-count pairing.
+    fn translate_exact(&mut self, sources: &[&str]) -> Result<Vec<String>, String> {
+        if sources.is_empty() || sources.len() > super::config::DEFAULT_BATCH_SEGMENT_LIMIT {
+            return Err("Exact-piece batch exceeds its bound".into());
+        }
+        for source in sources {
+            if !self.source_fits(source)? {
+                return Err("Exact-piece source exceeds the translator token limit".into());
+            }
+        }
+        #[cfg(feature = "native-translation-ctranslate2")]
+        {
+            self.translate_texts(sources, true)
+        }
+        #[cfg(not(feature = "native-translation-ctranslate2"))]
+        {
+            Err("Exact-piece CTranslate2 requires the native feature".into())
+        }
+    }
+}
+
+/// Native generation must end naturally within Marian's position limit; text retokenization cannot prove that.
+fn check_exact_target(tokens: &[String]) -> Result<(), String> {
+    if tokens.len() < 2
+        || tokens.len() > MARIAN_POSITION_LIMIT_TOKENS
+        || tokens.last().is_none_or(|s| s != "</s>")
+    {
+        Err("Exact-piece decoder reached a limit or returned empty output".into())
+    } else {
+        Ok(())
+    }
 }
 
 impl TranslationEngine for CTranslate2Engine {
@@ -133,10 +249,6 @@ impl TranslationEngine for CTranslate2Engine {
     ) -> Result<Vec<TranslationSegmentOutput>, String> {
         #[cfg(feature = "native-translation-ctranslate2")]
         {
-            let translator = self.translator.as_ref().ok_or_else(|| {
-                "CTranslate2 runtime was not loaded. Use for_installed_model before translation."
-                    .to_string()
-            })?;
             let tokenizer = self.tokenizer.as_ref().ok_or_else(|| {
                 "CTranslate2 tokenizer was not loaded. Use for_installed_model before translation."
                     .to_string()
@@ -153,23 +265,9 @@ impl TranslationEngine for CTranslate2Engine {
                 .iter()
                 .map(|source| source.text.as_str())
                 .collect::<Vec<_>>();
-            let mut options: ct2rs::TranslationOptions<String, String> = Default::default();
-            options.max_batch_size = sources.len().max(1);
-            options.replace_unknowns = true;
-
-            let translated = translator
-                .translate_batch(&sources, &options, None)
-                .map_err(|err| format!("CTranslate2 batch translation failed: {err}"))?;
-            if translated.len() != expanded_sources.len() {
-                return Err(format!(
-                    "CTranslate2 returned {} outputs for {} token-bounded source pieces",
-                    translated.len(),
-                    expanded_sources.len()
-                ));
-            }
-
+            let translated = self.translate_texts(&sources, false)?;
             let mut joined_outputs = vec![String::new(); input.segments.len()];
-            for (source, (text, _score)) in expanded_sources.iter().zip(translated) {
+            for (source, text) in expanded_sources.iter().zip(translated) {
                 append_translated_part(&mut joined_outputs[source.owner_index], &text);
             }
 
@@ -521,6 +619,129 @@ mod tests {
     #[test]
     fn marian_source_budget_leaves_room_below_position_limit() {
         assert!(MARIAN_SAFE_SOURCE_TOKENS < 512);
+    }
+
+    #[test]
+    fn exact_target_requires_natural_eos_within_the_actual_generated_token_bound() {
+        let tokens = |n: usize, eos: bool| {
+            let mut result = vec!["word".to_string(); n];
+            if eos {
+                result.push("</s>".into());
+            }
+            result
+        };
+        assert!(super::check_exact_target(&tokens(1, true)).is_ok());
+        assert!(super::check_exact_target(&tokens(511, true)).is_ok());
+        for value in [
+            vec![],
+            tokens(0, true),
+            tokens(1, false),
+            tokens(512, true),
+            tokens(512, false),
+        ] {
+            assert!(super::check_exact_target(&value).is_err());
+        }
+    }
+
+    #[cfg(feature = "native-translation-ctranslate2")]
+    #[test]
+    #[ignore = "requires externally cached pinned French/Spanish CT2 packs; never downloads weights"]
+    fn pinned_native_legacy_parity_and_exact_piece_outputs() {
+        use crate::translation::{
+            engine::{TranslationBatchInput, TranslationEngine, TranslationSegmentInput},
+            inline_markup::provider::pieces::ExactPieceTranslator,
+            model_store::manifest_by_id,
+        };
+        let root =
+            std::env::var_os("PAPERCUT_CT2_MODELS_DIR").expect("Set PAPERCUT_CT2_MODELS_DIR");
+        for (id, sources) in [
+            (
+                "opus-mt-fr-en-ctranslate2",
+                ["Bonjour le monde.", "La voiture rouge est ici."],
+            ),
+            (
+                "opus-mt-es-en-ctranslate2",
+                ["Hola mundo.", "El coche rojo está aquí."],
+            ),
+        ] {
+            let dir = PathBuf::from(&root).join(id);
+            manifest_by_id(id).unwrap().verify_files(&dir).unwrap();
+            let mut engine = CTranslate2Engine::for_installed_model(id, dir.clone()).unwrap();
+            // This is the exact high-level adapter used before the refactor, with the same native options.
+            let reference =
+                ct2rs::Translator::new(&dir, &super::native_config(engine.config())).unwrap();
+            let mut options: ct2rs::TranslationOptions<String, String> = Default::default();
+            options.max_batch_size = sources.len();
+            options.replace_unknowns = true;
+            let expected = reference
+                .translate_batch(&sources, &options, None)
+                .unwrap()
+                .into_iter()
+                .map(|v| v.0)
+                .collect::<Vec<_>>();
+            let batch = TranslationBatchInput {
+                model_id: id.into(),
+                source_language: if id.contains("-fr-") { "fr" } else { "es" }.into(),
+                target_language: "en".into(),
+                quality_mode: "balanced".into(),
+                repair_mode: crate::translation::types::TranslationRepairMode::Off,
+                glossary: vec![],
+                segments: sources
+                    .iter()
+                    .enumerate()
+                    .map(|(i, s)| TranslationSegmentInput {
+                        id: format!("b0:s{i}"),
+                        text: s.to_string(),
+                        markup: None,
+                        context: Default::default(),
+                    })
+                    .collect(),
+            };
+            let outputs = engine.translate_batch(batch).unwrap();
+            assert_eq!(
+                outputs.iter().map(|v| &v.text).collect::<Vec<_>>(),
+                expected.iter().collect::<Vec<_>>()
+            );
+            assert_eq!(outputs[1].id, "b0:s1");
+            assert_eq!(outputs[1].source_text, sources[1]);
+            let exact = engine.translate_exact(&sources).unwrap();
+            assert_eq!(exact, expected);
+            assert!(!engine.source_fits(&"livre ".repeat(600)).unwrap());
+            assert!(engine.translate_exact(&[&"livre ".repeat(600)]).is_err());
+
+            #[cfg(feature = "native-translation-alignment")]
+            {
+                use crate::translation::{
+                    alignment::CandidateTokenizer,
+                    dom::DomPlan,
+                    inline_markup::{protected::ProtectedSource, provider::pieces::SourcePlan},
+                    segment::TranslationTextSegment,
+                };
+                let alignment = std::env::var_os("PAPERCUT_ALIGNMENT_ASSETS_DIR")
+                    .expect("Set PAPERCUT_ALIGNMENT_ASSETS_DIR");
+                let tokenizer = CandidateTokenizer::load(std::path::Path::new(&alignment)).unwrap();
+                let dom = DomPlan::new(&format!("<p><strong>{}</strong> <code>private_id🙂</code> {}<a role='doc-noteref' href='#n'>1</a></p>", sources[0], sources[1]));
+                let block = &dom.blocks[0];
+                let segment = TranslationTextSegment {
+                    id: "b0:s0".into(),
+                    source_block_index: 0,
+                    source_start: 0,
+                    source_end: block.inline.text.chars().count(),
+                    text: block.inline.text.clone(),
+                };
+                let protected = ProtectedSource::new(&block.node).unwrap();
+                let fits = |s: &str, side| {
+                    tokenizer
+                        .text_fits(s, side)
+                        .map_err(|_| "Alignment token admission failed".to_string())
+                };
+                let plan = SourcePlan::new(&segment, &protected, &engine, fits).unwrap();
+                let result = plan.translate(&mut engine, fits, || false).unwrap();
+                assert!(result.text.contains("private_id🙂"));
+                assert_eq!(result.targets.len(), plan.units().len());
+                assert_eq!(plan.attachments().len(), 1);
+            }
+        }
     }
 
     fn whitespace_token_count(text: &str) -> Result<usize, String> {

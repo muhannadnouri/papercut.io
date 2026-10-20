@@ -63,6 +63,14 @@ impl EncodedText<'_> {
 }
 
 impl CandidateTokenizer {
+    /// Planning treats only size overflow as splittable; unknown tokens and provenance failures still reject.
+    pub(crate) fn text_fits(&self, text: &str, side: Side) -> Result<bool, AdmissionError> {
+        match self.encode(text, side) {
+            Ok(_) => Ok(true),
+            Err(AdmissionError::Evidence(Rejection::Limit)) => Ok(false),
+            Err(error) => Err(error),
+        }
+    }
     /// No network, installation or weight loading; replaced files are rechecked on each admission.
     pub(crate) fn load(dir: &Path) -> Result<Self, AdmissionError> {
         Self::from_snapshot(&assets::tokenizer_snapshot(dir)?)

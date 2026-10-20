@@ -43,6 +43,67 @@ fn synthetic() -> CandidateTokenizer {
     CandidateTokenizer::from_snapshot(&serde_json::to_vec(&profile()).unwrap()).unwrap()
 }
 
+#[test]
+fn planning_splits_only_size_overflow_and_does_not_hide_unknown_or_normalization_failures() {
+    let tokenizer = synthetic();
+    for side in [Side::Source, Side::Target] {
+        assert!(tokenizer
+            .text_fits(&vec!["book"; MAX_TOKENS - 2].join(" "), side)
+            .unwrap());
+        assert!(!tokenizer
+            .text_fits(&vec!["book"; MAX_TOKENS - 1].join(" "), side)
+            .unwrap());
+        for text in ["🙂", "[UNK]", "ca\u{200b}fe", ""] {
+            assert!(tokenizer.text_fits(text, side).is_err());
+        }
+    }
+}
+
+#[test]
+fn exact_piece_planning_uses_real_tokenizer_framing_and_keeps_unknown_literals_outside_it() {
+    use crate::translation::{
+        dom::DomPlan,
+        inline_markup::{
+            protected::ProtectedSource,
+            provider::pieces::{ExactPieceTranslator, SourcePlan},
+        },
+        segment::TranslationTextSegment,
+    };
+    struct Translator;
+    impl ExactPieceTranslator for Translator {
+        fn source_fits(&self, s: &str) -> Result<bool, String> {
+            Ok(s.split_whitespace().count() + 1 <= 448)
+        }
+        fn translate_exact(&mut self, s: &[&str]) -> Result<Vec<String>, String> {
+            assert!(s.iter().all(|s| !s.contains("secret")));
+            Ok(s.iter().map(|_| "A book".into()).collect())
+        }
+    }
+    let dom = DomPlan::new(&format!(
+        "<p>{}<code>secret🙂</code> book</p>",
+        "book ".repeat(260)
+    ));
+    let block = &dom.blocks[0];
+    let source = ProtectedSource::new(&block.node).unwrap();
+    let segment = TranslationTextSegment {
+        id: "b0:s0".into(),
+        source_block_index: 0,
+        source_start: 0,
+        source_end: block.inline.text.chars().count(),
+        text: block.inline.text.clone(),
+    };
+    let tokenizer = synthetic();
+    let fits = |s: &str, side| {
+        tokenizer
+            .text_fits(s, side)
+            .map_err(|_| "Alignment token admission failed".into())
+    };
+    let plan = SourcePlan::new(&segment, &source, &Translator, fits).unwrap();
+    let result = plan.translate(&mut Translator, fits, || false).unwrap();
+    assert!(result.text.contains("secret🙂"));
+    assert!(plan.units().len() > 3);
+}
+
 /// The 23 generic admission patterns are independent of any source article or translation sample.
 fn policy_cases() -> Vec<(String, bool)> {
     let mut cases: Vec<_> = [

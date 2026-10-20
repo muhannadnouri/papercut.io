@@ -7,6 +7,9 @@ use super::{InlineSourceModel, ProjectedInlineSpan};
 
 // Contract-only: no engine, catalog entry or renderer consumes this evidence yet.
 pub(crate) mod contract;
+// Internal strict planning only; public translation/cache/rendering do not consume it yet.
+#[allow(dead_code)]
+pub(crate) mod pieces;
 
 #[derive(Debug, Clone)]
 pub(crate) struct InlineSpanMapping {
