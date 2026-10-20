@@ -19,7 +19,8 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - The workbench selects only pinned models whose engine and WebView gates pass. Unavailable pinned models remain visible with an explanation; future model candidates remain informational. Existing native catalog ordering/defaults are unchanged.
 - Translation jobs run through the shared Rust engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
 - The [Stage 2 alignment contract](#stage-2-pure-alignment-contract--2026-10-20)
-  now has pure validation/rejection tests. It has no engine/installer/UI caller;
+  has passed its [contract-only review](#stage-2-contract-review--2026-10-20)
+  and pure validation/rejection tests. It has no engine/installer/UI caller;
   the offline aligner candidate remains disabled and formatting acceptance open.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
@@ -855,11 +856,71 @@ permissions for existing shell stubs.
 Formatting and diff checks pass. No live models, packaged build, CI run,
 benchmark or smoke was used to validate this slice.
 
-Next review this pure boundary before considering Stage 3's verified asset and
-runtime work. Do not expose the candidate while semantic-scope, resource/device
+The [contract-only review](#stage-2-contract-review--2026-10-20) is now recorded
+below. Do not expose the candidate while semantic-scope, resource/device
 and model-provenance gates remain open. Saved originals, variants, assets,
 audiobooks and read-along data require no migration. Benchmarks, smoke and the
 app version bump remain deferred.
+
+### Stage 2 contract review — 2026-10-20
+
+**Scope:** review `b352918` and its connected source-plan, provider, engine,
+runner, renderer, cache, catalog and installer paths. Use the preceding scope/token
+policy receipt as the expected behavior. Expected load is one foreground
+document job, processing bounded pairs; no inference or production consumer
+exists in this slice.
+
+**Verdict: no must-fix findings for the contract-only slice.** This does not
+approve the candidate, complete the full Stage 2 integration or establish
+formatting parity. In particular:
+
+- IDs, attributes and hierarchy remain source-owned. The new read-only view
+  derives from the same protected tree rather than a second identity parser.
+  Pair binding covers exact text, parent coordinates and version identities;
+  malformed indices/ranges reject before constructing checked evidence.
+- Token evidence is a separate trusted-adapter input, not an assertion supplied
+  by the aligner. Unknown/reserved content and lossy normalization reject on
+  both sides. Fabricated but internally consistent token IDs cannot be detected
+  by this layer; verified files and actual raw tokenization are Stage 3 work.
+- Partial styling uses supplied word links without expanding over an adjacent
+  auxiliary or bridging disjoint ranges. Uniform whole-unit ownership is a
+  source-plan shortcut only. Missing lexical coverage and mixed ownership reject.
+  Complete wrong graphs and unreported fused morphology remain semantic limits,
+  explicitly exercised in tests, rather than bugs claimed solved by validation.
+- Literals and zero-width attachments reject explicitly pending later isolation
+  and placement work. `CheckedMapping` contains ranges only; it is not HTML or a
+  renderer/save admission token. The existing production validation, rendering,
+  cache identities, atomic writer and installed-model lifecycle do not call it.
+- Pair text, token/link/range counts and source identity payload are bounded.
+  These bounds limit pure validation work; they are not measured mobile memory
+  or latency acceptance, nor permission to load the candidate at its graph maximum.
+
+**Fresh validation:** `cargo test --manifest-path src-tauri/Cargo.toml --locked
+--offline --lib translation::inline_markup::` passes **57 tests**, including
+the 21 contract tests and connected protected/source/provider regressions.
+The same filter with `--no-default-features --features native-translation`
+also passes **57 tests**. Provider-only filtering passes **27 tests** (a subset,
+not additional coverage). Formatting and diff checks pass. No new tests were
+needed for a docs-only review; these are supplied-evidence tests, not inference.
+The previous full-suite receipt above is unchanged, not a new full CI run.
+
+**Next bounded stage:** start Stage 3 with verified asset/provenance and real
+raw-tokenizer admission, then the bounded local runtime. Preserve the distinct
+alignment asset role; do not add the aligner as a selectable translation engine.
+Pin/review weight and tokenizer revisions, hashes, sizes, configuration and full
+redistribution notices before allowing any install. Connect actual raw token
+IDs, masks, word IDs, original byte offsets and normalized views to this contract;
+do not copy the earlier pre-split research probe into production. Test corrupt or
+replaced assets and repeat the token-policy cases against the pinned tokenizer.
+Reuse existing staged installation, shared-runtime initialization and model-use
+guards when those pieces are wired; do not introduce a second model manager.
+
+Keep the candidate unavailable throughout these internal steps. Real model load,
+shape/output admission and lifecycle tests remain separate Stage 3 gates, and
+mandatory auxiliary-scope success, held-out acceptance, resource budgets and
+packaged-platform validation still block enabling the feature. Benchmarks,
+broader smoke and the app version bump remain deferred. No source code,
+dependency, asset, cache schema or application behavior changed in this review.
 
 ## Product Goals
 
