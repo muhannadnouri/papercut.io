@@ -308,7 +308,7 @@ fn encode_children(
 
 impl ProtectedPlan {
     /// Exact fragment text and identity metadata stay owned by the same DOM plan as reconstruction.
-    pub(super) fn source_text(&self) -> &str {
+    pub(crate) fn source_text(&self) -> &str {
         &self.source
     }
 

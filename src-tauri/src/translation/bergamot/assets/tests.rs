@@ -2,6 +2,7 @@ use super::*;
 use crate::translation::{
     model_store, models, state::TranslationState, types::TranslationModelStatusRequest,
 };
+use std::fs;
 
 struct Fixture(std::path::PathBuf);
 impl Fixture {

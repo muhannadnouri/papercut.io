@@ -1,7 +1,5 @@
 //! Pinned Bergamot binary delivery. No document writes or caller-supplied paths.
 
-use std::fs;
-use std::io::Read;
 use std::path::Path;
 
 use serde::Deserialize;
@@ -78,41 +76,17 @@ pub(crate) fn read_asset(
 }
 
 fn read_verified(dir: &Path, pin: &TranslationModelFile) -> Result<Vec<u8>, String> {
-    if pin.bytes == 0 || pin.bytes > 32 * 1024 * 1024 {
-        return Err("Invalid Bergamot asset size limit".into());
-    }
-    let root = dir
-        .canonicalize()
-        .map_err(|_| "Bergamot assets are not installed")?;
-    // Reject a replaced model root and leaf symlinks rather than following private paths.
-    if fs::symlink_metadata(dir)
-        .map_err(|_| "Bergamot assets are not installed")?
-        .file_type()
-        .is_symlink()
-    {
-        return Err("Bergamot asset root must not be a symlink".into());
-    }
-    let path = dir.join(pin.path);
-    let metadata = fs::symlink_metadata(&path).map_err(|_| "Bergamot asset is missing")?;
-    if !metadata.is_file()
-        || metadata.len() != pin.bytes
-        || path
-            .canonicalize()
-            .map_err(|_| "Bergamot asset is missing")?
-            .parent()
-            != Some(root.as_path())
-    {
-        return Err("Bergamot asset has an invalid location or size".into());
-    }
-    let file = fs::File::open(&path).map_err(|_| "Could not read Bergamot asset")?;
-    let mut bytes = Vec::new();
-    file.take(pin.bytes + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| "Could not read Bergamot asset")?;
-    if bytes.len() as u64 != pin.bytes || format!("{:x}", Sha256::digest(&bytes)) != pin.sha256 {
-        return Err("Bergamot asset integrity check failed; reinstall its files".into());
-    }
-    Ok(bytes)
+    use crate::translation::model_store::verified::{self, AssetError};
+    verified::read(dir, pin, 32 * 1024 * 1024).map_err(|error| {
+        match error {
+            AssetError::Size => "Invalid Bergamot asset size limit",
+            AssetError::Path => "Bergamot asset has an invalid location",
+            AssetError::Missing => "Bergamot assets are not installed",
+            AssetError::Read => "Could not read Bergamot asset",
+            AssetError::Integrity => "Bergamot asset integrity check failed; reinstall its files",
+        }
+        .into()
+    })
 }
 
 const FR_FILES: &[TranslationModelFile] = &[

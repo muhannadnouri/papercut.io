@@ -22,6 +22,10 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   has passed its [contract-only review](#stage-2-contract-review--2026-10-20)
   and pure validation/rejection tests. It has no engine/installer/UI caller;
   the offline aligner candidate remains disabled and formatting acceptance open.
+- The [Stage 3 asset/tokenizer slice](#stage-3-asset-and-raw-tokenizer-admission--2026-10-20)
+  verifies local candidate files and connects real raw-tokenizer evidence to the
+  contract behind a default-off internal feature. It adds no downloads, model
+  selector entry, inference, automatic alignment or saved-document migration.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -198,6 +202,10 @@ The contract must represent all mandatory cases without inventing target words
 or widening a span over unrelated prose.
 
 #### 3. Add verified assets and a bounded local alignment runtime
+
+**Status 2026-10-20:** local asset and raw-tokenizer admission implemented below.
+Installer integration, redistribution approval, ONNX runtime/session work and
+their lifecycle gates remain pending; this stage is not complete or accepted.
 
 **Tasks.** Extend the current installer/manifest with a distinct alignment asset
 role, not an item in the translation-engine selector. Pin weights, tokenizer,
@@ -921,6 +929,113 @@ mandatory auxiliary-scope success, held-out acceptance, resource budgets and
 packaged-platform validation still block enabling the feature. Benchmarks,
 broader smoke and the app version bump remain deferred. No source code,
 dependency, asset, cache schema or application behavior changed in this review.
+
+## Stage 3 asset and raw-tokenizer admission — 2026-10-20
+
+**Internal, default-off implementation; candidate still unavailable.** Review
+notes were committed first as `94ae85c`. This slice implements verified local
+files and actual tokenizer evidence only. It does not download/install assets,
+load weights, infer links, alter provider selection, expose a Tauri command or
+change the existing document/cache pipeline. Benchmarks, broader smoke and the
+app version bump remain deferred.
+
+### Ownership, pins and admission
+
+- `alignment.rs` owns tokenizer execution and adapter admission, separate from
+  DOM/source ownership and the pure `inline_markup/provider/contract` validator.
+  Its private tokenizer is constructed from a hash-verified snapshot; callers
+  cannot mutate it or pass arbitrary tokenizer JSON through an application API.
+- `alignment/assets.rs` retains a distinct alignment-role inventory, reusing
+  `TranslationModelFile`. It is absent from the translation catalog and installer
+  resolver, has no download URLs, and grants no release/install approval.
+- `model_store/verified.rs` shares bounded regular-file/path/size/SHA-256 checks
+  with the existing Bergamot asset reader. Small files return the exact snapshot
+  whose hash passed; weights are streamed through a 64-KiB buffer and discarded.
+  Symlinked roots/leaves, path escapes, missing files, wrong sizes and modified
+  bytes reject. Typed internal failures contain no source text or private paths.
+
+The pinned repository/revision is the previously evaluated
+[`cstr/awesome-align-onnx-int8@e803a2f501474044099b539160aaca461976ecd0`](https://huggingface.co/cstr/awesome-align-onnx-int8/tree/e803a2f501474044099b539160aaca461976ecd0).
+The [source inventory](../src-tauri/src/translation/alignment/assets.rs) records
+full SHA-256 and exact size for **seven required files**, totaling **153,638,839
+bytes**: graph, tokenizer JSON, model config, tokenizer config, special-token map,
+vocabulary and model card. Local admission rechecks all seven, retaining only the
+tokenizer JSON. The inventory is capped at 200 MiB, tokenizer JSON at 4 MiB.
+The model config's 12-layer field still does not describe the eight-layer graph;
+this code does not derive a runtime architecture from that field.
+
+**Provenance/notice gate remains open.** The retained pinned Hub inventory has
+no standalone `LICENSE` or `NOTICE`. The export and original mBERT cards label
+Apache-2.0; that is recorded evidence, not completed redistribution approval.
+No upstream extraction implementation is copied in this slice. Finish the full
+base/export attribution and applicable notice inventory before installer or
+release admission. No model weights, vocabulary, model card, private article or
+sample-derived fixture is committed.
+
+### Raw tokenizer evidence and bounds
+
+`native-translation-alignment` enables the internal module and makes the already
+resolved `tokenizers = 0.23.2` an optional direct dependency with default features
+off and `onig` only. Cargo.lock adds only the app's direct dependency edge; no
+package version or checksum changes. Normal desktop/mobile scripts and CI do
+not enable this feature. Its dependency closure adds no ORT, search, TTS,
+CTranslate2 or llama.cpp runtime; runtime work remains separate.
+
+The adapter encodes exact raw source/target strings, not pre-split words. It
+retains original UTF-8 offsets, word IDs, inserted-token masks and normalized
+views; checks sequence/type IDs, attention masks and framing; then reuses the
+pure contract's Unicode, unknown/reserved-token, normalization and coverage
+checks. Whole-context admission applies to both sides. `check_pair` binds actual
+pair strings to this evidence and the pinned tokenizer identity; a successful
+result remains structural evidence, never semantic approval or renderer HTML.
+
+Text is capped at 32 KiB and each side at **256 tokens including framing**.
+Padding/truncating profiles and overflow reject; there is no clipping or retry
+that silently loses text. The 512-token graph maximum does not override this
+provisional engineering cap. Resource/performance acceptance is still unmeasured.
+
+### Regression receipt and next gate
+
+Fresh Rust library validation passes **469 tests with the feature off** (four
+existing ignored) and **477 with it on** (four existing ignored plus the explicit
+external-pack test). The slice adds ten ordinary regression tests: seven
+alignment/pack tests and three shared-file tests. Existing Bergamot tests also
+exercise the shared reader. One existing localhost downloader fixture initially
+hit sandbox permissions; full suites passed with local test permissions.
+
+The external-pack test was then explicitly run against all seven previously
+downloaded pinned files and **passed**. The actual tokenizer gives the expected
+**five admissions and 18 rejections** for the 23 generic policy patterns, checked
+on both source and target. Known ordinary/accent/Arabic-mark token IDs match the
+earlier feasibility receipt; original-byte/combining-subword and 256/257-token
+boundaries pass. This is tokenization/integrity correctness, not graph inference,
+translation quality, latency/RAM measurement, packaged testing or app smoke.
+
+To repeat with an externally obtained exact pack (the test never downloads):
+
+```sh
+PAPERCUT_ALIGNMENT_ASSETS_DIR=/path/to/pinned-alignment-pack \
+  cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib \
+  --no-default-features --features native-translation-alignment \
+  pinned_external_pack_passes_real_tokenizer_admission_without_inference -- --ignored
+```
+
+Unit tests use small generated synthetic vocabularies and supplied mapping links,
+with the real tokenizer library and sanitized source-plan path. They separately
+cover malformed profiles, missing/corrupt/replaced files, symlinks/path escapes,
+unknown/reserved strings, hidden normalization loss, both-side rejection,
+graphemes and word IDs, exact pair binding and catalog/installer absence.
+Feature dependency checks, Rust formatting and diff checks pass.
+
+**Next:** review this admission slice before adding the bounded ONNX session.
+That later slice must reuse shared-runtime initialization, validate actual graph
+inputs/outputs and non-finite values, enforce tokens/tensors/threads/queue limits,
+and test real model load independently of mocks. It must verify the bytes actually
+loaded under a model-use lease: today's streamed file check is not a future
+path-based load guarantee. Installer promotion/removal races and cancellation
+also remain separate gates; do not add another model manager. Keep the candidate
+unavailable while notices, auxiliary-scope success, held-out acceptance,
+resource/device qualification and the remaining lifecycle work are unresolved.
 
 ## Product Goals
 

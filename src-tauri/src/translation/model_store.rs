@@ -11,6 +11,8 @@ use tauri::{Manager, Runtime};
 
 use super::models::TranslationModelDefinition;
 
+pub(super) mod verified;
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct TranslationModelManifest {
     pub(crate) model_id: &'static str,

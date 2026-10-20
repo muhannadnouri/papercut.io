@@ -160,6 +160,7 @@ dependencies = [
  "tauri-plugin-native-audio",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
+ "tokenizers",
  "unicode-normalization",
  "unicode-segmentation",
  "whatlang",

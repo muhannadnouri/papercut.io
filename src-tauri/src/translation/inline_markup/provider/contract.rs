@@ -12,6 +12,16 @@ use tokens::Word;
 mod tokens;
 pub(crate) use tokens::{Token, TokenRules, TokenizedText};
 
+/// Admit real tokenizer output before inference; pair checking repeats this at the mapping boundary.
+pub(crate) fn validate_tokens(
+    text: &str,
+    rules: &TokenRules<'_>,
+    evidence: &TokenizedText<'_>,
+    side: Side,
+) -> Result<(), Rejection> {
+    tokens::check(text, rules, evidence, side).map(|_| ())
+}
+
 const CONTRACT_VERSION: u32 = 1;
 const MAX_TOKENS: usize = 512;
 const MAX_LINKS: usize = MAX_TOKENS * 8;
