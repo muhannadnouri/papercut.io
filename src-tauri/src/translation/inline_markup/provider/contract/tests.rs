@@ -12,7 +12,7 @@ fn versions() -> Versions {
     }
 }
 
-fn rules() -> TokenRules<'static> {
+pub(in crate::translation::inline_markup::provider) fn rules() -> TokenRules<'static> {
     TokenRules {
         identity: "tokens@one",
         unknown: 100,
@@ -23,7 +23,7 @@ fn rules() -> TokenRules<'static> {
 }
 
 /// Reuse the real sanitized reader/identity plan; tests never invent an independent DOM tree.
-fn plan(html: &str) -> ProtectedPlan {
+pub(in crate::translation::inline_markup::provider) fn plan(html: &str) -> ProtectedPlan {
     let safe = crate::document_uploads::sanitize_html(html);
     let dom = DomPlan::new(&safe);
     let block = &dom.blocks[0];
@@ -46,7 +46,7 @@ fn pair<'a>(plan: &'a ProtectedPlan, target: &'a str, versions: &'a Versions) ->
 }
 
 /// A deterministic word-token fixture, not an imitation of the candidate's neural tokenizer.
-fn tokens(text: &str) -> Vec<Token> {
+pub(in crate::translation::inline_markup::provider) fn tokens(text: &str) -> Vec<Token> {
     let mut result = vec![Token {
         id: 101,
         word: None,

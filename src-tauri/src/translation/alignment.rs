@@ -10,6 +10,8 @@ use super::model_store::verified::AssetError;
 
 pub(super) mod assets;
 #[cfg(feature = "native-translation-alignment-runtime")]
+mod extract;
+#[cfg(feature = "native-translation-alignment-runtime")]
 pub(crate) mod runtime;
 
 /// Engineering admission cap, including framing; not a measured low-power performance claim.
@@ -48,8 +50,8 @@ pub(crate) struct EncodedText<'a> {
     tokens: Vec<Token>,
 }
 
-impl EncodedText<'_> {
-    pub(crate) fn text(&self) -> &str {
+impl<'a> EncodedText<'a> {
+    pub(crate) fn text(&self) -> &'a str {
         self.text
     }
 

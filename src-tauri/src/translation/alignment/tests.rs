@@ -39,7 +39,7 @@ fn profile() -> Value {
         "model":{"type":"WordPiece","unk_token":"[UNK]","continuing_subword_prefix":"##","max_input_chars_per_word":100,"vocab":vocab}})
 }
 
-fn synthetic() -> CandidateTokenizer {
+pub(super) fn synthetic() -> CandidateTokenizer {
     CandidateTokenizer::from_snapshot(&serde_json::to_vec(&profile()).unwrap()).unwrap()
 }
 

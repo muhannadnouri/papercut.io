@@ -11,6 +11,9 @@ use crate::translation::{
 
 const MAX_UNITS: usize = 128;
 
+mod projection;
+pub(crate) use projection::Projection;
+
 /// Providers translate each admitted input exactly once; hidden subdivisions must not be joined away.
 pub(crate) trait ExactPieceTranslator {
     /// Include provider framing tokens in this check; errors must not contain document prose.

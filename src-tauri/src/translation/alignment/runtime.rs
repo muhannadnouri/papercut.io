@@ -1,4 +1,4 @@
-//! Bounded CPU embeddings; runner::lifecycle owns installed job sessions. No word-link projection.
+//! Bounded CPU embeddings and internal word projection; public jobs remain translator-only.
 use std::{
     path::Path,
     sync::{
@@ -14,12 +14,15 @@ use ort::{
 
 use super::{assets, AdmissionError, CandidateTokenizer, EncodedText, MAX_TOKENS};
 use crate::translation::{
-    inline_markup::provider::contract::Side,
+    inline_markup::provider::{
+        contract::{Rejection, ScopeIssue, Side},
+        pieces::{Projection, Translation},
+    },
     model_store::verified::AssetError,
     state::{TranslationModelOperation, TranslationState},
 };
 
-const WIDTH: usize = 768;
+pub(super) const WIDTH: usize = 768;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum SessionError {
@@ -31,6 +34,13 @@ pub(crate) enum SessionError {
     Inference,
     Output,
     Control,
+    Mapping(Rejection),
+}
+
+impl From<Rejection> for SessionError {
+    fn from(error: Rejection) -> Self {
+        Self::Mapping(error)
+    }
 }
 
 impl From<AdmissionError> for SessionError {
@@ -123,6 +133,26 @@ pub(crate) struct AlignmentSession {
 }
 
 impl AlignmentSession {
+    /// Reuse the job's session for exact pieces, dropping each pair's tensors before the next pair.
+    pub(crate) fn project_translation<'a, 'p>(
+        &mut self,
+        translation: &'a Translation<'p>,
+        cancellation: &Cancellation,
+        unresolved: Option<ScopeIssue>,
+    ) -> Result<Projection<'a, 'p>, SessionError> {
+        cancellation.check()?;
+        let result = translation.project(
+            |source, target| {
+                let embeddings = self.infer_pair(source, target, cancellation)?;
+                super::extract::word_links(&embeddings, &self.tokenizer.rules(), || {
+                    cancellation.is_cancelled()
+                })
+            },
+            unresolved,
+        )?;
+        cancellation.check()?;
+        Ok(result)
+    }
     /// Reuse the session's verified tokenizer for Stage 4 admission without running or duplicating the graph.
     pub(crate) fn text_fits(&self, text: &str, side: Side) -> Result<bool, SessionError> {
         self.tokenizer

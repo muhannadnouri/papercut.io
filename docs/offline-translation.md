@@ -29,7 +29,7 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   no downloads, model selector entry, inference or saved-document migration.
 - A separate default-off [bounded ONNX session](#stage-3-bounded-onnx-session--2026-10-20)
   now loads verified graph bytes and returns checked CPU embeddings. Public
-  translation starts do not call it; word-link extraction and formatting projection remain pending;
+  translation starts do not call it; internal extraction/projection is recorded in Stage 5 below;
   its [session review](#stage-3-bounded-session-review--2026-10-20) found
   no must-fix issue within that internal scope. The candidate remains unavailable.
 - The [redistribution/installer evaluation](#stage-3-redistribution-and-installer-admission-evaluation--2026-10-20)
@@ -43,13 +43,20 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   now holds translator/aligner ownership through the shared runner, bridges job
   cancellation to native alignment and retains the existing atomic save cutoff.
   Its alignment load hook remains internal and unused by public starts; exact
-  piece integration, word links and strict formatting projection are still pending.
+  piece integration with the public runner/cache/writer is still pending.
 - [Stage 4 exact-piece/literal-island planning](#stage-4-exact-pieces-and-literal-islands--2026-10-20)
   now retains DOM-owned identities, exact source/target ranges, whitespace joins
   and attachment ownership. Its internal CTranslate2 path admits both source
   tokenizers before inference and rejects target overflow/decoder cutoffs.
   Public jobs, caches and rendering do not consume this strict path yet;
-  word-link extraction and formatting acceptance remain open.
+  public formatting acceptance remains open.
+- [Stage 5 word links and conservative projection](#stage-5-word-links-and-conservative-projection--2026-10-20)
+  now runs the fixed extraction rule over checked raw-tokenizer evidence and
+  projects exact pieces against the retained source hierarchy. Missing links,
+  conflicting ownership and declared scope blockers remain explicit rejections.
+  Attachments, DOM reconstruction and mapped cache/save integration remain later
+  work. The mandatory positive scope and runtime/quality/resource gates are unmet;
+  the candidate remains disabled.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -288,6 +295,10 @@ per attachment. No lost/duplicated characters or changed sentence context merely
 because a word is bold. Include over-limit rejection, not just successful splits.
 
 #### 5. Implement alignment and conservative projection
+
+**Status:** internal implementation and synthetic/native regressions are recorded
+in the [Stage 5 receipt](#stage-5-word-links-and-conservative-projection--2026-10-20).
+This does not pass the mandatory semantic-scope or release acceptance gates.
 
 **Tasks.** Run the selected aligner on each actual source/target piece after
 translation. Convert model tokens to checked word ranges without losing the
@@ -1820,6 +1831,137 @@ reconstruction and Stage 7 mapped-cache/save integration remain separate work.
 Mandatory auxiliary-scope semantics, numeric/held-out acceptance and packaged
 runtime/resource/platform qualification still block public alignment enablement.
 Benchmarks, broader smoke and the app version bump remain deferred.
+
+## Stage 5 word links and conservative projection — 2026-10-20
+
+**Internal implementation; public formatting remains disabled.** This extends
+Stage 4's exact pairs, without changing engines, model pins, dependencies,
+shipping flags, commands, cache schemas or saved documents. It does not complete
+the Stage 5 mandatory positive scope gate, reconstruct HTML or enable the
+candidate. Benchmarks, broader smoke and the version bump remain deferred.
+
+### Extraction and scope ownership
+
+- `alignment/extract.rs` independently implements the pinned
+  [Awesome-align guide-head rule](https://github.com/neulab/awesome-align/blob/5f150d45bbe51e167daf0a84abebaeb07c3323d1/awesome_align/modeling.py):
+  unscaled embedding dot products, stable row/column softmax, strict `> 0.001`
+  intersection, then sorted/deduplicated tokenizer word IDs. No cosine scaling,
+  argmax replacement, threshold tuning, adjacency repair, retries or fallback
+  engine is added. The reference BSD-3-Clause notice is retained beside the
+  Rust module; no Python implementation/package is shipped or added as a
+  dependency. The model pack's existing nine-file notice inventory is unchanged.
+- Graph inputs still include framing. Extraction excludes framing from both
+  softmax denominators and returned word indices. Actual raw-tokenizer evidence
+  is checked before arithmetic and before constructing `WordLinks`; source and
+  target borrows retain the exact strings. Shapes, finite values, token counts,
+  word IDs, link indices/duplicates and the existing 4,096-link ceiling are
+  checked. Overflowing dot products reject. Cancellation is checked during
+  extraction as well as before/after the existing native calls.
+- `contract/projection.rs` derives minimal target word runs and reuses the
+  existing source coverage, mixed-ownership, whole-word, hierarchy and identity
+  checks. Only whitespace between adjacent owned words joins a run. Unlinked
+  punctuation receives no guessed style; disjoint runs never become a broad
+  hull. Whole-unit uniform ownership can include generated auxiliaries without
+  guessing individual grammatical scope. Partial ownership still requires
+  complete evidence. Extraction and projection have separate policy identifiers
+  for later compatibility admission; no mapping is persisted in this stage.
+- `pieces/projection.rs` aligns each actual prose pair sequentially, then checks
+  the combined ranges against the single retained source tree. Piece-local
+  coordinate views do not clone DOM attributes or authored identities. Copied
+  literal/whitespace units use their exact source-owned offsets and never enter
+  either model. The combined result is capped at 512 ranges before the final
+  pairwise hierarchy check. Authored identities must remain representable once;
+  a disjoint style can repeat only when the source permits it.
+- `AlignmentSession::project_translation` reuses one job session and drops each
+  pair's embeddings before the next. The final projection borrows the exact
+  translation/source plan; no completed projection escapes on partial failure
+  or cancellation. Public starts still do not invoke this path. Stage 6 must
+  supply attachment/quote evidence and source-owned DOM reconstruction; any
+  zero-width attachment currently returns `AttachmentRequiresEvidence` before
+  alignment. Stage 7 still owns mapping-aware cache, resume and save admission.
+
+Unknown/provenance failures, missing styled-source links, unaligned lexical
+targets, mixed/fused ownership, unsupported identity splitting and hierarchy
+conflicts remain typed rejections. A declared `Auxiliary`, `FusedMeaning` or
+`Attachment` blocker rejects before inference. Absence of a declared blocker,
+complete word coverage and a structurally valid projection are **not semantic
+certification**; the deliberately wrong complete-graph counterexample remains
+a regression. No grammatical detector, confidence calibration or semantic
+completeness claim has been introduced.
+
+### Regression and native-reference receipt
+
+Ordinary synthetic tests cover two test translation providers yielding the same
+shared mapping, nested/reversed/repeated words, many-to-many and disjoint scopes,
+explicit versus generated auxiliaries, mixed ownership, partial words, composed
+and combining Unicode, punctuation, copied literals, exact subdivisions, one
+authored identity, stale/wrong pair binding, invalid graphs, range/link bounds,
+non-finite arithmetic and cancellation. Small raw-tokenizer/embedding tests prove
+framing exclusion and subword-to-word merging without loading a graph.
+
+An explicit eight-pair French/Spanish test compares actual extracted links with
+the unmodified pinned Python guide head on the **same native tensors**, then
+checks separately annotated target scopes. Inputs are minimal synthetic prose,
+not private documents. The cached INT8 pack is hash-admitted. This run used the
+existing bundled Sherpa library reporting **ORT 1.27.0**, SHA-256
+`026c7d5c609323fb16506dbc3cce801bcdffdd7566fdba49a50727e2e1e881ca`.
+All eight reference link sets match. **Five intended scopes map; three remain
+unsupported and reject safely:** the two generated-subject/auxiliary examples,
+and `El libro rojo` → `The red book`, where this runtime omits the adjective
+link. Intended target scopes remain in the test even for rejected cases;
+safe rejection is not counted as positive semantic acceptance.
+
+The isolated Python ORT **1.23.2** comparison retained that Spanish adjective link
+on this short input. That version exists only in a disposable research environment,
+not as a second application runtime. The current Linux app uses its one shared
+bundled ORT **1.27.0**; Stage 5 adds no runtime dependency or upgrade. Future
+runtime upgrades must coordinate the shared bundle and validate TTS, Arabic
+preprocessing, conceptual search and alignment together rather than giving the
+aligner its own runtime. Applying the pinned guide head to the application's tensors
+confirmed inference/runtime variation rather than a Rust extraction-rule
+mismatch. This adds a concrete runtime-qualification gap; do not tune thresholds
+or claim cross-runtime INT8 equivalence to hide it. Existing wider auxiliary,
+numeric and held-out semantic gates remain unmet.
+
+A second explicit regression uses both pinned CTranslate2 packs, their actual
+strict generated targets (`A Book`/`A book` on these minimal French/Spanish
+inputs), the real alignment tokenizer/graph and the shared projection path.
+Both map the book word to scalars `2..6`; cancellation rejects a late projection.
+These are correctness checks, not quality/performance benchmarks or app smoke.
+Ordinary tests download no weights. External probes/tensor dumps remain in
+`/tmp`, with no private article, sample-derived fixture or custom build script
+added to the repository.
+
+Reproduce both explicit tests using the existing bundled shared runtime and
+externally cached, verified packs:
+
+```sh
+PAPERCUT_CT2_MODELS_DIR=/path/to/ct2-models \
+PAPERCUT_ALIGNMENT_ASSETS_DIR=/path/to/pinned-alignment-pack \
+  cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib \
+  --no-default-features \
+  --features native-translation-ctranslate2,native-translation-alignment-runtime \
+  translation::alignment::extract::tests:: -- --ignored
+```
+
+The frozen native link receipt is specific to the runtime above; a different
+runtime must be evaluated rather than silently changing its expected links.
+The application uses its shared initializer's `libonnxruntime` lookup; setting
+`ORT_DYLIB_PATH` alone does not override that explicit initializer.
+
+Final full Rust suites passed **503 tests with features off** (four ignored),
+**528 with the alignment runtime** (ten ignored), and **527 with CTranslate2
+plus alignment runtime** (twelve ignored). The two explicit native tests above
+passed separately using cached assets and unavailable network proxies. Formatting,
+diff, new documentation anchors and removal of temporary probe hooks were checked.
+No fresh CI, packaged/device build, quality/resource benchmark or smoke is claimed.
+
+**Next:** review this internal slice. Then Stage 6 can consume structurally
+checked scopes for source-owned hierarchy/literal/attachment reconstruction,
+while keeping the unresolved cases explicit. Do not enable public strict
+formatting or build release integration around an assumed semantic pass.
+Mandatory positive scope, held-out/numeric acceptance, runtime notices and
+packaged resource/platform qualification still block enablement.
 
 ## Product Goals
 

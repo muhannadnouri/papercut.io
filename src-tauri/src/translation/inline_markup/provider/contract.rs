@@ -11,6 +11,9 @@ use tokens::Word;
 
 mod tokens;
 pub(crate) use tokens::{Token, TokenRules, TokenizedText};
+mod projection;
+pub(crate) use projection::WordLinks;
+pub(crate) use projection::POLICY as PROJECTION_POLICY;
 
 /// Admit real tokenizer output before inference; pair checking repeats this at the mapping boundary.
 pub(crate) fn validate_tokens(
@@ -24,7 +27,8 @@ pub(crate) fn validate_tokens(
 
 const CONTRACT_VERSION: u32 = 1;
 const MAX_TOKENS: usize = 512;
-const MAX_LINKS: usize = MAX_TOKENS * 8;
+pub(crate) const MAX_LINKS: usize = MAX_TOKENS * 8;
+pub(super) const MAX_MAPPED_RANGES: usize = MAX_TOKENS;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Versions {
@@ -274,6 +278,14 @@ fn check_nodes(
     target: &str,
     nodes: &[NodeMapping],
 ) -> Result<(), Rejection> {
+    if nodes.len() > MAX_CODES
+        || nodes
+            .iter()
+            .try_fold(0usize, |n, node| n.checked_add(node.targets.len()))
+            .is_none_or(|n| n > MAX_TOKENS)
+    {
+        return Err(Rejection::Limit);
+    }
     // Precompute ancestry once; disjoint target ranges must not repeatedly walk the source tree.
     let mut ancestors = BTreeSet::new();
     for code in codes {
@@ -335,6 +347,20 @@ fn check_nodes(
     Ok(())
 }
 
+/// Recheck the combined tree after piece-local projection; no clipped tree grants final identity approval.
+pub(super) fn check_projected_nodes(
+    plan: &ProtectedPlan,
+    target: &str,
+    nodes: &[NodeMapping],
+) -> Result<(), Rejection> {
+    check_nodes(
+        &plan.source_codes().collect::<Vec<_>>(),
+        plan.source_text(),
+        target,
+        nodes,
+    )
+}
+
 /// Coverage rejects known gaps, not semantic mistakes: complete incorrect graphs can still pass.
 fn check_scope(
     codes: &[SourceCode],
@@ -350,17 +376,7 @@ fn check_scope(
             .map(|c| c.id)
             .collect()
     };
-    for (s, word) in source.iter().enumerate() {
-        let word = &word.range;
-        if codes.iter().any(|c| {
-            c.range.start < word.end && word.start < c.range.end && !contains(&c.range, word)
-        }) {
-            return Err(Rejection::PartialWord);
-        }
-        if !owners(word).is_empty() && !links.iter().any(|(i, _)| *i == s) {
-            return Err(Rejection::UnresolvedSource);
-        }
-    }
+    check_source_scope(codes, source, links)?;
     for (t, word) in target.iter().enumerate() {
         let from: Vec<_> = links
             .iter()
@@ -397,5 +413,25 @@ fn check_scope(
     Ok(())
 }
 
+/// Reject partial words and absent required source links before trying to construct target scopes.
+fn check_source_scope(
+    codes: &[SourceCode],
+    source: &[Word],
+    links: &[(usize, usize)],
+) -> Result<(), Rejection> {
+    for (s, word) in source.iter().enumerate() {
+        let word = &word.range;
+        if codes.iter().any(|c| {
+            c.range.start < word.end && word.start < c.range.end && !contains(&c.range, word)
+        }) {
+            return Err(Rejection::PartialWord);
+        }
+        if codes.iter().any(|c| contains(&c.range, word)) && !links.iter().any(|(i, _)| *i == s) {
+            return Err(Rejection::UnresolvedSource);
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
