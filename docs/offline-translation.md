@@ -129,6 +129,9 @@ All implementation stages below are **pending**. A stage with a deferred gate
 must stay pending rather than being described as accepted.
 Stage 1 now has a [feasibility receipt](#offline-aligner-stage-1-findings--2026-10-19):
 runtime compatibility passed locally, but model/formatting acceptance has not.
+The subsequent [scope/token policy evaluation](#auxiliary-scope-and-token-provenance-evaluation--2026-10-19)
+defines conservative rejection rules; it does not fix the mandatory auxiliary
+case or authorize enabling the candidate as formatting-preserving.
 
 #### 1. Prove a viable model/runtime path before building around it
 
@@ -350,8 +353,9 @@ they cannot be counted as passed or omitted from eventual release acceptance.
 ### Delivery order and stop conditions
 
 The [Stage 1 findings](#offline-aligner-stage-1-findings--2026-10-19) give a
-conditional technical go and no production go yet. Resolve the remaining
-alignment-policy gate before implementing contracts → assets/runtime → exact planning →
+conditional technical go and no production go yet. The [policy evaluation](#auxiliary-scope-and-token-provenance-evaluation--2026-10-19)
+sets the safe-rejection contract but leaves semantic-scope acceptance open.
+Do not call that gate passed when implementing contracts → assets/runtime → exact planning →
 alignment → reconstruction → lifecycle → UI, each with its own focused review
 and evidence. Do not build the full integration around an unproven aligner.
 Stop and revisit the design if it needs a maintained fork, training pipeline,
@@ -546,6 +550,11 @@ now; no held-out evaluation or benchmark was run.
   output, nested DOM/notes and lifecycle tests are still later stages, not passes
   inferred from these hand-authored pairs.
 
+The next evaluation is now recorded in the [auxiliary scope/token policy
+receipt](#auxiliary-scope-and-token-provenance-evaluation--2026-10-19). It resolves
+how to reject unsafe tokenization and incomplete scope, not how to make every
+partial inline mapping succeed. The mandatory positive case remains open.
+
 Reproduction receipt outside Git: `/tmp/papercut-aligner-feasibility/` contains
 immutable asset/source metadata and hashes, dependency versions, `probe.py`,
 the isolated Cargo harness, per-case links/offsets, `results.json`,
@@ -553,6 +562,183 @@ the isolated Cargo harness, per-case links/offsets, `results.json`,
 The files are disposable research evidence, not maintained application tooling;
 the directory is not guaranteed to survive a reboot. Keep benchmarks, broader
 smoke and the app version bump deferred. No production behavior changed.
+
+## Auxiliary scope and token provenance evaluation — 2026-10-19
+
+**Stage 1 findings committed as `7443bcc`; this follow-up is evaluation only.**
+Use the same pinned FP32/INT8 artifacts and upstream softmax rule, without new
+downloads, thresholds, dependencies or engine changes. Stage 2 implementation,
+benchmarks, smoke and the app version bump remain deferred. All diagnostic
+fixtures/scripts/results remain outside Git; only this documentation changes.
+
+### Auxiliary-word scope: reject incomplete evidence, do not expand by adjacency
+
+A word's grammatical role depends on context. [Universal Dependencies' auxiliary
+definition](https://universaldependencies.org/u/pos/AUX_.html) distinguishes
+grammatical contributions from the lexical verb and notes that auxiliary use
+varies by language. An English stop-word list is not a source-scope mapper.
+For example, bolding French `terminé` should not automatically bold English
+`has` when the separate, unstyled source word `a` supplied that auxiliary.
+
+The frozen follow-up set has **24 formatting-scope cases over 20 distinct
+French/Spanish → English pairs**, plus two contraction/fusion diagnostics.
+Contrasts cover future/progressive/perfect forms, explicit versus generated
+auxiliaries, negation-only formatting, disjoint scope, a lexical use of `has`,
+and the name `Will`. These are correlated synthetic correctness checks, not
+held-out quality measurements. Both real ONNX variants ran locally. The 26
+positive/fusion cases per encoder were also replayed through the same pinned
+Rust binding and actual bundled Linux runtime as Stage 1: **104 tensor runs**,
+with all **52 pair/model link sets and tested policy outcomes matching Python**.
+Raw and pre-split token IDs were equal for these ordinary-prose inputs; that
+does not establish equivalence on the control/special-token diagnostics below.
+
+| Policy diagnostic | INT8 | FP32 |
+| --- | ---: | ---: |
+| Direct softmax links: exact specified scope | 18 / 24 | 18 / 24 |
+| Add adjacent unlinked auxiliary/function words: exact scope | 17 / 24 | 17 / 24 |
+| Conservative coverage/conflict guard: accepted cases | 15 / 24 | 15 / 24 |
+| Exact scopes among those accepted, on this set only | 15 / 15 | 15 / 15 |
+
+The expansion ablation fixes `reviendra` → `will return`, but changes correctly
+mapped negation-only `not` into `is not` in both languages. It still cannot fix
+disjoint `is … working` across `still`, or missing lexical material in `is
+coming back`. Do not adopt it, switch to IterMax, widen a target-range hull or
+translate a bold word separately to make these cases pass.
+
+The conservative guard rejects a pair if a required styled source word has no
+link, any target lexical word has no source link, or a styled target word also
+links to source text with a different formatting ownership. It catches all six
+wrong direct scopes here, but also rejects three cases whose selected scope was
+already correct. Thus **15/24 is an observed acceptance count, not an acceptable
+product coverage result**. Do not weaken the held-out 95% ordinary-input coverage
+goal or reclassify the original failing positive fixture as a passing rejection.
+
+Coverage is still not semantic proof. Four further deliberately wrong sentence
+pairs per encoder, including unrelated noun/adjective substitutions, pass this
+coverage guard with complete links. The aligner can pair `maison` with `cat` or
+`rouge` with `blue`; a complete graph does not establish that the translation or
+its correspondence is correct. These are counterexamples to a validation claim,
+not measurements of Papercut's translation engines. Scores are not calibrated
+confidence, and increasing a score threshold has not been evaluated as a fix.
+
+Contractions add a representability issue: source future tense and separately
+unstyled negation can merge into `won't`. Formatting the whole contraction adds
+negation to the formatted meaning; formatting token fragments is not evidence
+that the original scope survived. The two probes remain unresolved. Do not
+rewrite target prose or split target word pieces into styled fragments to hide
+this conflict in the mapping layer.
+
+Recommended scope policy for the future shared contract:
+
+1. **Whole-unit ownership:** if the source plan proves the same style stack owns
+   the entire translation unit, inherit it over that unit's complete target.
+   This includes generated auxiliaries without lexical guessing. Reuse the
+   existing narrow whole-block renderer concept. It is not permission to expand
+   a partly styled verb to the whole sentence, move notes/links or skip content
+   checks; inner structures needing their own positions still require mapping.
+2. **Partial inline ownership:** retain the full correspondence graph, required
+   source identities, target range lists and unaligned/conflicting words.
+   Missing or mixed-ownership evidence yields an explicit unresolved result.
+   Never infer grammatical ownership from a word's spelling or its proximity.
+3. **Separate assurances:** tokenizer admission, lexical coverage, DOM structural
+   validity and semantic acceptance are different checks. No contract field
+   should turn successful tokenization or a nonempty graph into a claim of
+   semantic formatting completeness.
+
+This determines safe failure behavior, **not a successful general solution for
+generated auxiliaries**. The original `will return` expectation stays unchanged.
+Any future contract-only work must represent unresolved outcomes and keep the
+candidate disabled; Stage 5's mandatory positive mapping gate remains unmet.
+
+### Unknown tokens and normalization: admission before alignment
+
+The added diagnostic set has **23 tokenizer cases**. Python's pinned tokenizer
+and the application's Rust `tokenizers 0.23.2` agree on all token IDs, admission
+decisions and issue categories: **five admitted, 18 rejected**. Admitted cases
+include composed/decomposed accents, known Arabic combining marks and permitted
+whitespace normalization. This proves tokenizer behavior, not Arabic translation
+or morphological alignment quality. The cases were defined outside Git and are
+not a representative rejection-rate estimate.
+
+Use raw exact pair text and the tokenizer's returned word IDs/offsets as the
+authority. Manual regex pre-splitting changed token IDs in **13/23** diagnostics,
+including source-authored special-token strings and text containing controls.
+Therefore the previous research probe's external word splitting must not become
+the production normalization contract. Its ordinary-prose inference results
+remain evidence for those inputs, not proof of safe arbitrary input handling.
+
+The [pinned BERT normalizer](https://github.com/huggingface/tokenizers/blob/v0.23.2/tokenizers/src/normalizers/bert.rs)
+can remove controls, private-use characters, NUL and replacement characters.
+Offsets are necessary but insufficient: `a` + NUL + `b` becomes the same tokens
+as `ab`, while a token's offset envelope can still cover the deleted position.
+Both the original and normalized views must be retained and checked. The
+prototype also uses Unicode White_Space matching consistent with Rust's source
+normalization, rather than Python `isspace()`; an explicit U+001C test covers
+that distinction.
+
+| Input condition | Required strict alignment admission |
+| --- | --- |
+| `[UNK]` for any source or target prose content | Reject the pair; equal token IDs are not equal source characters |
+| Authored `[CLS]`, `[SEP]`, `[MASK]`, `[PAD]` or `[UNK]` recognized as reserved IDs | Reject; do not mistake content for inserted model framing |
+| Source/target non-whitespace removed or changed without a checked reversible map | Reject; includes bidi controls, joiners, soft hyphen and internal NUL/replacement characters in these probes |
+| Source/target non-whitespace has no corresponding token range | Reject even if no `[UNK]` was emitted |
+| Invalid/ambiguous byte-to-scalar conversion, partial grapheme or overflow | Reject; no rounding, clipping, truncation or replacement decoding |
+| Known text and normalization that obey the retained DOM/coordinate contract | Admit to alignment; this alone grants no semantic approval |
+| A genuine source-owned code/literal subtree already excluded from inference | Preserve through its existing identity/island; no lexical alignment of its content |
+
+Apply the checks to **both sides and the entire pair used as alignment context**,
+not only the bold word. Unknown words elsewhere can affect contextual embeddings.
+Reject rather than silently re-tokenizing, stripping marks, lowercasing names,
+turning unknown prose into a literal, or replacing characters with placeholders.
+An emoji may be copied only when its source-owned literal attachment is already
+unambiguous; there is no new automatic emoji/unknown-name placement exception.
+
+Only tokens proven to be postprocessor/padding framing may be excluded from
+lexical coverage, using their insertion provenance, word/sequence identity,
+offsets and masks. A mask alone is insufficient. All five authored reserved
+strings in the probe were recognized as reserved IDs but had content offsets;
+they are distinct from the automatically inserted zero-width framing tokens.
+The [encoding API](https://github.com/huggingface/tokenizers/blob/v0.23.2/tokenizers/src/tokenizer/encoding.rs)
+provides the relevant IDs, word IDs, masks, sequence information and offsets;
+never rebuild that association by counting separately tokenized pieces.
+
+Rejection stops the affected job before saving a variant; it does not modify
+the original or discard earlier validated batches. Keep typed reasons and local
+block/segment coordinates so the UI can explain the failure without including
+private source text in diagnostic exports. This policy targets the future rich
+alignment path, not a new restriction on today's plain translation or saved
+documents. A whole-unit style shortcut is not an exemption for losing content.
+
+### Stage 2 implications and next gate
+
+**Ready as a design:** explicit token provenance/admission and unresolved
+coverage/ownership outcomes. The shared contract should carry exact source and
+target identities, source-owned style/attachment identities, many-to-many links,
+disjoint target ranges, model/tokenizer/projection versions and typed rejection
+reasons. Keep inference/model code out of this pure validation layer.
+
+Mandatory contract tests should cover the 23 token-admission patterns, raw versus
+pre-split differences, byte/scalar/grapheme boundaries, mixed-style links,
+unaligned target auxiliaries, explicit-source auxiliaries outside emphasis,
+negation-only scope, contractions, disjoint emphasis, literal exclusion and
+source-owned whole-unit styling. Existing hierarchy, note, cache and pre-save
+cancellation gates remain required. Tests using supplied gold links establish
+contract behavior, not the candidate's ability to discover those links.
+
+**Still not ready for production:** partial-inline auxiliary scope, a reliable
+semantic admission criterion and acceptable ordinary-input coverage. Do not
+enable a model/UI capability, add a parser/fine-tuning pipeline or lower the
+earlier positive tests to advance the checklist. Stage 2 implementation was not
+started here. A bounded contract-only slice can be considered next, with the
+candidate still disabled and these unresolved model gates explicit; that does
+not mean Stage 1 or full formatting parity passed.
+
+Evidence remains under `/tmp/papercut-aligner-feasibility/`: frozen
+`policy-cases.json`, `policy_probe.py`, `policy-results.json`, contraction and
+negative-guard results; `token-policy-cases.json`, Python/native admission probes
+and matching result receipts. Both encoders were evaluated on 24 positive, two
+fusion and four deliberately wrong pairs each. No new corpus/benchmark,
+physical-device smoke, application build, dependency change or version bump ran.
 
 ## Product Goals
 
