@@ -5,6 +5,9 @@ use std::ops::Range;
 
 use super::{InlineSourceModel, ProjectedInlineSpan};
 
+// Contract-only: no engine, catalog entry or renderer consumes this evidence yet.
+pub(crate) mod contract;
+
 #[derive(Debug, Clone)]
 pub(crate) struct InlineSpanMapping {
     pub(crate) source_span: usize,

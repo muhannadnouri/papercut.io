@@ -18,6 +18,9 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - Installed models can be removed independently to reclaim storage. Removal is serialized against model installs and active translation jobs, while translated documents and reusable segment caches remain available.
 - The workbench selects only pinned models whose engine and WebView gates pass. Unavailable pinned models remain visible with an explanation; future model candidates remain informational. Existing native catalog ordering/defaults are unchanged.
 - Translation jobs run through the shared Rust engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
+- The [Stage 2 alignment contract](#stage-2-pure-alignment-contract--2026-10-20)
+  now has pure validation/rejection tests. It has no engine/installer/UI caller;
+  the offline aligner candidate remains disabled and formatting acceptance open.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -125,8 +128,9 @@ ownership and failure behavior in comments.
 Run these stages in order, reviewing each bounded change before proceeding.
 Every implementation stage needs focused regression tests, relevant existing
 suites and a documentation receipt distinguishing mocks from real inference.
-All implementation stages below are **pending**. A stage with a deferred gate
-must stay pending rather than being described as accepted.
+The [Stage 2 pure contract slice](#stage-2-pure-alignment-contract--2026-10-20)
+is implemented; model/runtime integration and semantic acceptance remain
+**pending**. A stage with a deferred gate must not be described as accepted.
 Stage 1 now has a [feasibility receipt](#offline-aligner-stage-1-findings--2026-10-19):
 runtime compatibility passed locally, but model/formatting acceptance has not.
 The subsequent [scope/token policy evaluation](#auxiliary-scope-and-token-provenance-evaluation--2026-10-19)
@@ -166,6 +170,10 @@ reference-compatible adapter or plausible resource envelope is unavailable.
 No production dependency or catalog entry is added merely to complete this probe.
 
 #### 2. Define the source, pair and mapping contracts
+
+**Status 2026-10-20:** pure contract/rejection slice implemented and tested below.
+No adapter consumes it. Actual literal isolation, attachment placement, discovery
+of correct word links and renderer/cache integration remain later-stage work.
 
 **Tasks.** Extend the existing provider mapping seam to retain source tree
 identities, parent relationships, style ranges and note/literal attachments.
@@ -729,7 +737,7 @@ contract behavior, not the candidate's ability to discover those links.
 semantic admission criterion and acceptable ordinary-input coverage. Do not
 enable a model/UI capability, add a parser/fine-tuning pipeline or lower the
 earlier positive tests to advance the checklist. Stage 2 implementation was not
-started here. A bounded contract-only slice can be considered next, with the
+started in this evaluation. A bounded contract-only slice can follow, with the
 candidate still disabled and these unresolved model gates explicit; that does
 not mean Stage 1 or full formatting parity passed.
 
@@ -739,6 +747,119 @@ negative-guard results; `token-policy-cases.json`, Python/native admission probe
 and matching result receipts. Both encoders were evaluated on 24 positive, two
 fusion and four deliberately wrong pairs each. No new corpus/benchmark,
 physical-device smoke, application build, dependency change or version bump ran.
+
+## Stage 2 pure alignment contract — 2026-10-20
+
+**Implemented as an unused, model-free validation boundary. Candidate disabled.**
+The preceding policy evaluation was committed as `0361484`. This slice adds no
+alignment model, download, engine option, feature flag, runtime dependency or
+production call path. Existing CTranslate2, HY-MT2 and Bergamot behavior stays
+unchanged; native cache epoch and protected-code identity version are unchanged.
+
+### Code ownership and data flow
+
+- `inline_markup/provider/contract.rs` binds and checks evidence at the existing
+  provider-mapping seam. It does not infer links, emit HTML or write files.
+- `provider/contract/tokens.rs` checks token provenance, raw UTF-8 coordinates,
+  normalization/coverage and merged word boundaries without loading a tokenizer.
+- `provider/contract/tests.rs` uses generic synthetic text, supplied token
+  evidence/gold links and the real sanitized DOM/`ProtectedSource` path. No
+  private file, sample-specific fixture or source-article reference is included.
+- `ProtectedPlan` exposes only a read-only derived view of source code IDs,
+  parent IDs, scalar ranges, repeatability and literal status. Its existing tree
+  and identity retain attributes/literals; there is no competing identity parser.
+  A size check bounds identity serialization before hashing large source payloads.
+
+The trusted future planner supplies the retained source fragment, block/segment
+identity, parent offsets, actual translated target and pinned version metadata.
+The binding captures exact untrimmed source/target strings, source-plan identity,
+source/target parent scalar ranges, translator/aligner/tokenizer identities and
+normalization/extraction/projection policy versions. Offset addition is checked
+for overflow; proving the real engine's subdivisions match parent text remains
+Stage 4 work, not a claim made by this standalone boundary.
+
+A future **verified raw tokenizer adapter**, separate from the aligner reply,
+must supply token IDs, word IDs, byte ranges, inserted-token masks and normalized
+text under the bound tokenizer profile. This pure layer checks consistency; it
+cannot prove that fabricated token IDs came from model files. Profile verification
+and actual tokenizer execution belong to Stage 3. No token evidence or tensors
+are exposed over Tauri in this slice.
+
+Replies contain binding echoes, many-to-many word links, source-ID → disjoint
+target scalar range lists, and an optional known unresolved-scope reason.
+Validation returns either a typed rejection or a privately constructed
+`CheckedMapping` view of ranges. It returns no reader markup or semantic approval.
+The earlier flattened-span helper remains for its existing renderer-boundary
+tests; the new tree contract does not replace a production renderer here.
+
+### Validation and explicit limits
+
+The contract rejects stale/mismatched text, coordinates, source identity or
+versions; unknown/duplicate IDs or links; invalid byte/scalar/grapheme boundaries;
+out-of-order word pieces; missing prose coverage; and unsafe hierarchy changes.
+Nested source ancestors must contain their mapped children. Unrelated source
+siblings cannot overlap. Repeatable style nodes may have multiple disjoint
+ranges; a single-use authored identity cannot be split or cloned.
+
+Token admission covers the 23 diagnostic patterns from the evaluation, including
+`[UNK]`, authored reserved IDs, false framing, normalization deletion hidden
+inside an offset envelope, Unicode whitespace distinctions, accents/Arabic marks
+and emoji. Subwords may split a combining sequence **within the same word**;
+merged word and formatting boundaries may not split a grapheme. Unknown content
+anywhere in either pair context rejects, not only unknown text inside emphasis.
+
+For partial inline mappings, required source words must have links, every target
+lexical word must be covered, mixed formatting ownership rejects, and declared
+range scopes must equal the supplied graph. There is no adjacency expansion or
+range-hull repair. A uniform whole-unit source wrapper may cover the entire
+target without lexical guessing, but still undergoes binding/token/identity
+checks. Known auxiliary, fused-meaning or attachment blockers always reject;
+they cannot disappear merely because the graph is complete.
+
+**Deliberate incompleteness:** a source literal still present in the prose pair
+returns `LiteralRequiresIsolation`; zero-width notes/images/anchors return
+`AttachmentRequiresEvidence`. This prevents treating attachment coordinates as
+proven placement or silently translating a literal. Their source identities
+remain retained. Correct isolation and quote/lexical attachment placement belong
+to Stages 4–6. A complete but semantically wrong graph can pass structural checks;
+a fused contraction without an explicit blocker may also look structurally
+complete. Tests preserve these limits rather than pretending to detect meanings
+the contract cannot infer. The model and its future UI capability remain off.
+
+V1 limits are 32 KiB per text/normalized view, 128 source IDs (the existing
+protected-plan cap), 512 tokens per side including exactly one leading/trailing
+framing token, 4,096 links and 512 total target ranges. Identity hashing is
+bounded to an eight-times-32-KiB source payload budget. This is an unpadded
+single-pair evidence format, not an accepted mobile batch/runtime budget;
+Stage 3 must apply the chosen model's lower limits where needed. Errors carry
+categories/side only, with no private text or paths. All evidence is checked
+before a `CheckedMapping` can be returned; there is no partial-success cache.
+
+### Regression evidence and next step
+
+**21 focused contract tests pass**, covering exact binding/version changes,
+reordered nested/disjoint mappings, many-to-many supplied links, whole-unit
+inheritance, missing auxiliaries, explicit auxiliaries outside emphasis, scope
+fusion/negation conflicts, literals/notes/images, malformed identities/ranges,
+both-side unknown context, 512/513-token limits and candidate catalog/installer
+absence. Invalid UTF-8 offsets and `usize::MAX` word indices reject without
+panics. A deliberately wrong complete correspondence remains only structural
+evidence, never a model-acceptance fixture. These tests perform **no inference**.
+
+Validation receipt: full base Rust library suite **466 passed, four existing
+ignored**; focused contract suite **21 passed**. The broad suite initially hit
+sandbox restrictions on existing loopback/D-Bus fixtures, then passed with local
+test permissions. The translation-enabled suite passed **190 tests**, and the
+frontend/CI-contract suite passed **93 tests**. The latter needed child-process
+permissions for existing shell stubs.
+Formatting and diff checks pass. No live models, packaged build, CI run,
+benchmark or smoke was used to validate this slice.
+
+Next review this pure boundary before considering Stage 3's verified asset and
+runtime work. Do not expose the candidate while semantic-scope, resource/device
+and model-provenance gates remain open. Saved originals, variants, assets,
+audiobooks and read-along data require no migration. Benchmarks, smoke and the
+app version bump remain deferred.
 
 ## Product Goals
 

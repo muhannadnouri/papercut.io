@@ -15,7 +15,7 @@ mod boundaries;
 
 /// Source normalization and hierarchy semantics participate in worker cache compatibility.
 pub(crate) const MAPPING_VERSION: &str = "protected-codes-v6";
-const MAX_CODES: usize = 128;
+pub(super) const MAX_CODES: usize = 128;
 pub(crate) const MAX_HTML_BYTES: usize = 32 * 1024;
 
 #[derive(Debug, Clone, Serialize)]
@@ -37,6 +37,15 @@ struct Code {
     indivisible: bool,
     repeatable: bool,
     note_marker: bool,
+}
+
+/// Read-only alignment view derived from the retained tree, never a second source of identities.
+pub(super) struct SourceCode {
+    pub(super) id: usize,
+    pub(super) parent: Option<usize>,
+    pub(super) range: Range<usize>,
+    pub(super) repeatable: bool,
+    pub(super) literal: bool,
 }
 
 impl Code {
@@ -298,6 +307,37 @@ fn encode_children(
 }
 
 impl ProtectedPlan {
+    /// Exact fragment text and identity metadata stay owned by the same DOM plan as reconstruction.
+    pub(super) fn source_text(&self) -> &str {
+        &self.source
+    }
+
+    /// Expose coordinates/ownership without exporting source HTML, attributes or literal payloads.
+    pub(super) fn source_codes(&self) -> impl Iterator<Item = SourceCode> + '_ {
+        self.codes.iter().map(|code| SourceCode {
+            id: code.id,
+            parent: code.parent,
+            range: code.start..code.end,
+            repeatable: code.repeatable,
+            literal: code.literal.is_some(),
+        })
+    }
+
+    /// Bound identity hashing before serialization; source-owned attributes/literals may dwarf model prose.
+    pub(super) fn alignment_payload_fits(&self, limit: usize) -> bool {
+        self.codes
+            .iter()
+            .try_fold(
+                self.source.len().saturating_add(self.html.len()),
+                |size, code| {
+                    size.checked_add(code.open.len())?
+                        .checked_add(code.close.len())?
+                        .checked_add(code.literal.as_ref().map_or(0, String::len))
+                },
+            )
+            .is_some_and(|size| size <= limit)
+    }
+
     /// Bind cached output to source structure/literals as well as prose, without leaking them to the provider.
     pub(crate) fn identity(&self) -> String {
         crate::translation::hash::stable_text_hash(
