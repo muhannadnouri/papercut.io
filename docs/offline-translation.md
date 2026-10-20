@@ -30,7 +30,8 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - A separate default-off [bounded ONNX session](#stage-3-bounded-onnx-session--2026-10-20)
   now loads verified graph bytes and returns checked CPU embeddings. It has no
   application caller, word-link extraction, formatting projection or installer
-  entry; the candidate remains unavailable.
+  entry; its [session review](#stage-3-bounded-session-review--2026-10-20) found
+  no must-fix issue within that internal scope. The candidate remains unavailable.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -1224,13 +1225,42 @@ All inputs are generic synthetic strings, with model files outside Git. No
 sample-specific material, app/package build, CI, physical-device test, benchmark,
 broader smoke or version bump is included.
 
-**Next:** review this bounded session slice before further integration. Then
-finish the remaining Stage 3 installer/provenance and lifecycle gates, followed
-by Stage 4's exact translation pieces and literal-island planning. Reuse the
-existing model manager and application cancellation/save admission. Keep the
-candidate unavailable: actual word-link extraction/projection, mandatory
-auxiliary-scope success, held-out coverage, redistribution notices, combined
-RAM/latency and platform/device qualification are still unresolved.
+### Stage 3 bounded session review — 2026-10-20
+
+Reviewed implementation commit `b6e677a`, including its asset reader, tokenizer,
+model-operation guards, shared runtime initializer, feature gates and tests.
+Assumed load: one foreground alignment session on the shared application state,
+with sequential source/target inference. **No concrete must-fix or should-fix
+finding within this disabled internal slice.** This does not accept Stage 3 or
+authorize exposing the candidate to users.
+
+The review confirmed that rejected loads release the guard, native session
+ownership ends before the lease, and graph loading consumes the verified byte
+snapshot rather than reopening its path. Per-run cancellation registration is
+cleared on every return, both raw strings are admitted before inference, and
+output shape/count/finiteness checks precede copying. Existing search/TTS
+callers still share the initializer; no production build or UI caller enables
+alignment. The ORT binding's ordinary memory loader does not require retaining
+the graph buffer as its separate borrowed-memory API would.
+
+Fresh focused translation suites passed **193 tests with features off**, and
+**206 with the runtime feature** (three explicit external tests ignored).
+The real pinned-graph lifecycle test and the isolated missing-runtime test each
+passed separately. The native termination check cancels a registered run from
+another thread before native execution; it does not measure interruption during
+a running kernel or prove a cancellation deadline. Formatting and diff checks
+passed. Earlier full-suite and combined-feature build receipts above remain
+applicable; this review did not rerun full CI, app packaging or device tests.
+
+**Next bounded stage:** resolve the alignment pack's redistribution notices and
+asset-role/installer admission before adding downloads. Reuse the existing
+model manager, staged promotion and removal guards; keep alignment out of the
+translation selector. Then complete the application two-model job lifecycle and
+cancellation/save integration, with failed-install, removal-race and repeated-job
+tests, before Stage 4's exact-piece/literal-island planning. Actual word-link
+extraction/projection, mandatory auxiliary-scope success, held-out coverage,
+combined RAM/latency and platform/device qualification remain open. Benchmarks,
+smoke and the version bump stay deferred; the candidate stays unavailable.
 
 ## Product Goals
 
