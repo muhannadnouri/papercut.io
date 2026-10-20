@@ -7,6 +7,7 @@ use crate::translation::model_store::{verified, TranslationModelFile};
 pub(super) const REPOSITORY: &str = "cstr/awesome-align-onnx-int8";
 pub(super) const REVISION: &str = "e803a2f501474044099b539160aaca461976ecd0";
 pub(super) const TOKENIZER_ID: &str = "mbert-raw-v1:tokenizers-0.23.2:bf1b59b7b11c95f194f51708d918eea378e09d05f84c0e1656dc5180e8117088";
+pub(super) const MODEL_KEY: &str = "alignment-awesome-align-int8";
 const PACK_LIMIT: u64 = 200 * 1024 * 1024;
 
 // No downloader uses these pins yet. Cards do not substitute for full redistribution notices.
@@ -63,6 +64,25 @@ pub(super) fn tokenizer_snapshot(dir: &Path) -> Result<Vec<u8>, AdmissionError> 
 
 /// Check inventory bounds before I/O; missing later files must invalidate even a valid tokenizer snapshot.
 fn checked_snapshot(dir: &Path, files: &[TranslationModelFile]) -> Result<Vec<u8>, AdmissionError> {
+    snapshots(dir, files, false, &|| false).map(|(tokenizer, _)| tokenizer)
+}
+
+/// Runtime loads exactly these verified bytes, not a subsequently reopened filename.
+#[cfg(feature = "native-translation-alignment-runtime")]
+pub(super) fn runtime_snapshot(
+    dir: &Path,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<(Vec<u8>, Vec<u8>), AdmissionError> {
+    snapshots(dir, FILES, true, cancelled)
+}
+
+/// One inventory pass; only runtime admission retains weights, and no partial pack escapes.
+fn snapshots(
+    dir: &Path,
+    files: &[TranslationModelFile],
+    retain_weights: bool,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<(Vec<u8>, Vec<u8>), AdmissionError> {
     let total = files
         .iter()
         .try_fold(0u64, |sum, p| sum.checked_add(p.bytes));
@@ -70,7 +90,15 @@ fn checked_snapshot(dir: &Path, files: &[TranslationModelFile]) -> Result<Vec<u8
         return Err(AdmissionError::Assets(verified::AssetError::Size));
     }
     let mut tokenizer = None;
+    let mut weights = Vec::new();
     for pin in files {
+        if cancelled() {
+            return Err(verified::AssetError::Cancelled.into());
+        }
+        if retain_weights && pin.path == "model.onnx" {
+            weights = verified::read_cancellable(dir, pin, PACK_LIMIT, cancelled)?;
+            continue;
+        }
         if pin.path == "tokenizer.json" {
             if tokenizer.is_some() {
                 return Err(AdmissionError::Profile);
@@ -80,7 +108,10 @@ fn checked_snapshot(dir: &Path, files: &[TranslationModelFile]) -> Result<Vec<u8
             verified::verify(dir, pin, PACK_LIMIT)?;
         }
     }
-    tokenizer.ok_or(AdmissionError::Profile)
+    if cancelled() {
+        return Err(verified::AssetError::Cancelled.into());
+    }
+    Ok((tokenizer.ok_or(AdmissionError::Profile)?, weights))
 }
 
 #[cfg(test)]

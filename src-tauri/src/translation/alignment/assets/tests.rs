@@ -72,3 +72,39 @@ fn every_asset_is_required_even_when_the_tokenizer_itself_is_valid() {
     );
     fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn graph_snapshot_is_verified_and_immutable_and_cancelled_packs_do_not_escape() {
+    let mut nonce = [0; 16];
+    getrandom::fill(&mut nonce).unwrap();
+    let dir = std::env::temp_dir().join(format!("papercut-alignment-snapshot-{nonce:x?}"));
+    fs::create_dir(&dir).unwrap();
+    let pins = [
+        TranslationModelFile {
+            path: "model.onnx",
+            download_url: None,
+            bytes: 3,
+            sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        },
+        TranslationModelFile {
+            path: "tokenizer.json",
+            download_url: None,
+            bytes: 3,
+            sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        },
+    ];
+    for pin in pins {
+        fs::write(dir.join(pin.path), b"abc").unwrap();
+    }
+    let (tokenizer, graph) = snapshots(&dir, &pins, true, &|| false).unwrap();
+    assert_eq!(tokenizer, b"abc");
+    assert_eq!(graph, b"abc");
+    fs::write(dir.join("model.onnx"), b"abd").unwrap();
+    assert!(snapshots(&dir, &pins, true, &|| false).is_err());
+    assert_eq!(graph, b"abc");
+    assert_eq!(
+        snapshots(&dir, &pins, true, &|| true).err(),
+        Some(AdmissionError::Assets(verified::AssetError::Cancelled))
+    );
+    fs::remove_dir_all(dir).unwrap();
+}

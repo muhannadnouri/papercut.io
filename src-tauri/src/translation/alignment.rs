@@ -9,6 +9,8 @@ use super::inline_markup::provider::contract::{
 use super::model_store::verified::AssetError;
 
 mod assets;
+#[cfg(feature = "native-translation-alignment-runtime")]
+pub(crate) mod runtime;
 
 /// Engineering admission cap, including framing; not a measured low-power performance claim.
 const MAX_TOKENS: usize = 256;

@@ -35,6 +35,8 @@ native-translation-ctranslate2 = ["native-translation", "dep:ct2rs"]
 native-translation-llama = ["native-translation", "dep:llama-cpp-2"]
 # Internal asset/tokenizer admission only; no installer, inference or UI capability.
 native-translation-alignment = ["native-translation", "dep:tokenizers"]
+# Internal desktop CPU session; packaged/mobile runtime support is not implied.
+native-translation-alignment-runtime = ["native-translation-alignment", "dep:ort", "ort/load-dynamic"]
 # Shipping scripts compile this optional capability; ordinary search never enables or loads it.
 experimental-search-embeddings = ["experimental-search-embeddings-core", "ort/load-dynamic"]
 experimental-search-embeddings-linked = ["experimental-search-embeddings-core"]

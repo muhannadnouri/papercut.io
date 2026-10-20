@@ -27,6 +27,10 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   contract behind a default-off internal feature. Its [admission review](#stage-3-admission-review--2026-10-20)
   found no must-fix issue within this internal scope. It adds no downloads, model
   selector entry, inference, automatic alignment or saved-document migration.
+- A separate default-off [bounded ONNX session](#stage-3-bounded-onnx-session--2026-10-20)
+  now loads verified graph bytes and returns checked CPU embeddings. It has no
+  application caller, word-link extraction, formatting projection or installer
+  entry; the candidate remains unavailable.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -136,7 +140,9 @@ Every implementation stage needs focused regression tests, relevant existing
 suites and a documentation receipt distinguishing mocks from real inference.
 The [Stage 2 pure contract slice](#stage-2-pure-alignment-contract--2026-10-20)
 is implemented; model/runtime integration and semantic acceptance remain
-**pending**. A stage with a deferred gate must not be described as accepted.
+**pending** as completed acceptance gates. The internal Stage 3 session below
+does not imply production runtime integration. A stage with a deferred gate must
+not be described as accepted.
 Stage 1 now has a [feasibility receipt](#offline-aligner-stage-1-findings--2026-10-19):
 runtime compatibility passed locally, but model/formatting acceptance has not.
 The subsequent [scope/token policy evaluation](#auxiliary-scope-and-token-provenance-evaluation--2026-10-19)
@@ -204,9 +210,10 @@ or widening a span over unrelated prose.
 
 #### 3. Add verified assets and a bounded local alignment runtime
 
-**Status 2026-10-20:** local asset and raw-tokenizer admission implemented below.
-Installer integration, redistribution approval, ONNX runtime/session work and
-their lifecycle gates remain pending; this stage is not complete or accepted.
+**Status 2026-10-20:** local asset/raw-tokenizer admission and a bounded internal
+CPU session are implemented below. Installer integration, redistribution approval,
+document-job/two-model lifecycle and resource/platform qualification remain
+pending; this stage is not complete or accepted.
 
 **Tasks.** Extend the current installer/manifest with a distinct alignment asset
 role, not an item in the translation-engine selector. Pin weights, tokenizer,
@@ -1029,7 +1036,8 @@ graphemes and word IDs, exact pair binding and catalog/installer absence.
 Feature dependency checks, Rust formatting and diff checks pass.
 
 The [admission review](#stage-3-admission-review--2026-10-20) is recorded below.
-**Next:** add the bounded ONNX session as a separate internal slice.
+The separate [bounded ONNX session slice](#stage-3-bounded-onnx-session--2026-10-20)
+is now implemented; the following requirements remain the acceptance checklist.
 That later slice must reuse shared-runtime initialization, validate actual graph
 inputs/outputs and non-finite values, enforce tokens/tensors/threads/queue limits,
 and test real model load independently of mocks. It must verify the bytes actually
@@ -1097,6 +1105,132 @@ resource/device qualification and the remaining lifecycle gates still block
 enabling the candidate. Benchmarks, smoke and the app version bump remain
 deferred. No app/package build, fresh graph inference, platform-device test or
 model download ran in this review.
+
+## Stage 3 bounded ONNX session — 2026-10-20
+
+**Internal CPU embeddings only; candidate still disabled.** The preceding
+admission review was committed first as `efc55fc`. The new default-off
+`native-translation-alignment-runtime` feature enables the tokenizer admission
+feature plus the existing pinned `ort = 2.0.0-rc.13` with `load-dynamic`/API 17.
+It does not enable search or TTS, add a model selector/download, change normal
+build/CI flags, extract word links or enter the document writer. No dependency
+version, weight, tokenizer or translation engine changes.
+
+### Load ownership and execution
+
+- `alignment/runtime.rs` reuses the existing `onnx_runtime::initialize()` and
+  process-wide environment. Its compile gate now admits this independent
+  consumer; previous search/TTS and linked initialization branches are unchanged
+  when the new feature is off. No second runtime loader is introduced.
+- `AlignmentSession::load` claims the existing exclusive model-file guard under
+  an internal alignment key before admission. A second session on that shared
+  application state fails immediately rather than queuing or loading twice.
+  Removal is blocked until the session drops. Successful construction retains
+  the guard; every rejected load releases it through normal Rust ownership.
+- The pack is checked in one inventory pass. Runtime admission retains the exact
+  bounded, SHA-256-verified graph snapshot and passes those bytes directly to ORT;
+  there is no later path reopen. The snapshot is dropped after native creation.
+  Tokenizer-only admission still streams/discards weights. Shared file reads can
+  now check cancellation between 64-KiB chunks and never return partial bytes.
+- The pinned signature must be exactly two dynamic rank-two int64 inputs,
+  `input_ids`/`attention_mask`, and one dynamic rank-three float32 output,
+  `last_hidden_state`, with width 768. The misleading 12-layer config field is
+  not used to build an architecture. Unknown names/types/ranks/widths reject.
+- Each session uses CPU only, its own pool (two intra-op threads, one inter-op
+  thread), sequential graph execution, and no inherited environment execution
+  providers. CPU arena and memory-pattern retention are disabled for this
+  variable-length workload. These are engineering bounds, not a measured RSS cap.
+
+`infer_pair` admits both exact raw strings before running either side, reuses one
+session and runs one side at a time. It returns source/target encodings with
+checked embeddings, never HTML, scores or semantic approval. Each side remains
+limited to 32 KiB and 256 tokens including framing. Input tensors contain only
+those admitted IDs and their full attention mask. Named outputs must be finite
+float32 `[1, token_count, 768]` with the exact value count before they are copied.
+At the maximum admitted length, each returned side contains 786,432 bytes of
+float values (1.5 MiB for the pair). Native weights, loading copies, intermediates
+and the rest of the app are additional memory; the resource acceptance gate is
+still open.
+
+### Cancellation and lifetime limits
+
+A small job-scoped `Cancellation` handle records an irreversible flag and the
+currently registered ORT run options. Registration and cancellation share a
+mutex so a cancel cannot be lost between the flag check and run admission.
+Another thread can request ORT termination without a polling thread or a queue.
+Run registration and temporary results are released on success/error; known
+cancellation discards even a completed native result. One mutable session admits
+one pair at a time. Internal errors retain categories rather than private text,
+paths, raw tensors or ORT diagnostic strings.
+
+ORT offers no cancellation hook for `CreateSession`. Cancellation during graph
+reads is cooperative; during native creation it is honored when that call
+returns, at which point the new session and lease are discarded. Native run
+termination is also cooperative, not a hard wall-clock guarantee. The caller
+owns the reusable session and must drop it when a job ends; per-run rejection
+does not silently unload it. This slice has no application job/cancel bridge,
+save cutoff or translator-model lease integration yet. Existing session field
+drop order releases ORT before releasing the alignment model guard.
+
+### Regression receipt and reproduction
+
+Fresh full Rust library suites pass **470 tests with the feature off** (four
+existing ignored), **479 with tokenizer admission only** (five ignored), and
+**483 with the runtime feature** (seven ignored). Six new ordinary tests cover
+signature/output rejection, cancellation/failed-load cleanup, monotonic shared
+cancellation, immutable graph snapshots and cancelled reads. Existing
+Bergamot/file-validation, cache, hierarchy and job tests remain in these suites.
+
+Two explicit external tests ran separately and **passed**:
+
+1. The original pinned INT8 graph loaded from its verified snapshot through the
+   existing official shared library. That previously inspected artifact reports
+   ORT 1.27.0 (C API 17 consumer). Repeated French/Spanish synthetic pairs, maximum
+   256-token input, 257-token/unknown-token rejection, registered-run native
+   termination, reuse after rejection, invalid graph rejection, blocked second
+   load/removal, drop and repeated job admission all passed. These test outputs
+   establish shape/finite/lifecycle correctness, not numeric reference parity,
+   semantic mapping, translation quality or measured performance.
+2. In an isolated process with no discoverable shared library, loading returned
+   `RuntimeUnavailable` and released the guard. Cargo initially reintroduced a
+   runtime library search path, so that attempt did not satisfy this test's
+   precondition. Directly invoking the built test binary with an isolated loader
+   environment produced the intended missing-runtime case and passed.
+
+The positive check uses externally obtained pinned files and a compatible
+official shared library; it never downloads or exports models:
+
+```sh
+PAPERCUT_ALIGNMENT_ASSETS_DIR=/path/to/pinned-alignment-pack \
+LD_LIBRARY_PATH=/path/to/official-shared-runtime/lib \
+  cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib \
+  --no-default-features --features native-translation-alignment-runtime \
+  pinned_graph_reuses_session_obeys_cancel_and_releases_lease -- --ignored
+```
+
+The loader variable above is a Linux test instruction, not an end-user setup
+requirement or a new packaged runtime path. Run the missing-runtime test in a
+separate process by invoking the test executable reported by Cargo directly,
+with an isolated loader environment and the same external pack. Do not run all
+ignored tests together: positive and missing-runtime tests require opposing
+loader preconditions, and the shared initializer deliberately caches its result
+per process.
+
+The runtime-only build and the combined
+`native-tts-shared,experimental-search-embeddings,native-translation-alignment-runtime`
+library build check pass. The latter is compile compatibility, not fresh TTS or
+search inference acceptance. Formatting/diff checks pass; Cargo.lock is unchanged.
+All inputs are generic synthetic strings, with model files outside Git. No
+sample-specific material, app/package build, CI, physical-device test, benchmark,
+broader smoke or version bump is included.
+
+**Next:** review this bounded session slice before further integration. Then
+finish the remaining Stage 3 installer/provenance and lifecycle gates, followed
+by Stage 4's exact translation pieces and literal-island planning. Reuse the
+existing model manager and application cancellation/save admission. Keep the
+candidate unavailable: actual word-link extraction/projection, mandatory
+auxiliary-scope success, held-out coverage, redistribution notices, combined
+RAM/latency and platform/device qualification are still unresolved.
 
 ## Product Goals
 

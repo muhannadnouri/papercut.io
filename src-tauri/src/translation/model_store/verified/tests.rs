@@ -64,6 +64,25 @@ fn manifest_names_and_size_caps_reject_escapes_and_overflow_before_reading() {
     }
 }
 
+#[test]
+fn cancellation_before_io_or_during_snapshot_read_never_returns_partial_bytes() {
+    let dir = Directory::new();
+    assert_eq!(
+        read_cancellable(&dir.0, &PIN, 3, || true),
+        Err(AssetError::Cancelled)
+    );
+    fs::write(dir.0.join(PIN.path), b"abc").unwrap();
+    let mut checks = 0;
+    assert_eq!(
+        read_cancellable(&dir.0, &PIN, 3, || {
+            checks += 1;
+            checks >= 3
+        }),
+        Err(AssetError::Cancelled)
+    );
+    assert_eq!(read_cancellable(&dir.0, &PIN, 3, || false).unwrap(), b"abc");
+}
+
 #[cfg(unix)]
 #[test]
 fn root_and_leaf_symlinks_cannot_read_outside_files() {
