@@ -38,7 +38,7 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 ## Engine-independent offline alignment plan — 2026-10-19
 
 **Decision: use a separate offline word aligner (Option 7). This is a plan, not
-an implemented capability; no alignment model or runtime has been selected.**
+an implemented capability; no alignment model is approved for production.**
 This is the current forward plan for native rich formatting, superseding the
 earlier attention-first proposal below. Further Bergamot upstream work is
 shelved. Existing experimental Bergamot code is retained without extending or
@@ -127,6 +127,8 @@ Every implementation stage needs focused regression tests, relevant existing
 suites and a documentation receipt distinguishing mocks from real inference.
 All implementation stages below are **pending**. A stage with a deferred gate
 must stay pending rather than being described as accepted.
+Stage 1 now has a [feasibility receipt](#offline-aligner-stage-1-findings--2026-10-19):
+runtime compatibility passed locally, but model/formatting acceptance has not.
 
 #### 1. Prove a viable model/runtime path before building around it
 
@@ -347,8 +349,9 @@ they cannot be counted as passed or omitted from eventual release acceptance.
 
 ### Delivery order and stop conditions
 
-Next work is **Stage 1 only**, ending in a go/no-go decision with pinned candidate
-and adapter scope. Then implement contracts → assets/runtime → exact planning →
+The [Stage 1 findings](#offline-aligner-stage-1-findings--2026-10-19) give a
+conditional technical go and no production go yet. Resolve the remaining
+alignment-policy gate before implementing contracts → assets/runtime → exact planning →
 alignment → reconstruction → lifecycle → UI, each with its own focused review
 and evidence. Do not build the full integration around an unproven aligner.
 Stop and revisit the design if it needs a maintained fork, training pipeline,
@@ -356,6 +359,200 @@ unacceptable resource use, silently misplaced formatting or mostly rejected
 ordinary prose. This design moves the learned correspondence problem into a
 pretrained model; Papercut still owns substantial offset, hierarchy and safety
 engineering. It is not a guarantee of perfect semantic formatting.
+
+## Offline aligner Stage 1 findings — 2026-10-19
+
+**Decision: technically feasible without a runtime upgrade or engine fork;
+not ready to approve production formatting parity.** The plan is committed in
+`2ba1772`. This evaluation changes documentation only. All assets, synthetic
+probes and results live outside the repository. No private article, sample
+filename or sample-derived regression fixture is added to tracked files.
+
+### Candidate, reference and maintenance scope
+
+The first candidate is the published **eight-layer multilingual BERT INT8 ONNX
+export**, with its matching FP32 export as the reference alternative. This is
+pretrained mBERT, not evidence of an alignment-fine-tuned checkpoint. Two
+extraction approaches were evaluated using the same encoder family, rather
+than downloading an unrelated second model or training anything.
+
+| Artifact | Pinned revision | Actual graph bytes |
+| --- | --- | ---: |
+| [cstr/awesome-align-onnx-int8](https://huggingface.co/cstr/awesome-align-onnx-int8/tree/e803a2f501474044099b539160aaca461976ecd0) | `e803a2f501474044099b539160aaca461976ecd0` | 149,709,873 |
+| [cstr/awesome-align-onnx](https://huggingface.co/cstr/awesome-align-onnx/tree/5f35c9d8f7b24391f8dbbf04c4bdacc6b74de417) | `5f35c9d8f7b24391f8dbbf04c4bdacc6b74de417` | 595,783,899 |
+| [Original mBERT reference weights](https://huggingface.co/google-bert/bert-base-multilingual-cased/tree/3f076fdb1ab68d5b2880cb87a0886f315b8146f8) | `3f076fdb1ab68d5b2880cb87a0886f315b8146f8` | 714,290,682 |
+
+INT8 graph SHA-256:
+`beb17c2e9520155f7da7bb94a1fb8e74f5e528acdbd8f4415854c99a3d84f429`.
+FP32 graph SHA-256:
+`960f81703cbb279235260457c39ab8d106224245d85bab5e59f6895096d94edc`.
+Full published repository inventories are approximately 154 MB and 600 MB
+respectively, including tokenizer/configuration; these are download sizes,
+**not runtime RAM estimates**. Actual downloaded weights matched the Hub's LFS
+hashes, and all probe assets received local hash receipts.
+
+Model cards label the weights Apache-2.0. The original mBERT card also labels
+Apache-2.0; model-card labels alone do not finish redistribution provenance and
+notice review. [Awesome-align source](https://github.com/neulab/awesome-align/tree/5f150d45bbe51e167daf0a84abebaeb07c3323d1)
+is BSD-3-Clause, with other upstream notices to retain if code is reused;
+[SimAlign source](https://github.com/cisnlp/simalign/tree/ca1932a3655e54880f6f92b73c59100c171c31da)
+is MIT. Their latest commits at evaluation were March 2022 and November 2023;
+do not describe either as a currently maintained mobile SDK. The INT8 artifact
+revision dates to August 2026 and FP32 to December 2025. Published export metadata
+contains inconsistent size fields; derive install requirements from actual files
+and inspect the graph instead of trusting those fields.
+
+No library patch, custom export, training or production Python installation was
+needed for this probe. Papercut would still maintain a bounded word-piece/offset
+adapter, the selected matching rule, source-owned projection and failure policy.
+That is smaller than maintaining a translation-engine fork, but is real NLP and
+DOM engineering. The model does not return reader HTML or ready-to-render ranges.
+
+### What actually ran
+
+- **Isolation:** pinned public downloads plus local-only inference; synthetic
+  source/target pairs were authored for this check, not generated by Papercut's
+  translators. No private document was sent to a service or used as a fixture.
+- **Reference:** CPU PyTorch `2.9.0+cpu`, Transformers `4.57.1`, original mBERT
+  weights loaded through layer eight. The probe executes the unmodified pinned
+  Awesome-align guide-head/mask code and compares its word links with the small
+  NumPy adaptation of its bidirectional softmax rule at the upstream `0.001`
+  threshold. No threshold tuning was performed.
+- **Export check:** Python ONNX Runtime `1.23.2`, ONNX `1.19.1`, NumPy `2.2.6` and
+  tokenizer `0.22.2`. Both graphs pass ONNX checking, use IR 8/opset 17, contain
+  encoder layers 0–7, and need no external weight file. Inputs are int64
+  `input_ids`/`attention_mask`; output is finite float32 `[batch, sequence, 768]`.
+  The config still says 12 layers; it must not override the inspected graph.
+- **Actual app-runtime compatibility:** an isolated Rust harness uses the app's
+  pinned `ort = 2.0.0-rc.13`, `api-17`, `load-dynamic` and `tokenizers = 0.23.2`
+  against the existing Sherpa `1.13.4` Linux shared-runtime artifact. That actual
+  library reports ONNX Runtime **1.27.0**, SHA-256
+  `026c7d5c609323fb16506dbc3cce801bcdffdd7566fdba49a50727e2e1e881ca`.
+  All **64 graph/input runs** passed shape/finite checks; all 32 source/target
+  encodings matched Python token IDs and word IDs. Rust/Python tokenizer offsets
+  were also checked on Unicode controls, combining marks and emoji. C API version
+  17 and ONNX opset 17 are separate compatibility facts, not interchangeable.
+- **Limits:** the model's position limit is 512 tokens including special tokens.
+  Real INT8 Python inference with 512 tokens returned finite `[1, 512, 768]`;
+  the probe explicitly rejects 513 before inference, without truncation. These
+  checks establish neither a safe mobile batch size nor a latency/RAM result.
+
+### Alignment and formatting-scope results
+
+The fixed set has **16 synthetic pairs: eight French → English, eight Spanish
+→ English**. Each specifies source words to emphasize and exact expected target
+words. It exercises adjective reordering, repeated names, negation, auxiliary
+verbs, accents, numbers and quoted punctuation. This is a narrow correctness
+probe, not a translation-quality benchmark or a full HTML/EPUB renderer test.
+
+| Encoder and extraction | Exact expected emphasis scope |
+| --- | ---: |
+| Original mBERT / upstream Awesome-align softmax | 15 / 16 |
+| FP32 ONNX / same softmax | 15 / 16 |
+| INT8 ONNX / same softmax | 15 / 16 |
+| Original or FP32 / cosine mutual argmax | 14 / 16 |
+| INT8 / cosine mutual argmax | 13 / 16 |
+| Original, FP32 or INT8 / pinned SimAlign IterMax, default two iterations | 13 / 16 |
+
+The candidate card's cosine/mutual-argmax example is **not** upstream
+Awesome-align's softmax extraction. SimAlign's pinned IterMax was executed as
+the bounded alternative, with its default matching parameters and no positional
+distortion. It widened some scopes onto unrelated words; it is not recommended
+as an automatic coverage repair.
+
+FP32 export word-link sets matched original-reference sets on **16/16** pairs
+under both softmax and mutual argmax; maximum absolute embedding difference was
+`1.15e-5`. INT8 matched original link sets on **14/16** under each rule, even
+though softmax's selected emphasis scopes remained 15/16. Therefore the card's
+general claim of identical INT8 links is not established. Against the actual
+bundled Rust runtime, all Python/Rust link sets matched on this set for both
+exports and both rules; FP32 embeddings differed by at most `1.34e-5`. INT8
+embedding differences across the two runtime versions reached `0.314`, so do
+not equate these observed link matches with cross-runtime numeric equivalence.
+
+The shared unresolved case is inflection: French `reviendra` in `Il reviendra
+demain.` maps only to `return` in `He will return tomorrow.`, while the fixture
+expects emphasis on `will return`. Simply extending to the next unaligned word
+is unsafe: IterMax instead included `tomorrow`. A valid nonempty link does not
+prove complete semantic scope. The exact treatment of generated auxiliaries is
+a projection-policy decision requiring explicit tests, not an HTML-validity fix.
+
+Three negative probes make the trust boundary concrete. Unrelated French/English
+and Spanish/English sentence pairs still receive word links. Two distinct emoji
+both tokenize to `[UNK]` and link to each other. Directional/zero-width controls
+may disappear from tokenizer output even though source offsets must retain their
+ownership. Never infer completeness from link count or similarity alone, and
+never use a hand-counted subword list in place of checked tokenizer word IDs.
+
+### Desktop/mobile and resource decision
+
+**Desktop:** CPU inference and the current Rust/shared-runtime combination are
+proven for these isolated inputs. No dependency upgrade is justified. FP32 is a
+useful reference but its ~600 MB download is unsuitable as an assumed low-power
+default. INT8 is the candidate to retain for further evaluation, not a production
+default; it needs its own alignment acceptance, not inherited FP32 approval.
+
+**Android/iOS:** the graph has standard quantized CPU operators, including
+`MatMulInteger`, `DynamicQuantizeLinear` and `DequantizeLinear`, but no device
+inference or mobile operator/build acceptance ran. Reuse the existing shared
+runtime and initializer if implementation proceeds; add translation-only feature
+gates instead of pulling in search/TTS merely to enable it. The current
+worker-only mobile translation option does not package native CTranslate2 or
+this aligner. Native translator packaging, shared-runtime teardown and both
+model sessions' combined memory remain independent gates. Pixel 7/Android 17
+is the reference device available; a weakest-supported-device target is still
+undefined. Apple/Windows packaged runtime acceptance is also pending.
+
+Proposed initial engineering ceilings, fixed **before future performance tests**:
+alignment pack ≤200 MiB, added aligner peak resident memory ≤512 MiB, and combined
+translation/aligner inference ≤1 GiB. Start with one foreground job, one alignment
+session, one pair at a time and a provisional 256-token-per-side admission cap
+including special tokens; the graph's 512 maximum is not a recommended batch
+budget. Target warm alignment p95 ≤1 second per such pair on desktop and Pixel 7,
+measured separately from translation. These are admission targets, not measured
+results or established low-end support. Record whole-app RAM and other loaded
+models too; revise limits explicitly before tuning, never after a failed run
+just to claim acceptance. Benchmarks remain deferred, so these gates are open.
+
+For eventual held-out semantic acceptance, pre-register at least 100 annotated
+formatted regions per language pair, with ordinary prose and separate adversarial
+cases for morphology, repetition, disjoint/nested formatting and attachments.
+Keep the material outside Git and unseen during rule tuning; blind the model
+label during bilingual review. Require every mandatory positive/negative case
+to behave as specified, no observed incorrectly accepted scope/identity/asset
+placement, and at least 95% successful coverage on the predeclared ordinary
+supported set. Report safe rejections separately, with counts and uncertainty;
+zero observed errors is not proof of zero error risk. Do not remove failed cases
+or relabel them unsupported after inspecting results. This protocol is recorded
+now; no held-out evaluation or benchmark was run.
+
+### Go/no-go and next bounded work
+
+- **Pass:** pinned artifact availability, basic provenance/source review, real
+  offline inference, FP32 reference parity, tokenizer IDs, CPU operator/shape
+  compatibility and current Linux Rust/shared-runtime compatibility.
+- **Not passed:** mandatory one-to-many semantic scope, general INT8/reference
+  parity, confidence/unknown-token admission policy, full redistribution notices,
+  held-out semantic acceptance, and all packaged-device/resource gates. Stage 1
+  therefore has a completed evaluation receipt, **not unconditional acceptance**.
+- **Recommendation:** keep Option 7 and the shared architecture, but do not add
+  production assets/dependencies or claim formatting preservation yet. Next do a
+  narrowly scoped policy/contract design check: define auxiliary/unaligned-word
+  scope, explicit `[UNK]`/normalization rejection, and the errors that an aligner
+  cannot detect. Retain FP32 as the reference, INT8 as the candidate and upstream
+  softmax as the initial extraction rule. Do not add adjacency guesses, IterMax
+  retries, a custom-trained model or an engine fork to force the failing case.
+  Proceed to Stage 2 implementation only after this gate is resolved. Real engine
+  output, nested DOM/notes and lifecycle tests are still later stages, not passes
+  inferred from these hand-authored pairs.
+
+Reproduction receipt outside Git: `/tmp/papercut-aligner-feasibility/` contains
+immutable asset/source metadata and hashes, dependency versions, `probe.py`,
+the isolated Cargo harness, per-case links/offsets, `results.json`,
+`runtime-comparison.json`, `simalign-results.json` and `negative-results.json`.
+The files are disposable research evidence, not maintained application tooling;
+the directory is not guaranteed to survive a reboot. Keep benchmarks, broader
+smoke and the app version bump deferred. No production behavior changed.
 
 ## Product Goals
 
