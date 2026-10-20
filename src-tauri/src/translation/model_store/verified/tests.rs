@@ -50,6 +50,8 @@ fn manifest_names_and_size_caps_reject_escapes_and_overflow_before_reading() {
         "../model.bin",
         "sub/model.bin",
         "sub\\model.bin",
+        "model.bin/",
+        "C:model.bin",
         "/model.bin",
         ".",
         "",

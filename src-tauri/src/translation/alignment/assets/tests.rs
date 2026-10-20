@@ -21,6 +21,7 @@ fn candidate_pins_are_bounded_unique_and_not_translation_or_installer_entries() 
             .sha256
     ));
     for id in [
+        MODEL_KEY,
         REPOSITORY,
         "cstr/awesome-align-onnx",
         "awesome-align-onnx-int8",
@@ -28,6 +29,35 @@ fn candidate_pins_are_bounded_unique_and_not_translation_or_installer_entries() 
         assert!(crate::translation::models::find_planned_model(id).is_none());
         assert!(crate::translation::model_store::manifest_by_id(id).is_none());
     }
+}
+
+#[test]
+fn prepared_notices_keep_canonical_license_and_artifact_attribution_without_admitting_downloads() {
+    let license = include_bytes!("../notices/LICENSE-APACHE-2.0.txt");
+    let attribution = include_bytes!("../notices/ATTRIBUTION.md");
+    assert_eq!(license.len(), 11_358);
+    assert_eq!(
+        format!("{:x}", Sha256::digest(license)),
+        "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    );
+    assert_eq!(attribution.len(), 2235);
+    assert_eq!(
+        format!("{:x}", Sha256::digest(attribution)),
+        "071418670638baed08e3932a375dec40fb374ec4073c076dc95db1b9f625b45f"
+    );
+    let text = std::str::from_utf8(attribution).unwrap();
+    for fact in [
+        REPOSITORY,
+        REVISION,
+        "first eight",
+        "unchanged",
+        "Apache",
+        "No Awesome-align extraction source",
+    ] {
+        assert!(text.contains(fact));
+    }
+    assert!(crate::translation::model_store::manifest_by_id(MODEL_KEY).is_none());
+    assert_eq!(FILES.len(), 7); // Notice preparation does not silently change runtime admission pins.
 }
 
 #[test]

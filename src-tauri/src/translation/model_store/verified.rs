@@ -36,9 +36,16 @@ pub(crate) fn read_cancellable(
 }
 
 /// Stream large weights without retaining a second model-sized buffer; this grants no future load lease.
-#[cfg(any(feature = "native-translation-alignment", test))]
 pub(crate) fn verify(dir: &Path, pin: &TranslationModelFile, limit: u64) -> Result<(), AssetError> {
     checked(dir, pin, limit, false, &mut || false).map(|_| ())
+}
+
+/// Manifest names are single normal components on every supported OS, not relative paths.
+pub(crate) fn valid_name(name: &str) -> bool {
+    let mut parts = Path::new(name).components();
+    matches!(parts.next(), Some(std::path::Component::Normal(_)))
+        && parts.next().is_none()
+        && !name.contains(['/', '\\', ':'])
 }
 
 /// Paths are flat manifest-owned names, never caller input or a URL-derived filename.
@@ -55,11 +62,7 @@ fn checked(
     if pin.bytes == 0 || pin.bytes > limit || pin.bytes.checked_add(1).is_none() {
         return Err(AssetError::Size);
     }
-    let mut parts = Path::new(pin.path).components();
-    if !matches!(parts.next(), Some(std::path::Component::Normal(_)))
-        || parts.next().is_some()
-        || pin.path.contains('\\')
-    {
+    if !valid_name(pin.path) {
         return Err(AssetError::Path);
     }
     if !fs::symlink_metadata(dir)

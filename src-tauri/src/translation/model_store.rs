@@ -45,9 +45,46 @@ impl TranslationModelManifest {
     /// making the UI claim a model is installed before the manifest has a real
     /// URL, checksum, and required-file list.
     pub(crate) fn has_required_files(self, dir: &Path) -> bool {
-        self.installable
-            && !self.files.is_empty()
-            && self.files.iter().all(|file| dir.join(file.path).is_file())
+        self.validate().is_ok()
+            && fs::symlink_metadata(dir).is_ok_and(|m| m.is_dir())
+            && self.files.iter().all(|file| {
+                fs::symlink_metadata(dir.join(file.path))
+                    .is_ok_and(|m| m.is_file() && m.len() == file.bytes)
+            })
+    }
+
+    /// Validate trusted inventory before constructing installer paths or summing download sizes.
+    pub(crate) fn validate(self) -> Result<(), String> {
+        let mut paths = std::collections::BTreeSet::new();
+        if !self.installable || !verified::valid_name(self.directory_name) || self.files.is_empty()
+        {
+            return Err("Invalid translation model inventory".into());
+        }
+        self.files.iter().try_fold(0u64, |total, pin| {
+            if !verified::valid_name(pin.path)
+                || !paths.insert(pin.path)
+                || pin.bytes == 0
+                || pin.bytes == u64::MAX
+                || pin.sha256.len() != 64
+                || !pin.sha256.bytes().all(|b| b.is_ascii_hexdigit())
+            {
+                return Err("Invalid translation model file inventory".to_string());
+            }
+            total
+                .checked_add(pin.bytes)
+                .ok_or_else(|| "Translation model size overflow".into())
+        })?;
+        Ok(())
+    }
+
+    /// Stream hashes at install/repair admission; routine native status avoids hashing gigabytes.
+    pub(crate) fn verify_files(self, dir: &Path) -> Result<(), String> {
+        self.validate()?;
+        for pin in self.files {
+            verified::verify(dir, pin, pin.bytes)
+                .map_err(|_| format!("Translation model file {} failed verification", pin.path))?;
+        }
+        Ok(())
     }
 
     pub(crate) fn total_bytes(self) -> u64 {
@@ -128,10 +165,8 @@ pub(crate) fn installed_translation_model_dir<R: Runtime>(
     Ok(translation_models_root(app)?.join(manifest.directory_name))
 }
 
-/// Scratch root for downloads and staged install work.
-///
-/// Keeping partial downloads in cache mirrors the TTS installer: work happens
-/// outside durable app data, then a complete verified model is promoted.
+/// Legacy cache staging, retained for cleanup of older installs only.
+/// New downloads stage beside their final directory to avoid cross-volume promotion.
 pub(crate) fn translation_model_work_dir<R: Runtime>(
     app: &tauri::AppHandle<R>,
     manifest: TranslationModelManifest,
@@ -168,20 +203,20 @@ pub(crate) fn resolve_translation_model_dir<R: Runtime>(
 }
 
 pub(crate) fn directory_size(path: &Path) -> Result<u64, String> {
-    if !path.exists() {
-        return Ok(0);
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(meta) => meta,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+        Err(e) => return Err(format!("Failed to inspect translation model storage: {e}")),
+    };
+    // Never follow a replaced cache/model entry into unrelated files or a directory cycle.
+    if metadata.is_symlink() || (!metadata.is_file() && !metadata.is_dir()) {
+        return Err("Invalid translation model storage type".into());
     }
-    let metadata = fs::metadata(path).map_err(|err| {
-        format!(
-            "Failed to inspect translation model storage {}: {err}",
-            path.display()
-        )
-    })?;
     if metadata.is_file() {
         return Ok(metadata.len());
     }
 
-    let mut total = 0;
+    let mut total = 0u64;
     for entry in fs::read_dir(path).map_err(|err| {
         format!(
             "Failed to read translation model storage {}: {err}",
@@ -190,7 +225,9 @@ pub(crate) fn directory_size(path: &Path) -> Result<u64, String> {
     })? {
         let entry =
             entry.map_err(|err| format!("Failed to inspect translation model file: {err}"))?;
-        total += directory_size(&entry.path())?;
+        total = total
+            .checked_add(directory_size(&entry.path())?)
+            .ok_or("Model storage size overflow")?;
     }
     Ok(total)
 }

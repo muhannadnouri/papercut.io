@@ -33,8 +33,10 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   entry; its [session review](#stage-3-bounded-session-review--2026-10-20) found
   no must-fix issue within that internal scope. The candidate remains unavailable.
 - The [redistribution/installer evaluation](#stage-3-redistribution-and-installer-admission-evaluation--2026-10-20)
-  found a published Apache-2.0 permission path. Notice delivery and safe installer
-  admission still need implementation; no aligner download is enabled.
+  found a published Apache-2.0 permission path. [Notice payloads and shared
+  installer hardening](#stage-3-notice-payloads-and-shared-installer-hardening--2026-10-20)
+  are implemented; auxiliary resolver/notice delivery integration remains next.
+  No aligner download is enabled.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -1396,6 +1398,92 @@ checks. There are currently no promotion-failure/space/recovery regressions in
 this installer; the checklist above is required future coverage, not a claim
 that it passed. No weights were downloaded or redistributed, upstream contacted,
 production code changed, or benchmark/smoke/version-bump work performed.
+
+## Stage 3 notice payloads and shared installer hardening — 2026-10-20
+
+**Implemented after evaluation commit `2e73f7a`; auxiliary download admission is
+still disabled.** This slice prepares the legal payloads and corrects the
+existing installer's filesystem lifecycle. It does not register an alignment
+manifest, add a selector/command/build flag, change model pins or integrate
+alignment into document jobs. Stage 3 is still partial.
+
+### Prepared notices
+
+The [notice directory](../src-tauri/src/translation/alignment/notices) contains
+the unchanged canonical Apache-2.0 license and a separate Papercut-owned
+attribution file. Their exact bytes are regression-checked:
+
+| File | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `LICENSE-APACHE-2.0.txt` | 11,358 | `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30` |
+| `ATTRIBUTION.md` | 2,235 | `071418670638baed08e3932a375dec40fb374ec4073c076dc95db1b9f625b45f` |
+
+Attribution identifies the base/exporter/revision, eight-layer INT8 artifact,
+unchanged downstream bytes, research/source distinction and the source-revision
+uncertainty recorded above. These files are prepared source assets, not yet
+installed or automatically packaged by a new application path. The existing
+seven-file runtime inventory remains unchanged. A later notice-complete pack
+would total 153,652,432 bytes with these two files; its admission must require
+both, alongside the original upstream card, before downloads are enabled.
+
+### Shared installer behavior
+
+- `model_install.rs` retains command admission, leases, HTTP download and event
+  handling. Its `transaction.rs` owns destination-volume staging, verification,
+  recovery and removal; tests live separately. No second downloader or generic
+  filesystem framework was introduced.
+- Install/repair validates the manifest before filesystem work and streams every
+  required SHA-256 before its early-success return. Same-sized corrupt files no
+  longer skip repair. Downloaded bytes are still size/hash checked, then the
+  staged inventory is independently verified and synced before promotion.
+- Routine native status remains a cheap regular-file/type/size check, not a
+  hash-based integrity certificate. Bergamot retains its additional verified
+  status path. Large native models are fully hashed when explicitly installed
+  or repaired, without adding multi-gigabyte hash scans to status polling.
+- Staging is `<models>/.{id}.installing`, beside `<models>/{id}`; the previous
+  directory is `<models>/.{id}.previous`. Promotion retains the previous pack
+  until the new rename succeeds. Failed promotion restores it; failed rollback
+  retains it for recovery rather than deleting the last copy.
+- On the next install attempt, recovery keeps a verified new final directory,
+  otherwise restores the previous directory, and discards interrupted staging.
+  This precedes the early-success check. It is retry recovery, not background
+  startup work or a portable guarantee against power loss. Explicit removal
+  reclaims final/staging/previous directories under the existing model guard.
+- Install and explicit removal also reclaim the old per-model cache staging
+  root, so a pre-upgrade interrupted download does not consume retry space.
+  New downloads check the destination volume using the existing
+  `ensure_available_space` helper (new pack plus 64 MiB). Preflight does not
+  reserve disk space; write/flush/sync errors still abort with cleanup.
+- Manifest escapes, duplicates, invalid hashes and size overflow reject before
+  downloading. Model storage accounting rejects symlinks/special files instead
+  of following unrelated data or cycles. Unexpected installer root types fail
+  safely. Original documents, translated variants, audiobooks and segment cache
+  roots are outside all these cleanup paths.
+
+### Regression receipt and next gate
+
+Ten new ordinary tests cover notice identity, disabled auxiliary/unknown IDs,
+install/repair/status/remove, missing legal/runtime files, corrupt hashes and
+sizes, preflight refusal, interrupted downloads, rename/rollback failures,
+process-interruption recovery, invalid inventories, symlinks and an actual HTTP
+downloader-to-transaction round trip with model lease contention/cleanup. The
+existing downloader test additionally checks short and interrupted responses.
+All fixtures are tiny generic files in temporary directories; no model or
+private-document test files were added.
+
+Full Rust library suites passed **478 tests with features off** (four ignored),
+**489 with tokenizer admission** (five ignored), and **493 with the internal
+runtime feature** (seven ignored). Failure injection exercises the production
+filesystem transaction, not a duplicate implementation. It simulates space and
+rename failures; it does not fill a real disk, kill the app or qualify Windows/
+Apple filesystems. Ordinary tests never download weights.
+
+**Next:** review this notice/installer slice, then wire the trusted auxiliary
+manifest and verified notice delivery through existing install/status/remove
+admission. Keep it out of the translation engine catalog. Two-model application
+job ownership, cancellation/save integration and the semantic/resource/platform
+gates remain later work. Benchmarks, broader smoke and version bump remain
+deferred; no alignment candidate is enabled by this commit.
 
 ## Product Goals
 
