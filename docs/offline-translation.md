@@ -35,6 +35,328 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - Packaged Android/iOS translation support is not accepted yet. Experimental Bergamot choices can appear when their build and WebView gates pass, but mobile memory, thermals, lifecycle and actual-model quality still need device validation; native runtime packaging remains separate work.
 - Chapter-level repair has not started. Qwen remains research-only.
 
+## Engine-independent offline alignment plan — 2026-10-19
+
+**Decision: use a separate offline word aligner (Option 7). This is a plan, not
+an implemented capability; no alignment model or runtime has been selected.**
+This is the current forward plan for native rich formatting, superseding the
+earlier attention-first proposal below. Further Bergamot upstream work is
+shelved. Existing experimental Bergamot code is retained without extending or
+patching its engine. Benchmarks, broader smoke and the app version bump remain
+deferred; their eventual acceptance gates are explicitly listed below.
+
+The first supported target is CTranslate2/OPUS-MT French/Spanish → English on
+desktop. The alignment boundary must also accept HY-MT2 and future providers'
+plain text, without depending on translation-engine attention. This does not
+make those providers, Arabic or mobile accepted automatically. Inputs remain
+HTML/EPUB only. Preservation means the semantics and assets in **sanitized reader
+HTML**, not pixel-identical reproduction of arbitrary source CSS or scripts.
+
+### Architecture and ownership
+
+```text
+Stored HTML/EPUB reader DOM + owned assets
+  -> shared DOM/source-identity plan
+  -> bounded prose units with exact source offsets
+  -> selected translation engine -> exact target text + actual piece boundaries
+  -> independent local word aligner -> source/target word links
+  -> shared projection + strict mapping validation
+  -> source-owned DOM reconstruction
+  -> validated batch cache -> final validation -> existing atomic variant writer
+```
+
+- **DOM planning owns meaning-bearing structure:** block order, hierarchy,
+  emphasis, links, authored identities, immutable literals, note attachment and
+  asset references. Models never own reader tags, attributes or file paths.
+- **The translation engine owns translated prose.** It preserves whole-sentence
+  context across bold/italic boundaries and reports any internal subdivisions.
+  Do not translate each inline text node separately or add phrase-probe calls.
+- **The aligner owns lexical correspondence only.** It reads the exact source
+  and actual target, returning word links and any available scores. It cannot
+  rewrite either text, create markup, access storage or choose another engine.
+- **The shared mapper owns projection and validation.** It combines source
+  identities, word links and explicit punctuation/attachment rules. Structural
+  validity and a high model score are not proof of semantic correctness.
+- **The renderer/writer own durable output.** Reuse the source-owned protected
+  reconstruction path; do not add another renderer. Preserve originals, existing
+  variants, generated audiobooks and read-along data. New audio continues to use
+  the translated variant's own reader DOM.
+
+Reuse `dom.rs`, `segment.rs`, `inline_markup/{protected,provider}.rs`, `render.rs`,
+`engine.rs`, `ctranslate2.rs`, `runner.rs`, `cache.rs`, `state.rs`, the model
+installer/store and current UI capability flow. The existing provider validator
+maps each flattened formatting run to one target range; it is a starting seam,
+**not** the complete tree/notes/disjoint-range contract. Add a small translation
+alignment module for inference and token/offset adaptation, separate from DOM
+projection. No general plugin framework, parallel job system or second model
+manager is needed. Non-obvious functions must explain intent, coordinate units,
+ownership and failure behavior in comments.
+
+### Non-negotiable behavior
+
+1. Canonical mapping coordinates are half-open Unicode scalar ranges over exact
+   retained strings. Tokenizer normalization/word-piece offsets require a checked
+   conversion; UTF-8 bytes, scalars and grapheme boundaries are not interchangeable.
+   Reject unmappable boundaries rather than rounding into another character.
+2. Repeatable emphasis may map to multiple disjoint target ranges. Authored IDs,
+   anchors and protected literals retain their source identity and parent chain;
+   never clone them to make an impossible target mapping fit. Reordering prose is
+   allowed, changing source block order or link targets is not.
+3. Notes/images are source-owned attachments, not translated words. Record their
+   owner, side and quote/punctuation scope. Internal links and backreferences
+   must still resolve exactly once where their source identity requires it.
+4. Keep code and other non-translatable literals out of inference as immutable
+   islands. Initially translate contiguous prose around them and reassemble
+   through the source plan; this can reduce context across a literal. Inline
+   emphasis alone must never create such a boundary. Do not rely on the model
+   echoing invented placeholders as proof of preservation.
+5. Missing, ambiguous or contradictory required mappings stop the job with a
+   useful error before saving. No fallback to positional estimates, phrase
+   guesses, unformatted output, or source-plus-translation duplication on this
+   strict path. Previously validated progress remains resumable. Legacy text
+   output is not retroactively certified as formatting-preserving.
+6. All inference runs locally after explicit, verified downloads. Bound tokens,
+   tensor sizes, pair counts, model sessions and reconstruction work. No silent
+   token truncation, unbounded retry tree, remote service or document-content
+   logging. Alignment cannot repair a mistranslation or prove completeness.
+
+### Stages and completion gates
+
+Run these stages in order, reviewing each bounded change before proceeding.
+Every implementation stage needs focused regression tests, relevant existing
+suites and a documentation receipt distinguishing mocks from real inference.
+All implementation stages below are **pending**. A stage with a deferred gate
+must stay pending rather than being described as accepted.
+
+#### 1. Prove a viable model/runtime path before building around it
+
+**Tasks.** Evaluate one pretrained multilingual candidate first, with at most
+one fallback. [Awesome-align](https://github.com/neulab/awesome-align) extracts
+word links using multilingual BERT; [SimAlign](https://github.com/cisnlp/simalign)
+uses multilingual embeddings and matching. Both publish research-oriented Python
+implementations, not ready-made Rust/mobile HTML components. Treat them as
+candidates, not selected dependencies. Check maintenance, code and weight
+licenses separately, provenance, pinned artifacts, tokenizer behavior, extraction
+algorithm, supported languages and supported export/inference tooling. Prefer
+an existing compatible ONNX artifact and Papercut's existing ORT integration;
+do not assume its pinned API/operator set or mobile packaging can load it.
+
+Use an isolated, reproducible synthetic correctness probe outside the repo to
+compare supported reference output with the proposed runtime. No training,
+local library fork, copied C++ implementation, custom exporter or Python runtime
+shipped with Papercut. If a small matching/offset adapter is necessary, record
+exactly what code Papercut would maintain before choosing it. Export/quantization
+is a separate feasibility decision, not an implicit maintenance commitment.
+
+**Tests/gate.** Record exact model/tokenizer/runtime revisions and licenses;
+load a real model offline and reproduce reference tokenization/link decisions,
+with numeric tolerances documented for model scores, on French/Spanish synthetic
+gold pairs. Include reordering,
+repeated words, one-to-many links and punctuation; test meaningful successful
+alignments as well as rejection cases. Inspect file sizes, tensor/token limits
+and runtime compatibility. Set explicit desktop/mobile RAM and latency budgets
+and a held-out semantic acceptance protocol before tuning the mapper; measured
+performance remains deferred, not assumed. Stop here if a maintainable artifact,
+reference-compatible adapter or plausible resource envelope is unavailable.
+No production dependency or catalog entry is added merely to complete this probe.
+
+#### 2. Define the source, pair and mapping contracts
+
+**Tasks.** Extend the existing provider mapping seam to retain source tree
+identities, parent relationships, style ranges and note/literal attachments.
+Derive flattened formatting views from that source plan rather than maintaining
+a second competing identity tree.
+Separate translation piece metadata from alignment results. A bounded text pair
+must identify its source block/segment, exact source/target strings and offsets
+into their parent strings. An alignment result must bind to that pair and pinned
+aligner/tokenizer/algorithm versions, with checked word/subword ranges and
+many-to-many links. Projection produces source-owned nodes mapped to target
+range lists or an explicit unresolved reason. Do not expose raw tensors through
+Tauri DTOs or let generated HTML bypass validation.
+
+**Tests/gate.** Pure tests cover exact source/target binding; unknown/duplicate
+identities; missing links; invalid, empty and out-of-bound ranges; repeated words;
+disjoint/nested emphasis; and legal reorderings. Distinguish valid nested ranges
+from impossible crossing hierarchies. Verify byte/scalar conversions for emoji,
+decomposed accents, Arabic combining marks, RTL text, whitespace and tokenizer
+normalization. Arabic tests here prove coordinate safety, not translation quality.
+The contract must represent all mandatory cases without inventing target words
+or widening a span over unrelated prose.
+
+#### 3. Add verified assets and a bounded local alignment runtime
+
+**Tasks.** Extend the current installer/manifest with a distinct alignment asset
+role, not an item in the translation-engine selector. Pin weights, tokenizer,
+configuration, hashes, file sizes and notices. Reuse staged install/promotion,
+storage accounting, errors and removal guards. Validate assets at runtime
+admission, including replaced/corrupt files. The alignment feature must not
+depend on enabling experimental search or native TTS. Check compatibility with
+other users of the shared ONNX runtime before changing any dependency version.
+
+Load at most one aligner session per foreground job, reuse it across batches,
+and include the translation model in the peak-memory budget. Bound threads,
+input tokens, tensors and queued work; serialize competing alignment work.
+Coordinate asset leases for both models under existing state admission so
+install/remove cannot race with use. Release resources on error or cancellation.
+
+**Tests/gate.** Installer tests reject wrong hashes, missing tokenizer/config,
+path escapes and interrupted installs without promoting partial data. Runtime
+tests reject wrong shapes/types, oversized inputs, non-finite output and missing
+runtime support. Lifecycle tests exercise two job starts, both model-removal
+races, cancellation during load and repeated jobs without leaked leases.
+Feature-on/off builds pass without changing search/TTS runtime behavior. A real
+model load test must pass separately from mocked inference tests.
+
+#### 4. Carry exact translation pieces through bounded planning
+
+**Tasks.** Reuse the shared DOM's normalized text and stable block ordinals.
+Retain CTranslate2's actual token-bounded source pieces and corresponding target
+pieces before joining them; today the adapter discards those boundaries.
+Preserve public segment IDs and record join separators in target offsets.
+Check both runtimes' source-token limits before inference, including special
+tokens, and check actual target-token limits after translation. An oversized
+target fails explicitly; do not arbitrarily split it against unrelated source
+pieces. Do not pair source/target sentences by
+naively zipping sentence counts after translation, and do not truncate long
+inputs or clip authored identities to satisfy a token limit.
+
+Keep ordinary sentences whole when both runtimes permit it. Split oversized
+prose at DOM-safe sentence/clause boundaries; assemble enclosing identities
+only once after their pieces are mapped. If an indivisible unit cannot be
+represented within the selected models' limits, report it as unsupported.
+Literal islands and zero-width attachments retain explicit boundary ownership.
+
+**Tests/gate.** Verify long blocks around the current 900-scalar planner boundary,
+token-dense text, tokenizer subdivisions, leading/trailing whitespace, joined
+punctuation, inline boundaries and a note exactly at a cut. Assert complete
+source coverage, exact target reconstruction, stable segment IDs and one owner
+per attachment. No lost/duplicated characters or changed sentence context merely
+because a word is bold. Include over-limit rejection, not just successful splits.
+
+#### 5. Implement alignment and conservative projection
+
+**Tasks.** Run the selected aligner on each actual source/target piece after
+translation. Convert model tokens to checked word ranges without losing the
+relationship to either original string. Implement the reference-compatible
+extraction/matching rule established in Stage 1; treat scores as evidence, not
+calibrated probabilities. Project formatted source words to target ranges with
+explicit handling of many-to-many, unaligned words and punctuation. Reject
+conflicts or unsupported empty mappings; never replace them with proportional
+positions. Do not expand a disjoint mapping into one broad hull. No inference
+retries or model switching are part of this stage.
+
+**Tests/gate.** Golden token/link tests cover subwords, contractions, repeated
+tokens, merged/split words, phrase reversal, omitted source words and unrelated
+targets. Require exact expected target scope on the mandatory synthetic markup
+suite; every ambiguous/invalid case must fail safely. Run real French/Spanish
+inference against reference links and manually annotated target scopes. A
+test-only second provider supplying the same texts must produce the same
+mapping, proving there is no hidden CTranslate2 dependency. Passing by rejecting
+all formatted inputs is not success: mandatory positive cases must render.
+
+#### 6. Reconstruct hierarchy, links and attachments through the shared renderer
+
+**Tasks.** Feed validated mappings into source-owned protected reconstruction.
+Allow repeated style-only wrappers for disjoint emphasis; retain source-owned
+attributes and exactly-once identities. Parent/child containment must remain
+representable; reject crossings instead of reparenting a link or cloning an ID.
+Place notes from explicit lexical ownership and punctuation/quote scope; do not
+reuse positional note estimates. Preserve immutable literals and owned assets,
+including images inside styled links, tables and EPUB-relative references.
+Route strict mapped output around all legacy best-effort formatting fallbacks.
+
+**Tests/gate.** DOM assertions check the exact styled words, ancestor chains,
+unique IDs, unchanged URLs/backreferences, code/literal content and asset bytes.
+Cover nested/disjoint styles, compact ID wrappers, forward/reverse/nested quote
+notes, duplicate labels, standalone images and mixed-content tables. Reject
+injected tags/attributes, changed identities, bad attachment scopes and excessive
+reconstruction expansion. Assert rendered readable text equals the expected
+target plus source-owned literals/markers under the documented text contract.
+An invalid mapping must yield no saved variant, never a degraded fallback.
+
+#### 7. Integrate job lifecycle, resume and atomic saving
+
+**Tasks.** Use the existing runner and cache: translate → align → validate the
+whole batch → mark progress reusable. Add alignment/model/tokenizer/projection
+versions and source-plan/target identities to cache compatibility. Reuse valid
+translated text when only alignment changes, but never treat an old text cache
+or legacy hint as a validated map. Store only bounded reconstruction metadata,
+not tensors. Persist translated provenance with the existing variant metadata.
+
+Check cancellation between native calls, after alignment and before the current
+save-admission guard. Do not promise preemption inside an uninterruptible native
+call; suppress its late result and release its resources when it returns.
+Preserve the writer's current cancel-versus-save race semantics and rollback.
+
+**Tests/gate.** Use the real HTML/EPUB → runner → cache → renderer → SQLite/file
+writer path with deterministic test engines/aligners. Verify resume skips valid
+work, an aligner/tokenizer/target change invalidates mapping, corrupt cache is
+rejected, a partly failed batch is not marked complete, and retries create only
+one derived variant. Exercise cancellation/load/inference/save races, storage
+failure, host shutdown and model removal. Originals, older variants, audiobook
+files and read-along metadata remain byte-stable; no orphaned assets or FTS rows.
+
+#### 8. Expose truthful capabilities and useful progress/errors
+
+**Tasks.** Reuse the current model setup and translation panel. Offer one
+verified alignment pack for eligible native models; do not add an aligner picker
+or hidden automatic download. Explain the separate download/storage requirement.
+Only advertise strict formatting support when the provider, pair, aligner and
+runtime gates pass; enforce the same rules in Rust for direct command calls.
+Keep the new formatting capability gated off pending Stage 9 acceptance;
+integration tests can supply ready capabilities without implying release support.
+Report loading/alignment progress and actionable missing-model, unsupported-unit
+and mapping failures without logging private content. Existing experimental
+Bergamot protected output must not be aligned a second time or silently selected
+as a fallback.
+
+**Tests/gate.** Frontend/native tests cover absent, installing, corrupt,
+unsupported and ready assets; engine/pair changes; download/removal failures;
+cancellation and resume. Controls have stable accessible names, keyboard support
+and localized labels/errors across the eight locales. Plain documents remain
+usable according to their actual capability; formatted documents cannot bypass
+strict admission through stale UI state or a cached legacy result. Verify the
+worker-only mobile build does not accidentally claim native-aligner support.
+
+#### 9. Qualify real output and platforms before calling the feature complete
+
+**Tasks.** Record automated fidelity, independently reviewed semantic placement,
+successful-input coverage and safe-rejection rates separately. Formatting scope
+must be judged on actual engine output, not only prewritten translations.
+Evaluate French and Spanish separately on held-out material; numbers, negation,
+omissions and terminology also need review because alignment cannot fix them.
+Use the budgets and protocol fixed in Stage 1; if they are unmet, keep capability
+disabled rather than lowering the bar after seeing results.
+
+**Tests/gate.** All mandatory synthetic positive cases have exact expected
+markup/attachment scopes; all mandatory unsafe cases reject, with zero observed
+identity/asset loss. Real-output acceptance records both errors and coverage,
+not only HTML validity. Full relevant Rust/frontend/feature-matrix CI passes.
+Packaged offline HTML and EPUB flows cover install, translate, resume, cancel,
+restart, open/search, links/images, deletion and new TTS/highlighting. Measure
+combined peak RAM and sustained latency/thermals on supported platforms. Pixel 7
+(Android 17) is a known test device, not proof of low-end suitability; native
+CTranslate2 mobile packaging and iOS acceptance remain separate prerequisites.
+Arabic requires its own model, tokenizer, semantic and RTL acceptance before
+exposure. A second real engine must pass the shared-contract integration gate
+before claiming that engine has full formatting parity.
+
+**Deferred now:** benchmarks, physical-device/broader smoke and release/version
+work. They may be listed as pending while earlier implementation stages finish;
+they cannot be counted as passed or omitted from eventual release acceptance.
+
+### Delivery order and stop conditions
+
+Next work is **Stage 1 only**, ending in a go/no-go decision with pinned candidate
+and adapter scope. Then implement contracts → assets/runtime → exact planning →
+alignment → reconstruction → lifecycle → UI, each with its own focused review
+and evidence. Do not build the full integration around an unproven aligner.
+Stop and revisit the design if it needs a maintained fork, training pipeline,
+unacceptable resource use, silently misplaced formatting or mostly rejected
+ordinary prose. This design moves the learned correspondence problem into a
+pretrained model; Papercut still owns substantial offset, hierarchy and safety
+engineering. It is not a guarantee of perfect semantic formatting.
+
 ## Product Goals
 
 - Translate imported HTML and EPUB documents offline.
@@ -1383,33 +1705,12 @@ Validation: **445 Rust library tests passed, 4 existing ignored**;
 shipping/CI tests passed**. Rustfmt and diff checks passed. The short-ID and
 reverse-quote unit regressions failed before the fixes and pass afterward.
 
-**Plan for formatting with non-Bergamot providers.** Keep one shared DOM plan,
-cache, validator, renderer and atomic writer. Providers should return translated
-text plus an optional, explicit alignment result; they must not recreate reader
-HTML, URLs or identities themselves. Extend the existing provider mapping
-validator when a real aligned adapter is ready, including one-to-many target
-ranges for reordered/disjoint emphasis, hierarchy and stable note attachment.
-Bind ranges to the exact source and target strings with documented Unicode
-coordinates and versioned tokenizer/alignment/cache identities.
-
-1. Start with CTranslate2/OPUS-MT: evaluate supported upstream Rust binding
-   access to attention, source/target tokens and tokenizer offsets. Upstream
-   [CTranslate2 exposes attention matrices](https://opennmt.net/CTranslate2/python/ctranslate2.TranslationResult.html)
-   when requested, but the current `ct2rs` result does not expose that matrix.
-   Attention still needs a tested alignment conversion; a flag is not reliable
-   formatting support. Prefer upstream binding support over local C++ patches.
-2. Feed validated mappings into shared source-owned reconstruction. Test nested
-   and disjoint styles, repeated words, reordered phrases, UTF-8/scalar offsets,
-   links/notes/assets, bounds, cancellation and resume before enabling it in UI.
-3. For HY-MT2 and future models without reliable alignment, retain an explicit
-   best-effort/plain-text capability. Prompts or generated HTML/JSON alone do not
-   prove that styles landed on the correct words. Evaluate a supported aligner
-   separately if full formatting is required; do not add another phrase-guessing
-   renderer or translate each inline text node without sentence context.
-4. Validate representative HTML/EPUB output before claiming formatting fidelity
-   for any provider. Model quality/default selection, benchmarks, broader smoke
-   and the app version bump remain deferred. This plan adds no new provider or
-   alignment dependency in the current fix.
+**Formatting plan superseded.** The later decision selects a separate local
+aligner rather than translation-engine attention or a best-effort formatting
+capability. Follow the [engine-independent alignment plan](#engine-independent-offline-alignment-plan--2026-10-19)
+for current architecture, tasks, safety rules and stage gates. The existing
+shared DOM/cache/renderer/writer remains the foundation; neither prompts nor
+generated HTML alone establish semantic formatting fidelity.
 
 Regression coverage includes reordered/repeated/nested formatting, French and
 Unicode/Arabic combining-mark/emoji text, literal/code/image/note preservation,
@@ -1916,6 +2217,11 @@ Mobile feasibility is therefore conditional; **mobile speed/RAM are unmeasured**
 A responsive desktop browser at a mobile viewport would not fill that gap.
 
 ### Next Bounded Work Before Production Integration
+
+This list records the earlier Bergamot integration sequence. Its alignment/API
+recommendation is superseded by the [engine-independent alignment plan](#engine-independent-offline-alignment-plan--2026-10-19).
+Further Bergamot upstream work is shelved; its historical tests do not establish
+native-provider formatting parity or mobile acceptance.
 
 1. The shared DOM/asset foundation and hardening review are complete. The
    [provider validation slice](#provider-mapping-contract-and-validation-slice-2026-10-19)
