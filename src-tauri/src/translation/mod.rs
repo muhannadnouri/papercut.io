@@ -5,7 +5,7 @@
 //! while this feature consumes that stable contract and creates translated
 //! document variants through a feature-gated native engine.
 
-// Staged, default-off boundary; no engine or application command consumes it yet.
+// Default-off alignment: auxiliary asset commands only; no translation-job caller.
 #[cfg(feature = "native-translation-alignment")]
 #[allow(dead_code)]
 mod alignment;

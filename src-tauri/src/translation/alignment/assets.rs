@@ -1,8 +1,8 @@
-//! Internal alignment-role pins, not a translation catalog or install permission.
+//! Trusted auxiliary install pins; separate from the translation engine catalog.
 use std::path::Path;
 
 use super::AdmissionError;
-use crate::translation::model_store::{verified, TranslationModelFile};
+use crate::translation::model_store::{verified, TranslationModelFile, TranslationModelManifest};
 
 pub(super) const REPOSITORY: &str = "cstr/awesome-align-onnx-int8";
 pub(super) const REVISION: &str = "e803a2f501474044099b539160aaca461976ecd0";
@@ -10,7 +10,7 @@ pub(super) const TOKENIZER_ID: &str = "mbert-raw-v1:tokenizers-0.23.2:bf1b59b7b1
 pub(super) const MODEL_KEY: &str = "alignment-awesome-align-int8";
 const PACK_LIMIT: u64 = 200 * 1024 * 1024;
 
-// No downloader uses these pins yet. Cards do not substitute for full redistribution notices.
+// Raw developer admission keeps these seven pins; installer admission additionally requires both notices.
 pub(super) const FILES: &[TranslationModelFile] = &[
     TranslationModelFile {
         path: "model.onnx",
@@ -56,8 +56,48 @@ pub(super) const FILES: &[TranslationModelFile] = &[
     },
 ];
 
+const INSTALL_FILES: &[TranslationModelFile] = &[
+    FILES[0],
+    FILES[1],
+    FILES[2],
+    FILES[3],
+    FILES[4],
+    FILES[5],
+    FILES[6],
+    TranslationModelFile {
+        path: "LICENSE-APACHE-2.0.txt",
+        download_url: None,
+        bytes: 11358,
+        sha256: "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    },
+    TranslationModelFile {
+        path: "ATTRIBUTION.md",
+        download_url: None,
+        bytes: 2235,
+        sha256: "071418670638baed08e3932a375dec40fb374ec4073c076dc95db1b9f625b45f",
+    },
+];
+
+/// Only this feature-gated key grants auxiliary install admission; it never enters models.rs.
+pub(in crate::translation) fn manifest_by_id(id: &str) -> Option<TranslationModelManifest> {
+    (id == MODEL_KEY).then_some(TranslationModelManifest {
+        model_id: MODEL_KEY, directory_name: MODEL_KEY, source_label: REPOSITORY,
+        source_url: "https://huggingface.co/cstr/awesome-align-onnx-int8/tree/e803a2f501474044099b539160aaca461976ecd0",
+        revision: REVISION, files: INSTALL_FILES, installable: true,
+    })
+}
+
+/// App-owned legal bytes need no hosting service or network request; staged hashes still verify them.
+pub(in crate::translation) fn notice_bytes(path: &str) -> Option<&'static [u8]> {
+    match path {
+        "LICENSE-APACHE-2.0.txt" => Some(include_bytes!("notices/LICENSE-APACHE-2.0.txt")),
+        "ATTRIBUTION.md" => Some(include_bytes!("notices/ATTRIBUTION.md")),
+        _ => None,
+    }
+}
+
 /// Verify every required local file; retain only the tokenizer snapshot, not the weights.
-/// A future runtime must separately verify the bytes it actually loads under a model-use lease.
+/// The runtime separately verifies the graph bytes it loads under a model-use lease.
 pub(super) fn tokenizer_snapshot(dir: &Path) -> Result<Vec<u8>, AdmissionError> {
     checked_snapshot(dir, FILES)
 }

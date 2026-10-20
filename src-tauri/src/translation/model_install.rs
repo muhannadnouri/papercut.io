@@ -54,7 +54,7 @@ pub(crate) async fn install_translation_model<R: Runtime>(
     .and_then(|inner| inner)
 }
 
-/// Remove one catalog model while preserving translations and segment caches.
+/// Remove one trusted model/auxiliary pack while preserving translations and segment caches.
 pub(crate) async fn remove_translation_model<R: Runtime>(
     app: tauri::AppHandle<R>,
     state: tauri::State<'_, TranslationState>,
@@ -112,7 +112,11 @@ fn install_model_blocking<R: Runtime>(
         &app,
         manifest,
         "starting",
-        "Preparing translation model download",
+        if manifest.is_auxiliary() {
+            "Preparing auxiliary alignment assets"
+        } else {
+            "Preparing translation model download"
+        },
         0,
     );
     let bytes = transaction::install(
@@ -130,7 +134,11 @@ fn install_model_blocking<R: Runtime>(
         &app,
         manifest,
         "installed",
-        "Translation model installed",
+        if manifest.is_auxiliary() {
+            "Auxiliary alignment assets installed"
+        } else {
+            "Translation model installed"
+        },
         manifest.total_bytes(),
     );
     Ok(TranslationModelInstallResponse {

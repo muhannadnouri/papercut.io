@@ -70,11 +70,49 @@ impl TranslationModelManifest {
             {
                 return Err("Invalid translation model file inventory".to_string());
             }
+            if let Some(bytes) = self.bundled_file(pin.path) {
+                use sha2::{Digest, Sha256};
+                if bytes.len() as u64 != pin.bytes
+                    || format!("{:x}", Sha256::digest(bytes)) != pin.sha256
+                {
+                    return Err("Bundled model notice failed verification".into());
+                }
+            }
             total
                 .checked_add(pin.bytes)
                 .ok_or_else(|| "Translation model size overflow".into())
         })?;
         Ok(())
+    }
+
+    /// Role comes from trusted compiled lookup, never a caller's path, URL or claimed engine name.
+    pub(crate) fn is_auxiliary(self) -> bool {
+        #[cfg(feature = "native-translation-alignment")]
+        {
+            super::alignment::assets::manifest_by_id(self.model_id).is_some()
+        }
+        #[cfg(not(feature = "native-translation-alignment"))]
+        {
+            false
+        }
+    }
+
+    /// Resolve bundled legal files only for the approved auxiliary key; native downloads stay unchanged.
+    pub(crate) fn bundled_file(self, path: &str) -> Option<&'static [u8]> {
+        #[cfg(feature = "native-translation-alignment")]
+        if self.is_auxiliary() {
+            return super::alignment::assets::notice_bytes(path);
+        }
+        let _ = path;
+        None
+    }
+
+    /// Auxiliary status includes all hashes and notices; ordinary native status remains inexpensive.
+    pub(crate) fn is_installed(self, dir: &Path) -> bool {
+        self.has_required_files(dir)
+            && (!self.is_auxiliary() || self.verify_files(dir).is_ok())
+            && (super::bergamot::assets::manifest_by_id(self.model_id).is_none()
+                || super::bergamot::assets::verify_install(dir, self).is_ok())
     }
 
     /// Stream hashes at install/repair admission; routine native status avoids hashing gigabytes.
@@ -92,8 +130,12 @@ impl TranslationModelManifest {
     }
 }
 
-/// Resolve only catalog-owned models, including the pinned worker asset sets.
+/// Resolve catalog models or the explicitly feature-gated auxiliary key, without altering engine choices.
 pub(crate) fn manifest_by_id(id: &str) -> Option<TranslationModelManifest> {
+    #[cfg(feature = "native-translation-alignment")]
+    if let Some(manifest) = super::alignment::assets::manifest_by_id(id) {
+        return Some(manifest);
+    }
     super::models::find_planned_model(id).map(manifest_for)
 }
 
@@ -188,10 +230,7 @@ pub(crate) fn resolve_translation_model_dir<R: Runtime>(
     manifest: TranslationModelManifest,
 ) -> Result<PathBuf, String> {
     let model_dir = installed_translation_model_dir(app, manifest)?;
-    if manifest.has_required_files(&model_dir)
-        && (super::bergamot::assets::manifest_by_id(manifest.model_id).is_none()
-            || super::bergamot::assets::verify_install(&model_dir, manifest).is_ok())
-    {
+    if manifest.is_installed(&model_dir) {
         return Ok(model_dir);
     }
 

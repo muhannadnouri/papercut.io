@@ -25,18 +25,20 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - The [Stage 3 asset/tokenizer slice](#stage-3-asset-and-raw-tokenizer-admission--2026-10-20)
   verifies local candidate files and connects real raw-tokenizer evidence to the
   contract behind a default-off internal feature. Its [admission review](#stage-3-admission-review--2026-10-20)
-  found no must-fix issue within this internal scope. It adds no downloads, model
-  selector entry, inference, automatic alignment or saved-document migration.
+  found no must-fix issue within this internal scope. That original slice added
+  no downloads, model selector entry, inference or saved-document migration.
 - A separate default-off [bounded ONNX session](#stage-3-bounded-onnx-session--2026-10-20)
   now loads verified graph bytes and returns checked CPU embeddings. It has no
-  application caller, word-link extraction, formatting projection or installer
-  entry; its [session review](#stage-3-bounded-session-review--2026-10-20) found
+  translation-job caller, word-link extraction or formatting projection;
+  its [session review](#stage-3-bounded-session-review--2026-10-20) found
   no must-fix issue within that internal scope. The candidate remains unavailable.
 - The [redistribution/installer evaluation](#stage-3-redistribution-and-installer-admission-evaluation--2026-10-20)
   found a published Apache-2.0 permission path. [Notice payloads and shared
   installer hardening](#stage-3-notice-payloads-and-shared-installer-hardening--2026-10-20)
-  are implemented; auxiliary resolver/notice delivery integration remains next.
-  No aligner download is enabled.
+  are implemented. [Trusted auxiliary admission](#stage-3-auxiliary-manifest-and-notice-delivery--2026-10-20)
+  now supports explicit install/status/remove behind the existing default-off
+  alignment feature. Shipping flags and translation engine choices are unchanged;
+  installing the auxiliary pack does not enable document alignment.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -217,9 +219,10 @@ or widening a span over unrelated prose.
 #### 3. Add verified assets and a bounded local alignment runtime
 
 **Status 2026-10-20:** local asset/raw-tokenizer admission and a bounded internal
-CPU session are implemented below. Installer integration, redistribution approval,
-document-job/two-model lifecycle and resource/platform qualification remain
-pending; this stage is not complete or accepted.
+CPU session and notice-complete auxiliary installer admission are implemented
+below. Document-job/two-model lifecycle, packaged notice/runtime qualification
+and resource/platform acceptance remain pending; this stage is not complete or
+accepted.
 
 **Tasks.** Extend the current installer/manifest with a distinct alignment asset
 role, not an item in the translation-engine selector. Pin weights, tokenizer,
@@ -1484,6 +1487,91 @@ admission. Keep it out of the translation engine catalog. Two-model application
 job ownership, cancellation/save integration and the semantic/resource/platform
 gates remain later work. Benchmarks, broader smoke and version bump remain
 deferred; no alignment candidate is enabled by this commit.
+
+## Stage 3 auxiliary manifest and notice delivery — 2026-10-20
+
+**Trusted auxiliary install/status/remove admission is now wired; translation
+alignment remains unavailable.** The existing default-off
+`native-translation-alignment` feature admits only
+`alignment-awesome-align-int8` through the current commands. Feature-off builds
+and unknown keys reject it. `models.rs`, capability model choices, native engine
+defaults, frontend, shipping scripts/CI flags and dependency versions are
+unchanged. Translation-start admission still requires the translation catalog,
+so this auxiliary key cannot be used as a translator.
+
+### Manifest and delivery boundary
+
+- `alignment/assets.rs` supplies the trusted manifest and bundled legal bytes.
+  Its installer inventory references the existing seven runtime pins and adds
+  `LICENSE-APACHE-2.0.txt` plus `ATTRIBUTION.md`: nine required files totaling
+  **153,652,432 bytes**. The repository/revision, source URLs, graph/tokenizer
+  hashes and runtime's `alignment-awesome-align-int8` lease key are unchanged.
+- The common manifest resolver checks the feature-gated auxiliary lookup before
+  the translation catalog. Role comes from this compiled lookup; callers cannot
+  supply a role, directory, URL, filename or notice body. No new manifest/file
+  source framework or IPC DTO was introduced.
+- The seven upstream files use the current pinned-revision HTTP downloader.
+  Both legal payloads are compiled into alignment-enabled builds and copied
+  locally during staging. They never reach network delivery. Inventory
+  validation verifies their exact compiled length/hash before I/O; the staged
+  and installed files are independently hashed with the rest of the pack.
+- The shared transaction's recovery, storage preflight, promotion, cleanup and
+  removal rules apply unchanged. Totals include legal files, and the notices
+  remain available offline beside the installed model. Native translation
+  manifests cannot accidentally resolve bundled alignment notices.
+- Auxiliary status verifies the full nine-file inventory, including same-sized
+  notice or graph corruption, before reporting installed. Its diagnostic says
+  asset verification is separate from translation/formatting readiness.
+  Install progress also identifies auxiliary assets. Native metadata-only and
+  Bergamot verified status behavior remain unchanged. This explicit auxiliary
+  status query hashes about 150 MB; no polling loop or selector entry was added.
+
+The standalone raw-tokenizer/runtime engineering probes still accept the
+original seven pinned files outside installed storage. That does not bypass
+nine-file command/status admission or grant document-formatting approval.
+The application two-model job path has not been connected in this slice.
+
+### Regression receipt
+
+- Synthetic transaction tests keep the real auxiliary identity/legal pins while
+  substituting a tiny generic graph. They verify first install, verified reuse,
+  bundled delivery without notice HTTP calls, accounting, same-sized graph and
+  notice corruption, missing notices, repair, removal and rejection of mismatched
+  compiled notice size/hash before preflight or download.
+- Catalog/resolver tests run with the feature off/on and prove the auxiliary key
+  never enters translation choices. Manifest tests check revision, all seven
+  reused runtime pins, nine-file totals and no bundled-notice lookup for native
+  models. Existing native/worker URL and lifecycle regressions remain intact.
+- A separate explicit external-pack test **passed** using the cached original
+  pinned files in a temporary mock-app data root. It exercises actual command
+  verified reuse, status, altered/missing notice rejection, install/remove
+  contention under the runtime lease key, removal and preservation of a nearby
+  synthetic document. It copies files locally and does not download weights;
+  HTTP proxy endpoints were set to an unavailable local endpoint during the run.
+  This is command/storage integration, not a WebView/device smoke test.
+
+Repeat the external test with the original pinned pack outside the repository:
+
+```sh
+PAPERCUT_ALIGNMENT_ASSETS_DIR=/path/to/pinned-alignment-pack \
+  cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib \
+  --no-default-features --features native-translation-alignment \
+  pinned_auxiliary_commands_verify_reuse_notices_and_remove_under_the_runtime_lease_key \
+  -- --ignored
+```
+
+Ordinary test runs leave it ignored and use no model downloads. Full Rust
+library suites passed **478 tests with features off** (four ignored), **490 with
+tokenizer/auxiliary admission** (six ignored) and **494 with the internal runtime
+feature** (eight ignored). The explicit external command test above passed
+separately. Formatting/diff checks passed; no new dependency, feature default,
+model-catalog pin, packaged build, CI or device qualification is included.
+
+**Next:** review auxiliary admission and notice delivery, then implement the
+application's two-model ownership/cancellation/save lifecycle. Exact-piece
+planning, word-link extraction/projection, mandatory auxiliary-scope success,
+held-out semantics and resource/platform qualification remain separate gates.
+Benchmarks, broader smoke and the app version bump remain deferred.
 
 ## Product Goals
 

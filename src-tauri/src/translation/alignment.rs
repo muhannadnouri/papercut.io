@@ -1,4 +1,4 @@
-//! Default-off tokenizer/asset admission for independent alignment. No inference or application caller.
+//! Default-off alignment assets/tokenizer and internal CPU session; no translation-job integration.
 use std::path::Path;
 
 use tokenizers::{NormalizedString, Normalizer, Tokenizer};
@@ -8,7 +8,7 @@ use super::inline_markup::provider::contract::{
 };
 use super::model_store::verified::AssetError;
 
-mod assets;
+pub(super) mod assets;
 #[cfg(feature = "native-translation-alignment-runtime")]
 pub(crate) mod runtime;
 

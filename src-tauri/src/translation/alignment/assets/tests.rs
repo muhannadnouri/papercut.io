@@ -3,7 +3,7 @@ use sha2::{Digest, Sha256};
 use std::fs;
 
 #[test]
-fn candidate_pins_are_bounded_unique_and_not_translation_or_installer_entries() {
+fn candidate_pins_are_bounded_unique_and_auxiliary_install_is_not_a_translation_entry() {
     assert_eq!(REPOSITORY, "cstr/awesome-align-onnx-int8");
     assert_eq!(REVISION.len(), 40);
     assert_eq!(FILES.len(), 7);
@@ -21,7 +21,6 @@ fn candidate_pins_are_bounded_unique_and_not_translation_or_installer_entries() 
             .sha256
     ));
     for id in [
-        MODEL_KEY,
         REPOSITORY,
         "cstr/awesome-align-onnx",
         "awesome-align-onnx-int8",
@@ -32,7 +31,8 @@ fn candidate_pins_are_bounded_unique_and_not_translation_or_installer_entries() 
 }
 
 #[test]
-fn prepared_notices_keep_canonical_license_and_artifact_attribution_without_admitting_downloads() {
+fn prepared_notices_keep_canonical_license_and_artifact_attribution_without_admitting_a_translation_engine(
+) {
     let license = include_bytes!("../notices/LICENSE-APACHE-2.0.txt");
     let attribution = include_bytes!("../notices/ATTRIBUTION.md");
     assert_eq!(license.len(), 11_358);
@@ -56,7 +56,25 @@ fn prepared_notices_keep_canonical_license_and_artifact_attribution_without_admi
     ] {
         assert!(text.contains(fact));
     }
-    assert!(crate::translation::model_store::manifest_by_id(MODEL_KEY).is_none());
+    let install = crate::translation::model_store::manifest_by_id(MODEL_KEY).unwrap();
+    assert!(install.is_auxiliary());
+    assert_eq!(install.files.len(), 9);
+    install.validate().unwrap();
+    assert_eq!(install.total_bytes(), 153_652_432);
+    assert_eq!(install.directory_name, MODEL_KEY);
+    assert_eq!(install.revision, REVISION);
+    assert!(install.source_url.contains(REVISION));
+    for (raw, pin) in FILES.iter().zip(install.files) {
+        assert_eq!(
+            (raw.path, raw.bytes, raw.sha256),
+            (pin.path, pin.bytes, pin.sha256)
+        );
+        assert!(install.bundled_file(pin.path).is_none());
+    }
+    let native =
+        crate::translation::model_store::manifest_by_id("opus-mt-es-en-ctranslate2").unwrap();
+    assert!(!native.is_auxiliary());
+    assert!(native.bundled_file("ATTRIBUTION.md").is_none());
     assert_eq!(FILES.len(), 7); // Notice preparation does not silently change runtime admission pins.
 }
 

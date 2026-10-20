@@ -59,7 +59,7 @@ pub(super) fn translation_capabilities() -> TranslationCapabilities {
     }
 }
 
-/// Return install status for one catalog model.
+/// Return install status for a catalog model or trusted auxiliary resource, never engine readiness.
 ///
 /// This bridges planning and runtime: non-downloadable catalog entries explain
 /// why they cannot run yet, while pinned manifests can report real disk state.
@@ -84,6 +84,7 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
     };
 
     let model = find_planned_model(&request.model_id);
+    let auxiliary = manifest.is_auxiliary();
     let installing = state.model_operation_active(manifest.directory_name);
     match resolve_translation_model_dir(app, manifest) {
         Ok(model_dir) => TranslationModelStatus {
@@ -96,7 +97,9 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
             archive_bytes: manifest.total_bytes(),
             installed_bytes: directory_size(&model_dir).unwrap_or(0),
             sha256: String::new(),
-            message: if model.is_some_and(|model| model.engine == "bergamot") {
+            message: if auxiliary {
+                "Auxiliary alignment assets and notices verified; translation and formatting readiness are separate checks".into()
+            } else if model.is_some_and(|model| model.engine == "bergamot") {
                 "Bergamot assets verified; worker readiness and document translation are separate checks".into()
             } else {
                 "Offline translation model installed".into()
@@ -114,7 +117,9 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
             archive_bytes: manifest.total_bytes(),
             installed_bytes: 0,
             sha256: String::new(),
-            message: if manifest.files.is_empty() {
+            message: if auxiliary {
+                "Auxiliary alignment assets are missing or failed verification; install or repair the pack. This does not enable a translation engine.".into()
+            } else if manifest.files.is_empty() {
                 format!("{NOT_IMPLEMENTED} This candidate is not downloadable until source URL, checksum, license, required files, and platform gates are reviewed.")
             } else if model.is_some_and(|model| model.engine_available()) {
                 "Translation model is installable. Install it before starting a translation job."

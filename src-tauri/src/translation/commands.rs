@@ -128,7 +128,7 @@ pub fn translation_capabilities() -> TranslationCapabilities {
     translation_capabilities_backend()
 }
 
-/// Return install status for a planned translation model.
+/// Return install status for a catalog model or feature-gated auxiliary pack.
 #[tauri::command]
 pub async fn translation_model_status<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
@@ -143,7 +143,7 @@ pub async fn translation_model_status<R: tauri::Runtime>(
     .map_err(|_| TranslationCommandError::new("Translation model status task failed".into()))
 }
 
-/// Download and verify a pinned translation model manifest.
+/// Install a trusted pinned model/auxiliary manifest, including verified bundled notices.
 #[tauri::command]
 pub async fn translation_install_model<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,

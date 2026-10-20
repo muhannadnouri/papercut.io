@@ -21,11 +21,20 @@ fn explicit_mozilla_urls_do_not_change_hugging_face_pins() {
 }
 
 #[test]
-fn auxiliary_and_unknown_ids_are_not_download_admission_or_engine_entries() {
-    for id in ["alignment-awesome-align-int8", "unknown-model"] {
-        assert!(crate::translation::model_store::manifest_by_id(id).is_none());
-        assert!(crate::translation::models::find_planned_model(id).is_none());
-    }
+fn auxiliary_install_admission_is_feature_gated_and_never_an_engine_entry() {
+    let id = "alignment-awesome-align-int8";
+    assert_eq!(
+        crate::translation::model_store::manifest_by_id(id).is_some(),
+        cfg!(feature = "native-translation-alignment")
+    );
+    assert!(crate::translation::models::find_planned_model(id).is_none());
+    assert!(crate::translation::model_store::manifest_by_id("unknown-model").is_none());
+    assert!(
+        !crate::translation::capabilities::translation_capabilities()
+            .models
+            .iter()
+            .any(|m| m.id == id)
+    );
 }
 
 #[cfg(feature = "native-translation")]
@@ -194,4 +203,106 @@ fn actual_downloader_verifies_bytes_and_rejects_oversize_before_writing() {
         drop(guard);
         assert!(!dir.exists());
     }
+}
+
+#[cfg(feature = "native-translation-alignment")]
+#[test]
+#[ignore = "requires external pinned alignment files; copies locally, never downloads weights"]
+fn pinned_auxiliary_commands_verify_reuse_notices_and_remove_under_the_runtime_lease_key() {
+    use super::*;
+    use crate::translation::{
+        capabilities::translation_model_status, commands, types::TranslationModelStatusRequest,
+    };
+    use tauri::Manager;
+    let source = std::env::var_os("PAPERCUT_ALIGNMENT_ASSETS_DIR")
+        .expect("Set PAPERCUT_ALIGNMENT_ASSETS_DIR");
+    let manifest = manifest_by_id("alignment-awesome-align-int8").unwrap();
+    let mut nonce = [0; 16];
+    getrandom::fill(&mut nonce).unwrap();
+    let root = std::env::temp_dir().join(format!("papercut-aux-commands-{nonce:x?}"));
+    fs::create_dir(&root).unwrap();
+    let _cleanup = WorkDirGuard::new(root.clone());
+    let mut context = tauri::test::mock_context(tauri::test::noop_assets());
+    // Mock-only absolute identifier redirects both resolver roots without global environment changes.
+    context.config_mut().identifier = root.to_string_lossy().into_owned();
+    let app = tauri::test::mock_builder()
+        .manage(TranslationState::default())
+        .build(context)
+        .unwrap();
+    assert_eq!(app.path().app_data_dir().unwrap(), root);
+    assert_eq!(app.path().app_cache_dir().unwrap(), root);
+    let state = app.state::<TranslationState>();
+    let status = || {
+        translation_model_status(
+            app.handle(),
+            &state,
+            TranslationModelStatusRequest {
+                model_id: manifest.model_id.into(),
+            },
+        )
+    };
+    assert!(!status().installed);
+    assert!(status().message.contains("Auxiliary alignment"));
+    let dir = installed_translation_model_dir(app.handle(), manifest).unwrap();
+    fs::create_dir_all(&dir).unwrap();
+    for pin in manifest.files {
+        if let Some(bytes) = manifest.bundled_file(pin.path) {
+            fs::write(dir.join(pin.path), bytes).unwrap();
+        } else {
+            fs::copy(Path::new(&source).join(pin.path), dir.join(pin.path)).unwrap();
+        }
+    }
+    assert!(status().installed);
+    assert!(status().message.contains("separate checks"));
+    assert_eq!(status().archive_bytes, 153_652_432);
+    let installed = tauri::async_runtime::block_on(commands::translation_install_model(
+        app.handle().clone(),
+        app.state(),
+        manifest.model_id.into(),
+    ))
+    .unwrap();
+    assert_eq!(installed.bytes, manifest.total_bytes()); // Verified reuse must not reach network delivery.
+    for name in ["LICENSE-APACHE-2.0.txt", "ATTRIBUTION.md"] {
+        let path = dir.join(name);
+        let original = fs::read(&path).unwrap();
+        let mut altered = original.clone();
+        altered[0] ^= 1;
+        fs::write(&path, &altered).unwrap();
+        assert!(!status().installed);
+        fs::write(&path, &original).unwrap();
+        fs::remove_file(&path).unwrap();
+        assert!(!status().installed);
+        fs::write(&path, &original).unwrap();
+    }
+    let lease = state.claim_model_read(manifest.directory_name).unwrap();
+    assert!(
+        tauri::async_runtime::block_on(commands::translation_install_model(
+            app.handle().clone(),
+            app.state(),
+            manifest.model_id.into()
+        ))
+        .is_err()
+    );
+    assert!(
+        tauri::async_runtime::block_on(commands::translation_remove_model(
+            app.handle().clone(),
+            app.state(),
+            manifest.model_id.into()
+        ))
+        .is_err()
+    );
+    assert!(status().installed);
+    drop(lease);
+    let sentinel = root.join("preserved-document.html");
+    fs::write(&sentinel, b"unchanged").unwrap();
+    let removed = tauri::async_runtime::block_on(commands::translation_remove_model(
+        app.handle().clone(),
+        app.state(),
+        manifest.model_id.into(),
+    ))
+    .unwrap();
+    assert!(removed.removed);
+    assert_eq!(removed.bytes_freed, manifest.total_bytes());
+    assert!(!status().installed);
+    assert_eq!(fs::read(sentinel).unwrap(), b"unchanged");
 }

@@ -334,3 +334,102 @@ fn symlinked_files_and_owned_roots_never_follow_or_delete_outside_data() {
     assert_eq!(install_ok(&paths), 6);
     assert_eq!(fs::read(outside.join("LICENSE.txt")).unwrap(), b"abc");
 }
+
+#[cfg(feature = "native-translation-alignment")]
+#[test]
+fn auxiliary_notices_are_bundled_verified_repaired_and_accounted_without_network_delivery() {
+    use crate::translation::model_store::manifest_by_id;
+    let approved = manifest_by_id("alignment-awesome-align-int8").unwrap();
+    // Keep the real identity/legal pins; substitute only the large model with a tiny synthetic graph.
+    let files = Box::leak(
+        vec![
+            TranslationModelFile {
+                path: "model.onnx",
+                ..FILES[0]
+            },
+            approved.files[7],
+            approved.files[8],
+        ]
+        .into_boxed_slice(),
+    );
+    let manifest = TranslationModelManifest { files, ..approved };
+    let (root, _) = fixture();
+    let paths = Paths::new(root.0.join(manifest.directory_name)).unwrap();
+    let run = || {
+        let mut fetched = 0;
+        let result = install(
+            &paths,
+            manifest,
+            |pin, p, total| {
+                assert_eq!(
+                    pin.path, "model.onnx",
+                    "notices must not reach network delivery"
+                );
+                fetched += 1;
+                fs::write(p, b"abc").unwrap();
+                *total += 3;
+                Ok(())
+            },
+            |_, n| {
+                assert_eq!(n, 13_596);
+                Ok(())
+            },
+            |a, b| fs::rename(a, b),
+        )
+        .unwrap();
+        assert_eq!(result, manifest.total_bytes());
+        fetched
+    };
+    assert_eq!(run(), 1);
+    assert!(manifest.is_installed(&paths.final_dir));
+    assert_eq!(run(), 0);
+    fs::write(paths.final_dir.join("model.onnx"), b"abd").unwrap();
+    assert!(!manifest.is_installed(&paths.final_dir));
+    assert_eq!(run(), 1);
+    for name in ["LICENSE-APACHE-2.0.txt", "ATTRIBUTION.md"] {
+        let path = paths.final_dir.join(name);
+        assert_eq!(
+            fs::read(&path).unwrap(),
+            manifest.bundled_file(name).unwrap()
+        );
+        let mut changed = fs::read(&path).unwrap();
+        changed[0] ^= 1;
+        fs::write(&path, changed).unwrap();
+        assert!(
+            !manifest.is_installed(&paths.final_dir),
+            "same-sized notice tampering must fail status"
+        );
+        assert_eq!(run(), 1);
+        assert!(manifest.is_installed(&paths.final_dir));
+        fs::remove_file(&path).unwrap();
+        assert!(!manifest.is_installed(&paths.final_dir));
+        assert_eq!(run(), 1);
+    }
+    // Compiled bytes must match inventory pins before even preflight or graph downloads.
+    for pin in [
+        TranslationModelFile {
+            bytes: 2234,
+            ..approved.files[8]
+        },
+        TranslationModelFile {
+            sha256: FILES[0].sha256,
+            ..approved.files[8]
+        },
+    ] {
+        let bad = Box::leak(vec![pin].into_boxed_slice());
+        assert!(install(
+            &paths,
+            TranslationModelManifest {
+                files: bad,
+                ..approved
+            },
+            |_, _, _| panic!("bad notice downloaded"),
+            |_, _| panic!("bad notice preflight"),
+            |a, b| fs::rename(a, b)
+        )
+        .is_err());
+    }
+    assert!(manifest.is_installed(&paths.final_dir));
+    assert_eq!(paths.remove().unwrap(), (true, manifest.total_bytes()));
+    assert!(!manifest.is_installed(&paths.final_dir));
+}

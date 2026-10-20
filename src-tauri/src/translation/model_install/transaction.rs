@@ -134,7 +134,14 @@ pub(super) fn install(
     let _cleanup = WorkDirGuard::new(paths.staging.clone());
     let mut total = 0;
     for file in manifest.files {
-        download(file, &paths.staging.join(file.path), &mut total)?;
+        let target = paths.staging.join(file.path);
+        if let Some(bytes) = manifest.bundled_file(file.path) {
+            // validate() checked the compiled bytes; verify_files() checks the resulting disk snapshot.
+            fs::write(&target, bytes).map_err(|e| format!("Could not stage model notice: {e}"))?;
+            total += bytes.len() as u64;
+        } else {
+            download(file, &target, &mut total)?;
+        }
     }
     manifest.verify_files(&paths.staging)?;
     for file in manifest.files {
