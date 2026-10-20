@@ -1926,7 +1926,9 @@ numeric and held-out semantic gates remain unmet.
 A second explicit regression uses both pinned CTranslate2 packs, their actual
 strict generated targets (`A Book`/`A book` on these minimal French/Spanish
 inputs), the real alignment tokenizer/graph and the shared projection path.
-Both map the book word to scalars `2..6`; cancellation rejects a late projection.
+Both map the book word to scalars `2..6`; this native test also checks an
+already-cancelled call. It does not exercise late cancellation; the deterministic
+regressions in the follow-up below cover that boundary separately.
 These are correctness checks, not quality/performance benchmarks or app smoke.
 Ordinary tests download no weights. External probes/tensor dumps remain in
 `/tmp`, with no private article, sample-derived fixture or custom build script
@@ -1962,6 +1964,47 @@ while keeping the unresolved cases explicit. Do not enable public strict
 formatting or build release integration around an assumed semantic pass.
 Mandatory positive scope, held-out/numeric acceptance, runtime notices and
 packaged resource/platform qualification still block enablement.
+
+### Stage 5 late-cancellation regression follow-up — 2026-10-20
+
+The Stage 5 review found that the native cancellation test cancelled before
+projection began. It could not catch removal of the post-work guards. This
+follow-up corrects that evidence claim and tests the actual late boundaries.
+
+The existing typed cancellation check now passes through the shared
+`Translation::project` path. It checks before work, between units and after final
+hierarchy validation, before constructing the completed projection. The native
+adapter supplies its existing `Cancellation` handle to this same path; there is
+no separate test implementation, timer, thread-local hook or new cancellation
+service. Extractor arithmetic, token admission, policies and native sessions
+remain unchanged.
+
+Four deterministic ordinary regressions use synthetic text and the same valid
+tokenizer/embedding fixtures as the successful controls:
+
+- Cancel after the first extraction row and return no partial word links.
+- Cancel after every row and the softmax intersection, discarding completed links.
+- Cancel after one successful pair and verify the next pair is never aligned.
+- Cancel as the final pair returns valid links, then discard the projection after
+  all ranges and the authored identity have been assembled and validated. The
+  same input succeeds without cancellation and retains one enclosing identity.
+
+These tests need no weights or shared runtime. The existing explicit native
+tests still verify the adapter wiring and real French/Spanish output separately.
+Removing each corresponding row, extraction-final, between-unit and
+projection-final guard in isolation made its new regression fail. All guards
+were restored before final validation; the temporary mutation driver/logs live
+only in `/tmp`, not repository tooling.
+
+Final full Rust suites passed **505 tests with features off** (four ignored),
+**532 with the alignment runtime** (ten ignored), and **531 with CTranslate2
+plus alignment runtime** (twelve ignored). The two explicit cached native tests
+passed separately with unavailable network proxies. Formatting, diff and guard
+restoration checks passed. No fresh CI or packaged/device acceptance ran.
+
+Known unresolved scopes, attachment admission, public capability gates, caches,
+saved documents, runtime/model versions and shipping flags remain unchanged.
+Benchmarks, smoke and the version bump remain deferred.
 
 ## Product Goals
 

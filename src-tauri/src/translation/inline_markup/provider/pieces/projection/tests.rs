@@ -9,6 +9,7 @@ use crate::translation::{
         },
     },
 };
+use std::cell::Cell;
 
 struct Translator {
     limit: usize,
@@ -70,11 +71,11 @@ fn both_test_providers_produce_the_same_mapping_without_engine_specific_hints() 
     let translated = plan
         .translate(&mut Translator { limit: 10 }, |_, _| Ok(true), || false)
         .unwrap();
-    let a = translated.project(align, None).unwrap();
+    let a = translated.project(align, None, || Ok(())).unwrap();
     let translated_b = plan
         .translate(&mut ProviderB, |_, _| Ok(true), || false)
         .unwrap();
-    let b = translated_b.project(align, None).unwrap();
+    let b = translated_b.project(align, None, || Ok(())).unwrap();
     assert_eq!(a.nodes(), b.nodes());
     assert!(std::ptr::eq(a.translation, &translated));
     assert_eq!(a.nodes()[0].targets, [3..8]);
@@ -100,6 +101,7 @@ fn actual_subdivisions_and_copied_literal_whitespace_keep_one_authored_identity(
                 align(s, t)
             },
             None,
+            || Ok(()),
         )
         .unwrap();
     assert!(calls > 1);
@@ -130,6 +132,7 @@ fn known_scope_blockers_and_zero_width_attachments_fail_without_inference() {
             .project::<Rejection>(
                 |_, _| panic!("known unresolved must not infer"),
                 Some(issue),
+                || Ok(()),
             )
             .err();
         assert_eq!(error, Some(Rejection::Unresolved(issue)));
@@ -140,7 +143,7 @@ fn known_scope_blockers_and_zero_width_attachments_fail_without_inference() {
         .unwrap();
     assert_eq!(
         translated
-            .project::<Rejection>(|_, _| panic!("attachments remain Stage 6"), None)
+            .project::<Rejection>(|_, _| panic!("attachments remain Stage 6"), None, || Ok(()))
             .err(),
         Some(Rejection::AttachmentRequiresEvidence)
     );
@@ -163,7 +166,8 @@ fn stale_pairs_changed_literal_and_partial_failures_never_return_a_completed_map
                     }
                     align(s, t)
                 },
-                None
+                None,
+                || Ok(()),
             )
             .err(),
         Some(Rejection::UnresolvedSource)
@@ -171,13 +175,13 @@ fn stale_pairs_changed_literal_and_partial_failures_never_return_a_completed_map
     assert_eq!(calls, 2);
     assert_eq!(
         translated
-            .project(|_, _| align("stale", "STALE"), None)
+            .project(|_, _| align("stale", "STALE"), None, || Ok(()))
             .err(),
         Some(Rejection::Binding)
     );
     translated.targets[0].end = usize::MAX;
     assert_eq!(
-        translated.project(align, None).err(),
+        translated.project(align, None, || Ok(())).err(),
         Some(Rejection::Binding)
     );
 
@@ -187,7 +191,95 @@ fn stale_pairs_changed_literal_and_partial_failures_never_return_a_completed_map
         .unwrap();
     translated.text = "public".into();
     assert_eq!(
-        translated.project(align, None).err(),
+        translated.project(align, None, || Ok(())).err(),
         Some(Rejection::Binding)
     );
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum CancelError {
+    Mapping(Rejection),
+    Cancelled,
+}
+impl From<Rejection> for CancelError {
+    fn from(error: Rejection) -> Self {
+        Self::Mapping(error)
+    }
+}
+
+#[test]
+fn late_cancellation_between_pairs_stops_before_aligning_the_next_pair() {
+    let plan = plan("<p><span id='one'>Un deux; Trois quatre.</span></p>", 2);
+    let translated = plan
+        .translate(&mut Translator { limit: 2 }, |_, _| Ok(true), || false)
+        .unwrap();
+    let cancelled = Cell::new(false);
+    let calls = Cell::new(0);
+    let result = translated.project(
+        |s, t| {
+            calls.set(calls.get() + 1);
+            let links = align(s, t)?;
+            cancelled.set(true); // The first successful pair completes before cancellation arrives.
+            Ok::<_, CancelError>(links)
+        },
+        None,
+        || {
+            if cancelled.get() {
+                Err(CancelError::Cancelled)
+            } else {
+                Ok(())
+            }
+        },
+    );
+    assert_eq!(result.err(), Some(CancelError::Cancelled));
+    assert_eq!(calls.get(), 1);
+    assert!(
+        plan.units()
+            .iter()
+            .filter(|u| u.kind == Kind::Prose)
+            .count()
+            > 1
+    );
+}
+
+#[test]
+fn late_cancellation_after_final_pair_discards_the_assembled_projection() {
+    let plan = plan("<p><span id='one'>Un deux; Trois quatre.</span></p>", 2);
+    let translated = plan
+        .translate(&mut Translator { limit: 2 }, |_, _| Ok(true), || false)
+        .unwrap();
+    let pairs = plan
+        .units()
+        .iter()
+        .filter(|u| u.kind == Kind::Prose)
+        .count();
+    assert_eq!(plan.units().last().unwrap().kind, Kind::Prose);
+    // Prove this exact input, all pairs and the final authored-identity assembly succeed without cancellation.
+    let control = translated.project(align, None, || Ok(())).unwrap();
+    assert_eq!(
+        control.nodes()[0].targets,
+        [0..translated.text.chars().count()]
+    );
+    let cancelled = Cell::new(false);
+    let calls = Cell::new(0);
+    let result = translated.project(
+        |s, t| {
+            let links = align(s, t)?;
+            calls.set(calls.get() + 1);
+            if calls.get() == pairs {
+                cancelled.set(true);
+            }
+            Ok::<_, CancelError>(links)
+        },
+        None,
+        || {
+            if cancelled.get() {
+                Err(CancelError::Cancelled)
+            } else {
+                Ok(())
+            }
+        },
+    );
+    assert_eq!(calls.get(), pairs); // All pairs returned valid links; there is no next piece to catch cancellation.
+    assert_eq!(result.err(), Some(CancelError::Cancelled));
 }

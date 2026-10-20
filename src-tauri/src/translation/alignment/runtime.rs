@@ -140,8 +140,7 @@ impl AlignmentSession {
         cancellation: &Cancellation,
         unresolved: Option<ScopeIssue>,
     ) -> Result<Projection<'a, 'p>, SessionError> {
-        cancellation.check()?;
-        let result = translation.project(
+        translation.project(
             |source, target| {
                 let embeddings = self.infer_pair(source, target, cancellation)?;
                 super::extract::word_links(&embeddings, &self.tokenizer.rules(), || {
@@ -149,9 +148,8 @@ impl AlignmentSession {
                 })
             },
             unresolved,
-        )?;
-        cancellation.check()?;
-        Ok(result)
+            || cancellation.check(),
+        )
     }
     /// Reuse the session's verified tokenizer for Stage 4 admission without running or duplicating the graph.
     pub(crate) fn text_fits(&self, text: &str, side: Side) -> Result<bool, SessionError> {

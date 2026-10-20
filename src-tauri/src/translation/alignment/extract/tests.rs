@@ -57,6 +57,22 @@ fn dense_malformed_and_nonfinite_matrices_have_bounded_failure() {
 #[test]
 fn actual_raw_tokenizer_word_ids_exclude_frames_and_merge_combining_subwords() {
     let tokenizer = synthetic();
+    let pair = synthetic_pair(&tokenizer);
+    let links = word_links(&pair, &tokenizer.rules(), || false).unwrap();
+    assert_eq!(links.links(), [(0, 1), (1, 0)]);
+    assert_eq!(
+        word_links(&pair, &tokenizer.rules(), || true).err(),
+        Some(SessionError::Cancelled)
+    );
+    let mut bad = pair;
+    bad.target.values.pop();
+    assert!(word_links(&bad, &tokenizer.rules(), || false).is_err());
+    bad.source.values[WIDTH] = f32::NAN;
+    assert!(word_links(&bad, &tokenizer.rules(), || false).is_err());
+}
+
+/// The same valid raw-tokenizer pair exercises successful extraction and cancellation checkpoints.
+fn synthetic_pair(tokenizer: &super::super::CandidateTokenizer) -> PairEmbeddings<'static> {
     let source = tokenizer.encode("café book", Side::Source).unwrap();
     let target = tokenizer.encode("book café", Side::Target).unwrap();
     fn embed(encoding: super::super::EncodedText<'_>, reverse: bool) -> Embedding<'_> {
@@ -70,21 +86,39 @@ fn actual_raw_tokenizer_word_ids_exclude_frames_and_merge_combining_subwords() {
         }
         Embedding { encoding, values }
     }
-    let pair = PairEmbeddings {
+    PairEmbeddings {
         source: embed(source, false),
         target: embed(target, true),
-    };
-    let links = word_links(&pair, &tokenizer.rules(), || false).unwrap();
-    assert_eq!(links.links(), [(0, 1), (1, 0)]);
-    assert_eq!(
-        word_links(&pair, &tokenizer.rules(), || true).err(),
-        Some(SessionError::Cancelled)
-    );
-    let mut bad = pair;
-    bad.target.values.pop();
-    assert!(word_links(&bad, &tokenizer.rules(), || false).is_err());
-    bad.source.values[WIDTH] = f32::NAN;
-    assert!(word_links(&bad, &tokenizer.rules(), || false).is_err());
+    }
+}
+
+#[test]
+fn late_cancellation_during_extraction_discards_partial_scores() {
+    use std::cell::Cell;
+    let tokenizer = synthetic();
+    let pair = synthetic_pair(&tokenizer);
+    let checks = Cell::new(0);
+    let result = word_links(&pair, &tokenizer.rules(), || {
+        checks.set(checks.get() + 1);
+        checks.get() == 2 // The first row completed; the next row must observe cancellation.
+    });
+    assert_eq!(result.err(), Some(SessionError::Cancelled));
+    assert_eq!(checks.get(), 2);
+}
+
+#[test]
+fn late_cancellation_after_extraction_discards_completed_links() {
+    use std::cell::Cell;
+    let tokenizer = synthetic();
+    let pair = synthetic_pair(&tokenizer);
+    let rows = pair.source.encoding.evidence().tokens.len() - 2;
+    let checks = Cell::new(0);
+    let result = word_links(&pair, &tokenizer.rules(), || {
+        checks.set(checks.get() + 1);
+        checks.get() == rows + 1 // Every row and the softmax intersection finished before this checkpoint.
+    });
+    assert_eq!(result.err(), Some(SessionError::Cancelled));
+    assert_eq!(checks.get(), rows + 1);
 }
 
 #[test]

@@ -28,7 +28,9 @@ impl<'p> Translation<'p> {
         &self,
         mut align: impl for<'b> FnMut(&'b str, &'b str) -> Result<WordLinks<'b>, E>,
         unresolved: Option<ScopeIssue>,
+        check_cancelled: impl Fn() -> Result<(), E>,
     ) -> Result<Projection<'_, 'p>, E> {
+        check_cancelled()?;
         if let Some(issue) = unresolved {
             return Err(Rejection::Unresolved(issue).into());
         }
@@ -51,6 +53,7 @@ impl<'p> Translation<'p> {
             .collect::<Vec<_>>();
         let mut previous = 0;
         for (unit, target) in self.plan.units.iter().zip(&self.targets) {
+            check_cancelled()?;
             if target.start != previous || target.start > target.end || target.end >= tb.len() {
                 return Err(Rejection::Binding.into());
             }
@@ -115,6 +118,8 @@ impl<'p> Translation<'p> {
             return Err(Rejection::Binding.into());
         }
         check_projected_nodes(&self.plan.protected, &self.text, &nodes)?;
+        // Discard cancellation accepted during the last pair or final hierarchy assembly before returning any map.
+        check_cancelled()?;
         Ok(Projection {
             translation: self,
             nodes,
