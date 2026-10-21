@@ -23,6 +23,8 @@
       "translationInProgress": "Translation in Progress",
       "translationFailed": "Translation Failed",
       "translationCompleteMessage": "The translated document is ready.",
+      "translationNeedsReview": "Saved — Formatting Needs Review",
+      "translationNeedsReviewMessage": "The translation was saved. Passages with uncertain formatting retain the formatted original beside the translation for review.",
       "dismissTranslation": "Dismiss translation status",
       "modelInstalled": "Model Installed",
       "modelInstall": "Model Installation",
@@ -95,7 +97,7 @@
       "engineUnavailable": "This translation engine is not compiled in this build.",
       "webviewUnavailable": "Bergamot needs a secure WebView with workers, WebCrypto and WebAssembly SIMD. It is unavailable in this WebView.",
       "bergamotNote": "Experimental: preserves protected HTML markup. Keep Papercut in the foreground; backgrounding stops the job. Device quality and memory use are not yet validated.",
-      "ctranslate2BoundaryNote": "Formatting is preserved by translating fragments separately. Sentences with mixed formatting may read less naturally. No extra formatting pack is needed."
+      "ctranslate2BoundaryNote": "Translates whole sentences. Where formatting cannot be mapped reliably, the formatted original is kept beside the translation for review. No extra formatting pack is needed."
     },
     "documents": {
       "ariaLabel": "Translated documents",

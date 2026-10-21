@@ -76,6 +76,7 @@ impl TranslationEngine for Engine {
             .segments
             .into_iter()
             .map(|s| TranslationSegmentOutput {
+                needs_review: false,
                 id: s.id,
                 source_text: s.text.clone(),
                 text: format!("Translated {}", s.text),

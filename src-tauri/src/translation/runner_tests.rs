@@ -130,6 +130,7 @@ fn worker(
                                 outputs: segments
                                     .into_iter()
                                     .map(|s| TranslationSegmentOutput {
+                                        needs_review: false,
                                         markup: None,
                                         id: s.id,
                                         text: match s.text.as_str() {
@@ -318,6 +319,7 @@ fn inline_probes_use_bounded_requests_and_resume_without_more_inference() {
                 .segments
                 .into_iter()
                 .map(|s| TranslationSegmentOutput {
+                    needs_review: false,
                     markup: None,
                     id: s.id,
                     source_text: s.text.clone(),
@@ -535,7 +537,7 @@ fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_m
                             else if s.id == "b2:s0" { "<span data-pc='0'>The</span> blue <span data-pc='0'>dog</span>." }
                             else if matches!(mode, ReplyMode::MissingCode) { "Keep a private identifier and the number." }
                             else { "<span data-pc='2' translate='no'></span>Keep <span data-pc='0' translate='no'>PC0</span> and <span data-pc='1' translate='no'>PC1</span><span data-pc='3' translate='no'></span>." }).to_string() };
-                        TranslationSegmentOutput { id: s.id, source_text: s.text, text: target.into(), markup: None }
+                        TranslationSegmentOutput { needs_review: false, id: s.id, source_text: s.text, text: target.into(), markup: None }
                     }).collect();
                     WorkerReply::Result { attempt_id, batch_id, outputs }
                 },
@@ -767,6 +769,7 @@ fn segmented_worker_document_keeps_nested_markup_assets_quote_notes_and_cache_re
                                             s.text.clone()
                                         };
                                         TranslationSegmentOutput {
+                                            needs_review: false,
                                             id: s.id,
                                             source_text: s.text,
                                             text,
@@ -921,7 +924,7 @@ fn compact_ids_and_reverse_quote_notes_save_and_resume_without_identity_loss() {
                         let outputs = segments.into_iter().map(|s| {
                             assert!(s.html);
                             assert!(s.text.contains("Bonjour. Merci."));
-                            TranslationSegmentOutput { id:s.id, source_text:s.text, text:"<span data-pc='0'>Hello. Thanks.</span> “Hi”.<span data-pc='1' translate='no'></span>".into(), markup:None }
+                            TranslationSegmentOutput { needs_review: false, id:s.id, source_text:s.text, text:"<span data-pc='0'>Hello. Thanks.</span> “Hi”.<span data-pc='1' translate='no'></span>".into(), markup:None }
                         }).collect();
                         WorkerReply::Result { attempt_id, batch_id, outputs }
                     }

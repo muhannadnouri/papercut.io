@@ -54,6 +54,7 @@ fn result(id: &str, batch: u32, source: &str) -> WorkerReply {
         attempt_id: id.into(),
         batch_id: batch,
         outputs: vec![TranslationSegmentOutput {
+            needs_review: false,
             markup: None,
             id: "b0:s0".into(),
             source_text: source.into(),
@@ -376,6 +377,7 @@ fn protected_worker_transports_only_opaque_codes_and_rebinds_source_after_valida
                 attempt_id,
                 batch_id,
                 outputs: vec![TranslationSegmentOutput {
+                    needs_review: false,
                     id: segments[0].id.clone(),
                     source_text: segments[0].text.clone(),
                     text: target.into(),

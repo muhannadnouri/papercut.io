@@ -39,6 +39,7 @@ pub(crate) fn sanitize_html(html: &str) -> String {
             "id",
             "name",
             "data-papercut-section",
+            "data-papercut-translation-review",
             "role",
             "epub:type",
             "translate",
@@ -95,6 +96,10 @@ fn filter_reader_attribute<'a>(
 ) -> Option<Cow<'a, str>> {
     match (element, attribute) {
         (_, "translate") => valid_translate(value).map(Cow::Borrowed),
+        (_, "data-papercut-translation-review") if matches!(value, "original" | "label") => {
+            Some(Cow::Borrowed(value))
+        }
+        (_, "data-papercut-translation-review") => None,
         (_, "role" | "epub:type") => {
             super::super::search_content::safe_role(attribute, value).map(Cow::Owned)
         }
@@ -333,6 +338,33 @@ pub(crate) fn normalize_text(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_known_translation_review_markers_survive_resanitization() {
+        let safe = sanitize_html("<p data-papercut-translation-review='original'>Source</p><p data-papercut-translation-review='label'>Original</p><p data-papercut-translation-review='translation' onclick='alert(1)'>Target</p>");
+        let document = parse_html().one(sanitize_html(&safe)).document_node;
+        assert_eq!(
+            document
+                .select("[data-papercut-translation-review='original']")
+                .unwrap()
+                .count(),
+            1
+        );
+        assert_eq!(
+            document
+                .select("[data-papercut-translation-review='label']")
+                .unwrap()
+                .count(),
+            1
+        );
+        assert_eq!(
+            document
+                .select("[data-papercut-translation-review='translation'], [onclick]")
+                .unwrap()
+                .count(),
+            0
+        );
+    }
 
     #[test]
     fn protection_and_marker_metadata_survive_without_active_attributes() {

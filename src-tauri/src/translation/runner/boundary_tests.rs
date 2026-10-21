@@ -43,7 +43,7 @@ fn dense_boundary_markup_saves_after_partial_resume_then_reuses_the_complete_cac
         for language in ["fr", "es"] {
             let (dir, app, mut source, old) = document_tests::fixture();
             let dense = (0..48)
-                .map(|i| format!("before <strong id='s{i}'><em>term</em></strong> after. "))
+                .map(|i| format!("Before <strong id='s{i}'><em>term</em></strong> after. "))
                 .collect::<String>();
             source.format = format.into();
             source.view_html = format!("<html><body><p><span id='whole'><a id='ref' role='doc-noteref' href='#note'>1</a>{dense}</span></p><p>Merci.</p><p id='note' translate='no'>Note.</p></body></html>");
@@ -86,7 +86,8 @@ fn dense_boundary_markup_saves_after_partial_resume_then_reuses_the_complete_cac
                 Instant::now()
             )
             .is_err());
-            assert!(engine.seen.len() > 64 && engine.seen.len() <= 129);
+            assert_eq!(engine.seen.len(), 49);
+            assert_eq!(engine.seen[0], "Before term after.");
             let cache = load_segment_cache(app.handle(), &plan).unwrap();
             assert_eq!(
                 cache
@@ -117,6 +118,7 @@ fn dense_boundary_markup_saves_after_partial_resume_then_reuses_the_complete_cac
             assert_eq!(engine.seen, ["Merci."]);
             let variants = super::super::storage::list_translated_documents(app.handle()).unwrap();
             assert_eq!(variants.len(), 1);
+            assert_eq!(variants[0].status, "needs-review");
             let saved =
                 load_translation_source_document(app.handle(), &variants[0].document_url).unwrap();
             assert_eq!(saved.blocks[0].text, source.blocks[0].text.to_uppercase());
@@ -146,7 +148,7 @@ fn dense_boundary_markup_saves_after_partial_resume_then_reuses_the_complete_cac
                         .select_first(&format!("strong#s{i} > em"))
                         .unwrap()
                         .text_contents(),
-                    "TERM"
+                    "term"
                 );
             }
             let before = document_tests::snapshot(&dir.0);
@@ -221,7 +223,7 @@ fn html_epub_boundary_jobs_admit_whole_batches_resume_and_preserve_legacy_assets
             let mut engine = Engine {
                 state: state.clone(),
                 seen: vec![],
-                fail_on: Some("encore".into()),
+                fail_on: Some("Merci encore.".into()),
                 cancel_in_call: false,
                 cancel_before_save: false,
             };
@@ -272,6 +274,7 @@ fn html_epub_boundary_jobs_admit_whole_batches_resume_and_preserve_legacy_assets
             let mut missing = summary.sections.clone();
             for f in missing.iter_mut().flat_map(|s| &mut s.fragments) {
                 f.markup = None;
+                f.needs_review = false;
             }
             assert!(persist_translated_document(
                 app.handle(),
@@ -291,7 +294,7 @@ fn html_epub_boundary_jobs_admit_whole_batches_resume_and_preserve_legacy_assets
             std::fs::write(&timing, b"existing highlighting").unwrap();
             let legacy_html = document_tests::snapshot(&dir.0);
             let calls = engine.seen.len();
-            finish_translation(
+            let response = finish_translation(
                 app.handle(),
                 &state,
                 &mut engine,
@@ -301,6 +304,7 @@ fn html_epub_boundary_jobs_admit_whole_batches_resume_and_preserve_legacy_assets
                 Instant::now(),
             )
             .unwrap();
+            assert_eq!(response.status, "needs-review");
             assert_eq!(calls, engine.seen.len());
             assert!(engine
                 .seen
@@ -309,6 +313,7 @@ fn html_epub_boundary_jobs_admit_whole_batches_resume_and_preserve_legacy_assets
             let variants = super::super::storage::list_translated_documents(app.handle()).unwrap();
             assert_eq!(variants.len(), 2);
             let variant = variants.iter().find(|v| v.id != legacy.id).unwrap();
+            assert_eq!(variant.status, "needs-review");
             let saved =
                 load_translation_source_document(app.handle(), &variant.document_url).unwrap();
             let dom = DomPlan::new(&saved.view_html);
@@ -317,7 +322,7 @@ fn html_epub_boundary_jobs_admit_whole_batches_resume_and_preserve_legacy_assets
                     .select_first("strong#s > em")
                     .unwrap()
                     .text_contents(),
-                "ÉTÉ"
+                "été"
             );
             assert!(dom.document.select_first("strong#s > img").is_ok());
             assert!(dom
@@ -405,7 +410,7 @@ fn late_native_cancellation_commits_neither_partial_batch_nor_variant() {
 
 /// Retired whole-fragment caches must not resume into sentence-first jobs; only complete batches checkpoint.
 #[test]
-fn sentence_cache_policy_retires_v1_v2_and_resumes_only_complete_sentence_batches() {
+fn sentence_cache_policy_retires_fragment_policies_and_resumes_review_batches() {
     use crate::translation::{hash::StableHasher, inline_markup::protected::ProtectedSource};
     for format in ["html", "epub"] {
         for (language, retired_policy) in [
@@ -413,6 +418,8 @@ fn sentence_cache_policy_retires_v1_v2_and_resumes_only_complete_sentence_batche
             ("es", "ctranslate2-source-boundaries-v1"),
             ("fr", "ctranslate2-source-boundaries-v2"),
             ("es", "ctranslate2-source-boundaries-v2"),
+            ("fr", "ctranslate2-source-boundaries-v3"),
+            ("es", "ctranslate2-source-boundaries-v3"),
         ] {
             let (_dir, app, mut source, old) = document_tests::fixture();
             source.format = format.into();
@@ -461,7 +468,7 @@ fn sentence_cache_policy_retires_v1_v2_and_resumes_only_complete_sentence_batche
             retired_plan.cache_key = key.finish_hex();
             assert_ne!(retired_plan.cache_key, plan.cache_key);
             let mut retired_cache = load_segment_cache(app.handle(), &retired_plan).unwrap();
-            retired_cache.store_mapped_output(segment, &mapping, &TranslationSegmentOutput {
+            retired_cache.store_mapped_output(segment, &mapping, &TranslationSegmentOutput { needs_review: false,
                 id: segment.id.clone(), source_text: segment.text.clone(),
                 text: "\"OLD\" - I'm sorry, I'm sorry.".into(),
                 markup: Some("&quot;<span data-pc='0'>OLD</span>&quot; - I&apos;m sorry, I&apos;m sorry.".into())
@@ -472,7 +479,7 @@ fn sentence_cache_policy_retires_v1_v2_and_resumes_only_complete_sentence_batche
             let mut engine = Engine {
                 state: state.clone(),
                 seen: vec![],
-                fail_on: Some("Demain.".into()),
+                fail_on: Some("Demain. ?".into()),
                 cancel_in_call: false,
                 cancel_before_save: false,
             };
@@ -486,10 +493,16 @@ fn sentence_cache_policy_retires_v1_v2_and_resumes_only_complete_sentence_batche
                 Instant::now()
             )
             .is_err());
-            assert_eq!(engine.seen, ["Bonjour.", "Merci.", "Encore.", "Demain."]);
+            assert_eq!(
+                engine.seen,
+                ["«Bonjour.", "Merci.» !", "Encore.", "Demain. ?"]
+            );
             let cache = load_segment_cache(app.handle(), &plan).unwrap();
             assert_eq!(
-                cache.mapped_output_for(segment, &mapping).unwrap().text,
+                cache
+                    .sentence_output_for(segment, &mapping, true)
+                    .unwrap()
+                    .text,
                 "«BONJOUR. MERCI.» !"
             );
             assert!(cache
@@ -512,9 +525,10 @@ fn sentence_cache_policy_retires_v1_v2_and_resumes_only_complete_sentence_batche
                 Instant::now(),
             )
             .unwrap();
-            assert_eq!(engine.seen, ["Encore.", "Demain."]);
+            assert_eq!(engine.seen, ["Encore.", "Demain. ?"]);
             let variants = super::super::storage::list_translated_documents(app.handle()).unwrap();
             assert_eq!(variants.len(), 1);
+            assert_eq!(variants[0].status, "needs-review");
             let saved =
                 load_translation_source_document(app.handle(), &variants[0].document_url).unwrap();
             assert_eq!(
@@ -529,14 +543,14 @@ fn sentence_cache_policy_retires_v1_v2_and_resumes_only_complete_sentence_batche
             assert_eq!(
                 parsed
                     .document
-                    .select_first("strong")
+                    .select_first("p[data-papercut-translation-review=original] > strong")
                     .unwrap()
                     .text_contents(),
-                "BONJOUR. MERCI."
+                "Bonjour. Merci."
             );
             assert_eq!(
                 parsed.document.select_first("em").unwrap().text_contents(),
-                "ENCORE. DEMAIN."
+                "Encore. Demain."
             );
             let before = document_tests::snapshot(&_dir.0);
             engine.seen.clear();

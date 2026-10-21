@@ -298,9 +298,99 @@ mod tests {
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use kuchikiki::traits::TendrilSink;
     use rusqlite::{params, Connection};
 
     use super::{recover_interrupted_replacement, DERIVED_GENERATION_FILE};
+
+    #[test]
+    fn review_original_survives_reopen_but_only_translation_enters_the_search_index() {
+        use super::{
+            persist_derived_document_at, prepare_derived_document, sanitize_html,
+            ParsedDocumentAsset,
+        };
+        use crate::document_uploads::store::open_db_in;
+        let root = test_root("translation-review");
+        let mut db = open_db_in(&root).unwrap();
+        let asset =
+            ParsedDocumentAsset::new("image/png", b"retained original image".to_vec()).unwrap();
+        let html = format!("<article><h2 data-papercut-translation-review='original' id='heading'>Titre original</h2><h2 data-papercut-translation-review='label'>Translation — formatting needs review</h2><h2>English heading</h2><p id='ref' data-papercut-translation-review='original'><strong>Original <em>emphasis</em></strong><a href='#note' role='doc-noteref'>1</a><img data-papercut-asset='{}'></p><p data-papercut-translation-review='label'>Translation</p><p>Translated meaning.</p><p id='note' data-papercut-translation-review='original'>Original note<a href='#ref' role='doc-backlink'>Back</a></p><p>Translated note.</p></article>", asset.file_name);
+        let parsed = prepare_derived_document("English", "html", &html, &[asset.clone()]).unwrap();
+        assert_eq!(
+            parsed
+                .sections
+                .iter()
+                .map(|s| s.text.as_str())
+                .collect::<Vec<_>>(),
+            ["English heading", "Translated meaning.", "Translated note."]
+        );
+        assert!(parsed
+            .sections
+            .iter()
+            .all(|s| s.heading.as_deref() == Some("English heading")));
+        let live = root.join("variant");
+        persist_derived_document_at(
+            &live,
+            &mut db,
+            "variant",
+            "/uploads/variant.html",
+            parsed,
+            1,
+            |_| Ok(()),
+        )
+        .unwrap();
+        let saved = fs::read_to_string(live.join("source.html")).unwrap();
+        let reopened =
+            prepare_derived_document("English", "html", &saved, &[asset.clone()]).unwrap();
+        assert_eq!(
+            reopened
+                .sections
+                .iter()
+                .map(|s| s.text.as_str())
+                .collect::<Vec<_>>(),
+            ["English heading", "Translated meaning.", "Translated note."]
+        );
+        let dom = kuchikiki::parse_html()
+            .one(sanitize_html(&saved))
+            .document_node;
+        for id in ["heading", "ref", "note"] {
+            assert_eq!(dom.select(&format!("#{id}")).unwrap().count(), 1);
+        }
+        assert_eq!(
+            dom.select("#ref > strong > em")
+                .unwrap()
+                .next()
+                .unwrap()
+                .text_contents(),
+            "emphasis"
+        );
+        assert_eq!(
+            dom.select("[data-papercut-translation-review='original'][data-papercut-section]")
+                .unwrap()
+                .count(),
+            0
+        );
+        assert_eq!(dom.select("[data-papercut-section]").unwrap().count(), 3);
+        let rows = db
+            .prepare(
+                "SELECT text FROM uploaded_sections WHERE document_id='variant' ORDER BY ordinal",
+            )
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(
+            rows,
+            ["English heading", "Translated meaning.", "Translated note."]
+        );
+        assert_eq!(
+            fs::read(live.join("assets").join(&asset.file_name)).unwrap(),
+            asset.bytes
+        );
+        drop(db);
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn saved_reader_retains_protection_markers_and_formatting_through_the_real_preparation_path() {

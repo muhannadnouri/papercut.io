@@ -66,7 +66,8 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
         if request.translated_sections.iter().any(|s| {
             s.fragments.is_empty()
                 || s.fragments.iter().any(|f| {
-                    f.markup.is_some()
+                    f.needs_review
+                        || f.markup.is_some()
                         || !f.inline_phrases.is_empty()
                         || f.aligned
                             .as_ref()
@@ -103,9 +104,20 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
                 s.text.trim().is_empty()
                     || s.fragments.is_empty()
                     || s.fragments.iter().any(|f| {
-                        f.markup.is_none() || f.aligned.is_some() || !f.inline_phrases.is_empty()
+                        f.needs_review == f.markup.is_some()
+                            || f.aligned.is_some()
+                            || !f.inline_phrases.is_empty()
                     })
             }))
+    {
+        return None;
+    }
+    if !request.boundary
+        && request
+            .translated_sections
+            .iter()
+            .flat_map(|s| &s.fragments)
+            .any(|f| f.needs_review)
     {
         return None;
     }
@@ -125,7 +137,9 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
         if section.text.trim().is_empty() {
             continue;
         }
-        if alignment.is_some() || section.fragments.iter().any(|f| f.markup.is_some()) {
+        if section.fragments.iter().any(|f| f.needs_review) {
+            retain_original_for_review(&node, section, request).ok()?;
+        } else if alignment.is_some() || section.fragments.iter().any(|f| f.markup.is_some()) {
             replace_protected_fragments(&node, block_index, section, request.boundary).ok()?;
         } else if requires_preserved_block(&node) {
             insert_translation_after(&node, section);
@@ -150,6 +164,97 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
         return None;
     }
     serialize_document(&document)
+}
+
+/// Keep uncertain formatting on the source once; labels/source never become narration or search text.
+fn retain_original_for_review(
+    node: &NodeRef,
+    section: &PersistTranslationSection,
+    request: &PersistTranslationRequest,
+) -> Result<(), String> {
+    let [fragment] = section.fragments.as_slice() else {
+        return Err("Formatting review requires one complete source block".into());
+    };
+    let source = source_inline_model(node).text;
+    if !fragment.needs_review
+        || fragment.markup.is_some()
+        || fragment.aligned.is_some()
+        || !fragment.inline_phrases.is_empty()
+        || fragment.source_start != 0
+        || fragment.source_end != source.chars().count()
+        || fragment.source_text != source
+        || fragment.text != section.text
+        || fragment.text.trim().is_empty()
+    {
+        return Err("Formatting review does not match the source/result block".into());
+    }
+    let element = node.as_element().ok_or("Missing formatting review block")?;
+    let container = matches!(element.name.local.as_ref(), "body" | "li");
+    let tag = if container {
+        "p"
+    } else {
+        element.name.local.as_ref()
+    };
+    let additions = parse_html_document(format!(
+        "<html><body><{tag} data-papercut-translation-review='label'><strong>Translation — formatting needs review</strong></{tag}><{tag}>{}</{tag}></body></html>",
+        escape_html(&section.text)
+    ));
+    let additions = additions
+        .select_first("body")
+        .map_err(|_| "Invalid formatting review output")?;
+    let original = if container {
+        // Keep body ownership and list numbering: source/translation belong inside the same container.
+        let wrapper = parse_html_document("<html><body><div></div></body></html>".to_string());
+        let wrapper = wrapper
+            .select_first("div")
+            .map_err(|_| "Invalid original wrapper")?
+            .as_node()
+            .clone();
+        for child in node.children().collect::<Vec<_>>() {
+            wrapper.append(child);
+        }
+        node.append(wrapper.clone());
+        wrapper
+    } else {
+        node.clone()
+    };
+    let original_element = original.as_element().ok_or("Missing original element")?;
+    original_element
+        .attributes
+        .borrow_mut()
+        .insert("data-papercut-translation-review", "original".into());
+    original_element
+        .attributes
+        .borrow_mut()
+        .insert("lang", request.source_language.clone());
+    let label = parse_html_document("<html><body><span data-papercut-translation-review='label' lang='en'><strong>Original — formatting retained</strong><br></span></body></html>".to_string());
+    original.prepend(
+        label
+            .select_first("span")
+            .map_err(|_| "Invalid original label")?
+            .as_node()
+            .clone(),
+    );
+    let mut previous = original;
+    for addition in additions.as_node().children().collect::<Vec<_>>() {
+        if let Some(element) = addition.as_element() {
+            let mut attributes = element.attributes.borrow_mut();
+            attributes.insert("lang", request.target_language.clone());
+            // Note bodies keep their search/narration role; anchors remain on the retained source only.
+            if attributes.get("data-papercut-translation-review").is_none() {
+                for attribute in ["role", "epub:type"] {
+                    if let Some(value) = node.as_element().and_then(|source| {
+                        source.attributes.borrow().get(attribute).map(str::to_owned)
+                    }) {
+                        attributes.insert(attribute, value);
+                    }
+                }
+            }
+        }
+        previous.insert_after(addition.clone());
+        previous = addition;
+    }
+    Ok(())
 }
 
 /// Rebind every rich fragment to the cloned source DOM; malformed rich output never falls back.
@@ -1653,6 +1758,177 @@ mod tests {
         }
     }
 
+    /// Review output keeps source ownership and never interprets decoder text as markup.
+    #[test]
+    fn sentence_review_retains_original_hierarchy_assets_notes_once_and_escapes_translation() {
+        let html = "<article><p id='r'>Je <strong><em>ne</em></strong> sais <a href='#n'>pas</a><a role='doc-noteref' href='#n' id='ref'>1</a><img data-papercut-asset='image.png'>.</p><p id='n' role='doc-footnote'>Note<a role='doc-backlink' href='#r'>Back</a>.</p></article>";
+        let req = review_request(html, &["I do not know <script>alert(1)</script>.", "Note."]);
+        let output = render_translated_html("English", &req).unwrap();
+        let dom = parse_html_document(&output);
+        for id in ["r", "n", "ref"] {
+            assert_eq!(dom.select(&format!("#{id}")).unwrap().count(), 1);
+        }
+        assert_eq!(
+            dom.select("#r > strong > em")
+                .unwrap()
+                .next()
+                .unwrap()
+                .text_contents(),
+            "ne"
+        );
+        assert_eq!(dom.select("#r > a[href='#n']").unwrap().count(), 2);
+        assert_eq!(dom.select("#n > a[href='#r']").unwrap().count(), 1);
+        assert_eq!(
+            dom.select("p[role='doc-footnote']:not([data-papercut-translation-review])")
+                .unwrap()
+                .next()
+                .unwrap()
+                .text_contents(),
+            "Note."
+        );
+        assert_eq!(
+            dom.select("img[data-papercut-asset='image.png']")
+                .unwrap()
+                .count(),
+            1
+        );
+        assert_eq!(
+            dom.select("[data-papercut-translation-review='original']")
+                .unwrap()
+                .count(),
+            2
+        );
+        assert_eq!(dom.select("script").unwrap().count(), 0);
+        assert!(output.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
+        assert!(output.contains("Translation — formatting needs review"));
+        crate::translation::quality::validate_translated_output(
+            &output,
+            &req.source.blocks,
+            &req.translated_sections,
+            &[],
+            "en",
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn sentence_review_rejects_mixed_or_unbound_fragment_claims() {
+        for invalid in 0..8 {
+            let mut req =
+                review_request("<p>Una <strong>casa</strong> roja.</p>", &["A red house."]);
+            match invalid {
+                0 => req.boundary = false,
+                1 => req.model_id = "bergamot-es-en-worker".into(),
+                2 => req.translated_sections[0].fragments[0].markup = Some("A red house.".into()),
+                3 => req.translated_sections[0].fragments[0].source_end -= 1,
+                4 => req.translated_sections[0].fragments[0].source_text = "Other source".into(),
+                5 => req.translated_sections[0].fragments[0].text = "Other target".into(),
+                6 => req.translated_sections[0].fragments[0].needs_review = false,
+                _ => {
+                    let f = req.translated_sections[0].fragments[0].clone();
+                    req.translated_sections[0].fragments.push(f);
+                }
+            }
+            assert!(
+                render_translated_html("English", &req).is_err(),
+                "invalid {invalid}"
+            );
+        }
+    }
+
+    #[test]
+    fn sentence_review_preserves_body_only_source_without_nesting_translated_text_inside_it() {
+        let req = review_request(
+            "<html><body>Una <strong>casa</strong> roja.</body></html>",
+            &["A red house."],
+        );
+        let output = render_translated_html("English", &req).unwrap();
+        let dom = parse_html_document(&output);
+        let original = dom
+            .select_first("body > div[data-papercut-translation-review='original']")
+            .unwrap();
+        assert!(original.text_contents().contains("Una casa roja."));
+        assert!(!original.text_contents().contains("A red house."));
+        assert_eq!(
+            dom.select_first("body > p:not([data-papercut-translation-review])")
+                .unwrap()
+                .text_contents(),
+            "A red house."
+        );
+    }
+
+    #[test]
+    fn sentence_review_retains_ordered_list_items_without_extra_numbered_labels() {
+        let req = review_request("<ol><li id='first'>Una <strong>casa</strong> roja.</li><li id='second'>Otra <em>casa</em>.</li></ol>", &["A red house.", "Another house."]);
+        let output = render_translated_html("English", &req).unwrap();
+        let dom = parse_html_document(&output);
+        assert_eq!(dom.select("ol > li").unwrap().count(), 2);
+        assert_eq!(
+            dom.select("#first > div[data-papercut-translation-review='original'] > strong")
+                .unwrap()
+                .next()
+                .unwrap()
+                .text_contents(),
+            "casa"
+        );
+        assert_eq!(
+            dom.select("#first > p:not([data-papercut-translation-review])")
+                .unwrap()
+                .next()
+                .unwrap()
+                .text_contents(),
+            "A red house."
+        );
+        let reparsed = super::DomPlan::new(&crate::document_uploads::sanitize_html(&output));
+        assert_eq!(
+            reparsed
+                .blocks
+                .iter()
+                .map(|b| b.inline.text.as_str())
+                .collect::<Vec<_>>(),
+            ["A red house.", "Another house."]
+        );
+    }
+
+    #[test]
+    fn sentence_accepted_uniform_mapping_keeps_style_without_review_original() {
+        use crate::translation::inline_markup::protected::ProtectedSource;
+        let source = "<p><strong><em>Bonjour.</em></strong></p>";
+        let mut req = review_request(source, &["Hello."]);
+        let dom = super::DomPlan::new(source);
+        let block = &dom.blocks[0];
+        let plan = ProtectedSource::for_boundaries(&block.node)
+            .unwrap()
+            .fragment(0..block.inline.text.chars().count(), &block.inline.text)
+            .unwrap();
+        let f = &mut req.translated_sections[0].fragments[0];
+        f.needs_review = false;
+        f.markup = Some(plan.html.replace("Bonjour.", "Hello."));
+        let output = render_translated_html("English", &req).unwrap();
+        assert!(output.contains("<strong><em>Hello.</em></strong>"));
+        assert!(!output.contains("data-papercut-translation-review"));
+        assert!(!output.contains("Bonjour"));
+    }
+
+    fn review_request(html: &str, targets: &[&str]) -> PersistTranslationRequest {
+        let dom = super::DomPlan::new(html);
+        assert_eq!(dom.blocks.len(), targets.len());
+        let sections = dom
+            .blocks
+            .iter()
+            .zip(targets)
+            .map(|(block, target)| {
+                let mut f = fragment(&block.inline.text, target);
+                f.source_end = block.inline.text.chars().count();
+                f.needs_review = true;
+                section_with_fragments(block.ordinal, block.is_heading, target, vec![f])
+            })
+            .collect();
+        let mut req = request(html, sections);
+        req.boundary = true;
+        req
+    }
+
     fn request(
         view_html: &str,
         translated_sections: Vec<PersistTranslationSection>,
@@ -1710,6 +1986,7 @@ mod tests {
 
     fn fragment(source_text: &str, text: &str) -> PersistTranslationFragment {
         PersistTranslationFragment {
+            needs_review: false,
             aligned: None,
             markup: None,
             source_start: 0,

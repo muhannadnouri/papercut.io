@@ -1,4 +1,4 @@
-//! CTranslate2's source-boundary policy is distinct from the disabled semantic alignment candidate.
+//! CTranslate2's sentence/review policy is distinct from the disabled semantic alignment candidate.
 use super::{
     cache::TranslationSegmentCache,
     engine::{TranslationEngine, TranslationSegmentOutput},
@@ -10,9 +10,9 @@ use super::{
 };
 use std::collections::BTreeMap;
 
-pub(super) const POLICY: &str = "ctranslate2-source-boundaries-v3";
+pub(super) const POLICY: &str = "ctranslate2-sentences-review-v1";
 
-/// Fixed OPUS pairs use source-boundary translation by default; strict requests retain their separate gate.
+/// Fixed OPUS pairs use sentence translation by default; strict requests retain their separate gate.
 pub(super) fn applies(model: &str) -> bool {
     matches!(
         model,
@@ -48,23 +48,33 @@ pub(super) fn batch(
         let protected = plans
             .get(&segment.id)
             .ok_or("Missing boundary source plan")?;
-        let output = if let Some(output) = cache.mapped_output_for(segment, protected) {
+        let translator = engine
+            .exact_translator()
+            .ok_or("Engine has no sentence translation contract")?;
+        let plan = SourcePlan::from_sentences(segment, protected.clone(), translator)?;
+        let needs_review = plan.formatting_needs_review();
+        check()?;
+        let output = if let Some(output) =
+            cache.sentence_output_for(segment, protected, needs_review)
+        {
             reused += 1;
             output
         } else {
-            let translator = engine
-                .exact_translator()
-                .ok_or("Engine has no boundary translation contract")?;
-            let plan = SourcePlan::from_boundaries(segment, protected.clone(), translator)?;
-            check()?;
             let translated = plan.translate(translator, |_, _| Ok(true), || check().is_err())?;
-            let markup = protected.boundary_output(&translated)?;
-            let restored = protected.restore_boundaries(&markup)?;
+            // Unresolved ownership is planned explicitly; parser/decoder failures never become fallback success.
+            let (text, markup) = if needs_review {
+                (translated.text, None)
+            } else {
+                let markup = protected.boundary_output(&translated)?;
+                let restored = protected.restore_boundaries(&markup)?;
+                (restored.text, Some(markup))
+            };
             TranslationSegmentOutput {
                 id: segment.id.clone(),
                 source_text: segment.text.clone(),
-                text: restored.text,
-                markup: Some(markup),
+                text,
+                markup,
+                needs_review,
             }
         };
         check()?;

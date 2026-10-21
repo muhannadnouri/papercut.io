@@ -83,6 +83,7 @@ pub(crate) struct PersistTranslationSection {
 
 #[derive(Debug, Clone)]
 pub(crate) struct PersistTranslationFragment {
+    pub(crate) needs_review: bool,
     pub(crate) aligned: Option<super::inline_markup::provider::pieces::MappedSegment>,
     pub(crate) source_start: usize,
     pub(crate) source_end: usize,
@@ -155,6 +156,24 @@ pub(crate) fn persist_translated_document<R: Runtime>(
     if request.boundary {
         settings["formattingPolicy"] = super::boundary::POLICY.into();
     }
+    let review_sections = request
+        .translated_sections
+        .iter()
+        .filter(|section| {
+            section
+                .fragments
+                .iter()
+                .any(|fragment| fragment.needs_review)
+        })
+        .count();
+    let status = if review_sections > 0 {
+        "needs-review"
+    } else {
+        "ready"
+    };
+    if request.boundary {
+        settings["formattingReviewSections"] = review_sections.into();
+    }
     let settings_json = settings.to_string();
     let glossary_hash = translation_glossary_hash(&request.glossary);
     let mut db = open_translation_db(app)?;
@@ -174,7 +193,7 @@ pub(crate) fn persist_translated_document<R: Runtime>(
              (id, source_document_id, source_document_url, title, source_language, target_language, \
               model_id, engine_id, quality_mode, settings_json, glossary_hash, status, source_path, \
               created_at_ms, updated_at_ms) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?14, ?8, ?9, ?10, 'ready', ?11, ?12, ?13) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?14, ?8, ?9, ?10, ?15, ?11, ?12, ?13) \
              ON CONFLICT(id) DO UPDATE SET \
                source_document_id = excluded.source_document_id, \
                source_document_url = excluded.source_document_url, \
@@ -203,6 +222,7 @@ pub(crate) fn persist_translated_document<R: Runtime>(
                 now as i64,
                 now as i64,
                 engine_id,
+                status,
             ],
         )
         .map_err(db_err)?;
@@ -223,7 +243,7 @@ pub(crate) fn persist_translated_document<R: Runtime>(
         source_language: request.source_language,
         target_language: request.target_language,
         model_id: request.model_id,
-        status: "ready".into(),
+        status: status.into(),
         created_at_ms: now,
         updated_at_ms: now,
     })

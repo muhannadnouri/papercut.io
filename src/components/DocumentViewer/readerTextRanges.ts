@@ -1,11 +1,9 @@
-import { isReadableHtmlBlock } from '../../tts/alignment/htmlStructure'
+import { HTML_SKIP_SELECTOR, isReadableHtmlBlock } from '../../tts/alignment/htmlStructure'
 import { isPdfWordWrap } from '../../pdf/pdfWordWrap'
 import {
   normalizeSearchCharacter,
   normalizeSearchPunctuation,
 } from '../../utils/textUtils'
-
-const READER_TEXT_SKIP_SELECTOR = 'script, style, noscript, svg'
 
 export interface ReaderTextMatchPart {
   node: Text
@@ -168,7 +166,7 @@ function collectReaderTextSegments(root: HTMLElement): ReaderTextSegment[] {
     if (current instanceof Element) {
       if (
         current.tagName === 'BR'
-        && !current.closest(READER_TEXT_SKIP_SELECTOR)
+        && !current.closest(HTML_SKIP_SELECTOR)
       ) {
         pendingBreakOwner = current.parentElement
           ? nearestReadableOwner(current.parentElement, root)
@@ -180,7 +178,7 @@ function collectReaderTextSegments(root: HTMLElement): ReaderTextSegment[] {
 
     const node = current as Text
     const parent = node.parentElement
-    if (!parent || parent.closest(READER_TEXT_SKIP_SELECTOR)) continue
+    if (!parent || parent.closest(HTML_SKIP_SELECTOR)) continue
     fallback.push(node)
     fallbackBreaksBefore.push(pendingFallbackBreak)
     pendingFallbackBreak = false

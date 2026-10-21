@@ -140,7 +140,7 @@ fn extract_text_blocks(root: &NodeRef) -> Vec<TextBlock> {
         let Some(tag_name) = node_tag_name(&node) else {
             continue;
         };
-        if !is_readable_block(&tag_name) {
+        if !is_readable_block(&tag_name) || is_translation_review_content(&node) {
             continue;
         }
         if is_fallback_container(&tag_name) && has_readable_block_descendant(&node) {
@@ -176,15 +176,34 @@ fn extract_text_blocks(root: &NodeRef) -> Vec<TextBlock> {
     blocks
 }
 
+/// Retained source and explanatory labels remain visible but are not translated-document evidence.
+fn is_translation_review_content(node: &NodeRef) -> bool {
+    node.inclusive_ancestors().any(|ancestor| {
+        ancestor.as_element().is_some_and(|element| {
+            matches!(
+                element
+                    .attributes
+                    .borrow()
+                    .get("data-papercut-translation-review"),
+                Some("original" | "label")
+            )
+        })
+    })
+}
+
 /// Keep inline notes in literal text while excluding their bytes from body evidence.
 fn block_text(node: &NodeRef) -> (String, Vec<std::ops::Range<usize>>) {
+    let has_review = node
+        .inclusive_descendants()
+        .any(|child| is_translation_review_content(&child));
     let text = normalize_text(&strip_tags(&serialize_node(node)));
-    if super::super::search_content::auxiliary(node) {
+    if !has_review && super::super::search_content::auxiliary(node) {
         return (text, Vec::new());
     }
-    if !node
-        .descendants()
-        .any(|child| super::super::search_content::auxiliary(&child))
+    if !has_review
+        && !node
+            .descendants()
+            .any(|child| super::super::search_content::auxiliary(&child))
     {
         let length = text.len();
         return (text, vec![0..length]);
@@ -195,6 +214,9 @@ fn block_text(node: &NodeRef) -> (String, Vec<std::ops::Range<usize>>) {
             NodeEdge::Start(child) => (child, true),
             NodeEdge::End(child) => (child, false),
         };
+        if is_translation_review_content(&child) {
+            continue;
+        }
         let body = !super::super::search_content::auxiliary(&child);
         if entering && child.as_text().is_some() {
             characters.extend(
@@ -321,6 +343,23 @@ fn extract_between_case_insensitive<'a>(html: &'a str, open: &str, close: &str) 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn review_labels_and_originals_are_not_indexed_even_inside_fallback_containers() {
+        for input in [
+            "<div><p data-papercut-translation-review='original'>Original <strong>words</strong></p><p><span data-papercut-translation-review='label'>Translation</span>English words.</p></div>",
+            "<span data-papercut-translation-review='original'>Original words</span><span>English words.</span>",
+        ] {
+            let parsed = parse_html_document(input);
+            assert_eq!(parsed.sections.len(), 1);
+            assert_eq!(parsed.sections[0].text, "English words.");
+            assert_eq!(parsed.sections[0].body_ranges, Some(vec![0..14]));
+            assert!(parsed.view_html.contains("Original"));
+        }
+        let parsed =
+            parse_html_document("<p data-papercut-translation-review='original'>Only source</p>");
+        assert!(parsed.sections.is_empty());
+    }
 
     #[test]
     fn inline_notes_preserve_literal_text_and_utf8_body_offsets() {

@@ -23,6 +23,8 @@
       "translationInProgress": "Tradução Em Andamento",
       "translationFailed": "Falha Na Tradução",
       "translationCompleteMessage": "O documento traduzido está pronto.",
+      "translationNeedsReview": "Salvo — A formatação precisa de revisão",
+      "translationNeedsReviewMessage": "A tradução foi salva. Os trechos com formatação incerta mantêm o original formatado ao lado da tradução para revisão.",
       "dismissTranslation": "Fechar status da tradução",
       "modelInstalled": "Modelo Instalado",
       "modelInstall": "Instalação Do Modelo",
@@ -95,7 +97,7 @@
       "engineUnavailable": "Este mecanismo de tradução não foi compilado nesta versão.",
       "webviewUnavailable": "O Bergamot exige uma WebView segura com workers, WebCrypto e WebAssembly SIMD. Ele está indisponível nesta WebView.",
       "bergamotNote": "Experimental: preserva a marcação HTML protegida. Mantenha o Papercut em primeiro plano; ir para segundo plano interrompe a tarefa. Qualidade e uso de memória em dispositivos ainda não foram validados.",
-      "ctranslate2BoundaryNote": "A formatação é preservada traduzindo os trechos separadamente. Frases com formatação mista podem soar menos naturais. Não é necessário um pacote de formatação adicional."
+      "ctranslate2BoundaryNote": "Traduz frases completas. Quando a formatação não pode ser transferida com segurança, o original formatado é mantido ao lado da tradução para revisão. Não é necessário um pacote de formatação adicional."
     },
     "documents": {
       "ariaLabel": "Documentos traduzidos",

@@ -35,8 +35,10 @@ fn translation_error_code(message: &str) -> &'static str {
     if message.contains("cancelled") {
         return "operation-cancelled";
     }
-    // Shared exact-piece failures in boundary jobs do not imply an auxiliary alignment-pack problem.
-    if message.contains("boundary translation failed:") {
+    // Public sentence/retired boundary failures do not imply an auxiliary alignment-pack problem.
+    if message.contains("boundary translation failed:")
+        || message.contains("sentence translation failed:")
+    {
         return "translation-failed";
     }
     if message.contains("strict formatting is not available") {
@@ -321,21 +323,17 @@ mod tests {
     use super::{translation_error_code, TranslationCommandError};
 
     #[test]
-    fn boundary_piece_errors_do_not_request_an_alignment_pack_and_cancel_still_wins() {
-        assert_eq!(
-            TranslationCommandError::new(
-                "Boundary translation failed: Exact-piece target is empty".into()
-            )
-            .code,
-            "translation-failed"
-        );
-        assert_eq!(
-            TranslationCommandError::new(
-                "Boundary translation failed: Translation cancelled".into()
-            )
-            .code,
-            "operation-cancelled"
-        );
+    fn sentence_piece_errors_do_not_request_an_alignment_pack_and_cancel_still_wins() {
+        for prefix in ["Boundary translation failed", "Sentence translation failed"] {
+            assert_eq!(
+                TranslationCommandError::new(format!("{prefix}: Exact-piece target is empty")).code,
+                "translation-failed"
+            );
+            assert_eq!(
+                TranslationCommandError::new(format!("{prefix}: Translation cancelled")).code,
+                "operation-cancelled"
+            );
+        }
     }
 
     #[test]

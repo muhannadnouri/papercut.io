@@ -187,8 +187,8 @@ export function useTranslationManager({
       if (disposed) return
       setStartState((current) => {
         if (current.jobId && progress.jobId !== current.jobId) return current
-        // Late progress must not replace an ended job's error or unknown outcome.
-        if (current.jobId && !current.checking && !current.result) return current
+        // Queued progress cannot overwrite a terminal result, error or unknown outcome.
+        if (current.jobId && !current.checking) return current
         return {
           ...current,
           progress,
@@ -311,7 +311,14 @@ export function useTranslationManager({
         cancelling: false,
         checking: false,
         jobId: result.jobId,
-        progress: current.jobId === result.jobId ? current.progress : null,
+        // The command result is authoritative even if its final progress event was lost.
+        progress: current.jobId === result.jobId && current.progress ? {
+          ...current.progress,
+          status: result.status,
+          percent: 100,
+          completedSegments: current.progress.totalSegments,
+          completedBatches: current.progress.totalBatches,
+        } : null,
         result,
         message: result.message,
       }))

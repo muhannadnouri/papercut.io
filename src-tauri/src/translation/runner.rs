@@ -295,12 +295,20 @@ fn finish_with_alignment<R: tauri::Runtime>(
                 );
                 error
             })?;
+            let (status, message) = if stored.status == "needs-review" {
+                (
+                    "needs-review",
+                    "Translation saved with formatted originals for review",
+                )
+            } else {
+                ("stored", "Translated document stored")
+            };
             emit_translation_progress(
                 app,
                 progress(
                     job_id,
-                    "stored",
-                    "Translated document stored",
+                    status,
+                    message,
                     plan,
                     started,
                     None,
@@ -313,7 +321,7 @@ fn finish_with_alignment<R: tauri::Runtime>(
             )?;
             Ok(TranslationStartResponse {
                 job_id: job_id.to_string(),
-                status: "stored".into(),
+                status: status.into(),
                 message: format!(
                     "Stored translated document '{}': {} segment(s), {} batch(es), preview: {}",
                     stored.title,
@@ -590,6 +598,7 @@ fn run_translation_batches<R: tauri::Runtime>(
                     Vec::new(),
                     None,
                     Some(receipt.clone()),
+                    false,
                 );
                 run.note_preview(&receipt.binding.target);
             }
@@ -628,7 +637,7 @@ fn run_translation_batches<R: tauri::Runtime>(
                             } else {
                                 "failed"
                             },
-                            format!("Boundary translation failed: {e}"),
+                            format!("Sentence translation failed: {e}"),
                         )
                     })?;
             check().map_err(|e| run.failure("cancelled", e))?;
@@ -642,6 +651,7 @@ fn run_translation_batches<R: tauri::Runtime>(
                     Vec::new(),
                     output.markup.clone(),
                     None,
+                    output.needs_review,
                 );
                 run.note_preview(&output.text);
                 cache.store_mapped_output(segment, &markup_plans[&segment.id], output);
@@ -678,6 +688,7 @@ fn run_translation_batches<R: tauri::Runtime>(
                         Vec::new(),
                         output.markup,
                         None,
+                        false,
                     );
                     run.note_preview(&output.text);
                 } else {
@@ -700,6 +711,7 @@ fn run_translation_batches<R: tauri::Runtime>(
                         .unwrap_or_default(),
                     None,
                     None,
+                    false,
                 );
                 run.note_preview(&cached_text);
             } else if let Some(memory_text) =
@@ -721,6 +733,7 @@ fn run_translation_batches<R: tauri::Runtime>(
                         .unwrap_or_default(),
                     None,
                     None,
+                    false,
                 );
                 run.note_preview(&memory_text);
                 cache.store_translation(segment, memory_text);
@@ -774,6 +787,7 @@ fn run_translation_batches<R: tauri::Runtime>(
                         .unwrap_or_default(),
                     output.markup.clone(),
                     None,
+                    output.needs_review,
                 );
                 run.note_preview(&translated_text);
                 if let Some(mapping) = markup_plans.get(&segment.id) {
@@ -964,6 +978,7 @@ fn append_translated_segment(
     inline_phrases: Vec<PersistTranslationInlinePhrase>,
     markup: Option<String>,
     aligned: Option<super::inline_markup::provider::pieces::MappedSegment>,
+    needs_review: bool,
 ) {
     let Some(block_text) = blocks.get_mut(source_block_index) else {
         return;
@@ -978,6 +993,7 @@ fn append_translated_segment(
     block_text.push_str(text);
     if let Some(block_fragments) = fragments.get_mut(source_block_index) {
         block_fragments.push(PersistTranslationFragment {
+            needs_review,
             aligned,
             markup,
             source_start: segment.source_start,

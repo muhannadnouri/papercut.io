@@ -95,7 +95,7 @@ export interface TranslationStartResult {
 
 export interface TranslationJobProgress {
   jobId: string
-  status: 'loading-model' | 'starting' | 'translating' | 'completed' | 'cancelled' | string
+  status: 'loading-model' | 'starting' | 'translating' | 'completed' | 'needs-review' | 'cancelled' | string
   message: string
   modelId: string
   elapsedMs: number

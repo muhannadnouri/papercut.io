@@ -314,3 +314,24 @@ describe('command rejection finalizes visible progress', () => {
     expect(manager.startState.message).not.toBe('Aligning')
   })
 })
+
+describe('saved command results seal terminal progress', () => {
+  it.each(['stored', 'needs-review'])('retains %s after refresh and late events without waiting for a terminal event', async status => {
+    await workbench()
+    let finish!: (value: { jobId: string; status: string; message: string }) => void
+    mock.start.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const { running } = await begin(nativeModel.id)
+    const jobId = manager.startState.jobId
+    const progress = { jobId, status: 'storing', message: 'Saving', totalSegments: 10, completedSegments: 8, totalBatches: 3, completedBatches: 2, cachedSegments: 2, percent: 80, elapsedMs: 10 } as TranslationJobProgress
+    await act(async () => { mock.progress!(progress) })
+    mock.list.mockResolvedValue([{ ...savedDocument, modelId: nativeModel.id, status }])
+    await act(async () => { finish({ jobId, status, message: 'Saved' }); await running })
+    expect(manager.startState).toMatchObject({ checking: false, cancelling: false, result: { status }, progress: { status, percent: 100, completedSegments: 10, completedBatches: 3, cachedSegments: 2 } })
+    expect(manager.translatedDocuments[0].status).toBe(status)
+    expect(mock.libraryChanged).toHaveBeenCalledOnce()
+    await act(async () => { mock.progress!({ ...progress, message: 'Late saving event' }) })
+    expect(manager.startState.progress?.status).toBe(status)
+    expect(manager.startState.message).toBe('Saved')
+    expect(container.querySelector('[role="progressbar"]')?.getAttribute('aria-valuetext')).toBe(status === 'needs-review' ? 'translation.status.translationNeedsReview' : 'translation.progress.status.completed')
+  })
+})

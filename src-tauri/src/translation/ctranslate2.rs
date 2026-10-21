@@ -288,6 +288,7 @@ impl TranslationEngine for CTranslate2Engine {
                 .into_iter()
                 .enumerate()
                 .map(|(index, segment)| TranslationSegmentOutput {
+                    needs_review: false,
                     markup: None,
                     id: segment.id,
                     source_text: segment.text,

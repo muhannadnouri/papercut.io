@@ -194,6 +194,7 @@ export function TranslationPanel({
   const showDeleteStatus = Boolean(deleteState) && !dismissedStatusKeys.includes(deleteStatusKey)
   const backendUnavailable = Boolean(capabilities && !capabilities.available)
   const jobFailed = !startState.checking && !startState.result && Boolean(startState.message)
+  const jobNeedsReview = startState.result?.status === 'needs-review'
   const installFailed =
     !modelInstallState.installingModelId &&
     !modelInstallState.result &&
@@ -204,7 +205,7 @@ export function TranslationPanel({
     !modelRemoveState.result &&
     Boolean(modelRemoveState.message)
   const jobMessage = startState.result
-    ? t('translation.status.translationCompleteMessage')
+    ? t(jobNeedsReview ? 'translation.status.translationNeedsReviewMessage' : 'translation.status.translationCompleteMessage')
     : startState.cancelling
       ? t('translation.status.cancellingJob')
       : startState.checking && !startState.progress
@@ -269,7 +270,7 @@ export function TranslationPanel({
             >
               <strong>
                 {startState.result
-                  ? t('translation.status.translationComplete')
+                  ? t(jobNeedsReview ? 'translation.status.translationNeedsReview' : 'translation.status.translationComplete')
                   : jobFailed
                     ? t('translation.status.translationFailed')
                     : t('translation.status.translationInProgress')}
@@ -735,6 +736,7 @@ function TranslationProgressMeter({
   const statusLabel = formatProgressStatusLabel(progress, t)
   const indeterminate = progress.completedSegments === 0 && ![
     'completed',
+    'needs-review',
     'validating',
     'stored',
     'cancelled',
@@ -946,6 +948,8 @@ function formatProgressStatusLabel(progress: TranslationJobProgress, t: TFunctio
     case 'stored':
     case 'completed':
       return t('translation.progress.status.completed')
+    case 'needs-review':
+      return t('translation.status.translationNeedsReview')
     case 'failed':
       return t('translation.status.translationFailed')
     case 'cancelled':
@@ -964,6 +968,7 @@ function formatStatusLabel(status: string, t: TFunction): string {
     storing: t('translation.progress.status.storing'),
     stored: t('translation.progress.status.completed'),
     completed: t('translation.progress.status.completed'),
+    'needs-review': t('translation.status.translationNeedsReview'),
     cancelled: t('translation.progress.status.cancelled'),
   }
   return labels[status] ?? status.charAt(0).toUpperCase() + status.slice(1)

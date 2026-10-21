@@ -56,6 +56,9 @@ pub(crate) struct TranslationSegmentOutput {
     /// Optional transport markup, revalidated against source ownership before caching/rendering.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) markup: Option<String>,
+    /// Only the sentence policy may retain source formatting instead of claiming a target mapping.
+    #[serde(default)]
+    pub(crate) needs_review: bool,
 }
 
 pub(crate) trait TranslationEngine {
@@ -128,6 +131,9 @@ pub(super) fn validate_mapped_outputs(
         outputs,
     )?;
     for (input, output) in inputs.iter().zip(outputs) {
+        if output.needs_review {
+            return Err("Only sentence-policy output may request formatting review".into());
+        }
         match (&input.markup, &output.markup) {
             (Some(plan), Some(html)) if plan.restore(html)?.text == output.text => {}
             (None, None) => {}
@@ -147,6 +153,7 @@ mod tests {
     #[test]
     fn rejects_missing_extra_duplicate_and_reordered_replies() {
         let output = |id: &str| TranslationSegmentOutput {
+            needs_review: false,
             markup: None,
             id: id.into(),
             source_text: "source".into(),
@@ -185,12 +192,16 @@ mod tests {
             context: Default::default(),
         };
         let mut output = TranslationSegmentOutput {
+            needs_review: false,
             id: input.id.clone(),
             source_text: input.text.clone(),
             text: "Hello".into(),
             markup: Some("<span data-pc='0'>Hello</span>".into()),
         };
         assert!(validate_mapped_outputs(&[input.clone()], &[output.clone()]).is_ok());
+        output.needs_review = true;
+        assert!(validate_mapped_outputs(&[input.clone()], &[output.clone()]).is_err());
+        output.needs_review = false;
         output.text = "a different word".into();
         assert!(validate_mapped_outputs(&[input.clone()], &[output.clone()]).is_err());
         output.text = "Hello".into();
@@ -208,6 +219,7 @@ mod tests {
         let mut outputs = expected
             .iter()
             .map(|(id, text)| TranslationSegmentOutput {
+                needs_review: false,
                 markup: None,
                 id: (*id).into(),
                 source_text: (*text).into(),

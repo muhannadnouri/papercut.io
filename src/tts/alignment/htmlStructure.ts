@@ -43,7 +43,8 @@ const READABLE_BLOCK_TAGS = new Set([
   'UL',
 ])
 
-export const HTML_SKIP_SELECTOR = 'script, style, noscript, svg'
+// Review originals stay visible, but must not enter translated narration or its locators.
+export const HTML_SKIP_SELECTOR = 'script, style, noscript, svg, [data-papercut-translation-review]'
 
 const INLINE_FOOTNOTE_REFERENCE_RE = /^\[\d+[a-z]?\*?\]$/i
 
@@ -108,7 +109,7 @@ function isInlineFootnoteReferenceText(element: Element): boolean {
   return INLINE_FOOTNOTE_REFERENCE_RE.test(label)
 }
 
-function findNearestReadableOwner(element: Element | null, root: Element): Element | null {
+export function findNearestReadableOwner(element: Element | null, root: Element): Element | null {
   let current = element
   while (current) {
     if (isReadableHtmlBlock(current)) return current

@@ -258,13 +258,19 @@ fn boundary_budgets_separate_translated_pieces_from_joins_and_leave_strict_limit
     let mut translator = Translator::new(100);
     for count in [64, 65] {
         let (source, segment) =
-            fixture(&format!("<p>{}</p>", "<em>mot</em> suite. ".repeat(count)));
+            fixture(&format!("<p>{}</p>", "<em>Mot.</em> Suite. ".repeat(count)));
         let protected = source
             .fragment(0..segment.source_end, &segment.text)
             .unwrap();
-        let plan = SourcePlan::from_boundaries(&segment, protected, &translator);
+        let plan = SourcePlan::from_sentences(&segment, protected, &translator);
         if count == 65 {
-            assert!(plan.err().unwrap().contains("translation piece bound"));
+            let error = plan.err().unwrap();
+            assert!(
+                error.contains("translation piece bound")
+                    || error.contains("planning exceeds its work bound"),
+                "{error}"
+            );
+            assert_eq!(translator.calls.iter().map(Vec::len).sum::<usize>(), 128);
             continue;
         }
         let plan = plan.unwrap();
@@ -287,7 +293,7 @@ fn boundary_budgets_separate_translated_pieces_from_joins_and_leave_strict_limit
     let protected = source
         .fragment(0..segment.source_end, &segment.text)
         .unwrap();
-    let plan = SourcePlan::from_boundaries(&segment, protected, &translator).unwrap();
+    let plan = SourcePlan::from_sentences(&segment, protected, &translator).unwrap();
     assert!(plan.units.len() > 128);
     assert_eq!(
         plan.units.iter().filter(|u| u.kind == Kind::Prose).count(),

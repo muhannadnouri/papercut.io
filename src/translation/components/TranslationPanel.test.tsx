@@ -69,7 +69,9 @@ describe('Bergamot catalog workbench', () => {
     expect(props.onStartTranslationPreflight).toHaveBeenCalledExactlyOnceWith({ documentUrl: '/uploads/book.html', modelId: opus.id, sourceLanguage: 'fr', targetLanguage: 'en', qualityMode: 'balanced', useHardwareAcceleration: false })
   })
 
-  it('explains boundary translation only for CTranslate2 without enabling strict formatting', async () => {
+  it('explains whole-sentence translation and review fallback only for CTranslate2 without enabling strict formatting', async () => {
+    expect(en.translation.models.ctranslate2BoundaryNote).toContain('Translates whole sentences.')
+    expect(en.translation.models.ctranslate2BoundaryNote).toContain('formatted original is kept beside the translation for review')
     expect(container.textContent).toContain('translation.models.ctranslate2BoundaryNote')
     const strict = container.querySelector('input[type=checkbox]') as HTMLInputElement
     expect(strict.disabled).toBe(true)
@@ -137,6 +139,32 @@ describe('Bergamot catalog workbench', () => {
     expect(container.querySelector('select')).toBeNull()
     await click('common.view')
     expect(props.onOpenTranslatedDocument).toHaveBeenCalledExactlyOnceWith('/uploads/translated.html')
+  })
+})
+
+describe('saved translations needing formatting review', () => {
+  it.each(['stored', 'needs-review'])('keeps %s outcomes distinct in the completion, progress and saved list', async status => {
+    const jobId = 'sentence-job'
+    await render({
+      startState: {
+        ...props.startState, jobId, message: 'Backend result', result: { jobId, status, message: 'Backend result' },
+        progress: { jobId, status, message: 'Backend result', totalSegments: 0, completedSegments: 0, totalBatches: 0, completedBatches: 0, percent: 100, elapsedMs: 10 } as NonNullable<typeof props.startState.progress>,
+      },
+      translatedDocuments: [{ id: 'saved', title: 'Saved translation', documentUrl: '/uploads/translated.html', sourceDocumentUrl: '/uploads/book.html', sourceLanguage: 'fr', targetLanguage: 'en', modelId: opus.id, status, createdAtMs: 1, updatedAtMs: 1 }],
+    })
+    const review = status === 'needs-review'
+    expect(container.querySelector('.translation-status-stack strong')?.textContent).toBe(`translation.status.${review ? 'translationNeedsReview' : 'translationComplete'}`)
+    expect(container.querySelector('.translation-alert-message')?.textContent).toBe(`translation.status.${review ? 'translationNeedsReviewMessage' : 'translationCompleteMessage'}`)
+    const label = review ? 'translation.status.translationNeedsReview' : 'translation.progress.status.completed'
+    expect(container.querySelector('[role="progressbar"]')?.getAttribute('aria-valuetext')).toBe(label)
+    expect(container.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('100')
+    expect(container.querySelector('.translation-progress-meter.is-indeterminate')).toBeNull()
+    expect(container.querySelector('.translation-document-item')?.textContent).toContain(label)
+    await click('common.view')
+    expect(props.onOpenTranslatedDocument).toHaveBeenCalledExactlyOnceWith('/uploads/translated.html')
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="translation.status.dismissTranslation"]')!.click())
+    expect(container.querySelector('.translation-status-stack')).toBeNull()
+    expect(container.querySelector('.translation-document-item')?.textContent).toContain(label)
   })
 })
 

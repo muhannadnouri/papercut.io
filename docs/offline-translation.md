@@ -8,15 +8,15 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 
 ## Current Implementation Status
 
-- **Current CTranslate2 path:** [boundary-based translation](#boundary-based-ctranslate2-translation--2026-10-20)
-  retains source formatting by translating fragments separately, with an explicit
-  cross-fragment fluency tradeoff. It reuses the shared document pipeline and
-  does not load an aligner. Within each source scope, Unicode sentence boundaries
-  are planned before native admission; long sentences still use the existing
-  bounded clause/whitespace cuts. Punctuation/symbol-only fragments are copied
-  without inference, including tails created by splitting. The strict candidate
-  remains disabled; the Stage 9 investigations below do not block this separately
-  approved boundary policy.
+- **Current CTranslate2 path:** [whole-sentence translation with review originals](#whole-sentence-translation-with-review-originals--2026-10-20).
+  French/Spanish → English OPUS-MT translates across bold, italic and link
+  boundaries. Whole-sentence formatting scopes can be reconstructed exactly;
+  uncertain scopes keep the formatted source block beside a clearly labelled
+  translation, with a durable **Formatting Needs Review** status. It uses no
+  aligner or library fork. Literal code/protected content stays out of inference;
+  long sentences still obey existing bounded clause/whitespace subdivision.
+  Passing structural tests does not establish model fluency or semantic accuracy.
+  Strict semantic alignment remains disabled.
 
 - Translation accepts **HTML and EPUB only**, enforced in both the UI and native source loader. PDF and other formats remain unsupported.
 
@@ -135,7 +135,7 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   batch inference, completed batches, final validation, and storage. Before
   the first measurable batch completes, the UI shows indeterminate activity
   instead of an apparently idle empty progress bar.
-- OPUS-MT boundary jobs retain bounded whole reader blocks for DOM identity; their actual MT fragments use the shared 900-scalar and native-token limits. Cache and saved-result identities are separate from the previous phrase-hint path.
+- OPUS-MT sentence jobs retain bounded whole reader blocks for DOM identity; their actual MT inputs use the shared 900-scalar and native-token limits. Cache and saved-result identities are separate from both previous fragment and phrase-hint policies.
 - Translated variants are separate durable documents that can be opened, searched, deleted, and later used by the normal TTS flow.
 - HTML/EPUB rendering uses the sanitized reader HTML where possible and preserves links, ids, images, tables, and EPUB-rewritten assets conservatively.
 - Historical Stage 5B validation, before the latest main merge, covered local desktop and packaged `.deb` model-install, translation, open/search/delete, cancellation, restart recovery, cache-assisted retry, removal, and reinstall smoke tests. It does not validate the merged build; current smoke and release validation remain pending.
@@ -146,7 +146,7 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 
 **Historical strict-formatting plan: use a separate offline word aligner (Option 7).
 No alignment model is approved for production. The current deliverable is the
-separately approved [boundary-based CTranslate2 path](#boundary-based-ctranslate2-translation--2026-10-20);
+separately approved [whole-sentence CTranslate2 path](#whole-sentence-translation-with-review-originals--2026-10-20);
 the strict candidate below remains disabled.**
 This records the selected Option 7 plan, superseding the earlier attention-first
 proposal below. Its sole-aligner assumption is now under the
@@ -3618,7 +3618,99 @@ changes. No inference, production code/dependency/runtime, catalog/install,
 cache/storage or app-version change was made. Benchmarks, smoke, fresh app/CI
 builds and version bump remain deferred; no new semantic acceptance is claimed.
 
+## Whole-sentence translation with review originals — 2026-10-20
+
+This supersedes the source-boundary policy below for the two installed OPUS-MT
+pairs. Translating isolated emphasis fragments can change negation or word order
+even when every decoder response and DOM check succeeds. Sentence meaning now
+has priority over inventing translated formatting ownership.
+
+### Outcome and ownership contract
+
+1. The shared reader DOM selects the same HTML/EPUB blocks and retains their
+   source identities/assets. The OPUS planner splits prose by Unicode sentences,
+   **not** by emphasis, link or note boundaries. Immutable literal islands
+   (`code`, `translate=no`) still stay outside inference. Existing source/token,
+   work, batch, decoder-EOS, grapheme and 32 KiB reconstruction limits remain.
+   Over-budget sentences may still require bounded clause/whitespace cuts.
+2. If every source-owned scope covers complete natural sentences or exact
+   copied content, the existing protected renderer restores its hierarchy and
+   validates the result. A token-limit cut or adjacent whitespace is not evidence
+   that a partial emphasis scope maps correctly. No aligner is loaded.
+3. If a style or attachment lies inside a translated sentence, the entire
+   affected reader block becomes an explicit review result. The exact formatted
+   original remains once, followed by a labelled, escaped whole-sentence
+   translation. No original text, note, image, link target or ID is silently
+   removed or duplicated; the translation does not claim guessed bold/italics.
+   List items retain their outer list container/numbering.
+4. Review is a planned formatting outcome, never a catch-all recovery from a
+   decoder cutoff, invalid cache, malformed markup, cancellation or save failure.
+   Those remain failures. Other providers cannot use the review flag to bypass
+   their protected/strict contracts. Bergamot and HY-MT2 are unchanged.
+
+Example: `Je <em>ne</em> sais <strong>pas</strong>.` enters the translator as
+`Je ne sais pas.` once. Its source emphasis stays in the retained original and
+its translation is labelled for formatting review. By contrast,
+`<strong><em>Bonjour le monde.</em></strong>` can keep those whole-sentence
+wrappers around the translated sentence without guessing individual word links.
+Model outputs remain subject to human language-quality acceptance.
+
+### Saving, resume and reading
+
+- `ctranslate2-sentences-review-v1` separates both job/cache and saved variant
+  identities from retired source-boundary v1/v2/v3 output. Existing translations,
+  audiobooks and timing files are not migrated or overwritten by this policy.
+- Each checkpoint binds source text, DOM identity and an explicit `needsReview`
+  flag. Resume recomputes source admission before accepting that flag. Missing
+  markup alone never authorizes fallback; reviewed text never enters phrase
+  memory or satisfies an accepted protected mapping.
+- Every batch must finish before checkpointing. Cancellation still runs around
+  native calls, cached outcomes and immediately before the atomic writer.
+- Any review block gives the saved document and final job status `needs-review`.
+  The UI shows **Saved — Formatting Needs Review** with the same state after
+  reopening the saved-results list. Late progress events cannot erase it.
+- Generated source/labels use the validated
+  `data-papercut-translation-review="original|label"` marker. They remain visible
+  and source links remain usable, but search, Find, narration and read-along
+  locators consume only the translated content. Chunk/word highlighting excludes
+  source/labels even when a chunk spans multiple translated blocks. The normal
+  original document remains independently available in the library.
+- Review labels inside the saved English document are English; setup/status
+  explanations in the app are translated in all eight locales. The fallback
+  promises retained sanitized source markup, not recovery of CSS already removed
+  by import sanitization or semantic correctness of model output.
+
+### Validation and next stage
+
+Synthetic regressions cover intact negation/adjective sentence inputs, accepted
+whole-sentence scopes versus partial styles, budget-cut rejection, copied
+punctuation/literals, source identities/assets/notes, list numbering, cache JSON
+outcomes and retired policies, partial-batch retry, late cancellation, atomic
+save/reopen/indexing, durable UI status and translated-only read-along ranges.
+No private sample or references are added to the repository.
+
+Validation passed:
+
+- Base Rust library suite: **565 passed, 4 ignored**.
+- Rust library suite with native CTranslate2 and alignment-runtime features:
+  **591 passed, 14 ignored**; the public strict candidate stays disabled.
+- Opt-in native regression: **1 test passed across six pinned FR/ES synthetic
+  fixtures**, including intact negation/adjective sentences and uniform styles.
+  Existing verified packs were used; no new models or downloads.
+- Frontend translation, reader and TTS tests: **144 passed**.
+- TypeScript project build, locale validation, changed frontend ESLint, Rustfmt
+  and diff checks passed. Independent focused reviews found no actionable new
+  cache/outcome/cancellation or reader/highlight regressions.
+
+Next, review these policy/lifecycle changes and evaluate the rebuilt app on real
+French/Spanish material: judge the complete translation separately from target
+formatting, and confirm that review originals are clear and usable. No new
+provider or disabled alignment research is needed for that decision.
+Benchmarks, broader/device smoke and the app version bump remain deferred.
+
 ## Boundary-based CTranslate2 translation — 2026-10-20
+
+**Historical policy, superseded by [whole-sentence translation with review originals](#whole-sentence-translation-with-review-originals--2026-10-20).**
 
 **Current decision:** French/Spanish → English CTranslate2 jobs now translate
 source-owned fragments instead of translating whole passages and guessing

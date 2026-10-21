@@ -23,6 +23,8 @@
       "translationInProgress": "正在翻译",
       "translationFailed": "翻译失败",
       "translationCompleteMessage": "翻译后的文档已准备就绪。",
+      "translationNeedsReview": "已保存 — 格式需要检查",
+      "translationNeedsReviewMessage": "翻译已保存。对于格式无法可靠对应的段落，会在译文旁保留带格式的原文以供检查。",
       "dismissTranslation": "关闭翻译状态",
       "modelInstalled": "模型已安装",
       "modelInstall": "模型安装",
@@ -95,7 +97,7 @@
       "engineUnavailable": "此版本未编译此翻译引擎。",
       "webviewUnavailable": "Bergamot 需要支持 Worker、WebCrypto 和 WebAssembly SIMD 的安全 WebView。当前 WebView 无法使用。",
       "bergamotNote": "实验性：保留受保护的 HTML 标记。请保持 Papercut 在前台；切换到后台会停止任务。设备上的质量和内存使用情况尚未验证。",
-      "ctranslate2BoundaryNote": "通过分别翻译片段来保留格式。包含多种格式的句子可能不够自然。无需额外的格式资源包。"
+      "ctranslate2BoundaryNote": "翻译完整句子。如果无法可靠地对应格式，会在译文旁保留带格式的原文以供检查。无需额外的格式处理包。"
     },
     "documents": {
       "ariaLabel": "翻译文档",

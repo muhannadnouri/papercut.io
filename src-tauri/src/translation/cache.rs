@@ -56,6 +56,8 @@ struct CachedTranslationSegment {
     markup: Option<String>,
     #[serde(default)]
     markup_identity: Option<String>,
+    #[serde(default)]
+    needs_review: bool,
 }
 
 impl TranslationSegmentCache {
@@ -83,7 +85,8 @@ impl TranslationSegmentCache {
         plan: &super::inline_markup::protected::ProtectedPlan,
     ) -> Option<super::engine::TranslationSegmentOutput> {
         let cached = self.segments.get(&segment.id)?;
-        if cached.source_hash != hash_segment_text(&segment.text)
+        if cached.needs_review
+            || cached.source_hash != hash_segment_text(&segment.text)
             || cached.markup_identity.as_deref() != Some(self.markup_identity(plan).as_str())
         {
             return None;
@@ -101,6 +104,37 @@ impl TranslationSegmentCache {
             source_text: segment.text.clone(),
             text: cached.translated_text.clone(),
             markup: Some(markup.clone()),
+            needs_review: false,
+        })
+    }
+
+    /// Review cache entries retain explicit source ownership; missing markup alone never authorizes fallback.
+    pub(crate) fn sentence_output_for(
+        &self,
+        segment: &TranslationTextSegment,
+        plan: &super::inline_markup::protected::ProtectedPlan,
+        needs_review: bool,
+    ) -> Option<super::engine::TranslationSegmentOutput> {
+        if !needs_review {
+            return self.mapped_output_for(segment, plan);
+        }
+        let cached = self.segments.get(&segment.id)?;
+        if !super::boundary::applies(&self.model_id)
+            || !cached.needs_review
+            || cached.markup.is_some()
+            || cached.source_hash != hash_segment_text(&segment.text)
+            || cached.markup_identity.as_deref() != Some(self.markup_identity(plan).as_str())
+            || cached.translated_text.trim().is_empty()
+            || cached.translated_text.len() > super::inline_markup::protected::MAX_HTML_BYTES
+        {
+            return None;
+        }
+        Some(super::engine::TranslationSegmentOutput {
+            id: segment.id.clone(),
+            source_text: segment.text.clone(),
+            text: cached.translated_text.clone(),
+            markup: None,
+            needs_review: true,
         })
     }
 
@@ -127,6 +161,7 @@ impl TranslationSegmentCache {
                 translated_text: output.text.clone(),
                 markup: output.markup.clone(),
                 markup_identity: Some(self.markup_identity(plan)),
+                needs_review: output.needs_review,
             },
         );
     }
@@ -201,6 +236,7 @@ impl TranslationSegmentCache {
                 translated_text,
                 markup: None,
                 markup_identity: None,
+                needs_review: false,
             },
         );
     }
@@ -382,6 +418,7 @@ mod tests {
             .fragment(0..segment.source_end, &segment.text)
             .unwrap();
         let output = TranslationSegmentOutput {
+            needs_review: false,
             id: segment.id.clone(),
             source_text: segment.text.clone(),
             text: "one and two".into(),
@@ -445,6 +482,7 @@ mod tests {
         cache.store_translation(&segment, "A ring".into());
         assert!(cache.mapped_output_for(&segment, &strong).is_none());
         let output = TranslationSegmentOutput {
+            needs_review: false,
             id: segment.id.clone(),
             source_text: segment.text.clone(),
             text: "A ring".into(),
@@ -464,6 +502,82 @@ mod tests {
         let roundtrip: super::TranslationSegmentCache =
             serde_json::from_str(&serde_json::to_string(&cache).unwrap()).unwrap();
         assert!(roundtrip.mapped_output_for(&segment, &strong).is_none());
+    }
+
+    /// A review outcome survives JSON/resume, but neither missing flags nor foreign DOM grant fallback.
+    #[test]
+    fn sentence_review_cache_requires_explicit_outcome_and_current_source_identity() {
+        use crate::translation::{
+            dom::DomPlan, engine::TranslationSegmentOutput,
+            inline_markup::protected::ProtectedSource,
+        };
+        let mut job = plan();
+        job.request.model_id = "opus-mt-fr-en-ctranslate2".into();
+        let mut segment = job.batches[0].segments[0].clone();
+        segment.text = "Je ne sais pas.".into();
+        segment.source_start = 0;
+        segment.source_end = segment.text.chars().count();
+        let mapping = |tag: &str| {
+            let dom = DomPlan::new(&format!("<p>Je <{tag}>ne</{tag}> sais pas.</p>"));
+            ProtectedSource::for_boundaries(&dom.blocks[0].node)
+                .unwrap()
+                .fragment(0..segment.source_end, &segment.text)
+                .unwrap()
+        };
+        let source = mapping("em");
+        let mut cache = new_segment_cache(&job);
+        let output = TranslationSegmentOutput {
+            id: segment.id.clone(),
+            source_text: segment.text.clone(),
+            text: "I don't know.".into(),
+            markup: None,
+            needs_review: true,
+        };
+        cache.store_mapped_output(&segment, &source, &output);
+        let valid: super::TranslationSegmentCache =
+            serde_json::from_str(&serde_json::to_string(&cache).unwrap()).unwrap();
+        let resumed = valid.sentence_output_for(&segment, &source, true).unwrap();
+        assert_eq!(resumed.text, "I don't know.");
+        assert!(resumed.needs_review && resumed.markup.is_none());
+        assert!(valid.mapped_output_for(&segment, &source).is_none());
+        assert!(valid
+            .sentence_output_for(&segment, &source, false)
+            .is_none());
+        assert!(valid
+            .sentence_output_for(&segment, &mapping("strong"), true)
+            .is_none());
+        assert!(valid.translated_text_for_source(&segment).is_none());
+        for corruption in ["missing-flag", "markup", "empty", "oversize", "source"] {
+            let mut changed = valid.clone();
+            let entry = changed.segments.get_mut(&segment.id).unwrap();
+            match corruption {
+                "missing-flag" => entry.needs_review = false,
+                "markup" => entry.markup = Some("I don't know.".into()),
+                "empty" => entry.translated_text = " ".into(),
+                "oversize" => {
+                    entry.translated_text =
+                        "x".repeat(super::super::inline_markup::protected::MAX_HTML_BYTES + 1)
+                }
+                _ => entry.source_hash = hash_segment_text("another source"),
+            }
+            assert!(
+                changed
+                    .sentence_output_for(&segment, &source, true)
+                    .is_none(),
+                "{corruption}"
+            );
+        }
+        let mut json = serde_json::to_value(&valid).unwrap();
+        json["segments"][&segment.id]
+            .as_object_mut()
+            .unwrap()
+            .remove("needsReview");
+        let missing: super::TranslationSegmentCache = serde_json::from_value(json).unwrap();
+        assert!(missing
+            .sentence_output_for(&segment, &source, true)
+            .is_none());
+        cache.store_translation(&segment, "legacy text".into());
+        assert!(cache.sentence_output_for(&segment, &source, true).is_none());
     }
 
     #[test]

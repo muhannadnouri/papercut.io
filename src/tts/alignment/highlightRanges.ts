@@ -9,6 +9,7 @@ import {
   type ReadableDomTextLocatorIndex,
 } from './domTextSegments'
 import { segmentWordTokens, type WordToken } from './wordTiming'
+import { HTML_SKIP_SELECTOR, findNearestReadableOwner } from './htmlStructure'
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import type { TtsChunk, TtsChunkSourceSpan } from '../types'
 
@@ -85,7 +86,7 @@ export function highlightTtsChunk(
   const range = getChunkRange(cache, chunkIndex)
   if (!range) return null
 
-  cache.highlight.add(range)
+  for (const part of readableRangeParts(range)) cache.highlight.add(part.range)
   view.CSS.highlights.set(TTS_HIGHLIGHT_NAME, cache.highlight)
   return { range }
 }
@@ -315,17 +316,6 @@ function findNormalizedWordRangePoints(
   const pointsByToken = Array<NormalizedRangePoints | null>(tokens.length).fill(null)
   if (tokens.length === 0) return pointsByToken
 
-  const doc = range.startContainer.ownerDocument
-  const root = range.commonAncestorContainer
-  const walkerRoot = root.nodeType === Node.TEXT_NODE ? root.parentNode : root
-  if (!doc || !walkerRoot) return pointsByToken
-
-  const walker = doc.createTreeWalker(walkerRoot, NodeFilter.SHOW_TEXT, {
-    acceptNode: (node) => range.intersectsNode(node)
-      ? NodeFilter.FILTER_ACCEPT
-      : NodeFilter.FILTER_REJECT,
-  })
-
   let normalizedOffset = 0
   let pendingWhitespace: NormalizedTextPoint | null = null
   let start: NormalizedTextPoint | null = null
@@ -350,28 +340,24 @@ function findNormalizedWordRangePoints(
     return tokenIndex >= tokens.length
   }
 
-  let current: Node | null = walker.currentNode
-  while (current) {
-    if (current.nodeType === Node.TEXT_NODE && range.intersectsNode(current)) {
-      const node = current as Text
-      const rawStart = node === range.startContainer ? range.startOffset : 0
-      const rawEnd = node === range.endContainer ? range.endOffset : node.data.length
-
-      for (let offset = rawStart; offset < rawEnd; offset++) {
-        if (/\s/.test(node.data[offset])) {
-          if (normalizedOffset > 0) pendingWhitespace = { node, offset }
-          continue
-        }
-
-        if (pendingWhitespace) {
-          if (emit(pendingWhitespace)) return pointsByToken
-          pendingWhitespace = null
-        }
-
-        if (emit({ node, offset })) return pointsByToken
-      }
+  for (const part of readableRangeParts(range)) {
+    const node = part.range.startContainer as Text
+    if (part.breakBefore && normalizedOffset > 0) {
+      pendingWhitespace = { node, offset: part.range.startOffset }
     }
-    current = walker.nextNode()
+    for (let offset = part.range.startOffset; offset < part.range.endOffset; offset++) {
+      if (/\s/.test(node.data[offset])) {
+        if (normalizedOffset > 0) pendingWhitespace = { node, offset }
+        continue
+      }
+
+      if (pendingWhitespace) {
+        if (emit(pendingWhitespace)) return pointsByToken
+        pendingWhitespace = null
+      }
+
+      if (emit({ node, offset })) return pointsByToken
+    }
   }
 
   return pointsByToken
@@ -404,7 +390,7 @@ function createFallbackRange(cache: AlignmentCache, chunkIndex: number): Range |
       chunkId: chunk.id,
       sourceSpan: `${sourceSpan.startSegmentIndex}:${sourceSpan.startOffset}-${sourceSpan.endSegmentIndex}:${sourceSpan.endOffset}`,
       chunkPreview: previewDiagnosticText(normalizeDiagnosticText(chunk.text)),
-      rangePreview: previewDiagnosticText(normalizeDiagnosticText(range?.toString() ?? '')),
+      rangePreview: previewDiagnosticText(normalizeDiagnosticText(range ? readableRangeText(range) : '')),
     }, 'warn')
     return null
   }
@@ -488,7 +474,7 @@ function logHighlightRangeBuilt(
   const chunk = cache.chunks[chunkIndex]
   const sourceSpan = chunk?.sourceSpan
   const chunkText = normalizeDiagnosticText(chunk?.text ?? '')
-  const rangeText = normalizeDiagnosticText(range.toString())
+  const rangeText = normalizeDiagnosticText(readableRangeText(range))
   const rect = range.getBoundingClientRect()
   const matches = chunkText === rangeText
 
@@ -521,7 +507,40 @@ function normalizeDiagnosticText(text: string): string {
 }
 
 function rangeTextMatchesChunk(range: Range, chunk: TtsChunk | undefined): boolean {
-  return locatorTextsMatch(range.toString(), chunk?.text ?? '')
+  return locatorTextsMatch(readableRangeText(range), chunk?.text ?? '')
+}
+
+// Chunk endpoints may surround a retained original; split live highlights without changing the DOM.
+function readableRangeParts(range: Range): Array<{ range: Range; breakBefore: boolean }> {
+  const doc = range.startContainer.ownerDocument
+  if (!doc) return []
+  const ancestor = range.commonAncestorContainer
+  const root = ancestor instanceof Element ? ancestor : ancestor.parentElement
+  if (!root) return []
+  const walker = doc.createTreeWalker(ancestor, NodeFilter.SHOW_TEXT)
+  walker.currentNode = range.startContainer
+  const parts: Array<{ range: Range; breakBefore: boolean }> = []
+  let previousOwner: Element | null = null
+  let current: Node | null = walker.currentNode
+  while (current && range.intersectsNode(current)) {
+    if (current.nodeType === Node.TEXT_NODE && !current.parentElement?.closest(HTML_SKIP_SELECTOR)) {
+      const part = doc.createRange()
+      part.setStart(current, current === range.startContainer ? range.startOffset : 0)
+      part.setEnd(current, current === range.endContainer ? range.endOffset : (current as Text).length)
+      const owner = findNearestReadableOwner(current.parentElement, root)
+      if (!part.collapsed) {
+        parts.push({ range: part, breakBefore: parts.length > 0 && owner !== previousOwner })
+        previousOwner = owner
+      }
+    }
+    if (current === range.endContainer) break
+    current = walker.nextNode()
+  }
+  return parts
+}
+
+function readableRangeText(range: Range): string {
+  return readableRangeParts(range).map(part => (part.breakBefore ? ' ' : '') + part.range.toString()).join('')
 }
 
 function previewDiagnosticText(text: string): string {

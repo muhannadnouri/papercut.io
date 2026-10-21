@@ -21,6 +21,9 @@ impl ProtectedPlan {
                         Some(target.start)
                     } else if unit.source.end == offset {
                         Some(target.end)
+                    } else if unit.kind != Kind::Prose && unit.source.contains(&offset) {
+                        // Copied symbols/literals have exact scalar correspondence, unlike translated words.
+                        Some(target.start + offset - unit.source.start)
                     } else {
                         None
                     }
@@ -33,7 +36,10 @@ impl ProtectedPlan {
         }
         // Copied content is never synthesized; literals still use opaque placeholders in transport.
         for (unit, target) in translation.plan.units().iter().zip(&translation.targets) {
-            if matches!(unit.kind, Kind::Literal(_) | Kind::Verbatim) {
+            if matches!(
+                unit.kind,
+                Kind::Literal(_) | Kind::Verbatim | Kind::Whitespace
+            ) {
                 let source: String = self
                     .source
                     .chars()

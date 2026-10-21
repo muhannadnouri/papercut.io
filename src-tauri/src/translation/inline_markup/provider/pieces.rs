@@ -1,4 +1,4 @@
-//! Exact decoder units and copied literals, shared by boundary jobs and the disabled strict candidate.
+//! Exact decoder units and copied literals, shared by sentence jobs and the disabled strict candidate.
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -42,7 +42,7 @@ pub(crate) enum Kind {
     Prose,
     Whitespace,
     Literal(usize),
-    /// Boundary-only punctuation/symbol fragments have no words to translate and can trigger hallucinations.
+    /// Sentence-policy punctuation/symbol fragments have no words to translate and can trigger hallucinations.
     Verbatim,
 }
 
@@ -106,8 +106,8 @@ impl SourcePlan {
         Self::plan(segment, protected, translator, aligner_fits, false)
     }
 
-    /// Boundary translation cuts at every source shell/attachment; it needs no semantic aligner.
-    pub(crate) fn from_boundaries(
+    /// Sentence translation ignores style endpoints; immutable literals remain outside inference.
+    pub(crate) fn from_sentences(
         segment: &TranslationTextSegment,
         protected: ProtectedPlan,
         translator: &dyn ExactPieceTranslator,
@@ -144,65 +144,41 @@ impl SourcePlan {
             .collect::<Vec<_>>();
         let codes = protected.source_codes().collect::<Vec<_>>();
         let mut units = Vec::new();
-        if boundaries {
-            let mut cuts = vec![0, bytes.len() - 1];
-            for code in &codes {
-                cuts.extend([code.range.start, code.range.end]);
-            }
-            cuts.sort_unstable();
-            cuts.dedup();
-            for range in cuts.windows(2).map(|p| p[0]..p[1]) {
-                if let Some(code) = codes.iter().find(|c| c.literal && c.range == range) {
-                    push(&mut units, Kind::Literal(code.id), range, boundaries)?;
-                } else {
-                    plan_prose(
-                        text,
-                        &bytes,
-                        range,
-                        boundaries,
-                        translator,
-                        &aligner_fits,
-                        &mut units,
-                    )?;
-                }
-            }
-        } else {
-            let mut cursor = 0;
-            for code in codes.iter().filter(|c| c.literal && !c.range.is_empty()) {
-                if code.range.start < cursor
-                    || code.range.end >= bytes.len()
-                    || graphemes.binary_search(&bytes[code.range.start]).is_err()
-                    || graphemes.binary_search(&bytes[code.range.end]).is_err()
-                {
-                    return Err("Literal island has an invalid source boundary".into());
-                }
-                plan_prose(
-                    text,
-                    &bytes,
-                    cursor..code.range.start,
-                    boundaries,
-                    translator,
-                    &aligner_fits,
-                    &mut units,
-                )?;
-                push(
-                    &mut units,
-                    Kind::Literal(code.id),
-                    code.range.clone(),
-                    boundaries,
-                )?;
-                cursor = code.range.end;
+        let mut cursor = 0;
+        for code in codes.iter().filter(|c| c.literal && !c.range.is_empty()) {
+            if code.range.start < cursor
+                || code.range.end >= bytes.len()
+                || graphemes.binary_search(&bytes[code.range.start]).is_err()
+                || graphemes.binary_search(&bytes[code.range.end]).is_err()
+            {
+                return Err("Literal island has an invalid source boundary".into());
             }
             plan_prose(
                 text,
                 &bytes,
-                cursor..bytes.len() - 1,
+                cursor..code.range.start,
                 boundaries,
                 translator,
                 &aligner_fits,
                 &mut units,
             )?;
+            push(
+                &mut units,
+                Kind::Literal(code.id),
+                code.range.clone(),
+                boundaries,
+            )?;
+            cursor = code.range.end;
         }
+        plan_prose(
+            text,
+            &bytes,
+            cursor..bytes.len() - 1,
+            boundaries,
+            translator,
+            &aligner_fits,
+            &mut units,
+        )?;
         // Whitespace trimming must not detach a combining mark from its original grapheme either.
         if units.iter().any(|u| {
             graphemes.binary_search(&bytes[u.source.start]).is_err()
@@ -238,6 +214,42 @@ impl SourcePlan {
             protected,
             units,
             attachments,
+        })
+    }
+
+    /// Only whole natural sentence scopes or exact copied ranges can retain target formatting.
+    /// A tokenizer/budget cut is not evidence that half a sentence has the same semantic owner.
+    pub(crate) fn formatting_needs_review(&self) -> bool {
+        let text = self.protected.source_text();
+        let mut sentence_edges = std::collections::BTreeSet::from([0, text.chars().count()]);
+        let mut offset = 0;
+        for sentence in text.split_sentence_bounds() {
+            let start = offset + sentence.chars().take_while(|c| c.is_whitespace()).count();
+            let end = offset + sentence.trim_end().chars().count();
+            sentence_edges.extend([start, end]);
+            offset += sentence.chars().count();
+        }
+        let supported = |point| {
+            sentence_edges.contains(&point)
+                && self.units.iter().any(|u| {
+                    if u.kind != Kind::Prose {
+                        u.source.start <= point && point <= u.source.end
+                    } else {
+                        point == u.source.start || point == u.source.end
+                    }
+                })
+        };
+        if self.units.iter().all(|u| u.kind != Kind::Prose) {
+            return false; // Entirely copied content has exact correspondence, including punctuation and notes.
+        }
+        self.protected.source_codes().any(|code| {
+            let copied = !code.range.is_empty()
+                && self.units.iter().any(|u| {
+                    u.kind != Kind::Prose
+                        && u.source.start <= code.range.start
+                        && code.range.end <= u.source.end
+                });
+            !copied && (!supported(code.range.start) || !supported(code.range.end))
         })
     }
 
@@ -333,7 +345,7 @@ impl SourcePlan {
     }
 }
 
-/// Boundary MT is sentence-first within each source scope; strict mapping keeps its context until over budget.
+/// Public MT is sentence-first across styles; strict mapping keeps its context until over budget.
 #[allow(clippy::too_many_arguments)]
 fn plan_prose(
     text: &str,
