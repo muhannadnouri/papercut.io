@@ -134,8 +134,12 @@ The frontend lives under [src/translation](../src/translation):
   Its `enabled` flag controls listener subscription; a presentation extraction
   must not move the hook into a tab child.
 - `components/TranslationPanel.tsx` coordinates selection, capability/busy state,
-  model management, job presentation and saved results. Dialogs use the existing
-  house components and localized labels.
+  model management and job presentation. `components/TranslatedDocumentsPanel.tsx`
+  owns the saved list, its disclosure/delete-confirmation/dismissal state and the
+  existing callbacks. Confirmation resolves its ID against the latest rows.
+  Both views share language/status labels in `utils/presentation.ts`; saved
+  `ready` and job `stored` use the existing localized completion label. Dialogs
+  retain the house component, accessible labels and focus handling.
 - `api/nativeTranslation.ts` and `utils/errors.ts` normalize capabilities,
   WebView support and stable command errors.
 - `bergamot/assets.ts` delivers verified binary assets; `bergamot/nativeBridge.ts`
@@ -312,8 +316,8 @@ Checks passed: 221 base Rust translation tests, 121 frontend translation tests,
 bytes, command/test-path checks and diff whitespace. Ten CI-script cases first
 hit sandbox subprocess `EPERM`; all 11 cases passed outside that sandbox.
 No production code changed. This does not add inference, full CI, language-quality
-or packaged-device acceptance. The saved-status presentation gap below remains
-for the next UI stage; no other actionable consolidation finding remains.
+or packaged-device acceptance. The saved-status presentation gap identified
+here is addressed by the saved-document extraction below.
 
 ### Acceptance cases to retain
 
@@ -349,26 +353,35 @@ CPU/GPU-compatible cache/variant identity. These are **not current supported
 language or mobile quality claims**. Benchmarks, broader smoke and version bump
 remain deferred.
 
+## Saved-document presentation — implemented 2026-10-21
+
+`TranslatedDocumentsPanel` now owns presentation only. The parent passes rows,
+model names and existing open/delete callbacks; `App` and `useTranslationManager`
+still own native operations, worker lifetime, job results and Library refresh.
+No new store, listener, IPC, dependency, CSS or localization key was introduced.
+Disclosure/dismissal state survives prop refreshes while the view is mounted;
+local presentation state resets when the view unmounts. No inference, provider
+admission, cache, metadata, original document, audio or timing behavior changed.
+
+Panel integration regressions cover actual saved `ready` versus job `stored`,
+`needs-review` and existing `stored` handling; access without a source/runtime or
+model; model-name fallback; delete confirmation/cancel/focus restoration; target
+removal or metadata refresh while confirming; failed deletion/retry; collapse
+across updates and empty refresh; independent job/delete status dismissal and
+new outcomes. Removing `ready` localization makes the new real-row test fail.
+
+Validation: 132 frontend translation tests passed, including 39 Panel cases;
+TypeScript, changed-file ESLint, all eight locale checks and diff checks passed.
+Evidence JSON is unchanged. These are synthetic interaction/lifecycle checks,
+not browser-layout, native-inference or packaged-device acceptance.
+
 ## Next bounded work
 
-1. **Extract saved-document presentation**; consolidation review is complete.
-   Introduce `TranslatedDocumentsPanel.tsx` using only existing data/callbacks.
-   Keep `docsOpen`, `confirmingDeleteId` and delete-status dismissal local; resolve
-   the confirmation ID against the latest document list, never a stale snapshot.
-   Keep commands, Library refresh and the manager's lifecycle ownership unchanged.
-2. Preserve no-source/no-provider/removed-model access, saved `ready`/`needs-review`,
-   model-name fallback, dialog labels/focus and current DOM/CSS. Move language or
-   status formatting to `utils/presentation.ts` only if two actual consumers
-   need it. Do not add a context/store/listener or pre-split setup/job screens.
-   Fix the confirmed presentation gap: `formatStatusLabel` currently falls back
-   to English `Ready` for actual saved rows. Reuse the existing localized
-   completion label for `ready`, retaining existing `stored` handling.
-3. Keep Panel integration tests; add delete cancel/confirm, target disappearing
-   on refresh, delete failure/retry, collapse and independent job/delete-status
-   dismissal regressions. Use real saved `ready` and `needs-review` states plus
-   existing `stored` cases to protect the status distinction. Pass translation
-   frontend tests, TypeScript and changed lint. Review that extraction before
-   deciding another UI boundary.
+Review the saved-document extraction and its regressions before another split.
+Check that the existing manager remains the only async owner, deletion always
+uses the latest row and status dismissal stays local. Reassess setup/job
+presentation boundaries only after that review; do not pre-create more screens
+or move shared busy/admission logic into independently coordinated children.
 
 Release acceptance remains a separate gate: representative FR/ES meaning and
 review-original usability, HTML/EPUB search/TTS/read-along and rebuilt packaged

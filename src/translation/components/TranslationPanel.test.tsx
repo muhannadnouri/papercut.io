@@ -4,10 +4,20 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TranslationPanel } from './TranslationPanel'
 import en from '../../i18n/locales/en.json'
-import type { TranslationModelInfo, TranslationModelStatus } from '../api/nativeTranslation'
+import type { TranslatedDocumentInfo, TranslationModelInfo, TranslationModelStatus } from '../api/nativeTranslation'
 
-// Interpolate the removal amount so assertions cover the actual confirmation payload.
-vi.mock('react-i18next', async original => ({ ...await original<typeof import('react-i18next')>(), useTranslation: () => ({ t: (key: string, options?: { size?: string }) => key === 'translation.confirmModelRemove.description' ? `${key} ${options?.size ?? ''}` : key, i18n: { language: 'en' } }) }))
+// Interpolate confirmation payloads so refresh tests can detect a stale document title.
+vi.mock('react-i18next', async original => ({
+  ...await original<typeof import('react-i18next')>(),
+  useTranslation: () => ({
+    t: (key: string, options?: { size?: string; title?: string }) => {
+      if (key === 'translation.confirmModelRemove.description') return `${key} ${options?.size ?? ''}`
+      if (key === 'translation.confirmDelete.description') return `${key} ${options?.title ?? ''}`
+      return key
+    },
+    i18n: { language: 'en' },
+  }),
+}))
 vi.mock('../../i18n', () => ({ default: { t: (key: string) => key }, currentAppLocale: () => 'en' }))
 const opus: TranslationModelInfo = {
   id: 'opus-mt-fr-en-ctranslate2', name: 'OPUS French', engine: 'ctranslate2', available: true,
@@ -255,14 +265,14 @@ describe('Bergamot catalog workbench', () => {
 })
 
 describe('saved translations needing formatting review', () => {
-  it.each(['stored', 'needs-review'])('keeps %s outcomes distinct in the completion, progress and saved list', async status => {
+  it.each([['stored', 'ready'], ['stored', 'stored'], ['needs-review', 'needs-review']])('keeps job %s and saved %s outcomes distinct', async (status, savedStatus) => {
     const jobId = 'sentence-job'
     await render({
       startState: {
         ...props.startState, jobId, message: 'Backend result', result: { jobId, status, message: 'Backend result' },
         progress: { jobId, status, message: 'Backend result', totalSegments: 0, completedSegments: 0, totalBatches: 0, completedBatches: 0, percent: 100, elapsedMs: 10 } as NonNullable<typeof props.startState.progress>,
       },
-      translatedDocuments: [{ id: 'saved', title: 'Saved translation', documentUrl: '/uploads/translated.html', sourceDocumentUrl: '/uploads/book.html', sourceLanguage: 'fr', targetLanguage: 'en', modelId: opus.id, status, createdAtMs: 1, updatedAtMs: 1 }],
+      translatedDocuments: [{ id: 'saved', title: 'Saved translation', documentUrl: '/uploads/translated.html', sourceDocumentUrl: '/uploads/book.html', sourceLanguage: 'fr', targetLanguage: 'en', modelId: opus.id, status: savedStatus, createdAtMs: 1, updatedAtMs: 1 }],
     })
     const review = status === 'needs-review'
     expect(container.querySelector('.translation-status-stack strong')?.textContent).toBe(`translation.status.${review ? 'translationNeedsReview' : 'translationComplete'}`)
@@ -319,3 +329,133 @@ describe('retired formatting-pack management', () => {
     await click('common.cancel')
     expect(props.onCancelTranslation).toHaveBeenCalledOnce()
   })
+
+/** Model the native saved-row contract, independently of job completion status. */
+function savedDocument(overrides: Partial<TranslatedDocumentInfo> = {}): TranslatedDocumentInfo {
+  return {
+    id: 'saved-one', title: 'Saved translation', documentUrl: '/uploads/saved-one.html',
+    sourceDocumentUrl: '/uploads/source.html', sourceLanguage: 'fr', targetLanguage: 'en',
+    modelId: opus.id, status: 'ready', createdAtMs: 1, updatedAtMs: 1, ...overrides,
+  }
+}
+
+// Exercise the extracted view through its real parent to cover status and callback boundaries.
+describe('saved-document presentation lifecycle', () => {
+  it.each(['ready', 'stored', 'needs-review'])('opens a saved %s result without a source, runtime or installed model', async status => {
+    const doc = savedDocument({ status, modelId: 'removed-model' })
+    await render({ selectedDocument: null, capabilities: null, modelStatuses: {}, translatedDocuments: [doc] })
+    const row = container.querySelector('.translation-document-item')!
+    expect(row.textContent).toContain('removed-model')
+    expect(row.textContent).toContain(status === 'needs-review'
+      ? 'translation.status.translationNeedsReview' : 'translation.progress.status.completed')
+    expect(row.textContent).toContain('French → English')
+    await click('common.view')
+    expect(props.onOpenTranslatedDocument).toHaveBeenCalledExactlyOnceWith(doc.documentUrl)
+    expect(props.onStartTranslationPreflight).not.toHaveBeenCalled()
+  })
+
+  it('requires confirmation, restores focus on cancel and deletes only the chosen document', async () => {
+    const first = savedDocument()
+    const second = savedDocument({ id: 'saved-two', title: 'Second translation', documentUrl: '/uploads/saved-two.html' })
+    await render({ translatedDocuments: [first, second] })
+    const trigger = container.querySelectorAll<HTMLButtonElement>('.translation-document-delete-btn')[1]
+    trigger.focus()
+    await act(async () => trigger.click())
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"]')!
+    expect(dialog.getAttribute('aria-modal')).toBe('true')
+    expect(document.getElementById(dialog.getAttribute('aria-labelledby')!)?.textContent).toBe('translation.confirmDelete.title')
+    expect(document.getElementById(dialog.getAttribute('aria-describedby')!)?.textContent).toContain(second.title)
+    expect(dialog.contains(document.activeElement)).toBe(true)
+    expect(props.onDeleteTranslatedDocument).not.toHaveBeenCalled()
+    await act(async () => dialog.querySelector<HTMLButtonElement>('.app-dialog-cancel')!.click())
+    expect(container.querySelector('[role="dialog"]')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+    expect(props.onDeleteTranslatedDocument).not.toHaveBeenCalled()
+    await act(async () => trigger.click())
+    await act(async () => container.querySelector<HTMLButtonElement>('.app-dialog-danger')!.click())
+    expect(props.onDeleteTranslatedDocument).toHaveBeenCalledExactlyOnceWith(second.id)
+    expect(container.querySelector('[role="dialog"]')).toBeNull()
+  })
+
+  it('closes confirmation when refresh removes its target instead of deleting another row', async () => {
+    const first = savedDocument()
+    const second = savedDocument({ id: 'saved-two', title: 'Second translation' })
+    await render({ translatedDocuments: [first, second] })
+    await act(async () => container.querySelector<HTMLButtonElement>('.translation-document-delete-btn')!.click())
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull()
+    await render({ translatedDocuments: [second] })
+    expect(container.querySelector('[role="dialog"]')).toBeNull()
+    expect(container.querySelector('.translation-document-item')?.textContent).toContain(second.title)
+    expect(props.onDeleteTranslatedDocument).not.toHaveBeenCalled()
+  })
+
+  it('rebinds an open confirmation to refreshed metadata for the same ID', async () => {
+    const doc = savedDocument()
+    await render({ translatedDocuments: [doc] })
+    await click('common.delete')
+    await render({ translatedDocuments: [{ ...doc, title: 'Refreshed title' }] })
+    const description = container.querySelector('.app-dialog-header p')!.textContent
+    expect(description).toContain('Refreshed title')
+    expect(description).not.toContain(doc.title)
+    await act(async () => container.querySelector<HTMLButtonElement>('.app-dialog-danger')!.click())
+    expect(props.onDeleteTranslatedDocument).toHaveBeenCalledExactlyOnceWith(doc.id)
+  })
+
+  it('keeps collapse state across parent updates and exposes the refreshed list on reopen', async () => {
+    await render({ translatedDocuments: [savedDocument()] })
+    await click('translation.documents.title')
+    const toggle = container.querySelector<HTMLButtonElement>('[aria-label="translation.documents.ariaLabel"] .panel-toggle')!
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(container.querySelector('.translation-document-list')).toBeNull()
+    const fresh = savedDocument({ title: 'Refreshed translation' })
+    await render({ translatedDocuments: [fresh], loading: true })
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    await act(async () => toggle.click())
+    expect(container.querySelector('.translation-document-item')?.textContent).toContain(fresh.title)
+    await render({ translatedDocuments: [] })
+    expect(container.querySelector('.translation-document-list')).toBeNull()
+    expect(container.textContent).toContain('translation.documents.empty')
+  })
+
+  it('keeps a failed deletion retryable and displays the subsequent manager outcome', async () => {
+    const doc = savedDocument()
+    await render({ translatedDocuments: [doc] })
+    await click('common.delete')
+    await act(async () => container.querySelector<HTMLButtonElement>('.app-dialog-danger')!.click())
+    await render({ deleteState: { id: doc.id, deleted: false, bytesFreed: 0, message: 'Storage is busy' } })
+    expect(container.querySelector('[aria-label="translation.documents.ariaLabel"] [role="status"]')?.textContent).toContain('Storage is busy')
+    expect(container.querySelector('.translation-document-item')).not.toBeNull()
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="translation.status.dismissDelete"]')!.click())
+    await click('common.delete')
+    await act(async () => container.querySelector<HTMLButtonElement>('.app-dialog-danger')!.click())
+    expect(props.onDeleteTranslatedDocument).toHaveBeenCalledTimes(2)
+    expect(props.onDeleteTranslatedDocument).toHaveBeenLastCalledWith(doc.id)
+    await render({ translatedDocuments: [], deleteState: { id: doc.id, deleted: true, bytesFreed: 10, message: 'Removed' } })
+    expect(container.querySelector('.translation-document-item')).toBeNull()
+    expect(container.querySelector('[aria-label="translation.documents.ariaLabel"] [role="status"]')?.textContent).toContain('translation.status.documentDeleted')
+  })
+
+  it.each(['job', 'delete'])('dismissing %s status does not hide the other operation or new outcomes', async dismissed => {
+    const jobId = 'completed-job'
+    await render({
+      translatedDocuments: [savedDocument()],
+      startState: { ...props.startState, jobId, message: 'Job saved', result: { jobId, status: 'stored', message: 'Job saved' } },
+      deleteState: { id: 'previous-document', deleted: true, bytesFreed: 10, message: 'Previous deleted' },
+    })
+    const jobSelector = '[aria-label="translation.status.dismissTranslation"]'
+    const deleteSelector = '[aria-label="translation.status.dismissDelete"]'
+    const dismissedSelector = dismissed === 'job' ? jobSelector : deleteSelector
+    const otherSelector = dismissed === 'job' ? deleteSelector : jobSelector
+    await act(async () => container.querySelector<HTMLButtonElement>(dismissedSelector)!.click())
+    expect(container.querySelector(dismissedSelector)).toBeNull()
+    expect(container.querySelector(otherSelector)).not.toBeNull()
+    await render({ loading: true })
+    expect(container.querySelector(dismissedSelector)).toBeNull()
+    await render({
+      startState: { ...props.startState, message: 'New job saved', result: { jobId: 'next-job', status: 'stored', message: 'New job saved' } },
+      deleteState: { id: 'another-document', deleted: true, bytesFreed: 20, message: 'Another deleted' },
+    })
+    expect(container.querySelector(jobSelector)).not.toBeNull()
+    expect(container.querySelector(deleteSelector)).not.toBeNull()
+  })
+})

@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { AppDialog } from '../../components/AppDialog/AppDialog'
 import { Panel } from '../../components/Panel/Panel'
 import { formatStorageSize } from '../../utils/formatUtils'
+import { TranslatedDocumentsPanel } from './TranslatedDocumentsPanel'
+import { formatLanguageLabel, formatStatusLabel } from '../utils/presentation'
 import './TranslationPanel.css'
 import type {
   TranslatedDocumentInfo,
@@ -103,19 +105,13 @@ export function TranslationPanel({
     () => installableModels.filter(model => model.available),
     [installableModels],
   )
-  const [confirmingDeleteId, setConfirmingDeleteId] = useState('')
   const [confirmingModelId, setConfirmingModelId] = useState('')
-  const confirmingDocument = useMemo(
-    () => translatedDocuments.find((doc) => doc.id === confirmingDeleteId) ?? null,
-    [confirmingDeleteId, translatedDocuments],
-  )
   const confirmingModel = useMemo(
     () => installableModels.find(model => model.id === confirmingModelId)
       ?? (confirmingModelId && capabilities?.formatting?.modelId === confirmingModelId
         ? { id: confirmingModelId, name: t('translation.formatting.packName'), sizeNotes: '' } : null),
     [confirmingModelId, installableModels, capabilities, t],
   )
-  const [docsOpen, setDocsOpen] = useState(true)
   // Local-only dismissal of finished status messages; a new message (different
   // key) reappears without needing hook state changes.
   const [dismissedStatusKeys, setDismissedStatusKeys] = useState<string[]>([])
@@ -167,7 +163,6 @@ export function TranslationPanel({
   const jobStatusKey = 'job:' + startState.message
   const installStatusKey = 'install:' + modelInstallState.message
   const removeStatusKey = 'remove:' + modelRemoveState.message
-  const deleteStatusKey = deleteState ? 'delete:' + deleteState.id + ':' + deleteState.message : ''
   const dismissStatus = (key: string) => {
     setDismissedStatusKeys((previous) => (previous.includes(key) ? previous : [...previous, key]))
   }
@@ -179,7 +174,6 @@ export function TranslationPanel({
   const showRemoveStatus =
     Boolean(modelRemoveState.message) &&
     !(modelRemoveState.result && dismissedStatusKeys.includes(removeStatusKey))
-  const showDeleteStatus = Boolean(deleteState) && !dismissedStatusKeys.includes(deleteStatusKey)
   const backendUnavailable = Boolean(capabilities && !capabilities.available)
   const jobFailed = !startState.checking && !startState.result && Boolean(startState.message)
   const jobNeedsReview = startState.result?.status === 'needs-review'
@@ -572,100 +566,15 @@ export function TranslationPanel({
         </div>
       </Panel>
 
-      <Panel
-        className="translation-subpanel"
-        ariaLabel={t('translation.documents.ariaLabel')}
-        title={t('translation.documents.title')}
-        meta={t('translation.documents.savedCount', { count: translatedDocuments.length })}
-        open={docsOpen}
-        onToggle={() => setDocsOpen((value) => !value)}
-      >
-        {deleteState && showDeleteStatus && (
-          <div className={'translation-alert' + (deleteState.deleted ? '' : ' translation-alert-error')} role="status">
-            <button
-              type="button"
-              className="translation-alert-dismiss"
-              aria-label={t('translation.status.dismissDelete')}
-              onClick={() => dismissStatus(deleteStatusKey)}
-            >
-              ×
-            </button>
-            <span className="translation-alert-message">
-              {deleteState.deleted
-                ? t('translation.status.documentDeleted')
-                : deleteState.message}
-            </span>
-          </div>
-        )}
-        {translatedDocuments.length > 0 ? (
-          <div className="translation-document-list">
-            {translatedDocuments.map((doc) => (
-              <div key={doc.id} className="translation-document-item">
-                <div>
-                  <strong>{doc.title}</strong>
-                  <span>
-                    {formatLanguageLabel(doc.sourceLanguage, locale, t)}
-                    {' → '}
-                    {formatLanguageLabel(doc.targetLanguage, locale, t)}
-                    {' · '}{modelNameById.get(doc.modelId) ?? doc.modelId}
-                    {' · '}{formatStatusLabel(doc.status, t)}
-                  </span>
-                </div>
-                <div className="translation-document-actions">
-                  <button
-                    type="button"
-                    className="translation-document-view-btn"
-                    aria-label={t('translation.documents.viewLabel', { title: doc.title })}
-                    onClick={() => { void onOpenTranslatedDocument(doc.documentUrl) }}
-                  >
-                    {t('common.view')}
-                  </button>
-                  <button
-                    type="button"
-                    className="translation-document-delete-btn"
-                    aria-label={t('translation.documents.deleteLabel', { title: doc.title })}
-                    onClick={() => setConfirmingDeleteId(doc.id)}
-                  >
-                    {t('common.delete')}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="translation-section-empty">{t('translation.documents.empty')}</p>
-        )}
-      </Panel>
+      <TranslatedDocumentsPanel
+        translatedDocuments={translatedDocuments}
+        modelNameById={modelNameById}
+        deleteState={deleteState}
+        onDeleteTranslatedDocument={onDeleteTranslatedDocument}
+        onOpenTranslatedDocument={onOpenTranslatedDocument}
+      />
       </div>
 
-      {confirmingDocument && (
-        <AppDialog
-          title={t('translation.confirmDelete.title')}
-          description={t('translation.confirmDelete.description', { title: confirmingDocument.title })}
-          onCancel={() => setConfirmingDeleteId('')}
-          actions={
-            <>
-              <button
-                type="button"
-                className="app-dialog-cancel"
-                onClick={() => setConfirmingDeleteId('')}
-              >
-                {t('translation.confirmDelete.keep')}
-              </button>
-              <button
-                type="button"
-                className="app-dialog-danger"
-                onClick={() => {
-                  setConfirmingDeleteId('')
-                  void onDeleteTranslatedDocument(confirmingDocument.id)
-                }}
-              >
-                {t('common.delete')}
-              </button>
-            </>
-          }
-        />
-      )}
       {confirmingModel && (
         <AppDialog
           title={t('translation.confirmModelRemove.title')}
@@ -877,19 +786,6 @@ function formatModelsSummary(
   return pieces.join(' · ')
 }
 
-// Language names beat raw ISO codes for recognition; fall back to the code
-// when the runtime cannot resolve a display name.
-function formatLanguageLabel(language: string, locale: string, t: TFunction): string {
-  if (language === 'auto') return t('translation.languages.autoDetect')
-  try {
-    const name = new Intl.DisplayNames([locale], { type: 'language' }).of(language)
-    if (name && name !== language) return name
-  } catch {
-    // Unknown/invalid code: fall through to the uppercase code.
-  }
-  return language.toUpperCase()
-}
-
 function formatProgressStatusLabel(progress: TranslationJobProgress, t: TFunction): string {
   const nextBatch = Math.min(progress.completedBatches + 1, progress.totalBatches)
   switch (progress.status) {
@@ -934,21 +830,6 @@ function formatProgressStatusLabel(progress: TranslationJobProgress, t: TFunctio
     default:
       return progress.status.charAt(0).toUpperCase() + progress.status.slice(1)
   }
-}
-
-function formatStatusLabel(status: string, t: TFunction): string {
-  const labels: Record<string, string> = {
-    'loading-model': t('translation.progress.status.loadingModel'),
-    starting: t('translation.progress.status.starting'),
-    translating: t('translation.progress.status.translating'),
-    validating: t('translation.progress.status.validating'),
-    storing: t('translation.progress.status.storing'),
-    stored: t('translation.progress.status.completed'),
-    completed: t('translation.progress.status.completed'),
-    'needs-review': t('translation.status.translationNeedsReview'),
-    cancelled: t('translation.progress.status.cancelled'),
-  }
-  return labels[status] ?? status.charAt(0).toUpperCase() + status.slice(1)
 }
 
 // Size only: installed/installing state is already carried by the row's
