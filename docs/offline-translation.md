@@ -61,7 +61,8 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   the existing protected renderer. This internal path preserves hierarchy,
   literal islands and source-owned assets; ambiguous attachment scopes reject.
   The [parent-boundary follow-up](#stage-6-leading-attachment-parent-boundaries--2026-10-20)
-  preserves leading notes/images across equivalent whitespace positions.
+  preserves leading notes/images across equivalent whitespace positions and has
+  passed its [focused review](#stage-6-parent-boundary-review--2026-10-20).
   Public runner, mapped cache/resume/save and packaged acceptance remain pending.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
@@ -2170,9 +2171,36 @@ The strict policy identity is now
 Public runner/selector/cache/writer paths, worker mapping version, model/runtime
 versions, saved variants and owned asset files remain unchanged. The candidate
 is still disabled; the previously unmet semantic scopes and all public
-acceptance gates remain open. Review this fix before Stage 7 mapped-cache,
-resume and atomic-save integration. Benchmarks, smoke and the app version bump
-remain deferred.
+acceptance gates remain open. The focused review below completes the review
+handoff; Stage 7 mapped-cache, resume and atomic-save integration is next.
+Benchmarks, smoke and the app version bump remain deferred.
+
+### Stage 6 parent-boundary review — 2026-10-20
+
+Reviewed commit `2c5b33b`, its callers, source-plan/piece ownership, checked
+word-link gap evidence, combined hierarchy validation and source-owned renderer.
+**No actionable findings in this fix.** The expected load is one foreground
+translation job, with existing code/range/target-size limits. The review traced
+leading attachments across intact and split pieces, empty and nonempty parent
+chains, copied literals, Unicode positions and contradictory punctuation scopes.
+The allowed positions stay inside the checked whitespace gap and one mapped
+parent occurrence; the final hierarchy and rendered-text checks still apply.
+Legacy worker note movement and public cache/writer paths are unchanged.
+
+Fresh offline translation suites passed **245 tests with features off** and
+**271 with CTranslate2 plus alignment runtime** (eight ignored). The two cached
+native French/Spanish alignment regressions passed separately with unavailable
+network proxies. Formatting and diff checks passed. Synthetic ownership tests
+and these small native cases do not establish general formatting/model quality.
+
+**Next:** Stage 7 should integrate the strict path with the existing runner,
+bounded mapped-cache admission, resume and atomic save guard, following its
+existing tasks/tests above. Cache reuse must bind the retained source plan,
+exact target and aligner/tokenizer/projection identities; stale translated text
+is not a validated map. Keep the candidate disabled while implementing this
+internal integration. The previously unmet semantic scopes and public acceptance
+gates remain open. No fresh CI, packaged/device acceptance, benchmarks, broader
+smoke or app version bump is claimed.
 
 ## Product Goals
 
