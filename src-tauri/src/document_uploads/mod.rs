@@ -65,8 +65,8 @@ pub(crate) use pdf::{get_pdf_source_path, restore_audiobook_pdf};
 pub(crate) use pipeline::ensure_uploaded_source_exists;
 pub(crate) use pipeline::{restore_transferred_document, stored_reader_asset_paths};
 pub(crate) use storage::{
-    now_ms, upload_dir, upload_id_from_url, upload_source_path, StoredSourceKind,
-    MAX_PDF_UPLOAD_BYTES,
+    now_ms, upload_dir, upload_id_from_url, upload_source_path, validate_upload_id,
+    StoredSourceKind, MAX_PDF_UPLOAD_BYTES,
 };
 pub(crate) use store::list_uploads;
 #[cfg(test)]

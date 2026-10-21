@@ -187,9 +187,13 @@ Terminated operations cannot be relocked by late progress events.
   variants, indexes and assets on write failure. Model removal is independent
   of document deletion. No existing audio or timing files are rewritten.
 
-The deletion ownership/dependency gaps in the readiness review below remain
-unfixed. Rollback alone does not enforce which documents a command may delete
-or preserve a source referenced by an audiobook.
+Translation deletion validates the exact raw upload ID before storage access and
+requires a matching provenance row before touching files. Ownership deletion is
+held in an immediate SQLite transaction through staged-file deletion and commit.
+Unknown valid IDs are harmless, even if unowned live/staged files exist. The
+existing audiobook-reference lock covers the pending/completed reference check
+and deletion, so source-reference publication cannot race past it. Failed DB
+deletion restores staged files and rolls back provenance/index changes.
 
 ## Storage, cache and compatibility
 
@@ -205,6 +209,16 @@ source URL/nullable source ID, languages, model/engine, quality, settings/glossa
 status, path and timestamps. Deleting the source sets the provenance FK to null;
 it does not delete the derived upload. A new job still needs a readable source.
 Saved translations open without loading the model that created them.
+
+Both translation and Library single/batch/folder deletion remove the variant's
+provenance, upload, section and FTS rows in one transaction. Shared deletion checks
+for the optional translation table, so existing version-1 databases need no schema
+migration or prior visit to the translation screen. Deleting an original retains
+its independent variants and their owned assets. Missing variant files do not
+prevent removal of owned metadata; repeated deletion returns not found safely.
+Without provenance, translation deletion never cleans up unowned files, including
+staging left after a committed deletion whose filesystem cleanup failed. Such
+cleanup failures remain explicit errors; this stage adds no orphan-file collector.
 
 Successful saved rows use `ready`; successful job responses/progress use
 `stored`. Both use `needs-review` for retained-original results. Listing returns
@@ -410,58 +424,50 @@ builds compile native engines; mobile opt-in compiles only the worker host and
 still has no admitted public provider. Passing these paths' existing tests is
 not a language-quality or packaged-platform acceptance result.
 
-### Confirmed findings — fix before merging
+### Deletion-safety corrections — 2026-10-21
 
-1. **P1 — Translation deletion does not validate identity or prove ownership.**
-   `translation/storage.rs:247` calls the derived-file deleter even when deleting
-   zero translation metadata rows. `document_uploads/derived.rs:199` constructs
-   its path from the unchecked ID and unconditionally deletes upload rows.
-   Real IPC probes confirmed that an empty ID removes the temporary uploads
-   root including `search.sqlite3`; an ordinary upload ID removes that source
-   while returning `deleted: false`/not found. Reject malformed IDs before path
-   work, prove translation ownership before mutation, and make unknown valid
-   IDs harmless. Preserve staged rollback/idempotent retry. Permanent tests must
-   cover empty/unsafe/unknown IDs, original HTML/EPUB/PDF IDs, unchanged source/
-   assets/index/metadata, valid variant deletion and failed deletion recovery.
-2. **P1 — Translation deletion bypasses audiobook source protection.**
-   Ordinary Library deletion uses `with_audiobook_reference_lock` and
-   `document_has_audiobook_reference` in `document_uploads/pipeline.rs:642`.
-   The derived translation path uses neither. A real IPC probe deleted a valid
-   variant with a matching audiobook manifest: the source disappeared while
-   the audio reference remained. Reuse the existing lock/reference check at
-   the shared deletion boundary; a UI-only disabled button cannot protect this.
-   Test pending and completed references, rejected deletion preserving all data,
-   unrelated references and successful deletion after references are removed.
-3. **P2 — Library deletion leaves a ghost saved translation.**
-   `document_uploads/store.rs:705` removes upload/section/search rows but does
-   not remove the matching translation metadata. The only translation foreign
-   key refers to the *source* upload, not the derived upload's own ID. A normal
-   `document_uploads_delete` IPC probe removed a variant's files but subsequent
-   translation listing still returned one row. Clean matching metadata in the
-   shared upload-delete transaction, including batch/folder entrypoints, without
-   deleting variants when their original source is removed. Test both deletion
-   surfaces, rollback, source deletion and any existing-schema migration needed.
+The integration review's three confirmed findings are addressed in native storage:
 
-Four synthetic preservation assertions reproduced these three findings in a
-disposable `/tmp` copy through real Tauri IPC. All 153 other Rust source files
-were byte-identical; only the temporary test module/handler registration differed.
-No user data, private inputs, model weights or repro scripts were added to Git.
-The tracked suites do not currently cover these failures: 501 base Rust library
-tests passed (4 ignored), 222 native-feature translation tests passed (2 ignored),
-223 worker-only translation tests passed, and 535 frontend/script tests passed
-(1 skipped). TypeScript, eight-locale validation, Rustfmt, links/evidence and
-diff checks passed. These green counts do not override the failing IPC probes.
-Cross-platform CI/linking, installed-app behavior, linguistic quality, current
-dependency advisories and real-device resources were not revalidated here.
+1. **P1 — Unchecked identity/ownership:** validate raw hexadecimal IDs before any
+   storage bootstrap. The derived deleter requires provenance deletion to affect
+   a row inside its immediate write transaction before staging files. Original
+   HTML/EPUB/PDF IDs and unknown IDs cannot remove source files or index rows.
+2. **P1 — Audiobook dependency bypass:** derived deletion uses the existing
+   process-wide source-reference lock and checks the canonical variant URL.
+   Pending and completed references reject deletion without changing reader,
+   asset, index, provenance, audio or highlighting data.
+3. **P2 — Ghost saved translations after Library deletion:** shared row deletion
+   removes optional translation provenance atomically with upload/search rows.
+   Single, batch and folder commands reuse it; source deletion still nulls only
+   the source FK and preserves independent variants. No schema migration is needed.
+
+Permanent synthetic IPC regressions live in
+`src-tauri/src/translation/deletion_tests.rs`, registered through the existing
+admission-test fixture. They use the real SQLite/reader/asset writer and actual
+commands, without loading a model. Coverage includes malformed/unknown/original
+IDs, both deletion screens plus batch/folder, zero/missing files, conflicting
+staging, transaction failure/rollback, interrupted pre-commit staging/retry,
+repeat deletion, pending/completed/unrelated audio references, serialization
+with pending-reference publication, and original-source deletion semantics.
+The original six regression tests were run before the production fix: five
+failed, reproducing all three findings; the source-retention case already passed.
+
+Validation after the fix: 509 base Rust library tests passed (4 ignored), 230
+native-feature translation tests passed (2 ignored), 231 worker-only translation
+tests passed, and 535 frontend/script tests passed (1 skipped). TypeScript,
+eight-locale validation, Rustfmt, links/evidence and diff checks passed. Existing
+immutable evaluation evidence is byte-identical. This is storage/lifecycle
+validation, not language-quality, packaged-platform or new inference acceptance.
+Cross-platform CI/linking, installed-app behavior, current dependency advisories
+and real-device resources were not revalidated here.
 
 ## Next bounded work
 
-Fix findings 1–3 as one shared deletion-safety stage with permanent native IPC/
-storage regressions, then review those fixes. Keep the existing source/DOM,
-cache, atomic writer and audiobook-reference patterns; do not add a second
-storage system or rely on frontend guards. Preserve originals, saved variants,
-assets and existing audio, including rollback and source-delete semantics.
-Keep provider admission unchanged and benchmarks, smoke and version bump deferred.
+Review the deletion-safety changes and permanent regressions, especially ownership
+before filesystem mutation, audiobook publication/deletion serialization and the
+optional-table cleanup across every Library delete surface. Keep the existing
+source/DOM, cache, writer and reference-lock owners. Provider admission is
+unchanged; strict stays retired. Benchmarks, smoke and version bump stay deferred.
 
 No further UI split is justified by this extraction review alone. Model/language
 selection, provider admission and shared busy conditions remain coordinated in

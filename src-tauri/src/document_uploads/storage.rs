@@ -155,10 +155,16 @@ pub(crate) fn upload_reference_from_url(url: &str) -> Result<(String, StoredSour
     } else {
         return Err("Uploaded document URL must end in .html or .pdf".into());
     };
+    validate_upload_id(id)?;
+    Ok((id.to_string(), source_kind))
+}
+
+/// Raw IPC identities must be checked without URL query/fragment normalization.
+pub(crate) fn validate_upload_id(id: &str) -> Result<(), String> {
     if id.is_empty() || !id.chars().all(|ch| ch.is_ascii_hexdigit()) {
         return Err("Uploaded document id is invalid".into());
     }
-    Ok((id.to_string(), source_kind))
+    Ok(())
 }
 
 /// Recover only the id for callers whose operation applies to every source kind.

@@ -706,6 +706,14 @@ pub(super) fn delete_document_rows_in_transaction(
     tx: &rusqlite::Transaction<'_>,
     id: &str,
 ) -> Result<(), String> {
+    // The translation schema is optional. Clean existing v1 provenance on every
+    // Library deletion surface, even before the translation screen is opened.
+    if tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE type='table' AND name='translated_documents')",
+        [], |row| row.get::<_, bool>(0),
+    ).map_err(db_err)? {
+        tx.execute("DELETE FROM translated_documents WHERE id = ?1", [id]).map_err(db_err)?;
+    }
     tx.execute(
         "DELETE FROM uploaded_document_search_fts WHERE document_id = ?1",
         [id],

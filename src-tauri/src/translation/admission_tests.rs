@@ -3,6 +3,9 @@ use super::*;
 use serde_json::{json, Value};
 use tauri::{test::MockRuntime, Manager};
 
+#[path = "deletion_tests.rs"]
+mod deletion_tests;
+
 struct Fixture(std::path::PathBuf);
 impl Drop for Fixture {
     fn drop(&mut self) {
@@ -32,6 +35,11 @@ fn fixture() -> (
             translation_install_model,
             translation_model_status,
             translation_remove_model,
+            translation_delete_document,
+            translation_list_documents,
+            crate::document_uploads::commands::document_uploads_delete,
+            crate::document_uploads::commands::document_uploads_delete_batch,
+            crate::document_uploads::commands::document_uploads_delete_folder,
         ])
         .build(context)
         .unwrap();

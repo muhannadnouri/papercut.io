@@ -10,7 +10,7 @@ use super::html::{parsed_html_document, sanitize_html};
 use super::parsed::{ParsedDocument, ParsedDocumentAsset};
 use super::pipeline;
 use super::reader_assets::{owned_assets, snapshot_assets};
-use super::storage::{upload_dir, StoredSourceKind};
+use super::storage::{upload_dir, upload_url, validate_upload_id, StoredSourceKind};
 use super::store::{
     delete_document_rows_in_transaction, open_db, upsert_document_in_transaction, PdfTextStatus,
 };
@@ -186,23 +186,39 @@ where
     Ok(replaced)
 }
 
-/// Delete one generated variant, feature metadata, and search rows together.
+/// Delete only after feature metadata proves ownership inside the write transaction.
+/// Missing provenance is a no-op, including unowned live/staged storage.
 pub(crate) fn delete_derived_document<R, F>(
     app: &tauri::AppHandle<R>,
     id: &str,
-    mut delete_metadata: F,
-) -> Result<u64, String>
+    delete_metadata: F,
+) -> Result<Option<u64>, String>
 where
     R: Runtime,
-    F: FnMut(&Transaction<'_>) -> Result<(), String>,
+    F: FnOnce(&Transaction<'_>) -> Result<bool, String>,
 {
-    let dir = upload_dir(app, id)?;
-    let mut db = open_db(app)?;
-    pipeline::delete_stored_document(&dir, id, || {
-        let tx = db.transaction().map_err(db_err)?;
-        delete_metadata(&tx)?;
-        delete_document_rows_in_transaction(&tx, id)?;
-        tx.commit().map_err(db_err)
+    validate_upload_id(id)?;
+    crate::native_tts::with_audiobook_reference_lock(|| {
+        let mut db = open_db(app)?;
+        // Keep ownership stable until the staged files and all dependent rows commit.
+        let tx = db
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(db_err)?;
+        if !delete_metadata(&tx)? {
+            return Ok(None);
+        }
+        if crate::native_tts::document_has_audiobook_reference(
+            app,
+            &upload_url(id, StoredSourceKind::Html),
+        )? {
+            return Err("Delete the saved audio that uses this document before removing it from the Library".into());
+        }
+        let dir = upload_dir(app, id)?;
+        pipeline::delete_stored_document(&dir, id, || {
+            delete_document_rows_in_transaction(&tx, id)?;
+            tx.commit().map_err(db_err)
+        })
+        .map(Some)
     })
 }
 

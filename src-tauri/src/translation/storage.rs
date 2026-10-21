@@ -11,7 +11,7 @@ use rusqlite::{params, OptionalExtension};
 use tauri::Runtime;
 
 use crate::document_uploads::{
-    delete_derived_document, open_document_uploads_db, persist_derived_document,
+    delete_derived_document, open_document_uploads_db, persist_derived_document, validate_upload_id,
 };
 
 use super::formatting::FormattingPolicy;
@@ -248,22 +248,21 @@ pub(super) fn delete_translated_document<R: Runtime>(
     app: &tauri::AppHandle<R>,
     id: &str,
 ) -> Result<TranslationDeleteResponse, String> {
+    validate_upload_id(id)?;
     // Bootstrap the translation schema before the shared derived-document
     // helper opens its own connection and transaction.
     drop(open_translation_db(app)?);
-    let mut deleted_rows = 0;
     let bytes_freed = delete_derived_document(app, id, |tx| {
-        deleted_rows = tx
-            .execute("DELETE FROM translated_documents WHERE id = ?1", [id])
-            .map_err(db_err)?;
-        Ok(())
+        tx.execute("DELETE FROM translated_documents WHERE id = ?1", [id])
+            .map(|rows| rows > 0)
+            .map_err(db_err)
     })?;
 
     Ok(TranslationDeleteResponse {
         id: id.into(),
-        deleted: deleted_rows > 0,
-        bytes_freed,
-        message: if deleted_rows > 0 {
+        deleted: bytes_freed.is_some(),
+        bytes_freed: bytes_freed.unwrap_or(0),
+        message: if bytes_freed.is_some() {
             "Deleted translated document variant".into()
         } else {
             "Translated document variant was not found".into()
