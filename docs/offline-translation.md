@@ -200,6 +200,8 @@ Library deletion validates the requested source kind against stored metadata and
 returns the stored canonical URL. Audiobook checks compare upload IDs, so query/
 fragment aliases in either requests or existing manifests cannot bypass them;
 bundled document references retain their exact-URL behavior.
+Case aliases remain a destructive-boundary gap on case-insensitive storage;
+see the follow-up review below before treating deletion safety as complete.
 
 ## Storage, cache and compatibility
 
@@ -506,12 +508,52 @@ passed. Evaluation evidence is byte-identical. The explicit post-commit cleanup
 limit above is unchanged; this does not add inference, language-quality or
 packaged-platform acceptance.
 
+### Mutation and identity follow-up review — 2026-10-21
+
+Reviewed `e104dfc0` with its native IPC callers, writer recovery/commit/rollback,
+single/batch/folder deletion, audiobook publication, parser/DB identity and tests.
+Assumed one app process, one foreground translation and concurrent local delete
+requests. The shared lock now covers the reproduced save/delete interleaving;
+no lock-order reversal was found in production callers. Query/fragment aliases,
+stored source-kind checks and canonical replies are connected to actual deletion.
+The prior two reproduced cases are addressed, but one identity case remains.
+
+**Must fix — 1. P1: case aliases bypass stored identity and audiobook checks.**
+`storage.rs:164` accepts uppercase hexadecimal IDs. `store.rs:61` uses an exact
+SQLite lookup, and `native_tts/references.rs:81` compares IDs case-sensitively.
+For a stored/referenced `def456`, `/uploads/DEF456.html` misses both checks and
+takes the no-metadata fallback in `pipeline.rs:653`, then uses the raw uppercase
+ID for file removal and row deletion. On case-insensitive storage this names the
+real lowercase directory while the SQL delete still misses its metadata.
+[Windows defaults to case-insensitive names](https://learn.microsoft.com/en-us/windows/wsl/case-sensitivity#differences-between-windows-and-linux-case-sensitivity);
+[SQLite defaults to BINARY comparison](https://www.sqlite.org/datatype3.html#collating_sequences).
+That combination can remove a referenced reader and leave provenance/index rows.
+
+Use one canonical ID rule before lookup, reference checks, fallback/staging and
+filesystem mutation; reject noncanonical case aliases or resolve the stored ID
+without losing its ownership checks. Do not fix only the reference comparison
+or add a case-insensitive SQL lookup while still deleting with the raw ID.
+Add uppercase/mixed-case tests for single/batch deletion, reference URLs, absent
+metadata/staged retries and both source kinds; verify on case-insensitive storage.
+
+A disposable synthetic IPC probe confirmed both routes accept the uppercase
+request, find zero uppercase DB rows, miss the lowercase audiobook reference and
+report successful zero-byte deletion on Linux. The lowercase file survived on
+this case-sensitive filesystem. The destructive Windows outcome is a code-based
+inference using documented platform behavior, not a physical-device reproduction.
+Only the disposable test module differed; 155 other Rust source files matched.
+Fresh committed-suite validation passed 513 Rust library tests (4 existing
+ignores); the extra case-alias preservation assertion failed. Rustfmt, links,
+immutable evidence and diff checks passed. No production changes or fresh
+frontend/native-feature/platform CI, inference, benchmark or smoke runs were made.
+
 ## Next bounded work
 
-Review the shared save/delete guard, lock order, stored identity and regression
-tests. If clear, the next gate is representative FR/ES meaning, formatted-original
-review usability and rebuilt-app integration acceptance, rather than another
-architecture split or new provider. Keep the existing
+Fix follow-up finding 1 with a shared canonical-ID rule and permanent case-alias
+regressions, preserving original/legacy ownership and staged retries; then review.
+After deletion safety is clear, the next gate is representative FR/ES meaning,
+formatted-original review usability and rebuilt-app integration acceptance.
+Keep the existing
 source/DOM, cache, writer and reference-lock owners. Provider admission is
 unchanged; strict stays retired. Benchmarks, smoke and version bump stay deferred.
 
