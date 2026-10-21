@@ -18,8 +18,8 @@ use super::config::{
 };
 use super::ctranslate2::CTranslate2Engine;
 use super::engine::{
-    validate_mapped_outputs, validate_outputs, TranslationBatchInput, TranslationEngine,
-    TranslationSegmentContext, TranslationSegmentInput,
+    validate_outputs, TranslationBatchInput, TranslationEngine, TranslationSegmentContext,
+    TranslationSegmentInput,
 };
 use super::formatting::FormattingPolicy;
 use super::hy_mt2::HyMt2Engine;
@@ -44,6 +44,7 @@ use super::types::{
 const MAX_INLINE_PHRASE_PROBES_PER_SEGMENT: usize = 8;
 mod aligned;
 mod lifecycle;
+mod provider;
 use super::inline_markup::provider::pieces::PieceAligner;
 
 /// Start a translation job and persist the completed output as a derived upload.
@@ -437,6 +438,37 @@ impl BatchRunState<'_> {
         )
     }
 
+    /// Check cancellation at the shared checkpoint boundary; only durable batches advance progress.
+    fn checkpoint<R: tauri::Runtime>(
+        &mut self,
+        app: &tauri::AppHandle<R>,
+        state: &TranslationState,
+        batch: &TranslationBatchPlan,
+        cache: &TranslationSegmentCache,
+        reused: usize,
+        dirty: bool,
+    ) -> Result<(), TranslationRunFailure> {
+        if is_cancelled(&state.cancelled_jobs, self.job_id)
+            .map_err(|e| self.failure("failed", e))?
+        {
+            return Err(self.failure("cancelled", "Translation cancelled"));
+        }
+        if dirty {
+            save_segment_cache(app, self.plan, cache).map_err(|e| self.failure("failed", e))?;
+        }
+        self.completed_segments += batch.segments.len();
+        self.cached_segments += reused;
+        self.completed_batches = batch.index + 1;
+        let message = match self.plan.formatting {
+            FormattingPolicy::Strict => "Validated aligned batch",
+            FormattingPolicy::SentenceReview => "Translated batch",
+            FormattingPolicy::Provider if reused == batch.segments.len() => "Reused cached batch",
+            FormattingPolicy::Provider => "Translated batch",
+        };
+        emit_translation_progress(app, self.progress("batch-complete", message, reused))
+            .map_err(|e| self.failure("failed", e))
+    }
+
     fn note_preview(&mut self, text: &str) {
         if self.preview.is_empty() && !text.trim().is_empty() {
             self.preview = text.trim().to_string();
@@ -612,15 +644,7 @@ fn run_translation_batches<R: tauri::Runtime>(
             }
             check().map_err(|e| run.failure("cancelled", e))?;
             cache.store_aligned_batch(receipts);
-            save_segment_cache(app, plan, &cache).map_err(|e| run.failure("failed", e))?;
-            run.completed_segments += batch.segments.len();
-            run.cached_segments += reused;
-            run.completed_batches = batch.index + 1;
-            emit_translation_progress(
-                app,
-                run.progress("batch-complete", "Validated aligned batch", reused),
-            )
-            .map_err(|e| run.failure("failed", e))?;
+            run.checkpoint(app, state, batch, &cache, reused, true)?;
             continue;
         }
         if boundary {
@@ -664,166 +688,71 @@ fn run_translation_batches<R: tauri::Runtime>(
                 run.note_preview(&output.text);
                 cache.store_mapped_output(segment, &markup_plans[&segment.id], output);
             }
-            save_segment_cache(app, plan, &cache).map_err(|e| run.failure("failed", e))?;
-            run.completed_segments += outputs.len();
-            run.cached_segments += reused;
-            run.completed_batches = batch.index + 1;
-            emit_translation_progress(
-                app,
-                run.progress("batch-complete", "Translated batch", reused),
-            )
-            .map_err(|e| run.failure("failed", e))?;
+            run.checkpoint(app, state, batch, &cache, reused, true)?;
             continue;
         }
-        let mut pending_batch = TranslationBatchPlan {
-            index: batch.index,
-            segments: Vec::new(),
-        };
-        let mut reused_segments_in_batch = 0;
-        let mut materialized_memory_reuse = false;
-        for segment in &batch.segments {
-            if let Some(mapping) = markup_plans.get(&segment.id) {
-                if let Some(output) = cache.mapped_output_for(segment, mapping) {
-                    run.completed_segments += 1;
-                    run.cached_segments += 1;
-                    reused_segments_in_batch += 1;
-                    append_translated_segment(
-                        &mut translated_blocks,
-                        &mut translated_fragments,
-                        segment,
-                        segment.source_block_index,
-                        &output.text,
-                        Vec::new(),
-                        output.markup,
-                        None,
-                        false,
-                    );
-                    run.note_preview(&output.text);
+        let (outputs, reused, dirty) = provider::batch(
+            engine,
+            plan,
+            batch,
+            &markup_plans,
+            &cache,
+            || {
+                if is_cancelled(&state.cancelled_jobs, job_id)? {
+                    Err("Translation cancelled".into())
                 } else {
-                    pending_batch.segments.push(segment.clone());
+                    Ok(())
                 }
-            } else if let Some(cached_text) = cache.translated_text_for(segment).map(str::to_owned)
-            {
-                run.completed_segments += 1;
-                run.cached_segments += 1;
-                reused_segments_in_batch += 1;
-                append_translated_segment(
-                    &mut translated_blocks,
-                    &mut translated_fragments,
-                    segment,
-                    segment.source_block_index,
-                    &cached_text,
-                    inline_phrase_hints
-                        .get(&segment.id)
-                        .cloned()
-                        .unwrap_or_default(),
-                    None,
-                    None,
-                    false,
-                );
-                run.note_preview(&cached_text);
-            } else if let Some(memory_text) =
-                cache.translated_text_for_source(segment).map(str::to_owned)
-            {
-                run.completed_segments += 1;
-                run.cached_segments += 1;
-                reused_segments_in_batch += 1;
-                materialized_memory_reuse = true;
-                append_translated_segment(
-                    &mut translated_blocks,
-                    &mut translated_fragments,
-                    segment,
-                    segment.source_block_index,
-                    &memory_text,
-                    inline_phrase_hints
-                        .get(&segment.id)
-                        .cloned()
-                        .unwrap_or_default(),
-                    None,
-                    None,
-                    false,
-                );
-                run.note_preview(&memory_text);
-                cache.store_translation(segment, memory_text);
-            } else {
-                pending_batch.segments.push(segment.clone());
-            }
-        }
-
-        let reused_only = pending_batch.segments.is_empty();
-        if !reused_only {
-            emit_translation_progress(
-                app,
-                run.progress("translating-batch", "Translating current batch", 0),
-            )
-            .map_err(|err| run.failure("failed", err))?;
-            let mut input = batch_input(plan, &pending_batch);
-            for segment in &mut input.segments {
-                segment.markup = markup_plans.get(&segment.id).cloned();
-            }
-            let outputs = engine.translate_batch(input.clone()).map_err(|err| {
-                run.failure(
-                    if is_cancelled(&state.cancelled_jobs, job_id).unwrap_or(false) {
-                        "cancelled"
-                    } else {
-                        "failed"
-                    },
-                    format!("In-memory translation did not complete: {err}"),
+            },
+            || {
+                emit_translation_progress(
+                    app,
+                    run.progress("translating-batch", "Translating current batch", 0),
                 )
-            })?;
-            // Native translation can finish after cancellation; never cache or render its late reply.
-            if is_cancelled(&state.cancelled_jobs, job_id)
-                .map_err(|err| run.failure("failed", err))?
-            {
-                return Err(run.failure("cancelled", "Translation cancelled"));
-            }
-            validate_mapped_outputs(&input.segments, &outputs)
-                .map_err(|error| run.failure("failed", error))?;
-            let mut translated_count = 0;
-            for (segment, output) in pending_batch.segments.iter().zip(outputs.iter()) {
-                let translated_text = output.text.clone();
-                translated_count += 1;
-                append_translated_segment(
-                    &mut translated_blocks,
-                    &mut translated_fragments,
-                    segment,
-                    segment.source_block_index,
-                    &translated_text,
-                    inline_phrase_hints
-                        .get(&segment.id)
-                        .cloned()
-                        .unwrap_or_default(),
-                    output.markup.clone(),
-                    None,
-                    output.needs_review,
-                );
-                run.note_preview(&translated_text);
+            },
+        )
+        .map_err(|e| {
+            run.failure(
+                if is_cancelled(&state.cancelled_jobs, job_id).unwrap_or(false) {
+                    "cancelled"
+                } else {
+                    "failed"
+                },
+                e,
+            )
+        })?;
+        for (segment, output) in batch.segments.iter().zip(&outputs) {
+            append_translated_segment(
+                &mut translated_blocks,
+                &mut translated_fragments,
+                segment,
+                segment.source_block_index,
+                &output.text,
+                inline_phrase_hints
+                    .get(&segment.id)
+                    .cloned()
+                    .unwrap_or_default(),
+                output.markup.clone(),
+                None,
+                output.needs_review,
+            );
+            run.note_preview(&output.text);
+            if dirty {
                 if let Some(mapping) = markup_plans.get(&segment.id) {
                     cache.store_mapped_output(segment, mapping, output);
                 } else {
-                    cache.store_translation(segment, translated_text.trim().to_string());
+                    cache.store_translation(segment, output.text.trim().to_string());
                 }
             }
-            run.completed_segments += translated_count;
-            save_segment_cache(app, plan, &cache).map_err(|err| run.failure("failed", err))?;
-        } else if materialized_memory_reuse || stored_probe_translations {
-            save_segment_cache(app, plan, &cache).map_err(|err| run.failure("failed", err))?;
         }
-
-        run.completed_batches = batch.index + 1;
-        emit_translation_progress(
+        run.checkpoint(
             app,
-            run.progress(
-                "batch-complete",
-                if reused_only {
-                    "Reused cached batch"
-                } else {
-                    "Translated batch"
-                },
-                reused_segments_in_batch,
-            ),
-        )
-        .map_err(|err| run.failure("failed", err))?;
+            state,
+            batch,
+            &cache,
+            reused,
+            dirty || stored_probe_translations,
+        )?;
     }
 
     emit_translation_progress(
@@ -1317,3 +1246,6 @@ mod document_tests;
 #[cfg(test)]
 #[path = "runner/boundary_tests.rs"]
 mod boundary_tests;
+
+#[cfg(test)]
+mod batch_tests;

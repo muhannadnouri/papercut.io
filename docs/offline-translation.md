@@ -23,7 +23,7 @@ unqualified provider in the app.
   Passing structural tests does not establish model fluency or semantic accuracy.
   Strict semantic alignment remains disabled.
 
-- [Shared formatting policy](#shared-formatting-policy-selection--2026-10-21) now follows each job through planning, cache admission and saving; it does not change provider admission or translation output.
+- [Shared formatting policy](#shared-formatting-policy-selection--2026-10-21) follows each job through planning, cache admission and saving. [Shared batch checkpoints](#shared-batch-admission-and-checkpoints--2026-10-21) preserve whole-batch admission and source order across mixed cache/fresh results. Provider admission is unchanged.
 
 - Translation accepts **HTML and EPUB only**, enforced in both the UI and native source loader. PDF and other formats remain unsupported.
 
@@ -3915,12 +3915,51 @@ translation tests**. Native-feature and worker-only results remain the
 implementation receipt above; this review did not repeat those configurations,
 model inference, platform CI or device acceptance.
 
-**Next bounded implementation:** consolidate validated-batch/checkpoint handling
-while preserving whole-batch admission, source/identity checks and cancellation
-cutoffs. Cover failure late in a batch, cancellation before a checkpoint, partial
-resume and cache-only completion. Keep provider-specific reconstruction rules
-explicit; defer broader worker/mapping separation and UI restructuring. No
-pipeline rewrite or generic plugin framework is required.
+### Shared batch admission and checkpoints — 2026-10-21
+
+All three runner paths now use `BatchRunState::checkpoint` for cancellation,
+cache persistence and completed-batch progress. A dirty batch must reach its
+checkpoint before completion/reuse counters advance. Cache-only batches still
+check cancellation and emit normal completion progress; provider jobs avoid a
+redundant cache write when nothing changed. Sentence and strict reconstruction
+remain governed by their existing contracts, including their existing cache
+checkpoint behavior and the shared final validation/atomic-save cutoff.
+
+Provider cache/fresh assembly lives in `runner/provider.rs`. It stages only the
+current bounded batch, restores cached mappings, validates new replies, merges
+results in original source order and validates the whole batch before returning.
+It reads the cache but performs no cache or document writes. This does not clone
+the whole book/cache or introduce a new engine framework. Inference progress
+still belongs to the runner and is emitted only when provider inputs are pending.
+Empty text-memory entries are misses rather than reusable prose.
+
+This also fixes a mixed-resume ordering/progress defect: a later cached fragment
+could previously be appended before an earlier pending fragment, and could count
+as completed work even if a later reply in that batch failed validation. Now a
+failed or cancelled batch leaves its previous checkpoint intact and reports only
+previously completed batches. Prior completed checkpoints remain reusable.
+
+Synthetic regressions cover both plain-text and protected-markup providers with
+a cached middle fragment and fresh surrounding fragments, late invalid echoes,
+late cancellation, original fragment order, unfinished-only retry, fully cached
+saving, a single stable saved variant and unchanged original source. Separate
+checkpoint cases verify cancellation before dirty and cache-only completion and
+a disk write failure without advancing progress or changing existing files.
+Existing sentence/strict, DOM, attachment, progress and cancellation tests remain.
+No cache namespace/schema, saved document/audio identity, model pin, admission
+flag, dependency or version changes are involved.
+
+Validation passed: **291 base Rust translation tests**, **317 translation tests
+with CTranslate2, llama.cpp and alignment-runtime compiled** (10 opt-in tests
+ignored), **2 worker-only capability tests**, and **124 frontend translation
+tests**. TypeScript, all eight locale resources, Rustfmt and diff checks passed.
+The new cases use synthetic providers and real cache/DOM/storage paths; they do
+not establish model quality, speed/RAM or packaged-device acceptance.
+
+**Next bounded stage:** review batch admission and the checkpoint cutoff. After
+that, evaluate which disabled aligner-specific research can be archived while
+retaining the shared sentence planner, DOM contracts, caches and renderer. Keep
+any removal separate and reviewable; broader UI restructuring remains deferred.
 
 Strict stays disabled. Benchmarks, smoke and the app version bump remain deferred.
 
