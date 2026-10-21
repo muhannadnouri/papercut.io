@@ -545,15 +545,34 @@ schema, cache identity, provider admission, model, dependency or app version.
 Benchmarks, new inference, smoke and cross-platform CI remain deferred; structural
 storage validation does not establish translation quality or release readiness.
 
+### Exact-case deletion review — 2026-10-21
+
+Reviewed `3cca1b6b` and its connected translation/Library single, batch and folder
+deletion paths, shared save/delete/reference lock, SQLite ownership/rollback,
+live/staged filesystem identity, transfer ID parsing and audiobook references.
+Assumed one running app with one foreground translation job and concurrent
+local deletion commands. No new actionable correctness, safety or test findings;
+the scoped deletion fix is ready. Exact mixed-case legacy identities stay usable,
+case aliases and ambiguous metadata fail closed, and rejected operations preserve
+reader/assets/index/provenance/audio data. The documented post-commit cleanup
+limit remains unchanged.
+
+Fresh validation: 517 base Rust library tests passed (4 existing ignores), 238
+native-provider translation tests passed (2 existing ignores), and 239 worker-only
+translation tests passed. These include all four case-identity regressions and
+both coordinated save/delete order tests. No production changes were needed.
+Actual case-insensitive filesystems, packaged devices, inference and fresh
+cross-platform CI were not checked. This review does not qualify language quality.
+
 ## Next bounded work
 
-Review the exact-case deletion gate, filesystem fallback, conservative reference
-matching and legacy/recovery regressions. After deletion safety is clear, the
-next gate is representative FR/ES meaning,
-formatted-original review usability and rebuilt-app integration acceptance.
-Keep the existing
-source/DOM, cache, writer and reference-lock owners. Provider admission is
-unchanged; strict stays retired. Benchmarks, smoke and version bump stay deferred.
+Deletion safety has no remaining finding from this review. The next gate is
+representative FR/ES meaning, formatted-original review usability and rebuilt-app
+integration acceptance using the existing acceptance matrix above. Prepare that
+handoff before further feature work; run it only when smoke is explicitly resumed.
+Keep the existing source/DOM, cache, writer and reference-lock owners. Provider
+admission is unchanged; strict stays retired. Benchmarks, smoke and version bump
+stay deferred.
 
 No further UI split is justified by this extraction review alone. Model/language
 selection, provider admission and shared busy conditions remain coordinated in
