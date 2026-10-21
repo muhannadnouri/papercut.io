@@ -375,13 +375,32 @@ TypeScript, changed-file ESLint, all eight locale checks and diff checks passed.
 Evidence JSON is unchanged. These are synthetic interaction/lifecycle checks,
 not browser-layout, native-inference or packaged-device acceptance.
 
+Focused review of `f4cbc27e` traced both views, shared label callers, the parent
+manager/App wiring, deletion API/storage boundary and house dialog/disclosure.
+Assumed one foreground job and a local saved library. No actionable correctness,
+security, data-loss, performance or unnecessary-abstraction finding was identified
+in this extraction. The saved list/dialog JSX is retained, label logic differs
+only by localized `ready`, and no second async owner or per-row command was added.
+Fresh checks passed: 137 translation/dialog tests, TypeScript, changed-file lint,
+eight-locale validation, local/inbound/history links, evidence identity and diff
+checks. Disclosure/dismissal resets on view unmount are presentation-only;
+manager-owned jobs and results survive conditional tab presentation as before.
+
 ## Next bounded work
 
-Review the saved-document extraction and its regressions before another split.
-Check that the existing manager remains the only async owner, deletion always
-uses the latest row and status dismissal stays local. Reassess setup/job
-presentation boundaries only after that review; do not pre-create more screens
-or move shared busy/admission logic into independently coordinated children.
+Review the branch against `main` for integration/readiness before another UI
+split. Trace HTML/EPUB import through source planning, sentence/review outcomes,
+cache/resume and atomic saving to reader/search/TTS; check packaging/admission
+and identify remaining release blockers separately from structural test passes.
+Keep private inputs outside tracked files and keep benchmarks, smoke and version
+bump deferred. Keep provider admission unchanged; assess code and architecture
+without running new inference.
+
+No further UI split is justified by this extraction review alone. Model/language
+selection, provider admission and shared busy conditions remain coordinated in
+the parent; model actions already reuse one button helper. Retain those owners
+unless a concrete independent responsibility needs extraction. A shorter file
+does not establish better translations or release readiness.
 
 Release acceptance remains a separate gate: representative FR/ES meaning and
 review-original usability, HTML/EPUB search/TTS/read-along and rebuilt packaged
