@@ -97,6 +97,11 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   semantic ownership. The subsequent [FP32/four-bit link evaluation](#stage-9-omnialign-fp32four-bit-link-evaluation--2026-10-20)
   fails mandatory positive scopes and accepts both fused negatives under the
   tested raw-input policy. **Do not integrate this OmniAlign candidate.**
+- The [alignment strategy reassessment](#stage-9-alignment-strategy-reassessment--2026-10-20)
+  recommends retaining the shared DOM contract while qualifying evidence per
+  provider. A separate word aligner alone has not met auxiliary/fused ownership
+  requirements. Native CTranslate2 evidence is a bounded research option, with
+  binding and semantic gates still open; no architecture switch is implemented.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -118,8 +123,11 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 
 **Decision: use a separate offline word aligner (Option 7). Internal implementation
 progress is recorded below; no alignment model is approved for production.**
-This is the current forward plan for native rich formatting, superseding the
-earlier attention-first proposal below. Further Bergamot upstream work is
+This records the selected Option 7 plan, superseding the earlier attention-first
+proposal below. Its sole-aligner assumption is now under the
+[Stage 9 strategy reassessment](#stage-9-alignment-strategy-reassessment--2026-10-20);
+the shared pipeline remains useful, but no tested model closes the semantic gate.
+Further Bergamot upstream work is
 shelved. Existing experimental Bergamot code is retained without extending or
 patching its engine. Benchmarks, broader smoke and the app version bump remain
 deferred; their eventual acceptance gates are explicitly listed below.
@@ -3077,6 +3085,146 @@ catalog/install/cache, saved documents and app version are unchanged, with
 `FORMATTING_ACCEPTED = false`. No new app/CI build, broader/device acceptance,
 benchmark, smoke or version bump ran. The prior 30-test contract receipt remains
 current; this docs-only update did not rerun that unchanged suite.
+
+## Stage 9 alignment strategy reassessment — 2026-10-20
+
+**Recommendation: preserve the shared DOM architecture; stop assuming a single
+post-translation word aligner supplies sufficient ownership evidence.** Committed
+the previous native link findings as `052cf4f`. This is a reassessment and a
+proposed next research gate, not authorization to change the selected Option 7
+implementation or enable any candidate. Formatting remains essential; the
+solution must still support future engines without a second renderer or silent
+plain-text fallback.
+
+### The missing evidence
+
+Three questions must stay separate: can the exact target span be represented,
+which source meaning contributes to it, and can that map be reconstructed with
+the original identities/hierarchy? The boundary probe answered only the first.
+The existing contract/renderer address structural validation; neither discovers
+semantic contributors that an evidence provider failed to report.
+
+| Required case | Needed ownership evidence | Why a covered word graph is insufficient |
+| --- | --- | --- |
+| Styled finite verb → English auxiliary + lexical predicate | Both target components belong to the styled source predicate under the frozen policy. | A lexical aligner can link only the main predicate and leave the auxiliary missing or assign it to the subject. |
+| Styled negation alone | Polarity belongs to the negation; the auxiliary must not automatically inherit it. | Adding nearby auxiliaries fixes some verb cases but corrupts correct negation-only scopes. |
+| Styled future verb, unstyled negation → atomic `won't` | The target cell depends on both source owners; mixed ownership must reject. | A single negation link can make the cell appear fully covered while hiding its future contribution. |
+| Unrelated styled noun beside a contraction | The noun has independent owners and remains usable. | Rejecting every partially styled sentence containing `n't` unnecessarily rejects this positive. |
+
+These are the frozen product rules, not a claim that linguistic annotation has
+one uniquely correct formatting answer. Generated subjects, paraphrases and
+inflected features need explicit policy and reviewed examples. Do not change
+their expected scopes after seeing model output. Whole-unit uniform style
+inheritance remains the existing narrow safe case; it does not solve ordinary
+partial emphasis or qualify the failed providers.
+
+### Reassessed paths
+
+| Path | Benefit | Cost / limitation | Disposition |
+| --- | --- | --- | --- |
+| Another post-hoc word aligner or larger precision | Preserves arbitrary engine choice and the existing two-model shape. | Tested base/fine-tuned mBERT and raw-input OmniAlign still miss required evidence; FP32 does not repair the core failures. | No further model search without a documented reason it addresses these ownership cases. |
+| Ensemble, score threshold or missing-link expansion | May change individual graph decisions. | Agreement can share the same blind spot; nonzero scores or coverage are not contributor evidence. Extra sessions/downloads do not establish safety. | No automatic union, voting or adjacency repair. |
+| Morphology/dependency analysis plus lexical links | Could identify auxiliaries, polarity and inflection before relating predicates. | Requires reliable source and target analyses, cross-language composition, clitic-to-surface mapping and ambiguity handling. Arabic adds a separate qualification problem. No suitable small maintained pack/runtime has been qualified. | A real NLP subsystem, not an approved small parser patch. |
+| Evidence from the producing translation model | Relates actual generated target tokens to their source; potentially avoids a second encoder. | Generic attention is not semantic attribution; exact offsets, fusion detection, bindings and platform support still need proof. Engine-specific availability. | Best next bounded research option for existing OPUS-MT, not a production go. |
+| Alignment-trained/tag-aware model or custom training | Can learn correspondence jointly with translation rather than repair it afterward. | Requires suitable artifacts, licensing, quality and resource evidence; own training is a continuing data/model maintenance commitment. | Consider maintained pretrained artifacts only; no training project or upstream fork approved. |
+
+Universal Dependencies documents [auxiliary relations](https://universaldependencies.org/u/dep/aux_.html),
+[word-level tense features](https://universaldependencies.org/u/feat/Tense.html)
+and [multiword tokens](https://universaldependencies.org/format.html). Its tense
+guidance explicitly notes that periphrastic tense may not be directly expressed
+by an individual word's feature. **Inference:** parsing both sides would provide
+useful observations, but would not itself map cross-language semantic ownership.
+It must not become an auxiliary allowlist disguised as a dependency adapter.
+
+### What existing APIs actually offer
+
+CTranslate2's maintained [translation API](https://opennmt.net/CTranslate2/python/ctranslate2.Translator.html)
+supports `return_attention`; [TranslationResult.attention](https://opennmt.net/CTranslate2/python/ctranslate2.TranslationResult.html)
+contains a matrix for each generated hypothesis. This establishes access to
+decoder evidence, not a formatting guarantee. OpenNMT distinguishes
+[raw attention-derived alignments from supervised alignment training](https://opennmt.net/OpenNMT-py/FAQ.html#can-i-get-word-alignments-while-translating).
+Exposing attention cannot retroactively make the installed OPUS models
+alignment-trained or prove they handle fused ownership.
+
+The local **ct2rs 0.9.19** result exposes hypotheses and scores only; attention is
+commented out at both the Rust FFI and C++ conversion. The inspected public
+[ct2rs result documentation, version 0.10.1](https://docs.rs/ct2rs/latest/ct2rs/sys/struct.TranslationResult.html)
+also exposes only hypotheses and scores. Do not upgrade dependencies merely to
+enable the existing request flag: a maintained result path is still unproven.
+No newer binding was installed or built during this review, and no comprehensive
+search of every alternative binding is claimed.
+
+The official Python API is suitable for an isolated feasibility check, **not** a
+new packaged Python service. `translate_batch` attention belongs to its own exact
+hypothesis. The documented `score_batch` interface does not expose a
+`return_attention` option. Therefore a supported gold-target attention path for
+arbitrary frozen targets is not established. Forcing a target prefix, using
+attention from a different translation or relabelling a changed hypothesis must
+not be assumed to solve that evaluation problem.
+
+### Proposed next gate, before further coding
+
+1. **Check evidence access and exact-pair feasibility outside Git.** Using an
+   official CTranslate2 API and the already evaluated model artifacts, determine
+   whether it can return source tokens, actual hypothesis tokens and bounded
+   attention without changing decoding. Independently establish whether frozen
+   fixed targets can be evaluated through a supported API. Missing access is a
+   recorded blocker, not permission to patch C++ or ship another runtime.
+2. **Only if access is viable, freeze an extraction/ownership policy before
+   testing it.** Preserve exact text/token provenance and the same mandatory
+   positive/fused scopes. A regenerated actual output must match its frozen
+   target to count as that row; otherwise report it as not comparable. Do not
+   use a different output as a passing replacement. Any separately declared new
+   corpus is additional evidence, not closure of failed frozen gates.
+3. **Require both complete positive ownership and safe fused rejection.** Report
+   missing links, wrong-but-covered scopes and unrelated-near-contraction
+   positives separately. Continue reporting wrong-translation controls as limits
+   on structural confidence. Do not select the strongest attention edge or an
+   arbitrary mass cutoff and call it semantic proof. If the path still needs
+   guessed grammatical links or rejects ordinary supported prose, stop.
+4. **Resolve maintained Rust delivery before production work.** A successful
+   research probe would still need a supported binding/result API and actual
+   target/source offset mapping. No local binding fork, bespoke C++ wrapper,
+   dependency upgrade or model/UI change is approved by this reassessment.
+   If that route is unavailable, pause this strict-formatting path and revisit
+   provider feasibility; do not continue infrastructure work around missing data.
+
+### Architecture retained and conditional impact
+
+Engine independence belongs at the **checked mapping contract**, not in a promise
+that every engine uses one identical aligner. This is a proposed refinement to
+Option 7: a separately qualified aligner may still serve future text-only models;
+a producing engine may supply qualified evidence directly. Neither qualifies
+another engine automatically. No auto-fallback, aligner picker, general plugin
+framework or second DOM implementation is needed.
+
+Retain source-owned DOM/asset planning, exact pieces, mapping validation,
+reconstruction, cancellation/resume and atomic saving. Current candidate-specific
+runtime/extraction and installer code stays disabled; do not delete it or migrate
+user data as part of a docs-only decision. If a native-evidence route qualifies,
+the affected seams would be:
+
+- `ctranslate2.rs`: retain the source and hypothesis tokens/evidence from the
+  producing call before decoding; legacy translation behavior remains stable.
+- `inline_markup/provider/{pieces,contract}.rs`: bind evidence and contributor
+  ranges to the exact pair. Any new ownership units remain separate from real
+  tokenizer IDs. Existing structural checks cannot be represented as semantic
+  detectors. Do not design a broad new schema before the evidence is proven.
+- `runner/aligned.rs`, cache and state: lease only models actually used; avoid
+  mandatory auxiliary downloads for an engine-native route. Preserve late-cancel,
+  pre-save and atomic batch behavior; version new evidence/cache semantics.
+- Capabilities/UI: qualify each provider, language pair and evidence policy.
+  An engine without qualified evidence cannot start strict formatted jobs or
+  silently save degraded output. Preserve originals, older variants, audiobooks
+  and read-along data.
+
+**Validation/limits:** reviewed the connected engine, piece/contract, extraction,
+runner and capability code against the frozen receipts and prior decisions;
+checked the primary API/UD documentation above. No new inference, model download,
+parser, training, production code or dependency change ran. This is a design/API
+assessment, not new semantic acceptance. Only this document changes;
+`FORMATTING_ACCEPTED = false` remains intact.
+Benchmarks, smoke, fresh CI/app builds and the version bump remain deferred.
 
 ## Product Goals
 
