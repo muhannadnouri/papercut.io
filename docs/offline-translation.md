@@ -79,6 +79,138 @@ do not weaken that security boundary to recover appearance. Exact semantic
 emphasis on target words remains unsolved for general partial-sentence markup.
 Bergamot's own HTML restoration does not remove its output-completeness blockers.
 
+### Best-effort emphasis evaluation — 2026-10-21
+
+**Evaluation only; not admitted to the sentence/review path.** Reusing phrase
+hints can restore some target bold/italic without changing English, but unique
+matches do not prove semantic ownership. Do not present this as solved formatting
+or reuse the full legacy renderer, which also guesses attachment placement.
+
+The isolated Linux evaluation used unchanged current Rust DOM/matching helpers
+and the native CTranslate2 adapter with manifest-verified installed FR/ES packs.
+Seventeen synthetic cases used fixed, manually authored English targets, first
+with controlled hints and then with real native phrase translations. Separately,
+75 cached blocks from a private saved result supplied frozen English; all source
+text hashes and protected DOM identities were verified before accepting the
+pairing. Private inputs, evaluation code and outputs remain outside the repo.
+This is a placement diagnostic, not new app smoke or a performance benchmark.
+
+Two block-local matchers were compared: the existing exact/folded phrase matcher,
+and a disposable tighter version requiring unique source/target matches under
+case/accent folding, exact source-hint identity, no unchanged-source fallback
+after a missing translated hint, and rejection of every overlapping candidate.
+Only bold/italic text runs were eligible for output; wrappers were stripped and
+compared with the frozen target UTF-8 bytes in every result. No target prose,
+links, notes, IDs, assets, saved documents or app cache were rewritten.
+
+| Probe screen on private saved blocks | Existing matcher: placed runs | Tighter matcher: placed runs |
+| --- | --- | --- |
+| Legacy eight-probe segment cap applied to each cached block | 282 / 921 | 236 / 921 |
+| All eligible phrases, diagnostic comparison only | 491 / 921 | 473 / 921 |
+
+These are **placement coverage counts**, not correct-emphasis percentages. The
+921 units are coalesced source text runs with bold/italic stacks, not author tag
+counts; there is no annotated target gold for this private document. This cache
+has one segment per block; normal sentence/review jobs still skip legacy probes.
+Probe collection retains the legacy eligibility rules (at least four alphanumeric
+characters, at most 120 scalars, including non-bold/italic legacy scopes before
+the eight-probe cap). The uncapped screen is not a proposed production budget or
+a mathematical upper bound: extra hints can introduce conflicts too. Short
+negation, differently phrased translations and some longer/nested scopes remain gaps.
+
+The adversarial cases expose a correctness limit, even after tightening:
+
+- With controlled hints, wrong placements fell from six to two; with actual
+  native phrase hints they fell from three to one. The tighter native matcher
+  also lost two correct placements. Required abstentions are separate from
+  successfully preserved formatting; no representative precision score follows.
+- A real Spanish `banco` probe returned `bank`. In a fixed sentence translating
+  the styled `banco` as `bench` and unstyled `orilla` as `bank`, both matchers
+  styled the unrelated `bank`. It is a unique match inside the same sentence,
+  so sentence-local matching alone cannot fix this sense error.
+- Existing exact-first matching can choose the wrong capitalized occurrence;
+  unchanged-source fallback can style English `pain` for French `pain` (bread).
+  Removing these paths helps, but does not solve the remaining meaning problem.
+
+Recommendation: **do not wire either matcher into normal jobs from this result**,
+raise probe caps, add word-specific exception lists, or revive the retired strict
+stack. If approximate formatting is accepted as optional review assistance, a
+separate bounded stage must retain immutable English, source-occurrence-bound
+and sentence-local evidence, unresolved scopes, explicit review status and
+original comparison. It also needs cancellation/work budgets, distinct cache
+provenance, hierarchy/literal/attachment checks and save/resume regressions before
+integration. A unique match must never automatically clear review status.
+Manual correction or a separately qualified maintained HTML-aware provider remain
+the paths to address unresolved scopes; this screen establishes neither. Current
+provider admission and the retained-original fallback remain unchanged.
+
+### Firefox DOM and HY-MT2 1.8B evaluation — 2026-10-21
+
+The private placement preview was rejected. Commercial translation is excluded;
+device resources are not restricted to low-power hardware. The next isolated
+screen therefore compared a Firefox-derived HTML path and tag-aware HY-MT2,
+without changing production code or provider admission. Inputs, harnesses and
+previews stay outside the repo. This is a targeted quality investigation, not
+an app smoke test, performance benchmark or release qualification.
+
+Both paths received the same twelve frozen French/Spanish synthetic cases and
+two private paragraphs. Cases cover reordered adjectives, nested/repeated
+emphasis, split negation, drop caps, notes, links, images, literal islands and
+whole-sentence styling. Inspect meaning and the intended English emphasis scope;
+preserving tag counts or ancestry alone does not establish either.
+
+- **Firefox-derived path:** stock installed Firefox 158.0.1 worker/loader and
+  verbatim source-owned DOM reconciliation functions, with hash-verified Remote
+  Settings FR/ES model 2.0 and WASM revision
+  `1de4a085d3a7afb625c51a60aabb5ad298e4059f`. The harness uses jsdom and simplified
+  static block/inline grouping. It does not reproduce Gecko layout, scheduling,
+  viewport/shadow/mutation handling, browser sanitization or attribute translation;
+  no actual Firefox UI acceptance was performed. Firefox's
+  [translation implementation](https://firefox-source-docs.mozilla.org/toolkit/components/translations/index.html)
+  adds DOM extraction/reconciliation to the engine; this is not a separate
+  engine-independent semantic-formatting library.
+- **HY-MT2:** official
+  [1.8B Q8 GGUF](https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF/tree/1cd5208700acedef4ef93019b6cfc148b8522d45),
+  1,908,528,192 bytes, SHA-256
+  `5c3fe0b1408a5ceb0143184ef247b11b579c525f4b02b060e6c851bb76fef1a4`.
+  Installed `llama-server` commit `f174553e1` ran offline on a private Unix socket,
+  using the embedded Hunyuan chat template, one user message, no system prompt,
+  8192-token context and 4096-token output cap. The
+  [published structured-data instruction and sampler](https://github.com/Tencent-Hunyuan/Hy-MT2#hy-mt2-translation-task-instruction-examples-chinese-english-comparison)
+  used temperature 0.7, top-p 0.6, top-k 20, repetition penalty 1.05 and seed 42;
+  extra min-p filtering was disabled and repetition covered the context. All
+  fourteen final replies ended naturally. This does not validate Papercut's
+  compiled llama.cpp binding or its existing plain-text HY adapter.
+
+Firefox-derived output correctly preserved several nested, repeated-word and
+reordered scopes. It still duplicated split-negation text, broke drop-cap words,
+duplicated a note numeral and omitted part of a bold quantity phrase. A separate
+whole-private-document run completed 76 units but exposed 92 empty target
+elements and 65 duplicate style identities. Its permissive reconstruction kept
+source-language clauses inside English. Forty-nine retained-source span matches
+include nested overlaps and possible proper names, so they are not an independent
+error count; inspection confirmed definite untranslated clauses. Attributes and
+counts survived for 37 links, three media elements and 31 author IDs; correct
+note association and semantic completeness do not follow from those checks.
+
+HY's structured-data outputs sometimes preserved HTML while extending bold over
+unrelated words or mistranslating negation. Other outputs introduced Markdown,
+malformed hierarchy or instruction-preamble leakage. A second, predeclared concise
+translation-only HTML prompt removed that preamble leakage but still lost emphasis
+and changed meaning on the private paragraphs. Prompt adjustment alone did not
+qualify the 1.8B candidate. These small non-blinded screens establish counterexamples,
+not a general model ranking or acceptable-error percentage.
+
+**Decision:** neither result meets the requested translation/formatting quality.
+Do not enable either provider, splice their outputs automatically, accept generated
+attributes, or copy Firefox's empty-node retention/duplicate-node cloning wholesale.
+Keep its useful pattern—whole inline context, genuine formatting tags and
+source-owned reconstruction—within the existing DOM/asset/job pipeline. Any future
+style splitting must distinguish attribute-free emphasis from exact-once author
+IDs, notes, links, media and literals. A larger tag-aware HY model is the next
+quality candidate to evaluate before another production mapping change; size is
+not evidence that it will pass. No upstream fork or local runtime patch is proposed.
+
 ### Bounds and explicit failures
 
 - Default planning uses 900 Unicode scalars per segment and 16 segments per batch.
@@ -383,7 +515,10 @@ remain deferred.
 
 ### Packaged acceptance handoff — prepared 2026-10-21
 
-**Not run.** This is the next manual gate when smoke is explicitly resumed;
+**Full matrix not run.** Narrow inspection of a user-provided desktop Spanish
+HTML result confirmed the retained-original fallback, not preserved English
+emphasis or language-quality acceptance. This is the next manual gate when smoke
+is explicitly resumed;
 the matrix above remains the full acceptance inventory. Use the rebuilt desktop
 app with admitted OPUS models. Today's worker-only mobile build cannot run these
 public translation jobs; mobile host compilation is a separate check.
@@ -627,12 +762,15 @@ cross-platform CI were not checked. This review does not qualify language qualit
 
 ## Next bounded work
 
-Deletion safety has no remaining finding from this review. The next gate is
-representative FR/ES meaning, formatted-original review usability and rebuilt-app
-integration acceptance using the [prepared handoff](#packaged-acceptance-handoff--prepared-2026-10-21)
-and acceptance matrix above. The handoff is ready; execution and results remain
-pending until smoke is explicitly resumed. Resolve observed failures before
-further feature work or release qualification.
+Deletion safety has no remaining finding from its review. The
+[best-effort emphasis screen](#best-effort-emphasis-evaluation--2026-10-21) was
+rejected, and the [Firefox/HY screen](#firefox-dom-and-hy-mt2-18b-evaluation--2026-10-21)
+does not qualify either provider. Evaluate a larger tag-aware HY model before
+another production mapping change; use Firefox's DOM ownership as an architectural
+reference, not evidence of solved completeness or semantic styling. Representative
+FR/ES meaning, review usability and rebuilt-app integration remain required under
+the [prepared handoff](#packaged-acceptance-handoff--prepared-2026-10-21).
+Further packaged acceptance execution stays pending until smoke is explicitly resumed.
 Keep the existing source/DOM, cache, writer and reference-lock owners. Provider
 admission is unchanged; strict stays retired. Benchmarks, smoke and version bump
 stay deferred.
