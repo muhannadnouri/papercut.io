@@ -3956,9 +3956,19 @@ tests**. TypeScript, all eight locale resources, Rustfmt and diff checks passed.
 The new cases use synthetic providers and real cache/DOM/storage paths; they do
 not establish model quality, speed/RAM or packaged-device acceptance.
 
-**Next bounded stage:** review batch admission and the checkpoint cutoff. After
-that, evaluate which disabled aligner-specific research can be archived while
-retaining the shared sentence planner, DOM contracts, caches and renderer. Keep
+**Review receipt:** Ponytail Review of `46e1529f` found no actionable issues in
+batch admission or the checkpoint cutoff. Traced cached/fresh assembly through
+whole-reply validation, source-order reconstruction, cache persistence, progress
+and the existing final-save ownership/cancellation gate. Reviewed the connected
+sentence/strict branches and regressions, assuming one foreground document job
+with bounded batches, including long HTML/EPUB documents. Fresh review validation
+passed **291 base Rust translation tests** and **124 frontend translation tests**.
+Native-feature/worker-only counts above are the implementation receipt, not new
+review runs. This refactor introduces no identified merge blocker; model quality
+and packaged-device acceptance remain separate, unverified release gates.
+
+**Next bounded stage:** evaluate which disabled aligner-specific research can be
+archived while retaining the shared sentence planner, DOM contracts, caches and renderer. Keep
 any removal separate and reviewable; broader UI restructuring remains deferred.
 
 Strict stays disabled. Benchmarks, smoke and the app version bump remain deferred.
