@@ -381,6 +381,67 @@ CPU/GPU-compatible cache/variant identity. These are **not current supported
 language or mobile quality claims**. Benchmarks, broader smoke and version bump
 remain deferred.
 
+### Packaged acceptance handoff — prepared 2026-10-21
+
+**Not run.** This is the next manual gate when smoke is explicitly resumed;
+the matrix above remains the full acceptance inventory. Use the rebuilt desktop
+app with admitted OPUS models. Today's worker-only mobile build cannot run these
+public translation jobs; mobile host compilation is a separate check.
+
+1. Record the tested commit, OS/architecture, artifact path/build time, model ID,
+   app locale and whether the result used a fresh job or resume. The unchanged
+   app version alone cannot identify this branch's build. Build with
+   `npm run desktop`, close the old app and launch the new artifact separately.
+   Install/verify both OPUS packs first, then disconnect the network for the jobs.
+   Use a disposable library or a backup before deletion checks; keep private
+   documents, screenshots and reports outside tracked files.
+2. Cover all four language/format combinations: French HTML, French EPUB,
+   Spanish HTML and Spanish EPUB. For each, use one plain/whole-sentence-style
+   case and one rich case with partial emphasis: eight runs minimum. Include
+   negation, word order, names, punctuation and Unicode; spread headings, nested
+   bold/italic, links, code/`translate=no`, notes/backlinks, lists and images
+   across the rich cases. Include EPUB chapter boundaries and rewritten assets.
+   Inspect the imported original first: compare translation with that sanitized
+   reader snapshot, and record appearance already lost during import separately.
+3. Review meaning against the source, not an exact expected English string.
+   Check every short-case passage for omissions, additions, reversed negation,
+   broken names and unnatural fragment joins. Then inspect one representative
+   longer document per language from beginning through middle to end, including
+   chapter terminology and transitions. A fluent opening or successful save
+   does not qualify the remaining document. Record unread portions as untested.
+4. Check formatting independently of meaning. Validated whole-sentence nested
+   styles should remain on the translation. Unresolved partial styles should
+   retain each affected formatted original block once beside a labelled English
+   translation, with **Saved — Formatting Needs Review** after save and reopen.
+   Plain/fully mapped cases should not acquire spurious review originals. Check
+   source order, numbering, note targets/backlinks and image placement; neither
+   guessed target emphasis nor silently flattened source markup is acceptable.
+5. Reopen after restart. Search and reader Find must include translated text,
+   excluding retained originals/review labels; use distinct source/target words
+   so shared names do not make this check ambiguous. With an installed TTS voice,
+   narrate across reviewed and ordinary blocks: no repeated source/labels, and
+   read-along stays on translated text. Open an existing audiobook too; its audio
+   and timings must remain usable. Keep original and variant independently openable.
+6. On disposable copies, cancel before saving and retry with unchanged settings;
+   valid cached work may resume, but no partial variant may appear. An identical
+   completed rerun replaces one variant rather than duplicating it. Delete a
+   variant and check the source survives; separately delete a source and reopen
+   its saved variant/images. Pending/completed audiobook references must block
+   variant deletion through saved-translation and Library controls, and original
+   source deletion through Library. Do not remove real audio to make a check pass.
+
+Keep a local receipt per case: `commit/artifact | language/format | model |
+fresh/resume | meaning pass/fail/untested | formatting pass/fail/untested |
+reader/search/audio pass/fail/untested | lifecycle pass/fail/untested | notes`.
+Record the passage/location and expected versus observed behavior for failures;
+redact document contents/paths before sharing. Report actual review outcomes,
+not just terminal job status. A correct `needs-review` result passes the fallback
+contract only if its usability is acceptable; it is not exact target-word styling.
+Any material meaning loss, missing content/assets, false completion, duplicated
+narration or damaged saved work blocks qualification. Leave failed/untested gates
+open and fix concrete failures before expanding providers or release claims.
+This handoff adds no benchmark, model inference, fixture, script or version bump.
+
 ## Saved-document presentation — implemented 2026-10-21
 
 `TranslatedDocumentsPanel` now owns presentation only. The parent passes rows,
@@ -568,8 +629,10 @@ cross-platform CI were not checked. This review does not qualify language qualit
 
 Deletion safety has no remaining finding from this review. The next gate is
 representative FR/ES meaning, formatted-original review usability and rebuilt-app
-integration acceptance using the existing acceptance matrix above. Prepare that
-handoff before further feature work; run it only when smoke is explicitly resumed.
+integration acceptance using the [prepared handoff](#packaged-acceptance-handoff--prepared-2026-10-21)
+and acceptance matrix above. The handoff is ready; execution and results remain
+pending until smoke is explicitly resumed. Resolve observed failures before
+further feature work or release qualification.
 Keep the existing source/DOM, cache, writer and reference-lock owners. Provider
 admission is unchanged; strict stays retired. Benchmarks, smoke and version bump
 stay deferred.
