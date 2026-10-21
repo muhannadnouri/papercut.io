@@ -296,12 +296,11 @@ screened above. No TranslateLocally binary was installed or tested on our cases.
 
 **Implication:** efficient local translation does not require a 7B LLM. Our
 compact OPUS/Bergamot paths already follow that resource strategy, while semantic
-emphasis and output completeness remain separate acceptance problems. If 7B is
-impractical, a bounded comparison with an unmodified TranslateLocally release in
-HTML mode and its exact model pack is reasonable before changing another engine
-or wrapper. A native runtime or older/different pack may produce different output,
-but source inspection alone cannot establish an improvement. Keep any such
-comparison outside production and private inputs outside the repo. Do not revive
+emphasis and output completeness remain separate acceptance problems. A native
+HTML comparison was considered, but the maintainer has now declined further
+provider/runtime evaluations; see the [conclusion](#conclusion-and-development-direction--2026-10-21).
+A native runtime or older/different pack may produce different output, but source
+inspection alone cannot establish an improvement. Do not revive
 the retired generic alignment stack, promise perfect formatting, or build a local
 fork merely because another app uses the same engine family.
 
@@ -317,29 +316,29 @@ on both; a smaller parameter count or valid HTML cannot qualify formatting.
 | [TranslateGemma 4B](https://huggingface.co/google/translategemma-4b-it) | Translation-specialized generative model; its [report](https://arxiv.org/abs/2601.09012) includes French, Spanish and Modern Standard Arabic into English. Closest smaller alternative to the proposed 7B screen. | Prescribed language-code chat template, 2K-token input context and no documented HTML-preservation guarantee. Open weights under Gemma terms; official HF downloads require accepting those terms. Quantized community packages are separate from Google's original weights and need provenance/runtime checks. Published results do not establish superiority in our directions. |
 | [MADLAD-400 3B MT](https://huggingface.co/google/madlad400-3b-mt) | Multilingual translation-specialized T5 model with Apache-2.0 weights. The hosted conversion documents a 1.65 GB Q4K pack for Candle. | Encoder-decoder integration/tokenization differs from the existing Marian and HY adapters. The Candle GGUF must not be assumed compatible with llama.cpp. No rich-markup guarantee; prefer it as a later text-quality/resource baseline. |
 | [Phi-4-mini-instruct 3.8B](https://huggingface.co/microsoft/Phi-4-mini-instruct) | MIT-licensed general-purpose model whose documented languages include French, Spanish and Arabic; a smaller generative comparison candidate. | Its multilingual/reasoning and instruction-following evidence does not establish translation-specific HTML fidelity. Apply the same protected transport and full acceptance set; qualify its exact quantization, template and runtime before integration. No formatting advantage has been measured here. |
-| [TranslatePsy-EuroNano](https://huggingface.co/qvac/TranslatePsy-EuroNano) | Apache-2.0 Marian/Bergamot translation models. One `xx-en` pack covers French/Spanish → English; quantized Tiny/BaseMemory/Base weights are about 17/31/42 MB, plus vocabulary/shortlist files. | No Arabic coverage. These are Bergamot assets, not GGUF or a drop-in CTranslate2 pack. Compatibility with this exact worker and successful HTML restoration remain untested; new weights do not establish that the earlier alignment failures disappear. |
+| [TranslatePsy-EuroNano](https://huggingface.co/qvac/TranslatePsy-EuroNano) | Apache-2.0 Marian/Bergamot translation models. One `xx-en` pack covers French/Spanish → English; quantized Tiny/BaseMemory/Base weights are about 17/31/42 MB, plus vocabulary/shortlist files. | No Arabic coverage. These are Bergamot assets, not GGUF or a drop-in CTranslate2 pack. [Current-runtime evaluation](#euronano-through-the-existing-bergamot-runtime--2026-10-21) requires omitting the supplied shortlist for useful text, but still fails meaning/markup acceptance; keep it unavailable for production. |
 
 Do not add several providers before establishing useful outputs. The
 [revised 7B profile](#revised-7b-profile--2026-10-21) also failed acceptance.
-For the maintainer's formatting priority, the next recommended feasibility check
-is EuroNano through the existing unmodified Bergamot runtime. This is an
-architectural preference, not a measured quality ranking over Phi or other
-models. The [official alternative toolkit](https://github.com/tether-ai-research/qvac-translatepsy-euro-nano)
+EuroNano was selected for a feasibility check through the existing unmodified
+Bergamot runtime. The [evaluation below](#euronano-through-the-existing-bergamot-runtime--2026-10-21)
+is complete and does not qualify it. This is not a measured quality ranking over
+Phi or other models. The [official alternative toolkit](https://github.com/tether-ai-research/qvac-translatepsy-euro-nano)
 provides text inference and explicitly lacks an HTML translator; adopting it or
-the QVAC SDK would not itself solve placement. First check the official model's
-runtime/configuration compatibility, then the frozen meaning/markup cases and
-prior completeness counterexamples. Keep Bergamot gated during that evaluation.
-Phi can be a separate generative comparison; none of these model cards certifies
-bold/italic correspondence. Retain the existing source-owned DOM, assets,
+the QVAC SDK would not itself solve placement. The current EuroNano screen fails
+the meaning/markup gate; keep Bergamot gated. Prior completeness counterexamples
+must also pass before any future admission.
+Phi remains unevaluated; no further candidate comparison is scheduled. None of
+these model cards certifies bold/italic correspondence. Retain the existing source-owned DOM, assets,
 cancellation, cache and writer owners; no new generic aligner or model-training
-project is proposed. An unmodified TranslateLocally native-HTML comparison also
-remains possible, without assuming its different model/runtime pins fix mapping.
+project is proposed. Further TranslateLocally evaluation was declined; its
+different model/runtime pins are not evidence of solved mapping.
 
 If “Jev-like” refers to a narrow-task model philosophy, translation specialists
 fit that analogy. [Jev itself](https://typesafe.ai/blog/introducing-system-one-models-and-jev)
 returns typed decisions rather than generated translations; it is not the proposed
-translation engine. No TranslateGemma, MADLAD, Phi or TranslatePsy weights were
-downloaded or run in this investigation.
+translation engine. TranslateGemma, MADLAD and Phi weights have not been downloaded
+or run in these investigations; EuroNano's measured results are recorded below.
 
 ### HY-MT2 7B Q4 quality screen — 2026-10-21
 
@@ -508,6 +507,145 @@ regressions. A different candidate needs its own unchanged full-set evaluation;
 do not substitute whichever profile looks better on individual passages. No
 production source, model admission, app data or version was changed. Benchmarks
 and broader smoke remain deferred.
+
+### EuroNano through the existing Bergamot runtime — 2026-10-21
+
+**Evaluation complete; do not integrate this pack yet.** The official
+[TranslatePsy-EuroNano Base `xx-en` INTGEMM pack](https://huggingface.co/qvac/TranslatePsy-EuroNano/tree/3a5e1e4e2f7001ff5cfd79785bef03cf19281b73/xx-en/Base/intgemm)
+ran through the unchanged checked-in Bergamot loader and pinned Mozilla WASM
+`v0.6.0+eea6e5a8`. One shared vocabulary handles French/Spanish → English without
+a language prefix. The weights, shortlist and vocabulary were verified against
+revision `3a5e1e4e2f7001ff5cfd79785bef03cf19281b73` before loading:
+
+| Asset | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `model.intgemm.alphas.bin` | 42,993,131 | `50f86c092f4c55055eab7c9052e3c952d38ef601d906d375e6245c0ba129fc2b` |
+| `lex.50.50.xxen.s2t.bin` | 840,864 | `28d640429f5aa836ab0a527959476e0333dbe02dcac4f8dfe883c277bdeb7e65` |
+| `vocab.spm` | 797,560 | `772276ad54e95628b7ded9a835b6a9eaf08e76b8e754bc57b99bf1cd3d99c138` |
+
+The complete published pack is 44,631,555 bytes. This is download size, not RAM.
+The model card declares Apache-2.0; no pack was redistributed or installed into
+Papercut. The current production asset reader's 32 MiB per-file limit would also
+reject these weights. Do not raise it or replace worker pins based on this screen.
+
+**Method:** all twelve frozen synthetic cases and both private paragraphs ran
+in each of two separately declared transports: current opaque protected spans,
+and the preceding HY trial's semantic emphasis/code tags with opaque identities.
+Both use the existing Rust sanitizer/DOM/source-owned plan and unchanged strict
+restoration. These are identical whole-block inputs for comparison, not execution
+of Papercut's 320-scalar Bergamot document planner or a packaged job. The stock
+beam-1 config, `int8shiftAlphaAll`, soft alignment, one shared vocabulary, aligned
+buffers and HTML response options match the worker. An external Node VM calls the
+same module/service API because the production worker intentionally rejects
+unrecognized asset pins. Its fallback GEMM is not Firefox's optimized kernel.
+No library/loader patch, model conversion, new dependency, output repair or
+per-case selection was used. Images remain outside semantic acceptance.
+
+**The supplied shortlist is incompatible with useful translation in this setup.**
+With all three published assets, even plain greetings became incoherent text or
+just `.`. All fourteen cases per transport lost meaning; only one reconstructed
+mechanically. As a harness control, Papercut's verified Mozilla French and Spanish
+packs both returned “Hello, how are you?” through the same runtime/config. A
+separate supported no-shortlist diagnostic then recovered sensible EuroNano
+greetings. The [official model example](https://huggingface.co/qvac/TranslatePsy-EuroNano#quick-start-qvac-sdk)
+loads model/vocabulary without a shortlist; [Bergamot supports that path](https://github.com/browsermt/bergamot-translator/blob/main/src/translator/translation_model.cpp#L26-L44).
+A read-only vocabulary/shortlist audit found that all 24,042 word-boundary-prefixed
+SentencePiece rows have no row-specific shortlist entries, and none of the
+146,202 target edges names such a piece. Shared/global candidates can still be
+available to the decoder. Mozilla's French shortlist covers 24,686 of its 24,713
+corresponding rows. This and the recovery isolate the supplied shortlist as a
+practical blocker for this setup; the cause of its coverage pattern and its
+behavior in other runtimes are not proven.
+Do not label the garbled run a measurement of the model's intrinsic quality.
+
+The **complete fourteen-case set was rerun without the shortlist**, with the same
+weights, vocabulary, runtime/config and two transports. Original results remain
+separate. All requests returned text; this API does not establish semantic
+completeness or expose a native decoder finish reason. Each arm admitted six
+replies structurally and rejected eight for empty target mappings:
+
+| Frozen case group | Shortlist-free result in both transports |
+| --- | --- |
+| Split French negation, Spanish adjective and repeated noun | Basic English meaning survives, but empty emphasis identities are correctly rejected |
+| Nested French emphasis | Meaning survives and reconstruction passes, but “little” loses its original bold scope |
+| French/Spanish initial-letter styling | Split/untranslated greetings, including “H wave, friends.”; empty mappings are rejected |
+| French/Spanish note/link cases | Omitted chapter instruction or changed subject, displaced/changed note text and empty mappings; rejected |
+| French/Spanish literals and whole-sentence styling | Useful meaning and corresponding scopes; the semantic-tag French literal adds a grammatical agreement error |
+| Spanish directive/quantities | Prohibition becomes a statement about “He”; bold covers only “books;” and italics only “two”, despite structural admission |
+| Private paragraph 1 | Consequential mistranslation and misplaced/narrowed emphasis despite structural admission |
+| Private paragraph 2 | Material omissions/mistranslation and an empty emphasis mapping; rejected |
+
+Independent code-agent inspection covered all replies. Seven per arm retained
+basic meaning, with the French literal fluency caveat; only the literal and
+whole-sentence cases combined useful meaning with corresponding scopes. These
+are known-case observations, not an accuracy percentage or bilingual sign-off.
+The transports produce the same visible text in thirteen cases; disclosing real
+emphasis tags does not resolve the alignment failures. Valid restored HTML still
+does not certify scope or meaning. Do not weaken empty-mapping guards or silently
+repair placement to admit this candidate.
+
+Private receipts, original/follow-up replies, source-owned reconstructions,
+profiles, asset hashes, shortlist audit and inert preview are retained under the
+external `euronano-bergamot-20261021` evaluation cache. Every arm passed fourteen
+source roundtrips and fourteen malformed/mutated reply rejection checks through
+the disposable source copy. The checked-in evaluation JSON and production code
+remain unchanged; no private text, fixtures or harness was added to the repo.
+
+**Decision:** stop integration of this pack in the current worker. The maintainer
+declined further model/runtime evaluations, including TranslateLocally. Do not
+regenerate the shortlist, fork the engine or reopen generic alignment to conceal
+these failures. Bergamot and 7B remain gated; benchmarks, packaged/device smoke
+and the app version bump stay deferred.
+
+### Conclusion and development direction — 2026-10-21
+
+**The observed remaining failures do not establish a parser-only fix.** The
+source-owned identity roundtrips work, and the failing scopes or translations
+already appear in raw provider replies before Rust reconstruction. EuroNano
+already leaves the translated adjective outside bold; HY already changes the
+subject/polarity. Empty identities are real output omissions. Retaining nonempty
+identities or accepting valid HTML cannot establish correct linguistic scope.
+This does not prove our code has no bugs or that every model/runtime would fail.
+It does establish that relaxing this parser would conceal the demonstrated
+failures rather than repair them.
+
+There are three separate responsibilities:
+
+- **Import and structural preservation:** source hierarchy, semantic tags,
+  attributes, literals and attachments belong to Papercut. A defect here can and
+  should be fixed locally. Historical inspection also found CSS-only emphasis
+  removed by the reader's existing sanitization policy before translation.
+  Safely normalizing a supported subset into semantic markup is a distinct
+  possible improvement; preserving arbitrary CSS is not authorized. This would
+  not fix the demonstrated `em`/`strong` mapping failures.
+- **Translated-word ownership:** deciding which reordered, fused or omitted
+  target words inherit a source span requires linguistic correspondence. The
+  tested alignment/model outputs do not supply it reliably enough. Independent
+  fragment translation previously preserved wrappers while corrupting meaning;
+  it is not a new solution to retry. No production heuristic has been qualified.
+- **Product policy:** current OPUS code deliberately preserves whole-sentence
+  context and retains the formatted original beside English for unresolved
+  scopes. That duplication is our chosen fallback, not a parsing accident or
+  evidence that formatting was transferred to English. The maintainer found
+  that experience unsatisfactory; do not present it as meeting the requirement.
+
+**Recommended development direction, with no implementation authorized here:**
+stop provider expansion and consolidate the existing OPUS sentence path, shared
+DOM/security, installer, cancellation, cache and writer owners. Automatically
+restore only supported whole-sentence/block or copied-literal scopes under the
+existing checks. If the maintainer accepts an assisted workflow, mixed inline
+formatting needs explicit review/correction, with the original available on
+demand rather than repeated throughout the reading output. The English should
+remain unchanged while formatting is edited; this workflow does not yet exist.
+It is a reduced automation scope, not the original fully automatic requirement.
+
+If automatic preservation of arbitrary inline bold/italic remains required
+without manual correction, keep public translation release deferred. None of
+the evaluated paths currently meets that bar, and further abstraction or test
+passing cannot close the linguistic gap. Do not implement a new fallback,
+silently flatten formatting, remove failed guards, or delete the reusable
+foundation merely to declare the feature complete. Smoke, benchmarks and the
+version bump remain deferred; no further candidate evaluation is scheduled.
 
 ### Bounds and explicit failures
 
@@ -1136,9 +1274,14 @@ passed mechanical reconstruction but retained semantic counterexamples. Its
 private preview has been reviewed and the [semantic gate](#semantic-acceptance-gate--2026-10-21)
 is defined. The [revised 7B profile](#revised-7b-profile--2026-10-21) also fails,
 including a structural rejection and a polarity regression. Keep 7B gated; stop
-this profile's integration. The next recommended investigation is EuroNano's
-compatibility with the existing Bergamot runtime, followed by the same frozen
-cases before any production changes. Phi remains a possible separate comparison.
+this profile's integration. The [EuroNano evaluation](#euronano-through-the-existing-bergamot-runtime--2026-10-21)
+is also complete: omitting its supplied shortlist recovers useful text, but
+meaning/scope failures still prevent admission. Further model/runtime comparisons
+were declined. The [conclusion and development direction](#conclusion-and-development-direction--2026-10-21)
+separate fixable source/structure defects from unqualified linguistic placement.
+The next product decision is an explicitly assisted mixed-formatting workflow
+versus deferring public translation release while full automation is required;
+it is not another provider experiment.
 Additional passing examples cannot erase a known failure. Use Firefox's
 DOM ownership as an architectural reference, not evidence of solved completeness
 or semantic styling. Representative
