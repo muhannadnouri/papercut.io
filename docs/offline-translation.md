@@ -207,9 +207,9 @@ attributes, or copy Firefox's empty-node retention/duplicate-node cloning wholes
 Keep its useful pattern—whole inline context, genuine formatting tags and
 source-owned reconstruction—within the existing DOM/asset/job pipeline. Any future
 style splitting must distinguish attribute-free emphasis from exact-once author
-IDs, notes, links, media and literals. A larger tag-aware HY model is the next
-quality candidate to evaluate before another production mapping change; size is
-not evidence that it will pass. No upstream fork or local runtime patch is proposed.
+IDs, notes, links, media and literals. This led to the separate
+[7B Q4 screen](#hy-mt2-7b-q4-quality-screen--2026-10-21); size alone was not
+evidence that it would pass. No upstream fork or local runtime patch is proposed.
 
 ### Current-machine 7B feasibility — 2026-10-21
 
@@ -248,9 +248,9 @@ and computation buffers. These are estimates, not measured 7B allocations.
 hardware replacement is not justified by the available evidence. Check available
 memory before each run and start with one job, short whole-inline-context blocks
 and a 4096-token context.
-Aim for roughly 8 GiB available for Q4, or 10–12 GiB for a Q8 comparison that
-reduces quantization as a quality confound. These are conservative planning
-targets, not admission thresholds or memory guarantees. Use conventional official
+The later Q4 screen below records actual memory with an 8192-token context;
+allow additional headroom for the app and other workloads rather than inferring
+capacity from weight size. Q8 allocations remain unmeasured. Use conventional official
 GGUFs and a maintained runtime; no custom quantization kernels or library patches.
 CPU inference is the baseline; evaluate Vulkan offload separately if needed.
 Do not terminate unrelated applications or clear user data automatically.
@@ -265,8 +265,9 @@ services are excluded. An optional private-LAN inference service would be a
 separate security/product decision, not the current offline implementation.
 If none meets quality requirements, retain explicit review/manual correction or
 defer release rather than resume phrase-placement guesses, silently drop emphasis
-or present mixed-language output as complete. No 7B weights were downloaded or
-loaded, and no throughput or acceleration result is claimed in this assessment.
+or present mixed-language output as complete. This initial feasibility assessment
+did not load weights; the later quality screen below records the actual Q4 run.
+No throughput benchmark or acceleration result is claimed.
 
 ### TranslateLocally comparison — 2026-10-21
 
@@ -316,10 +317,11 @@ on both; a smaller parameter count or valid HTML cannot qualify formatting.
 | [TranslateGemma 4B](https://huggingface.co/google/translategemma-4b-it) | Translation-specialized generative model; its [report](https://arxiv.org/abs/2601.09012) includes French, Spanish and Modern Standard Arabic into English. Closest smaller alternative to the proposed 7B screen. | Prescribed language-code chat template, 2K-token input context and no documented HTML-preservation guarantee. Open weights under Gemma terms; official HF downloads require accepting those terms. Quantized community packages are separate from Google's original weights and need provenance/runtime checks. Published results do not establish superiority in our directions. |
 | [MADLAD-400 3B MT](https://huggingface.co/google/madlad400-3b-mt) | Multilingual translation-specialized T5 model with Apache-2.0 weights. The hosted conversion documents a 1.65 GB Q4K pack for Candle. | Encoder-decoder integration/tokenization differs from the existing Marian and HY adapters. The Candle GGUF must not be assumed compatible with llama.cpp. No rich-markup guarantee; prefer it as a later text-quality/resource baseline. |
 
-Do not add several providers before establishing useful outputs. The next bounded
-screen remains HY-MT2 7B with whole-context tagged input on this machine. If its
-resource use or output is unsuitable, evaluate TranslateGemma 4B before production
-changes. An unmodified TranslateLocally native-HTML comparison can check whether
+Do not add several providers before establishing useful outputs. The
+[7B Q4 screen](#hy-mt2-7b-q4-quality-screen--2026-10-21) now informs the next
+bounded transport trial. TranslateGemma 4B remains an alternate if that candidate
+cannot meet quality requirements. An unmodified TranslateLocally native-HTML
+comparison can check whether
 its different model/runtime pins help, but it is not an independent formatting
 solution. Retain the existing source-owned DOM, assets, cancellation, cache and
 writer owners; no new generic alignment stack or model-training project is proposed.
@@ -327,7 +329,122 @@ writer owners; no new generic alignment stack or model-training project is propo
 If “Jev-like” refers to a narrow-task model philosophy, translation specialists
 fit that analogy. [Jev itself](https://typesafe.ai/blog/introducing-system-one-models-and-jev)
 returns typed decisions rather than generated translations; it is not the proposed
-translation engine. No alternative weights were downloaded or run in this assessment.
+translation engine. No TranslateGemma or MADLAD weights were downloaded or run.
+
+### HY-MT2 7B Q4 quality screen — 2026-10-21
+
+**Evaluation only; provider admission is unchanged.** The official
+[Q4_K_M GGUF](https://huggingface.co/tencent/Hy-MT2-7B-GGUF/tree/ab8472660ac61fac25f1af43fac2599d52a8a775)
+at revision `ab8472660ac61fac25f1af43fac2599d52a8a775` was downloaded to an
+owner-only disk-backed cache outside the repo. Its 4,624,648,896 bytes and SHA-256
+`9f96256500f3fc1ab4d64336b58f52a949a95ad7516b0c229476eef782f9f77b`
+were verified before loading. Private inputs, harnesses, raw replies, receipts and
+inert previews remain outside the repo; no document text was sent to a remote service.
+
+The exact twelve French/Spanish synthetic cases and two private paragraphs were
+recovered after temporary files were cleared. Both input-file hashes match the
+original 1.8B receipts byte-for-byte. Each case ran once with each of the same two
+predeclared prompts: official structured-data and concise translation-only HTML.
+Installed `llama-server` commit `f174553e1` ran offline over a private Unix socket,
+CPU-only, six threads, one slot, 8192-token context and 4096-token output cap.
+Sampler settings match the corrected 1.8B screen: temperature 0.7, top-p 0.6,
+top-k 20, repetition penalty 1.05 over the context, min-p disabled and seed 42.
+The 7B-specific embedded chat template was verified against both pinned GGUF
+metadata and the official base model, rather than forcing the 1.8B template.
+
+All 28 requests returned output with API finish reason `stop`, with no request
+errors or reported length cutoffs. The server's observed peak RSS was about
+8.94 GiB for this run, including mapped model memory and runtime allocations.
+This establishes that the candidate runs on this machine; it is not whole-app
+memory, a throughput benchmark, mobile evidence or GPU qualification.
+
+| Prompt | Useful observed results | Remaining counterexamples |
+| --- | --- | --- |
+| Official structured-data | Correct reordered noun emphasis, nested noun-phrase styling, first-occurrence styling for a repeated word, whole-sentence styling, quantities and the French quotation/note/link/image case. Both private paragraphs retained their main propositions and apparent emphasis regions, without instruction leakage or the earlier negation reversal. | A protected code element's `translate="no"` attribute became visible code text. Quoted Spanish negation gained a bold interjection while the grammatical negation remained unbold. Drop caps expanded to whole-word bold. One private technical expression acquired awkward additional wording. |
+| Concise translation-only | Preserved the code literal and the private paragraphs' main formatting/propositions. | Added bold to an unstyled adjective, expanded a nested italic scope, retained an untranslated French greeting and repeated the quoted-negation problem. One private metaphor was softened. |
+
+Parser-valid HTML, unchanged attributes and equal tag ancestry did not establish
+correct semantic emphasis. Literal auditing must compare the entire immutable
+element payload and attributes, not merely find its original text somewhere in
+the target. Whole-word drop-cap styling is a typography change; split negation
+also needs a stated ownership policy, not an arbitrary exact-tag-count score.
+Do not combine the best outputs from different prompts on individual cases.
+These non-blinded, single-seed screens support concrete counterexamples, not a
+general quality percentage. Q4 versus historical Q8 and different model variants
+prevent attributing the observed improvements solely to parameter count. Recovered
+historical printed outputs are not byte-identical original raw-response files.
+
+**Packaging caveat:** the pinned GGUF declares primary EOS token 3 (`$`), while the
+[official base configuration](https://huggingface.co/tencent/Hy-MT2-7B/blob/9b0eb4e8f001def3e5ff6469a0ac96fdb39ec223/config.json)
+uses 127960 (`<|eos|>`), and its
+[generation configuration](https://huggingface.co/tencent/Hy-MT2-7B/blob/9b0eb4e8f001def3e5ff6469a0ac96fdb39ec223/generation_config.json)
+also permits 127967
+(`<|extra_5|>`). Separate stock-chat pilots completed correctly, including a dollar
+amount, but API `stop` reports do not independently identify the terminal token.
+No weight edits, runtime patches or metadata overrides were applied. Resolve
+termination qualification before admission; CLI chat behavior must not be assumed
+equivalent to Papercut's current raw-token Rust adapter.
+
+The recommended source-owned transport trial is recorded below. Keep the
+candidate unavailable for production jobs; no model fork, generic aligner revival
+or production code change is justified by this direct-HTML screen.
+
+### HY-MT2 source-owned HTML trial — 2026-10-21
+
+**Evaluation only; structural success, quality admission still blocked.** The
+same fourteen source cases ran once with the official structured-data prompt
+fixed, using the same pinned 7B Q4 weights, stock runtime, template and sampler
+described above. Only transport representation changed. All private inputs,
+disposable code, replies, receipts and previews remain outside the repository.
+
+A disposable source copy exercised the existing sanitizer → `DomPlan` →
+`ProtectedSource` → `ProtectedPlan::restore` path. Source `em`, `strong`, `b` and
+`i` use real tags with opaque identities; source code literals use a `code`
+placeholder. Other identities use spans. Original attributes, link destinations,
+media and literal payloads remain in the Rust plan and never enter the prompt.
+Strict XML admission checks the expected tag/identity and attributes before
+converting the transport back to canonical spans for unchanged reconstruction.
+No forgiving parser repair, prose rewrite or guessed emphasis placement occurs.
+
+All fourteen replies reported `stop` and passed reconstruction. Exact restored
+literal payloads, reference attributes, note payloads and media matched the
+source-owned baseline. In particular, the French code/attribute corruption from
+the direct-HTML screen was avoided. The public fixtures' unannotated superscript
+links remain editable link text under the existing contract; their unchanged
+numerals were observed, not made immutable by this trial. Explicit note-role
+payloads retain the existing opaque protection and placement checks.
+
+Inspection found correct adjective reordering, nested/repeated-word emphasis,
+sentence styling and quantities. Both private paragraphs remained apparently
+complete with the expected emphasis regions; one technical expression improved.
+Spanish initial-letter styling stayed on the initial, while the French initial
+still expanded to a whole bold word. Two important counterexamples remain:
+
+- Spanish `No vendrá mañana` became **“No one will come tomorrow”**, changing an
+  implied subject's absence into a claim that nobody will come. Valid identities
+  and markup cannot detect this semantic change.
+- Split French `ne`/`pas` emphasis landed on an added “it” in “I don't know it.”
+  Preserving two source identities did not establish correct target ownership.
+
+Validation: fourteen source roundtrips, fourteen malformed/mutated reply rejection
+checks and all twenty existing focused protected-DOM tests passed in the
+disposable copy. Rejections cover missing/duplicate/reparented identities,
+changed literal placeholders, tag/attribute injection, namespaces, comments and
+oversized output. Raw replies, canonical transport and restored HTML are retained
+separately; the preview excludes active resources. These checks establish the
+mechanical boundary, not bilingual acceptance, semantic completeness or a quality
+percentage. This remains a small, single-seed, non-blinded inspection, including
+an independent code-agent review. The stock GGUF termination caveat above remains
+unresolved; no runtime or model patch was applied.
+
+**Decision:** retain this source-ownership design as a viable integration seam,
+but do not integrate or admit the 7B provider yet. Review the private reconstructed
+preview, then freeze semantic acceptance requirements before any held-out or
+complete-document quality screen: negation, subject, quantities, omissions and
+emphasis scope must be assessed separately from structural checks. If the quality
+tradeoff is unacceptable, evaluate another maintained local candidate or defer
+the feature; more DOM repair cannot solve an incorrect translation. Broader
+benchmarks, packaged smoke and the version bump remain deferred.
 
 ### Bounds and explicit failures
 
@@ -882,10 +999,14 @@ cross-platform CI were not checked. This review does not qualify language qualit
 
 Deletion safety has no remaining finding from its review. The
 [best-effort emphasis screen](#best-effort-emphasis-evaluation--2026-10-21) was
-rejected, and the [Firefox/HY screen](#firefox-dom-and-hy-mt2-18b-evaluation--2026-10-21)
-does not qualify either provider. Evaluate a larger tag-aware HY model before
-another production mapping change; use Firefox's DOM ownership as an architectural
-reference, not evidence of solved completeness or semantic styling. Representative
+rejected, and neither the [Firefox/HY screen](#firefox-dom-and-hy-mt2-18b-evaluation--2026-10-21)
+nor the [7B Q4 screen](#hy-mt2-7b-q4-quality-screen--2026-10-21) qualifies a new
+provider. The [source-owned trial](#hy-mt2-source-owned-html-trial--2026-10-21)
+passed mechanical reconstruction but retained semantic counterexamples. The next
+step is review of its private preview and a frozen semantic acceptance policy
+before held-out/full-document evaluation or production integration. Use Firefox's
+DOM ownership as an architectural reference, not evidence of solved completeness
+or semantic styling. Representative
 FR/ES meaning, review usability and rebuilt-app integration remain required under
 the [prepared handoff](#packaged-acceptance-handoff--prepared-2026-10-21).
 Further packaged acceptance execution stays pending until smoke is explicitly resumed.
