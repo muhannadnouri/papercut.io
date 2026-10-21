@@ -194,6 +194,8 @@ Unknown valid IDs are harmless, even if unowned live/staged files exist. The
 existing audiobook-reference lock covers the pending/completed reference check
 and deletion, so source-reference publication cannot race past it. Failed DB
 deletion restores staged files and rolls back provenance/index changes.
+The focused review below still identifies a save/delete overlap and a Library
+URL-identity bypass; these remaining shared-path gaps block merging.
 
 ## Storage, cache and compatibility
 
@@ -461,11 +463,54 @@ validation, not language-quality, packaged-platform or new inference acceptance.
 Cross-platform CI/linking, installed-app behavior, current dependency advisories
 and real-device resources were not revalidated here.
 
+### Deletion-safety review — 2026-10-21
+
+Reviewed `d113d4e5` and connected IPC, storage, batch/folder, audiobook publication
+and UI paths. Assumed one local app process with one foreground translation;
+saved-document deletion remains available while a job runs. Model/cache/save
+claims do not claim document deletion. MemSearch confirmed the existing
+single-instance, shared-writer and source-preservation decisions.
+
+**Must fix before merging:**
+
+1. **P1 — Save/delete overlap can lose a successfully saved variant.**
+   `document_uploads/derived.rs:136` promotes replacement files before its write
+   transaction starts at line 159. Deletion's reference lock/immediate transaction
+   does not cover that writer. A coordinated synthetic interleaving let the writer
+   promote new files while deletion held SQLite, then deletion removed them and
+   the writer committed its metadata and removed the old backup. Both returned
+   success; one saved row remained, with neither live reader files nor backup.
+   Use the same short native mutation guard and lock order around derived-file
+   recovery/promotion/commit and both deletion routes. Reuse existing locking;
+   do not rely on a frontend busy flag or add another job manager. Permanently
+   test both operation orders, assets and rollback: the final result must be a
+   complete saved variant or a complete deletion, never rows without files.
+2. **P1 — Library URL aliases bypass audiobook source protection.**
+   `document_uploads/pipeline.rs:643` checks the raw requested URL, but line 650
+   parses its ID with a helper that discards query/fragment suffixes. It also
+   accepts a `.pdf` request for the ID of a stored HTML document. A canonical
+   `/uploads/def456.html` audiobook reference did not block deletion requested
+   with `?view=reader`, `#section-1`, or the mismatched `.pdf` extension. All six
+   single/batch combinations removed the source successfully. Resolve/validate
+   stored document identity before checking references, and use that same
+   identity for deletion. Add canonical/alias/wrong-kind regressions for both
+   commands and HTML/PDF sources. Otherwise pending or completed audio can lose
+   its source through the ordinary Library deletion surface.
+
+These probes ran against byte-identical production Rust in a disposable copy;
+only the extra synthetic test module differed (154 other Rust files matched).
+The original eight committed regressions still pass; the two additional
+preservation probes fail. Fresh full-library validation passed 509 tests with
+4 existing ignores. Rustfmt, documentation links/evidence and diff checks passed.
+No production code changed in this review. The documented post-commit cleanup
+limit remains explicit; unowned staging is deliberately not garbage-collected.
+No new inference, benchmarks, packaged/device smoke, cross-platform CI or
+dependency-advisory audit was performed.
+
 ## Next bounded work
 
-Review the deletion-safety changes and permanent regressions, especially ownership
-before filesystem mutation, audiobook publication/deletion serialization and the
-optional-table cleanup across every Library delete surface. Keep the existing
+Fix review findings 1–2 with permanent save/delete interleaving and canonical
+identity regressions, then review that bounded storage change. Keep the existing
 source/DOM, cache, writer and reference-lock owners. Provider admission is
 unchanged; strict stays retired. Benchmarks, smoke and version bump stay deferred.
 
