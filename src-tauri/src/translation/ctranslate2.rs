@@ -17,7 +17,7 @@ use unicode_segmentation::UnicodeSegmentation;
 #[cfg(feature = "native-translation-ctranslate2")]
 use super::engine::TranslationSegmentInput;
 use super::engine::{TranslationBatchInput, TranslationEngine, TranslationSegmentOutput};
-use super::inline_markup::provider::pieces::ExactPieceTranslator;
+use super::inline_markup::pieces::ExactPieceTranslator;
 
 #[cfg(feature = "native-translation-ctranslate2")]
 type NativeTranslator = ct2rs::sys::Translator;
@@ -681,7 +681,7 @@ mod tests {
     fn pinned_native_legacy_parity_and_exact_piece_outputs() {
         use crate::translation::{
             engine::{TranslationBatchInput, TranslationEngine, TranslationSegmentInput},
-            inline_markup::provider::pieces::ExactPieceTranslator,
+            inline_markup::pieces::ExactPieceTranslator,
             model_store::manifest_by_id,
         };
         let root =
@@ -746,7 +746,7 @@ mod tests {
                 use crate::translation::{
                     alignment::CandidateTokenizer,
                     dom::DomPlan,
-                    inline_markup::{protected::ProtectedSource, provider::pieces::SourcePlan},
+                    inline_markup::{pieces::SourcePlan, protected::ProtectedSource},
                     segment::TranslationTextSegment,
                 };
                 let alignment = std::env::var_os("PAPERCUT_ALIGNMENT_ASSETS_DIR")

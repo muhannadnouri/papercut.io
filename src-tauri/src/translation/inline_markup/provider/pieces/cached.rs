@@ -2,6 +2,7 @@
 use super::*;
 use crate::translation::inline_markup::provider::contract::{Binding, NodeMapping, Pair, Versions};
 use sha2::{Digest, Sha256};
+use std::ops::Range;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -29,7 +30,7 @@ impl MappedSegment {
             .map_err(error)?;
         let mut value = Self {
             binding,
-            units: plan.units.clone(),
+            units: plan.units().to_vec(),
             targets: translation.targets.clone(),
             nodes,
             checksum: String::new(),
@@ -48,19 +49,19 @@ impl MappedSegment {
         if !self.intact()
             || self.binding.versions.translator != versions.translator
             || self.binding.versions.normalization != versions.normalization
-            || self.units != plan.units
+            || self.units != plan.units()
             || self.binding
                 != pair(plan, &self.binding.target, &self.binding.versions)
                     .binding()
                     .ok()?
-            || self.targets.len() != plan.units.len()
+            || self.targets.len() != plan.units().len()
         {
             return None;
         }
         let bytes = scalar_bytes(&self.binding.target);
         let source_bytes = scalar_bytes(plan.protected.source_text());
         let mut cursor = 0;
-        for (unit, range) in plan.units.iter().zip(&self.targets) {
+        for (unit, range) in plan.units().iter().zip(&self.targets) {
             if range.start != cursor || range.start > range.end || range.end >= bytes.len() {
                 return None;
             }

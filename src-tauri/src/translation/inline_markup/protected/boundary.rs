@@ -1,6 +1,6 @@
 //! Exact source-boundary reconstruction; no phrase matching or worker attachment repositioning.
 use super::*;
-use crate::translation::inline_markup::provider::pieces::{Kind, Translation};
+use crate::translation::inline_markup::pieces::{Kind, Translation};
 
 impl ProtectedPlan {
     /// Every shell endpoint must coincide with a translated/copied unit edge, never a projected word.

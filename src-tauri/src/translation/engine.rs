@@ -62,10 +62,10 @@ pub(crate) struct TranslationSegmentOutput {
 }
 
 pub(crate) trait TranslationEngine {
-    /// Internal strict jobs require exact decoder pieces; ordinary starts never request this opt-in.
+    /// Sentence jobs and internal strict jobs share exact decoder units; other adapters use provider batches.
     fn exact_translator(
         &mut self,
-    ) -> Option<&mut dyn super::inline_markup::provider::pieces::ExactPieceTranslator> {
+    ) -> Option<&mut dyn super::inline_markup::pieces::ExactPieceTranslator> {
         None
     }
 

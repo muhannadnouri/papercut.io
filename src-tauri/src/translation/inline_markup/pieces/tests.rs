@@ -1,5 +1,6 @@
 use super::*;
 use crate::translation::dom::DomPlan;
+use crate::translation::inline_markup::protected::ProtectedSource;
 use std::cell::Cell;
 
 struct Translator {
@@ -92,6 +93,76 @@ fn coverage(plan: &SourcePlan, translated: &Translation) {
         .targets
         .windows(2)
         .all(|r| r[0].end == r[1].start));
+}
+
+/// Partial emphasis must not split a sentence; copied code and its receipt coordinates stay exact.
+#[test]
+fn sentence_entry_keeps_decoder_context_copied_literals_and_review_decisions() {
+    for (sentence, literal, review) in [
+        ("<em>Il ne vient pas.</em>", "X < 2", false),
+        ("Il <em>ne vient</em> pas.", "X < 2", true),
+        // A lowercase continuation is not a natural sentence edge; retain the conservative review decision.
+        ("<em>Il ne vient pas.</em>", "x < 2", true),
+    ] {
+        let (source, segment) = fixture(&format!(
+            "<p>{sentence} <code id='literal'>{}</code> Merci.</p>",
+            literal.replace('<', "&lt;")
+        ));
+        let protected = source
+            .fragment(0..segment.source_end, &segment.text)
+            .unwrap();
+        let mut translator = Translator::new(100);
+        let plan = SourcePlan::from_sentences(&segment, protected, &translator).unwrap();
+        assert_eq!(plan.formatting_needs_review(), review);
+        assert_eq!(
+            serde_json::to_value(plan.units()).unwrap(),
+            serde_json::json!([
+                {"kind":"Prose", "source":{"start":0,"end":16}},
+                {"kind":"Whitespace", "source":{"start":16,"end":17}},
+                {"kind":{"Literal":1}, "source":{"start":17,"end":22}},
+                {"kind":"Whitespace", "source":{"start":22,"end":23}},
+                {"kind":"Prose", "source":{"start":23,"end":29}}
+            ])
+        );
+        let translated = plan.translate(&mut translator, admit, || false).unwrap();
+        assert_eq!(translator.calls, [vec!["Il ne vient pas.", "Merci."]]);
+        assert_eq!(
+            translated.text,
+            format!("IL NE VIENT PAS. {literal} MERCI.")
+        );
+        coverage(&plan, &translated);
+        if !review {
+            let markup = plan.protected.boundary_output(&translated);
+            let restored = plan.protected.restore_boundaries(&markup.unwrap()).unwrap();
+            assert_eq!(restored.text, translated.text);
+            assert!(restored.html.contains("<em>IL NE VIENT PAS.</em>"));
+            assert!(restored.html.contains("id=\"literal\""));
+        }
+    }
+}
+
+/// Moving planning must retain decoder rejection and discard a native reply after cancellation.
+#[test]
+fn sentence_entry_rejects_bad_decoder_replies_and_late_cancellation() {
+    let (source, segment) = fixture("<p>Un deux. <code>private_id</code></p>");
+    let protected = source
+        .fragment(0..segment.source_end, &segment.text)
+        .unwrap();
+    let mut translator = Translator::new(100);
+    let plan = SourcePlan::from_sentences(&segment, protected, &translator).unwrap();
+    for fault in ["count", "empty", "large"] {
+        translator.fault = fault;
+        assert!(plan.translate(&mut translator, admit, || false).is_err());
+    }
+    translator.fault = "";
+    let checks = Cell::new(0);
+    let error = plan.translate(&mut translator, admit, || {
+        let n = checks.get();
+        checks.set(n + 1);
+        n > 0
+    });
+    assert!(error.err().unwrap().contains("cancelled"));
+    assert_eq!(translator.calls, vec![vec!["Un deux."]; 4]);
 }
 
 #[test]

@@ -2,7 +2,7 @@
 use super::*;
 use crate::translation::{
     dom::DomPlan,
-    inline_markup::{protected::ProtectedSource, provider::pieces::ExactPieceTranslator},
+    inline_markup::{pieces::ExactPieceTranslator, protected::ProtectedSource},
     job::plan_translation_job,
     types::TranslationStartRequest,
 };
@@ -295,7 +295,7 @@ fn punctuation_only_blocks_bypass_runtime_but_keep_cancellation_and_strict_plann
     assert!(strict
         .units()
         .iter()
-        .any(|u| u.kind == crate::translation::inline_markup::provider::pieces::Kind::Prose));
+        .any(|u| u.kind == crate::translation::inline_markup::pieces::Kind::Prose));
 }
 
 #[test]
@@ -500,7 +500,7 @@ fn installed_french_spanish_sentences_retain_safe_styles_and_identify_review_cas
         let plan = SourcePlan::from_sentences(&segment,protected.clone(),&engine).unwrap();
         assert_eq!(plan.formatting_needs_review(), review, "{html}");
         if html.contains("Merci beaucoup.") || html.contains("Muchas gracias.") {
-            assert_eq!(plan.units().iter().filter(|u| u.kind == crate::translation::inline_markup::provider::pieces::Kind::Prose).count(), 2);
+            assert_eq!(plan.units().iter().filter(|u| u.kind == crate::translation::inline_markup::pieces::Kind::Prose).count(), 2);
         }
         let translated = plan.translate(&mut engine, |_,_| Ok(true), || false).unwrap();
         if review {

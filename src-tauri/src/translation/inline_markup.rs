@@ -11,6 +11,7 @@ use kuchikiki::NodeRef;
 use super::dom::DomPlan;
 use super::storage::{PersistTranslationFragment, PersistTranslationInlinePhrase};
 
+pub(super) mod pieces;
 pub(super) mod protected;
 #[allow(dead_code)]
 pub(super) mod provider;

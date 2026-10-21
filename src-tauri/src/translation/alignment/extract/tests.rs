@@ -239,7 +239,7 @@ fn pinned_reference_word_links_and_formatted_scopes() {
 }
 
 struct Fixed<'a>(&'a str);
-impl crate::translation::inline_markup::provider::pieces::ExactPieceTranslator for Fixed<'_> {
+impl crate::translation::inline_markup::pieces::ExactPieceTranslator for Fixed<'_> {
     fn source_fits(&self, _: &str) -> Result<bool, String> {
         Ok(true)
     }
@@ -249,10 +249,10 @@ impl crate::translation::inline_markup::provider::pieces::ExactPieceTranslator f
     }
 }
 
-fn fixed_plan(html: &str) -> crate::translation::inline_markup::provider::pieces::SourcePlan {
+fn fixed_plan(html: &str) -> crate::translation::inline_markup::pieces::SourcePlan {
     use crate::translation::{
         dom::DomPlan,
-        inline_markup::{protected::ProtectedSource, provider::pieces::SourcePlan},
+        inline_markup::{pieces::SourcePlan, protected::ProtectedSource},
         segment::TranslationTextSegment,
     };
     let dom = DomPlan::new(html);

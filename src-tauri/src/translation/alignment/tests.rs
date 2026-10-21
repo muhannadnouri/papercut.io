@@ -64,8 +64,8 @@ fn exact_piece_planning_uses_real_tokenizer_framing_and_keeps_unknown_literals_o
     use crate::translation::{
         dom::DomPlan,
         inline_markup::{
+            pieces::{ExactPieceTranslator, SourcePlan},
             protected::ProtectedSource,
-            provider::pieces::{ExactPieceTranslator, SourcePlan},
         },
         segment::TranslationTextSegment,
     };

@@ -2,12 +2,12 @@
 use super::*;
 use crate::translation::{
     dom::DomPlan,
-    inline_markup::provider::{
-        contract::{
+    inline_markup::{
+        pieces::{ExactPieceTranslator, Translation},
+        provider::contract::{
             tests::{rules, tokens},
             NodeMapping, Rejection, Side, TokenizedText, Versions, WordLinks, PROJECTION_POLICY,
         },
-        pieces::{ExactPieceTranslator, Translation},
     },
     source::TranslationSourceBlock,
 };

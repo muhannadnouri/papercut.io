@@ -50,7 +50,7 @@ impl<'p> Translation<'p> {
             return Err(Rejection::Unresolved(issue).into());
         }
         let codes = self.plan.protected.source_codes().collect::<Vec<_>>();
-        if self.targets.len() != self.plan.units.len() || self.text.len() > MAX_HTML_BYTES {
+        if self.targets.len() != self.plan.units().len() || self.text.len() > MAX_HTML_BYTES {
             return Err(Rejection::Binding.into());
         }
         let source = self.plan.protected.source_text();
@@ -65,7 +65,7 @@ impl<'p> Translation<'p> {
             .collect::<Vec<_>>();
         let mut previous = 0;
         let mut pending_attachments = Vec::new();
-        for (index, (unit, target)) in self.plan.units.iter().zip(&self.targets).enumerate() {
+        for (index, (unit, target)) in self.plan.units().iter().zip(&self.targets).enumerate() {
             check_cancelled()?;
             if target.start != previous || target.start > target.end || target.end >= tb.len() {
                 return Err(Rejection::Binding.into());
@@ -92,7 +92,7 @@ impl<'p> Translation<'p> {
                 .collect::<Vec<_>>();
             let attachments = self
                 .plan
-                .attachments
+                .attachments()
                 .iter()
                 .filter(|a| a.owner == index)
                 .collect::<Vec<_>>();

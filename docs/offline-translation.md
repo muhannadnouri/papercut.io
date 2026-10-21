@@ -25,6 +25,7 @@ unqualified provider in the app.
 
 - [Shared formatting policy](#shared-formatting-policy-selection--2026-10-21) follows each job through planning, cache admission and saving. [Shared batch checkpoints](#shared-batch-admission-and-checkpoints--2026-10-21) preserve whole-batch admission and source order across mixed cache/fresh results. Provider admission is unchanged.
 - [Disabled aligner archival evaluation](#disabled-aligner-archival-evaluation--2026-10-21) identifies the live sentence planner to retain and the strict research pipeline to retire separately. No alignment code has been removed by this evaluation.
+- [Shared sentence-planner separation](#shared-sentence-planner-separation--2026-10-21) now gives live planning/decoding its own module outside strict research, with unchanged translation policy and cache identities.
 
 - Translation accepts **HTML and EPUB only**, enforced in both the UI and native source loader. PDF and other formats remain unsupported.
 
@@ -4079,6 +4080,49 @@ The recommendation reduces maintenance scope; it does not establish French/Spani
 translation quality or exact semantic formatting. Retained-original review remains
 the explicit fallback, provider gates stay closed where unqualified, and strict,
 benchmarks, smoke and the version bump remain deferred.
+
+### Shared sentence-planner separation — 2026-10-21
+
+The first archival stage is implemented. `inline_markup/pieces.rs` now owns the
+existing source-owned planner, exact decoder contract, copied literal/whitespace
+units, source/target budget side and translated piece coordinates. Public sentence
+jobs, CTranslate2, the engine contract and boundary reconstruction import these
+types directly. The live planner imports no strict evidence, model runtime,
+projection, receipt or persistence code.
+
+`inline_markup/provider/pieces.rs` retains the strict constructors and
+`PieceAligner` adapter, plus its existing projection and receipt submodules.
+These call the same planning implementation and use the existing read-only
+unit/attachment accessors. The strict contract reuses the shared `Side` type.
+Additional budget callbacks and both policies' existing limits remain unchanged;
+there is no second planner or new provider framework. No candidate runtime,
+manifest, notice, feature flag or user file has been removed yet.
+
+The existing planner tests moved with their implementation; their strict cases
+remain until the later retirement. Two new synthetic regressions use the sentence
+entry point directly. They pin whole-sentence decoder input across partial
+emphasis, exact literal exclusion/copying, serialized unit coordinates and review
+decisions, including a lowercase continuation that is conservatively reviewed.
+They also verify valid whole-sentence style reconstruction, empty/oversized/wrong
+count decoder rejection and discarding a late native reply after cancellation.
+Existing dense-markup, punctuation, Unicode, hierarchy/attachment, real
+save/resume, identity, original/audio preservation and strict lifecycle cases
+remain in the translation suites.
+
+Validation: **293 base Rust translation tests**, **319 native-feature translation
+tests** (CTranslate2, llama.cpp and alignment runtime; 10 opt-in tests ignored),
+**2 worker-only capability tests**, **124 frontend translation tests** and **25
+shipping-build configuration tests** passed. TypeScript, all eight locale
+resources, Rustfmt and diff checks passed. The moved planning/review/decoding
+algorithm was compared with its prior source: only budget-variable naming and
+module visibility changed. Cache/schema/policy versions and variant identities
+are unchanged; existing golden and save/resume regressions passed.
+
+**Next bounded stage:** review the planner separation before retiring the strict
+runtime/pipeline and replacing inactive setup with trusted legacy pack management,
+as scoped in the archival evaluation. Public provider gates and retained-original
+fallback remain unchanged. Strict stays disabled; model benchmarks, smoke,
+packaged-device acceptance and the version bump remain deferred.
 
 ## Boundary-based CTranslate2 translation — 2026-10-20
 

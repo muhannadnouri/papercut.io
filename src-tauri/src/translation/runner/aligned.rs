@@ -1,8 +1,9 @@
 //! Internal strict batch admission. Public commands do not opt in while semantic gates remain unmet.
 use super::*;
 use crate::translation::inline_markup::{
+    pieces::SourcePlan,
     protected::ProtectedPlan,
-    provider::pieces::{MappedSegment, PieceAligner, SourcePlan},
+    provider::pieces::{MappedSegment, PieceAligner},
 };
 
 /// Stage every result before updating the shared cache; partial or late-cancelled batches commit nothing.

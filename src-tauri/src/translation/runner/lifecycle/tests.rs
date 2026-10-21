@@ -53,8 +53,7 @@ struct Engine {
 impl TranslationEngine for Engine {
     fn exact_translator(
         &mut self,
-    ) -> Option<&mut dyn crate::translation::inline_markup::provider::pieces::ExactPieceTranslator>
-    {
+    ) -> Option<&mut dyn crate::translation::inline_markup::pieces::ExactPieceTranslator> {
         Some(self)
     }
     fn translate_batch(
@@ -99,7 +98,7 @@ impl TranslationEngine for Engine {
     }
 }
 
-impl crate::translation::inline_markup::provider::pieces::ExactPieceTranslator for Engine {
+impl crate::translation::inline_markup::pieces::ExactPieceTranslator for Engine {
     fn source_fits(&self, _: &str) -> Result<bool, String> {
         Ok(true)
     }

@@ -8,6 +8,8 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::super::protected::{ProtectedPlan, SourceCode, MAX_CODES, MAX_HTML_BYTES};
 use tokens::Word;
+// Strict evidence uses the same source/target budget coordinates as exact sentence decoding.
+pub(crate) use super::super::pieces::Side;
 
 mod tokens;
 pub(crate) use tokens::{Token, TokenRules, TokenizedText};
@@ -89,12 +91,6 @@ pub(crate) enum ScopeIssue {
     Auxiliary,
     FusedMeaning,
     Attachment,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Side {
-    Source,
-    Target,
 }
 
 /// Errors contain coordinates/categories only, so diagnostics cannot echo private prose.

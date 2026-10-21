@@ -14,9 +14,12 @@ use ort::{
 
 use super::{assets, AdmissionError, CandidateTokenizer, EncodedText, MAX_TOKENS};
 use crate::translation::{
-    inline_markup::provider::{
-        contract::{Rejection, ScopeIssue, Side},
-        pieces::{Projection, Translation},
+    inline_markup::{
+        pieces::Translation,
+        provider::{
+            contract::{Rejection, ScopeIssue, Side},
+            pieces::Projection,
+        },
     },
     model_store::verified::AssetError,
     state::{TranslationModelOperation, TranslationState},

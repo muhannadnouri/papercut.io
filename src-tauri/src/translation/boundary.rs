@@ -2,7 +2,7 @@
 use super::{
     cache::TranslationSegmentCache,
     engine::{TranslationEngine, TranslationSegmentOutput},
-    inline_markup::{protected::ProtectedPlan, provider::pieces::SourcePlan},
+    inline_markup::{pieces::SourcePlan, protected::ProtectedPlan},
     segment::TranslationTextSegment,
 };
 use std::collections::BTreeMap;

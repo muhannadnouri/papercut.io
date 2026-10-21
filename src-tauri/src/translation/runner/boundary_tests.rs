@@ -2,8 +2,7 @@
 use super::*;
 use crate::translation::engine::TranslationSegmentOutput;
 use crate::translation::{
-    dom::DomPlan, inline_markup::provider::pieces::ExactPieceTranslator,
-    source::TranslationSourceBlock,
+    dom::DomPlan, inline_markup::pieces::ExactPieceTranslator, source::TranslationSourceBlock,
 };
 
 struct Engine {
