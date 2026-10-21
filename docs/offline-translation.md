@@ -79,6 +79,10 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   and successful internal inference are not release acceptance. The
   [recovery follow-up](#stage-8-download-retry-and-terminal-progress-recovery--2026-10-20)
   fixes failed-download retry and terminal loading progress in the shared UI.
+- The [Stage 9 semantic investigation](#stage-9-auxiliary-word-and-missing-link-investigation--2026-10-20)
+  reproduces missing auxiliary/contraction and adjective links on actual OPUS-MT
+  output. Neither FP32 nor the older diagnostic runtime resolves the real-output
+  failures. No production repair or public enablement is justified by these checks.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -2444,11 +2448,119 @@ separately with features off and CTranslate2 plus alignment runtime compiled.
 Broader Rust/native integration counts in the earlier receipt are historical;
 no Rust implementation changed in this follow-up.
 
-**Next:** review these recovery fixes, then Stage 9 qualification. The native
+**Next:** Stage 9 qualification starts with the investigation below. The native
 release constant remains **false**; test-only ready UI fixtures do not enable
 production formatting. No runtime, installer transaction, cache/storage format,
 model catalog, dependency or app version changed. Benchmarks, smoke, packaged
 acceptance and version bump remain deferred; no fresh CI result is claimed.
+
+## Stage 9 auxiliary-word and missing-link investigation — 2026-10-20
+
+**Evaluation only; no implementation or acceptance change.** The three Stage 5
+unresolved examples are reproducible, but are not three instances of one bug.
+The DOM renderer cannot recover correspondence absent from the alignment graph.
+The current extraction rule matches its reference; its output is insufficient
+for the required partial-formatting coverage. Keep `FORMATTING_ACCEPTED = false`.
+
+### Method and limits
+
+- Re-ran both existing ignored native extraction/projection tests against the
+  current checkout: **two passed**, including the expected safe rejections.
+  These exercise actual production session/extraction/projection code. A test
+  passing because the expected rejection occurred does not pass its intended
+  positive formatting requirement.
+- Reused the previously frozen **24 scopes over 20 French/Spanish pairs**,
+  without changing their fixed English targets or annotations. Added two
+  synthetic short-adjective controls, one per language. All inputs and
+  investigation tooling remain outside Git; no private article was consumed.
+- A disposable native harness imported the current `ctranslate2.rs` unchanged
+  and invoked `translate_exact`, retaining natural EOS admission and exact
+  decoded output. It used the pinned `ct2rs 0.9.19` CPU adapter and existing
+  OPUS-MT packs: French revision `cb3b2d680bf35591a508d8479e2c99c44e281ef3`,
+  Spanish revision `437f5ffc6c8544943c685ea405650e0d17cf6098`. All eight files
+  per pack were independently size/hash-checked against the compiled manifests.
+  This harness is not a public job, renderer or packaged-app test.
+- Recorded **104 pair/model runs**: 26 scope cases × fixed/actual target ×
+  INT8/FP32. Native graph loading used the application's CPU, independent-pool,
+  two-intra/one-inter-thread, sequential, memory-pattern/arena-disabled settings
+  and shared ORT **1.27.0** library (SHA-256 remains
+  `026c7d5c609323fb16506dbc3cce801bcdffdd7566fdba49a50727e2e1e881ca`).
+  The two aligner graph/tokenizer inventories were checked against their earlier
+  pinned receipts. FP32 is a diagnostic control, not a new installable pack.
+- Applied the unchanged pinned guide head to these tensors and separately to
+  Python ORT **1.23.2** tensors for the exact same strings/token IDs. Raw Rust
+  and Python tokenizer IDs/word IDs agreed; no `[UNK]` occurred and the longest
+  alignment sequence was 11 tokens, including framing. These failures are not
+  evidence of token-budget truncation or unknown-token admission problems.
+  Python remains disposable research tooling, not a second application runtime.
+
+### What fails and where
+
+| Case | Observed evidence | Conclusion |
+| --- | --- | --- |
+| French future, styling `reviendra` | Fixed `He will return tomorrow.` links the verb only to `return`, leaving `will` unlinked. Actual OPUS-MT gives `He'll be back tomorrow.`; `be`/`back` link to the verb but `ll` does not. Both precisions and runtimes retain this gap. | A translation-dependent correspondence gap, not a dropped DOM node. Expanding adjacent words would guess ownership. |
+| Spanish implicit subject, styling `Volverá` | Fixed `She will return tomorrow.` links `will`/`return` but not `She`. Actual output is `He'll be back tomorrow.`: INT8 links the verb to `He`/`be` but misses `ll`/`back`; FP32 links `He`/`ll`/`be` but misses `back`. Both reject. | Generated subjects and lexical paraphrases need more than auxiliary insertion. The different English subject is context-dependent translation choice, not an aligner repair opportunity. |
+| Spanish short adjective, styling `rojo` | Fixed `El libro rojo` → `The red book` has no adjective link on native INT8; Python 1.23.2 INT8 retains it. Actual OPUS-MT returns `The Red Book`, and **both runtimes and precisions omit the adjective link**. French `Le livre rouge` → `The Red Book` retains its adjective link. | The earlier runtime difference is real but narrow. A downgrade, precision switch or case normalization is not a demonstrated general fix. Exact output/casing matters. |
+| Negation-only formatting | Actual French/Spanish `She's not coming.` under INT8 links the selected negation to `not` correctly, but the contracted auxiliary `s` has no source link. FP32 additionally misses French `ne`. | The sentence-wide lexical coverage guard rejects even this locally correct INT8 scope. That is a known conservative coverage cost; it must not be reported as wrong negation mapping. |
+| Spanish modal, styling `salir` | Actual `He can get out.` links `salir` only to `out`, leaving lexical `get` unlinked. | Missing links include lexical paraphrase components, not just a finite list of auxiliary words. |
+
+The raw tokenizer treats `ll` and `s` as lexical word IDs alongside a separate
+apostrophe. They cannot be discarded as punctuation. Some contractions do link
+successfully (for example, `She's done.`); globally expanding or rewriting
+contractions would change successful cases and exact target/cache coordinates.
+
+On the original 24 scopes, the fixed-target graph screen reproduces **18/24
+exact direct scopes** and **15/24 without missing-source, missing-target or
+mixed-ownership blockers**, for each precision. On actual OPUS-MT output,
+**12/24 have those blockers**: six French and six Spanish. The two extra
+adjective controls are excluded from these denominators. These are diagnostics
+of the word graph and existing guard conditions, **not full DOM reconstruction
+passes or a semantic acceptance score**. Actual-target scopes were not frozen
+before observing output, so this is not a held-out quality evaluation. A graph
+without these blockers can still be semantically wrong.
+
+The two runtimes produce identical word-link sets on **all 26 actual targets**
+for each precision. Their sole link-set difference in the 104 comparisons is
+the fixed lowercase Spanish adjective pair under INT8. The result narrows the
+earlier runtime concern; it does not establish general runtime equivalence or
+qualify a shared runtime change for TTS, preprocessing or conceptual search.
+
+### Recommended next step before implementation
+
+1. **Keep the current candidate disabled and the exact-pair/DOM contract.**
+   There is no demonstrated extraction, tokenizer or reconstruction defect to
+   patch from these failures. Whole-unit uniform formatting already inherits
+   the whole target safely; it cannot justify widening a partial styled verb,
+   negation or noun to its sentence.
+2. **Evaluate a better word-link provider against these frozen blockers before
+   another production slice.** Require the French future, Spanish implicit
+   subject/short adjective, negation-only, disjoint and lexical-paraphrase cases
+   to succeed alongside the existing unsafe/fused-ownership rejections. Keep
+   the current shared runtime and provider-independent contract as constraints
+   first; a candidate needing another runtime or a fork needs a separate decision.
+   Freeze intended scopes on new actual-output cases before evaluating that
+   next candidate, and report French/Spanish coverage separately.
+3. Do not lower the softmax threshold, add nearest-word/auxiliary expansion,
+   lowercase exact model output, drop unlinked lexical targets, or split at
+   style boundaries merely to turn these cases green. Prior adjacency trials
+   already style negation incorrectly; missing `back`/`get` shows why an
+   auxiliary allowlist is insufficient. Removing the global coverage guard
+   would admit the French future with `will` left unstyled. Any future explicit
+   unformatted/null ownership mechanism needs independent evidence and its own
+   contract tests; absence of a link is not that evidence.
+4. If no maintainable provider meets the mandatory positives and unsafe-case
+   gate, stop and revisit the promised strict-formatting coverage with the user.
+   Do not silently substitute safe rejection for the ≥95% coverage goal, expose
+   a mostly rejecting strict mode, or describe legacy formatting hints as parity.
+
+**Evidence and validation.** Disposable inputs, native harness, exact outputs,
+tokenizer receipts, tensors and comparison results are in
+`/tmp/papercut-stage9-investigation/`; logs are
+`/tmp/stage9-{native-recheck,probe,analysis}.log`. They are local investigative
+evidence, not durable repository tooling or release artifacts. Production code,
+dependencies, model pins, saved documents, candidate gate and app version are
+unchanged. Only this roadmap is updated. Benchmarks, broader/device smoke,
+packaged acceptance, fresh CI and version bump remain deferred.
 
 ## Product Goals
 
