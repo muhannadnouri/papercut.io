@@ -24,6 +24,7 @@ unqualified provider in the app.
   Strict semantic alignment remains disabled.
 
 - [Shared formatting policy](#shared-formatting-policy-selection--2026-10-21) follows each job through planning, cache admission and saving. [Shared batch checkpoints](#shared-batch-admission-and-checkpoints--2026-10-21) preserve whole-batch admission and source order across mixed cache/fresh results. Provider admission is unchanged.
+- [Disabled aligner archival evaluation](#disabled-aligner-archival-evaluation--2026-10-21) identifies the live sentence planner to retain and the strict research pipeline to retire separately. No alignment code has been removed by this evaluation.
 
 - Translation accepts **HTML and EPUB only**, enforced in both the UI and native source loader. PDF and other formats remain unsupported.
 
@@ -3967,11 +3968,117 @@ Native-feature/worker-only counts above are the implementation receipt, not new
 review runs. This refactor introduces no identified merge blocker; model quality
 and packaged-device acceptance remain separate, unverified release gates.
 
-**Next bounded stage:** evaluate which disabled aligner-specific research can be
-archived while retaining the shared sentence planner, DOM contracts, caches and renderer. Keep
-any removal separate and reviewable; broader UI restructuring remains deferred.
+The [archival evaluation below](#disabled-aligner-archival-evaluation--2026-10-21)
+defines the next bounded cleanup and its completion checks. Broader UI
+restructuring remains separate.
 
 Strict stays disabled. Benchmarks, smoke and the app version bump remain deferred.
+
+### Disabled aligner archival evaluation — 2026-10-21
+
+**Decision:** retire the unqualified strict alignment pipeline through Git
+history, after separating the sentence planner used by normal OPUS-MT jobs.
+Do not delete `inline_markup/provider/` or `alignment/` wholesale. Do not copy
+the research into another compiled module or a new experiments directory.
+This is a maintenance cleanup, not a translation-quality fix or a replacement
+alignment provider. This evaluation changes documentation only.
+
+Reviewed at `bc797e193720bb8deddc10d35d94728f91c86a94`, following the whole-sentence
+product decision and the completed formatting-policy/checkpoint refactors.
+The [candidate implementation in Git history](https://github.com/muhannadnouri/papercut.io/tree/bc797e193720bb8deddc10d35d94728f91c86a94/src-tauri/src/translation/alignment)
+and [strict contracts/planner history](https://github.com/muhannadnouri/papercut.io/tree/bc797e193720bb8deddc10d35d94728f91c86a94/src-tauri/src/translation/inline_markup/provider)
+retain the source, tests, provenance and notices for later investigation.
+The historical Stage 2–9 findings above remain evidence, not a release roadmap.
+
+**Observed dependency boundaries**
+
+| Area | Current callers and responsibility | Cleanup decision |
+| --- | --- | --- |
+| `boundary.rs`, `engine.rs`, `ctranslate2.rs` → `provider/pieces.rs` | Public sentence jobs use `SourcePlan::from_sentences`, `translate`, `formatting_needs_review`, exact decoder admission, literal/whitespace copying and scalar/grapheme bounds. | Retain this live planner and the `ExactPieceTranslator` contract; move their ownership out of strict research before deleting anything. |
+| `pieces.rs` → `contract::Side`, strict constructors, projection/receipt exports | The shared planner currently accepts source/target budget callbacks; sentence jobs supply an always-true aligner callback. Strict callers use the real aligner checks. | Separate these dependencies without duplicating the planning algorithm or changing its budgets/output. Keep strict-only extensions beside the strict code until its removal. |
+| `protected.rs`, `protected/boundary.rs`, DOM, render/cache | Sentence reconstruction uses source codes, context-bearing `alignment_identity`, hierarchy and literal bounds despite the historical alignment names. | Retain identity generation, validation, source-owned attributes/assets, retained originals and the boundary renderer. A name containing “alignment” is not proof of dead code. |
+| `alignment.rs`, `alignment/runtime.rs`, `alignment/extract.rs` | Feature-gated candidate tokenizer, graph admission, CPU embeddings and Awesome-align word links; the native adapter implements `PieceAligner`. | Retire after the live planner is isolated. Do not remove shared installer/verification helpers along with these consumers. |
+| `runner/aligned.rs`, `provider/contract*`, `pieces/projection.rs`, `pieces/cached.rs`, `protected/mapped.rs` | Internal strict evidence, projection, receipts and reconstruction; cache/storage/runner/render types still reference them even in base builds. | Retire together with strict execution and its specific tests in a later coherent change. Retain ordinary protected markup and sentence reconstruction tests. |
+| `runner/lifecycle.rs`, `state.rs` | Translator ownership, cancellation/save admission and job cleanup are shared; alignment sessions and native cancellation registration are optional additions. | Keep the shared leases and atomic-save cutoff. Remove only the auxiliary session/registration hooks when retiring the runtime. |
+| `alignment/assets.rs`, notices, model store/install/status | The optional feature registers a trusted auxiliary ID and nine-file manifest. Explicit install currently bypasses translation-provider acceptance for that auxiliary ID. | Preserve a small trusted legacy inventory/status/removal path for stored packs; close new auxiliary downloads when retiring the candidate. Do not leave the auxiliary installer exception active by accident. |
+| Formatting UI/API and eight locales | The disabled consent/setup panel also provides removal when a stored pack is reported; `preserveFormatting: true` selects strict semantics. | Keep explicit native rejection for old/crafted strict requests. Simplify the inactive setup separately while retaining discovery/removal of stored auxiliary files and the sentence-policy explanation. |
+| Cargo/runtime/build wiring | Shipping scripts/CI do not select either alignment feature. `ort` and its initializer also serve search and text preprocessing. | Remove alignment-only features/initializer conditions when their callers go; retain shared ONNX packaging, pins and consumers. No shipping binary/RAM saving is claimed from removing default-off inference. |
+
+`scalar_range_from_utf8` currently serves the strict token contract only, unlike
+the shared scalar/grapheme checks in the sentence planner. Re-evaluate it when
+the token contract is retired; it need not survive solely for speculative future
+providers. Likewise, `protected/boundaries.rs` is worker note handling and is not
+the strict `protected/mapped.rs` renderer; do not delete it during this cleanup.
+
+**Compatibility rules for retirement**
+
+- Preserve normal cache/schema versions, sentence policy tag, provider identity,
+  fragment identity and saved variant IDs. Previously generated HTML, SQLite
+  provenance, owned assets, audio and timing/highlighting records need no rewrite.
+  Listing/opening/deleting saved variants reads stored documents and metadata,
+  not a live aligner session or regenerated strict receipt.
+- Strict receipts are an internal retry cache, not saved reader documents. They
+  may become inert when strict execution is retired; never migrate them into
+  sentence/probe results or silently interpret a strict request as ordinary
+  translation. Existing files need not be deleted. A normal cache containing a
+  legacy `aligned` field must not make those receipts eligible for reuse.
+- Retain the fixed auxiliary model key, directory validation, size/hash pins and
+  legal payloads needed for legacy status/removal. Do not retain its tokenizer
+  or graph loader just to manage disk files. Reject reinstall/repair commands
+  before network or filesystem mutation; no automatic deletion or new download.
+  Keep removal leases and partial/zero-byte/symlink safeguards.
+- Keep legal attribution with any remaining derived code or delivered payload;
+  do not remove notices solely because inference is disabled. Archive retired
+  source/license together in Git history. Keep generic verified downloads,
+  transactional promotion/recovery and bundled-notice checks for other models.
+- Removing a direct tokenizer dependency does not justify forced deletion of
+  unrelated transitive dependencies or upgrades/downgrades. Refresh the lockfile
+  only as required by the chosen cleanup; keep existing security fixes.
+
+**Recommended implementation sequence and completion gates**
+
+1. **Next stage: isolate the live sentence/literal planner.** Move its existing
+   types, exact-decoder contract and relevant tests into a sentence-owned module;
+   leave strict adapters at the research boundary. Preserve the existing algorithm,
+   callbacks and limits during the move. Do not introduce a second planner or a
+   general provider framework. Both public and internal paths must still compile.
+   Tests must pin whole-sentence context across partial emphasis, dense markup,
+   punctuation-only copying, Unicode/grapheme bounds, literal exclusion from
+   inference, source-owned notes/images, late cancellation and decoder failures.
+   Retain cache/variant golden identities and real save/resume tests, including
+   labelled review originals and a single stable variant. This stage removes no
+   candidate runtime, model manifest or user files.
+2. **Retire the strict pipeline after reviewing that separation.** Remove the
+   candidate tokenizer/runtime/extraction, strict runner/projection/reconstruction
+   and their unused types, callbacks, flags and dedicated tests. Keep meaningful
+   sentence, DOM/security, attachment and lifecycle tests under their live owners.
+   Replace auxiliary setup with trusted legacy management, rejecting new installs
+   and strict jobs. Regression gates: forged/old strict opt-in rejects; stored and
+   partial/zero-byte packs remain removable; blocked installs do no I/O; normal
+   caches load/resume with legacy fields; old strict caches cannot supply sentence
+   results; existing saved documents/audio/assets remain unchanged.
+3. **Close the cleanup with configuration and UI checks.** Run base, native
+   CTranslate2/llama and worker-only translation tests, frontend tests, TypeScript,
+   locale validation, build-feature tests and format/diff checks. Recheck search
+   and preprocessing runtime configurations after removing alignment conditions.
+   Fewer retired research tests is expected; counts alone do not establish that
+   their live guarantees survived. Record the actual remaining feature matrix.
+   Simplify the inactive strict UI and long historical roadmap without bundling
+   an unrelated worker rewrite, dependency upgrade or translation policy change.
+
+**Evaluation checks:** traced these callers across source, tests, UI/API, model
+management and build flags. Offline locked Cargo dependency inspection confirms
+that the candidate directly enables `tokenizers 0.23.2`, while `ort 2.0.0-rc.13`
+is also required by preprocessing/search (including fastembed). No model loading,
+inference, performance benchmark or new acceptance test ran. All **36 existing
+shipping-build/mobile-CI configuration tests** passed; section anchors/source paths
+and `git diff --check` passed. The preceding review's
+291 Rust/124 frontend test receipt is unchanged, not a fresh run for this evaluation.
+
+The recommendation reduces maintenance scope; it does not establish French/Spanish
+translation quality or exact semantic formatting. Retained-original review remains
+the explicit fallback, provider gates stay closed where unqualified, and strict,
+benchmarks, smoke and the version bump remain deferred.
 
 ## Boundary-based CTranslate2 translation — 2026-10-20
 
