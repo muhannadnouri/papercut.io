@@ -222,12 +222,19 @@ backend is loaded. The earlier sandbox's missing `/dev/dri` and CPU-only probe
 were not evidence of absent GPU hardware. Device enumeration does not establish
 working model offload or faster inference; integrated GPU memory shares system RAM.
 
-At follow-up inspection, approximately 4–5 GiB of RAM was available and zram held
-about 12–13 GiB of logical swapped data (about 7–8 GiB compressed). This is current memory
-pressure, not an additional physical-memory allowance. The disk-backed filesystem
-had about 806 GiB free. `/tmp` is a 12 GiB RAM-backed filesystem with only about
-2.4 GiB free: do not download a 7B pack there. Use an isolated disk-backed cache
+At the earlier follow-up inspection, approximately 4–5 GiB of RAM was available
+and zram held about 12–13 GiB of logical swapped data (about 7–8 GiB compressed).
+This was memory pressure, not an additional physical-memory allowance. The
+disk-backed filesystem had about 806 GiB free. `/tmp` was a 12 GiB RAM-backed
+filesystem with only about 2.4 GiB free. Use an isolated disk-backed cache
 outside the repo for the next evaluation, preserving private inputs separately.
+
+A later read-only recheck on the same date found approximately 14 GiB of RAM
+available, negligible swap use and an almost empty `/tmp`. Hardware identity and
+the real Intel Vulkan device were confirmed again outside the sandbox. The earlier
+memory-pressure observation is not a permanent hardware limit: a bounded Q4 or
+Q8 evaluation is now capacity-feasible, subject to actual allocations. Continue
+using disk-backed storage rather than consuming RAM with model downloads in tmpfs.
 
 The [official 7B GGUF files](https://huggingface.co/tencent/Hy-MT2-7B-GGUF/tree/main)
 are Q4_K_M 4.62 GB (about 4.30 GiB), Q6_K 6.16 GB (5.74 GiB), and Q8_0 7.98 GB
@@ -238,9 +245,9 @@ a conventional FP16 KV cache for 32 layers, eight KV heads and head dimension
 and computation buffers. These are estimates, not measured 7B allocations.
 
 **Assessment:** this machine is capacity-feasible for a bounded 7B evaluation;
-hardware replacement is not justified by the available evidence. Current free
-memory is too tight for a comfortable run. After the user frees other workloads,
-start with one job, short whole-inline-context blocks and a 4096-token context.
+hardware replacement is not justified by the available evidence. Check available
+memory before each run and start with one job, short whole-inline-context blocks
+and a 4096-token context.
 Aim for roughly 8 GiB available for Q4, or 10–12 GiB for a Q8 comparison that
 reduces quantization as a quality confound. These are conservative planning
 targets, not admission thresholds or memory guarantees. Use conventional official
@@ -296,6 +303,31 @@ but source inspection alone cannot establish an improvement. Keep any such
 comparison outside production and private inputs outside the repo. Do not revive
 the retired generic alignment stack, promise perfect formatting, or build a local
 fork merely because another app uses the same engine family.
+
+### Smaller specialist alternatives — 2026-10-21
+
+Compact translation specialists already exist: the Marian/OPUS/Bergamot models
+above serve that niche. Efficient text translation and reliable placement of
+semantic emphasis remain separate requirements. A model change must be tested
+on both; a smaller parameter count or valid HTML cannot qualify formatting.
+
+| Candidate | Reason to evaluate | Limits before integration |
+| --- | --- | --- |
+| [TranslateGemma 4B](https://huggingface.co/google/translategemma-4b-it) | Translation-specialized generative model; its [report](https://arxiv.org/abs/2601.09012) includes French, Spanish and Modern Standard Arabic into English. Closest smaller alternative to the proposed 7B screen. | Prescribed language-code chat template, 2K-token input context and no documented HTML-preservation guarantee. Open weights under Gemma terms; official HF downloads require accepting those terms. Quantized community packages are separate from Google's original weights and need provenance/runtime checks. Published results do not establish superiority in our directions. |
+| [MADLAD-400 3B MT](https://huggingface.co/google/madlad400-3b-mt) | Multilingual translation-specialized T5 model with Apache-2.0 weights. The hosted conversion documents a 1.65 GB Q4K pack for Candle. | Encoder-decoder integration/tokenization differs from the existing Marian and HY adapters. The Candle GGUF must not be assumed compatible with llama.cpp. No rich-markup guarantee; prefer it as a later text-quality/resource baseline. |
+
+Do not add several providers before establishing useful outputs. The next bounded
+screen remains HY-MT2 7B with whole-context tagged input on this machine. If its
+resource use or output is unsuitable, evaluate TranslateGemma 4B before production
+changes. An unmodified TranslateLocally native-HTML comparison can check whether
+its different model/runtime pins help, but it is not an independent formatting
+solution. Retain the existing source-owned DOM, assets, cancellation, cache and
+writer owners; no new generic alignment stack or model-training project is proposed.
+
+If “Jev-like” refers to a narrow-task model philosophy, translation specialists
+fit that analogy. [Jev itself](https://typesafe.ai/blog/introducing-system-one-models-and-jev)
+returns typed decisions rather than generated translations; it is not the proposed
+translation engine. No alternative weights were downloaded or run in this assessment.
 
 ### Bounds and explicit failures
 
