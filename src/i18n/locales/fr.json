@@ -94,6 +94,7 @@
       "highResourceTitle": "Modèle exigeant.",
       "hyMt2ResourceNote": "HY-MT2 nécessite un téléchargement de 1,9 Go et peut être très lent sur les systèmes utilisant uniquement le processeur. L’accélération matérielle apparaît lorsque Papercut détecte un GPU Vulkan compatible.",
       "unavailable": "Indisponible",
+      "acceptancePending": "Indisponible tant que les vérifications de mise en forme et d’exhaustivité ne sont pas réussies. Les fichiers du modèle peuvent être supprimés ; les traductions enregistrées restent disponibles.",
       "engineUnavailable": "Ce moteur de traduction n’est pas compilé dans cette version.",
       "webviewUnavailable": "Bergamot nécessite une WebView sécurisée avec workers, WebCrypto et WebAssembly SIMD. Il est indisponible dans cette WebView.",
       "bergamotNote": "Expérimental : préserve le balisage HTML protégé. Gardez Papercut au premier plan ; le passage en arrière-plan arrête la tâche. La qualité et la mémoire sur appareil restent à valider.",

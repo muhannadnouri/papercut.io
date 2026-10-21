@@ -460,21 +460,19 @@ fn worker_document_preflight_rejects_options_it_cannot_honor_before_opening_an_e
     }
 }
 
-/// Catalog admission must not route a worker model into the native loader or bypass the build gate.
+/// Compiling a worker cannot override product admission on either public job path.
 #[test]
-fn worker_catalog_requires_the_document_bridge_and_compiled_feature() {
+fn worker_catalog_requires_product_acceptance_on_both_job_paths() {
     let (_dir, app, _source, plan) = fixture();
     let state = TranslationState::default();
     let error = start_translation(app.handle(), &state, plan.request.clone()).unwrap_err();
-    assert!(error.contains("WebView document worker command"));
-    if !cfg!(feature = "native-translation") {
-        let error =
-            start_bergamot_translation(app.handle(), &state, plan.request, "main".into(), |_| {
-                panic!("disabled worker reached inference")
-            })
-            .unwrap_err();
-        assert!(error.contains("not compiled"));
-    }
+    assert!(error.contains("provider acceptance pending"));
+    let error =
+        start_bergamot_translation(app.handle(), &state, plan.request, "main".into(), |_| {
+            panic!("disabled worker reached inference")
+        })
+        .unwrap_err();
+    assert!(error.contains("provider acceptance pending"));
 }
 
 /// Exercise the real bridge and writer with deterministic protected-code replies, including a bad later result.

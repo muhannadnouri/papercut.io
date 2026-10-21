@@ -1,12 +1,17 @@
 # Offline Translation Roadmap And Status
 
-Papercut now has an in-progress offline translation pipeline. This branch’s desktop build configuration enables CTranslate2 and llama.cpp translation features so pinned OPUS-MT and HY-MT2 models use the same model-download, job, cache, validation, and storage pipeline. Linux builds include optional Vulkan acceleration for HY-MT2; Android and other GPU backends remain roadmap work.
+Papercut has an in-progress offline translation pipeline. New document jobs currently admit only OPUS-MT French/Spanish → English with the sentence/review policy. Desktop builds still compile CTranslate2 and llama.cpp, but a compiled engine or installed pack does not bypass the provider acceptance gate. Bergamot and HY-MT2 remain unavailable for new jobs/downloads; their installed files, saved translations and audio are preserved.
 
 The goal is high-quality offline translation for long-form HTML and EPUB books, primarily into English, while keeping the app responsive on desktop and mobile. The feature should feel like audiobook saving: the user starts a long-running job, the backend performs bounded native work, progress is visible, results are cached, and the finished output becomes durable user data.
 
 The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--2026-10-18) records actual desktop inference, markup failures and conditional mobile feasibility. It does not approve a production engine replacement.
 
 ## Current Implementation Status
+
+**Current provider admission:** [OPUS-only document admission](#provider-admission--2026-10-21)
+supersedes earlier experimental availability claims in the historical stages below.
+Runtime build flags remain useful for internal tests; they do not enable an
+unqualified provider in the app.
 
 - **Current CTranslate2 path:** [whole-sentence translation with review originals](#whole-sentence-translation-with-review-originals--2026-10-20).
   French/Spanish → English OPUS-MT translates across bold, italic and link
@@ -22,11 +27,11 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 
 - Desktop builds on this branch enable `native-tts-shared,experimental-search-embeddings,native-translation-ctranslate2,native-translation-llama` through `npm run desktop`.
 - `npm run desktop:no-translation` keeps shared TTS and conceptual search while disabling translation for packaging/debug isolation.
-- Mobile build scripts now accept explicit `--translation-worker` opt-in; CI exposes a default-off `mobile_translation` input for `mobile`/`full` scope. This enables only the experimental Bergamot host, not native CTranslate2/llama.cpp; ordinary PR/release builds remain unchanged. See [mobile build opt-in](#worker-only-mobile-build-and-ci-opt-in-2026-10-19).
+- Mobile build scripts now accept explicit `--translation-worker` opt-in; CI exposes a default-off `mobile_translation` input for `mobile`/`full` scope. This compiles only the experimental Bergamot host, not native CTranslate2/llama.cpp. With provider admission closed, worker-only builds expose no runnable document translator; installed packs and saved results remain manageable. Ordinary PR/release builds remain unchanged. See [mobile build opt-in](#worker-only-mobile-build-and-ci-opt-in-2026-10-19).
 - Spanish -> English and French -> English OPUS-MT CTranslate2 manifests are pinned and installable.
-- HY-MT2 1.8B Q8 is a pinned, installable quality model for Arabic, German, Spanish, French, Russian, and Chinese translation into English. Desktop CPU inference remains the default. On Linux, the workbench offers Vulkan acceleration only when llama.cpp reports a real integrated or discrete Vulkan GPU.
+- HY-MT2 1.8B Q8 retains its pinned manifest and internal runtime, but new jobs/downloads are acceptance-gated. Its legacy formatting projection and decoder cutoff behavior need work before re-admission. Arabic and its other non-OPUS language pairs are therefore unavailable for new document jobs.
 - Installed models can be removed independently to reclaim storage. Removal is serialized against model installs and active translation jobs, while translated documents and reusable segment caches remain available.
-- The workbench selects only pinned models whose engine and WebView gates pass. Unavailable pinned models remain visible with an explanation; future model candidates remain informational. Existing native catalog ordering/defaults are unchanged.
+- The workbench selects only pinned models whose provider acceptance and compiled-engine gates pass. Unavailable pinned models remain visible with an explanation and installed-file removal; future model candidates remain informational. OPUS catalog ordering/defaults are unchanged.
 - Translation jobs run through the shared Rust engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
 - The [Stage 2 alignment contract](#stage-2-pure-alignment-contract--2026-10-20)
   has passed its [contract-only review](#stage-2-contract-review--2026-10-20)
@@ -125,7 +130,7 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   its trained last-layer setting matches the existing pack. No new checkpoint
   or ownership signal is qualified; strict implementation remains blocked.
   The separately approved boundary policy does not depend on this research.
-- Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
+- Bergamot French/Spanish → English remain in the catalog as **unavailable, acceptance-pending** providers. Their internal document path still reuses a foreground worker, resumes batches and validates protected markup before saving. Known output-completeness and mapping failures prevent public re-admission; the [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19) is historical.
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; this worker mitigation is separate from the native boundary policy.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
 - OPUS-MT exposes no quality, glossary, or repair controls because that engine cannot honor them; direct requests using those options are rejected.
@@ -139,7 +144,7 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - Translated variants are separate durable documents that can be opened, searched, deleted, and later used by the normal TTS flow.
 - HTML/EPUB rendering uses the sanitized reader HTML where possible and preserves links, ids, images, tables, and EPUB-rewritten assets conservatively.
 - Historical Stage 5B validation, before the latest main merge, covered local desktop and packaged `.deb` model-install, translation, open/search/delete, cancellation, restart recovery, cache-assisted retry, removal, and reinstall smoke tests. It does not validate the merged build; current smoke and release validation remain pending.
-- Packaged Android/iOS translation support is not accepted yet. Experimental Bergamot choices can appear when their build and WebView gates pass, but mobile memory, thermals, lifecycle and actual-model quality still need device validation; native runtime packaging remains separate work.
+- Packaged Android/iOS translation support is not accepted yet. The worker-only opt-in compiles internal infrastructure but cannot bypass Bergamot acceptance. Mobile memory, thermals, lifecycle and actual-model quality still need device validation; native runtime packaging remains separate work.
 - Chapter-level repair has not started. Qwen remains research-only.
 
 ## Engine-independent offline alignment plan — 2026-10-19
@@ -3707,6 +3712,60 @@ French/Spanish material: judge the complete translation separately from target
 formatting, and confirm that review originals are clear and usable. No new
 provider or disabled alignment research is needed for that decision.
 Benchmarks, broader/device smoke and the app version bump remain deferred.
+
+## Provider admission — 2026-10-21
+
+The whole-sentence/review change (`08d3b70`) passed focused review with no new
+merge blocker. Fresh checks passed: 311 native-feature translation tests, 167
+import tests and 144 frontend tests. This is structural/lifecycle validation,
+not representative language-quality acceptance.
+
+The user chose to gate unqualified providers rather than keep runnable choices
+with warnings. This stage changes availability, not inference or reconstruction:
+
+- Only the two OPUS-MT FR/ES → EN pairs are admitted for new document jobs, and
+  only when CTranslate2 is compiled. Their sentence/review policy is unchanged.
+- Bergamot and HY-MT2 report `available: false` with
+  `unavailableReason: "acceptance-pending"`. They remain visible with a localized
+  explanation in all eight app languages. They cannot become the default or
+  be selected for a new job. This does not claim OPUS has passed language-quality
+  or packaged-device acceptance.
+- One catalog-owned admission rule guards native and worker document starts,
+  raw worker batch/asset commands and new model downloads. Crafted/stale UI
+  requests return `provider-acceptance-pending` before model reads, claims,
+  downloads or worker startup. No runtime flag or installed-file state bypasses it.
+- Status/removal and saved-translation access remain independent of inference
+  admission. No files are deleted by the gate, cache identities are unchanged,
+  and existing translated documents, audio and highlighting are not migrated.
+  Explicit removal deletes only the selected model installation.
+- Auxiliary alignment assets keep their separate feature gate and management
+  contract. Strict document alignment remains disabled. Existing internal
+  provider tests are retained without introducing a public acceptance bypass.
+- A worker-only Android/iOS build consequently has no runnable document provider.
+  It explains the acceptance gate and still permits saved-result access and
+  installed-model removal. Arabic translation remains deferred with HY-MT2.
+
+Regression coverage uses real Tauri command handlers to reject jobs, downloads,
+worker batches and asset reads; verifies unchanged saved/cache/audio files during
+model removal; and checks disabled selectors/downloads, stale selection fallback
+to OPUS, removal confirmation, saved-result access and WebView probe precedence.
+
+Validation passed: **287 base Rust translation tests**, **313 translation tests
+with CTranslate2, llama.cpp and alignment-runtime compiled** (10 opt-in tests
+ignored), and **115 frontend translation tests**. TypeScript, all eight locale
+resources, changed-file ESLint, Rustfmt and diff checks passed. Native features
+were compiled for admission tests; no model-quality benchmark or app/device
+smoke run was performed.
+
+**Next bounded stage:** remove the confirmed unused flat-span mapping API and
+raw Bergamot batch prototype, retaining scalar-offset validation and the live
+document worker bridge. Then centralize document formatting-policy selection
+before wider renderer/UI cleanup. Do not rewrite the pipeline or delete the
+shared DOM, asset, installer, cache and atomic-write protections. Re-admit a
+provider only after fixing its documented completeness/formatting behavior and
+passing explicit acceptance; compilation alone is insufficient.
+
+Benchmarks, smoke, strict enablement and the app version bump remain deferred.
 
 ## Boundary-based CTranslate2 translation — 2026-10-20
 

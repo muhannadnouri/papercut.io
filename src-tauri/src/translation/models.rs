@@ -1,8 +1,7 @@
 //! Offline translation model catalog.
 //!
-//! Native engine flags and WebView worker prerequisites gate runnable choices.
-//! Candidate-only models stay descriptive; experimental worker entries do not
-//! establish packaged-device acceptance or replace the native defaults.
+//! Product admission is separate from compiled engines and installed assets.
+//! Unqualified providers stay visible for status/removal, not new document jobs.
 
 use super::config::DEFAULT_TRANSLATION_QUALITY_MODE;
 use super::types::TranslationModelInfo;
@@ -27,7 +26,10 @@ impl TranslationModelDefinition {
     pub(crate) fn to_info(self) -> TranslationModelInfo {
         TranslationModelInfo {
             id: self.id.into(),
-            available: self.engine_available() && self.manifest_state == "pinned-file-manifest",
+            available: self.engine_available()
+                && self.manifest_state == "pinned-file-manifest"
+                && !self.acceptance_pending(),
+            unavailable_reason: self.acceptance_pending().then_some("acceptance-pending"),
             name: self.name.into(),
             engine: self.engine.into(),
             tier: self.tier.into(),
@@ -52,6 +54,15 @@ impl TranslationModelDefinition {
             size_notes: self.size_notes.into(),
             notes: self.notes.into(),
         }
+    }
+
+    /// Only the sentence/review OPUS pairs have an admitted document policy; compiling is not acceptance.
+    pub(crate) fn acceptance_pending(self) -> bool {
+        self.manifest_state == "pinned-file-manifest"
+            && !matches!(
+                self.id,
+                "opus-mt-fr-en-ctranslate2" | "opus-mt-es-en-ctranslate2"
+            )
     }
 
     /// Keep compile gates per engine; one enabled backend cannot admit another backend's models.
@@ -167,6 +178,16 @@ pub(crate) fn find_planned_model(id: &str) -> Option<TranslationModelDefinition>
         .iter()
         .copied()
         .find(|model| model.id == id)
+}
+
+/// Guard public jobs/downloads before ownership, model reads or worker startup; status/removal stay ungated.
+pub(super) fn admit_provider(id: &str) -> Result<(), String> {
+    let model = find_planned_model(id)
+        .ok_or_else(|| format!("Translation model {id:?} is not in the planned catalog"))?;
+    if model.acceptance_pending() {
+        return Err(format!("Translation provider acceptance pending: {} is unavailable until formatting and completeness checks pass", model.name));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

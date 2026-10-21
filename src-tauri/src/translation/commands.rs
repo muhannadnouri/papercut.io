@@ -43,6 +43,7 @@ pub async fn translation_bergamot_asset<R: tauri::Runtime>(
         ));
     }
     let manifest = super::bergamot::assets::manifest_for_language(&source_language)?;
+    super::models::admit_provider(manifest.model_id)?;
     let claim = state.claim_job("bergamot-asset-read", manifest.directory_name)?;
     let lease = state.claim_model_read(manifest.directory_name)?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -96,6 +97,8 @@ pub async fn translation_bergamot_batch<R: tauri::Runtime>(
             "Bergamot worker requires the main WebView".into(),
         ));
     }
+    let manifest = super::bergamot::assets::manifest_for_language(&request.source_language)?;
+    super::models::admit_provider(manifest.model_id)?;
     let state = state.inner().clone();
     let owner = window.label().to_string();
     tauri::async_runtime::spawn_blocking(move || {
@@ -226,3 +229,7 @@ pub async fn translation_delete_document<R: tauri::Runtime>(
     .map_err(|err| TranslationCommandError::new(format!("Translation delete task failed: {err}")))?
     .map_err(TranslationCommandError::from)
 }
+
+#[cfg(test)]
+#[path = "admission_tests.rs"]
+mod tests;

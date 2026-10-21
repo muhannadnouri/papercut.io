@@ -186,13 +186,7 @@ fn raw_asset_command_rejects_other_windows_and_releases_its_claim_on_failure() {
         ))
         .unwrap();
     assert!(!status.installed);
-    assert!(status
-        .message
-        .contains(if cfg!(feature = "native-translation") {
-            "installable"
-        } else {
-            "not compiled"
-        }));
+    assert!(status.message.contains("acceptance is pending"));
     let window = app.get_webview_window("main").unwrap();
     let result =
         tauri::async_runtime::block_on(crate::translation::commands::translation_bergamot_asset(

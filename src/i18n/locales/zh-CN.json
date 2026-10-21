@@ -94,6 +94,7 @@
       "highResourceTitle": "高资源需求模型。",
       "hyMt2ResourceNote": "HY-MT2 需要下载 1.9 GB，在仅使用 CPU 的系统上可能非常慢。当 Papercut 检测到兼容的 Vulkan GPU 时，会显示硬件加速选项。",
       "unavailable": "不可用",
+      "acceptancePending": "通过格式和翻译完整性检查前暂不可用。可以移除现有模型文件，已保存的译文仍可使用。",
       "engineUnavailable": "此版本未编译此翻译引擎。",
       "webviewUnavailable": "Bergamot 需要支持 Worker、WebCrypto 和 WebAssembly SIMD 的安全 WebView。当前 WebView 无法使用。",
       "bergamotNote": "实验性：保留受保护的 HTML 标记。请保持 Papercut 在前台；切换到后台会停止任务。设备上的质量和内存使用情况尚未验证。",

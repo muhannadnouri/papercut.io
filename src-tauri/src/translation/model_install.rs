@@ -30,12 +30,16 @@ pub(crate) async fn install_translation_model<R: Runtime>(
     state: tauri::State<'_, TranslationState>,
     model_id: String,
 ) -> Result<TranslationModelInstallResponse, String> {
+    // Auxiliary assets have their own admission; installed model status/removal must remain accessible.
+    let manifest = manifest_by_id(&model_id)
+        .ok_or_else(|| format!("Translation model {model_id:?} is not in the planned catalog"))?;
+    if !manifest.is_auxiliary() {
+        super::models::admit_provider(&model_id)?;
+    }
     if !cfg!(feature = "native-translation") {
         return Err("Offline translation model downloads are not compiled in this build".into());
     }
 
-    let manifest = manifest_by_id(&model_id)
-        .ok_or_else(|| format!("Translation model {model_id:?} is not in the planned catalog"))?;
     if !manifest.installable {
         return Err(format!(
             "{} is not installable yet; its model manifest is not pinned for downloads.",

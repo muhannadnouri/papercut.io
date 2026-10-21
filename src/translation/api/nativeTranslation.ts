@@ -19,8 +19,8 @@ const TRANSLATION_PROGRESS_EVENT = 'translation-progress'
 export interface TranslationModelInfo {
   id: string
   available: boolean
-  /** Local probe result; Rust reports only compiled-engine availability. */
-  unavailableReason?: 'webview'
+  /** Backend product admission takes precedence over the local WebView probe. */
+  unavailableReason?: 'acceptance-pending' | 'webview'
   name: string
   engine: string
   tier: string

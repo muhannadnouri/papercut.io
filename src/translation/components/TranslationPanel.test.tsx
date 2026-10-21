@@ -52,6 +52,46 @@ beforeEach(async () => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals() })
 
 describe('Bergamot catalog workbench', () => {
+  it('gates unqualified jobs/downloads while keeping OPUS and explicit model removal usable', async () => {
+    const hy = { ...french, id: 'hy-mt2-1.8b-q8', name: 'HY-MT2', engine: 'llama.cpp', available: false, unavailableReason: 'acceptance-pending' as const }
+    // Simulate an older selection when a fresh capability response closes admission.
+    await select(french.id)
+    await render({
+      capabilities: { ...props.capabilities!, models: [opus, { ...french, available: false, unavailableReason: 'acceptance-pending' }, hy] },
+      modelStatuses: { [opus.id]: { ...installed, modelId: opus.id }, [french.id]: installed },
+    })
+    expect(picker().value).toBe(opus.id)
+    expect(picker().options[1].disabled).toBe(true)
+    expect(picker().options[2].disabled).toBe(true)
+    await click('translation.workbench.run')
+    expect(props.onStartTranslationPreflight).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ modelId: opus.id }))
+    await click('translation.models.title')
+    const rows = [...container.querySelectorAll('.translation-model-item')]
+    const hyRow = rows.find(row => row.textContent?.includes(hy.name))!
+    expect(hyRow.textContent).toContain('translation.models.acceptancePending')
+    expect(hyRow.textContent).not.toContain('translation.models.engineUnavailable')
+    await act(async () => hyRow.querySelector<HTMLButtonElement>('button')!.click())
+    expect(hyRow.querySelector<HTMLButtonElement>('button')!.disabled).toBe(true)
+    expect(props.onInstallTranslationModel).not.toHaveBeenCalled()
+    const workerRow = rows.find(row => row.textContent?.includes(french.name))!
+    expect(workerRow.querySelector<HTMLButtonElement>('button')!.disabled).toBe(false)
+    await act(async () => workerRow.querySelector<HTMLButtonElement>('button')!.click())
+    await act(async () => document.querySelector<HTMLButtonElement>('.app-dialog-danger')!.click())
+    expect(props.onRemoveTranslationModel).toHaveBeenCalledExactlyOnceWith(french.id)
+  })
+
+  it('explains acceptance-pending worker-only builds and still opens saved translations', async () => {
+    await render({
+      capabilities: { ...props.capabilities!, available: false, models: [{ ...french, available: false, unavailableReason: 'acceptance-pending' }] },
+      translatedDocuments: [{ id: 'saved', title: 'Saved', documentUrl: '/uploads/translated.html', sourceDocumentUrl: '/uploads/book.html', sourceLanguage: 'fr', targetLanguage: 'en', modelId: french.id, status: 'stored', createdAtMs: 1, updatedAtMs: 1 }],
+    })
+    expect(container.querySelector('select')).toBeNull()
+    expect(container.textContent).toContain('translation.models.acceptancePending')
+    expect(container.textContent).not.toContain('translation.status.unavailableReason')
+    await click('common.view')
+    expect(props.onOpenTranslatedDocument).toHaveBeenCalledExactlyOnceWith('/uploads/translated.html')
+  })
+
   it.each([
     ['runtime-unavailable', 'runtimeUnavailable'],
     ['acceptance-pending', 'pending'],

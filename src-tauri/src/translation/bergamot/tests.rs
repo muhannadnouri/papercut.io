@@ -227,7 +227,7 @@ fn strict_wire_shape_and_public_error_codes_do_not_accept_runtime_details() {
 }
 
 #[test]
-fn real_command_and_tauri_channel_round_trip_keeps_job_claims_and_camel_case_binding() {
+fn internal_bridge_and_reply_command_keep_channel_binding_and_job_claims() {
     use crate::translation::{commands, state::TranslationState};
     use tauri::{ipc::Channel, Manager};
     let mut context = tauri::test::mock_context(tauri::test::noop_assets());
@@ -258,9 +258,10 @@ fn real_command_and_tauri_channel_round_trip_keeps_job_claims_and_camel_case_bin
         }
         Ok(())
     });
-    let reply = tauri::async_runtime::block_on(commands::translation_bergamot_batch(
-        app.state(),
-        window,
+    // Public starts are acceptance-gated; retain transport coverage without a production bypass.
+    let reply = run_batch(
+        app.state::<TranslationState>().inner(),
+        window.label().into(),
         BatchRequest {
             job_id: "round-trip".into(),
             source_language: "fr".into(),
@@ -271,8 +272,8 @@ fn real_command_and_tauri_channel_round_trip_keeps_job_claims_and_camel_case_bin
                 text: "Résumé 🙂".into(),
             }],
         },
-        channel,
-    ))
+        move |message| channel.send(message).map_err(|e| e.to_string()),
+    )
     .unwrap();
     assert_eq!(
         serde_json::to_value(&reply).unwrap()[0]["sourceText"],

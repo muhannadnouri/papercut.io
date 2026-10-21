@@ -23,6 +23,16 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); resetTranslationCapabilities() })
 
 describe('translation catalog WebView admission', () => {
+  it.each([true, false])('preserves backend acceptance gates when WebView compatibility is %s', async compatible => {
+    if (!compatible) vi.stubGlobal('Worker', undefined)
+    const pending = { ...worker, available: false, unavailableReason: 'acceptance-pending' }
+    mocks.invoke.mockResolvedValue({ available: false, models: [pending] })
+    const caps = await getTranslationCapabilities()
+    expect(caps.available).toBe(false)
+    expect(caps.models).toEqual([pending])
+    expect(mocks.document).not.toHaveBeenCalled()
+  })
+
   it('keeps compatible worker and native entries in their original order without installing or inferring', async () => {
     const caps = await getTranslationCapabilities()
     expect(caps.available).toBe(true)

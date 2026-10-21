@@ -48,8 +48,10 @@ pub(super) fn translation_capabilities() -> TranslationCapabilities {
         } else {
             backend
         },
-        reason: if worker {
-            "Translation engines are compiled; Bergamot also requires a compatible foreground WebView. Model files must be installed separately.".into()
+        reason: if available {
+            "OPUS-MT French/Spanish to English is available with sentence translation and retained review originals. Model files must be installed separately.".into()
+        } else if worker {
+            "No admitted document translation provider is compiled in this build. Bergamot and HY-MT2 are pending formatting and completeness acceptance; installed files and saved translations remain manageable.".into()
         } else {
             format!("{NOT_IMPLEMENTED} Planned defaults: max {DEFAULT_MAX_SEGMENT_CHARS} chars/segment, {DEFAULT_BATCH_SEGMENT_LIMIT} segments/batch.")
         },
@@ -151,6 +153,8 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
             sha256: String::new(),
             message: if auxiliary {
                 "Auxiliary alignment assets and notices verified; translation and formatting readiness are separate checks".into()
+            } else if model.is_some_and(|model| model.acceptance_pending()) {
+                "Model files installed; provider acceptance is pending. New jobs are unavailable; files can be removed and saved translations remain available.".into()
             } else if model.is_some_and(|model| model.engine == "bergamot") {
                 "Bergamot assets verified; worker readiness and document translation are separate checks".into()
             } else {
@@ -171,6 +175,8 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
             sha256: String::new(),
             message: if auxiliary {
                 "Auxiliary alignment assets are missing or failed verification; install or repair the pack. This does not enable a translation engine.".into()
+            } else if model.is_some_and(|model| model.acceptance_pending()) {
+                "Provider acceptance is pending. New downloads and document jobs are unavailable until formatting and completeness checks pass.".into()
             } else if manifest.files.is_empty() {
                 format!("{NOT_IMPLEMENTED} This candidate is not downloadable until source URL, checksum, license, required files, and platform gates are reviewed.")
             } else if model.is_some_and(|model| model.engine_available()) {
@@ -246,7 +252,11 @@ mod tests {
                 "llama.cpp" => cfg!(feature = "native-translation-llama"),
                 "bergamot" => cfg!(feature = "native-translation"),
                 _ => false,
-            } && model.manifest_state == "pinned-file-manifest";
+            } && model.manifest_state == "pinned-file-manifest"
+                && matches!(
+                    model.id.as_str(),
+                    "opus-mt-fr-en-ctranslate2" | "opus-mt-es-en-ctranslate2"
+                );
             assert_eq!(model.available, expected, "{}", model.id);
             if model.engine == "bergamot" {
                 assert!(model.name.contains("Experimental"));

@@ -83,11 +83,12 @@ export function TranslationPanel({
   const { t, i18n } = useTranslation()
   const locale = i18n.resolvedLanguage ?? i18n.language
   const webviewUnavailable = capabilities?.models.some(model => model.unavailableReason === 'webview') ?? false
+  const acceptancePending = capabilities?.models.some(model => model.unavailableReason === 'acceptance-pending') ?? false
   const statusLabel = loading
     ? t('translation.status.checking')
     : capabilities?.available
       ? t('translation.status.available')
-      : t(webviewUnavailable ? 'translation.models.unavailable' : 'translation.status.unavailable')
+      : t(webviewUnavailable || acceptancePending ? 'translation.models.unavailable' : 'translation.status.unavailable')
   const modelOptions = useMemo(() => capabilities?.models ?? [], [capabilities])
   const installableModels = useMemo(
     () => modelOptions.filter((model) => model.manifestState === 'pinned-file-manifest'),
@@ -257,8 +258,9 @@ export function TranslationPanel({
 
           {backendUnavailable && capabilities && (
             <div className="translation-alert">
-              <span>{t(webviewUnavailable
-                ? 'translation.models.webviewUnavailable'
+              <span>{t(acceptancePending
+                ? 'translation.models.acceptancePending'
+                : webviewUnavailable ? 'translation.models.webviewUnavailable'
                 : 'translation.status.unavailableReason')}</span>
             </div>
           )}
@@ -557,8 +559,9 @@ export function TranslationPanel({
                   <strong title={model.notes}>{model.name}</strong>
                   <span>{formatModelLanguagePair(model, locale, t)}{size ? ' · ' + size : ''}</span>
                   {!model.available && (
-                    <small>{t(model.unavailableReason === 'webview'
-                      ? 'translation.models.webviewUnavailable'
+                    <small>{t(model.unavailableReason === 'acceptance-pending'
+                      ? 'translation.models.acceptancePending'
+                      : model.unavailableReason === 'webview' ? 'translation.models.webviewUnavailable'
                       : 'translation.models.engineUnavailable')}</small>
                   )}
                 </div>

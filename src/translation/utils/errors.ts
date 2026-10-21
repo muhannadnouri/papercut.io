@@ -2,6 +2,7 @@ import i18n from '../../i18n'
 import { TranslationError } from '../api/nativeTranslation'
 
 const ERROR_KEYS = {
+  'provider-acceptance-pending': 'translation.models.acceptancePending',
   'formatting-unavailable': 'translation.formatting.unavailable',
   'formatting-unsupported': 'translation.formatting.unsupported',
   'alignment-assets-invalid': 'translation.formatting.packMissing',

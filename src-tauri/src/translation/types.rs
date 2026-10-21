@@ -44,6 +44,9 @@ fn translation_error_code(message: &str) -> &'static str {
     if message.contains("strict formatting is not available") {
         return "formatting-unavailable";
     }
+    if message.contains("translation provider acceptance pending") {
+        return "provider-acceptance-pending";
+    }
     if message.contains("strict formatting does not support") {
         return "formatting-unsupported";
     }
@@ -138,8 +141,10 @@ pub(crate) struct TranslationHardwareAcceleration {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct TranslationModelInfo {
     pub(crate) id: String,
-    /// Compiled engine availability; worker models still need a WebView probe.
+    /// Product and compiled-engine admission; worker models also need a WebView probe.
     pub(crate) available: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) unavailable_reason: Option<&'static str>,
     pub(crate) name: String,
     pub(crate) engine: String,
     pub(crate) tier: String,
