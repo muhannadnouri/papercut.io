@@ -151,16 +151,11 @@
       "autoDetect": "Détection Automatique"
     },
     "formatting": {
-      "label": "Mise en forme stricte (expérimentale)",
+      "retired": "Ce pack de mise en forme a été retiré. Vous pouvez supprimer ses fichiers stockés. La traduction standard ne le nécessite pas.",
       "packName": "Pack de mise en forme hors ligne",
-      "description": "Utilise un pack hors ligne distinct pour placer les emphases, liens et notes. Les correspondances ambiguës arrêtent la tâche.",
-      "pending": "La mise en forme stricte est indisponible pendant la validation. La traduction standard ne la nécessite pas.",
-      "runtimeUnavailable": "Cette version ne prend pas en charge la mise en forme stricte. La traduction standard ne la nécessite pas.",
       "unsupported": "Ce modèle et cette paire de langues ne prennent pas en charge la mise en forme stricte.",
-      "downloadNote": "Nécessite un téléchargement distinct de {{size}} et du stockage. Aucun téléchargement automatique.",
-      "packReady": "Pack de mise en forme vérifié.",
-      "packMissing": "Pack absent ou non vérifié. Installez-le ou réparez-le pour continuer.",
-      "unavailable": "La mise en forme stricte est indisponible dans cette version ou en attente de validation. La traduction standard ne la nécessite pas."
+      "packMissing": "Ce pack de mise en forme a été retiré. Vous pouvez supprimer ses fichiers stockés. La traduction standard ne le nécessite pas.",
+      "unavailable": "Ce pack de mise en forme a été retiré. Vous pouvez supprimer ses fichiers stockés. La traduction standard ne le nécessite pas."
     }
   },
   "common": {

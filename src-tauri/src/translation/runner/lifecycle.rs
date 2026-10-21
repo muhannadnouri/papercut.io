@@ -1,15 +1,11 @@
-//! Job-scoped model ownership. Public starts remain translator-only until mapping admission is ready.
+//! Job-scoped translator ownership and cancellation cleanup through final save admission.
 use super::{clear_cancelled, is_cancelled};
 use crate::translation::state::{
     ActiveTranslationJob, TranslationModelOperation, TranslationState,
 };
 
-/// Field order drops the auxiliary session before its registration, then model claims before job identity.
+/// Release model claims and cancellation cleanup before releasing the job identity.
 pub(super) struct Job<'a> {
-    #[cfg(feature = "native-translation-alignment-runtime")]
-    alignment: Option<crate::translation::alignment::runtime::AlignmentSession>,
-    #[cfg(feature = "native-translation-alignment-runtime")]
-    alignment_cancel: Option<crate::translation::state::AlignmentCancellation>,
     _translator: TranslationModelOperation,
     cleanup: CancellationCleanup<'a>,
     _active: ActiveTranslationJob,
@@ -30,10 +26,6 @@ impl<'a> Job<'a> {
         };
         let translator = state.claim_model_read(model)?;
         let job = Self {
-            #[cfg(feature = "native-translation-alignment-runtime")]
-            alignment: None,
-            #[cfg(feature = "native-translation-alignment-runtime")]
-            alignment_cancel: None,
             _translator: translator,
             cleanup,
             _active: active,
@@ -53,55 +45,6 @@ impl<'a> Job<'a> {
         } else {
             Ok(())
         }
-    }
-
-    /// Only an explicitly loaded auxiliary activates strict processing; public load closures leave it absent.
-    #[cfg(feature = "native-translation-alignment-runtime")]
-    pub(super) fn alignment_backend(
-        &mut self,
-    ) -> Option<crate::translation::alignment::runtime::NativeAlignment<'_>> {
-        Some(crate::translation::alignment::runtime::NativeAlignment {
-            session: self.alignment.as_mut()?,
-            cancellation: self.alignment_cancel.as_ref()?.cancellation.clone(),
-        })
-    }
-
-    /// Internal opt-in seam only: command/catalog admission remains closed pending semantic acceptance.
-    #[cfg(feature = "native-translation-alignment-runtime")]
-    #[allow(dead_code)]
-    pub(super) fn load_alignment<R: tauri::Runtime>(
-        &mut self,
-        app: &tauri::AppHandle<R>,
-    ) -> Result<(), String> {
-        use crate::translation::{
-            alignment::{assets, runtime::AlignmentSession},
-            model_store,
-        };
-        self.check_cancelled()?;
-        if self.alignment.is_some() {
-            return Ok(());
-        }
-        let cancellation = self
-            .cleanup
-            .state
-            .register_alignment_cancellation(self.id())?;
-        let manifest = model_store::manifest_by_id(assets::MODEL_KEY)
-            .ok_or("Auxiliary alignment assets unavailable")?;
-        let dir = model_store::installed_translation_model_dir(app, manifest)
-            .map_err(|_| "Auxiliary alignment assets unavailable".to_string())?;
-        let session =
-            AlignmentSession::load_installed(self.cleanup.state, &dir, &cancellation.cancellation)
-                .map_err(|e| {
-                    if cancellation.cancellation.is_cancelled() {
-                        "Translation cancelled".into()
-                    } else {
-                        format!("Alignment session failed: {e:?}")
-                    }
-                })?;
-        self.check_cancelled()?;
-        self.alignment = Some(session);
-        self.alignment_cancel = Some(cancellation);
-        Ok(())
     }
 }
 

@@ -13,8 +13,6 @@ use super::storage::{PersistTranslationFragment, PersistTranslationInlinePhrase}
 
 pub(super) mod pieces;
 pub(super) mod protected;
-#[allow(dead_code)]
-pub(super) mod provider;
 
 const MAX_INLINE_PHRASE_CHARS: usize = 120;
 
@@ -567,7 +565,7 @@ mod tests {
     fn prefers_verified_fragment_offsets() {
         let fragment = PersistTranslationFragment {
             needs_review: false,
-            aligned: None,
+
             markup: None,
             source_start: 14,
             source_end: 19,

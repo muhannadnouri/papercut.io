@@ -4,6 +4,7 @@ use crate::translation::engine::TranslationSegmentOutput;
 use crate::translation::{
     dom::DomPlan, inline_markup::pieces::ExactPieceTranslator, source::TranslationSourceBlock,
 };
+use tauri::Manager;
 
 struct Engine {
     state: TranslationState,
@@ -254,7 +255,6 @@ fn html_epub_boundary_jobs_admit_whole_batches_resume_and_preserve_legacy_assets
                 &source,
                 "document-job",
                 Instant::now(),
-                None,
             )
             .unwrap_or_else(|e| panic!("{}", e.message));
             let make_request = |boundary, sections| PersistTranslationRequest {
@@ -263,7 +263,7 @@ fn html_epub_boundary_jobs_admit_whole_batches_resume_and_preserve_legacy_assets
                 } else {
                     FormattingPolicy::Provider
                 },
-                alignment: None,
+
                 source: source.clone(),
                 source_language: language.into(),
                 target_language: "en".into(),
@@ -609,9 +609,19 @@ fn sentence_review_disk_cache_rebinds_policy_without_changing_schema_or_strict_a
         };
         let mut cache = load_segment_cache(app.handle(), &plan).unwrap();
         cache.store_mapped_output(segment, &mapping, &output);
-        let json = serde_json::to_value(&cache).unwrap();
+        let mut json = serde_json::to_value(&cache).unwrap();
         assert!(json.get("formatting").is_none());
+        // Retired receipts, including unparseable old shapes, must neither block normal resume nor supply prose.
+        json["aligned"] = serde_json::json!({ segment.id.clone(): { "binding": { "target": "Untrusted retired target" } } });
         save_segment_cache(app.handle(), &plan, &cache).unwrap();
+        let cache_path = app
+            .path()
+            .app_data_dir()
+            .unwrap()
+            .join("translation/segment-cache")
+            .join(&plan.cache_key)
+            .join("segments.json");
+        std::fs::write(&cache_path, serde_json::to_vec(&json).unwrap()).unwrap();
         let resumed = load_segment_cache(app.handle(), &plan).unwrap();
         assert!(
             resumed
@@ -619,6 +629,16 @@ fn sentence_review_disk_cache_rebinds_policy_without_changing_schema_or_strict_a
                 .unwrap()
                 .needs_review
         );
+        let mut retired_only = json.clone();
+        retired_only["segments"] = serde_json::json!({});
+        retired_only["memory"] = serde_json::json!({});
+        std::fs::write(&cache_path, serde_json::to_vec(&retired_only).unwrap()).unwrap();
+        let retired_only = load_segment_cache(app.handle(), &plan).unwrap();
+        assert!(retired_only
+            .sentence_output_for(segment, &mapping, true)
+            .is_none());
+        assert!(retired_only.translated_text_for_source(segment).is_none());
+        std::fs::write(&cache_path, serde_json::to_vec(&json).unwrap()).unwrap();
         request.preserve_formatting = true;
         let strict = plan_translation_job(request, ["Un mot."], 900, 16).unwrap();
         assert_ne!(strict.cache_key, plan.cache_key);
@@ -626,7 +646,6 @@ fn sentence_review_disk_cache_rebinds_policy_without_changing_schema_or_strict_a
         assert!(strict_cache
             .sentence_output_for(segment, &mapping, true)
             .is_none());
-        assert!(strict_cache.aligned_for(&segment.id).is_none());
         let resumed = load_segment_cache(app.handle(), &plan).unwrap();
         assert_eq!(
             resumed

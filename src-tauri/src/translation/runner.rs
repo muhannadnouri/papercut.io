@@ -42,10 +42,8 @@ use super::types::{
 };
 
 const MAX_INLINE_PHRASE_PROBES_PER_SEGMENT: usize = 8;
-mod aligned;
 mod lifecycle;
 mod provider;
-use super::inline_markup::provider::pieces::PieceAligner;
 
 /// Start a translation job and persist the completed output as a derived upload.
 pub(super) fn start_translation<R: tauri::Runtime>(
@@ -139,7 +137,7 @@ fn start_with_engine<R: tauri::Runtime>(
         DEFAULT_BATCH_SEGMENT_LIMIT,
     )?;
     let started = Instant::now();
-    // Reuse the same bounded snapshot for both model loads; neither phase advances batch counts.
+    // Model loading uses the bounded progress snapshot without advancing batch counts.
     let report_loading = |status, message| {
         emit_translation_progress(
             app,
@@ -150,30 +148,14 @@ fn start_with_engine<R: tauri::Runtime>(
     };
     job.check_cancelled()?;
     if plan.formatting == FormattingPolicy::Strict {
-        report_loading("loading-alignment", "Loading offline formatting pack")?;
-        #[cfg(feature = "native-translation-alignment-runtime")]
-        job.load_alignment(app)?;
-        #[cfg(not(feature = "native-translation-alignment-runtime"))]
-        return Err("Strict formatting is not available in this build".into());
+        return Err(
+            "Strict formatting is not available: the alignment candidate is retired".into(),
+        );
     }
-    job.check_cancelled()?;
     report_loading("loading-model", "Loading translation model")?;
     job.check_cancelled()?;
     let mut engine = load(&model_dir, &plan.request, &mut job)?;
     job.check_cancelled()?;
-    #[cfg(feature = "native-translation-alignment-runtime")]
-    if let Some(mut alignment) = job.alignment_backend() {
-        return finish_with_alignment(
-            app,
-            state,
-            engine.as_mut(),
-            &plan,
-            &source,
-            &job_id,
-            started,
-            Some(&mut alignment),
-        );
-    }
     finish_translation(
         app,
         state,
@@ -194,27 +176,8 @@ fn finish_translation<R: tauri::Runtime>(
     job_id: &str,
     started: Instant,
 ) -> Result<TranslationStartResponse, String> {
-    finish_with_alignment(app, state, engine, plan, source, job_id, started, None)
-}
-
-/// One persistence path for ordinary and internal strict jobs; save ownership/cancellation stays shared.
-#[allow(clippy::too_many_arguments)]
-fn finish_with_alignment<R: tauri::Runtime>(
-    app: &tauri::AppHandle<R>,
-    state: &TranslationState,
-    engine: &mut dyn TranslationEngine,
-    plan: &TranslationJobPlan,
-    source: &TranslationSourceDocument,
-    job_id: &str,
-    started: Instant,
-    alignment: Option<&mut dyn PieceAligner>,
-) -> Result<TranslationStartResponse, String> {
-    let alignment_versions = alignment
-        .as_ref()
-        .map(|a| a.versions(&plan.request.model_id))
-        .transpose()?;
     let mut saving = None;
-    match run_translation_batches(app, state, engine, plan, source, job_id, started, alignment) {
+    match run_translation_batches(app, state, engine, plan, source, job_id, started) {
         Ok(summary) => {
             let TranslationRunSummary {
                 preview,
@@ -241,7 +204,6 @@ fn finish_with_alignment<R: tauri::Runtime>(
                 app,
                 PersistTranslationRequest {
                     formatting: plan.formatting,
-                    alignment: alignment_versions,
                     source: source.clone(),
                     source_language: plan.request.source_language.clone(),
                     target_language: plan.request.target_language.clone(),
@@ -460,8 +422,7 @@ impl BatchRunState<'_> {
         self.cached_segments += reused;
         self.completed_batches = batch.index + 1;
         let message = match self.plan.formatting {
-            FormattingPolicy::Strict => "Validated aligned batch",
-            FormattingPolicy::SentenceReview => "Translated batch",
+            FormattingPolicy::Strict | FormattingPolicy::SentenceReview => "Translated batch",
             FormattingPolicy::Provider if reused == batch.segments.len() => "Reused cached batch",
             FormattingPolicy::Provider => "Translated batch",
         };
@@ -491,7 +452,6 @@ fn run_translation_batches<R: tauri::Runtime>(
     source: &TranslationSourceDocument,
     job_id: &str,
     started: Instant,
-    mut alignment: Option<&mut dyn PieceAligner>,
 ) -> Result<TranslationRunSummary, TranslationRunFailure> {
     let mut run = BatchRunState {
         job_id,
@@ -512,16 +472,14 @@ fn run_translation_batches<R: tauri::Runtime>(
     let mut translated_blocks = vec![String::new(); source.blocks.len()];
     let mut translated_fragments =
         vec![Vec::<PersistTranslationFragment>::new(); source.blocks.len()];
-    if (plan.formatting == FormattingPolicy::Strict) != alignment.is_some() {
+    if plan.formatting == FormattingPolicy::Strict {
         return Err(run.failure(
             "failed",
-            "Formatting policy does not match the alignment session",
+            "Strict formatting is not available: the alignment candidate is retired",
         ));
     }
     let boundary = plan.formatting == FormattingPolicy::SentenceReview;
-    let rich_dom = (engine.supports_protected_markup()
-        || plan.formatting == FormattingPolicy::Strict
-        || boundary)
+    let rich_dom = (engine.supports_protected_markup() || boundary)
         .then(|| super::dom::DomPlan::new(&source.view_html));
     let mut rich_source = None;
     let inline_phrase_probes = if rich_dom.is_some() {
@@ -597,56 +555,6 @@ fn run_translation_batches<R: tauri::Runtime>(
                 markup_plans.insert(segment.id.clone(), mapping);
             }
         }
-        if let Some(aligner) = alignment.as_deref_mut() {
-            let check = || {
-                if is_cancelled(&state.cancelled_jobs, job_id)? {
-                    Err("Translation cancelled".into())
-                } else {
-                    Ok(())
-                }
-            };
-            let (receipts, reused) = aligned::batch(
-                engine,
-                aligner,
-                &plan.request.model_id,
-                &batch.segments,
-                &markup_plans,
-                &cache,
-                check,
-                |stage| {
-                    emit_translation_progress(app, run.progress(stage, "Processing formatting", 0))
-                },
-            )
-            .map_err(|e| {
-                run.failure(
-                    if is_cancelled(&state.cancelled_jobs, job_id).unwrap_or(false) {
-                        "cancelled"
-                    } else {
-                        "failed"
-                    },
-                    e,
-                )
-            })?;
-            check().map_err(|e| run.failure("cancelled", e))?;
-            for (segment, receipt) in batch.segments.iter().zip(&receipts) {
-                append_translated_segment(
-                    &mut translated_blocks,
-                    &mut translated_fragments,
-                    segment,
-                    segment.source_block_index,
-                    &receipt.binding.target,
-                    Vec::new(),
-                    None,
-                    Some(receipt.clone()),
-                    false,
-                );
-                run.note_preview(&receipt.binding.target);
-            }
-            check().map_err(|e| run.failure("cancelled", e))?;
-            cache.store_aligned_batch(receipts);
-            run.checkpoint(app, state, batch, &cache, reused, true)?;
-            continue;
-        }
         if boundary {
             let check = || {
                 if is_cancelled(&state.cancelled_jobs, job_id)? {
@@ -682,7 +590,6 @@ fn run_translation_batches<R: tauri::Runtime>(
                     &output.text,
                     Vec::new(),
                     output.markup.clone(),
-                    None,
                     output.needs_review,
                 );
                 run.note_preview(&output.text);
@@ -733,7 +640,6 @@ fn run_translation_batches<R: tauri::Runtime>(
                     .cloned()
                     .unwrap_or_default(),
                 output.markup.clone(),
-                None,
                 output.needs_review,
             );
             run.note_preview(&output.text);
@@ -914,13 +820,12 @@ fn append_translated_segment(
     text: &str,
     inline_phrases: Vec<PersistTranslationInlinePhrase>,
     markup: Option<String>,
-    aligned: Option<super::inline_markup::provider::pieces::MappedSegment>,
     needs_review: bool,
 ) {
     let Some(block_text) = blocks.get_mut(source_block_index) else {
         return;
     };
-    let text = if aligned.is_some() { text } else { text.trim() };
+    let text = text.trim();
     if text.is_empty() {
         return;
     }
@@ -931,7 +836,6 @@ fn append_translated_segment(
     if let Some(block_fragments) = fragments.get_mut(source_block_index) {
         block_fragments.push(PersistTranslationFragment {
             needs_review,
-            aligned,
             markup,
             source_start: segment.source_start,
             source_end: segment.source_end,

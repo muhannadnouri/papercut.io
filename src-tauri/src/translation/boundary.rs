@@ -28,29 +28,28 @@ pub(super) fn batch(
         let plan = SourcePlan::from_sentences(segment, protected.clone(), translator)?;
         let needs_review = plan.formatting_needs_review();
         check()?;
-        let output = if let Some(output) =
-            cache.sentence_output_for(segment, protected, needs_review)
-        {
-            reused += 1;
-            output
-        } else {
-            let translated = plan.translate(translator, |_, _| Ok(true), || check().is_err())?;
-            // Unresolved ownership is planned explicitly; parser/decoder failures never become fallback success.
-            let (text, markup) = if needs_review {
-                (translated.text, None)
+        let output =
+            if let Some(output) = cache.sentence_output_for(segment, protected, needs_review) {
+                reused += 1;
+                output
             } else {
-                let markup = protected.boundary_output(&translated)?;
-                let restored = protected.restore_boundaries(&markup)?;
-                (restored.text, Some(markup))
+                let translated = plan.translate(translator, || check().is_err())?;
+                // Unresolved ownership is planned explicitly; parser/decoder failures never become fallback success.
+                let (text, markup) = if needs_review {
+                    (translated.text, None)
+                } else {
+                    let markup = protected.boundary_output(&translated)?;
+                    let restored = protected.restore_boundaries(&markup)?;
+                    (restored.text, Some(markup))
+                };
+                TranslationSegmentOutput {
+                    id: segment.id.clone(),
+                    source_text: segment.text.clone(),
+                    text,
+                    markup,
+                    needs_review,
+                }
             };
-            TranslationSegmentOutput {
-                id: segment.id.clone(),
-                source_text: segment.text.clone(),
-                text,
-                markup,
-                needs_review,
-            }
-        };
         check()?;
         outputs.push(output);
     }

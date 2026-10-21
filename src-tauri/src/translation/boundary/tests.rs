@@ -61,7 +61,7 @@ fn source_plan(html: &str, engine: &dyn ExactPieceTranslator) -> Result<SourcePl
 fn translate(html: &str, engine: &mut Engine) -> Result<(String, ProtectedPlan, String), String> {
     let plan = source_plan(html, engine)?;
     assert!(!plan.formatting_needs_review(), "{html}");
-    let translated = plan.translate(engine, |_, _| Ok(true), || false)?;
+    let translated = plan.translate(engine, || false)?;
     let protected = &plan.protected;
     let transport = protected.boundary_output(&translated)?;
     let restored = protected.restore_boundaries(&transport)?;
@@ -72,9 +72,7 @@ fn translate(html: &str, engine: &mut Engine) -> Result<(String, ProtectedPlan, 
 fn review_text(html: &str, engine: &mut Engine) -> String {
     let plan = source_plan(html, engine).unwrap();
     assert!(plan.formatting_needs_review(), "{html}");
-    plan.translate(engine, |_, _| Ok(true), || false)
-        .unwrap()
-        .text
+    plan.translate(engine, || false).unwrap().text
 }
 
 /// Sentence-wide scopes retain copied joins, notes and assets with their original owners.
@@ -100,27 +98,6 @@ fn sentence_first_boundary_planning_keeps_nested_markup_and_exact_joins() {
         .select_first("strong#s > a[role=doc-noteref] + img")
         .is_ok());
     assert!(html.contains("</strong> <a"));
-
-    // The strict research contract still retains sentence context across emphasis.
-    let dom = DomPlan::new("<p><strong>Salut. Merci !</strong></p>");
-    let text = &dom.blocks[0].inline.text;
-    let segment = TranslationTextSegment {
-        id: "b0:s0".into(),
-        source_block_index: 0,
-        source_start: 0,
-        source_end: text.chars().count(),
-        text: text.clone(),
-    };
-    let protected = ProtectedSource::for_boundaries(&dom.blocks[0].node)
-        .unwrap()
-        .fragment(0..segment.source_end, text)
-        .unwrap();
-    let strict = SourcePlan::from_protected(&segment, protected, &engine, |_, _| Ok(true)).unwrap();
-    engine.seen.clear();
-    strict
-        .translate(&mut engine, |_, _| Ok(true), || false)
-        .unwrap();
-    assert_eq!(engine.seen, ["Salut. Merci !"]);
 }
 
 /// Sentence subdivision must spend the same decoder/work quota and retain Unicode graphemes and spaces.
@@ -268,13 +245,11 @@ fn punctuation_only_blocks_bypass_runtime_but_keep_cancellation_and_strict_plann
     let mut engine = NoRuntime;
     let plan = SourcePlan::from_sentences(&segment, protected.clone(), &engine).unwrap();
     assert!(plan
-        .translate(&mut engine, |_, _| Ok(true), || true)
+        .translate(&mut engine, || true)
         .err()
         .unwrap()
         .contains("cancelled"));
-    let mut translated = plan
-        .translate(&mut engine, |_, _| Ok(true), || false)
-        .unwrap();
+    let mut translated = plan.translate(&mut engine, || false).unwrap();
     assert_eq!(translated.text, segment.text);
     let markup = protected.boundary_output(&translated).unwrap();
     assert_eq!(
@@ -287,15 +262,6 @@ fn punctuation_only_blocks_bypass_runtime_but_keep_cancellation_and_strict_plann
         .err()
         .unwrap()
         .contains("copied source content"));
-    let engine = Engine {
-        seen: vec![],
-        limit: 900,
-    };
-    let strict = SourcePlan::from_protected(&segment, protected, &engine, |_, _| Ok(true)).unwrap();
-    assert!(strict
-        .units()
-        .iter()
-        .any(|u| u.kind == crate::translation::inline_markup::pieces::Kind::Prose));
 }
 
 #[test]
@@ -470,9 +436,7 @@ fn missing_empty_and_oversized_fragment_replies_never_produce_boundary_markup() 
     ] {
         let mut engine = Broken(values);
         let plan = SourcePlan::from_sentences(&segment, protected.clone(), &engine).unwrap();
-        assert!(plan
-            .translate(&mut engine, |_, _| Ok(true), || false)
-            .is_err());
+        assert!(plan.translate(&mut engine, || false).is_err());
     }
 }
 
@@ -502,7 +466,7 @@ fn installed_french_spanish_sentences_retain_safe_styles_and_identify_review_cas
         if html.contains("Merci beaucoup.") || html.contains("Muchas gracias.") {
             assert_eq!(plan.units().iter().filter(|u| u.kind == crate::translation::inline_markup::pieces::Kind::Prose).count(), 2);
         }
-        let translated = plan.translate(&mut engine, |_,_| Ok(true), || false).unwrap();
+        let translated = plan.translate(&mut engine, || false).unwrap();
         if review {
             if html.contains("<code>") {
                 assert!(translated.text.to_lowercase().contains(expected));
@@ -556,9 +520,7 @@ fn direct_table_and_list_fragment_contexts_retain_structural_children() {
         };
         let plan = SourcePlan::from_sentences(&segment, protected.clone(), &engine).unwrap();
         assert!(!plan.formatting_needs_review());
-        let translated = plan
-            .translate(&mut engine, |_, _| Ok(true), || false)
-            .unwrap();
+        let translated = plan.translate(&mut engine, || false).unwrap();
         let output = protected.boundary_output(&translated).unwrap();
         let restored = protected.restore_boundaries(&output).unwrap();
         assert_eq!(restored.text, "BLEU. ROUGE.");

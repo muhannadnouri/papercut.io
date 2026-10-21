@@ -151,16 +151,11 @@
       "autoDetect": "Detección Automática"
     },
     "formatting": {
-      "label": "Formato estricto (experimental)",
+      "retired": "Este paquete de formato se ha retirado. Puedes eliminar sus archivos guardados. La traducción estándar no lo necesita.",
       "packName": "Paquete de formato sin conexión",
-      "description": "Usa un paquete sin conexión independiente para ubicar énfasis, enlaces y notas. Las correspondencias ambiguas detienen la tarea.",
-      "pending": "El formato estricto no está disponible mientras se valida. La traducción normal no lo requiere.",
-      "runtimeUnavailable": "Esta compilación no admite el formato estricto. La traducción normal no lo requiere.",
       "unsupported": "Este modelo y par de idiomas no admiten el formato estricto.",
-      "downloadNote": "Requiere una descarga independiente de {{size}} y almacenamiento. No se descarga nada automáticamente.",
-      "packReady": "Paquete de formato verificado.",
-      "packMissing": "El paquete falta o no pasó la verificación. Instálalo o repáralo para continuar.",
-      "unavailable": "El formato estricto no está disponible en esta compilación o está pendiente de validación. La traducción normal no lo requiere."
+      "packMissing": "Este paquete de formato se ha retirado. Puedes eliminar sus archivos guardados. La traducción estándar no lo necesita.",
+      "unavailable": "Este paquete de formato se ha retirado. Puedes eliminar sus archivos guardados. La traducción estándar no lo necesita."
     }
   },
   "common": {

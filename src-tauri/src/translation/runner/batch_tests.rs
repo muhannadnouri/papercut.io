@@ -124,7 +124,6 @@ fn mixed_provider_batches_keep_source_order_and_resume_only_after_whole_batch_ad
                 &source,
                 "document-job",
                 Instant::now(),
-                None,
             ) {
                 Err(error) => error,
                 Ok(_) => panic!("invalid batch was admitted"),
@@ -156,7 +155,6 @@ fn mixed_provider_batches_keep_source_order_and_resume_only_after_whole_batch_ad
                 &source,
                 "document-job",
                 Instant::now(),
-                None,
             )
             .unwrap_or_else(|e| panic!("{}", e.message));
             assert_eq!(summary.cached_segments, 1);

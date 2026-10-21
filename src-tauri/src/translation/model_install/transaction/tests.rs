@@ -339,7 +339,6 @@ fn symlinked_files_and_owned_roots_never_follow_or_delete_outside_data() {
     assert_eq!(fs::read(outside.join("LICENSE.txt")).unwrap(), b"abc");
 }
 
-#[cfg(feature = "native-translation-alignment")]
 #[test]
 fn auxiliary_notices_are_bundled_verified_repaired_and_accounted_without_network_delivery() {
     use crate::translation::model_store::manifest_by_id;

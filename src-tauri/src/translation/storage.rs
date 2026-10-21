@@ -60,8 +60,6 @@ pub(super) fn list_translated_documents<R: Runtime>(
 pub(crate) struct PersistTranslationRequest {
     /// Retained job semantics, independent of whether result fragments contain markup or strict receipts.
     pub(crate) formatting: FormattingPolicy,
-    /// Declared independently of fragments so losing every receipt cannot downgrade a strict job to legacy output.
-    pub(crate) alignment: Option<super::inline_markup::provider::contract::Versions>,
     pub(crate) source: TranslationSourceDocument,
     pub(crate) source_language: String,
     pub(crate) target_language: String,
@@ -85,7 +83,6 @@ pub(crate) struct PersistTranslationSection {
 #[derive(Debug, Clone)]
 pub(crate) struct PersistTranslationFragment {
     pub(crate) needs_review: bool,
-    pub(crate) aligned: Option<super::inline_markup::provider::pieces::MappedSegment>,
     pub(crate) source_start: usize,
     pub(crate) source_end: usize,
     pub(crate) source_text: String,
@@ -124,13 +121,7 @@ pub(crate) fn persist_translated_document<R: Runtime>(
         request.source.title,
         format_language_label(&request.target_language)
     );
-    let view_html = render_translated_html(&title, &request).map_err(|error| {
-        if request.alignment.is_some() {
-            format!("Aligned output validation failed: {error}")
-        } else {
-            error
-        }
-    })?;
+    let view_html = render_translated_html(&title, &request)?;
     validate_translated_output(
         &view_html,
         &request.source.blocks,
@@ -150,10 +141,6 @@ pub(crate) fn persist_translated_document<R: Runtime>(
         "sourceFormat": request.source.format,
         "glossaryEntries": request.glossary.len(),
     });
-    if let Some(versions) = request.alignment.as_ref() {
-        settings["alignment"] = serde_json::to_value(versions)
-            .map_err(|_| "Alignment provenance serialization failed")?;
-    }
     if request.formatting == FormattingPolicy::SentenceReview {
         settings["formattingPolicy"] = super::formatting::SENTENCE_REVIEW_POLICY.into();
     }
@@ -359,12 +346,6 @@ fn translated_document_id(request: &PersistTranslationRequest) -> String {
     hasher.write_str(&request.quality_mode);
     hasher.write_str(request.repair_mode.label());
     hash_glossary_entries(&request.glossary, &mut hasher);
-    // Strict results never replace legacy or differently aligned variants that existing audio may reference.
-    if let Some(versions) = request.alignment.as_ref() {
-        hasher.write_str("strict-source-dom-v1");
-        hasher
-            .write_str(&serde_json::to_string(versions).expect("serializable alignment versions"));
-    }
     if request.formatting == FormattingPolicy::SentenceReview {
         hasher.write_str(super::formatting::SENTENCE_REVIEW_POLICY);
     }
@@ -482,7 +463,7 @@ mod tests {
     fn persist_request(job_id: &str) -> PersistTranslationRequest {
         PersistTranslationRequest {
             formatting: crate::translation::formatting::FormattingPolicy::Provider,
-            alignment: None,
+
             source: TranslationSourceDocument {
                 document_id: "source1".into(),
                 document_url: "/uploads/source1.html".into(),
@@ -507,7 +488,7 @@ mod tests {
     fn refuses_storage_render_without_the_source_dom() {
         let request = PersistTranslationRequest {
             formatting: crate::translation::formatting::FormattingPolicy::Provider,
-            alignment: None,
+
             source: TranslationSourceDocument {
                 document_id: "source1".into(),
                 document_url: "/uploads/source1.html".into(),

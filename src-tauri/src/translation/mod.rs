@@ -5,10 +5,6 @@
 //! while this feature consumes that stable contract and creates translated
 //! document variants through a feature-gated native engine.
 
-// Default-off alignment: auxiliary assets/internal job load hook; public starts remain translator-only.
-#[cfg(feature = "native-translation-alignment")]
-#[allow(dead_code)]
-mod alignment;
 mod bergamot;
 mod boundary;
 mod cache;

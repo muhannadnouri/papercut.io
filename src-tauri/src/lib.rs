@@ -4,8 +4,7 @@ mod library_transfer;
 mod native_tts;
 #[cfg(any(
     feature = "native-text-preprocessing-core",
-    feature = "experimental-search-embeddings-core",
-    feature = "native-translation-alignment-runtime"
+    feature = "experimental-search-embeddings-core"
 ))]
 mod onnx_runtime;
 mod open_documents;

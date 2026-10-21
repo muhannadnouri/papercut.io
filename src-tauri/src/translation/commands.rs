@@ -102,7 +102,7 @@ pub fn translation_capabilities() -> TranslationCapabilities {
     translation_capabilities_backend()
 }
 
-/// Return install status for a catalog model or feature-gated auxiliary pack.
+/// Return install status for a catalog model or removal-only legacy resource.
 #[tauri::command]
 pub async fn translation_model_status<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,

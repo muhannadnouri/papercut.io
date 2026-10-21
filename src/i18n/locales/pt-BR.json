@@ -151,16 +151,11 @@
       "autoDetect": "Detecção Automática"
     },
     "formatting": {
-      "label": "Formatação estrita (experimental)",
+      "retired": "Este pacote de formatação foi descontinuado. Você pode remover os arquivos armazenados. A tradução padrão não precisa dele.",
       "packName": "Pacote de formatação offline",
-      "description": "Usa um pacote offline separado para posicionar ênfases, links e notas. Mapeamentos ambíguos interrompem a tarefa.",
-      "pending": "A formatação estrita está indisponível enquanto a validação está pendente. A tradução padrão não depende dela.",
-      "runtimeUnavailable": "Esta versão não oferece formatação estrita. A tradução padrão não depende dela.",
       "unsupported": "Este modelo e par de idiomas não oferecem formatação estrita.",
-      "downloadNote": "Requer download separado de {{size}} e armazenamento. Nada é baixado automaticamente.",
-      "packReady": "Pacote de formatação verificado.",
-      "packMissing": "O pacote está ausente ou falhou na verificação. Instale ou repare para continuar.",
-      "unavailable": "A formatação estrita está indisponível nesta versão ou aguarda validação. A tradução padrão não depende dela."
+      "packMissing": "Este pacote de formatação foi descontinuado. Você pode remover os arquivos armazenados. A tradução padrão não precisa dele.",
+      "unavailable": "Este pacote de formatação foi descontinuado. Você pode remover os arquivos armazenados. A tradução padrão não precisa dele."
     }
   },
   "common": {

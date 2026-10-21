@@ -13,7 +13,6 @@ use crate::translation::html::parse_html_document;
 
 pub(super) mod boundaries;
 mod boundary;
-mod mapped;
 
 /// Source normalization and hierarchy semantics participate in worker cache compatibility.
 pub(crate) const MAPPING_VERSION: &str = "protected-codes-v6";
@@ -44,12 +43,10 @@ struct Code {
     note_marker: bool,
 }
 
-/// Read-only alignment view derived from the retained tree, never a second source of identities.
+/// Read-only source ranges for sentence/literal planning; the retained tree still owns identities.
 pub(super) struct SourceCode {
     pub(super) id: usize,
-    pub(super) parent: Option<usize>,
     pub(super) range: Range<usize>,
-    pub(super) repeatable: bool,
     pub(super) literal: bool,
 }
 
@@ -346,9 +343,7 @@ impl ProtectedPlan {
     pub(super) fn source_codes(&self) -> impl Iterator<Item = SourceCode> + '_ {
         self.codes.iter().map(|code| SourceCode {
             id: code.id,
-            parent: code.parent,
             range: code.start..code.end,
-            repeatable: code.repeatable,
             literal: code.literal.is_some(),
         })
     }

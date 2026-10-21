@@ -740,39 +740,6 @@ mod tests {
             assert_eq!(exact, expected);
             assert!(!engine.source_fits(&"livre ".repeat(600)).unwrap());
             assert!(engine.translate_exact(&[&"livre ".repeat(600)]).is_err());
-
-            #[cfg(feature = "native-translation-alignment")]
-            {
-                use crate::translation::{
-                    alignment::CandidateTokenizer,
-                    dom::DomPlan,
-                    inline_markup::{pieces::SourcePlan, protected::ProtectedSource},
-                    segment::TranslationTextSegment,
-                };
-                let alignment = std::env::var_os("PAPERCUT_ALIGNMENT_ASSETS_DIR")
-                    .expect("Set PAPERCUT_ALIGNMENT_ASSETS_DIR");
-                let tokenizer = CandidateTokenizer::load(std::path::Path::new(&alignment)).unwrap();
-                let dom = DomPlan::new(&format!("<p><strong>{}</strong> <code>private_id🙂</code> {}<a role='doc-noteref' href='#n'>1</a></p>", sources[0], sources[1]));
-                let block = &dom.blocks[0];
-                let segment = TranslationTextSegment {
-                    id: "b0:s0".into(),
-                    source_block_index: 0,
-                    source_start: 0,
-                    source_end: block.inline.text.chars().count(),
-                    text: block.inline.text.clone(),
-                };
-                let protected = ProtectedSource::new(&block.node).unwrap();
-                let fits = |s: &str, side| {
-                    tokenizer
-                        .text_fits(s, side)
-                        .map_err(|_| "Alignment token admission failed".to_string())
-                };
-                let plan = SourcePlan::new(&segment, &protected, &engine, fits).unwrap();
-                let result = plan.translate(&mut engine, fits, || false).unwrap();
-                assert!(result.text.contains("private_id🙂"));
-                assert_eq!(result.targets.len(), plan.units().len());
-                assert_eq!(plan.attachments().len(), 1);
-            }
         }
     }
 

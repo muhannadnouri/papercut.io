@@ -12,9 +12,6 @@ struct TranslationModelActivity {
     active_jobs: HashSet<String>,
     saving_jobs: HashSet<String>,
     model_operations: HashSet<String>,
-    #[cfg(feature = "native-translation-alignment-runtime")]
-    alignment_cancellations:
-        std::collections::HashMap<String, Arc<super::alignment::runtime::Cancellation>>,
 }
 
 #[derive(Clone)]
@@ -48,51 +45,7 @@ impl TranslationState {
             return Err("Translation is already being saved; wait for completion".into());
         }
         cancelled.insert(job_id.into());
-        #[cfg(feature = "native-translation-alignment-runtime")]
-        let alignment = activity.alignment_cancellations.get(job_id).cloned();
-        // Native termination must not run while holding application state locks.
-        drop(activity);
-        drop(cancelled);
-        #[cfg(feature = "native-translation-alignment-runtime")]
-        if let Some(alignment) = alignment {
-            alignment
-                .cancel()
-                .map_err(|_| "Alignment cancellation failed")?;
-        }
         Ok(())
-    }
-
-    /// Registration shares cancel/save lock order, so an earlier cancellation cannot be lost.
-    #[cfg(feature = "native-translation-alignment-runtime")]
-    pub(crate) fn register_alignment_cancellation(
-        &self,
-        job_id: &str,
-    ) -> Result<AlignmentCancellation, String> {
-        let cancelled = self
-            .cancelled_jobs
-            .lock()
-            .map_err(|_| "Translation cancellation lock poisoned")?;
-        let mut activity = self
-            .model_activity
-            .lock()
-            .map_err(|_| "Translation activity lock poisoned")?;
-        if cancelled.contains(job_id) {
-            return Err("Translation cancelled".into());
-        }
-        if activity.saving_jobs.contains(job_id)
-            || activity.alignment_cancellations.contains_key(job_id)
-        {
-            return Err("Alignment job is already active or saving".into());
-        }
-        let cancellation = Arc::new(super::alignment::runtime::Cancellation::default());
-        activity
-            .alignment_cancellations
-            .insert(job_id.into(), cancellation.clone());
-        Ok(AlignmentCancellation {
-            activity: self.model_activity.clone(),
-            job_id: job_id.into(),
-            cancellation,
-        })
     }
 
     /// Serialize cancellation with the last check before the atomic document writer.
@@ -209,21 +162,6 @@ impl TranslationState {
     }
 }
 
-/// Scope one native cancellation handle to a job; retries always receive a fresh handle.
-#[cfg(feature = "native-translation-alignment-runtime")]
-pub(crate) struct AlignmentCancellation {
-    activity: Arc<Mutex<TranslationModelActivity>>,
-    job_id: String,
-    pub(crate) cancellation: Arc<super::alignment::runtime::Cancellation>,
-}
-#[cfg(feature = "native-translation-alignment-runtime")]
-impl Drop for AlignmentCancellation {
-    fn drop(&mut self) {
-        let mut activity = self.activity.lock().unwrap_or_else(|e| e.into_inner());
-        activity.alignment_cancellations.remove(&self.job_id);
-    }
-}
-
 pub(crate) struct TranslationSave {
     activity: Arc<Mutex<TranslationModelActivity>>,
     job_id: String,
@@ -283,60 +221,6 @@ mod tests {
         assert!(!state.cancelled_jobs.lock().unwrap().contains("save-first"));
         drop(saving);
         assert!(state.cancel("save-first").is_ok());
-    }
-
-    #[cfg(feature = "native-translation-alignment-runtime")]
-    #[test]
-    fn native_cancel_registration_handles_both_orderings_save_cutoff_and_clean_retries() {
-        let state = TranslationState::default();
-        state.cancel("early").unwrap();
-        assert!(state.register_alignment_cancellation("early").is_err());
-        let handle = state.register_alignment_cancellation("running").unwrap();
-        let other = state.register_alignment_cancellation("other").unwrap();
-        assert!(state.register_alignment_cancellation("running").is_err());
-        let cancel = state.clone();
-        std::thread::spawn(move || cancel.cancel("running").unwrap())
-            .join()
-            .unwrap();
-        assert!(handle.cancellation.is_cancelled());
-        assert!(!other.cancellation.is_cancelled());
-        assert!(state.claim_save("running").is_err());
-        drop(handle);
-        state.cancelled_jobs.lock().unwrap().remove("running");
-        let retry = state.register_alignment_cancellation("running").unwrap();
-        assert!(!retry.cancellation.is_cancelled());
-        let saving = state.claim_save("running").unwrap();
-        assert!(state
-            .cancel("running")
-            .unwrap_err()
-            .contains("already being saved"));
-        assert!(!retry.cancellation.is_cancelled());
-        assert!(state.register_alignment_cancellation("running").is_err());
-        drop(saving);
-        drop(retry);
-        assert!(state.register_alignment_cancellation("running").is_ok());
-    }
-
-    #[cfg(feature = "native-translation-alignment-runtime")]
-    #[test]
-    fn racing_native_registration_and_cancel_never_lose_the_request() {
-        for _ in 0..32 {
-            let state = TranslationState::default();
-            let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
-            let cancel = state.clone();
-            let start = barrier.clone();
-            let thread = std::thread::spawn(move || {
-                start.wait();
-                cancel.cancel("job").unwrap();
-            });
-            barrier.wait();
-            let handle = state.register_alignment_cancellation("job");
-            thread.join().unwrap();
-            match handle {
-                Ok(handle) => assert!(handle.cancellation.is_cancelled()),
-                Err(error) => assert!(error.contains("cancelled")),
-            }
-        }
     }
 
     #[test]

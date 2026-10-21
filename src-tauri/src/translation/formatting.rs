@@ -9,6 +9,7 @@ pub(crate) enum FormattingPolicy {
     #[default]
     Provider,
     SentenceReview,
+    /// Compatibility sentinel: retired opt-in requests must reject, never become ordinary jobs.
     Strict,
 }
 

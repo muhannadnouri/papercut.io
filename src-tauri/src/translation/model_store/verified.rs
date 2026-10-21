@@ -25,7 +25,7 @@ pub(crate) fn read(
 }
 
 /// Check cancellation at each bounded read; never return a partially verified snapshot.
-#[cfg(any(feature = "native-translation-alignment", test))]
+#[cfg(test)]
 pub(crate) fn read_cancellable(
     dir: &Path,
     pin: &TranslationModelFile,

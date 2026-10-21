@@ -11,6 +11,7 @@ use tauri::{Manager, Runtime};
 
 use super::models::TranslationModelDefinition;
 
+pub(super) mod legacy_alignment;
 pub(super) mod verified;
 
 #[derive(Clone, Copy, Debug)]
@@ -87,21 +88,13 @@ impl TranslationModelManifest {
 
     /// Role comes from trusted compiled lookup, never a caller's path, URL or claimed engine name.
     pub(crate) fn is_auxiliary(self) -> bool {
-        #[cfg(feature = "native-translation-alignment")]
-        {
-            super::alignment::assets::manifest_by_id(self.model_id).is_some()
-        }
-        #[cfg(not(feature = "native-translation-alignment"))]
-        {
-            false
-        }
+        legacy_alignment::manifest_by_id(self.model_id).is_some()
     }
 
     /// Resolve bundled legal files only for the approved auxiliary key; native downloads stay unchanged.
     pub(crate) fn bundled_file(self, path: &str) -> Option<&'static [u8]> {
-        #[cfg(feature = "native-translation-alignment")]
         if self.is_auxiliary() {
-            return super::alignment::assets::notice_bytes(path);
+            return legacy_alignment::notice_bytes(path);
         }
         let _ = path;
         None
@@ -130,10 +123,9 @@ impl TranslationModelManifest {
     }
 }
 
-/// Resolve catalog models or the explicitly feature-gated auxiliary key, without altering engine choices.
+/// Resolve catalog models or the retired resource key, without adding it to engine choices.
 pub(crate) fn manifest_by_id(id: &str) -> Option<TranslationModelManifest> {
-    #[cfg(feature = "native-translation-alignment")]
-    if let Some(manifest) = super::alignment::assets::manifest_by_id(id) {
+    if let Some(manifest) = legacy_alignment::manifest_by_id(id) {
         return Some(manifest);
     }
     super::models::find_planned_model(id).map(manifest_for)

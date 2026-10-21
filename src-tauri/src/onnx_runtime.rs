@@ -10,8 +10,7 @@ pub(crate) fn initialize() -> Result<(), String> {
             catch_unwind(|| {
                 #[cfg(any(
                     feature = "native-text-preprocessing-dynamic",
-                    feature = "experimental-search-embeddings",
-                    feature = "native-translation-alignment-runtime"
+                    feature = "experimental-search-embeddings"
                 ))]
                 {
                     let library = format!(
@@ -25,8 +24,7 @@ pub(crate) fn initialize() -> Result<(), String> {
                 }
                 #[cfg(not(any(
                     feature = "native-text-preprocessing-dynamic",
-                    feature = "experimental-search-embeddings",
-                    feature = "native-translation-alignment-runtime"
+                    feature = "experimental-search-embeddings"
                 )))]
                 ort::init().commit();
                 #[cfg(target_os = "android")]

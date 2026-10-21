@@ -992,7 +992,8 @@ fn compact_ids_and_reverse_quote_notes_save_and_resume_without_identity_loss() {
 /// Direct commands reject strict admission before touching the source/model filesystem or worker.
 #[test]
 fn public_commands_cannot_enable_strict_formatting_by_forging_request_flags() {
-    let (_dir, app, _source, mut plan) = fixture();
+    let (dir, app, _source, mut plan) = fixture();
+    let before = snapshot(&dir.0);
     let state = TranslationState::default();
     plan.request.preserve_formatting = true;
     plan.request.model_id = "opus-mt-fr-en-ctranslate2".into();
@@ -1011,4 +1012,38 @@ fn public_commands_cannot_enable_strict_formatting_by_forging_request_flags() {
     )
     .unwrap_err();
     assert!(error.contains("does not support"));
+    assert_eq!(before, snapshot(&dir.0));
+}
+
+/// Saved provenance is historical metadata, never a requirement to reload the retired aligner or receipts.
+#[test]
+fn saved_alignment_provenance_remains_readable_without_a_runtime_or_file_rewrites() {
+    let (dir, app, source, plan) = fixture();
+    let state = TranslationState::default();
+    let mut engine = worker(&state, usize::MAX, "ok", Arc::default());
+    finish_translation(
+        app.handle(),
+        &state,
+        &mut engine,
+        &plan,
+        &source,
+        "document-job",
+        Instant::now(),
+    )
+    .unwrap();
+    let db = crate::document_uploads::open_document_uploads_db(app.handle()).unwrap();
+    db.execute(
+        "UPDATE translated_documents SET settings_json = ?1",
+        [r#"{"alignment":{"policy":"retired","tokenizer":"historical"}}"#],
+    )
+    .unwrap();
+    for name in ["audio.wav", "timings.json"] {
+        std::fs::write(dir.0.join(name), b"existing recording").unwrap();
+    }
+    let before = snapshot(&dir.0);
+    let rows = super::super::storage::list_translated_documents(app.handle()).unwrap();
+    assert_eq!(rows.len(), 1);
+    let saved = load_translation_source_document(app.handle(), &rows[0].document_url).unwrap();
+    assert!(!saved.view_html.trim().is_empty());
+    assert_eq!(before, snapshot(&dir.0));
 }

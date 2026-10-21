@@ -21,10 +21,10 @@ unqualified provider in the app.
   aligner or library fork. Literal code/protected content stays out of inference;
   long sentences still obey existing bounded clause/whitespace subdivision.
   Passing structural tests does not establish model fluency or semantic accuracy.
-  Strict semantic alignment remains disabled.
+  Strict semantic alignment is retired; ordinary translation needs no alignment pack.
 
 - [Shared formatting policy](#shared-formatting-policy-selection--2026-10-21) follows each job through planning, cache admission and saving. [Shared batch checkpoints](#shared-batch-admission-and-checkpoints--2026-10-21) preserve whole-batch admission and source order across mixed cache/fresh results. Provider admission is unchanged.
-- [Disabled aligner archival evaluation](#disabled-aligner-archival-evaluation--2026-10-21) identifies the live sentence planner to retain and the strict research pipeline to retire separately. No alignment code has been removed by this evaluation.
+- [Disabled aligner archival evaluation](#disabled-aligner-archival-evaluation--2026-10-21) defines the preservation rules now applied by [strict-pipeline retirement](#strict-alignment-pipeline-retirement--2026-10-21).
 - [Shared sentence-planner separation](#shared-sentence-planner-separation--2026-10-21) now gives live planning/decoding its own module outside strict research, with unchanged translation policy and cache identities.
 
 - Translation accepts **HTML and EPUB only**, enforced in both the UI and native source loader. PDF and other formats remain unsupported.
@@ -37,103 +37,12 @@ unqualified provider in the app.
 - Installed models can be removed independently to reclaim storage. Removal is serialized against model installs and active translation jobs, while translated documents and reusable segment caches remain available.
 - The workbench selects only pinned models whose provider acceptance and compiled-engine gates pass. Unavailable pinned models remain visible with an explanation and installed-file removal; future model candidates remain informational. OPUS catalog ordering/defaults are unchanged.
 - Translation jobs run through the shared Rust engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
-- The [Stage 2 alignment contract](#stage-2-pure-alignment-contract--2026-10-20)
-  has passed its [contract-only review](#stage-2-contract-review--2026-10-20)
-  and pure validation/rejection tests. The internal stages below now consume
-  these checks; public alignment admission remains disabled and formatting acceptance open.
-- The [Stage 3 asset/tokenizer slice](#stage-3-asset-and-raw-tokenizer-admission--2026-10-20)
-  verifies local candidate files and connects real raw-tokenizer evidence to the
-  contract behind a default-off internal feature. Its [admission review](#stage-3-admission-review--2026-10-20)
-  found no must-fix issue within this internal scope. That original slice added
-  no downloads, model selector entry, inference or saved-document migration.
-- A separate default-off [bounded ONNX session](#stage-3-bounded-onnx-session--2026-10-20)
-  now loads verified graph bytes and returns checked CPU embeddings. Public
-  translation starts do not call it; internal extraction/projection is recorded in Stage 5 below;
-  its [session review](#stage-3-bounded-session-review--2026-10-20) found
-  no must-fix issue within that internal scope. The candidate remains unavailable.
-- The [redistribution/installer evaluation](#stage-3-redistribution-and-installer-admission-evaluation--2026-10-20)
-  found a published Apache-2.0 permission path. [Notice payloads and shared
-  installer hardening](#stage-3-notice-payloads-and-shared-installer-hardening--2026-10-20)
-  are implemented. [Trusted auxiliary admission](#stage-3-auxiliary-manifest-and-notice-delivery--2026-10-20)
-  now supports explicit install/status/remove behind the existing default-off
-  alignment feature. Shipping flags and translation engine choices are unchanged;
-  installing the auxiliary pack does not enable document alignment.
-- The internal [two-model job lifecycle](#stage-3-two-model-job-lifecycle--2026-10-20)
-  now holds translator/aligner ownership through the shared runner, bridges job
-  cancellation to native alignment and retains the existing atomic save cutoff.
-  Its alignment load hook remains internal and unused by public starts;
-  [Stage 7](#stage-7-mapped-cache-resume-and-atomic-save--2026-10-20) connects
-  explicitly loaded sessions to the shared runner/cache/writer.
-- [Stage 4 exact-piece/literal-island planning](#stage-4-exact-pieces-and-literal-islands--2026-10-20)
-  now retains DOM-owned identities, exact source/target ranges, whitespace joins
-  and attachment ownership. Its internal CTranslate2 path admits both source
-  tokenizers before inference and rejects target overflow/decoder cutoffs.
-  Public starts do not opt into the strict path; internal cache/renderer
-  integration is recorded in Stage 7. Public formatting acceptance remains open.
-- [Stage 5 word links and conservative projection](#stage-5-word-links-and-conservative-projection--2026-10-20)
-  now runs the fixed extraction rule over checked raw-tokenizer evidence and
-  projects exact pieces against the retained source hierarchy. Missing links,
-  conflicting ownership and declared scope blockers remain explicit rejections.
-  The mandatory positive scope and runtime/quality/resource gates are unmet;
-  the candidate remains disabled.
-- [Stage 6 source-owned reconstruction](#stage-6-source-owned-mapped-reconstruction--2026-10-20)
-  now converts checked scopes and lexical/punctuation attachment evidence into
-  the existing protected renderer. This internal path preserves hierarchy,
-  literal islands and source-owned assets; ambiguous attachment scopes reject.
-  The [parent-boundary follow-up](#stage-6-leading-attachment-parent-boundaries--2026-10-20)
-  preserves leading notes/images across equivalent whitespace positions and has
-  passed its [focused review](#stage-6-parent-boundary-review--2026-10-20).
-  Internal mapped cache/resume/save integration is recorded in Stage 7;
-  public admission and packaged acceptance remain pending.
-- [Stage 7 mapped-cache, resume and atomic saving](#stage-7-mapped-cache-resume-and-atomic-save--2026-10-20)
-  now reuses the shared batch checkpoints, source-owned renderer and writer.
-  Strict receipts and variant identities remain separate from legacy hints and
-  saved results. Its [focused lifecycle review](#stage-7-lifecycle-review--2026-10-20)
-  found no actionable issue within this internal scope. The candidate is still
-  disabled for public starts.
-- [Stage 8 capability/setup/progress UI](#stage-8-gated-formatting-setup-and-progress--2026-10-20)
-  separates the auxiliary formatting pack from translation engines, adds explicit
-  strict consent and localized progress/errors, and rejects forged native opt-in
-  requests. The public acceptance constant remains **false**; ready UI fixtures
-  and successful internal inference are not release acceptance. The
-  [recovery follow-up](#stage-8-download-retry-and-terminal-progress-recovery--2026-10-20)
-  fixes failed-download retry and terminal loading progress in the shared UI.
-- The [Stage 9 semantic investigation](#stage-9-auxiliary-word-and-missing-link-investigation--2026-10-20)
-  reproduces missing auxiliary/contraction and adjective links on actual OPUS-MT
-  output. Neither FP32 nor the older diagnostic runtime resolves the real-output
-  failures. No production repair or public enablement is justified by these checks.
-- The [fine-tuned provider evaluation](#stage-9-fine-tuned-provider-evaluation--2026-10-20)
-  tests an alternative Awesome-align checkpoint against the frozen cases. It
-  repairs the Spanish adjective and fixed French future but leaves important
-  actual-output gaps. No provider replacement is approved.
-- [OmniAlign loading/export feasibility](#stage-9-omnialign-offline-loading-export-and-pack-feasibility--2026-10-20)
-  now demonstrates a provisional 151.6 MiB four-bit pack and native CPU execution
-  on the unchanged Linux runtime. Formatting quality, quantization effects and
-  other platforms remain unqualified; the public candidate stays disabled.
-- The [ownership-boundary evaluation](#stage-9-ownership-boundary-evaluation--2026-10-20)
-  finds that a separate English clitic boundary view can represent all 52 frozen
-  positive scopes without changing model tokens. Boundaries cannot establish
-  semantic ownership. The subsequent [FP32/four-bit link evaluation](#stage-9-omnialign-fp32four-bit-link-evaluation--2026-10-20)
-  fails mandatory positive scopes and accepts both fused negatives under the
-  tested raw-input policy. **Do not integrate this OmniAlign candidate.**
-- The [alignment strategy reassessment](#stage-9-alignment-strategy-reassessment--2026-10-20)
-  recommends retaining the shared DOM contract while qualifying evidence per
-  provider. A separate word aligner alone has not met auxiliary/fused ownership
-  requirements. Native CTranslate2 evidence is a bounded research option, with
-  binding and semantic gates still open; no architecture switch is implemented.
-- The [official CTranslate2 access probe](#stage-9-official-ctranslate2-tokenattention-access--2026-10-20)
-  confirms real token/attention access and exact frozen-target prefix evaluation
-  with unmodified public APIs. Native Rust token parity passes, but its result
-  still omits attention. Ownership quality and production delivery remain open.
-- The [frozen attention ownership policy](#stage-9-frozen-ctranslate2-attention-ownership-policy--2026-10-20)
-  fails: only **4/52** mandatory positive scopes are exact and admitted, despite
-  rejecting both fused negatives. It also admits a wrong negation scope and an
-  extra-punctuation scope. No native implementation or threshold tuning follows.
-- The [pretrained alignment-aware model screen](#stage-9-pretrained-alignment-aware-translation-screen--2026-10-20)
-  establishes no replacement. The original French model is already guided and
-  its trained last-layer setting matches the existing pack. No new checkpoint
-  or ownership signal is qualified; strict implementation remains blocked.
-  The separately approved boundary policy does not depend on this research.
+- **Strict alignment research is retired:** the tokenizer/ONNX aligner, strict
+  projection, receipts and execution path have been removed. Its historical
+  Stage 1–9 evidence remains below; old feature flags and commands apply only
+  to the [pre-retirement Git snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation).
+  The pinned pack inventory/notices remain for verified status and explicit
+  file removal, with no new installs or strict opt-in. See [retirement](#strict-alignment-pipeline-retirement--2026-10-21).
 - Bergamot French/Spanish → English remain in the catalog as **unavailable, acceptance-pending** providers. Their internal document path still reuses a foreground worker, resumes batches and validates protected markup before saving. Known output-completeness and mapping failures prevent public re-admission; the [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19) is historical.
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; this worker mitigation is separate from the native boundary policy.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -152,6 +61,8 @@ unqualified provider in the app.
 - Chapter-level repair has not started. Qwen remains research-only.
 
 ## Engine-independent offline alignment plan — 2026-10-19
+
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
 
 **Historical strict-formatting plan: use a separate offline word aligner (Option 7).
 No alignment model is approved for production. The current deliverable is the
@@ -521,6 +432,8 @@ engineering. It is not a guarantee of perfect semantic formatting.
 
 ## Offline aligner Stage 1 findings — 2026-10-19
 
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
+
 **Decision: technically feasible without a runtime upgrade or engine fork;
 not ready to approve production formatting parity.** The plan is committed in
 `2ba1772`. This evaluation changes documentation only. All assets, synthetic
@@ -720,6 +633,8 @@ smoke and the app version bump deferred. No production behavior changed.
 
 ## Auxiliary scope and token provenance evaluation — 2026-10-19
 
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
+
 **Stage 1 findings committed as `7443bcc`; this follow-up is evaluation only.**
 Use the same pinned FP32/INT8 artifacts and upstream softmax rule, without new
 downloads, thresholds, dependencies or engine changes. Stage 2 implementation,
@@ -897,6 +812,8 @@ physical-device smoke, application build, dependency change or version bump ran.
 
 ## Stage 2 pure alignment contract — 2026-10-20
 
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
+
 **Implemented as an unused, model-free validation boundary. Candidate disabled.**
 The preceding policy evaluation was committed as `0361484`. This slice adds no
 alignment model, download, engine option, feature flag, runtime dependency or
@@ -1070,6 +987,8 @@ dependency, asset, cache schema or application behavior changed in this review.
 
 ## Stage 3 asset and raw-tokenizer admission — 2026-10-20
 
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
+
 **Internal, default-off implementation; candidate still unavailable.** Review
 notes were committed first as `94ae85c`. This slice implements verified local
 files and actual tokenizer evidence only. It does not download/install assets,
@@ -1240,6 +1159,8 @@ model download ran in this review.
 
 ## Stage 3 bounded ONNX session — 2026-10-20
 
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
+
 **Internal CPU embeddings only; candidate still disabled.** The preceding
 admission review was committed first as `efc55fc`. The new default-off
 `native-translation-alignment-runtime` feature enables the tokenizer admission
@@ -1395,6 +1316,8 @@ smoke and the version bump stay deferred; the candidate stays unavailable.
 
 ## Stage 3 redistribution and installer admission evaluation — 2026-10-20
 
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
+
 **Decision: prepare a notice-complete auxiliary pack and harden the existing
 installer; do not add another downloader or translation engine entry.** Published
 permission is stronger than the earlier card-only receipt: Google's original
@@ -1525,6 +1448,8 @@ production code changed, or benchmark/smoke/version-bump work performed.
 
 ## Stage 3 notice payloads and shared installer hardening — 2026-10-20
 
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
+
 **Implemented after evaluation commit `2e73f7a`; auxiliary download admission is
 still disabled.** This slice prepares the legal payloads and corrects the
 existing installer's filesystem lifecycle. It does not register an alignment
@@ -1611,6 +1536,8 @@ deferred; no alignment candidate is enabled by this commit.
 
 ## Stage 3 auxiliary manifest and notice delivery — 2026-10-20
 
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
+
 **Trusted auxiliary install/status/remove admission is now wired; translation
 alignment remains unavailable.** The existing default-off
 `native-translation-alignment` feature admits only
@@ -1695,6 +1622,8 @@ held-out semantics and resource/platform qualification remain separate gates.
 Benchmarks, broader smoke and the app version bump remain deferred.
 
 ## Stage 3 two-model job lifecycle — 2026-10-20
+
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
 
 **Internal ownership/cancellation integration, not formatting enablement.** The
 shared runner now owns a job scope in `runner/lifecycle.rs`. Normal native and
@@ -1801,6 +1730,8 @@ runtime redistribution/resource/platform qualification remain open. Candidate
 enablement, benchmarks, broader smoke and the app version bump stay deferred.
 
 ## Stage 4 exact pieces and literal islands — 2026-10-20
+
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
 
 **Internal bounded planning and provider execution, not formatting enablement.**
 `inline_markup/provider/pieces.rs` reuses `ProtectedSource`/`ProtectedPlan` and
@@ -1928,6 +1859,8 @@ runtime/resource/platform qualification still block public alignment enablement.
 Benchmarks, broader smoke and the app version bump remain deferred.
 
 ## Stage 5 word links and conservative projection — 2026-10-20
+
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
 
 **Internal implementation; public formatting remains disabled.** This extends
 Stage 4's exact pairs, without changing engines, model pins, dependencies,
@@ -2512,6 +2445,8 @@ acceptance and version bump remain deferred; no fresh CI result is claimed.
 
 ## Stage 9 auxiliary-word and missing-link investigation — 2026-10-20
 
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
+
 **Evaluation only; no implementation or acceptance change.** The three Stage 5
 unresolved examples are reproducible, but are not three instances of one bug.
 The DOM renderer cannot recover correspondence absent from the alignment graph.
@@ -2619,6 +2554,8 @@ unchanged. Only this roadmap is updated. Benchmarks, broader/device smoke,
 packaged acceptance, fresh CI and version bump remain deferred.
 
 ## Stage 9 fine-tuned provider evaluation — 2026-10-20
+
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
 
 **Decision: do not implement a provider swap.** The least disruptive alternative
 improves a few examples but fails the mandatory auxiliary/disjoint-scope cases.
@@ -2740,6 +2677,8 @@ checkpoint, installer/catalog change, public admission, saved-document change,
 fresh app/CI build, benchmark, broader/device smoke or version bump was performed.
 
 ## Stage 9 OmniAlign offline loading, export and pack feasibility — 2026-10-20
+
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
 
 **Offline/export/size feasibility demonstrated; no production integration.**
 Offline loading, an ONNX export and a pack below the existing 200 MiB target are
@@ -2884,6 +2823,8 @@ smoke, packaged/device acceptance, fresh CI and version bump remain deferred.
 
 ## Stage 9 ownership-boundary evaluation — 2026-10-20
 
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
+
 **Representability is feasible; semantic safety remains unqualified.** Committed
 the previous loading/export findings as `859f007` before this evaluation. No
 production code changed. Keep the public candidate disabled and evaluate actual
@@ -3008,6 +2949,8 @@ smoke, fresh CI and version bump remain deferred.
 
 ## Stage 9 OmniAlign FP32/four-bit link evaluation — 2026-10-20
 
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
+
 **No-go for the tested raw-input provider policy.** Both exports fail mandatory
 positive scopes and accept unsafe fused-negation mappings. A larger FP32 pack
 does not resolve these failures. Committed the preceding boundary findings as
@@ -3121,6 +3064,8 @@ benchmark, smoke or version bump ran. The prior 30-test contract receipt remains
 current; this docs-only update did not rerun that unchanged suite.
 
 ## Stage 9 alignment strategy reassessment — 2026-10-20
+
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
 
 **Recommendation: preserve the shared DOM architecture; stop assuming a single
 post-translation word aligner supplies sufficient ownership evidence.** Committed
@@ -3262,6 +3207,8 @@ Benchmarks, smoke, fresh CI/app builds and the version bump remain deferred.
 
 ## Stage 9 official CTranslate2 token/attention access — 2026-10-20
 
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
+
 **Research access is viable; no formatting or production go.** Committed the
 strategy reassessment as `9529c94` before this probe. Official APIs return usable
 token evidence and full attention matrices for the frozen cases without a local
@@ -3393,6 +3340,8 @@ builds and version bump remain deferred; no new semantic acceptance is claimed.
 
 ## Stage 9 frozen CTranslate2 attention ownership policy — 2026-10-20
 
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
+
 **No-go for this policy.** Committed the API-access findings as `45535f8` before
 this evaluation. The official matrices are accessible, but the single frozen
 conservative contributor policy rejects most mandatory positives and still
@@ -3517,6 +3466,8 @@ catalog/cache, saved document or app-version change was made.
 builds and version bump remain deferred; no new semantic acceptance is claimed.
 
 ## Stage 9 pretrained alignment-aware translation screen — 2026-10-20
+
+**Historical research:** strict alignment is retired. Code paths, feature flags and commands in this section describe the [pre-retirement snapshot](https://github.com/muhannadnouri/papercut.io/tree/b0ecf08e/src-tauri/src/translation), not current build instructions.
 
 **No replacement selected; keep production work paused.** Committed the frozen
 attention-policy findings as `3cbb018` before this screen. Reviewed official
@@ -4129,12 +4080,80 @@ worker-only, build/type/locale checks above remain implementation receipts, not
 new review runs. This separation has no identified merge blocker; translation
 quality and packaged-device acceptance remain separate release gates.
 
-**Next bounded stage:** retire the disabled strict runtime/pipeline and replace
-inactive setup with trusted legacy pack management, as scoped in the archival
-evaluation. Preserve the shared planner, normal cache identities, saved documents,
-audio and installed-pack status/removal. Public provider gates and retained-original
+The [retirement stage below](#strict-alignment-pipeline-retirement--2026-10-21)
+applies the archival scope while preserving the shared planner, normal cache
+identities, saved documents, audio and installed-pack status/removal. Public provider gates and retained-original
 fallback remain unchanged. Strict stays disabled; model benchmarks, smoke,
 packaged-device acceptance and the version bump remain deferred.
+
+### Strict alignment pipeline retirement — 2026-10-21
+
+The disabled strict experiment is now archived in Git rather than maintained as
+another translation pipeline. Removed candidate tokenizer/ONNX inference and
+word-link extraction, strict evidence/projection/reconstruction, receipt caches,
+aligner job/cancellation hooks, the two alignment Cargo features and the app's
+direct tokenizer dependency. The lockfile change removes that direct edge only;
+search still owns its transitive tokenizer/runtime dependencies. Shared ONNX
+initialization and packaging for search/text preprocessing remain in place.
+No translation engine, model pin, app version or provider acceptance gate changed.
+
+The live sentence/literal planner remains, with the always-true aligner callbacks,
+strict-only coordinates/attachment records and dual-policy branches removed.
+Source/target limits, exact decoder rejection, source coverage, Unicode/grapheme
+checks, source-owned literals/notes/images and natural sentence/review decisions
+remain. Shared protected DOM, asset ownership, installer verification/recovery,
+model/job leases, batch checkpoints and final-save cancellation remain.
+
+Compatibility is explicit:
+
+- `preserveFormatting: true` remains a recognized old request and rejects before
+  public preflight/model loading. The internal `Strict` policy is only a rejection
+  and cache-namespace compatibility sentinel, with no executable backend. It
+  cannot render/save as ordinary translation.
+- Normal cache/schema/policy/variant identities are unchanged. Legacy `aligned`
+  cache fields are ignored, even with obsolete receipt shapes; they never supply
+  sentence output or translation memory. Strict namespaces remain separate and
+  existing files are not automatically deleted or migrated.
+- Existing saved HTML/SQLite metadata, original documents, EPUB assets, audio and
+  timing/highlighting files are not rewritten. Listing/opening/deleting a saved
+  translation needs no aligner session or receipt parser.
+- `model_store/legacy_alignment.rs` retains the fixed auxiliary ID, file/notice
+  pins and legal payloads for verified status and explicit removal in every build.
+  It grants no new install/repair; the command rejects before model claims,
+  filesystem recovery or network I/O. The shared transaction/notice tests remain.
+- The UI no longer shows strict consent or auxiliary download/setup controls.
+  A removal-only resource section appears only for stored files, including
+  partial/empty packs, and remains reachable without a translation backend or
+  selected document. Ordinary sentence translation explains retained review
+  originals independently of this retired resource. Eight locales include the
+  removal-only explanation.
+
+Regression coverage includes rejected forged strict commands, durable normal
+cache resume with ignored legacy receipt fields, refusal to reuse retired-only
+records, stable cache/variant identities, complete/partial zero-byte pack UI
+removal, blocked installs under an active lease with no mutation, legal pins and
+notice repair in the shared installer, removal ownership, and preservation of
+saved-document/audio/timing fixtures. Shared sentence tests retain exact unit
+coordinates, model-free literal/image restoration, decoder failures, late
+cancellation and source/target grapheme rejection; real HTML/EPUB save/resume,
+attachment/hierarchy and dense-markup tests remain. Retired-only neural/projection
+tests live in Git history; lower test counts do not indicate dropped live guards.
+
+Validation passed: **221 base Rust translation tests**, **222 native-feature
+translation tests** (CTranslate2/llama; 2 model-inference tests ignored), **223
+worker-only Rust translation tests**, **121 frontend translation tests**, and
+**36 build/CI configuration tests**. Both dynamic and linked ONNX consumer
+configurations passed local `cargo check` with search/text preprocessing enabled;
+these are Rust configuration checks, not Apple/mobile packaging or device tests.
+TypeScript, eight locale resources, Rustfmt and diff checks passed. Retained
+notice payloads are byte-identical, and the lockfile changes only the removed
+direct tokenizer edge. Model inference, benchmarks, broader/device smoke and
+version bump remain deferred.
+
+**Next bounded stage:** review the retirement diff and compatibility regressions.
+After that, evaluate the remaining worker transport/protected-mapping and legacy
+rendering boundaries; keep any further refactor separate from provider admission
+or translation-quality claims.
 
 ## Boundary-based CTranslate2 translation — 2026-10-20
 

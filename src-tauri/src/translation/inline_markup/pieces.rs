@@ -8,17 +8,9 @@ use crate::translation::{
     segment::TranslationTextSegment,
 };
 
-pub(super) const MAX_UNITS: usize = 128; // Strict receipt/planning compatibility stays unchanged.
 const MAX_BOUNDARY_PROSE: usize = 128;
 // Each MT piece has at most two whitespace joins; code endpoints add at most 2N+1 copied islands.
 const MAX_BOUNDARY_UNITS: usize = MAX_BOUNDARY_PROSE * 3 + MAX_CODES * 2 + 1;
-
-/// Additional runtime budgets can distinguish source admission from exact decoded target admission.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Side {
-    Source,
-    Target,
-}
 
 /// Providers translate each admitted input exactly once; hidden subdivisions must not be joined away.
 pub(crate) trait ExactPieceTranslator {
@@ -45,23 +37,10 @@ pub(crate) struct Unit {
     pub(crate) source: Range<usize>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Attachment {
-    pub(crate) source_id: usize,
-    pub(crate) parent: Option<usize>,
-    pub(crate) offset: usize,
-    /// A cut belongs to the preceding unit; source start belongs to the first unit.
-    pub(crate) owner: usize,
-}
-
 pub(crate) struct SourcePlan {
-    pub(crate) segment_id: String,
-    pub(crate) source_ordinal: usize,
-    pub(crate) source_start: usize,
     /// The one source identity tree is retained intact; pieces never clone or clip authored identities.
     pub(crate) protected: ProtectedPlan,
     units: Vec<Unit>,
-    attachments: Vec<Attachment>,
 }
 
 pub(crate) struct Translation<'a> {
@@ -73,22 +52,11 @@ pub(crate) struct Translation<'a> {
 }
 
 impl SourcePlan {
-    /// Sentence translation ignores style endpoints; immutable literals remain outside inference.
+    /// Keep whole-sentence context across styles; literals stay outside inference and every unit remains source-bound.
     pub(crate) fn from_sentences(
         segment: &TranslationTextSegment,
         protected: ProtectedPlan,
         translator: &dyn ExactPieceTranslator,
-    ) -> Result<Self, String> {
-        Self::plan(segment, protected, translator, |_, _| Ok(true), true)
-    }
-
-    /// Both policies retain the same size, coverage, literal, grapheme and tokenizer checks.
-    pub(super) fn plan(
-        segment: &TranslationTextSegment,
-        protected: ProtectedPlan,
-        translator: &dyn ExactPieceTranslator,
-        additional_fits: impl Fn(&str, Side) -> Result<bool, String>,
-        boundaries: bool,
     ) -> Result<Self, String> {
         if segment.id.is_empty()
             || segment.id.len() > 256
@@ -124,26 +92,17 @@ impl SourcePlan {
                 text,
                 &bytes,
                 cursor..code.range.start,
-                boundaries,
                 translator,
-                &additional_fits,
                 &mut units,
             )?;
-            push(
-                &mut units,
-                Kind::Literal(code.id),
-                code.range.clone(),
-                boundaries,
-            )?;
+            push(&mut units, Kind::Literal(code.id), code.range.clone())?;
             cursor = code.range.end;
         }
         plan_prose(
             text,
             &bytes,
             cursor..bytes.len() - 1,
-            boundaries,
             translator,
-            &additional_fits,
             &mut units,
         )?;
         // Whitespace trimming must not detach a combining mark from its original grapheme either.
@@ -153,35 +112,20 @@ impl SourcePlan {
         }) {
             return Err("Exact-piece source boundary is inside a grapheme".into());
         }
-        let mut attachments = Vec::new();
         for code in codes.iter().filter(|c| c.range.is_empty()) {
             if code.range.start >= bytes.len()
                 || graphemes.binary_search(&bytes[code.range.start]).is_err()
             {
                 return Err("Attachment is inside a source grapheme".into());
             }
-            let owner = units
-                .iter()
-                .position(|u| {
-                    (u.source.start < code.range.start && code.range.start <= u.source.end)
-                        || (code.range.start == 0 && u.source.start == 0)
-                })
-                .ok_or("Attachment has no source owner")?;
-            attachments.push(Attachment {
-                source_id: code.id,
-                parent: code.parent,
-                offset: code.range.start,
-                owner,
-            });
+            if !units.iter().any(|u| {
+                (u.source.start < code.range.start && code.range.start <= u.source.end)
+                    || (code.range.start == 0 && u.source.start == 0)
+            }) {
+                return Err("Attachment has no source owner".into());
+            }
         }
-        Ok(Self {
-            segment_id: segment.id.clone(),
-            source_ordinal: segment.source_block_index,
-            source_start: segment.source_start,
-            protected,
-            units,
-            attachments,
-        })
+        Ok(Self { protected, units })
     }
 
     /// Only whole natural sentence scopes or exact copied ranges can retain target formatting.
@@ -223,15 +167,10 @@ impl SourcePlan {
     pub(crate) fn units(&self) -> &[Unit] {
         &self.units
     }
-    pub(crate) fn attachments(&self) -> &[Attachment] {
-        &self.attachments
-    }
-
-    /// Validate both tokenizers before inference and target admission afterward; never split a target independently.
+    /// Admit decoder inputs and exact outputs before reconstruction; never split a target independently.
     pub(crate) fn translate(
         &self,
         translator: &mut dyn ExactPieceTranslator,
-        additional_fits: impl Fn(&str, Side) -> Result<bool, String>,
         cancelled: impl Fn() -> bool,
     ) -> Result<Translation<'_>, String> {
         let source = self.protected.source_text();
@@ -250,7 +189,7 @@ impl SourcePlan {
                 .map(|(_, u)| &source[bytes[u.source.start]..bytes[u.source.end]])
                 .collect::<Vec<_>>();
             for text in &inputs {
-                if !translator.source_fits(text)? || !additional_fits(text, Side::Source)? {
+                if !translator.source_fits(text)? {
                     return Err("Exact-piece source exceeds the configured limits".into());
                 }
             }
@@ -260,10 +199,7 @@ impl SourcePlan {
                 return Err("Exact-piece reply count mismatch".into());
             }
             for ((index, _), target) in chunk.iter().zip(translated) {
-                if target.trim().is_empty()
-                    || target.len() > MAX_HTML_BYTES
-                    || !additional_fits(&target, Side::Target)?
-                {
+                if target.trim().is_empty() || target.len() > MAX_HTML_BYTES {
                     return Err("Exact-piece target is empty or exceeds its bound".into());
                 }
                 outputs[*index] = Some(target);
@@ -312,22 +248,16 @@ impl SourcePlan {
     }
 }
 
-/// Public MT is sentence-first across styles; strict mapping keeps its context until over budget.
+/// Sentence-first across styles, then bounded clause/whitespace cuts when the decoder budget requires it.
 #[allow(clippy::too_many_arguments)]
 fn plan_prose(
     text: &str,
     bytes: &[usize],
     range: Range<usize>,
-    boundaries: bool,
     translator: &dyn ExactPieceTranslator,
-    additional_fits: &impl Fn(&str, Side) -> Result<bool, String>,
     units: &mut Vec<Unit>,
 ) -> Result<(), String> {
-    let max_units = if boundaries {
-        MAX_BOUNDARY_UNITS
-    } else {
-        MAX_UNITS
-    };
+    let max_units = MAX_BOUNDARY_UNITS;
     let mut pending = vec![range];
     let mut probes = 0;
     while let Some(range) = pending.pop() {
@@ -335,17 +265,17 @@ fn plan_prose(
             continue;
         }
         probes += 1;
-        if probes > MAX_UNITS * 2 {
+        if probes > MAX_BOUNDARY_PROSE * 2 {
             return Err("Exact-piece planning exceeds its work bound".into());
         }
         let value = &text[bytes[range.start]..bytes[range.end]];
-        if boundaries && !value.chars().any(char::is_alphanumeric) {
-            push(units, Kind::Verbatim, range, boundaries)?;
+        if !value.chars().any(char::is_alphanumeric) {
+            push(units, Kind::Verbatim, range)?;
             continue;
         }
         let trimmed = value.trim();
         if trimmed.is_empty() {
-            push(units, Kind::Whitespace, range, boundaries)?;
+            push(units, Kind::Whitespace, range)?;
             continue;
         }
         let start = range.start
@@ -353,15 +283,14 @@ fn plan_prose(
                 .chars()
                 .count();
         let end = start + trimmed.chars().count();
-        let sentence = boundaries.then(|| cut_sentence(trimmed)).flatten();
+        let sentence = cut_sentence(trimmed);
         if sentence.is_none()
             && end - start <= DEFAULT_MAX_SEGMENT_CHARS
             && translator.source_fits(trimmed)?
-            && additional_fits(trimmed, Side::Source)?
         {
-            push(units, Kind::Whitespace, range.start..start, boundaries)?;
-            push(units, Kind::Prose, start..end, boundaries)?;
-            push(units, Kind::Whitespace, end..range.end, boundaries)?;
+            push(units, Kind::Whitespace, range.start..start)?;
+            push(units, Kind::Prose, start..end)?;
+            push(units, Kind::Whitespace, end..range.end)?;
         } else {
             let cut = sentence
                 .or_else(|| cut_prose(trimmed))
@@ -427,12 +356,7 @@ fn nearest_cut(text: &str, cuts: impl Iterator<Item = usize>) -> Option<usize> {
 }
 
 /// Keep a bounded full partition; copied joins must not spend the boundary decoder's work allowance.
-fn push(
-    units: &mut Vec<Unit>,
-    kind: Kind,
-    range: Range<usize>,
-    boundaries: bool,
-) -> Result<(), String> {
+fn push(units: &mut Vec<Unit>, kind: Kind, range: Range<usize>) -> Result<(), String> {
     if range.is_empty() {
         return Ok(());
     }
@@ -445,16 +369,11 @@ fn push(
             return Ok(());
         }
     }
-    let max_units = if boundaries {
-        MAX_BOUNDARY_UNITS
-    } else {
-        MAX_UNITS
-    };
+    let max_units = MAX_BOUNDARY_UNITS;
     if units.len() >= max_units {
         return Err("Exact-piece planning exceeds its piece bound".into());
     }
-    if boundaries
-        && kind == Kind::Prose
+    if kind == Kind::Prose
         && units.iter().filter(|u| u.kind == Kind::Prose).count() >= MAX_BOUNDARY_PROSE
     {
         return Err("Boundary planning exceeds its translation piece bound".into());
@@ -467,7 +386,7 @@ fn push(
 }
 
 /// Include the terminal boundary so half-open scalar slices convert without rounding UTF-8 offsets.
-pub(super) fn scalar_bytes(text: &str) -> Vec<usize> {
+fn scalar_bytes(text: &str) -> Vec<usize> {
     text.char_indices()
         .map(|(i, _)| i)
         .chain([text.len()])

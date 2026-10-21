@@ -151,16 +151,11 @@
       "autoDetect": "Auto Detect"
     },
     "formatting": {
-      "label": "Strict Formatting (Experimental)",
+      "retired": "This formatting pack is retired. You can remove its stored files. Standard translation does not need it.",
       "packName": "Offline Formatting Pack",
-      "description": "Uses a separate offline pack to place emphasis, links and notes. Ambiguous mappings stop the job.",
-      "pending": "Strict formatting is unavailable while validation is pending. Standard translation does not require it.",
-      "runtimeUnavailable": "Strict formatting is not supported by this build. Standard translation does not require it.",
       "unsupported": "Strict formatting is not supported by this model and language pair.",
-      "downloadNote": "Requires a separate {{size}} download and storage. Nothing is downloaded automatically.",
-      "packReady": "Formatting pack verified.",
-      "packMissing": "Formatting pack is missing or failed verification. Install or repair it to continue.",
-      "unavailable": "Strict formatting is unavailable in this build or is awaiting validation. Standard translation does not require it."
+      "packMissing": "This formatting pack is retired. You can remove its stored files. Standard translation does not need it.",
+      "unavailable": "This formatting pack is retired. You can remove its stored files. Standard translation does not need it."
     }
   },
   "common": {

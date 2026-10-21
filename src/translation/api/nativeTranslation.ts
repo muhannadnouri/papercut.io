@@ -9,7 +9,7 @@ export interface TranslationCapabilities {
     device: string
   } | null
   /** Missing on older backends: conservative unavailable, never an engine entry. */
-  formatting?: { available: boolean; reason: 'available' | 'acceptance-pending' | 'runtime-unavailable'; modelId: string | null; archiveBytes: number }
+  formatting?: { available: boolean; reason: 'available' | 'acceptance-pending' | 'runtime-unavailable' | 'retired'; modelId: string | null; archiveBytes: number }
   models: TranslationModelInfo[]
 }
 

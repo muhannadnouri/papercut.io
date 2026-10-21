@@ -59,34 +59,21 @@ pub(super) fn translation_capabilities() -> TranslationCapabilities {
         default_quality_mode: DEFAULT_TRANSLATION_QUALITY_MODE.into(),
         hardware_acceleration: hy_mt2_hardware_acceleration(),
         models,
-        formatting: formatting_capability(FORMATTING_ACCEPTED),
+        formatting: formatting_capability(),
     }
 }
 
-// Release gate stays closed until semantic, resource and platform acceptance (Stage 9).
-const FORMATTING_ACCEPTED: bool = false;
-
-/// Test-only accepted fixtures cannot bypass the compiled runtime/platform gates.
-fn formatting_capability(accepted: bool) -> TranslationFormattingCapability {
-    let runtime = cfg!(all(
-        feature = "native-translation-alignment-runtime",
-        feature = "native-translation-ctranslate2"
-    )) && matches!(std::env::consts::OS, "linux" | "macos" | "windows");
-    #[cfg(feature = "native-translation-alignment")]
-    let manifest = manifest_by_id(super::alignment::assets::MODEL_KEY);
-    #[cfg(not(feature = "native-translation-alignment"))]
-    let manifest: Option<super::model_store::TranslationModelManifest> = None;
+/// Retain the legacy resource identity for status/removal, never inference or new downloads.
+fn formatting_capability() -> TranslationFormattingCapability {
+    let manifest = super::model_store::legacy_alignment::manifest_by_id(
+        super::model_store::legacy_alignment::MODEL_KEY,
+    )
+    .expect("trusted retired alignment inventory");
     TranslationFormattingCapability {
-        available: runtime && accepted,
-        reason: if !runtime {
-            "runtime-unavailable"
-        } else if !accepted {
-            "acceptance-pending"
-        } else {
-            "available"
-        },
-        model_id: manifest.map(|m| m.model_id.into()),
-        archive_bytes: manifest.map_or(0, |m| m.total_bytes()),
+        available: false,
+        reason: "retired".into(),
+        model_id: Some(manifest.model_id.into()),
+        archive_bytes: manifest.total_bytes(),
     }
 }
 
@@ -105,12 +92,7 @@ pub(super) fn admit_formatting(request: &TranslationStartRequest) -> Result<(), 
     ) {
         return Err("Strict formatting does not support this model and language pair".into());
     }
-    if !formatting_capability(FORMATTING_ACCEPTED).available {
-        return Err(
-            "Strict formatting is not available: acceptance or runtime gates are pending".into(),
-        );
-    }
-    Ok(())
+    Err("Strict formatting is not available: the alignment candidate is retired".into())
 }
 
 /// Return install status for a catalog model or trusted auxiliary resource, never engine readiness.
@@ -157,7 +139,7 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
             installed_bytes: stored_bytes,
             sha256: String::new(),
             message: if auxiliary {
-                "Auxiliary alignment assets and notices verified; translation and formatting readiness are separate checks".into()
+                "Retired alignment assets and notices verified; files can be removed, but strict translation and new downloads are unavailable".into()
             } else if model.is_some_and(|model| model.acceptance_pending()) {
                 "Model files installed; provider acceptance is pending. New jobs are unavailable; files can be removed and saved translations remain available.".into()
             } else if model.is_some_and(|model| model.engine == "bergamot") {
@@ -180,7 +162,7 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
             installed_bytes: stored_bytes,
             sha256: String::new(),
             message: if auxiliary {
-                "Auxiliary alignment assets are missing or failed verification; install or repair the pack. This does not enable a translation engine.".into()
+                "Retired alignment assets are missing or failed verification; remaining files can be removed. This pack cannot be installed or repaired.".into()
             } else if model.is_some_and(|model| model.acceptance_pending()) {
                 "Provider acceptance is pending. New downloads and document jobs are unavailable until formatting and completeness checks pass.".into()
             } else if manifest.files.is_empty() {
@@ -210,18 +192,10 @@ mod tests {
             .models
             .iter()
             .any(|m| Some(&m.id) == caps.formatting.model_id.as_ref()));
-        let runtime = cfg!(all(
-            feature = "native-translation-alignment-runtime",
-            feature = "native-translation-ctranslate2"
-        )) && matches!(std::env::consts::OS, "linux" | "macos" | "windows");
-        assert_eq!(formatting_capability(true).available, runtime);
+        assert_eq!(caps.formatting.reason, "retired");
         assert_eq!(
-            caps.formatting.reason,
-            if runtime {
-                "acceptance-pending"
-            } else {
-                "runtime-unavailable"
-            }
+            caps.formatting.model_id.as_deref(),
+            Some("alignment-awesome-align-int8")
         );
         for (model, lang, expected) in [
             ("opus-mt-fr-en-ctranslate2", "fr", "not available"),

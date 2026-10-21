@@ -184,7 +184,7 @@ const absent: TranslationModelStatus = {
 }
 
 /** Ready capability is a fixture only; real native release admission stays disabled. */
-async function workbench(modelToInstall = pack) {
+async function workbench(modelToInstall = nativeModel.id) {
   mock.capabilities.mockResolvedValue({
     available: true, backend: 'test', platform: 'linux', reason: '', defaultQualityMode: 'balanced', hardwareAcceleration: null,
     models: [nativeModel], formatting: { available: true, reason: 'available', modelId: pack, archiveBytes: 123 },
@@ -195,10 +195,8 @@ async function workbench(modelToInstall = pack) {
     await act(async () => { [...container.querySelectorAll('button')].find(b => b.textContent?.includes('translation.models.title'))!.click() })
   }
 }
-function installButton(modelId = pack) {
-  return container.querySelector<HTMLButtonElement>(modelId === pack
-    ? 'section[aria-label="translation.formatting.label"] .translation-model-install-btn'
-    : '.translation-model-item .translation-model-install-btn')!
+function installButton(_modelId = nativeModel.id) {
+  return container.querySelector<HTMLButtonElement>('.translation-model-item .translation-model-install-btn')!
 }
 function installProgress(modelId: string, status = 'downloading'): TranslationModelInstallProgress {
   return { modelId, status, message: 'Synthetic download progress', downloadedBytes: 30, totalBytes: 123, percent: 24 }
@@ -206,7 +204,7 @@ function installProgress(modelId: string, status = 'downloading'): TranslationMo
 
 /** Drive real event ordering and buttons, rather than invoking a disabled retry handler directly. */
 describe('download failure recovery through the workbench', () => {
-  it.each([pack, nativeModel.id])('retries %s after progress and failure, ignoring finished-attempt events', async modelId => {
+  it.each([nativeModel.id])('retries %s after progress and failure, ignoring finished-attempt events', async modelId => {
     await workbench(modelId)
     let fail!: (reason: Error) => void
     mock.install.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject }))
@@ -239,14 +237,14 @@ describe('download failure recovery through the workbench', () => {
     await workbench()
     let fail!: (reason: Error) => void
     mock.install.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject }))
-    await act(async () => { installButton().click(); mock.installProgress!(installProgress(pack)) })
+    await act(async () => { installButton().click(); mock.installProgress!(installProgress(nativeModel.id)) })
     mock.status.mockRejectedValueOnce(new Error('Status unavailable'))
     await act(async () => { fail(new Error('Download interrupted')) })
     expect(installButton().disabled).toBe(false)
     expect(manager.modelInstallState.message).toBe('Download interrupted')
-    expect(manager.modelStatuses[pack]).toMatchObject({ installed: false, installing: false })
-    expect(container.querySelector<HTMLInputElement>('section input[type="checkbox"]')!.disabled).toBe(true)
-    expect(manager.modelStatuses[nativeModel.id].installed).toBe(true)
+    expect(manager.modelStatuses[nativeModel.id]).toMatchObject({ installed: false, installing: false })
+    expect(container.querySelector('section input[type="checkbox"]')).toBeNull()
+    expect(manager.modelStatuses[nativeModel.id].installed).toBe(false)
   })
 
   it('still observes a native install already running when the workbench refreshes', async () => {
@@ -254,12 +252,12 @@ describe('download failure recovery through the workbench', () => {
     mock.status.mockResolvedValueOnce({ ...absent, installing: true })
     mock.status.mockResolvedValueOnce({ ...absent, installing: true })
     await act(async () => { await manager.refresh() })
-    await act(async () => { mock.installProgress!(installProgress(pack)) })
-    expect(manager.modelInstallState.installingModelId).toBe(pack)
-    await act(async () => { mock.installProgress!(installProgress(pack, 'installed')) })
-    expect(manager.modelStatuses[pack]).toMatchObject({ installed: true, installing: false })
-    await act(async () => { mock.installProgress!(installProgress(pack)) })
-    expect(manager.modelStatuses[pack]).toMatchObject({ installed: true, installing: false })
+    await act(async () => { mock.installProgress!(installProgress(nativeModel.id)) })
+    expect(manager.modelInstallState.installingModelId).toBe(nativeModel.id)
+    await act(async () => { mock.installProgress!(installProgress(nativeModel.id, 'installed')) })
+    expect(manager.modelStatuses[nativeModel.id]).toMatchObject({ installed: true, installing: false })
+    await act(async () => { mock.installProgress!(installProgress(nativeModel.id)) })
+    expect(manager.modelStatuses[nativeModel.id]).toMatchObject({ installed: true, installing: false })
     expect(mock.install).not.toHaveBeenCalled()
   })
 
@@ -268,9 +266,9 @@ describe('download failure recovery through the workbench', () => {
     mock.install.mockRejectedValueOnce(new Error('Repair interrupted'))
     mock.status.mockResolvedValueOnce({ ...absent, installed: true, installedBytes: 123 })
     await act(async () => { installButton().click() })
-    expect(manager.modelStatuses[pack]).toMatchObject({ installed: true, installing: false })
+    expect(manager.modelStatuses[nativeModel.id]).toMatchObject({ installed: true, installing: false })
     expect(manager.modelInstallState.message).toBe('Repair interrupted')
-    expect(container.querySelector<HTMLInputElement>('section input[type="checkbox"]')!.disabled).toBe(false)
+    expect(container.querySelector('section input[type="checkbox"]')).toBeNull()
   })
 })
 
