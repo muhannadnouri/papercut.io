@@ -18,6 +18,7 @@ mod config;
 mod ctranslate2;
 mod dom;
 mod engine;
+mod formatting;
 mod hash;
 mod html;
 mod hy_mt2;

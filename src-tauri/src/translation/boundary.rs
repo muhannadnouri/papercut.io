@@ -2,36 +2,10 @@
 use super::{
     cache::TranslationSegmentCache,
     engine::{TranslationEngine, TranslationSegmentOutput},
-    inline_markup::{
-        protected::{ProtectedPlan, RestoredMarkup},
-        provider::pieces::SourcePlan,
-    },
+    inline_markup::{protected::ProtectedPlan, provider::pieces::SourcePlan},
     segment::TranslationTextSegment,
 };
 use std::collections::BTreeMap;
-
-pub(super) const POLICY: &str = "ctranslate2-sentences-review-v1";
-
-/// Fixed OPUS pairs use sentence translation by default; strict requests retain their separate gate.
-pub(super) fn applies(model: &str) -> bool {
-    matches!(
-        model,
-        "opus-mt-fr-en-ctranslate2" | "opus-mt-es-en-ctranslate2"
-    )
-}
-
-/// Worker markup may move notes; boundary output must retain its exact source-owned attachment positions.
-pub(super) fn restore(
-    model: &str,
-    plan: &ProtectedPlan,
-    output: &str,
-) -> Result<RestoredMarkup, String> {
-    if applies(model) {
-        plan.restore_boundaries(output)
-    } else {
-        plan.restore(output)
-    }
-}
 
 /// Admit a whole batch before caching; native calls and cache hits share cancellation and reconstruction checks.
 pub(super) fn batch(

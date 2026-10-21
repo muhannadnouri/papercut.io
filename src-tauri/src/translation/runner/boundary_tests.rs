@@ -259,7 +259,11 @@ fn html_epub_boundary_jobs_admit_whole_batches_resume_and_preserve_legacy_assets
             )
             .unwrap_or_else(|e| panic!("{}", e.message));
             let make_request = |boundary, sections| PersistTranslationRequest {
-                boundary,
+                formatting: if boundary {
+                    FormattingPolicy::SentenceReview
+                } else {
+                    FormattingPolicy::Provider
+                },
                 alignment: None,
                 source: source.clone(),
                 source_language: language.into(),
@@ -353,7 +357,7 @@ fn html_epub_boundary_jobs_admit_whole_batches_resume_and_preserve_legacy_assets
                     |r| r.get(0),
                 )
                 .unwrap();
-            assert!(settings.contains(super::super::boundary::POLICY));
+            assert!(settings.contains(super::super::formatting::SENTENCE_REVIEW_POLICY));
             // A cached job still reaches the cancellation check immediately before the shared writer.
             let before = document_tests::snapshot(&dir.0);
             engine.cancel_before_save = true;
@@ -575,5 +579,62 @@ fn sentence_cache_policy_retires_fragment_policies_and_resumes_review_batches() 
                 "\"OLD\" - I'm sorry, I'm sorry."
             );
         }
+    }
+}
+
+/// Exercise the actual disk loader: policy comes from the admitted plan, never a JSON field or markup presence.
+#[test]
+fn sentence_review_disk_cache_rebinds_policy_without_changing_schema_or_strict_admission() {
+    use crate::translation::{dom::DomPlan, inline_markup::protected::ProtectedSource};
+    let (_dir, app, _source, old) = document_tests::fixture();
+    for (model, language) in [
+        ("opus-mt-fr-en-ctranslate2", "fr"),
+        ("opus-mt-es-en-ctranslate2", "es"),
+    ] {
+        let mut request = old.request.clone();
+        request.model_id = model.into();
+        request.source_language = language.into();
+        let plan = plan_translation_job(request.clone(), ["Un mot."], 900, 16).unwrap();
+        let segment = &plan.batches[0].segments[0];
+        let dom = DomPlan::new("<p>Un <em>mot</em>.</p>");
+        let mapping = ProtectedSource::for_boundaries(&dom.blocks[0].node)
+            .unwrap()
+            .fragment(segment.source_start..segment.source_end, &segment.text)
+            .unwrap();
+        let output = TranslationSegmentOutput {
+            id: segment.id.clone(),
+            source_text: segment.text.clone(),
+            text: "A word.".into(),
+            markup: None,
+            needs_review: true,
+        };
+        let mut cache = load_segment_cache(app.handle(), &plan).unwrap();
+        cache.store_mapped_output(segment, &mapping, &output);
+        let json = serde_json::to_value(&cache).unwrap();
+        assert!(json.get("formatting").is_none());
+        save_segment_cache(app.handle(), &plan, &cache).unwrap();
+        let resumed = load_segment_cache(app.handle(), &plan).unwrap();
+        assert!(
+            resumed
+                .sentence_output_for(segment, &mapping, true)
+                .unwrap()
+                .needs_review
+        );
+        request.preserve_formatting = true;
+        let strict = plan_translation_job(request, ["Un mot."], 900, 16).unwrap();
+        assert_ne!(strict.cache_key, plan.cache_key);
+        let strict_cache = load_segment_cache(app.handle(), &strict).unwrap();
+        assert!(strict_cache
+            .sentence_output_for(segment, &mapping, true)
+            .is_none());
+        assert!(strict_cache.aligned_for(&segment.id).is_none());
+        let resumed = load_segment_cache(app.handle(), &plan).unwrap();
+        assert_eq!(
+            resumed
+                .sentence_output_for(segment, &mapping, true)
+                .unwrap()
+                .text,
+            "A word."
+        );
     }
 }

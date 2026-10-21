@@ -10,6 +10,7 @@ use crate::document_uploads::is_note_marker;
 use kuchikiki::NodeRef;
 
 use super::dom::DomPlan;
+use super::formatting::FormattingPolicy;
 use super::html::parse_html_document;
 use super::inline_markup::{
     byte_index_for_char, fold_phrase_char, fragment_char_range, is_inline_formatting_element,
@@ -53,6 +54,9 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
     let plan = DomPlan::new(&request.source.view_html);
     // Strict jobs are all-or-nothing; one missing receipt must never enter a legacy best-effort branch.
     let alignment = request.alignment.as_ref();
+    if (request.formatting == FormattingPolicy::Strict) != alignment.is_some() {
+        return None;
+    }
     if alignment.is_none()
         && request
             .translated_sections
@@ -97,8 +101,8 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
             return None;
         }
     }
-    if request.boundary
-        && (!super::boundary::applies(&request.model_id)
+    if request.formatting == FormattingPolicy::SentenceReview
+        && (!FormattingPolicy::supports_sentence_review(&request.model_id)
             || alignment.is_some()
             || request.translated_sections.iter().any(|s| {
                 s.text.trim().is_empty()
@@ -112,7 +116,7 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
     {
         return None;
     }
-    if !request.boundary
+    if request.formatting != FormattingPolicy::SentenceReview
         && request
             .translated_sections
             .iter()
@@ -140,7 +144,13 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
         if section.fragments.iter().any(|f| f.needs_review) {
             retain_original_for_review(&node, section, request).ok()?;
         } else if alignment.is_some() || section.fragments.iter().any(|f| f.markup.is_some()) {
-            replace_protected_fragments(&node, block_index, section, request.boundary).ok()?;
+            replace_protected_fragments(
+                &node,
+                block_index,
+                section,
+                request.formatting == FormattingPolicy::SentenceReview,
+            )
+            .ok()?;
         } else if requires_preserved_block(&node) {
             insert_translation_after(&node, section);
         } else if replace_text_with_fragment_formatting(&node, &section.fragments) {
@@ -964,7 +974,7 @@ fn escape_html(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::render_translated_html;
+    use super::{render_translated_html, FormattingPolicy};
     use crate::translation::html::parse_html_document;
     use crate::translation::source::{TranslationSourceBlock, TranslationSourceDocument};
     use crate::translation::storage::{
@@ -1809,7 +1819,7 @@ mod tests {
             let mut req =
                 review_request("<p>Una <strong>casa</strong> roja.</p>", &["A red house."]);
             match invalid {
-                0 => req.boundary = false,
+                0 => req.formatting = FormattingPolicy::Provider,
                 1 => req.model_id = "bergamot-es-en-worker".into(),
                 2 => req.translated_sections[0].fragments[0].markup = Some("A red house.".into()),
                 3 => req.translated_sections[0].fragments[0].source_end -= 1,
@@ -1902,6 +1912,14 @@ mod tests {
         assert!(!output.contains("Bonjour"));
     }
 
+    #[test]
+    fn strict_policy_without_versions_cannot_render_as_legacy_text() {
+        let mut req = request("<p>Bonjour.</p>", vec![section(0, false, "Hello.")]);
+        assert!(render_translated_html("Example", &req).is_ok());
+        req.formatting = FormattingPolicy::Strict;
+        assert!(render_translated_html("Example", &req).is_err());
+    }
+
     fn review_request(html: &str, targets: &[&str]) -> PersistTranslationRequest {
         let dom = super::DomPlan::new(html);
         assert_eq!(dom.blocks.len(), targets.len());
@@ -1917,7 +1935,7 @@ mod tests {
             })
             .collect();
         let mut req = request(html, sections);
-        req.boundary = true;
+        req.formatting = FormattingPolicy::SentenceReview;
         req
     }
 
@@ -1926,7 +1944,7 @@ mod tests {
         translated_sections: Vec<PersistTranslationSection>,
     ) -> PersistTranslationRequest {
         PersistTranslationRequest {
-            boundary: false,
+            formatting: FormattingPolicy::Provider,
             alignment: None,
             source: TranslationSourceDocument {
                 document_id: "source1".into(),

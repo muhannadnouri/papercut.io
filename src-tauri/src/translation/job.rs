@@ -4,6 +4,7 @@
 //! batches, then translate/write/cache those batches. This module owns the
 //! middle step so performance limits stay testable without loading a model.
 
+use super::formatting::FormattingPolicy;
 use super::hash::StableHasher;
 use super::segment::{segment_bergamot_blocks, segment_text_blocks, TranslationTextSegment};
 use super::types::TranslationStartRequest;
@@ -15,6 +16,7 @@ const BERGAMOT_MAX_SEGMENT_CHARS: usize = 320;
 #[derive(Debug, Clone)]
 pub(crate) struct TranslationJobPlan {
     pub(crate) cache_key: String,
+    pub(crate) formatting: FormattingPolicy,
     pub(crate) request: TranslationStartRequest,
     pub(crate) batches: Vec<TranslationBatchPlan>,
     pub(crate) total_segments: usize,
@@ -51,6 +53,7 @@ where
         return Err("Translation batch size must be greater than zero".into());
     }
 
+    let formatting = FormattingPolicy::for_request(&request);
     let bergamot = super::bergamot::assets::manifest_by_id(&request.model_id).is_some();
     let max_segment_chars = if bergamot {
         max_segment_chars.min(BERGAMOT_MAX_SEGMENT_CHARS)
@@ -58,7 +61,7 @@ where
         max_segment_chars
     };
     // Keep source identities intact; the boundary adapter still caps actual MT inputs at 900 scalars and the model's token budget.
-    let boundary = super::boundary::applies(&request.model_id) && !request.preserve_formatting;
+    let boundary = formatting == FormattingPolicy::SentenceReview;
     let max_segment_chars = if boundary {
         super::inline_markup::protected::MAX_HTML_BYTES
     } else {
@@ -92,7 +95,8 @@ where
         .collect::<Vec<_>>();
 
     Ok(TranslationJobPlan {
-        cache_key: build_translation_cache_key(&request),
+        cache_key: cache_key(&request, formatting),
+        formatting,
         request,
         total_segments: segments.len(),
         max_segment_chars,
@@ -107,6 +111,11 @@ where
 /// This higher-level key intentionally captures settings that make translated
 /// output incompatible across jobs.
 pub(crate) fn build_translation_cache_key(request: &TranslationStartRequest) -> String {
+    cache_key(request, FormattingPolicy::for_request(request))
+}
+
+/// Preflight and planning use the same selector; later phases consume the policy retained on the plan.
+fn cache_key(request: &TranslationStartRequest, formatting: FormattingPolicy) -> String {
     let mut hasher = StableHasher::new();
     hasher.write_str(&request.document_url);
     hasher.write_str(&request.source_language);
@@ -115,10 +124,8 @@ pub(crate) fn build_translation_cache_key(request: &TranslationStartRequest) -> 
     hasher.write_str(&request.quality_mode);
     hasher.write_str(request.repair_mode.label());
     // Strict keys stay stable; boundary OPUS jobs must not reuse legacy text/probe caches.
-    if request.preserve_formatting {
-        hasher.write_str("strict-formatting-v1");
-    } else if super::boundary::applies(&request.model_id) {
-        hasher.write_str(super::boundary::POLICY);
+    if let Some(tag) = formatting.cache_tag() {
+        hasher.write_str(tag);
     }
     for entry in &request.glossary {
         hasher.write_str(entry.source.trim());
@@ -214,6 +221,64 @@ mod tests {
             preserve_formatting: false,
             repair_mode: Default::default(),
             glossary: Vec::new(),
+        }
+    }
+
+    /// Pin pre-refactor identities so a structural cleanup cannot retire caches or overwrite another policy.
+    #[test]
+    fn formatting_policy_keeps_existing_cache_keys_and_planning_limits() {
+        use crate::translation::formatting::FormattingPolicy;
+        for (model, policy, ordinary, strict) in [
+            (
+                "opus-mt-fr-en-ctranslate2",
+                FormattingPolicy::SentenceReview,
+                "175e2b3d9c066bab",
+                "01cf30fa4867b9a6",
+            ),
+            (
+                "opus-mt-es-en-ctranslate2",
+                FormattingPolicy::SentenceReview,
+                "bf34437b6a857c73",
+                "cb8f057425225b9e",
+            ),
+            (
+                "bergamot-fr-en-worker",
+                FormattingPolicy::Provider,
+                "44e54d4887720826",
+                "d109d7b00fbc7565",
+            ),
+            (
+                "hy-mt2-1.8b-q8",
+                FormattingPolicy::Provider,
+                "6f0e525cc75d5599",
+                "57e452dd27788af6",
+            ),
+        ] {
+            let mut req = request();
+            req.model_id = model.into();
+            let plan = plan_translation_job(req.clone(), ["Bonjour."], 900, 16).unwrap();
+            assert_eq!(plan.formatting, policy);
+            assert_eq!(plan.cache_key, ordinary);
+            assert_eq!(build_translation_cache_key(&req), ordinary);
+            let expected_limit = match policy {
+                FormattingPolicy::SentenceReview => 32 * 1024,
+                _ if model.starts_with("bergamot-") => 320,
+                _ => 900,
+            };
+            assert_eq!(plan.max_segment_chars, expected_limit);
+            req.preserve_formatting = true;
+            let plan = plan_translation_job(req.clone(), ["Bonjour."], 900, 16).unwrap();
+            assert_eq!(plan.formatting, FormattingPolicy::Strict);
+            assert_eq!(plan.cache_key, strict);
+            assert_eq!(build_translation_cache_key(&req), strict);
+            assert_eq!(
+                plan.max_segment_chars,
+                if model.starts_with("bergamot-") {
+                    320
+                } else {
+                    900
+                }
+            );
         }
     }
 

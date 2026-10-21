@@ -123,6 +123,7 @@ fn fixture(
         .collect();
     let mut request = old.request;
     request.model_id = "opus-mt-fr-en-ctranslate2".into();
+    request.preserve_formatting = true;
     let plan = plan_translation_job(
         request,
         source.blocks.iter().map(|b| &b.text),
@@ -656,7 +657,7 @@ fn missing_mixed_or_changed_strict_receipts_never_reach_save_admission_or_legacy
         let result = persist_translated_document(
             app.handle(),
             PersistTranslationRequest {
-                boundary: false,
+                formatting: FormattingPolicy::Strict,
                 alignment: Some(aligner.versions.clone()),
                 source: source.clone(),
                 source_language: "fr".into(),
@@ -705,7 +706,7 @@ fn strict_result_preserves_legacy_variant_identity_files_and_search_rows() {
     let legacy = persist_translated_document(
         app.handle(),
         PersistTranslationRequest {
-            boundary: false,
+            formatting: FormattingPolicy::Provider,
             alignment: None,
             source: source.clone(),
             source_language: "fr".into(),
@@ -928,4 +929,43 @@ fn strict_progress_reports_alignment_reconstruction_and_cache_resume() {
     assert!(resumed.iter().any(|s| s == "reconstructing-batch"));
     assert_eq!(aligner.calls, 1);
     app.unlisten(listener);
+}
+
+/// A lost or unexpected alignment session must reject before engine/cache/writer work, even for plain text.
+#[test]
+fn formatting_policy_rejects_missing_and_unrequested_alignment_sessions_without_writes() {
+    let (dir, app, source, strict) = fixture("<p>Un mot.</p>", "html", 2);
+    let state = TranslationState::default();
+    let (mut engine, mut aligner) = engines(&state);
+    let before = super::super::document_tests::snapshot(&dir.0);
+    let error = finish_translation(
+        app.handle(),
+        &state,
+        &mut engine,
+        &strict,
+        &source,
+        "document-job",
+        Instant::now(),
+    )
+    .unwrap_err();
+    assert!(error.contains("Formatting policy does not match"));
+    let mut request = strict.request.clone();
+    request.preserve_formatting = false;
+    let sentence =
+        plan_translation_job(request, source.blocks.iter().map(|b| &b.text), 900, 2).unwrap();
+    let error = finish_with_alignment(
+        app.handle(),
+        &state,
+        &mut engine,
+        &sentence,
+        &source,
+        "document-job",
+        Instant::now(),
+        Some(&mut aligner),
+    )
+    .unwrap_err();
+    assert!(error.contains("Formatting policy does not match"));
+    assert_eq!(engine.calls, 0);
+    assert_eq!(aligner.calls, 0);
+    assert_eq!(before, super::super::document_tests::snapshot(&dir.0));
 }

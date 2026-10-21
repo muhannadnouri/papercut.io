@@ -21,6 +21,7 @@ use super::engine::{
     validate_mapped_outputs, validate_outputs, TranslationBatchInput, TranslationEngine,
     TranslationSegmentContext, TranslationSegmentInput,
 };
+use super::formatting::FormattingPolicy;
 use super::hy_mt2::HyMt2Engine;
 use super::inline_markup::{inline_phrase_probes_by_block, InlinePhraseProbe};
 use super::job::{
@@ -147,7 +148,7 @@ fn start_with_engine<R: tauri::Runtime>(
         )
     };
     job.check_cancelled()?;
-    if plan.request.preserve_formatting {
+    if plan.formatting == FormattingPolicy::Strict {
         report_loading("loading-alignment", "Loading offline formatting pack")?;
         #[cfg(feature = "native-translation-alignment-runtime")]
         job.load_alignment(app)?;
@@ -238,9 +239,7 @@ fn finish_with_alignment<R: tauri::Runtime>(
             let stored = persist_translated_document(
                 app,
                 PersistTranslationRequest {
-                    boundary: alignment_versions.is_none()
-                        && !plan.request.preserve_formatting
-                        && super::boundary::applies(&plan.request.model_id),
+                    formatting: plan.formatting,
                     alignment: alignment_versions,
                     source: source.clone(),
                     source_language: plan.request.source_language.clone(),
@@ -481,9 +480,16 @@ fn run_translation_batches<R: tauri::Runtime>(
     let mut translated_blocks = vec![String::new(); source.blocks.len()];
     let mut translated_fragments =
         vec![Vec::<PersistTranslationFragment>::new(); source.blocks.len()];
-    let boundary =
-        super::boundary::applies(&plan.request.model_id) && !plan.request.preserve_formatting;
-    let rich_dom = (engine.supports_protected_markup() || alignment.is_some() || boundary)
+    if (plan.formatting == FormattingPolicy::Strict) != alignment.is_some() {
+        return Err(run.failure(
+            "failed",
+            "Formatting policy does not match the alignment session",
+        ));
+    }
+    let boundary = plan.formatting == FormattingPolicy::SentenceReview;
+    let rich_dom = (engine.supports_protected_markup()
+        || plan.formatting == FormattingPolicy::Strict
+        || boundary)
         .then(|| super::dom::DomPlan::new(&source.view_html));
     let mut rich_source = None;
     let inline_phrase_probes = if rich_dom.is_some() {

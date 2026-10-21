@@ -14,6 +14,7 @@ use crate::document_uploads::{
     delete_derived_document, open_document_uploads_db, persist_derived_document,
 };
 
+use super::formatting::FormattingPolicy;
 use super::hash::StableHasher;
 use super::quality::validate_translated_output;
 use super::render::render_translated_html;
@@ -57,8 +58,8 @@ pub(super) fn list_translated_documents<R: Runtime>(
 }
 
 pub(crate) struct PersistTranslationRequest {
-    /// Boundary results cannot fall back to legacy rendering or overwrite its saved/audio identities.
-    pub(crate) boundary: bool,
+    /// Retained job semantics, independent of whether result fragments contain markup or strict receipts.
+    pub(crate) formatting: FormattingPolicy,
     /// Declared independently of fragments so losing every receipt cannot downgrade a strict job to legacy output.
     pub(crate) alignment: Option<super::inline_markup::provider::contract::Versions>,
     pub(crate) source: TranslationSourceDocument,
@@ -153,8 +154,8 @@ pub(crate) fn persist_translated_document<R: Runtime>(
         settings["alignment"] = serde_json::to_value(versions)
             .map_err(|_| "Alignment provenance serialization failed")?;
     }
-    if request.boundary {
-        settings["formattingPolicy"] = super::boundary::POLICY.into();
+    if request.formatting == FormattingPolicy::SentenceReview {
+        settings["formattingPolicy"] = super::formatting::SENTENCE_REVIEW_POLICY.into();
     }
     let review_sections = request
         .translated_sections
@@ -171,7 +172,7 @@ pub(crate) fn persist_translated_document<R: Runtime>(
     } else {
         "ready"
     };
-    if request.boundary {
+    if request.formatting == FormattingPolicy::SentenceReview {
         settings["formattingReviewSections"] = review_sections.into();
     }
     let settings_json = settings.to_string();
@@ -364,8 +365,8 @@ fn translated_document_id(request: &PersistTranslationRequest) -> String {
         hasher
             .write_str(&serde_json::to_string(versions).expect("serializable alignment versions"));
     }
-    if request.boundary {
-        hasher.write_str(super::boundary::POLICY);
+    if request.formatting == FormattingPolicy::SentenceReview {
+        hasher.write_str(super::formatting::SENTENCE_REVIEW_POLICY);
     }
     hasher.finish_hex()
 }
@@ -467,9 +468,20 @@ mod tests {
         );
     }
 
+    /// Formatting policy remains internal; existing readers/audio keep the exact same variant URLs.
+    #[test]
+    fn explicit_formatting_keeps_legacy_and_sentence_variant_ids() {
+        let mut request = persist_request("job-a");
+        assert_eq!(super::translated_document_id(&request), "801aff7d9ec0e5a2");
+        request.formatting = crate::translation::formatting::FormattingPolicy::SentenceReview;
+        assert_eq!(super::translated_document_id(&request), "3e1df242d709e97e");
+        request.job_id = "retry".into();
+        assert_eq!(super::translated_document_id(&request), "3e1df242d709e97e");
+    }
+
     fn persist_request(job_id: &str) -> PersistTranslationRequest {
         PersistTranslationRequest {
-            boundary: false,
+            formatting: crate::translation::formatting::FormattingPolicy::Provider,
             alignment: None,
             source: TranslationSourceDocument {
                 document_id: "source1".into(),
@@ -494,7 +506,7 @@ mod tests {
     #[test]
     fn refuses_storage_render_without_the_source_dom() {
         let request = PersistTranslationRequest {
-            boundary: false,
+            formatting: crate::translation::formatting::FormattingPolicy::Provider,
             alignment: None,
             source: TranslationSourceDocument {
                 document_id: "source1".into(),

@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, Runtime};
 
+use super::formatting::FormattingPolicy;
 use super::hash::stable_text_hash;
 use super::inline_markup::INLINE_ALIGNMENT_VERSION;
 use super::job::TranslationJobPlan;
@@ -23,6 +24,9 @@ const SEGMENT_CACHE_FILE: &str = "segments.json";
 #[serde(rename_all = "camelCase")]
 pub(crate) struct TranslationSegmentCache {
     version: u32,
+    /// Bound from the admitted job after loading; do not change the on-disk cache schema.
+    #[serde(skip)]
+    formatting: FormattingPolicy,
     #[serde(default)]
     provider_identity: Option<String>,
     cache_key: String,
@@ -92,11 +96,12 @@ impl TranslationSegmentCache {
             return None;
         }
         let markup = cached.markup.as_ref()?;
-        if super::boundary::restore(&self.model_id, plan, markup)
-            .ok()?
-            .text
-            != cached.translated_text
-        {
+        let restored = match self.formatting {
+            FormattingPolicy::SentenceReview => plan.restore_boundaries(markup),
+            FormattingPolicy::Provider => plan.restore(markup),
+            FormattingPolicy::Strict => return None,
+        };
+        if restored.ok()?.text != cached.translated_text {
             return None;
         }
         Some(super::engine::TranslationSegmentOutput {
@@ -119,7 +124,7 @@ impl TranslationSegmentCache {
             return self.mapped_output_for(segment, plan);
         }
         let cached = self.segments.get(&segment.id)?;
-        if !super::boundary::applies(&self.model_id)
+        if self.formatting != FormattingPolicy::SentenceReview
             || !cached.needs_review
             || cached.markup.is_some()
             || cached.source_hash != hash_segment_text(&segment.text)
@@ -140,7 +145,7 @@ impl TranslationSegmentCache {
 
     /// Context participates in boundary cache identity because table children need their source parser context.
     fn markup_identity(&self, plan: &super::inline_markup::protected::ProtectedPlan) -> String {
-        if super::boundary::applies(&self.model_id) {
+        if self.formatting == FormattingPolicy::SentenceReview {
             plan.alignment_identity()
         } else {
             plan.identity()
@@ -254,7 +259,7 @@ pub(crate) fn load_segment_cache<R: Runtime>(
     let Ok(bytes) = fs::read(&path) else {
         return Ok(new_segment_cache(plan));
     };
-    let Ok(cache) = serde_json::from_slice::<TranslationSegmentCache>(&bytes) else {
+    let Ok(mut cache) = serde_json::from_slice::<TranslationSegmentCache>(&bytes) else {
         log::warn!(
             "translation: ignoring unreadable segment cache {}; starting fresh",
             path.display()
@@ -262,6 +267,7 @@ pub(crate) fn load_segment_cache<R: Runtime>(
         return Ok(new_segment_cache(plan));
     };
     if cache_is_compatible(&cache, plan) {
+        cache.formatting = plan.formatting;
         Ok(cache)
     } else {
         log::warn!(
@@ -309,6 +315,7 @@ pub(crate) fn save_segment_cache<R: Runtime>(
 fn new_segment_cache(plan: &TranslationJobPlan) -> TranslationSegmentCache {
     TranslationSegmentCache {
         version: SEGMENT_CACHE_VERSION,
+        formatting: plan.formatting,
         provider_identity: super::bergamot::assets::provider_identity(&plan.request.model_id),
         cache_key: plan.cache_key.clone(),
         model_id: plan.request.model_id.clone(),
@@ -534,8 +541,11 @@ mod tests {
             needs_review: true,
         };
         cache.store_mapped_output(&segment, &source, &output);
-        let valid: super::TranslationSegmentCache =
+        let mut valid: super::TranslationSegmentCache =
             serde_json::from_str(&serde_json::to_string(&cache).unwrap()).unwrap();
+        assert!(cache_is_compatible(&valid, &job));
+        // Deserialization does not admit a policy; the real disk-load regression covers this binding.
+        valid.formatting = job.formatting;
         let resumed = valid.sentence_output_for(&segment, &source, true).unwrap();
         assert_eq!(resumed.text, "I don't know.");
         assert!(resumed.needs_review && resumed.markup.is_none());

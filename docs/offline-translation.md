@@ -23,6 +23,8 @@ unqualified provider in the app.
   Passing structural tests does not establish model fluency or semantic accuracy.
   Strict semantic alignment remains disabled.
 
+- [Shared formatting policy](#shared-formatting-policy-selection--2026-10-21) now follows each job through planning, cache admission and saving; it does not change provider admission or translation output.
+
 - Translation accepts **HTML and EPUB only**, enforced in both the UI and native source loader. PDF and other formats remain unsupported.
 
 - Desktop builds on this branch enable `native-tts-shared,experimental-search-embeddings,native-translation-ctranslate2,native-translation-llama` through `npm run desktop`.
@@ -3862,12 +3864,52 @@ feature and worker-only checks; those configurations were not rerun in this
 review. No model inference, full platform CI or packaged-device acceptance was
 performed.
 
-**Next bounded implementation:** select document formatting policy once, then
-reuse that decision across planning, cache admission, batch validation and
-reconstruction. Add policy/cache-resume regressions before consolidating shared
-validated-batch/checkpoint handling. Preserve sentence/review output, provider
-gates, cache compatibility and atomic-write ownership. This is a behavior-
-preserving refactor; do not reopen strict admission or rewrite the pipeline.
+### Shared formatting-policy selection — 2026-10-21
+
+The job plan now retains one explicit `FormattingPolicy`: **SentenceReview** for
+the two ordinary OPUS-MT pairs, **Strict** for the still-disabled explicit strict
+request, or **Provider** for the existing adapter-owned markup/text behavior.
+This selection lives in `translation/formatting.rs`; it is separate from model
+admission, build capabilities and the engine's protected-markup transport flag.
+The latter still distinguishes validated worker codes from legacy text/probes.
+
+Planning, runner dispatch, cache restoration and the save request now consume
+that retained choice rather than independently deciding from a model id, cached
+markup or optional alignment session. Early job-ownership preflight derives the
+cache key with the same selector before the source is loaded. A strict session
+must match the declared policy; a missing or unexpected session rejects before
+inference/cache/writer work. Rendering separately checks policy/receipt
+consistency, so losing strict provenance cannot downgrade a result to legacy
+rendering. These internal checks do not enable strict or any gated provider.
+
+Cache tags, JSON schema, model pins, saved variant ids and provenance values stay
+unchanged. Cache loading binds the in-memory policy from the admitted job only
+after its existing compatibility checks; no policy field is read from or added
+to the cache JSON. Sentence cache hits retain the same source-owned context,
+attachment and explicit review-outcome validation. Saved originals, variants,
+audio and highlighting are not migrated. Translation/segmentation behavior and
+sentence/review output remain unchanged.
+
+New regressions pin pre-refactor cache keys/planning limits across OPUS,
+Bergamot and HY-MT2, including strict key isolation; pin legacy/sentence saved
+variant ids; round-trip French/Spanish review entries through the real disk
+loader without a schema change; and reject lost/unrequested strict sessions
+without inference or writes. A renderer regression rejects strict policy without
+strict provenance even when legacy text rendering would otherwise succeed.
+Existing batch, DOM, attachment, cancellation and cache/resume tests remain.
+
+Validation passed: **289 base Rust translation tests**, **315 translation tests
+with CTranslate2, llama.cpp and alignment-runtime compiled** (10 opt-in tests
+ignored), **2 worker-only capability tests**, and **124 frontend translation
+tests**. TypeScript, all eight locale resources, Rustfmt and diff checks passed.
+No inference-quality, benchmark, fresh platform CI or packaged-device acceptance
+is claimed by this structural/lifecycle refactor.
+
+**Next bounded stage:** focused review of policy propagation and cache/save
+compatibility, then consolidate validated-batch/checkpoint handling while
+preserving whole-batch admission and cancellation cutoffs. Defer broader
+worker/mapping separation and UI restructuring until those shared boundaries are
+clear. No pipeline rewrite or generic plugin framework is required.
 
 Strict stays disabled. Benchmarks, smoke and the app version bump remain deferred.
 
