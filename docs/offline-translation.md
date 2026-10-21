@@ -102,6 +102,10 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   provider. A separate word aligner alone has not met auxiliary/fused ownership
   requirements. Native CTranslate2 evidence is a bounded research option, with
   binding and semantic gates still open; no architecture switch is implemented.
+- The [official CTranslate2 access probe](#stage-9-official-ctranslate2-tokenattention-access--2026-10-20)
+  confirms real token/attention access and exact frozen-target prefix evaluation
+  with unmodified public APIs. Native Rust token parity passes, but its result
+  still omits attention. Ownership quality and production delivery remain open.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -3225,6 +3229,137 @@ parser, training, production code or dependency change ran. This is a design/API
 assessment, not new semantic acceptance. Only this document changes;
 `FORMATTING_ACCEPTED = false` remains intact.
 Benchmarks, smoke, fresh CI/app builds and the version bump remain deferred.
+
+## Stage 9 official CTranslate2 token/attention access — 2026-10-20
+
+**Research access is viable; no formatting or production go.** Committed the
+strategy reassessment as `9529c94` before this probe. Official APIs return usable
+token evidence and full attention matrices for the frozen cases without a local
+library patch. This closes an access question, not the auxiliary/fused ownership
+gate. No attention-to-style algorithm was selected or tested this round.
+
+### Runtime, assets and fixed probe
+
+Used official prebuilt **CTranslate2 4.7.2** and **SentencePiece 0.2.1** Python
+wheels in an isolated `/tmp` environment, with Python **3.12.14** and NumPy
+**2.2.6**. CTranslate2 4.7.2 matches the core version bundled by the app's pinned
+**ct2rs 0.9.19**. The wheel and Rust/Ruy build are different binaries; matching
+version numbers alone do not establish numeric or platform equivalence.
+No Python runtime or new dependency was added to Papercut.
+
+Used the existing French/Spanish OPUS-MT packs outside app data. All **16 files**
+matched the sizes/hashes in the trusted app manifest before and after inference.
+The saved weights are float16; both CPU builds report conversion to **float32**
+for inference. This is the library's normal load behavior, not a rewritten pack
+or a change to app compute defaults.
+
+Preserved the frozen 58-row set, SHA-256
+`8c0a50b23bf51d088e8728991b740b754217a3cc7aaa8a8ccb72686a042ebad5`.
+It contains **27 unique language/source inputs** and **47 unique exact pairs**.
+The probe records its policy before the frozen-case run, SHA-256
+`523ce6fb4708a031491175a8f722ac0047a5f1f6c60701a63bede85dd216d0e5`.
+No private sample or relabelled expected target was used.
+
+Matched the strict adapter's decoding configuration: beam size 2, one hypothesis,
+unknown replacement enabled, no input truncation, maximum decoding length 512
+and returned EOS. Used one CPU worker/two intra threads, without measuring speed
+or RAM. The maintained SentencePiece wrapper appends an explicit source EOS;
+its position is part of the supplied source-token list.
+With unknown replacement enabled, the core already requests attention internally;
+the off/on check tests returned-result behavior, not whether attention is computed
+or what resources it costs.
+
+### API results
+
+The official [translation API](https://opennmt.net/CTranslate2/python/ctranslate2.Translator.html)
+accepts `return_attention` and `target_prefix`; its
+[result](https://opennmt.net/CTranslate2/python/ctranslate2.TranslationResult.html)
+exposes per-hypothesis matrices. Actual checks distinguish access from ownership:
+
+| Check | Observed result |
+| --- | --- |
+| Free decoding with attention off versus on | **27/27** identical hypothesis-token lists. |
+| Free output versus frozen actual CTranslate2 rows | **26/26** exact decoded matches. Only 3/26 fixed-target rows naturally match, so free attention is not substituted for other frozen targets. |
+| Full frozen target as `target_prefix`, without EOS in the prefix | **58/58** rows return exactly the gold token list plus one EOS, with full attention; 47 unique pair calls. Includes both fused negatives and all four wrong-translation controls. |
+| Prefixing the model's own free hypothesis | **27/27** identical tokens and bit-identical attention matrices to free decoding. Forced-prefix rows are not empty placeholders in these checks. |
+| `score_batch` attention access | Returned scoring results have no attention; passing `return_attention=True` raises `TypeError`. |
+| Including EOS inside a complete prefix | The diagnostic returns a second EOS. This must not be silently stripped and counted as an exact single-EOS result. |
+
+Every retained matrix is finite, nonnegative and has rows summing to one within
+`atol=1e-5`. Its rows match the **actual returned target-token count**, including
+EOS, and columns match the supplied source-token count, including explicit EOS.
+Future mapping must exclude framing according to verified provenance, not treat
+EOS as a source owner. Shape/row-sum checks are not calibrated confidence tests.
+
+The complete non-EOS prefix supplies an observed public-API route for the frozen
+gold-target probe. It is **constrained decoding**, not evidence that the model
+would naturally produce those targets, nor a promise that every arbitrary
+prefix ends without continuation. Reject a non-exact returned hypothesis rather
+than clipping it. This supersedes the earlier “gold-target access not established”
+assessment for these tested pairs. It does not prove semantic ownership: even a
+deliberately wrong forced translation receives a valid attention matrix.
+
+### Tokens, offsets and native parity
+
+The [SentencePiece Python API](https://github.com/google/sentencepiece/blob/v0.2.1/python/README.md)
+provides immutable proto evidence with piece, ID, surface and offsets. Source
+encoding retains offsets into the original string. Decoding the **actual
+generated pieces** into a proto supplies target offsets without re-encoding a
+possibly different tokenization of the decoded text. Target proto pieces matched
+the actual hypotheses on all 27 free outputs.
+
+An outside-repo Rust harness used the unmodified pinned `ct2rs` and existing
+**sentencepiece 0.13.2** API, with normal Cargo builds and no custom native patch:
+
+- Source token strings, SentencePiece IDs and surfaces match Python on **34**
+  inputs: all 27 free-decoding sources plus seven Unicode/normalization/unknown
+  controls. Rust reports UTF-8 byte spans; Python proto offsets are scalar
+  positions in these checks. Verified both against actual source slices before
+  comparing. SentencePiece IDs are not automatically CTranslate2 vocabulary IDs.
+- Native decoding with its attention request flag off/on yields the same token
+  lists on all **27** sources. Those lists and decoded outputs also match the
+  official Python wheel. The Rust wrapper still returns no matrix: its request
+  option alone does not expose the underlying attention.
+- The controls retain important limits: leading/repeated whitespace collapses
+  during decode; decomposed accents normalize; a zero-width-space control
+  changes; an Arabic control has an empty leading token span; a private-use
+  character is an actual unknown token despite retaining a raw surface.
+  Therefore available offsets do not establish unknown/normalization admission,
+  grapheme-safe ownership or Arabic quality. Do not round or invent ranges.
+
+The pinned Rust SentencePiece wrapper offers generated-text decoding as a string,
+not the Python decoder-proto result used above. A supported native target-offset
+path remains to be qualified alongside attention exposure. No binding fork or
+ad-hoc FFI is approved. Attention numeric parity across the wheel and native
+build also remains untested because the Rust result does not expose it.
+
+### Decision and next gate
+
+Proceed only to an **outside-repo ownership-policy qualification**, if continuing
+this research path. Freeze a documented extraction/contributor/rejection rule
+before testing the same mandatory positive and fused-negative scopes on these
+exact matrices. A new rule must account for auxiliaries linked to subjects,
+unaligned paraphrase components and a fused cell's multiple source contributors;
+argmax, nonzero attention, row normalization or a mass cutoff alone is not proof.
+Keep the wrong-translation controls as explicit limits on semantic claims.
+
+Do not implement native delivery or invest in a binding change until that probe
+shows useful ownership evidence. If it fails, stop this policy rather than adding
+grammar guesses or weakening the frozen gate. If it passes, independently resolve
+maintained Rust attention and target-offset APIs, evidence/cache identities and
+platform qualification before changing the app. Other engines remain separate
+capability decisions; this is no automatic formatting fallback or parity claim.
+
+**Validation/evidence:** assert-based checks cover policy/frozen/model hashes,
+all access counts, exact target completion, matrices, source offset conversion
+and native/Python token parity. Artifacts/scripts remain outside Git under
+`/tmp/papercut-ct2-attention-evaluation/`, including `receipt.json`, `results.json`,
+`native-results.json` and `verification.json`; logs are
+`/tmp/ct2-attention-{install,probe,native,verification}.log`.
+Only this document changes. No production code, dependency, runtime bundle,
+installer/catalog/cache, saved document or app-version change was made.
+`FORMATTING_ACCEPTED = false` remains intact. Benchmarks, smoke, fresh app/CI
+builds and version bump remain deferred; no new semantic acceptance is claimed.
 
 ## Product Goals
 
