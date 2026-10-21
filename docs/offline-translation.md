@@ -91,6 +91,11 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   now demonstrates a provisional 151.6 MiB four-bit pack and native CPU execution
   on the unchanged Linux runtime. Formatting quality, quantization effects and
   other platforms remain unqualified; the public candidate stays disabled.
+- The [ownership-boundary evaluation](#stage-9-ownership-boundary-evaluation--2026-10-20)
+  finds that a separate English clitic boundary view can represent all 52 frozen
+  positive scopes without changing model tokens. Boundaries cannot establish
+  semantic ownership, however; actual FP32/four-bit link qualification is next,
+  before any production contract change or provider integration.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -2833,6 +2838,130 @@ Only this document changes. Production code/dependencies/runtime bundles, model
 catalog/installer/cache, saved documents, the disabled candidate and app version
 are unchanged. Frozen-case OmniAlign quality, benchmarks/RAM/thermals, broader
 smoke, packaged/device acceptance, fresh CI and version bump remain deferred.
+
+## Stage 9 ownership-boundary evaluation — 2026-10-20
+
+**Representability is feasible; semantic safety remains unqualified.** Committed
+the previous loading/export findings as `859f007` before this evaluation. No
+production code changed. Keep the public candidate disabled and evaluate actual
+link evidence next, rather than implementing a tokenizer workaround now.
+
+### Frozen inputs and method
+
+Preserved the existing **58-row** synthetic set byte-for-byte, SHA-256
+`8c0a50b23bf51d088e8728991b740b754217a3cc7aaa8a8ccb72686a042ebad5`:
+26 fixed-target positive scopes, the same 26 on previously captured exact
+CTranslate2 output, two fused-negation negatives and four deliberately wrong
+translation pairs. The 26 include the original 24 scopes plus two short-adjective
+controls. Kept the original lexical annotations; the old tokenizer locates their
+exact source/target scalar ranges, not new desired boundaries fitted to OmniAlign.
+
+Added ten separate synthetic diagnostic controls before comparing policies:
+straight/curly apostrophes, partial and whole fused contractions, lost future
+meaning, a combining-mark cut, an ordinary subword fragment, whole-unit style
+inheritance and valid unrelated formatting beside negation. These are not new
+acceptance data or private sample-derived fixtures. All research stays outside
+Git. The combined inputs contain **63 distinct exact strings**.
+
+Used the pinned OmniAlign tokenizer with native **tokenizers 0.23.2** to retain
+actual token IDs, word IDs and UTF-8 offsets. The existing
+**unicode-segmentation 1.13.3 / Unicode 17.0.0** supplies word and grapheme
+boundaries. No input rewrite, pre-split model inference, fabricated word ID,
+divided token vector or new dependency was used. A proposed independent boundary
+view is representable only if each raw content token fits wholly within one cell
+and every requested cut is a grapheme boundary.
+
+Compared four diagnostic views:
+
+| Boundary view | Fixed scopes / 26 | Actual-output scopes / 26 | Total / 52 |
+| --- | ---: | ---: | ---: |
+| Raw OmniAlign word IDs | 13 | 8 | 21 |
+| Unicode default word boundaries | 26 | 15 | 41 |
+| Every raw model token independently ownable | 26 | 26 | 52 |
+| Unicode boundaries with English clitic cells | 26 | 26 | 52 |
+
+These counts measure **span geometry only**. They do not measure inferred links,
+correct grammatical ownership, identity/hierarchy reconstruction, translation
+quality or held-out coverage. Some frozen annotations cover multiple lexical
+spans; representing them is not proof that a complete DOM identity can safely
+move there. No OmniAlign inference or new translation generation ran this round.
+
+### What the counterexamples establish
+
+- Raw word IDs conflate ownership with tokenizer grouping: `He'll` is one word,
+  and punctuation may belong to its preceding word. Unicode default boundaries
+  separate punctuation but keep the contraction together. Neither view can
+  express the required `ll` span at scalar range `3..5` while leaving `He`
+  unstyled. Unicode segmentation permits documented tailoring; it does not
+  determine grammatical ownership. See [UAX #29, Unicode 17](https://www.unicode.org/reports/tr29/tr29-47.html).
+- Making every subword independently ownable overcorrects. It admits both `ll`
+  and the unsafe `international` fragment of `internationalization`, plus `won`
+  or `t` inside `won't`. All four views reject the combining-mark cut. Grapheme
+  safety alone therefore does not supply word/meaning safety.
+- The evaluated English-only view separates a Unicode word's final apostrophe
+  and `ll/re/ve/m/s/d` into stem, punctuation and suffix cells, preserving the
+  raw evidence. It handles straight/curly apostrophes and all 52 frozen positive
+  scopes while keeping `won't` atomic and ordinary subwords indivisible. This
+  is a proposed geometry policy, **not** an approved morphological parser;
+  ambiguous suffixes such as `s/d` receive no inferred grammatical meaning.
+  [Treebank tokenization](https://www.nltk.org/api/nltk.tokenize.treebank.html)
+  illustrates established contraction splitting, but its complete algorithm was
+  neither installed nor adopted and would not itself prove ownership.
+- Keeping `won't` atomic still cannot establish safety. For both frozen fused
+  negatives, the three alternative views allow a fully covered but wrong graph:
+  unstyled negation owns the whole contraction while the styled future verb owns
+  only `return`. Every target cell has a link, every styled source cell has a
+  link and no target cell mixes owner stacks, yet future meaning is lost from
+  the style. Raw word IDs also allow this French counterexample; the Spanish
+  one rejects only because its source verb shares a word ID with the period.
+  That incidental punctuation rejection is not a fused-meaning detector.
+- A diagnostic whole-piece veto on English `n['’]t` for partial source ownership
+  rejects both fused negatives and preserves uniform whole-unit inheritance.
+  It also wrongly rejects styling only `book` in `She won't read the book.`
+  This trades unsafe acceptance for avoidable rejection; it is not approved as
+  a fix or evidence of ordinary-input coverage. Selecting only affected owners
+  would require independent evidence, not adjacency or a larger style hull.
+
+The current contract already tests this limitation explicitly in
+`rejects_fused_contractions_mixed_ownership_and_unaligned_required_source`:
+a covered graph can pass until `ScopeIssue::FusedMeaning` is supplied. A frozen
+negative's expected label cannot serve as that detector during evaluation.
+Likewise, the four wrong-translation controls remain reminders that a complete
+graph is structural evidence, not semantic certification; no new rejection
+claim is made for them here.
+
+### Recommendation and next gate
+
+1. **Continue only the outside-repo FP32/four-bit evidence evaluation.** Freeze
+   the raw-token link extraction and cell aggregation rules before inference;
+   compare both exports on the unchanged positive and fused-negative cases.
+   Report missing links, mixed owners and wrong-but-covered ownership separately.
+   Do not supply expected blockers to make negatives pass or tune thresholds,
+   split inference at style boundaries, or fill links by proximity. Keep the
+   wrong-translation controls as explicit limits on what the result establishes.
+2. **If that passes, separate ownership cells from inference provenance.** The
+   smallest viable design retains immutable raw IDs/word IDs/offsets and derives
+   a separate, versioned, language-scoped cell table with raw-token membership.
+   Reject a token straddling a cell; do not duplicate its vector. Preserve the
+   current unknown/normalization/coverage, grapheme, mixed-owner, literal,
+   attachment and hierarchy guards. A new tokenizer family/policy needs explicit
+   identities and cache compatibility, not replacement of genuine word IDs.
+3. **Stop before production integration if mandatory scopes or fused negatives
+   fail.** Surface boundaries alone cannot repair missing semantic evidence.
+   Neither an English clitic rule nor a broad contraction veto earns public
+   acceptance; later held-out coverage and complete DOM tests are still required.
+
+**Validation/evidence:** native boundary collection, immutable input/control
+hashes, all table counts, token/cell containment and explicit counterexample
+graphs passed assert-based checks. The existing focused Rust contract suite
+passed **30 tests**, offline and without default features; this validates current
+guards, not an implemented new policy. Research scripts/results are in
+`/tmp/papercut-ownership-boundary-evaluation/`, including `verification.json` and
+`graph-counterexamples.json`; logs are `/tmp/ownership-boundaries-{native,evaluation,verification,contract}.log`.
+Only this document changes. The candidate remains `FORMATTING_ACCEPTED = false`;
+model/runtime dependencies, installer/catalog/cache, saved documents and app
+version are unchanged. Actual OmniAlign link quality, benchmarks, broader/device
+smoke, fresh CI and version bump remain deferred.
 
 ## Product Goals
 
