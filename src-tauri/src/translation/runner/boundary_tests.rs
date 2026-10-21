@@ -18,6 +18,7 @@ impl ExactPieceTranslator for Engine {
         Ok(text.chars().count() <= 900)
     }
     fn translate_exact(&mut self, sources: &[&str]) -> Result<Vec<String>, String> {
+        assert!(sources.len() <= 16);
         self.seen.extend(sources.iter().map(|s| s.to_string()));
         if self.cancel_in_call {
             self.state.cancel("document-job")?;
@@ -32,6 +33,137 @@ impl ExactPieceTranslator for Engine {
                 }
             })
             .collect())
+    }
+}
+
+/// Dense nested source identities survive checkpointing and retries without retranslation or duplication.
+#[test]
+fn dense_boundary_markup_saves_after_partial_resume_then_reuses_the_complete_cache() {
+    for format in ["html", "epub"] {
+        for language in ["fr", "es"] {
+            let (dir, app, mut source, old) = document_tests::fixture();
+            let dense = (0..48)
+                .map(|i| format!("before <strong id='s{i}'><em>term</em></strong> after. "))
+                .collect::<String>();
+            source.format = format.into();
+            source.view_html = format!("<html><body><p><span id='whole'><a id='ref' role='doc-noteref' href='#note'>1</a>{dense}</span></p><p>Merci.</p><p id='note' translate='no'>Note.</p></body></html>");
+            source.blocks = DomPlan::new(&source.view_html)
+                .blocks
+                .into_iter()
+                .map(|b| TranslationSourceBlock {
+                    ordinal: b.ordinal,
+                    is_heading: b.is_heading,
+                    heading: b.heading,
+                    text: b.inline.text,
+                })
+                .collect();
+            let plan = plan_translation_job(
+                TranslationStartRequest {
+                    source_language: language.into(),
+                    model_id: format!("opus-mt-{language}-en-ctranslate2"),
+                    ..old.request
+                },
+                source.blocks.iter().map(|b| &b.text),
+                900,
+                1,
+            )
+            .unwrap();
+            let state = TranslationState::default();
+            let mut engine = Engine {
+                state: state.clone(),
+                seen: vec![],
+                fail_on: Some("Merci.".into()),
+                cancel_in_call: false,
+                cancel_before_save: false,
+            };
+            assert!(finish_translation(
+                app.handle(),
+                &state,
+                &mut engine,
+                &plan,
+                &source,
+                "document-job",
+                Instant::now()
+            )
+            .is_err());
+            assert!(engine.seen.len() > 64 && engine.seen.len() <= 129);
+            let cache = load_segment_cache(app.handle(), &plan).unwrap();
+            assert_eq!(
+                cache
+                    .translated_text_for(&plan.batches[0].segments[0])
+                    .unwrap(),
+                source.blocks[0].text.to_uppercase()
+            );
+            assert!(cache
+                .translated_text_for(&plan.batches[1].segments[0])
+                .is_none());
+            assert!(
+                super::super::storage::list_translated_documents(app.handle())
+                    .unwrap()
+                    .is_empty()
+            );
+            engine.fail_on = None;
+            engine.seen.clear();
+            finish_translation(
+                app.handle(),
+                &state,
+                &mut engine,
+                &plan,
+                &source,
+                "document-job",
+                Instant::now(),
+            )
+            .unwrap();
+            assert_eq!(engine.seen, ["Merci."]);
+            let variants = super::super::storage::list_translated_documents(app.handle()).unwrap();
+            assert_eq!(variants.len(), 1);
+            let saved =
+                load_translation_source_document(app.handle(), &variants[0].document_url).unwrap();
+            assert_eq!(saved.blocks[0].text, source.blocks[0].text.to_uppercase());
+            let dom = DomPlan::new(&saved.view_html);
+            assert_eq!(dom.document.select("span#whole").unwrap().count(), 1);
+            assert_eq!(
+                dom.document
+                    .select("span#whole > strong > em")
+                    .unwrap()
+                    .count(),
+                48
+            );
+            assert_eq!(
+                dom.document.select("span#whole > a#ref").unwrap().count(),
+                1
+            );
+            for i in 0..48 {
+                assert_eq!(
+                    dom.document
+                        .select(&format!("strong#s{i}"))
+                        .unwrap()
+                        .count(),
+                    1
+                );
+                assert_eq!(
+                    dom.document
+                        .select_first(&format!("strong#s{i} > em"))
+                        .unwrap()
+                        .text_contents(),
+                    "TERM"
+                );
+            }
+            let before = document_tests::snapshot(&dir.0);
+            engine.seen.clear();
+            finish_translation(
+                app.handle(),
+                &state,
+                &mut engine,
+                &plan,
+                &source,
+                "document-job",
+                Instant::now(),
+            )
+            .unwrap();
+            assert!(engine.seen.is_empty());
+            assert_eq!(before, document_tests::snapshot(&dir.0));
+        }
     }
 }
 impl TranslationEngine for Engine {

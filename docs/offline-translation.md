@@ -3633,8 +3633,11 @@ was posted. The strict alignment candidate remains disabled and unqualified.
 - Plan one segment per normalized reader block, capped at **32 KiB UTF-8**.
   This avoids splitting authored links/IDs at an arbitrary outer 900-character
   cut. Protected transport is independently capped at 32 KiB; existing depth,
-  128-code, 128-unit and reconstruction-work limits remain enforced. Oversized
-  or unsupported structures fail before saving rather than flattening markup.
+  128-code and reconstruction-work limits remain enforced. Boundary plans allow
+  at most **128 translated pieces** and **641 total metadata units**, including
+  copied joins/literals. The strict candidate retains its 128-total-unit bound.
+  Oversized or unsupported structures fail before saving rather than flattening
+  markup.
 - The shared exact-piece planner gains a separate boundary policy. Cuts come
   from every source shell endpoint and note/media attachment, with source
   whitespace copied explicitly. Compatible adjacent text within one scope is
@@ -3698,6 +3701,57 @@ Python service or new alignment model is introduced.
 
 ### Regression coverage and remaining acceptance
 
+**Dense-markup budgets and strict formatting guidance — 2026-10-20:** Boundary
+translation inherited the strict prototype's combined 128-piece cap. Ordinary
+styled paragraphs could exceed that cap because each translated scope also
+retains whitespace and copied punctuation. The planner now limits decoder work
+separately to 128 prose pieces per block. The metadata allowance is derived as
+`3 × 128 + 2 × 128 + 1 = 641`: at most two whitespace joins per prose piece,
+plus the copied islands introduced by at most 128 source codes' endpoints.
+This bounds the full partition without charging spaces/literals/punctuation
+against the decoder quota. The 900-scalar and native token limits, 16-input
+calls, planning-work bound, byte/depth/code guards, cancellation and source-owned
+reconstruction remain enforced. The strict planner and receipt limits are unchanged.
+
+The unavailable, pending and unsupported messages in all eight locales now
+explicitly refer to **strict formatting**. Build/acceptance explanations also
+state that standard translation does not require it. This does not enable the
+strict candidate, add an alignment download or imply that ordinary translation
+always succeeds; CTranslate2 still uses the separate source-boundary policy.
+Bergamot remains unchanged and its completeness/upstream work stays deferred.
+
+Synthetic regressions admit 128 translated pieces plus joins, reject a 129th
+piece before inference, and retain the strict prototype's rejection of more
+than 128 total units. Dense nested-markup HTML/EPUB lifecycle tests for both
+OPUS model IDs checkpoint a successful first block, fail the next block, resume
+only unfinished text and then retry entirely from cache. They check exact text,
+nested emphasis, unique authored IDs and the note's original parent. UI tests
+verify the actual English explanation, disabled strict checkbox and unchanged
+ordinary OPUS request for both missing-runtime and acceptance-pending states.
+
+This changes admission limits, not the translation or reconstruction of already
+accepted plans. Boundary policy/cache/variant identity therefore stays at v2;
+existing valid caches, saved translations, audio and timing files are retained.
+
+Budget/copy validation passed:
+
+- Full offline base Rust suite: **552 passed, 4 ignored**.
+- Full suite with `native-translation-ctranslate2,native-translation-alignment-runtime`:
+  **578 passed, 14 ignored**. The strict candidate remains disabled.
+- Explicit native boundary regression: **1 passed across six synthetic FR/ES
+  fixtures** using the existing manifest-verified packs, with no downloads.
+- Translation UI/hooks: **107 passed** across six files. TypeScript and all
+  eight locales validated; Rust formatting and diff checks passed.
+- The new planner/lifecycle and UI-copy regressions failed before their fixes.
+  Logs are `/tmp/translation-boundary-budget-{red,base,combined,inference,ui}.log`
+  and `/tmp/translation-boundary-copy-{red,green}.log`. A disposable planning
+  replay with the pinned tokenizer also passed outside Git; it is not a
+  full-document translation or save acceptance result.
+
+All committed fixtures are synthetic. Bergamot changes, benchmarks, installed-app
+smoke, fresh platform CI and the app version bump remain deferred. Next is a
+focused review, then rebuilt-app document acceptance when authorized.
+
 **Punctuation follow-up — 2026-10-20:** The focused review reproduced real
 model hallucinations from isolated `!`: the official French pack generated
 “I'm sorry” dialogue and the Spanish pack generated “Oh, my God”. These replies
@@ -3722,7 +3776,7 @@ rejection of changed copied content. All fixtures are synthetic. The opt-in
 native regression now includes two quote/exclamation/question-mark cases in
 addition to its four original fixtures.
 
-Follow-up validation passed:
+Punctuation follow-up validation passed:
 
 - Full offline base Rust suite: **550 passed, 4 ignored**.
 - Full suite with `native-translation-ctranslate2,native-translation-alignment-runtime`:

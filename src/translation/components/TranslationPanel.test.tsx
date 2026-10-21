@@ -3,6 +3,7 @@ import { act, type ComponentProps } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TranslationPanel } from './TranslationPanel'
+import en from '../../i18n/locales/en.json'
 import type { TranslationModelInfo, TranslationModelStatus } from '../api/nativeTranslation'
 
 vi.mock('react-i18next', async original => ({ ...await original<typeof import('react-i18next')>(), useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }) }))
@@ -51,6 +52,23 @@ beforeEach(async () => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals() })
 
 describe('Bergamot catalog workbench', () => {
+  it.each([
+    ['runtime-unavailable', 'runtimeUnavailable'],
+    ['acceptance-pending', 'pending'],
+  ] as const)('scopes the %s explanation to strict alignment and permits normal OPUS jobs', async (reason, key) => {
+    await render({ capabilities: { ...props.capabilities!, formatting: { available: false, reason, modelId: '', archiveBytes: 0 } }, modelStatuses: { [opus.id]: { ...installed, modelId: opus.id } } })
+    expect(en.translation.formatting[key]).toMatch(/^Strict formatting\b/)
+    expect(en.translation.formatting[key]).toContain('Standard translation does not require it.')
+    expect(container.textContent).toContain(`translation.formatting.${key}`)
+    expect(container.textContent).toContain('translation.models.ctranslate2BoundaryNote')
+    const strict = container.querySelector('input[type=checkbox]') as HTMLInputElement
+    expect(strict.disabled).toBe(true)
+    expect(strict.checked).toBe(false)
+    expect(button('translation.workbench.run').disabled).toBe(false)
+    await click('translation.workbench.run')
+    expect(props.onStartTranslationPreflight).toHaveBeenCalledExactlyOnceWith({ documentUrl: '/uploads/book.html', modelId: opus.id, sourceLanguage: 'fr', targetLanguage: 'en', qualityMode: 'balanced', useHardwareAcceleration: false })
+  })
+
   it('explains boundary translation only for CTranslate2 without enabling strict formatting', async () => {
     expect(container.textContent).toContain('translation.models.ctranslate2BoundaryNote')
     const strict = container.querySelector('input[type=checkbox]') as HTMLInputElement

@@ -150,13 +150,13 @@
       "label": "Formato estricto (experimental)",
       "packName": "Paquete de formato sin conexión",
       "description": "Usa un paquete sin conexión independiente para ubicar énfasis, enlaces y notas. Las correspondencias ambiguas detienen la tarea.",
-      "pending": "La conservación del formato no está disponible mientras se valida.",
-      "runtimeUnavailable": "Esta compilación no admite conservar el formato.",
-      "unsupported": "Este modelo y par de idiomas no admiten conservar el formato.",
+      "pending": "El formato estricto no está disponible mientras se valida. La traducción normal no lo requiere.",
+      "runtimeUnavailable": "Esta compilación no admite el formato estricto. La traducción normal no lo requiere.",
+      "unsupported": "Este modelo y par de idiomas no admiten el formato estricto.",
       "downloadNote": "Requiere una descarga independiente de {{size}} y almacenamiento. No se descarga nada automáticamente.",
       "packReady": "Paquete de formato verificado.",
       "packMissing": "El paquete falta o no pasó la verificación. Instálalo o repáralo para continuar.",
-      "unavailable": "La conservación del formato no está disponible en esta compilación o está pendiente de validación."
+      "unavailable": "El formato estricto no está disponible en esta compilación o está pendiente de validación. La traducción normal no lo requiere."
     }
   },
   "common": {

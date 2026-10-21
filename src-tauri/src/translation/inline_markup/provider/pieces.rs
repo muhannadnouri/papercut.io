@@ -2,14 +2,17 @@
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::super::protected::{ProtectedPlan, ProtectedSource, MAX_HTML_BYTES};
+use super::super::protected::{ProtectedPlan, ProtectedSource, MAX_CODES, MAX_HTML_BYTES};
 use super::contract::Side;
 use crate::translation::{
     config::{DEFAULT_BATCH_SEGMENT_LIMIT, DEFAULT_MAX_SEGMENT_CHARS},
     segment::TranslationTextSegment,
 };
 
-const MAX_UNITS: usize = 128;
+const MAX_UNITS: usize = 128; // Strict receipt/planning compatibility stays unchanged.
+const MAX_BOUNDARY_PROSE: usize = 128;
+// Each MT piece has at most two whitespace joins; code endpoints add at most 2N+1 copied islands.
+const MAX_BOUNDARY_UNITS: usize = MAX_BOUNDARY_PROSE * 3 + MAX_CODES * 2 + 1;
 
 mod projection;
 pub(crate) use projection::Projection;
@@ -150,7 +153,7 @@ impl SourcePlan {
             cuts.dedup();
             for range in cuts.windows(2).map(|p| p[0]..p[1]) {
                 if let Some(code) = codes.iter().find(|c| c.literal && c.range == range) {
-                    push(&mut units, Kind::Literal(code.id), range)?;
+                    push(&mut units, Kind::Literal(code.id), range, boundaries)?;
                 } else {
                     plan_prose(
                         text,
@@ -182,7 +185,12 @@ impl SourcePlan {
                     &aligner_fits,
                     &mut units,
                 )?;
-                push(&mut units, Kind::Literal(code.id), code.range.clone())?;
+                push(
+                    &mut units,
+                    Kind::Literal(code.id),
+                    code.range.clone(),
+                    boundaries,
+                )?;
                 cursor = code.range.end;
             }
             plan_prose(
@@ -336,6 +344,11 @@ fn plan_prose(
     aligner_fits: &impl Fn(&str, Side) -> Result<bool, String>,
     units: &mut Vec<Unit>,
 ) -> Result<(), String> {
+    let max_units = if boundaries {
+        MAX_BOUNDARY_UNITS
+    } else {
+        MAX_UNITS
+    };
     let mut pending = vec![range];
     let mut probes = 0;
     while let Some(range) = pending.pop() {
@@ -348,12 +361,12 @@ fn plan_prose(
         }
         let value = &text[bytes[range.start]..bytes[range.end]];
         if boundaries && !value.chars().any(char::is_alphanumeric) {
-            push(units, Kind::Verbatim, range)?;
+            push(units, Kind::Verbatim, range, boundaries)?;
             continue;
         }
         let trimmed = value.trim();
         if trimmed.is_empty() {
-            push(units, Kind::Whitespace, range)?;
+            push(units, Kind::Whitespace, range, boundaries)?;
             continue;
         }
         let start = range.start
@@ -365,16 +378,16 @@ fn plan_prose(
             && translator.source_fits(trimmed)?
             && aligner_fits(trimmed, Side::Source)?
         {
-            push(units, Kind::Whitespace, range.start..start)?;
-            push(units, Kind::Prose, start..end)?;
-            push(units, Kind::Whitespace, end..range.end)?;
+            push(units, Kind::Whitespace, range.start..start, boundaries)?;
+            push(units, Kind::Prose, start..end, boundaries)?;
+            push(units, Kind::Whitespace, end..range.end, boundaries)?;
         } else {
             let cut =
                 cut_prose(trimmed).ok_or("An indivisible prose unit exceeds a runtime limit")?;
             let cut = start + cut;
             pending.push(cut..range.end);
             pending.push(range.start..cut);
-            if pending.len() + units.len() > MAX_UNITS {
+            if pending.len() + units.len() > max_units {
                 return Err("Exact-piece planning exceeds its piece bound".into());
             }
         }
@@ -428,8 +441,13 @@ fn cut_prose(text: &str) -> Option<usize> {
     None
 }
 
-/// Units form a complete partition; keep source whitespace joins explicit rather than inventing target spaces.
-fn push(units: &mut Vec<Unit>, kind: Kind, range: Range<usize>) -> Result<(), String> {
+/// Keep a bounded full partition; copied joins must not spend the boundary decoder's work allowance.
+fn push(
+    units: &mut Vec<Unit>,
+    kind: Kind,
+    range: Range<usize>,
+    boundaries: bool,
+) -> Result<(), String> {
     if range.is_empty() {
         return Ok(());
     }
@@ -442,8 +460,19 @@ fn push(units: &mut Vec<Unit>, kind: Kind, range: Range<usize>) -> Result<(), St
             return Ok(());
         }
     }
-    if units.len() >= MAX_UNITS {
+    let max_units = if boundaries {
+        MAX_BOUNDARY_UNITS
+    } else {
+        MAX_UNITS
+    };
+    if units.len() >= max_units {
         return Err("Exact-piece planning exceeds its piece bound".into());
+    }
+    if boundaries
+        && kind == Kind::Prose
+        && units.iter().filter(|u| u.kind == Kind::Prose).count() >= MAX_BOUNDARY_PROSE
+    {
+        return Err("Boundary planning exceeds its translation piece bound".into());
     }
     units.push(Unit {
         kind,

@@ -252,6 +252,49 @@ fn batching_and_piece_count_are_bounded_and_previous_public_identity_cuts_reject
         .contains("boundary"));
 }
 
+/// DOM joins consume metadata, not decoder work; admission must still stop before a 129th MT piece.
+#[test]
+fn boundary_budgets_separate_translated_pieces_from_joins_and_leave_strict_limits_unchanged() {
+    let mut translator = Translator::new(100);
+    for count in [64, 65] {
+        let (source, segment) =
+            fixture(&format!("<p>{}</p>", "<em>mot</em> suite. ".repeat(count)));
+        let protected = source
+            .fragment(0..segment.source_end, &segment.text)
+            .unwrap();
+        let plan = SourcePlan::from_boundaries(&segment, protected, &translator);
+        if count == 65 {
+            assert!(plan.err().unwrap().contains("translation piece bound"));
+            continue;
+        }
+        let plan = plan.unwrap();
+        assert!(plan.units.len() > 128);
+        assert_eq!(
+            plan.units.iter().filter(|u| u.kind == Kind::Prose).count(),
+            128
+        );
+        let translated = plan.translate(&mut translator, admit, || false).unwrap();
+        coverage(&plan, &translated);
+        assert_eq!(translator.calls.iter().map(Vec::len).sum::<usize>(), 128);
+        assert!(translator
+            .calls
+            .iter()
+            .all(|b| b.len() <= DEFAULT_BATCH_SEGMENT_LIMIT));
+    }
+    let (source, segment) = fixture(&format!("<p>{}</p>", "mot ".repeat(70)));
+    let translator = Translator::new(2);
+    assert!(SourcePlan::new(&segment, &source, &translator, admit).is_err());
+    let protected = source
+        .fragment(0..segment.source_end, &segment.text)
+        .unwrap();
+    let plan = SourcePlan::from_boundaries(&segment, protected, &translator).unwrap();
+    assert!(plan.units.len() > 128);
+    assert_eq!(
+        plan.units.iter().filter(|u| u.kind == Kind::Prose).count(),
+        70
+    );
+}
+
 #[test]
 fn literal_only_segments_need_no_inference_and_unknown_prose_never_becomes_a_literal() {
     let (source, segment) = fixture("<p><code>unrecognized🙂</code><img src='owned.png'></p>");

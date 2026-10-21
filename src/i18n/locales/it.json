@@ -150,13 +150,13 @@
       "label": "Formattazione rigorosa (sperimentale)",
       "packName": "Pacchetto di formattazione offline",
       "description": "Usa un pacchetto offline separato per posizionare enfasi, link e note. Le corrispondenze ambigue interrompono il processo.",
-      "pending": "La conservazione della formattazione non è disponibile durante la convalida.",
-      "runtimeUnavailable": "Questa versione non supporta la conservazione della formattazione.",
-      "unsupported": "Questo modello e questa coppia di lingue non supportano la conservazione della formattazione.",
+      "pending": "La formattazione rigorosa non è disponibile durante la convalida. La traduzione standard non la richiede.",
+      "runtimeUnavailable": "Questa versione non supporta la formattazione rigorosa. La traduzione standard non la richiede.",
+      "unsupported": "Questo modello e questa coppia di lingue non supportano la formattazione rigorosa.",
       "downloadNote": "Richiede un download separato di {{size}} e spazio di archiviazione. Nessun download automatico.",
       "packReady": "Pacchetto di formattazione verificato.",
       "packMissing": "Pacchetto assente o verifica fallita. Installalo o riparalo per continuare.",
-      "unavailable": "La conservazione della formattazione non è disponibile in questa versione o è in attesa di convalida."
+      "unavailable": "La formattazione rigorosa non è disponibile in questa versione o è in attesa di convalida. La traduzione standard non la richiede."
     }
   },
   "common": {

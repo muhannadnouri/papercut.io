@@ -150,13 +150,13 @@
       "label": "Formatação estrita (experimental)",
       "packName": "Pacote de formatação offline",
       "description": "Usa um pacote offline separado para posicionar ênfases, links e notas. Mapeamentos ambíguos interrompem a tarefa.",
-      "pending": "A preservação da formatação está indisponível enquanto a validação estiver pendente.",
-      "runtimeUnavailable": "Esta versão não oferece preservação da formatação.",
-      "unsupported": "Este modelo e par de idiomas não oferecem preservação da formatação.",
+      "pending": "A formatação estrita está indisponível enquanto a validação está pendente. A tradução padrão não depende dela.",
+      "runtimeUnavailable": "Esta versão não oferece formatação estrita. A tradução padrão não depende dela.",
+      "unsupported": "Este modelo e par de idiomas não oferecem formatação estrita.",
       "downloadNote": "Requer download separado de {{size}} e armazenamento. Nada é baixado automaticamente.",
       "packReady": "Pacote de formatação verificado.",
       "packMissing": "O pacote está ausente ou falhou na verificação. Instale ou repare para continuar.",
-      "unavailable": "A preservação da formatação não está disponível nesta versão ou aguarda validação."
+      "unavailable": "A formatação estrita está indisponível nesta versão ou aguarda validação. A tradução padrão não depende dela."
     }
   },
   "common": {
