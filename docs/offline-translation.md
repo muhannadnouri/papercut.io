@@ -437,14 +437,23 @@ percentage. This remains a small, single-seed, non-blinded inspection, including
 an independent code-agent review. The stock GGUF termination caveat above remains
 unresolved; no runtime or model patch was applied.
 
+The subsequent review inspected all fourteen reconstructed source/English pairs,
+including a static browser render of the private preview. The nine other synthetic
+passages showed no obvious material meaning or emphasis error; the two private
+paragraphs still require the maintainer's terminology/register judgment. The
+Spanish subject change is a meaning failure, French split-negation styling is
+unresolved, and French initial-letter expansion is a typography deviation. These
+are separate outcomes, not an aggregate accuracy score or bilingual sign-off.
+Image fidelity is outside this semantic acceptance decision at the maintainer's
+request; no additional image investigation is required. Existing asset safety
+checks remain mandatory. No new generation or packaged-app smoke occurred.
+
 **Decision:** retain this source-ownership design as a viable integration seam,
-but do not integrate or admit the 7B provider yet. Review the private reconstructed
-preview, then freeze semantic acceptance requirements before any held-out or
-complete-document quality screen: negation, subject, quantities, omissions and
-emphasis scope must be assessed separately from structural checks. If the quality
-tradeoff is unacceptable, evaluate another maintained local candidate or defer
-the feature; more DOM repair cannot solve an incorrect translation. Broader
-benchmarks, packaged smoke and the version bump remain deferred.
+but keep the 7B candidate gated. The [semantic acceptance gate](#semantic-acceptance-gate--2026-10-21)
+below is now defined; the current outputs do not pass it. More DOM repair cannot
+solve an incorrect translation. Any further quality screen must use these
+criteria before integration, rather than redefine success around the outputs.
+Broader benchmarks, packaged smoke and the version bump remain deferred.
 
 ### Bounds and explicit failures
 
@@ -713,6 +722,73 @@ hit sandbox subprocess `EPERM`; all 11 cases passed outside that sandbox.
 No production code changed. This does not add inference, full CI, language-quality
 or packaged-device acceptance. The saved-status presentation gap identified
 here is addressed by the saved-document extraction below.
+
+### Semantic acceptance gate — 2026-10-21
+
+This is the maintainer-scoped gate for evaluating a new provider before
+integration, not a production semantic detector or a claim that OPUS has completed
+release acceptance. Evaluate meaning, emphasis and mechanical validity separately;
+a fluent translation with valid identities can still fail. Image fidelity is
+excluded from this decision; HTML/EPUB source and asset security stay unchanged.
+
+| Judgment | Acceptable result | Failure or unresolved result |
+| --- | --- | --- |
+| Meaning and completeness | Preserve who does what, polarity, referents, material tense/modality, quantities/units, names, conditions and qualifications; cover every translatable proposition once | A material omission, invention, changed subject/negation/quantity, duplicated proposition or untranslated translatable clause fails. Deliberately protected literals/names are not untranslated-prose errors. Uncertain terminology/referents remain open |
+| Unambiguous bold/italic scope | Apply each style to the corresponding intended meaning, preserving nested scopes and the intended occurrence of repeated words; allow faithful English reordering | Styling an unrelated concept, extending emphasis to unrelated words or inventing prose to carry an identity fails. Tag counts/IDs alone cannot qualify placement |
+| Ambiguous scope and typography | Declare non-one-to-one scopes unresolved; annotate decorative initial-letter intent before judging the target | Split negation/fused forms do not require an arbitrary two-word English allocation. Widening an initial to a whole word is not exact preservation. Do not automatically merge styles or infer that every styled initial is decorative |
+| Mechanical integrity | Retain existing source-owned hierarchy, references, immutable payloads, escaping, bounds and natural-completion requirements | Invalid/missing mapping, cutoff, malformed output, cancellation or save failure remains failure, even when the prose looks plausible |
+
+Faithful paraphrases, grammatical articles/contractions and punctuation changes
+can pass when the propositions, referents, register and emphasis remain equivalent.
+Do not require one exact English string, ban every grammatical addition or count
+every awkward phrase as a material error. Technical terminology and genuinely
+ambiguous meaning need the maintainer's judgment; code-agent inspection alone is
+not final bilingual acceptance.
+
+An explicit formatting `needs-review` outcome may satisfy the existing fallback
+contract only when its retained-original/labelled-translation presentation is
+accepted as usable. It never counts as preserved target-word styling and cannot
+excuse a meaning failure. The current code cannot reliably detect arbitrary
+semantic mistakes or convert structurally valid but wrong 7B prose into an honest
+review outcome. No such new adapter fallback is implemented here.
+
+Before any integration decision:
+
+1. Freeze model/quantization hash, language pair, runtime/template, prompt,
+   sampling and transport policy. Keep all existing counterexamples. No per-case
+   prompt repair, best-of-output selection, phrase stitching or hidden prose edits.
+2. Annotate intended propositions, emphasis ownership and permitted ambiguity
+   before generating fresh held-out FR/ES passages. Cover negation/referents,
+   quantities/modality, nested/repeated scopes, full-sentence styles, literal
+   islands and fused/intra-word styles. Keep private inputs and receipts outside
+   the repo; do not revive the retired alignment suite or add benchmark tooling.
+3. Record meaning as `acceptable / failed / undecided`, target styling as
+   `preserved / wrong / unresolved`, and mechanics as `valid / invalid / unverified`,
+   with a reason and source/target location. Structural validity does not close
+   unverified decoder-termination requirements. Review all short cases, then one manageable
+   complete representative document per language for terminology, omissions,
+   emphasis and reading usability. Unread content remains untested; an opening
+   or isolated paragraph does not qualify the rest of the document.
+4. Keep a pair/profile unqualified while an observed material meaning failure,
+   wrong unambiguous emphasis or unresolved reviewer decision remains in its
+   acceptance set. Ambiguous/typographic cases need an explicit accepted policy,
+   not reclassification as exact preservation. Passing one pair does not admit
+   another. Finite reviewed evidence never promises zero errors on future text;
+   do not average a hard failure away or present a quality percentage from this
+   small screen. A changed profile must face the whole regression set again.
+5. Only after a positive quality decision, qualify the actual Rust/native path
+   and termination behavior, then existing lifecycle/cache/save and packaged
+   acceptance. The stock chat endpoint's `stop` is insufficient. These checks,
+   benchmarks and smoke are not executed by defining this gate.
+
+The current Spanish subject error blocks 7B admission independently of formatting;
+the French fused-negation and initial-letter cases have no accepted preservation
+policy yet. Keep 7B gated. The next decision is whether further held-out quality
+evaluation of this fixed profile is worthwhile as a diagnostic, or to evaluate a
+changed profile/another maintained local model or defer it. More passing examples
+cannot clear the known failure in an unchanged profile. Any replacement profile
+must face the whole frozen set again. Do not begin production integration merely
+because the DOM transport works.
 
 ### Acceptance cases to retain
 
@@ -1002,9 +1078,13 @@ Deletion safety has no remaining finding from its review. The
 rejected, and neither the [Firefox/HY screen](#firefox-dom-and-hy-mt2-18b-evaluation--2026-10-21)
 nor the [7B Q4 screen](#hy-mt2-7b-q4-quality-screen--2026-10-21) qualifies a new
 provider. The [source-owned trial](#hy-mt2-source-owned-html-trial--2026-10-21)
-passed mechanical reconstruction but retained semantic counterexamples. The next
-step is review of its private preview and a frozen semantic acceptance policy
-before held-out/full-document evaluation or production integration. Use Firefox's
+passed mechanical reconstruction but retained semantic counterexamples. Its
+private preview has been reviewed and the [semantic gate](#semantic-acceptance-gate--2026-10-21)
+is defined. The current profile fails meaning acceptance and has unresolved
+styling policy. Decide whether further held-out/full-document quality evaluation
+is worthwhile as a diagnostic, or test a changed profile/candidate against the
+whole frozen set. Additional passing examples cannot erase the known failure.
+Use Firefox's
 DOM ownership as an architectural reference, not evidence of solved completeness
 or semantic styling. Representative
 FR/ES meaning, review usability and rebuilt-app integration remain required under
