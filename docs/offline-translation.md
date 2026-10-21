@@ -316,20 +316,30 @@ on both; a smaller parameter count or valid HTML cannot qualify formatting.
 | --- | --- | --- |
 | [TranslateGemma 4B](https://huggingface.co/google/translategemma-4b-it) | Translation-specialized generative model; its [report](https://arxiv.org/abs/2601.09012) includes French, Spanish and Modern Standard Arabic into English. Closest smaller alternative to the proposed 7B screen. | Prescribed language-code chat template, 2K-token input context and no documented HTML-preservation guarantee. Open weights under Gemma terms; official HF downloads require accepting those terms. Quantized community packages are separate from Google's original weights and need provenance/runtime checks. Published results do not establish superiority in our directions. |
 | [MADLAD-400 3B MT](https://huggingface.co/google/madlad400-3b-mt) | Multilingual translation-specialized T5 model with Apache-2.0 weights. The hosted conversion documents a 1.65 GB Q4K pack for Candle. | Encoder-decoder integration/tokenization differs from the existing Marian and HY adapters. The Candle GGUF must not be assumed compatible with llama.cpp. No rich-markup guarantee; prefer it as a later text-quality/resource baseline. |
+| [Phi-4-mini-instruct 3.8B](https://huggingface.co/microsoft/Phi-4-mini-instruct) | MIT-licensed general-purpose model whose documented languages include French, Spanish and Arabic; a smaller generative comparison candidate. | Its multilingual/reasoning and instruction-following evidence does not establish translation-specific HTML fidelity. Apply the same protected transport and full acceptance set; qualify its exact quantization, template and runtime before integration. No formatting advantage has been measured here. |
+| [TranslatePsy-EuroNano](https://huggingface.co/qvac/TranslatePsy-EuroNano) | Apache-2.0 Marian/Bergamot translation models. One `xx-en` pack covers French/Spanish → English; quantized Tiny/BaseMemory/Base weights are about 17/31/42 MB, plus vocabulary/shortlist files. | No Arabic coverage. These are Bergamot assets, not GGUF or a drop-in CTranslate2 pack. Compatibility with this exact worker and successful HTML restoration remain untested; new weights do not establish that the earlier alignment failures disappear. |
 
 Do not add several providers before establishing useful outputs. The
-[7B Q4 screen](#hy-mt2-7b-q4-quality-screen--2026-10-21) now informs the next
-bounded transport trial. TranslateGemma 4B remains an alternate if that candidate
-cannot meet quality requirements. An unmodified TranslateLocally native-HTML
-comparison can check whether
-its different model/runtime pins help, but it is not an independent formatting
-solution. Retain the existing source-owned DOM, assets, cancellation, cache and
-writer owners; no new generic alignment stack or model-training project is proposed.
+[revised 7B profile](#revised-7b-profile--2026-10-21) also failed acceptance.
+For the maintainer's formatting priority, the next recommended feasibility check
+is EuroNano through the existing unmodified Bergamot runtime. This is an
+architectural preference, not a measured quality ranking over Phi or other
+models. The [official alternative toolkit](https://github.com/tether-ai-research/qvac-translatepsy-euro-nano)
+provides text inference and explicitly lacks an HTML translator; adopting it or
+the QVAC SDK would not itself solve placement. First check the official model's
+runtime/configuration compatibility, then the frozen meaning/markup cases and
+prior completeness counterexamples. Keep Bergamot gated during that evaluation.
+Phi can be a separate generative comparison; none of these model cards certifies
+bold/italic correspondence. Retain the existing source-owned DOM, assets,
+cancellation, cache and writer owners; no new generic aligner or model-training
+project is proposed. An unmodified TranslateLocally native-HTML comparison also
+remains possible, without assuming its different model/runtime pins fix mapping.
 
 If “Jev-like” refers to a narrow-task model philosophy, translation specialists
 fit that analogy. [Jev itself](https://typesafe.ai/blog/introducing-system-one-models-and-jev)
 returns typed decisions rather than generated translations; it is not the proposed
-translation engine. No TranslateGemma or MADLAD weights were downloaded or run.
+translation engine. No TranslateGemma, MADLAD, Phi or TranslatePsy weights were
+downloaded or run in this investigation.
 
 ### HY-MT2 7B Q4 quality screen — 2026-10-21
 
@@ -454,6 +464,50 @@ below is now defined; the current outputs do not pass it. More DOM repair cannot
 solve an incorrect translation. Any further quality screen must use these
 criteria before integration, rather than redefine success around the outputs.
 Broader benchmarks, packaged smoke and the version bump remain deferred.
+
+### Revised 7B profile — 2026-10-21
+
+**`fidelity-first-v1` failed the frozen acceptance gate; keep 7B gated.** After
+committing the criteria as `5662c70`, one global prompt revision was frozen before
+generation. It adds the trusted source-language label and prioritizes full-sentence
+meaning, referents, negation, quantities and faithful grammar; formatting must not
+invent prose merely to carry an identity or widen an initial-letter style. The
+initial-letter rule is an evaluation constraint, not an approved general inference
+about source typography. No per-case translation hints or alternative prompts
+were used. The template SHA-256 is
+`163c78e04e3bb9ac6eea5c52a98d174160e358f59e60d4d6e18e16f791ac8caa`.
+
+All twelve synthetic cases and both private paragraphs ran once. Source bytes,
+protected transport/plans, 7B Q4 weights, stock runtime/template, seed and sampler
+match the preceding source-owned trial. Expectations and rendered prompts were
+hashed before generation. All fourteen requests reported `stop`; thirteen passed
+the unchanged strict renderer. Raw replies were not repaired or selected against
+another profile. Results, receipts, rejected output and an inert preview remain
+private and outside the repo.
+
+| Case group | Revised result |
+| --- | --- |
+| Spanish quoted negation | The original subject error was not resolved faithfully: the reply isolates a quoted “No” and then asserts “he will come tomorrow.” This breaks polarity and quote/note association despite valid identities |
+| French split negation | Both protected identities are missing, so reconstruction rejects with `Missing semantic identity`. Bold “anything” still has no defensible correspondence to the source negative particle and broadens the statement |
+| Initial-letter styling | French still widens to the whole word; Spanish regresses from initial-only styling to the whole greeting and comma. These remain typography deviations, not preserved target scopes |
+| Other eight synthetic passages | No obvious new material meaning or emphasis failure found in this inspection; nested/repeated scopes, quantities and literals retain the previous useful results |
+| Two private paragraphs | Apparently complete with corresponding emphasis; terminology/register still need maintainer judgment. One rhetorical expression was softened relative to the source |
+
+Fresh checks passed: fourteen source roundtrips and fourteen trust-boundary
+mutation rejections, plus strict admission/audit of all fourteen new replies.
+The single rejected reply remained rejected; thirteen structural admissions are
+not thirteen quality passes. Independent code-agent review covered all cases,
+and static preview inspection confirmed the visible failure. API `stop` still
+does not close the native termination caveat. This is a regression screen on
+known cases, not held-out evidence, a performance benchmark or human sign-off.
+Image fidelity remains excluded from this decision.
+
+**Decision:** do not integrate this profile or start another prompt iteration
+automatically. The revised instruction did not meet the criteria and introduced
+regressions. A different candidate needs its own unchanged full-set evaluation;
+do not substitute whichever profile looks better on individual passages. No
+production source, model admission, app data or version was changed. Benchmarks
+and broader smoke remain deferred.
 
 ### Bounds and explicit failures
 
@@ -1080,11 +1134,12 @@ nor the [7B Q4 screen](#hy-mt2-7b-q4-quality-screen--2026-10-21) qualifies a new
 provider. The [source-owned trial](#hy-mt2-source-owned-html-trial--2026-10-21)
 passed mechanical reconstruction but retained semantic counterexamples. Its
 private preview has been reviewed and the [semantic gate](#semantic-acceptance-gate--2026-10-21)
-is defined. The current profile fails meaning acceptance and has unresolved
-styling policy. Decide whether further held-out/full-document quality evaluation
-is worthwhile as a diagnostic, or test a changed profile/candidate against the
-whole frozen set. Additional passing examples cannot erase the known failure.
-Use Firefox's
+is defined. The [revised 7B profile](#revised-7b-profile--2026-10-21) also fails,
+including a structural rejection and a polarity regression. Keep 7B gated; stop
+this profile's integration. The next recommended investigation is EuroNano's
+compatibility with the existing Bergamot runtime, followed by the same frozen
+cases before any production changes. Phi remains a possible separate comparison.
+Additional passing examples cannot erase a known failure. Use Firefox's
 DOM ownership as an architectural reference, not evidence of solved completeness
 or semantic styling. Representative
 FR/ES meaning, review usability and rebuilt-app integration remain required under
