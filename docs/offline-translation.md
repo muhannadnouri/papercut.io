@@ -27,6 +27,7 @@ unqualified provider in the app.
 - [Disabled aligner archival evaluation](#disabled-aligner-archival-evaluation--2026-10-21) defines the preservation rules now applied by [strict-pipeline retirement](#strict-alignment-pipeline-retirement--2026-10-21).
 - [Shared sentence-planner separation](#shared-sentence-planner-separation--2026-10-21) now gives live planning/decoding its own module outside strict research, with unchanged translation policy and cache identities.
 - [Worker and rendering boundary evaluation](#worker-and-rendering-boundary-evaluation--2026-10-21) defines the responsibility split. [Bergamot adapter separation](#bergamot-adapter-separation--2026-10-21) and [legacy rendering isolation](#legacy-rendering-isolation--2026-10-21) are implemented. Provider admission and formatting behavior stay unchanged.
+- [UI and documentation consolidation evaluation](#ui-and-documentation-consolidation-evaluation--2026-10-21) recommends condensing this maintained guide before extracting saved-document presentation; async job ownership stays in `App` and its existing manager hook.
 
 - Translation accepts **HTML and EPUB only**, enforced in both the UI and native source loader. PDF and other formats remain unsupported.
 
@@ -4375,10 +4376,102 @@ translation quality or mobile behavior. Frontend, new CI, inference, benchmarks,
 smoke and version bump were not checked or advanced. Provider admission and the
 retired strict-alignment state are unchanged.
 
-**Next bounded stage:** evaluate the remaining UI setup/job/result responsibilities
-and document structure before another production refactor. Prefer extracting a
-concrete responsibility over splitting by line count, and keep model admission,
-formatting policy, saved-result behavior and existing acceptance limits explicit.
+The [UI/documentation evaluation below](#ui-and-documentation-consolidation-evaluation--2026-10-21)
+defines the next bounded stages. This review does not authorize new provider
+admission or change formatting behavior.
+
+### UI and documentation consolidation evaluation — 2026-10-21
+
+Evaluated `TranslationPanel`, `useTranslationManager`, their `App` wiring,
+presentation/dialog helpers, tests and the current guide against the earlier
+architecture decision recalled with MemSearch. This stage changes documentation
+only. File size is a navigation concern, not evidence that the working lifecycle
+needs rewriting: the panel is 983 lines, its manager 393, and this guide was 6,624
+lines at `7870634f` before this evaluation.
+
+#### UI ownership and the smallest useful extraction
+
+| Responsibility | Current owner | Decision |
+| --- | --- | --- |
+| Native commands, progress listeners, terminal results, worker abort controller, install retry and Library refresh | `useTranslationManager`, mounted by `App` | Keep one owner. Do not move the hook into a tab child or create new per-component listeners/stores. |
+| Selected model/languages, capability admission and shared busy conditions | `TranslationPanel` | Keep coordination here for now; do not duplicate availability or lock calculations across children. |
+| Saved-result list, open action, delete confirmation and delete-status dismissal | Inline in `TranslationPanel` | First extraction: `TranslatedDocumentsPanel.tsx`, with only the existing data/callbacks it uses. |
+| Catalog rows, install/remove actions, retired-pack removal and model confirmation | Inline in `TranslationPanel` plus its existing install-button helper | A possible later setup component; evaluate after the saved-results extraction rather than moving it together with job state. |
+| Active-job message, progress meter and Cancel presentation | Inline in `TranslationPanel` plus its existing meter helper | Keep current behavior initially. Do not relocate Cancel, redesign status dismissal or split lifecycle ownership during the first extraction. |
+
+The manager lives above the conditional tab panel. It retains the command outcome
+and worker controller when the panel unmounts; its `enabled` flag already controls
+listener subscription. Moving it into an extracted view would change lifecycle
+semantics. Existing late-event, terminal-progress, download-retry and unknown-save
+outcome tests protect behavior that a presentation refactor must preserve.
+
+The saved-results child can own `docsOpen`, `confirmingDeleteId` and delete-status
+dismissal because they are local presentation state. Resolve the confirming ID
+against the latest documents, as today; do not capture a stale document object.
+Keep native operations and Library refresh in the existing callbacks. The list
+must remain available with no selected source, no runnable provider, and installed
+models removed. Preserve `stored` versus `needs-review`, model-name fallback,
+dialog labels/focus behavior and the existing DOM/CSS structure. Only extract
+language/status formatting into `utils/presentation.ts` when both real consumers
+need it; do not copy helpers or move unrelated formatting speculatively.
+
+#### Documentation decision
+
+Keep **one maintained Markdown guide** at this path and leave
+`offline-translation-evaluation.json` unchanged. The JSON is not disposable prose:
+Rust asset-pin tests and the worker test load it directly. Keep historical research
+and implementation receipts in the immutable
+[pre-consolidation guide](https://github.com/muhannadnouri/papercut.io/blob/7870634fc8835224a4f35cf4a3ee293a34b564ed/docs/offline-translation.md),
+also recoverable with `git show 7870634f:docs/offline-translation.md`. Do not create
+another large history document or reintroduce private repros/benchmark scripts.
+
+The current guide mixes valid current contracts with obsolete plans. Examples:
+`Storage And Cache Identity` still proposes a `translation_segments` table while
+the implementation uses uploaded-document storage plus `translated_documents` and
+a separate JSON resume cache; the old mobile opt-in prose tells readers to install
+worker models despite today's acceptance gate; historical "Quality Upgrades —
+Mostly Done" is not current model-quality acceptance. Replace these competing
+instructions with code-backed current guidance and an explicit historical link.
+
+The condensed guide should contain: supported scope/provider gates and formatting
+limits; the current module/ownership map; model install/status/removal; cache,
+variant and atomic-save rules; actual desktop/mobile build and CI commands; a
+deduplicated acceptance matrix and deferred work; historical evidence/references.
+Distinguish tested structural behavior from linguistic quality and packaged-device
+acceptance. Keep unique manual cases for HTML/EPUB, long jobs, cancellation/restart,
+cache invalidation, retained-original labels, notes/links/assets, Library search,
+TTS/read-along and existing audio preservation. Keep future Arabic/RTL, gated
+providers and mobile checks explicitly deferred, not current support promises.
+
+#### Implementation order and completion gates
+
+1. **Consolidate documentation first.** Preserve the path used by README and
+   `user-document-search.md`, plus the worker-only mobile section anchor used by
+   `apple-distribution.md`. Repoint retained historical links to the frozen guide;
+   check local paths and fragments after rewriting. Verify all current commands,
+   flags and identity/schema descriptions against code. Keep the evidence JSON
+   byte-identical and its test references working. No production changes or new
+   permanent documentation-checking framework are needed.
+2. **Extract saved-document presentation separately.** Retain the existing Panel
+   integration tests and add meaningful cases for delete-dialog cancel/confirm,
+   a refresh removing the selected confirmation target, delete failure/retry,
+   collapsed-list state, and independent dismissal of job versus delete status.
+   Keep the no-backend saved-result and `needs-review` cases. Pass translation
+   frontend tests, TypeScript and changed-file lint; preserve localization keys
+   and existing CSS. No new hook, context, store, IPC or dependency is required.
+3. **Review before another UI extraction.** Reassess setup/job boundaries with
+   the smaller panel and retain the shared manager. Do not pre-create all three
+   screens or infer a release-ready translator from a cleaner component tree.
+
+Fresh baseline: **121 frontend translation tests passed** across all six files.
+This is a structural evaluation and documentation update, not a visual/device
+smoke result. No production file, model, cache, saved document or evidence JSON
+changed. Rust suites, new CI, model inference, benchmarks, smoke and version bump
+were not run or advanced. Strict alignment remains retired; provider gates and
+the sentence/review policy remain unchanged.
+
+**Next bounded stage:** consolidate this guide as specified above, then extract
+saved-document presentation in a separate stage.
 
 ## Boundary-based CTranslate2 translation — 2026-10-20
 
