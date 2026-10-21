@@ -4118,9 +4118,21 @@ algorithm was compared with its prior source: only budget-variable naming and
 module visibility changed. Cache/schema/policy versions and variant identities
 are unchanged; existing golden and save/resume regressions passed.
 
-**Next bounded stage:** review the planner separation before retiring the strict
-runtime/pipeline and replacing inactive setup with trusted legacy pack management,
-as scoped in the archival evaluation. Public provider gates and retained-original
+**Review receipt:** Ponytail Review of `2c1b76a6` found no actionable issues.
+Compared the moved types/serde attributes, planning, bounds, review decisions and
+decoding against the prior source; traced live/strict callers, receipt accessors,
+cache restoration and renderer admission. All 11 original planner tests remain
+unchanged, alongside the two new sentence-entry regressions. Assumed one foreground
+HTML/EPUB job with bounded batches. Fresh validation passed **293 base Rust
+translation tests** and **124 frontend translation tests**. Native-feature,
+worker-only, build/type/locale checks above remain implementation receipts, not
+new review runs. This separation has no identified merge blocker; translation
+quality and packaged-device acceptance remain separate release gates.
+
+**Next bounded stage:** retire the disabled strict runtime/pipeline and replace
+inactive setup with trusted legacy pack management, as scoped in the archival
+evaluation. Preserve the shared planner, normal cache identities, saved documents,
+audio and installed-pack status/removal. Public provider gates and retained-original
 fallback remain unchanged. Strict stays disabled; model benchmarks, smoke,
 packaged-device acceptance and the version bump remain deferred.
 
