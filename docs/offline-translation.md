@@ -94,8 +94,9 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - The [ownership-boundary evaluation](#stage-9-ownership-boundary-evaluation--2026-10-20)
   finds that a separate English clitic boundary view can represent all 52 frozen
   positive scopes without changing model tokens. Boundaries cannot establish
-  semantic ownership, however; actual FP32/four-bit link qualification is next,
-  before any production contract change or provider integration.
+  semantic ownership. The subsequent [FP32/four-bit link evaluation](#stage-9-omnialign-fp32four-bit-link-evaluation--2026-10-20)
+  fails mandatory positive scopes and accepts both fused negatives under the
+  tested raw-input policy. **Do not integrate this OmniAlign candidate.**
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -2962,6 +2963,120 @@ Only this document changes. The candidate remains `FORMATTING_ACCEPTED = false`;
 model/runtime dependencies, installer/catalog/cache, saved documents and app
 version are unchanged. Actual OmniAlign link quality, benchmarks, broader/device
 smoke, fresh CI and version bump remain deferred.
+
+## Stage 9 OmniAlign FP32/four-bit link evaluation — 2026-10-20
+
+**No-go for the tested raw-input provider policy.** Both exports fail mandatory
+positive scopes and accept unsafe fused-negation mappings. A larger FP32 pack
+does not resolve these failures. Committed the preceding boundary findings as
+`df4e426` before inference; no production implementation followed this evaluation.
+
+### Fixed policy and execution
+
+- Preserved all **58 frozen cases** and exact previously captured CTranslate2
+  outputs; frozen SHA-256 remains
+  `8c0a50b23bf51d088e8728991b740b754217a3cc7aaa8a8ccb72686a042ebad5`.
+  No private sample, new translation generation or modified expected scope was
+  used. The cases contain **59 unique source/target strings**.
+- Froze the extraction/aggregation specification before native inference,
+  SHA-256 `a7c3fc0a413d5ae96c191b3c0415a2e01129a65033c79fea7d0d374a8b5144d3`.
+  Used the existing layer-7 FP32 and four-bit exports of the pinned OmniAlign
+  checkpoint. Raw exact strings retain their actual token IDs, word IDs and
+  offsets; framing is excluded from the alignment scores. No truncation,
+  pre-split inference, target rewriting or changed tokenizer profile was used.
+- Each export ran all 59 strings through the **unchanged native Linux runtime**
+  used in the feasibility check: ort rc.13 / API 17, shared ORT 1.27.0, CPU,
+  independent two-intra/one-inter thread pools, sequential execution, disabled
+  arena/memory pattern. All **118** inferences returned finite `[1, n, 768]`
+  tensors, and native tokenizer IDs matched the frozen inputs.
+- Applied the pinned [upstream example's](https://github.com/MilkDargon/OmniAlign/blob/bf2687ef7172801b2b5c84df7b1fdfd4d1642bfe/example/example.py)
+  four unmodified tensor assignments to those native embeddings: FP32 unscaled
+  dot products, row/column softmax and intersection **strictly above 0.001**.
+  Executed only these assignments in the existing research environment, not
+  the upstream CLI's imports, sentence processing or pre-split tokenization.
+  An independent NumPy implementation agrees on all **116 case/export graphs**.
+- Aggregated genuine token links by union into the previous Unicode source /
+  English clitic target cells. Each token must fit wholly in one cell. Required
+  source coverage, lexical target coverage and mixed-owner checks remain
+  conservative. No proximity repair, threshold/layer sweep, broad contraction
+  veto or expected `FusedMeaning` label was supplied to make a case reject.
+
+This tests the proposed raw-input adapter with upstream extraction math, **not**
+the authors' complete pre-split CLI or every possible OmniAlign configuration.
+It is a fixed correctness probe, not a speed/RAM benchmark or held-out quality
+measurement. Cell geometry and lexical scopes do not replace complete DOM,
+identity, hierarchy, literal or attachment acceptance.
+
+### Results
+
+The numbers are identical for FP32 and four-bit; the underlying graphs are not.
+
+| Frozen positive group | Cases | Exact scope | Exact with no screen blocker | Screen rejects | Wrong scope with no screen blocker |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Fixed targets | 26 | 20 | 17 | 9 | 0 |
+| Actual CTranslate2 targets | 26 | 14 | 9 | 16 | 1 |
+| Total | **52** | **34** | **26** | **25** | **1** |
+
+“Exact scope” compares all owned scalar spans against the unchanged annotations.
+Also checking lexical-only spans produces the same counts here; punctuation
+leniency does not explain or repair these failures. Screen rejection means
+missing required source/lexical target links or mixed owners, not a successful
+translation of a required positive.
+
+- **Missing auxiliaries persist.** French future `reviendra` owns only `return`
+  in the fixed target and only `back` in `He'll be back tomorrow.`; the required
+  `will` or `ll/be` links are missing. Actual Spanish future and perfect scopes
+  likewise lose auxiliary components. Spanish `salir` owns only `out` while
+  `get` is unlinked. These remain failures even when the main verb is linked.
+- **Coverage can hide wrong ownership.** For `Ella no viene.` →
+  `She's not coming.`, styling `viene` owns only `coming`. The `s` cell is linked
+  to unstyled `Ella`, so there is no missing target or mixed-owner blocker, but
+  the required auxiliary is outside the style. Both exports admit this wrong
+  scope; complete coverage is insufficient.
+- **Both fused negatives are unsafely admitted by both exports.** For the frozen
+  French/Spanish future-plus-negation cases, the styled verb owns only `return`.
+  The whole `won't` cell is assigned to unstyled negation. All required coverage
+  checks pass, with no mixed owners, while future meaning falls outside the
+  style. This is actual inferred evidence of the previous counterexample, not
+  merely a hypothetical graph. Neither negative is a successful rejection.
+- **All four deliberately wrong translation pairs pass the graph screen** for
+  both exports, including the changed-colour controls. This confirms the stated
+  limitation that alignment coverage cannot certify translation correctness;
+  it is not a new promise that this structural contract detects arbitrary bad
+  translations.
+
+Quantization changes token-link sets in **7/58** case rows and cell-link sets in
+**4/58**, including the French fused negative. It does not change the aggregate
+scope counts or the two unsafe fused admissions. Therefore the result is neither
+numerical equivalence nor evidence that quantization caused the core failures.
+
+### Decision and next work
+
+Stop this OmniAlign integration path **under the evaluated policy** before
+changing production contracts, tokenizer admission, model manifests, installers
+or UI. The provisional small pack and successful offline inference do not meet
+the formatting gate. Do not implement the clitic boundary view as a fix for
+missing grammatical evidence, or disable coverage to increase the pass count.
+
+The next step is a Stage 9 design decision, not another production stage:
+continuing the engine-independent approach needs demonstrably better ownership
+evidence for auxiliaries and fused morphology. Any proposed maintained provider
+or different documented inference path must first meet the same frozen scopes
+and unsafe-negative gate outside the app. The existing results do not justify
+an upstream fork, a grammar repair heuristic or lowering the user's formatting
+requirements. Keep the present candidate disabled while deciding that path.
+
+**Validation/evidence:** input/policy/model/tokenizer/runtime hashes, all native
+outputs, 116 independent extraction comparisons, exact scope counts and negative
+admissions passed assert-based receipt checks. Research scripts/results remain
+outside Git in `/tmp/papercut-omnialign-link-evaluation/`, including
+`frozen-policy-receipt.json`, `summary.json` and `verification.json`; logs are
+`/tmp/omnialign-links-{prepare,fp32,q4,evaluation,verification}.log`.
+Only this document changes. Production code/dependencies/runtime bundles, model
+catalog/install/cache, saved documents and app version are unchanged, with
+`FORMATTING_ACCEPTED = false`. No new app/CI build, broader/device acceptance,
+benchmark, smoke or version bump ran. The prior 30-test contract receipt remains
+current; this docs-only update did not rerun that unchanged suite.
 
 ## Product Goals
 
