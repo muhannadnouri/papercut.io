@@ -87,6 +87,10 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   tests an alternative Awesome-align checkpoint against the frozen cases. It
   repairs the Spanish adjective and fixed French future but leaves important
   actual-output gaps. No provider replacement is approved.
+- [OmniAlign loading/export feasibility](#stage-9-omnialign-offline-loading-export-and-pack-feasibility--2026-10-20)
+  now demonstrates a provisional 151.6 MiB four-bit pack and native CPU execution
+  on the unchanged Linux runtime. Formatting quality, quantization effects and
+  other platforms remain unqualified; the public candidate stays disabled.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -2686,6 +2690,149 @@ frozen inputs, comparison assertions and results are under
 research files. No ONNX export, quantization, shared-runtime run of the new
 checkpoint, installer/catalog change, public admission, saved-document change,
 fresh app/CI build, benchmark, broader/device smoke or version bump was performed.
+
+## Stage 9 OmniAlign offline loading, export and pack feasibility — 2026-10-20
+
+**Offline/export/size feasibility demonstrated; no production integration.**
+Offline loading, an ONNX export and a pack below the existing 200 MiB target are
+demonstrated without a library fork or runtime upgrade. This does **not** show
+that OmniAlign fixes the frozen formatting failures. The previous provider
+findings were committed as `dc7b4cd` before this investigation.
+
+### Immutable inputs and offline loading
+
+- Used [WPS-Qingqiu/OmniAlign](https://huggingface.co/WPS-Qingqiu/OmniAlign/tree/eaeeb279332156479b9092641a6b9e189e83a6d8)
+  revision `eaeeb279332156479b9092641a6b9e189e83a6d8`. The actual safetensors
+  file is **610,751,248 bytes**, SHA-256
+  `e3177c8f3a75d81ad5947bd6e2dfada53f8fd0124de3186d58eb62c23794df1a`,
+  verified against publisher LFS metadata. Config, tokenizer, source and card
+  files have separate pinned size/hash receipts. All research files stay in
+  `/tmp`; no private article or sample-derived input was used.
+- Plain `AutoConfig(..., trust_remote_code=False)` rejects this custom model.
+  Reviewed the pinned `configuration.py` and `modeling.py`, then imported their
+  explicit local `NewConfig`/`NewModel` classes. Loaded safetensors with
+  `local_files_only=True`, `weights_only=True`, CPU FP32 and the provided eager
+  attention implementation. No upstream file was patched, remote code fetched
+  during loading, or xformers/CUDA dependency added. Offline environment flags
+  and unavailable proxies were set for loading/export/inference. This is a
+  reviewed local research loader, not permission for the app to execute newly
+  downloaded Python code.
+- Used the authors' [pinned inference example](https://github.com/MilkDargon/OmniAlign/blob/bf2687ef7172801b2b5c84df7b1fdfd4d1642bfe/example/example.py)
+  default **`hidden_states[7]`**. Loaded the full 12-layer checkpoint first;
+  retaining its first seven layers produces that same tensor. Verified exact
+  full-model/layer-prefix equality on seven synthetic inputs before export.
+  This removes computations after the requested output, not trained weights
+  from within the seven-layer representation. No layer search or training ran.
+
+### Export and unchanged-runtime checks
+
+The existing research environment uses Torch **2.9.0+cpu**, Transformers
+**4.57.1**, ONNX **1.19.1** and Python ORT **1.23.2** tooling. No project
+dependency was added or changed.
+
+1. Standard `torch.onnx.export(..., dynamo=False, opset_version=17)` produced
+   FP32 `input_ids`/`attention_mask` → `[1, sequence, 768]` embeddings with a
+   dynamic sequence dimension. This currently supported legacy exporter emits
+   a deprecation warning; the newer dynamo exporter was not qualified here.
+   The two upstream position-cache tracing warnings concern expansion beyond
+   8,192 positions. This probe stays within the existing **256-token** bound;
+   it makes no long-context export claim.
+2. Used ORT's installed **`MatMulNBitsQuantizer`** with the documented
+   [four-bit weight-only recipe](https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html#quantize-to-int4uint4):
+   RTN, symmetric weights, block size 128, accuracy level 4, QOperator format,
+   constant `MatMul`/`Gather` weights and axes 0/1 respectively. The resulting
+   graph has **28 `MatMulNBits` and two `GatherBlockQuantized`** nodes, ONNX
+   opset 21 and `com.microsoft` domain version 1. These are ORT-supplied contrib
+   operators; no Papercut kernel or custom native extension was built.
+3. Both graphs pass `onnx.checker`. An external Rust harness used the project's
+   existing **ort rc.13 / API 17** binding and actual shared Linux **ORT 1.27.0**
+   library with the same explicit CPU, independent pools, two-intra/one-inter
+   threads, sequential execution and disabled arena/memory-pattern settings.
+   No second app runtime, `ORT_DYLIB_PATH` override or new runtime build was used.
+4. Both graphs loaded and returned finite FP32 tensors for all **seven inputs
+   per graph**: French, Spanish, accented/inverted-punctuation text, synthetic
+   lengths 2/23/256 and a masked-padding case. FP32 output matches the Torch
+   reference at predeclared `rtol=1e-4, atol=5e-5`; maximum absolute error across
+   these checks is about **2.77e-5**. This is representation/export correctness,
+   not a translation or formatting acceptance test.
+
+The existing Rust **tokenizers 0.23.2** also parses the new tokenizer and agrees
+with the research Python tokenizer on IDs, word IDs and decoded UTF-8 offset
+slices for five ordinary Unicode/contraction inputs. This verifies basic native
+loading, not the unknown-token/normalization admission policy for this family.
+The authors' separate whitespace/NLTK pre-split word-alignment pipeline was not
+adopted; these checks exercise encoder representations and raw tokenizer evidence.
+
+Four-bit outputs are **not numerically equivalent** to FP32. Maximum element
+differences on the three ordinary text probes are approximately **0.85–1.14**;
+the repeated-token/padding probes differ more, including unused masked positions.
+Finite outputs and a small file
+do not establish preserved word links. No extraction threshold was adjusted,
+no formatting case was relabelled and no semantic-quality result is claimed.
+
+### Pack-size result
+
+Sizes are uncompressed bytes, matching installer accounting; no compression
+ratio or measured RAM/latency is substituted for the pack budget.
+
+| Payload | Bytes | Disposition |
+| --- | ---: | --- |
+| Published full BF16 safetensors | 610,751,248 | Research input; not a delivery pack. |
+| Exported layer-7 FP32 graph | 1,037,046,783 | Too large for the pack target. |
+| Optimistic seven-layer all-parameter INT8 plus tokenizer files | 275,251,111 | Already exceeds 209,715,200 bytes before scales, graph and notices; this is a tensor-inventory lower bound, not an INT8 export measurement. |
+| Actual four-bit graph | 141,774,895 | 135.2 MiB; self-contained ONNX file. |
+| Four-bit graph + config/tokenizer/special-token files + reviewed source/card | **158,957,415** | **151.6 MiB**, leaving about 48.4 MiB below the target before final notices/manifest. |
+
+The four-bit graph SHA-256 is
+`cb9e655cdda6374a22c4f3faee418bc155c47be5569084eef5db0a966f1e904b`.
+The provisional sum deliberately includes the research source files; production
+inference would consume the ONNX graph and need not ship a Python loader. It
+excludes the full safetensors and FP32 build inputs. Complete redistribution
+notices, immutable hosted export provenance and installer admission remain open;
+this is not an approved installable manifest.
+
+### Next gate and maintenance implications
+
+- **Resolve the word-boundary representability question before integration.**
+  Raw OmniAlign tokenization groups all of `He'll` into one word ID (and groups
+  trailing punctuation with the preceding word). A frozen actual-output scope
+  needs `ll` styled while `He` remains unstyled. The unchanged whole-word
+  contract cannot represent that `3..5` span inside the `0..5` word, regardless
+  of embedding quality. `won't` is likewise one word and its fused-negation
+  rejection must remain intact. Do not fabricate new word IDs, re-split/rewrite
+  the target or silently remove that required positive to claim compatibility.
+  The next evaluation must establish whether a principled ownership-boundary
+  design can meet the frozen requirements without weakening the unsafe cases;
+  otherwise this provider cannot meet them under the current contract.
+- **Then qualify FP32 versus four-bit frozen-case semantics**,
+  using the same exact French/Spanish targets, mandatory scopes, negation/fusion
+  controls and wrong-translation counterexamples. Quantization may change word
+  links, so passing the FP32 model alone cannot approve the small pack. If that
+  fails, stop before implementing installer/UI/provider integration.
+- This is **not** a drop-in replacement for the current mBERT auxiliary pack.
+  OmniAlign uses an XLM-R tokenizer with different reserved IDs/normalization;
+  the current BERT-specific `CandidateTokenizer` intentionally rejects it.
+  Any later approved adapter needs a verified tokenizer profile, unknown/lossy
+  normalization tests, new immutable graph/tokenizer/extraction identities and
+  separate cache compatibility. Keep the source-owned DOM contract and explicit
+  unresolved ownership; do not weaken old admission or reuse old model IDs.
+- A later delivery path should publish a verified export produced from pinned
+  unmodified sources with a reproducible build-time recipe. Do not download code
+  and export models on users' devices or vendor a patched upstream architecture.
+  The export-tool deprecation and ORT contrib-operator availability still need
+  maintained tooling and packaged-platform qualification. The Linux result says
+  nothing about Android/iOS/macOS/Windows kernel availability or low-power speed.
+
+**Validation/evidence:** pinned-source/weight hashes, full/prefix parity, both
+ONNX checker results, 14 finite native inferences, five native tokenizer parity
+checks, FP32 tolerances and pack-size
+arithmetic passed. Artifacts and disposable scripts are under
+`/tmp/papercut-omnialign-feasibility/`; logs are
+`/tmp/omnialign-{fetch,export,quantize,native-fp32,native-q4}.log`.
+Only this document changes. Production code/dependencies/runtime bundles, model
+catalog/installer/cache, saved documents, the disabled candidate and app version
+are unchanged. Frozen-case OmniAlign quality, benchmarks/RAM/thermals, broader
+smoke, packaged/device acceptance, fresh CI and version bump remain deferred.
 
 ## Product Goals
 
