@@ -3905,11 +3905,22 @@ tests**. TypeScript, all eight locale resources, Rustfmt and diff checks passed.
 No inference-quality, benchmark, fresh platform CI or packaged-device acceptance
 is claimed by this structural/lifecycle refactor.
 
-**Next bounded stage:** focused review of policy propagation and cache/save
-compatibility, then consolidate validated-batch/checkpoint handling while
-preserving whole-batch admission and cancellation cutoffs. Defer broader
-worker/mapping separation and UI restructuring until those shared boundaries are
-clear. No pipeline rewrite or generic plugin framework is required.
+Ponytail Review of `21061551` found no actionable must-fix or should-fix issue
+in policy propagation or cache/save compatibility. It traced command admission,
+planning/preflight keys, fresh and resumed caches, provider/strict dispatch,
+source-owned rendering and save ownership at the existing one-foreground-job
+load. MemSearch confirmed the earlier architecture and preservation decisions.
+Fresh review runs passed **289 base Rust translation tests** and **124 frontend
+translation tests**. Native-feature and worker-only results remain the
+implementation receipt above; this review did not repeat those configurations,
+model inference, platform CI or device acceptance.
+
+**Next bounded implementation:** consolidate validated-batch/checkpoint handling
+while preserving whole-batch admission, source/identity checks and cancellation
+cutoffs. Cover failure late in a batch, cancellation before a checkpoint, partial
+resume and cache-only completion. Keep provider-specific reconstruction rules
+explicit; defer broader worker/mapping separation and UI restructuring. No
+pipeline rewrite or generic plugin framework is required.
 
 Strict stays disabled. Benchmarks, smoke and the app version bump remain deferred.
 
