@@ -54,7 +54,8 @@ was rejected because it can change negation and word order despite valid HTML.
 4. If a style or attachment lies inside a translated sentence and cannot be
    restored safely, retain the entire affected formatted original block once,
    followed by a clearly labelled, escaped translation. Mark the document
-   **Saved — Formatting Needs Review** (`needs-review`), not ordinary `stored`.
+   **Saved — Formatting Needs Review** (`needs-review`), rather than ordinary
+   completion (`ready` in saved metadata, `stored` in the job result).
    Ordered-list containers and numbering remain source-owned.
 5. Decoder cutoff/empty output, malformed markup, invalid mapping, cancellation
    and save errors remain failures. Review is a planned formatting outcome,
@@ -88,8 +89,10 @@ Bergamot's own HTML restoration does not remove its output-completeness blockers
   output, token-limit cutoff, missing natural end and overflow. Character caps
   alone are insufficient; oversized indivisible text fails explicitly.
 - Exact-piece work is bounded separately: 128 translatable prose pieces and 641
-  total metadata units. Protected HTML has 32 KiB and 128-code bounds, plus
-  hierarchy, identity, literal, depth and expansion checks.
+  total metadata units. Protected transport HTML has a 32 KiB bound and at most
+  128 source codes, plus hierarchy, identity, literal and depth checks. Restored
+  reader HTML has a separate expansion budget that accounts for source-owned
+  attributes/literal payloads; it may legitimately exceed the transport bound.
 - Internal Bergamot planning caps inputs at 320 scalars with sentence/clause cuts.
   This is not a completeness guarantee, a product-admission bypass or a fix for
   its alignment failures. Worker replies remain bounded and validated.
@@ -195,6 +198,11 @@ status, path and timestamps. Deleting the source sets the provenance FK to null;
 it does not delete the derived upload. A new job still needs a readable source.
 Saved translations open without loading the model that created them.
 
+Successful saved rows use `ready`; successful job responses/progress use
+`stored`. Both use `needs-review` for retained-original results. Listing returns
+the saved row's status unchanged, so presentation/tests must distinguish these
+contracts rather than supplying a fabricated `stored` row for every success.
+
 Cache keys bind document URL, languages, model, quality, repair, formatting policy
 and ordered trimmed glossary entries. Resume additionally checks segment text
 hashes, DOM/location/context identity, planning settings, provider identity and
@@ -296,10 +304,16 @@ are not model-quality passes. A source refactor should run the affected suites;
 a documentation-only change need not rebuild every runtime. Historical counts
 are bound to their commits in the archive, not fresh CI for the current head.
 
-Documentation consolidation checks on 2026-10-21 passed: four Rust asset tests,
-six JS worker tests, local/inbound links and pinned archive fragments, unchanged
-evidence bytes, command/test-path checks and diff whitespace. This receipt does
-not add inference, full CI, quality acceptance or packaged-device validation.
+Focused review of consolidation commit `8213dd9` on 2026-10-21 traced admission,
+source/render/cache/save ownership, model verification and build/CI commands.
+Assumed one foreground HTML/EPUB job with sequential bounded batches.
+Checks passed: 221 base Rust translation tests, 121 frontend translation tests,
+36 mocked shipping/CI tests, local/inbound/archive links, unchanged evidence
+bytes, command/test-path checks and diff whitespace. Ten CI-script cases first
+hit sandbox subprocess `EPERM`; all 11 cases passed outside that sandbox.
+No production code changed. This does not add inference, full CI, language-quality
+or packaged-device acceptance. The saved-status presentation gap below remains
+for the next UI stage; no other actionable consolidation finding remains.
 
 ### Acceptance cases to retain
 
@@ -337,19 +351,24 @@ remain deferred.
 
 ## Next bounded work
 
-1. **Extract saved-document presentation**, after review of this consolidation.
+1. **Extract saved-document presentation**; consolidation review is complete.
    Introduce `TranslatedDocumentsPanel.tsx` using only existing data/callbacks.
    Keep `docsOpen`, `confirmingDeleteId` and delete-status dismissal local; resolve
    the confirmation ID against the latest document list, never a stale snapshot.
    Keep commands, Library refresh and the manager's lifecycle ownership unchanged.
-2. Preserve no-source/no-provider/removed-model access, `stored`/`needs-review`,
+2. Preserve no-source/no-provider/removed-model access, saved `ready`/`needs-review`,
    model-name fallback, dialog labels/focus and current DOM/CSS. Move language or
    status formatting to `utils/presentation.ts` only if two actual consumers
    need it. Do not add a context/store/listener or pre-split setup/job screens.
+   Fix the confirmed presentation gap: `formatStatusLabel` currently falls back
+   to English `Ready` for actual saved rows. Reuse the existing localized
+   completion label for `ready`, retaining existing `stored` handling.
 3. Keep Panel integration tests; add delete cancel/confirm, target disappearing
    on refresh, delete failure/retry, collapse and independent job/delete-status
-   dismissal regressions. Pass translation frontend tests, TypeScript and changed
-   lint. Review that extraction before deciding another UI boundary.
+   dismissal regressions. Use real saved `ready` and `needs-review` states plus
+   existing `stored` cases to protect the status distinction. Pass translation
+   frontend tests, TypeScript and changed lint. Review that extraction before
+   deciding another UI boundary.
 
 Release acceptance remains a separate gate: representative FR/ES meaning and
 review-original usability, HTML/EPUB search/TTS/read-along and rebuilt packaged
