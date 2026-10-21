@@ -1,19 +1,18 @@
-//! Bounded text/protected-code bridge to one WebView-owned Bergamot worker attempt.
+//! Bounded mailbox and lifetime for one WebView-owned Bergamot worker attempt.
+//! The adapter child owns engine/markup conversion; transport never restores document structure.
 //! Rust owns document planning, resume and persistence; the WebView owns inference.
 
 use std::collections::HashSet;
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use super::engine::{
-    validate_outputs, TranslationBatchInput, TranslationEngine, TranslationSegmentOutput,
-};
+use super::engine::TranslationSegmentOutput;
 use serde::{Deserialize, Serialize};
 
+mod adapter;
 pub(super) mod assets;
 
 const MAX_SEGMENTS: usize = 16;
-const MAX_SOURCE_CHARS: usize = 900;
 const MAX_OUTPUT_BYTES: usize = 256 * 1024;
 
 #[derive(Clone, Debug, Serialize)]
@@ -202,91 +201,6 @@ impl WorkerEngine {
         Ok(())
     }
 
-    /// Convert protected plans into opaque HTML, then validate and restore replies before the shared runner.
-    fn batch(
-        &mut self,
-        input: TranslationBatchInput,
-    ) -> Result<Vec<TranslationSegmentOutput>, String> {
-        if self.closed {
-            return Err("Bergamot worker attempt is closed".into());
-        }
-        self.check_cancelled()?;
-        if !matches!(input.source_language.as_str(), "fr" | "es")
-            || input.target_language != "en"
-            || input.segments.is_empty()
-            || input.segments.len() > MAX_SEGMENTS
-            || input.segments.iter().any(|s| {
-                s.id.is_empty()
-                    || s.id.len() > 128
-                    || s.text.trim().is_empty()
-                    || s.text.chars().take(MAX_SOURCE_CHARS + 1).count() > MAX_SOURCE_CHARS
-            })
-        {
-            return Err(
-                "Bergamot worker requires a bounded French/Spanish to English text batch".into(),
-            );
-        }
-        let expected = input
-            .segments
-            .iter()
-            .map(|s| (s.id.as_str(), s.text.as_str()))
-            .collect::<Vec<_>>();
-        let mut ids = HashSet::new();
-        if expected.iter().any(|(id, _)| !ids.insert(*id)) {
-            return Err("Duplicate Bergamot segment identities".into());
-        }
-        let reply = self.exchange(|attempt_id, batch_id| WorkerRequest::Batch {
-            attempt_id,
-            batch_id,
-            source_language: input.source_language.clone(),
-            target_language: input.target_language.clone(),
-            segments: input
-                .segments
-                .iter()
-                .map(|s| Segment {
-                    id: s.id.clone(),
-                    text: s
-                        .markup
-                        .as_ref()
-                        .map(|p| p.html.clone())
-                        .unwrap_or_else(|| s.text.clone()),
-                    html: s.markup.is_some(),
-                })
-                .collect(),
-        })?;
-        match reply {
-            WorkerReply::Result { mut outputs, .. } => {
-                let transport = input
-                    .segments
-                    .iter()
-                    .map(|s| {
-                        (
-                            s.id.as_str(),
-                            s.markup
-                                .as_ref()
-                                .map(|p| p.html.as_str())
-                                .unwrap_or(&s.text),
-                        )
-                    })
-                    .collect::<Vec<_>>();
-                validate_outputs(&transport, &outputs)?;
-                for (segment, output) in input.segments.iter().zip(&mut outputs) {
-                    if output.markup.is_some() {
-                        return Err("Worker cannot supply trusted mappings".into());
-                    }
-                    if let Some(plan) = &segment.markup {
-                        let restored = plan.restore(&output.text)?;
-                        output.markup = Some(std::mem::replace(&mut output.text, restored.text));
-                        output.source_text = segment.text.clone();
-                    }
-                }
-                validate_outputs(&expected, &outputs)?;
-                Ok(outputs)
-            }
-            _ => Err("Unexpected Bergamot worker reply".into()),
-        }
-    }
-
     /// One nonce/sequence mailbox and absolute deadline prevent stale replies extending an attempt.
     fn exchange(
         &mut self,
@@ -357,38 +271,6 @@ impl WorkerEngine {
         let _ = (self.emit)(WorkerRequest::Stop {
             attempt_id: self.id.clone(),
         });
-    }
-}
-impl TranslationEngine for WorkerEngine {
-    fn supports_protected_markup(&self) -> bool {
-        true
-    }
-
-    fn before_save(&mut self) -> Result<(), String> {
-        let result = self
-            .exchange(|attempt_id, batch_id| WorkerRequest::Confirm {
-                attempt_id,
-                batch_id,
-            })
-            .and_then(|reply| match reply {
-                WorkerReply::Confirmed { .. } => Ok(()),
-                _ => Err("Bergamot save confirmation missing".into()),
-            });
-        if result.is_err() {
-            self.close();
-        }
-        result
-    }
-
-    fn translate_batch(
-        &mut self,
-        input: TranslationBatchInput,
-    ) -> Result<Vec<TranslationSegmentOutput>, String> {
-        let result = self.batch(input);
-        if result.is_err() {
-            self.close();
-        }
-        result
     }
 }
 impl Drop for WorkerEngine {

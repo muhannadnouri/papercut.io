@@ -1,5 +1,7 @@
 use super::*;
-use crate::translation::engine::{TranslationSegmentContext, TranslationSegmentInput};
+use crate::translation::engine::{
+    TranslationBatchInput, TranslationEngine, TranslationSegmentContext, TranslationSegmentInput,
+};
 use std::thread;
 
 fn input() -> TranslationBatchInput {
@@ -341,55 +343,110 @@ fn save_checkpoint_requires_its_own_owner_nonce_and_confirmation_shape() {
     }
 }
 
+/// Mixed replies cross the real mailbox; one bad rich result must discard the valid plain result too.
 #[test]
-fn protected_worker_transports_only_opaque_codes_and_rebinds_source_after_validation() {
-    let (bridge, mut engine, rx) = setup();
-    let dom = crate::translation::dom::DomPlan::new(
-        "<p>Gardez <code>private_id</code> et <strong>or</strong>.</p>",
-    );
-    let source = dom.blocks[0].inline.text.clone();
-    let mapping = crate::translation::inline_markup::protected::plan_fragment(
-        &dom.blocks[0].node,
-        0..source.chars().count(),
-        &source,
-    )
-    .unwrap();
-    let mut input = input();
-    input.segments[0].text = source.clone();
-    input.segments[0].markup = Some(mapping);
-    let work = thread::spawn(move || engine.translate_batch(input));
-    let WorkerRequest::Batch {
-        attempt_id,
-        batch_id,
-        segments,
-        ..
-    } = rx.recv().unwrap()
-    else {
-        panic!("expected batch")
-    };
-    assert!(segments[0].html);
-    assert!(!segments[0].text.contains("private_id"));
-    assert!(!segments[0].text.contains("<code>"));
-    let target =
-        "Keep <span data-pc='0' translate='no'>PC0</span> and <span data-pc='1'>gold</span>.";
-    bridge
-        .reply(
-            "main",
-            WorkerReply::Result {
-                attempt_id,
-                batch_id,
-                outputs: vec![TranslationSegmentOutput {
-                    needs_review: false,
-                    id: segments[0].id.clone(),
-                    source_text: segments[0].text.clone(),
-                    text: target.into(),
-                    markup: None,
-                }],
-            },
+fn mixed_worker_batch_requires_transport_echo_and_source_owned_markup_before_admission() {
+    for mode in [
+        "valid",
+        "source-echo",
+        "missing-code",
+        "untrusted-markup",
+        "authored-html",
+        "reordered",
+    ] {
+        let (bridge, mut engine, rx) = setup();
+        let dom = crate::translation::dom::DomPlan::new(
+            "<p>Gardez <code>private_id</code> et <strong>or</strong>.</p>",
+        );
+        let source = dom.blocks[0].inline.text.clone();
+        let mapping = crate::translation::inline_markup::protected::plan_fragment(
+            &dom.blocks[0].node,
+            0..source.chars().count(),
+            &source,
         )
         .unwrap();
-    let output = work.join().unwrap().unwrap().remove(0);
-    assert_eq!(output.source_text, source);
-    assert_eq!(output.text, "Keep private_id and gold.");
-    assert_eq!(output.markup.as_deref(), Some(target));
+        let mut request = input();
+        request.segments.push(TranslationSegmentInput {
+            id: "b1:s0".into(),
+            text: source.clone(),
+            markup: Some(mapping),
+            context: TranslationSegmentContext::default(),
+        });
+        let expected = request.segments.clone();
+        let work = thread::spawn(move || engine.translate_batch(request));
+        let WorkerRequest::Batch {
+            attempt_id,
+            batch_id,
+            segments,
+            ..
+        } = rx.recv_timeout(Duration::from_secs(2)).unwrap()
+        else {
+            panic!("expected batch")
+        };
+        assert_eq!(segments.len(), 2);
+        assert!(!segments[0].html);
+        assert_eq!(segments[0].text, "Résumé 🙂");
+        assert!(segments[1].html);
+        assert!(!segments[1].text.contains("private_id"));
+        assert!(!segments[1].text.contains("<code>"));
+        let target =
+            "Keep <span data-pc='0' translate='no'>PC0</span> and <span data-pc='1'>gold</span>.";
+        let mut outputs = segments
+            .iter()
+            .map(|segment| TranslationSegmentOutput {
+                needs_review: false,
+                id: segment.id.clone(),
+                source_text: segment.text.clone(),
+                text: if segment.html { target } else { "Summary 🙂" }.into(),
+                markup: None,
+            })
+            .collect::<Vec<_>>();
+        match mode {
+            "source-echo" => outputs[1].source_text = source.clone(),
+            "missing-code" => outputs[1].text = "Keep everything.".into(),
+            "untrusted-markup" => outputs[1].markup = Some(target.into()),
+            "authored-html" => outputs[1].text = format!("<strong>{target}</strong>"),
+            "reordered" => outputs.reverse(),
+            _ => {}
+        }
+        assert!(bridge
+            .reply(
+                "main",
+                WorkerReply::Result {
+                    attempt_id: attempt_id.clone(),
+                    batch_id,
+                    outputs,
+                }
+            )
+            .unwrap());
+        let result = work.join().unwrap();
+        if mode == "valid" {
+            let outputs = result.unwrap();
+            crate::translation::engine::validate_mapped_outputs(&expected, &outputs).unwrap();
+            assert_eq!(outputs[0].source_text, "Résumé 🙂");
+            assert_eq!(outputs[0].text, "Summary 🙂");
+            assert!(outputs[0].markup.is_none());
+            assert_eq!(outputs[1].source_text, source);
+            assert_eq!(outputs[1].text, "Keep private_id and gold.");
+            assert_eq!(outputs[1].markup.as_deref(), Some(target));
+        } else {
+            assert!(result.is_err(), "{mode} returned a partly trusted batch");
+        }
+        assert!(matches!(
+            rx.recv_timeout(Duration::from_secs(2)).unwrap(),
+            WorkerRequest::Stop { .. }
+        ));
+        assert!(!bridge
+            .reply(
+                "main",
+                WorkerReply::Confirmed {
+                    attempt_id,
+                    batch_id
+                }
+            )
+            .unwrap());
+        assert!(bridge
+            .open("main".into(), "retry".into(), Arc::default(), |_| Ok(()))
+            .is_ok());
+    }
 }

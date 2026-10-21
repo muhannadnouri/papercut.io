@@ -517,6 +517,8 @@ fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_m
         enum ReplyMode {
             Valid,
             MissingCode,
+            WrongEcho,
+            UntrustedMarkup,
             Expansion,
         }
         let make_worker = |mode: ReplyMode| {
@@ -535,7 +537,9 @@ fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_m
                             else if s.id == "b2:s0" { "<span data-pc='0'>The</span> blue <span data-pc='0'>dog</span>." }
                             else if matches!(mode, ReplyMode::MissingCode) { "Keep a private identifier and the number." }
                             else { "<span data-pc='2' translate='no'></span>Keep <span data-pc='0' translate='no'>PC0</span> and <span data-pc='1' translate='no'>PC1</span><span data-pc='3' translate='no'></span>." }).to_string() };
-                        TranslationSegmentOutput { needs_review: false, id: s.id, source_text: s.text, text: target.into(), markup: None }
+                        let source_text = if s.id == "b1:s0" && matches!(mode, ReplyMode::WrongEcho) { "wrong transport echo".into() } else { s.text };
+                        let markup = (s.id == "b1:s0" && matches!(mode, ReplyMode::UntrustedMarkup)).then(|| target.clone());
+                        TranslationSegmentOutput { needs_review: false, id: s.id, source_text, text: target, markup }
                     }).collect();
                     WorkerReply::Result { attempt_id, batch_id, outputs }
                 },
@@ -545,27 +549,34 @@ fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_m
             host.bergamot.reply("main", reply).map(|_| ())
         }).unwrap()
         };
-        let mut invalid = make_worker(ReplyMode::MissingCode);
-        assert!(finish_translation(
-            app.handle(),
-            &state,
-            &mut invalid,
-            &plan,
-            &source,
-            "document-job",
-            Instant::now()
-        )
-        .is_err());
-        drop(invalid);
-        let cache = load_segment_cache(app.handle(), &plan).unwrap();
-        assert!(cache
-            .translated_text_for(&plan.batches[0].segments[0])
-            .is_none());
-        assert!(
-            super::super::storage::list_translated_documents(app.handle())
-                .unwrap()
-                .is_empty()
-        );
+        // A valid first fragment cannot be checkpointed when another reply breaks adapter admission.
+        for mode in [
+            ReplyMode::MissingCode,
+            ReplyMode::WrongEcho,
+            ReplyMode::UntrustedMarkup,
+        ] {
+            let mut invalid = make_worker(mode);
+            assert!(finish_translation(
+                app.handle(),
+                &state,
+                &mut invalid,
+                &plan,
+                &source,
+                "document-job",
+                Instant::now()
+            )
+            .is_err());
+            drop(invalid);
+            let cache = load_segment_cache(app.handle(), &plan).unwrap();
+            assert!(cache
+                .translated_text_for(&plan.batches[0].segments[0])
+                .is_none());
+            assert!(
+                super::super::storage::list_translated_documents(app.handle())
+                    .unwrap()
+                    .is_empty()
+            );
+        }
         let mut valid = make_worker(ReplyMode::Valid);
         finish_translation(
             app.handle(),
