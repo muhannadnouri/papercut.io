@@ -26,7 +26,7 @@ unqualified provider in the app.
 - [Shared formatting policy](#shared-formatting-policy-selection--2026-10-21) follows each job through planning, cache admission and saving. [Shared batch checkpoints](#shared-batch-admission-and-checkpoints--2026-10-21) preserve whole-batch admission and source order across mixed cache/fresh results. Provider admission is unchanged.
 - [Disabled aligner archival evaluation](#disabled-aligner-archival-evaluation--2026-10-21) defines the preservation rules now applied by [strict-pipeline retirement](#strict-alignment-pipeline-retirement--2026-10-21).
 - [Shared sentence-planner separation](#shared-sentence-planner-separation--2026-10-21) now gives live planning/decoding its own module outside strict research, with unchanged translation policy and cache identities.
-- [Worker and rendering boundary evaluation](#worker-and-rendering-boundary-evaluation--2026-10-21) defines the responsibility split. [Bergamot adapter separation](#bergamot-adapter-separation--2026-10-21) is implemented; isolating legacy rendering is next. Provider admission and formatting behavior stay unchanged.
+- [Worker and rendering boundary evaluation](#worker-and-rendering-boundary-evaluation--2026-10-21) defines the responsibility split. [Bergamot adapter separation](#bergamot-adapter-separation--2026-10-21) and [legacy rendering isolation](#legacy-rendering-isolation--2026-10-21) are implemented. Provider admission and formatting behavior stay unchanged.
 
 - Translation accepts **HTML and EPUB only**, enforced in both the UI and native source loader. PDF and other formats remain unsupported.
 
@@ -4211,7 +4211,7 @@ product baseline; Bergamot/HY-MT2 remain gated and strict alignment stays retire
 | Engine input admission, opaque HTML encoding, exact transport echo validation and source rebinding | `bergamot/adapter.rs` | Separated from mailbox transport using the existing engine and wire types. |
 | Whole-batch cache/fresh admission and checkpoints | `runner/provider.rs`, `runner.rs`, `cache.rs` | Keep shared. Do not add a second job or cache path. |
 | Source/result coverage, review-original rendering, annotations and final serialization | `render.rs` | Keep at the persistence boundary. |
-| Text/phrase-probe best-effort projection and marker guesses | Older branches/helpers in `render.rs`, `runner.rs`, `inline_markup.rs` | Isolate behind the existing Provider path in a later stage; never route sentence/review output through it. |
+| Text/phrase-probe best-effort projection and marker guesses | `render/legacy.rs`; probe planning remains in `runner.rs`/`inline_markup.rs` | Isolated behind the existing plain Provider path; sentence/review and protected results never fall back to it. |
 
 **Adapter separation (implemented below).** The existing `WorkerEngine::batch`
 and `TranslationEngine` implementation move into `bergamot/adapter.rs`.
@@ -4233,7 +4233,7 @@ mixed cache/fresh order, full-cache confirmation and failed-batch resume. Check
 base, worker-only and native Rust configurations. No new inference is needed to
 verify this separation, and moving code does not justify changing cache versions.
 
-**Next bounded implementation: isolate legacy rendering, separately.** Move the existing
+**Legacy rendering isolation (implemented below).** Move the existing
 plain-output best-effort fallback chain and its helpers into `render/legacy.rs`
 with one local entry point. Keep escaping, serialization and annotation helpers
 shared where they already have multiple callers. Preserve the existing legacy
@@ -4315,6 +4315,46 @@ behavior and adding the explicit rejection/dispatch guard regression. This
 review does not fix Bergamot's known model-output failures or qualify it for new
 document jobs. Strict alignment remains retired; Bergamot/HY-MT2 admission stays
 closed and OPUS admission is unchanged.
+
+### Legacy rendering isolation — 2026-10-21
+
+`render/legacy.rs` now owns the existing plain-output fallback chain: preservation
+of media-heavy blocks, fragment-based formatting, whole-block wrappers, unique
+phrase projection and plain text. It has one parent-visible entry point,
+`replace_block`; its marker/projection helpers and types remain private. Their
+bodies match the previous implementation exactly. The low-level escaping/marker
+regression moved with its helpers; the existing legacy behavior tests still run
+through the public renderer, without exposing helpers just for tests.
+
+`render.rs` retains source/result coverage and ordinal checks, policy dispatch,
+retained-original review rendering, protected reconstruction, annotations and
+serialization. Escaping and literal text insertion stay shared with title/review
+output. Legacy dispatch now explicitly requires `FormattingPolicy::Provider` and
+no review or protected-markup claim. A rejected protected reconstruction or invalid
+review returns an error; missing validated sentence output cannot authorize
+best-effort projection. The fallback order and successful output are unchanged.
+
+The new synthetic dispatch regression first proves the plain Provider control
+still preserves whole-block formatting and valid protected output works under
+both policies. It then checks 13 rejected cases: malformed/missing codes, stale
+source text, changed target text, mixed rich/plain fragments, missing sentence
+markup/fragments and an invalid retained-original range. The same target would
+otherwise be renderable by the legacy path, so rejection guards against an
+accidental fallback. Existing HTML/EPUB save/resume, source-owned asset/note/link
+hierarchy, durable review status and old audio/timing preservation tests remain.
+
+Validation passed: **221 base**, **223 worker-only** and **222 native-feature Rust
+translation tests** (2 inference tests intentionally ignored), Rustfmt and diff
+checks. Each configuration gains one regression test; no live test was removed.
+No runtime, model, provider admission, cache/schema/variant identity or stored
+file changes. Frontend and new CI were not checked; model inference, benchmarks,
+smoke and version bump remain deferred. Strict alignment stays retired and
+Bergamot/HY-MT2 remain unavailable for new jobs.
+
+**Next bounded stage:** review this isolation and its dispatch tests. After that,
+evaluate the remaining UI setup/job/result responsibilities and document structure
+before another production refactor. Backend module separation does not establish
+translation quality or mobile acceptance; those gates remain open work.
 
 ## Boundary-based CTranslate2 translation — 2026-10-20
 
