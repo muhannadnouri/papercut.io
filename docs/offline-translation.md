@@ -633,11 +633,11 @@ There are three separate responsibilities:
 stop provider expansion and consolidate the existing OPUS sentence path, shared
 DOM/security, installer, cancellation, cache and writer owners. Automatically
 restore only supported whole-sentence/block or copied-literal scopes under the
-existing checks. If the maintainer accepts an assisted workflow, mixed inline
-formatting needs explicit review/correction, with the original available on
-demand rather than repeated throughout the reading output. The English should
-remain unchanged while formatting is edited; this workflow does not yet exist.
-It is a reduced automation scope, not the original fully automatic requirement.
+existing checks. The maintainer has authorized the assisted-workflow plan below;
+mixed inline formatting needs explicit review/correction, with the original
+available on demand rather than repeated throughout the reading output. English
+remains unchanged while formatting is edited. Implementation has not started;
+this is reduced automation, not the original fully automatic requirement.
 
 If automatic preservation of arbitrary inline bold/italic remains required
 without manual correction, keep public translation release deferred. None of
@@ -646,6 +646,188 @@ passing cannot close the linguistic gap. Do not implement a new fallback,
 silently flatten formatting, remove failed guards, or delete the reusable
 foundation merely to declare the feature complete. Smoke, benchmarks and the
 version bump remain deferred; no further candidate evaluation is scheduled.
+
+## OPUS assisted formatting plan — 2026-10-21
+
+**Planning only.** Use existing OPUS-MT French/Spanish → English sentence
+translation, then let the user correct bold/italic scopes without changing the
+translated characters. Source formatting normalization and target formatting
+review are separate responsibilities. CSS normalization prevents additional
+import loss; it cannot fix incorrectly aligned target words or recover CSS
+already discarded. Other providers remain gated, strict alignment stays retired,
+and no aligner, phrase-matching fallback, engine fork or new candidate evaluation
+is part of this plan. Benchmarks, packaged/device smoke and version work remain
+deferred. Passing the implementation gates below will not establish bilingual
+translation quality or release acceptance.
+
+### Reading and review behavior
+
+- New assisted results show English in the reading document. **Review formatting**
+  opens a dedicated translation panel on an unresolved paragraph; **Show original**
+  expands its saved sanitized source snapshot on demand. Namespace preview IDs
+  and internal fragment links in a display copy so source comparison cannot
+  collide with English anchors; never mutate the saved snapshot. Do not repeatedly insert
+  Spanish/French blocks in the reading stream. Keep source comparison outside
+  searchable/narrated English and outside read-along coordinates.
+- V1 edits only bold and italic. Select English text in a read-only text field,
+  apply/remove either mark, and inspect a semantic preview. Support Undo, Reset
+  paragraph, a keyboard-accessible list of applied ranges, and explicit paragraph
+  review. No `contenteditable`, arbitrary HTML, text correction, automatic model
+  reruns or general-purpose document editor is needed.
+- **Save review progress** persists a draft without modifying published HTML.
+  **Finish review** publishes validated formatting. Leaving with unsaved edits
+  must offer save/discard; errors and stale revisions preserve the draft. Review
+  remains available offline without an installed translation model.
+- A deliberate **Paragraph reviewed** action can accept an unstyled result;
+  do not infer approval because the paragraph was opened or all marks removed.
+  Editing or resetting approved marks returns that paragraph to pending review.
+  “Formatting reviewed” records human formatting review, not verified meaning.
+- Record separate obligations for emphasis, typography, links and notes/other
+  attachments. B/I edits cannot resolve an unknown link or footnote location.
+  V1 completion is limited to emphasis-only eligible blocks plus already checked
+  structures. Unresolved non-emphasis obligations remain visible and block full
+  completion; do not relocate or drop their source-owned payloads. A source
+  snapshot on demand must retain access to those references. Non-emphasis editing
+  is outside V1; importing an unsupported document remains an explicit limitation.
+
+### Ownership and durable review contract
+
+Keep the [existing owners](#architecture-and-ownership). Add one translation-owned
+review module for contracts, pure B/I reconstruction and commands; keep UI state
+in a dedicated review component. The MT runner produces immutable English and
+review evidence once. Editing neither calls inference nor writes MT resume cache.
+Use the existing derived-document transaction, reference lock, sanitizer,
+search/TTS extraction and highlight invalidation; do not add another writer,
+inference engine, cache owner or global reader state manager.
+
+A versioned review record needs the variant ID, unique translation-generation
+token, monotonic review revision and baseline published-document identity. Review
+records are generation-owned and cascade with variant deletion; conditional draft
+updates must never recreate a deleted variant through an upsert.
+Retain one bounded immutable sanitized source-document snapshot per generation,
+so cross-block footnotes/backlinks remain available after original deletion.
+Per block retain the source-owned identity/ordinal and reference into that snapshot,
+exact target text/hash, structural identity, validated existing marks,
+editable B/I ranges, obligation types and review state. Retain owned source
+assets under the existing document ownership rules. The current derived writer
+filters assets against published HTML only; extend its existing validation to
+the union of English and source-snapshot references, including source-only assets.
+Deleting the original upload must not break the review snapshot. Source URLs alone are insufficient:
+originals can change/disappear and deterministic variant IDs can be reused.
+
+Commands accept IDs, expected generation/revision and ranges, never caller-supplied
+HTML, English replacement text, source paths or asset URLs. Save scalar offsets,
+explicitly convert frontend UTF-16 selections, reject split surrogate/grapheme
+boundaries, and never normalize target characters. Validate range count/length,
+block membership, protected literal/attachment boundaries and source hierarchy.
+Canonicalize overlapping B/I marks into deterministic runs and escape prose
+before emitting app-owned tags. V1 rejects edits that cannot preserve protected
+structures; it must not flatten them to make a patch fit.
+
+Keep pending obligations separate from draft saving and published status. Adopt
+an additive schema migration through `translation/storage.rs`; its current
+unconditional schema-version-1 setup must be replaced with version-aware migration.
+Legacy variants/audio stay readable and untouched. Legacy results without the
+new evidence are initially read-only for formatting edits; do not reconstruct
+edit identities from a mutable original or guess a migration from old HTML.
+Retranslation of a variant with review data creates a new saved variant identity,
+retaining the old variant, annotations and audio; never silently reuse old ranges
+against a new generation. Scope this identity change to preventing review-data
+overwrite, without adding general variant grouping or backup policy.
+
+Publishing must recheck generation/revision and baseline hashes under the existing
+reference lock immediately before promotion. Extend the existing guarded writer
+seam so HTML, metadata/index updates and review completion commit or roll back
+together. Keep the prior variant and draft on any failure. Formatting-only edits
+must leave exact readable English, block/chunk order, anchors and text coordinates
+unchanged. Prove identical search/TTS chunk signatures and source spans before
+reusing the saved URL and its existing audio. Do not overwrite audio or timings.
+
+### Safe CSS normalization contract
+
+Normalize source presentation at **import**, before the unchanged Ammonia
+sanitizer. HTML preparation currently calls `sanitize_html` immediately; EPUB
+currently extracts chapter body HTML and discards publisher stylesheets. Parse
+the full chapter first. Share one pure normalizer across HTML/EPUB; keep it out
+of MT adapters and the sanitizer used for generated/saved documents.
+
+1. Start with inline `font-weight` and `font-style`. Resolve effective properties
+   per text run, including inheritance, local resets, duplicate declarations and
+   property-specific `!important`. Inherited importance never outranks a child's
+   own declaration. Preserve exact text/whitespace and every non-formatting
+   container, identifier, link, note, literal and attachment.
+   During the inline-only substep, embedded or linked stylesheets whose effects
+   are not yet interpreted make coverage unknown. Do not claim inline styles
+   preserved when an unread stylesheet could override them with `!important`.
+2. Freeze the initial subset: `normal`/`bold` and numeric weights 100–900;
+   weights at least 600 map to visual bold and lower weights to no visual bold.
+   `normal`/`italic`/`oblique` map to off/on visual italic. This intentionally
+   reduces font-weight/angle distinctions; it is not exact typography retention.
+   Support `inherit`, `initial` and `unset` for these two properties. Relative
+   weights, angled oblique and other unsupported values are reported unresolved.
+3. Generate `<b>/<i>` for CSS-derived visual formatting; retain authored
+   `<strong>/<em>` semantics and identities. Resolve nested resets on ordinary
+   styled containers through text-run emission rather than wrapping the whole
+   parent. A reset conflicting with authored semantic emphasis is unsupported in
+   V1: preserve the authored structure, flag the affected scope and do not claim
+   visual equivalence. Do not clone identity-bearing containers or note anchors.
+4. Add bounded embedded stylesheets and EPUB-local referenced CSS as a separate
+   substep. Initially accept selector lists containing a type, class, ID or their
+   compound forms; exclude combinators, pseudo-selectors and conditional/layered
+   rules. Reuse Kuchikiki selector compilation/matching/specificity and a real
+   declaration parser. `cssparser` is already transitive; make the chosen version
+   an explicit dependency rather than write a regex CSS parser. Resolve stylesheet
+   order, selector specificity, declaration order and inline/important precedence.
+   V1 evaluates only ordinary unconditional active sheets. Conditional `media`
+   attributes, disabled/alternate sheets and uncertain activation are unsupported
+   coverage; never indiscriminately apply print or alternate styles.
+5. Unsupported `font`/`all` shorthands, variables, resets/layers or conditional rules
+   can override otherwise supported font declarations. Do not silently ignore
+   them and claim a computed style. Conservatively mark the affected property/
+   subtree unsupported; if its reach cannot be determined, skip CSS-derived
+   normalization for that chapter and report the limitation. Do not claim the
+   absence of such styling when a required sheet is missing or over budget.
+6. Read only EPUB archive-local manifest CSS through existing path validation and
+   bounded ZIP reads. No HTML-adjacent filesystem reads, remote stylesheets,
+   network fetch, `url()` resource loads, fonts, recursive `@import` or browser
+   rendering. CSS is inert input only. Freeze explicit stylesheet byte/count,
+   rule/declaration and total node-matching work caps before implementation;
+   exceeding them reports incomplete normalization without weakening archive or
+   sanitizer limits. Preserve readable document import with an explicit warning.
+7. Run existing Ammonia afterward; no publisher stylesheets, style attributes,
+   CSS URLs or executable content may survive. Store normalized safe markup and
+   a normalization-policy version/coverage warning in import metadata. Bind
+   translation/review/cache provenance to the resulting source snapshot/policy.
+
+Old uploads retain only sanitized reader HTML, not the original raw file/archive.
+Ordinary identical-file reimport returns the existing upload before parsing.
+Consequently neither translation-time normalization nor ordinary reimport restores
+lost CSS. Leave existing sources/results/audio unchanged. A later explicit
+refresh-as-new-version from a user-supplied original is separate scope; do not
+silently bypass deduplication or overwrite the old source in this work.
+
+### Implementation stages and completion gates
+
+Complete and review each bounded stage before the next. Tests use synthetic HTML,
+EPUBs and Unicode cases; private articles, model outputs and sample-specific
+fixtures/references remain outside tracked files.
+
+| Stage | Deliverable and required regression gates |
+| --- | --- |
+| **1. Pure review and normalization contracts** | Freeze eligibility/obligation states, schema/command bounds, CSS grammar/work caps and policy identities. Test repeated identical paragraphs, mixed obligation types, invalid/oversized ranges, stale generation/revision, Unicode scalar↔UTF-16 conversion, combining marks/emoji/Arabic diacritics and B/I overlap. A reviewed emphasis scope must not clear a note/link obligation; edit/reset must invalidate approval. No UI, inference or published-document writes |
+| **2a. Inline source normalization** | Pure normalizer plus HTML/full-EPUB-chapter import integration, followed by unchanged sanitization. Test bold/italic nesting, inheritance/local normal resets, semantic-tag conflicts, comments/escapes/invalid values, shorthands and limits. An unread embedded/linked `.x { font-weight: normal !important }` must make conflicting inline bold unresolved. Prove exact text, whitespace, IDs, links, note payloads, literals and chapter order; normalization and sanitization idempotence; scripts, CSS and unsafe URLs remain removed |
+| **2b. Bounded local stylesheet normalization** | Add the declared embedded/EPUB-local selector subset and cascade. Test specificity/source order/important precedence, child overrides of inherited importance, multiple sheets/chapter isolation, missing/unsupported rules, media/disabled/alternate-sheet activation, EPUB-relative paths/traversal, recursive imports and budget exhaustion. Zero network or unrelated filesystem reads. Verify duplicate imports preserve old sources and changed normalized identity invalidates incompatible checkpoints |
+| **3. Durable snapshots, drafts and pure reconstruction** | Add the real schema migration, saved immutable evidence and model-independent review commands. Test draft save/reload/offline resume, original/model removal, repeated blocks, stale windows and new-generation conflicts. Source deletion must preserve cross-block footnotes/backlinks and source-only assets; preview IDs must not collide with English. B/I patches preserve exact target characters and protected structure; reject text/HTML/path injection. Legacy variants remain readable/read-only and new generations preserve prior variants/audio. Draft failure never changes the published document |
+| **4. Atomic publication** | Extend the existing derived-document writer and reference-lock preflight, with revision checks under lock. Test concurrent save/delete/regeneration, partial file/SQLite/index failures, rollback retaining prior variant and draft, repeated completion and startup recovery. Deleted-variant stale saves must create no orphan or revived variant. Published status cannot clear unresolved obligations or edited/reset approvals; neither draft nor stale input can overwrite newer output |
+| **5. Accessible review UI and consumer integration** | Dedicated paragraph panel: source collapsed by default, read-only selection, B/I controls, mark list, undo/reset, explicit paragraph approval, progress save and completion. Test keyboard/touch selection, toolbar focus retention, selected/mixed states, navigation with dirty drafts, conflict/error/retry and non-emphasis blockers. Reuse `translationReview.test.ts` and current highlight invalidation to prove identical English extraction, search sections, TTS chunk IDs/text hashes/spans and read-along behavior across added text-node boundaries; existing audio/timings remain unchanged |
+
+The first implementation task is Stage 1. CSS import work and assisted review
+remain separate leaves even though they share normalized source identity. Do not
+revive retired alignment setup or split unrelated UI merely to shorten files.
+Implementation completion requires the above automated gates and a focused code
+review. Later human FR/ES meaning/formatting usability and rebuilt HTML/EPUB
+integration acceptance remain release gates; broader smoke, device benchmarks
+and version bump are still explicitly deferred, not recorded as passed.
 
 ### Bounds and explicit failures
 
@@ -1279,9 +1461,10 @@ is also complete: omitting its supplied shortlist recovers useful text, but
 meaning/scope failures still prevent admission. Further model/runtime comparisons
 were declined. The [conclusion and development direction](#conclusion-and-development-direction--2026-10-21)
 separate fixable source/structure defects from unqualified linguistic placement.
-The next product decision is an explicitly assisted mixed-formatting workflow
-versus deferring public translation release while full automation is required;
-it is not another provider experiment.
+The maintainer has chosen planning for an explicitly assisted mixed-formatting
+workflow and safe import normalization. Follow the [staged implementation plan](#opus-assisted-formatting-plan--2026-10-21),
+starting with pure contracts and rejection tests. Implementation remains pending;
+this is not another provider experiment or a claim of automatic formatting.
 Additional passing examples cannot erase a known failure. Use Firefox's
 DOM ownership as an architectural reference, not evidence of solved completeness
 or semantic styling. Representative
