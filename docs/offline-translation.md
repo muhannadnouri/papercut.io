@@ -194,8 +194,12 @@ Unknown valid IDs are harmless, even if unowned live/staged files exist. The
 existing audiobook-reference lock covers the pending/completed reference check
 and deletion, so source-reference publication cannot race past it. Failed DB
 deletion restores staged files and rolls back provenance/index changes.
-The focused review below still identifies a save/delete overlap and a Library
-URL-identity bypass; these remaining shared-path gaps block merging.
+Derived replacement uses the same short lock through file recovery, promotion,
+DB commit/rollback and backup cleanup. Parsing and inference stay outside it.
+Library deletion validates the requested source kind against stored metadata and
+returns the stored canonical URL. Audiobook checks compare upload IDs, so query/
+fragment aliases in either requests or existing manifests cannot bypass them;
+bundled document references retain their exact-URL behavior.
 
 ## Storage, cache and compatibility
 
@@ -463,54 +467,51 @@ validation, not language-quality, packaged-platform or new inference acceptance.
 Cross-platform CI/linking, installed-app behavior, current dependency advisories
 and real-device resources were not revalidated here.
 
-### Deletion-safety review — 2026-10-21
+### Save/delete serialization and URL identity — 2026-10-21
 
-Reviewed `d113d4e5` and connected IPC, storage, batch/folder, audiobook publication
-and UI paths. Assumed one local app process with one foreground translation;
-saved-document deletion remains available while a job runs. Model/cache/save
-claims do not claim document deletion. MemSearch confirmed the existing
-single-instance, shared-writer and source-preservation decisions.
+The [focused deletion review](https://github.com/muhannadnouri/papercut.io/blob/30d2344e0cef78f83b500acd1e520a92c2a60d49/docs/offline-translation.md#deletion-safety-review--2026-10-21)
+reproduced two remaining P1 gaps: a save/delete overlap could leave a saved row
+without live files or backup, and Library URL aliases/wrong extensions bypassed
+canonical audiobook references. Both are addressed in shared native storage:
 
-**Must fix before merging:**
+- `document_uploads/derived.rs` reuses the existing source-reference lock for
+  the complete file/SQLite replacement, including recovery and rollback. Both
+  deletion routes already hold this lock. Connections are opened before saving,
+  without retaining a write transaction while waiting for the lock; mutation
+  takes the reference lock before its SQLite transaction. No new job manager,
+  lock registry, provider gate, schema, cache identity or dependency was added.
+- `document_uploads/pipeline.rs` resolves stored upload metadata before deletion,
+  rejects HTML/PDF kind mismatches and returns the canonical stored URL. When
+  metadata is already gone, canonical identity still permits staged-file retry.
+  `native_tts/references.rs` compares upload IDs on both sides of the reference,
+  protecting pending/completed sources even with legacy query/fragment aliases.
+  Existing bundled references still use exact matching; audio/timings are untouched.
 
-1. **P1 — Save/delete overlap can lose a successfully saved variant.**
-   `document_uploads/derived.rs:136` promotes replacement files before its write
-   transaction starts at line 159. Deletion's reference lock/immediate transaction
-   does not cover that writer. A coordinated synthetic interleaving let the writer
-   promote new files while deletion held SQLite, then deletion removed them and
-   the writer committed its metadata and removed the old backup. Both returned
-   success; one saved row remained, with neither live reader files nor backup.
-   Use the same short native mutation guard and lock order around derived-file
-   recovery/promotion/commit and both deletion routes. Reuse existing locking;
-   do not rely on a frontend busy flag or add another job manager. Permanently
-   test both operation orders, assets and rollback: the final result must be a
-   complete saved variant or a complete deletion, never rows without files.
-2. **P1 — Library URL aliases bypass audiobook source protection.**
-   `document_uploads/pipeline.rs:643` checks the raw requested URL, but line 650
-   parses its ID with a helper that discards query/fragment suffixes. It also
-   accepts a `.pdf` request for the ID of a stored HTML document. A canonical
-   `/uploads/def456.html` audiobook reference did not block deletion requested
-   with `?view=reader`, `#section-1`, or the mismatched `.pdf` extension. All six
-   single/batch combinations removed the source successfully. Resolve/validate
-   stored document identity before checking references, and use that same
-   identity for deletion. Add canonical/alias/wrong-kind regressions for both
-   commands and HTML/PDF sources. Otherwise pending or completed audio can lose
-   its source through the ordinary Library deletion surface.
+Four new regression tests extend the existing synthetic native fixture. Controlled
+metadata callbacks coordinate both operation orders and save/delete failures;
+assertions cover HTML/assets, source preservation, provenance/index rows and
+staging/backup cleanup. IPC cases cover 48 HTML/PDF × reference/request alias ×
+single/batch combinations, wrong-kind rejection after removing audio, successful
+canonical responses and protected staged retries without metadata. Existing
+reference tests also cover alias manifests and unchanged bundled matching.
+The overlap and aliased-request assertions failed against the prior production
+code before the fix. No private samples, model weights or production test hooks
+were added; concurrency checks live in `translation/mutation_tests.rs`.
 
-These probes ran against byte-identical production Rust in a disposable copy;
-only the extra synthetic test module differed (154 other Rust files matched).
-The original eight committed regressions still pass; the two additional
-preservation probes fail. Fresh full-library validation passed 509 tests with
-4 existing ignores. Rustfmt, documentation links/evidence and diff checks passed.
-No production code changed in this review. The documented post-commit cleanup
-limit remains explicit; unowned staging is deliberately not garbage-collected.
-No new inference, benchmarks, packaged/device smoke, cross-platform CI or
-dependency-advisory audit was performed.
+Validation: 513 base Rust library tests passed (4 existing ignores), 234
+native-feature translation tests passed (2 existing ignores), 235 worker-only
+translation tests passed, and 535 frontend/script tests passed (1 existing skip).
+TypeScript, eight locales, Rustfmt, documentation links/evidence and diff checks
+passed. Evaluation evidence is byte-identical. The explicit post-commit cleanup
+limit above is unchanged; this does not add inference, language-quality or
+packaged-platform acceptance.
 
 ## Next bounded work
 
-Fix review findings 1–2 with permanent save/delete interleaving and canonical
-identity regressions, then review that bounded storage change. Keep the existing
+Review the shared save/delete guard, lock order, stored identity and regression
+tests. If clear, the next gate is representative FR/ES meaning, formatted-original
+review usability and rebuilt-app integration acceptance, rather than another
+architecture split or new provider. Keep the existing
 source/DOM, cache, writer and reference-lock owners. Provider admission is
 unchanged; strict stays retired. Benchmarks, smoke and version bump stay deferred.
 

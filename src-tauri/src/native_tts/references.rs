@@ -17,7 +17,7 @@ struct AudiobookDocumentReference {
 // split by document only if concurrent save/delete startup becomes measurable.
 static AUDIOBOOK_REFERENCE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
-/// Serialize the short source-reference publication and deletion transactions.
+/// Serialize document replacement/deletion and source-reference publication.
 ///
 /// Generation intentionally runs outside this lock: only the pending manifest
 /// needs to become visible atomically with source validation.
@@ -53,6 +53,8 @@ fn has_reference(root: &Path, document_url: &str) -> Result<bool, String> {
         return Ok(false);
     }
 
+    // Upload IDs own storage across URL fragments, queries and source-kind aliases.
+    let upload_id = crate::document_uploads::upload_id_from_url(document_url).ok();
     let entries = fs::read_dir(root)
         .map_err(|err| format!("Failed to inspect saved audiobook references: {err}"))?;
     for entry in entries.flatten() {
@@ -75,7 +77,14 @@ fn has_reference(root: &Path, document_url: &str) -> Result<bool, String> {
                 continue;
             }
         };
-        if reference.document_url == document_url {
+        if reference.document_url == document_url
+            || upload_id.as_ref().is_some_and(|id| {
+                crate::document_uploads::upload_id_from_url(&reference.document_url)
+                    .as_ref()
+                    .ok()
+                    == Some(id)
+            })
+        {
             return Ok(true);
         }
     }
@@ -98,6 +107,11 @@ mod tests {
             ("matching-a", r#"{"documentUrl":"/uploads/a.html"}"#),
             ("matching-b", r#"{"documentUrl":"/uploads/a.html"}"#),
             ("other", r#"{"documentUrl":"/uploads/b.html"}"#),
+            (
+                "alias",
+                r#"{"documentUrl":"/uploads/c.pdf?reader=1#page-2"}"#,
+            ),
+            ("bundled", r#"{"documentUrl":"/documents/example.html"}"#),
             ("broken", "{"),
         ] {
             let dir = root.join(name);
@@ -106,6 +120,11 @@ mod tests {
         }
 
         assert!(has_reference(&root, "/uploads/a.html").expect("find reference"));
+        assert!(has_reference(&root, "/uploads/a.html?reader=1#section").unwrap());
+        assert!(has_reference(&root, "/uploads/a.pdf").unwrap());
+        assert!(has_reference(&root, "/uploads/c.pdf").unwrap());
+        assert!(has_reference(&root, "/documents/example.html").unwrap());
+        assert!(!has_reference(&root, "/documents/other.html").unwrap());
         assert!(!has_reference(&root, "/uploads/missing.html").expect("find reference"));
         fs::remove_dir_all(root).expect("remove fixture");
     }

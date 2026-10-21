@@ -639,17 +639,27 @@ pub(crate) fn delete_upload<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedDocumentDeleteRequest,
 ) -> Result<UploadedDocumentDeleteResult, String> {
+    let (id, source_kind) = upload_reference_from_url(&request.document_url)?;
     crate::native_tts::with_audiobook_reference_lock(|| {
-        if crate::native_tts::document_has_audiobook_reference(app, &request.document_url)? {
+        let mut db = open_db(app)?;
+        let document_url = match find_upload_by_id(&db, &id)? {
+            Some(document) => {
+                if StoredSourceKind::from_str(&document.source_kind)? != source_kind {
+                    return Err("Uploaded document source metadata does not match its URL".into());
+                }
+                document.url
+            }
+            // Keep retries able to clean committed deletion staging without metadata.
+            None => upload_url(&id, source_kind),
+        };
+        if crate::native_tts::document_has_audiobook_reference(app, &document_url)? {
             return Err(
                 "Delete the saved audio that uses this document before removing it from the Library"
                     .into(),
             );
         }
 
-        let id = upload_id_from_url(&request.document_url)?;
         let dir = upload_dir(app, &id)?;
-        let mut db = open_db(app)?;
         let bytes_freed = delete_stored_document(&dir, &id, || {
             // Store deletion is transactional, keeping metadata, sections, and FTS in sync.
             delete_document_rows(&mut db, &id)
@@ -657,7 +667,7 @@ pub(crate) fn delete_upload<R: Runtime>(
 
         Ok(UploadedDocumentDeleteResult {
             id,
-            url: request.document_url,
+            url: document_url,
             bytes_freed,
         })
     })

@@ -8,8 +8,28 @@ use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fs, path::Path};
 use tauri::test::MockRuntime;
 
+#[path = "mutation_tests.rs"]
+mod mutation_tests;
+
 const SOURCE: &str = "abc123";
 const VARIANT: &str = "def456";
+
+/// Exercise real PDF identity/storage without rendering or interpreting the sentinel bytes.
+fn seed_pdf(app: &tauri::AppHandle<MockRuntime>) -> String {
+    let pdf = b"%PDF-1.7\nSynthetic source sentinel\n%%EOF".to_vec();
+    let id = format!("{:x}", Sha256::digest(&pdf));
+    crate::document_uploads::restore_transferred_pdf(
+        app,
+        id.clone(),
+        "PDF".into(),
+        None,
+        pdf.clone(),
+        1,
+        pdf.len() as u64,
+    )
+    .unwrap();
+    id
+}
 
 /// Seed the real HTML/asset/index writer and the existing v1 provenance schema.
 fn seed(app: &tauri::AppHandle<MockRuntime>, id: &str, source: Option<&str>, format: &str) {
@@ -128,18 +148,7 @@ fn translation_delete_cannot_remove_original_html_epub_or_pdf_or_unknown_storage
     for (id, format) in [(SOURCE, "html"), ("abc124", "epub")] {
         seed(app.handle(), id, None, format);
     }
-    let pdf = b"%PDF-1.7\nSynthetic source sentinel\n%%EOF".to_vec();
-    let pdf_id = format!("{:x}", Sha256::digest(&pdf));
-    crate::document_uploads::restore_transferred_pdf(
-        app.handle(),
-        pdf_id.clone(),
-        "PDF".into(),
-        None,
-        pdf.clone(),
-        1,
-        pdf.len() as u64,
-    )
-    .unwrap();
+    let pdf_id = seed_pdf(app.handle());
     seed(app.handle(), VARIANT, Some(SOURCE), "html");
     // Even unindexed live/staged files do not prove translation ownership.
     let root = dir.0.join("document_uploads");
@@ -436,5 +445,137 @@ fn failed_delete_rolls_back_files_provenance_and_index_then_recovers_and_retries
             json!([])
         );
         assert!(!dir.0.join("document_uploads/def456").exists());
+    }
+}
+
+#[test]
+fn library_deletion_uses_stored_identity_for_url_aliases_and_rejects_wrong_kind() {
+    for kind in ["html", "pdf"] {
+        for reference_suffix in ["", "?audio=1", "#chapter"] {
+            for request_suffix in ["?view=reader", "#section", "wrong-kind", ""] {
+                for route in ["single", "batch"] {
+                    let (dir, app, window) = fixture();
+                    seed(app.handle(), SOURCE, None, "html");
+                    let id = if kind == "html" {
+                        seed(app.handle(), VARIANT, Some(SOURCE), "html");
+                        VARIANT.to_string()
+                    } else {
+                        seed_pdf(app.handle())
+                    };
+                    let canonical = format!("/uploads/{id}.{kind}");
+                    let requested = if request_suffix == "wrong-kind" {
+                        format!(
+                            "/uploads/{id}.{}",
+                            if kind == "html" { "pdf" } else { "html" }
+                        )
+                    } else {
+                        format!("{canonical}{request_suffix}")
+                    };
+                    let audio = dir.0.join("audiobooks/example");
+                    fs::create_dir_all(&audio).unwrap();
+                    fs::write(
+                        audio.join("manifest.json"),
+                        json!({"documentUrl":format!("{canonical}{reference_suffix}")}).to_string(),
+                    )
+                    .unwrap();
+                    fs::write(audio.join("audio.wav"), b"audio sentinel").unwrap();
+                    fs::write(audio.join("timings.json"), b"timing sentinel").unwrap();
+                    let before = snapshot(&dir.0, app.handle());
+                    let attempt = |url: &str| {
+                        if route == "single" {
+                            invoke(
+                                &window,
+                                "document_uploads_delete",
+                                json!({"request":{"documentUrl":url}}),
+                            )
+                        } else {
+                            invoke(
+                                &window,
+                                "document_uploads_delete_batch",
+                                json!({"request":{"documentUrls":[url]}}),
+                            )
+                        }
+                    };
+                    let result = attempt(&requested);
+                    assert!(
+                        result.is_err()
+                            || result.as_ref().unwrap()["failures"]
+                                .as_array()
+                                .is_some_and(|v| v.len() == 1),
+                        "{kind} {route} {reference_suffix} {request_suffix}: {result:?}"
+                    );
+                    assert_eq!(
+                        snapshot(&dir.0, app.handle()),
+                        before,
+                        "referenced source changed"
+                    );
+                    fs::remove_file(audio.join("manifest.json")).unwrap();
+                    if request_suffix == "wrong-kind" {
+                        let before = snapshot(&dir.0, app.handle());
+                        let result = attempt(&requested);
+                        assert!(
+                            result.is_err()
+                                || result.unwrap()["failures"]
+                                    .as_array()
+                                    .is_some_and(|v| v.len() == 1)
+                        );
+                        assert_eq!(
+                            snapshot(&dir.0, app.handle()),
+                            before,
+                            "wrong-kind request changed files"
+                        );
+                    }
+                    let result = attempt(&format!("{canonical}?view=reader#section")).unwrap();
+                    let deleted = if route == "single" {
+                        &result
+                    } else {
+                        &result["deleted"][0]
+                    };
+                    assert_eq!(
+                        deleted["url"], canonical,
+                        "return the stored identity for refresh"
+                    );
+                    assert!(!dir.0.join("document_uploads").join(&id).exists());
+                    assert_eq!(
+                        fs::read(audio.join("audio.wav")).unwrap(),
+                        b"audio sentinel"
+                    );
+                    assert_eq!(
+                        fs::read(audio.join("timings.json")).unwrap(),
+                        b"timing sentinel"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn library_retry_without_metadata_keeps_audio_protection_and_recovers_staging() {
+    for kind in ["html", "pdf"] {
+        let (dir, app, window) = fixture();
+        seed(app.handle(), SOURCE, None, "html");
+        // Simulate committed DB deletion with filesystem cleanup interrupted.
+        let staged = dir.0.join("document_uploads/.feed.deleting");
+        fs::create_dir(&staged).unwrap();
+        fs::write(staged.join(format!("source.{kind}")), b"staged source").unwrap();
+        let audio = dir.0.join("audiobooks/example");
+        fs::create_dir_all(&audio).unwrap();
+        fs::write(
+            audio.join("manifest.json"),
+            json!({"documentUrl":format!("/uploads/feed.{kind}?reader=1#part")}).to_string(),
+        )
+        .unwrap();
+        let request = json!({"request":{"documentUrl":format!("/uploads/feed.{kind}?retry=1")}});
+        let before = snapshot(&dir.0, app.handle());
+        assert!(invoke(&window, "document_uploads_delete", request.clone()).is_err());
+        assert_eq!(snapshot(&dir.0, app.handle()), before);
+        fs::remove_file(audio.join("manifest.json")).unwrap();
+        let result = invoke(&window, "document_uploads_delete", request).unwrap();
+        assert_eq!(result["url"], format!("/uploads/feed.{kind}"));
+        assert_eq!(result["bytesFreed"], b"staged source".len());
+        assert!(!staged.exists());
+        assert!(!dir.0.join("document_uploads/feed").exists());
+        assert!(dir.0.join("document_uploads/abc123/source.html").is_file());
     }
 }

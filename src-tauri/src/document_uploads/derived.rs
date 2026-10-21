@@ -64,7 +64,10 @@ where
 {
     let dir = upload_dir(app, id)?;
     let parsed = prepare_derived_document(title, format, &view_html, assets)?;
-    persist_derived_document_at(&dir, db, id, url, parsed, imported_at_ms, persist_metadata)
+    // Deleters use this same lock: protect promotion/recovery as well as SQL.
+    crate::native_tts::with_audiobook_reference_lock(|| {
+        persist_derived_document_at(&dir, db, id, url, parsed, imported_at_ms, persist_metadata)
+    })
 }
 
 fn prepare_derived_document(
