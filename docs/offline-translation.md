@@ -110,6 +110,11 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   fails: only **4/52** mandatory positive scopes are exact and admitted, despite
   rejecting both fused negatives. It also admits a wrong negation scope and an
   extra-punctuation scope. No native implementation or threshold tuning follows.
+- The [pretrained alignment-aware model screen](#stage-9-pretrained-alignment-aware-translation-screen--2026-10-20)
+  establishes no replacement. The original French model is already guided and
+  its trained last-layer setting matches the existing pack. No new checkpoint
+  or ownership signal is qualified; seek specific checkpoint/evidence details
+  before resuming production work.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -3488,6 +3493,113 @@ Scripts/results remain outside Git under
 Only this document changes. No production code/dependency/runtime, install,
 catalog/cache, saved document or app-version change was made.
 `FORMATTING_ACCEPTED = false` remains intact. Benchmarks, smoke, fresh app/CI
+builds and version bump remain deferred; no new semantic acceptance is claimed.
+
+## Stage 9 pretrained alignment-aware translation screen — 2026-10-20
+
+**No replacement selected; keep production work paused.** Committed the frozen
+attention-policy findings as `3cbb018` before this screen. Reviewed official
+model cards, training metadata, converter source and deployment examples for a
+pretrained signal that differs meaningfully from the failed policy. This was a
+metadata/source feasibility screen, not new inference or a quality benchmark.
+
+### What the available artifacts establish
+
+| Lead | Verified evidence | Decision for this branch |
+| --- | --- | --- |
+| Existing French OPUS-MT | The [pinned card](https://huggingface.co/Helsinki-NLP/opus-mt-fr-en/blob/c4aed37b318c763fd177aa449b44e3b783cc6c02/README.md) identifies `transformer-align`. The original archive's training log confirms guided alignment, MSE cost, weight `0.1`, last decoder layer and eight heads. | Already alignment-trained upstream; changing the label/provider does not introduce a new signal. Its tested ownership policy still fails. |
+| Existing Spanish OPUS-MT | The [pinned card](https://huggingface.co/Helsinki-NLP/opus-mt-es-en/blob/c96e2c5399ebfae4fc43d9669556b9afa74bb69d/README.md) identifies a `transformer` checkpoint from Tatoeba `spa-eng`, dated 2020-08-18. | No positive evidence here of a supervised alignment head; the project-wide statement that most OPUS models are guided cannot establish this checkpoint's training. |
+| Larger French OPUS-MT | [Pinned `opus-mt-tc-big-fr-en`](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-fr-en/blob/5fa3b3c9fa3bcd65fbf31206c3ec7419c9d9cd7d/README.md) identifies `transformer-big`, French → English, CC-BY-4.0. Its safetensors artifact is **461,429,130 bytes**; config has 1,024 model dimensions and 16 heads. | A translation-quality candidate, not a documented new ownership signal. No matching Spanish big checkpoint was verified. Larger size alone does not justify another attention-policy trial. |
+| Multilingual OPUS-MT | [Pinned `opus-mt-ROMANCE-en`](https://huggingface.co/Helsinki-NLP/opus-mt-ROMANCE-en/blob/e9ca9975e3972afd80732f08ce01d3a1339f47f8/README.md) covers French and Spanish, labels itself `transformer`, and tags Apache-2.0. Published PyTorch artifact: **312,087,009 bytes**. | Covers the language pairs, but no specifically trained ownership signal is documented in the inspected card/config. Do not confuse coverage with formatting qualification. |
+| OpenNMT / joint alignment training | [OpenNMT-tf](https://opennmt.net/OpenNMT-tf/alignments.html) supports supervised alignment; [OpenNMT-py](https://opennmt.net/OpenNMT-py/options/train.html) exposes alignment loss/layer/head settings. The inspected [pretrained index](https://opennmt.net/Models-py/) does not identify a guided French/Spanish → English pair. The [fairseq joint-alignment example](https://github.com/facebookresearch/fairseq/blob/main/examples/joint_alignment_translation/README.md) is an English → German training recipe. | A training capability is not a ready checkpoint. No suitable, licensed pair with documented trained heads was established from these sources. Do not start custom training or add another runtime on this evidence. |
+| TransIns | Its [README](https://github.com/DFKI-MLT/TransIns) and [pinned download script](https://github.com/DFKI-MLT/TransIns/blob/09c41c1907d94e44d02598cb85312071867608a8/download-opus-models.sh) use existing OPUS models for German ↔ English and German ↔ French, with a Java/Marian/Python server deployment. | Useful markup-reinsertion research, not a new mobile-ready FR/ES → EN alignment checkpoint. Adopting its document pipeline would duplicate the shared DOM work and would not establish our auxiliary/fused-ownership gate. |
+
+Artifact byte counts above are repository metadata, **not** converted INT8 pack
+sizes, peak RAM or phone performance. No new weights were downloaded. The two
+guessed Spanish/Romance `tc-big` repository names returned HTTP 401 from the
+public API; that does not prove that no suitable checkpoint exists elsewhere.
+The old original Spanish ZIP linked by its card returned HTTP 404. Retain the
+existing verified app pack; neither response is a reason to change a download
+URL, claim loss of all Spanish weights, or invent a replacement manifest.
+
+### Conversion does not provide a missing ownership guarantee
+
+Inspected unmodified **CTranslate2 4.7.2** source matching the app's bundled core:
+
+- The [Marian converter](https://github.com/OpenNMT/CTranslate2/blob/v4.7.2/python/ctranslate2/converters/marian.py)
+  reads `transformer-guided-alignment-layer` from the embedded model config and
+  selects one head. This is an official conversion path, not a reason to patch
+  upstream C++ or introduce another inference runtime.
+- The [Transformers Marian loader](https://github.com/OpenNMT/CTranslate2/blob/v4.7.2/python/ctranslate2/converters/transformers.py)
+  uses the specification defaults: last layer, one head. The original French
+  training log explicitly says `last`; this screen found no layer-setting
+  mismatch that would justify a different layer or a head sweep.
+- Read the two **existing** verified `model.bin` files using the pinned official
+  v6 serialization layout, including bounds, scalar dtype, aliases and EOF
+  checks. Both contain `decoder/alignment_layer = -1` and
+  `decoder/alignment_heads = 1`. The [decoder source](https://github.com/OpenNMT/CTranslate2/blob/v4.7.2/src/layers/transformer.cc)
+  interprets these as the last layer's first head. Neither pack was rewritten;
+  their SHA-256 hashes still match the earlier access receipt.
+- The [OpenNMT-py converter](https://github.com/OpenNMT/CTranslate2/blob/v4.7.2/python/ctranslate2/converters/opennmt_py.py)
+  reads the trained alignment settings when `lambda_align` is nonzero; otherwise
+  it also defaults to the last layer's first head. Converter support is a
+  delivery possibility only if an actual qualified checkpoint is identified.
+  Full-context alignment behavior, if required, needs its own parity check.
+
+This corrects a possible misunderstanding of the preceding recommendation:
+“prefer alignment-trained evidence” does **not** imply that our French model was
+untrained for alignment, that conversion discarded its selected layer, or that
+an official attention result is a complete source-contributor graph. Guided
+word alignment and Papercut's exact semantic style ownership are distinct
+acceptance tasks. A low alignment-error rate or normalized matrix alone cannot
+certify auxiliary scope, mixed-owner contractions or translation correctness.
+
+The French original ZIP includes a **CC-BY-4.0 license**, whereas its Hugging Face
+card tags Apache-2.0. Record both provenance layers; do not treat a card tag as
+clearance to omit original notices. This screen changes no existing notice
+payload and makes no new redistribution approval. Any future replacement must
+resolve the artifact-specific notice/provenance requirements before admission.
+
+### Next decision and completion gates
+
+There is no justified next production implementation stage from this screen.
+Keep `FORMATTING_ACCEPTED = false`, the shared DOM/source-owned renderer, asset
+preservation, pure contracts, cache and atomic writer intact. Keep Bergamot
+upstream work shelved. Do not resume the failed policy with threshold/control
+changes, train an NLP subsystem, replace the existing translator by size or
+popularity, or silently downgrade formatting requirements.
+
+The smallest useful follow-up is a **checkpoint/evidence clarification**, not
+more infrastructure: prepare a short maintainer question asking for an existing
+FR/ES → EN checkpoint with its supervised head/layer, extraction method,
+auxiliary/null-link behavior and redistribution terms. The French original
+settings are already known; ask about contributor coverage rather than asking
+whether attention can be returned. No issue/message was posted here.
+
+If a concrete new signal is identified, the next bounded probe must:
+
+1. Pin the checkpoint, license/notices, tokenizer, trained head/layer and official
+   offline extraction path. Establish a plausible converted pack/runtime route
+   before downloading large weights; no binding work merely to expose a matrix.
+2. Predeclare the ownership/extraction policy without tuning it on the 58 known
+   cases. Preserve their targets, expected spans and fused-negative semantics;
+   record wrong-translation controls separately from alignment correctness.
+3. Pass the mandatory exact positive scopes and fused-negative rejections, with
+   real token offsets and explicit abstentions, then check separately annotated
+   held-out cases. A few repaired examples do not qualify a provider or engine.
+4. Only after useful ownership evidence passes, evaluate maintained Rust
+   delivery, identity/cache provenance, pack admission and platform execution.
+   French/Spanish success would not establish Arabic support.
+
+**Validation/evidence:** versioned cards/configs/API metadata are saved with
+source URLs, revisions, lengths and hashes under
+`/tmp/papercut-alignment-provider-screen/`. The bounded HTTP range probe read
+only the French ZIP directory and small documentation/config/license/log files;
+it did not fetch the compressed NPZ weights. Local attribute inspection leaves
+both existing pack hashes unchanged. Source/metadata assertions, documentation
+anchors, disabled-capability check and `git diff --check` pass. Only this document
+changes. No inference, production code/dependency/runtime, catalog/install,
+cache/storage or app-version change was made. Benchmarks, smoke, fresh app/CI
 builds and version bump remain deferred; no new semantic acceptance is claimed.
 
 ## Product Goals
