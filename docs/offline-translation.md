@@ -4351,10 +4351,34 @@ file changes. Frontend and new CI were not checked; model inference, benchmarks,
 smoke and version bump remain deferred. Strict alignment stays retired and
 Bergamot/HY-MT2 remain unavailable for new jobs.
 
-**Next bounded stage:** review this isolation and its dispatch tests. After that,
-evaluate the remaining UI setup/job/result responsibilities and document structure
-before another production refactor. Backend module separation does not establish
-translation quality or mobile acceptance; those gates remain open work.
+#### Legacy rendering isolation review — 2026-10-21
+
+Reviewed `4c57380b`, the moved helpers and tests, policy selection, renderer dispatch
+and the connected runner/storage save path against the accepted sentence/review
+policy recalled with MemSearch. Assumed one foreground HTML/EPUB job with bounded
+sequential batches. No actionable correctness, security, data-loss, performance
+or unnecessary-abstraction finding was identified in this refactor.
+
+The helper logic matches the pre-refactor code after excluding comments; the
+fallback order is preserved. There is one parent-visible legacy entry point.
+Sentence/review policy validation and protected reconstruction remain ahead of
+legacy dispatch, and their errors propagate through storage before save admission
+or durable document writes. The 13 negative dispatch cases have working plain,
+protected and retained-original controls. Existing legacy formatting, escaping,
+links/notes, assets, review-original hierarchy and save/resume regressions remain.
+
+Fresh review validation passed: **221 base**, **223 worker-only** and **222 native
+Rust translation tests** (2 model-inference tests intentionally ignored), Rustfmt
+and diff checks. No production code changed during review. This isolation has no
+identified merge blocker; that verdict does not qualify the whole feature's
+translation quality or mobile behavior. Frontend, new CI, inference, benchmarks,
+smoke and version bump were not checked or advanced. Provider admission and the
+retired strict-alignment state are unchanged.
+
+**Next bounded stage:** evaluate the remaining UI setup/job/result responsibilities
+and document structure before another production refactor. Prefer extracting a
+concrete responsibility over splitting by line count, and keep model admission,
+formatting policy, saved-result behavior and existing acceptance limits explicit.
 
 ## Boundary-based CTranslate2 translation — 2026-10-20
 
