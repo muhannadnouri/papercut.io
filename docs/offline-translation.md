@@ -69,7 +69,9 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - [Stage 7 mapped-cache, resume and atomic saving](#stage-7-mapped-cache-resume-and-atomic-save--2026-10-20)
   now reuses the shared batch checkpoints, source-owned renderer and writer.
   Strict receipts and variant identities remain separate from legacy hints and
-  saved results. The candidate is still disabled for public starts.
+  saved results. Its [focused lifecycle review](#stage-7-lifecycle-review--2026-10-20)
+  found no actionable issue within this internal scope. The candidate is still
+  disabled for public starts.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -2280,11 +2282,44 @@ when the auxiliary is compiled and installed. Formatting and diff checks passed.
 These small native cases and gold ownership graphs do not close general
 semantic/resource acceptance. No fresh CI or packaged/device acceptance is claimed.
 
-**Next:** review this Stage 7 change before Stage 8 truthful capability/progress
-and setup UI work. Keep public strict admission disabled: the three previously
+**Handoff:** the focused review below completes Stage 7's review before Stage 8
+truthful capability/progress and setup UI work. Keep public strict admission disabled: the three previously
 unmet native semantic scopes, mandatory positive formatting gate and held-out,
 numeric, runtime-notice, resource/platform acceptance remain open. Benchmarks,
 broader smoke and the app version bump remain deferred.
+
+### Stage 7 lifecycle review — 2026-10-20
+
+Reviewed commit `8592a1f`, the connected runner/load closures, exact-piece and
+receipt admission, protected DOM reconstruction, cache read/write paths,
+cancel/save ownership and the shared derived-document transaction/rollback.
+**No actionable findings within the internal Stage 7 scope.** Expected load is
+one foreground translation job with the existing token, code, range and target
+bounds; this is not a measured large-book/mobile resource acceptance.
+
+The review traced exact-text reuse versus mapping invalidation, changed
+source/context/version bindings, corruption and incomplete-batch rejection,
+late native results, model ownership through save/failure, and complete receipt
+loss. The independent strict request profile prevents a missing receipt from
+selecting legacy rendering. Strict variant identities preserve legacy and
+different-profile results; same-profile retry and cancellation retain the
+existing writer cutoff and rollback semantics. Root parsing context is retained
+without changing worker transport identities. Ordinary public load closures do
+not request alignment, including when the auxiliary is compiled and installed.
+
+**Fresh validation:** offline translation suites passed **254 tests with features
+off** and **280 with CTranslate2 plus alignment runtime** (nine ignored). The two
+explicit installed-model regressions passed separately with unavailable network
+proxies: French/Spanish native runner/save/resume plus the two-model lifecycle
+and cancellation probe. The latter uses identity decoding to isolate lifecycle;
+it is not translation-quality evidence. Formatting and diff checks passed.
+
+**Next:** Stage 8 truthful capability/setup/progress and error UI integration,
+with tests for unavailable/corrupt/unsupported assets and cancellation/resume.
+Keep the strict capability unavailable in production until the existing semantic
+and public acceptance gates pass; test-only ready fixtures do not approve the
+candidate. No new CI, packaged/device acceptance, benchmarks, broader smoke or
+app version bump is claimed by this review.
 
 ## Product Goals
 
