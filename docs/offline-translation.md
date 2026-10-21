@@ -106,6 +106,10 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   confirms real token/attention access and exact frozen-target prefix evaluation
   with unmodified public APIs. Native Rust token parity passes, but its result
   still omits attention. Ownership quality and production delivery remain open.
+- The [frozen attention ownership policy](#stage-9-frozen-ctranslate2-attention-ownership-policy--2026-10-20)
+  fails: only **4/52** mandatory positive scopes are exact and admitted, despite
+  rejecting both fused negatives. It also admits a wrong negation scope and an
+  extra-punctuation scope. No native implementation or threshold tuning follows.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -3358,6 +3362,131 @@ and native/Python token parity. Artifacts/scripts remain outside Git under
 `/tmp/ct2-attention-{install,probe,native,verification}.log`.
 Only this document changes. No production code, dependency, runtime bundle,
 installer/catalog/cache, saved document or app-version change was made.
+`FORMATTING_ACCEPTED = false` remains intact. Benchmarks, smoke, fresh app/CI
+builds and version bump remain deferred; no new semantic acceptance is claimed.
+
+## Stage 9 frozen CTranslate2 attention ownership policy — 2026-10-20
+
+**No-go for this policy.** Committed the API-access findings as `45535f8` before
+this evaluation. The official matrices are accessible, but the single frozen
+conservative contributor policy rejects most mandatory positives and still
+admits a lexical ownership error. Do not implement it or invest in its native
+binding/target-offset delivery on the strength of API feasibility alone.
+
+### Policy fixed before scope evaluation
+
+Used the saved **CTranslate2 4.7.2 / OPUS-MT** attention and genuine SentencePiece
+evidence from the preceding probe. No new translation, model inference,
+dependency, parser or download was needed. All **58 cases** remain byte-identical,
+SHA-256 `8c0a50b23bf51d088e8728991b740b754217a3cc7aaa8a8ccb72686a042ebad5`.
+The policy JSON was frozen before deriving ownership, SHA-256
+`3114d1e06695d34de638571a39f2952a26d70e705ea8fcb97e16c1f19e13ed19`.
+The matrices and expected cases were already available from earlier work; this
+is a predeclared diagnostic, **not** blinded or held-out validation.
+
+The rule is deliberately explicit and falsifiable:
+
+1. Reuse Unicode 17 source cells and the previously evaluated English clitic
+   target cells, keeping `won't` atomic. Preserve original token IDs/surfaces and
+   exact scalar spans. Ignore only leading/trailing whitespace when assigning a
+   token to a unique cell; never split or duplicate its vector across cells.
+   Unknowns, lossy source normalization or crossing-token geometry reject.
+2. For each actual target subword, sum its stored FP32 source-token weights in
+   FP64 into source cells. EOS and empty/whitespace-only source tokens form an
+   **unresolved control bucket**. Do not mask that mass and renormalize the rest.
+3. Sort source-cell masses descending and retain enough to reach **0.90 of the
+   raw attention mass**, including every exact tie at the cutoff. This nucleus
+   is a hypothesized contributor set, not a calibrated confidence interval or a
+   published guarantee of semantic attribution. No cutoff sweep was performed.
+4. Union the contributors of all actual subwords in a target cell. Control
+   support or incompatible selected/unselected source owners leaves it
+   unresolved. Otherwise it inherits their common owner. The frozen source
+   selections provide one diagnostic style class versus unstyled text; they
+   do not encode a complete authored identity/hierarchy tree.
+5. Require every lexical target cell to resolve and every styled source cell
+   to participate in a resolved mapping. Unresolved punctuation may remain
+   unstyled under the existing lexical-coverage rule. Project only owned cell
+   ranges; do not widen hulls, add auxiliaries by spelling/proximity, rewrite
+   targets, or inject expected fused-meaning blockers.
+
+Whole-unit uniform inheritance remains the existing separate narrow shortcut;
+these frozen cases exercise partial scopes. Exact scoring includes punctuation;
+a lexical-only diagnostic cannot silently replace the frozen expected spans.
+All 26 actual-output rows use matrices bit-identical to their free-generation
+ones. Other rows use the exact gold-prefix matrices, without treating forced
+targets as naturally generated translations.
+
+### Observed results
+
+| Positive group | Cases | Exact scope | Exact and admitted | Rejected | Non-exact but admitted |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Fixed targets | 26 | 4 | 2 | 23 | 1 |
+| Actual CTranslate2 targets | 26 | 4 | 2 | 23 | 1 |
+| Total | **52** | **8** | **4** | **46** | **2** |
+
+Only six positives pass the policy screen, all French; four have the required
+exact scope. No Spanish positive is admitted. This is failure on the mandatory
+set, not an estimate of general-corpus quality or ordinary-input coverage.
+There are **zero geometry/unknown/normalization rejections** in this frozen run;
+the poor result is not explained by an incompatible ownership coordinate system.
+
+- Control support leaves lexical cells unresolved in **15/26 fixed** and
+  **17/26 actual** cases. Mixed owners occur in **10/26 fixed** and **8/26 actual**
+  cases. These categories overlap. Removing control columns after observing
+  these failures would change the policy, not validate the original one.
+- The admitted fixed French negation-only case owns **`is not`**, where only
+  **`not`** is required. Complete required coverage and a common selected owner
+  still produce a wrong lexical scope. The conservative mass rule is not a
+  semantic ownership detector.
+- The admitted actual French perfect-whole case owns **apostrophe + `s done`**,
+  while the frozen span selects **`s done`**. This is a punctuation-only exact-span
+  failure, not evidence of lost auxiliary meaning. Report it separately from
+  the negation error; do not relabel it as an accepted exact result.
+- **Both fused negatives reject without expected labels or a contraction
+  veto.** In French, `won't` has contributors `ne`, `reviendra`, `pas`, exposing
+  mixed styled/unstyled ownership. In Spanish, `won't` includes unresolved
+  control support; that is generic uncertainty rejection, not demonstrated
+  recognition of fused future/negation. Neither rejection repairs the failed
+  positive gate.
+- Three wrong-translation controls reject, but French changed-colour
+  **`rouge` → `blue`** is admitted. The other rejections arise from control/mixed
+  evidence, not an independently established mistranslation detector. Attention
+  consistency remains distinct from translation correctness.
+
+### Decision and next work
+
+Stop this policy before production coding. Successful matrix access, both fused
+rejections and a few exact examples are insufficient when mandatory ordinary
+scopes fail and one lexical error is admitted. The result rejects **this fixed
+policy on these matrices**; it does not prove that all decoder attention or every
+possible policy is incapable of useful alignment.
+
+Do not respond with a threshold/head sweep on the same examples, an auxiliary
+allowlist, control-mass deletion or relaxed exact spans. No additional native
+integration work is justified for this policy. Keep the shared DOM/asset,
+contract, cache and atomic writer work intact and the candidate disabled.
+
+Further research needs an explicitly different, documented ownership signal
+with a credible path through the same auxiliary/fused cases, followed by
+independently annotated held-out checks. Prefer evidence designed or trained
+for alignment over more infrastructure around unqualified weights. No such
+replacement is selected here; no custom training, morphology subsystem,
+upstream fork, automatic fallback or change to formatting requirements is
+approved. Pause strict-path implementation while that feasibility decision is
+open. Native attention and target-offset delivery remain later gates only if
+a useful policy is first demonstrated.
+
+**Validation/evidence:** helper self-checks cover cutoff ties, same-owner unions,
+mixed/control rejection and invalid masses. An independent NumPy implementation
+recomputes **291 target-token support rows**, cell ownership, coverage and all
+58 outcomes from the immutable saved matrices. Frozen inputs, policy and
+attention-file hashes and the exact/punctuation distinction are checked.
+Scripts/results remain outside Git under
+`/tmp/papercut-ct2-ownership-evaluation/`, including `frozen-receipt.json`,
+`policy.json`, `summary.json` and `verification.json`; logs are
+`/tmp/ct2-ownership-{freeze,evaluation,verification}.log`.
+Only this document changes. No production code/dependency/runtime, install,
+catalog/cache, saved document or app-version change was made.
 `FORMATTING_ACCEPTED = false` remains intact. Benchmarks, smoke, fresh app/CI
 builds and version bump remain deferred; no new semantic acceptance is claimed.
 
