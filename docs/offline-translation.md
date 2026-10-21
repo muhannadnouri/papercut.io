@@ -3794,6 +3794,20 @@ tests**. TypeScript, all eight locale resources, changed-file ESLint, Rustfmt an
 diff checks passed. Strict stays disabled; benchmarks, smoke and version bump
 remain deferred.
 
+### Zero-byte removal confirmation — 2026-10-21
+
+Known-empty owned storage now displays a localized `0 MB` in the model row and
+removal confirmation. Zero stored bytes are distinct from missing size metadata,
+so an empty directory cannot fall back to the model's full download estimate.
+The shared size formatter and removal/admission behavior are unchanged.
+
+The synthetic UI regression failed before the fix and now checks the stored
+size, confirmation amount, explicit removal and absence of a download. All **122
+frontend translation tests**, TypeScript, changed-file ESLint and diff checks
+passed. No Rust changes or additional native test run were needed for this
+presentation fix. Strict stays disabled; benchmarks, smoke and version bump
+remain deferred.
+
 **Next bounded stage:** remove the confirmed unused flat-span mapping API and
 raw Bergamot batch prototype, retaining scalar-offset validation and the live
 document worker bridge. Then centralize document formatting-policy selection

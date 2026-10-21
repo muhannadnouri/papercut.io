@@ -6,7 +6,8 @@ import { TranslationPanel } from './TranslationPanel'
 import en from '../../i18n/locales/en.json'
 import type { TranslationModelInfo, TranslationModelStatus } from '../api/nativeTranslation'
 
-vi.mock('react-i18next', async original => ({ ...await original<typeof import('react-i18next')>(), useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }) }))
+// Interpolate the removal amount so assertions cover the actual confirmation payload.
+vi.mock('react-i18next', async original => ({ ...await original<typeof import('react-i18next')>(), useTranslation: () => ({ t: (key: string, options?: { size?: string }) => key === 'translation.confirmModelRemove.description' ? `${key} ${options?.size ?? ''}` : key, i18n: { language: 'en' } }) }))
 vi.mock('../../i18n', () => ({ default: { t: (key: string) => key }, currentAppLocale: () => 'en' }))
 const opus: TranslationModelInfo = {
   id: 'opus-mt-fr-en-ctranslate2', name: 'OPUS French', engine: 'ctranslate2', available: true,
@@ -52,6 +53,25 @@ beforeEach(async () => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals() })
 
 describe('Bergamot catalog workbench', () => {
+  it('confirms zero stored bytes for an empty model directory without substituting the download estimate', async () => {
+    const model = { ...french, available: false, unavailableReason: 'acceptance-pending' as const, sizeNotes: 'About 42 MB including the runtime' }
+    await render({ capabilities: { ...props.capabilities!, available: false, backend: 'bergamot-worker', models: [model] },
+      modelStatuses: { [model.id]: { ...installed, installed: false, hasStoredFiles: true, installedBytes: 0, archiveBytes: 42000000 } } })
+    await click('translation.models.title')
+    const row = container.querySelector('.translation-model-item')!
+    expect(row.textContent).toContain('0 MB')
+    const remove = row.querySelector<HTMLButtonElement>('.translation-model-remove-btn')!
+    expect(remove.disabled).toBe(false)
+    await act(async () => remove.click())
+    const description = document.querySelector('.app-dialog-header p')!.textContent
+    expect(description).toContain('0 MB')
+    expect(description).not.toContain(model.sizeNotes)
+    expect(props.onRemoveTranslationModel).not.toHaveBeenCalled()
+    await act(async () => document.querySelector<HTMLButtonElement>('.app-dialog-danger')!.click())
+    expect(props.onRemoveTranslationModel).toHaveBeenCalledExactlyOnceWith(model.id)
+    expect(props.onInstallTranslationModel).not.toHaveBeenCalled()
+  })
+
   it.each(['bergamot-fr-en-worker', 'hy-mt2-1.8b-q8'])('removes invalid stored %s files without admitting translation or downloads', async id => {
     const model = { ...french, id, name: id, available: false, unavailableReason: 'acceptance-pending' as const }
     const partial = { ...installed, modelId: id, installed: false, hasStoredFiles: true, installedBytes: 16, modelDir: null }

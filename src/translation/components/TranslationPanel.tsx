@@ -555,7 +555,7 @@ export function TranslationPanel({
       >
         <div className="translation-model-list">
           {installableModels.map((model) => {
-            const size = formatModelSize(modelStatuses[model.id])
+            const size = formatModelSize(modelStatuses[model.id], locale)
             return (
               <div key={model.id} className="translation-model-item">
                 <div>
@@ -702,7 +702,7 @@ export function TranslationPanel({
           title={t('translation.confirmModelRemove.title')}
           description={t('translation.confirmModelRemove.description', {
             name: confirmingModel.name,
-            size: formatModelSize(modelStatuses[confirmingModel.id]) || confirmingModel.sizeNotes,
+            size: formatModelSize(modelStatuses[confirmingModel.id], locale) || confirmingModel.sizeNotes,
           })}
           onCancel={() => setConfirmingModelId('')}
           actions={
@@ -984,9 +984,12 @@ function formatStatusLabel(status: string, t: TFunction): string {
 
 // Size only: installed/installing state is already carried by the row's
 // badge or button, so repeating it in text would be redundant.
-function formatModelSize(status?: TranslationModelStatus): string {
+function formatModelSize(status: TranslationModelStatus | undefined, locale: string): string {
   if (!status) return ''
-  const bytes = status.installed || status.hasStoredFiles ? status.installedBytes : status.archiveBytes
+  const stored = status.installed || status.hasStoredFiles
+  const bytes = stored ? status.installedBytes : status.archiveBytes
+  // A known empty directory must not fall back to the full download estimate in confirmation.
+  if (stored && bytes === 0) return new Intl.NumberFormat(locale).format(0) + ' MB'
   return bytes > 0 ? formatStorageSize(bytes) ?? '' : ''
 }
 
