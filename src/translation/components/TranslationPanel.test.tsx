@@ -52,6 +52,66 @@ beforeEach(async () => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals() })
 
 describe('Bergamot catalog workbench', () => {
+  it.each(['bergamot-fr-en-worker', 'hy-mt2-1.8b-q8'])('removes invalid stored %s files without admitting translation or downloads', async id => {
+    const model = { ...french, id, name: id, available: false, unavailableReason: 'acceptance-pending' as const }
+    const partial = { ...installed, modelId: id, installed: false, hasStoredFiles: true, installedBytes: 16, modelDir: null }
+    await render({ capabilities: { ...props.capabilities!, models: [opus, model] }, modelStatuses: { [id]: partial } })
+    await click('translation.models.title')
+    const row = [...container.querySelectorAll('.translation-model-item')].find(r => r.textContent?.includes(model.name))!
+    expect(row.textContent).toContain('translation.models.filesStored')
+    expect(row.querySelector('.translation-model-install-btn')).toBeNull()
+    const remove = row.querySelector<HTMLButtonElement>('.translation-model-remove-btn')!
+    expect(remove.disabled).toBe(false)
+    await act(async () => remove.click())
+    await act(async () => document.querySelector<HTMLButtonElement>('.app-dialog-cancel')!.click())
+    expect(props.onRemoveTranslationModel).not.toHaveBeenCalled()
+    await act(async () => remove.click())
+    await act(async () => document.querySelector<HTMLButtonElement>('.app-dialog-danger')!.click())
+    expect(props.onRemoveTranslationModel).toHaveBeenCalledExactlyOnceWith(id)
+    expect(props.onInstallTranslationModel).not.toHaveBeenCalled()
+    expect(props.onStartTranslationPreflight).not.toHaveBeenCalled()
+    await render({ modelStatuses: { [id]: { ...partial, hasStoredFiles: false, installedBytes: 0 } } })
+    expect(row.querySelector('.translation-model-remove-btn')).toBeNull()
+    expect(row.querySelector<HTMLButtonElement>('.translation-model-install-btn')!.disabled).toBe(true)
+  })
+
+  it('keeps explicit repair available for an admitted partial pack while protecting in-progress removal', async () => {
+    const partial = { ...installed, modelId: opus.id, installed: false, hasStoredFiles: true, installing: true }
+    await render({ modelStatuses: { [opus.id]: partial } })
+    await click('translation.models.title')
+    const row = [...container.querySelectorAll('.translation-model-item')].find(r => r.textContent?.includes(opus.name))!
+    expect(row.querySelector<HTMLButtonElement>('.translation-model-remove-btn')!.disabled).toBe(true)
+    expect(row.querySelector<HTMLButtonElement>('.translation-model-install-btn')!.disabled).toBe(true)
+    expect(button('translation.workbench.run').disabled).toBe(true)
+    await render({ modelStatuses: { [opus.id]: { ...partial, installing: false } } })
+    expect(row.querySelector<HTMLButtonElement>('.translation-model-remove-btn')!.disabled).toBe(false)
+    await act(async () => row.querySelector<HTMLButtonElement>('.translation-model-install-btn')!.click())
+    expect(props.onInstallTranslationModel).toHaveBeenCalledExactlyOnceWith(opus.id)
+    // The hook retains terminal progress for its success message; it must not lock removal afterward.
+    await render({
+      modelStatuses: { [opus.id]: { ...partial, installed: true, installing: false } },
+      modelInstallState: { ...props.modelInstallState, progress: { modelId: opus.id, status: 'installed', message: '', downloadedBytes: 42, totalBytes: 42, percent: 100 } },
+    })
+    expect(row.querySelector<HTMLButtonElement>('.translation-model-remove-btn')!.disabled).toBe(false)
+  })
+
+  it.each([
+    ['translation-unavailable', false, 'translation.status.unavailableReason'],
+    ['bergamot-worker', false, 'translation.models.acceptancePending'],
+    ['ctranslate2+bergamot-worker', true, null],
+  ] as const)('uses the %s build reason independently of pending catalog rows', async (backend, available, expected) => {
+    await render({ capabilities: { ...props.capabilities!, backend, available, models: [
+      { ...opus, available }, { ...french, available: false, unavailableReason: 'acceptance-pending' },
+    ] } })
+    const banner = container.querySelector('.translation-status-stack .translation-alert')
+    if (expected) {
+      expect(banner?.textContent).toContain(expected)
+    } else {
+      expect(banner).toBeNull()
+      expect(picker().value).toBe(opus.id)
+    }
+  })
+
   it('gates unqualified jobs/downloads while keeping OPUS and explicit model removal usable', async () => {
     const hy = { ...french, id: 'hy-mt2-1.8b-q8', name: 'HY-MT2', engine: 'llama.cpp', available: false, unavailableReason: 'acceptance-pending' as const }
     // Simulate an older selection when a fresh capability response closes admission.

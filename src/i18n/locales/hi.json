@@ -94,6 +94,7 @@
       "highResourceTitle": "अधिक संसाधन वाला मॉडल।",
       "hyMt2ResourceNote": "HY-MT2 के लिए 1.9 जीबी डाउनलोड आवश्यक है और केवल CPU वाले सिस्टम पर यह बहुत धीमा हो सकता है। Papercut द्वारा संगत Vulkan GPU का पता लगाने पर हार्डवेयर त्वरण दिखाई देता है।",
       "unavailable": "अनुपलब्ध",
+      "filesStored": "फ़ाइलें मौजूद हैं — अधूरी या अमान्य",
       "acceptancePending": "स्वरूपण और अनुवाद की पूर्णता की जाँच पास होने तक उपलब्ध नहीं है। मौजूदा मॉडल फ़ाइलें हटाई जा सकती हैं और सहेजे गए अनुवाद उपलब्ध रहेंगे।",
       "engineUnavailable": "इस बिल्ड में यह अनुवाद इंजन संकलित नहीं है।",
       "webviewUnavailable": "Bergamot के लिए workers, WebCrypto और WebAssembly SIMD वाला सुरक्षित WebView आवश्यक है। यह इस WebView में उपलब्ध नहीं है।",

@@ -163,6 +163,8 @@ pub(crate) struct TranslationModelInfo {
 pub(crate) struct TranslationModelStatus {
     pub(crate) model_id: String,
     pub(crate) installed: bool,
+    /// Owned files may be removable even when model verification fails.
+    pub(crate) has_stored_files: bool,
     pub(crate) installing: bool,
     pub(crate) model_dir: Option<String>,
     pub(crate) source_url: String,

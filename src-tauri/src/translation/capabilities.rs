@@ -9,7 +9,7 @@ use super::config::{
     TRANSLATION_BACKEND_UNAVAILABLE,
 };
 use super::hy_mt2::hy_mt2_hardware_acceleration;
-use super::model_store::{directory_size, manifest_by_id, resolve_translation_model_dir};
+use super::model_store::{manifest_by_id, resolve_translation_model_dir};
 use super::models::{find_planned_model, planned_models};
 use super::state::TranslationState;
 use super::types::{
@@ -126,6 +126,7 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
         return TranslationModelStatus {
             model_id: request.model_id,
             installed: false,
+            has_stored_files: false,
             installing: false,
             model_dir: None,
             source_url: String::new(),
@@ -140,16 +141,20 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
     let model = find_planned_model(&request.model_id);
     let auxiliary = manifest.is_auxiliary();
     let installing = state.model_operation_active(manifest.directory_name);
+    // Unsafe/unreadable roots stay unadvertised; the removal command still performs its own checks.
+    let (has_stored_files, stored_bytes) =
+        super::model_install::model_storage(app, manifest).unwrap_or_default();
     match resolve_translation_model_dir(app, manifest) {
         Ok(model_dir) => TranslationModelStatus {
             model_id: manifest.model_id.into(),
             installed: true,
+            has_stored_files,
             installing,
             model_dir: Some(model_dir.display().to_string()),
             source_url: manifest.source_url.into(),
             source_label: manifest.source_label.into(),
             archive_bytes: manifest.total_bytes(),
-            installed_bytes: directory_size(&model_dir).unwrap_or(0),
+            installed_bytes: stored_bytes,
             sha256: String::new(),
             message: if auxiliary {
                 "Auxiliary alignment assets and notices verified; translation and formatting readiness are separate checks".into()
@@ -164,6 +169,7 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
         Err(_) => TranslationModelStatus {
             model_id: manifest.model_id.into(),
             installed: false,
+            has_stored_files,
             installing,
             model_dir: None,
             source_url: manifest.source_url.into(),
@@ -171,7 +177,7 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
                 .map(|model| format!("{} ({})", model.name, model.manifest_state))
                 .unwrap_or_else(|| manifest.source_label.into()),
             archive_bytes: manifest.total_bytes(),
-            installed_bytes: 0,
+            installed_bytes: stored_bytes,
             sha256: String::new(),
             message: if auxiliary {
                 "Auxiliary alignment assets are missing or failed verification; install or repair the pack. This does not enable a translation engine.".into()
@@ -240,6 +246,16 @@ mod tests {
     #[test]
     fn catalog_gates_each_engine_without_changing_native_order_or_admitting_candidates() {
         let caps = translation_capabilities();
+        if caps.available {
+            assert!(caps.reason.contains("OPUS-MT"));
+        } else if cfg!(feature = "native-translation") {
+            assert!(caps
+                .reason
+                .contains("pending formatting and completeness acceptance"));
+        } else {
+            assert_eq!(caps.backend, TRANSLATION_BACKEND_UNAVAILABLE);
+            assert!(caps.reason.contains("not implemented in this build"));
+        }
         assert_eq!(caps.models[0].id, "opus-mt-es-en-ctranslate2");
         assert_eq!(caps.models[1].id, "opus-mt-fr-en-ctranslate2");
         assert_eq!(

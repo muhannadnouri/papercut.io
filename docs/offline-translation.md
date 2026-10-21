@@ -3757,6 +3757,43 @@ resources, changed-file ESLint, Rustfmt and diff checks passed. Native features
 were compiled for admission tests; no model-quality benchmark or app/device
 smoke run was performed.
 
+### Removal and build-reason follow-up — 2026-10-21
+
+The provider-gate review found two recovery/presentation gaps. Both are fixed:
+
+- Model status now reports `hasStoredFiles` independently of `installed`.
+  Invalid, incomplete or older packs never become ready merely because files
+  exist. The read-only storage snapshot covers the same final, staging, previous
+  and legacy installer directories as explicit removal. `installedBytes` reports
+  those owned bytes even when verification fails, so confirmation uses stored
+  size rather than the next download's size. Status does not recover or delete
+  interrupted work; existing directory/symlink and removal-ownership checks stay
+  in force. Unsafe/unreadable roots are not advertised as removable.
+- Gated providers expose confirmed removal for stored-but-invalid files, with a
+  localized **Files stored — incomplete or invalid** label. They still cannot
+  download or run. Admitted providers retain explicit repair/install alongside
+  removal. Busy operations disable removal; completed install progress does not.
+  Older frontends ignore the additive field; when an older backend omits it,
+  verified installations still retain their removal controls.
+- Builds reporting `translation-unavailable` now show the missing-build-support
+  explanation before any pending-provider explanation. Worker-only builds still
+  explain provider acceptance; an admitted native build keeps OPUS usable even
+  while other catalog rows are pending. No new runtime or acceptance opt-in was
+  added.
+
+Regression tests cover each owned storage root independently, same-size corrupt
+Bergamot bytes, non-mutating status checks, denied downloads, post-removal status,
+unchanged saved/cache/audio files and symlink rejection. UI tests cover invalid
+pack removal/cancel/confirm, repeat-removal prevention, admitted repair, active
+and completed-install progress, and unavailable/worker-only/native build reasons.
+
+Follow-up validation passed: **288 base Rust translation tests**, **314 tests
+with CTranslate2, llama.cpp and alignment-runtime compiled** (10 opt-in tests
+ignored), **2 worker-only capability tests**, and **121 frontend translation
+tests**. TypeScript, all eight locale resources, changed-file ESLint, Rustfmt and
+diff checks passed. Strict stays disabled; benchmarks, smoke and version bump
+remain deferred.
+
 **Next bounded stage:** remove the confirmed unused flat-span mapping API and
 raw Bergamot batch prototype, retaining scalar-offset validation and the live
 document worker bridge. Then centralize document formatting-policy selection

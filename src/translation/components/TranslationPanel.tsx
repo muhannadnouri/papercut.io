@@ -84,11 +84,12 @@ export function TranslationPanel({
   const locale = i18n.resolvedLanguage ?? i18n.language
   const webviewUnavailable = capabilities?.models.some(model => model.unavailableReason === 'webview') ?? false
   const acceptancePending = capabilities?.models.some(model => model.unavailableReason === 'acceptance-pending') ?? false
+  const runtimeUnavailable = capabilities?.backend === 'translation-unavailable'
   const statusLabel = loading
     ? t('translation.status.checking')
     : capabilities?.available
       ? t('translation.status.available')
-      : t(webviewUnavailable || acceptancePending ? 'translation.models.unavailable' : 'translation.status.unavailable')
+      : t(!runtimeUnavailable && (webviewUnavailable || acceptancePending) ? 'translation.models.unavailable' : 'translation.status.unavailable')
   const modelOptions = useMemo(() => capabilities?.models ?? [], [capabilities])
   const installableModels = useMemo(
     () => modelOptions.filter((model) => model.manifestState === 'pinned-file-manifest'),
@@ -258,7 +259,9 @@ export function TranslationPanel({
 
           {backendUnavailable && capabilities && (
             <div className="translation-alert">
-              <span>{t(acceptancePending
+              <span>{t(runtimeUnavailable
+                ? 'translation.status.unavailableReason'
+                : acceptancePending
                 ? 'translation.models.acceptancePending'
                 : webviewUnavailable ? 'translation.models.webviewUnavailable'
                 : 'translation.status.unavailableReason')}</span>
@@ -461,13 +464,13 @@ export function TranslationPanel({
                 <strong>{t('translation.formatting.label')}</strong>
               </label>
               <p>{t(formattingReasonKey)}</p>
-              {formatting?.modelId && ((formattingPair && formatting.available) || formattingStatus?.installed) && (
+              {formatting?.modelId && ((formattingPair && formatting.available) || formattingStatus?.installed || formattingStatus?.hasStoredFiles) && (
                 <>
                   <strong>{t('translation.formatting.packName')}</strong>
                   <p>{t('translation.formatting.downloadNote', { size: formatStorageSize(formatting.archiveBytes) ?? '' })}</p>
                   <p role="status">{t(formattingStatus?.installed ? 'translation.formatting.packReady' : 'translation.formatting.packMissing')}</p>
                   <TranslationModelInstallButton
-                    model={{ id: formatting.modelId, name: t('translation.formatting.packName'), manifestState: 'pinned-file-manifest' }}
+                    model={{ id: formatting.modelId, name: t('translation.formatting.packName'), manifestState: 'pinned-file-manifest', available: formatting.available }}
                     disabled={startState.checking || Boolean(modelInstallState.installingModelId) || Boolean(modelRemoveState.removingModelId)}
                     status={formattingStatus}
                     progress={modelInstallState.progress?.modelId === formatting.modelId ? modelInstallState.progress : null}
@@ -572,7 +575,7 @@ export function TranslationPanel({
                   disabled={Boolean(
                     modelInstallState.installingModelId ||
                     modelRemoveState.removingModelId ||
-                    startState.checking || (!model.available && !modelStatuses[model.id]?.installed)
+                    startState.checking || (!model.available && !modelStatuses[model.id]?.installed && !modelStatuses[model.id]?.hasStoredFiles)
                   )}
                   onInstall={onInstallTranslationModel}
                   onRequestRemove={setConfirmingModelId}
@@ -791,7 +794,7 @@ function TranslationProgressMeter({
 
 interface TranslationModelInstallButtonProps {
   disabled: boolean
-  model: Pick<TranslationModelInfo, 'id' | 'name' | 'manifestState'>
+  model: Pick<TranslationModelInfo, 'id' | 'name' | 'manifestState' | 'available'>
   progress: TranslationModelInstallProgress | null
   status?: TranslationModelStatus
   onInstall: (modelId: string) => Promise<void>
@@ -809,15 +812,29 @@ function TranslationModelInstallButton({
   t,
 }: TranslationModelInstallButtonProps) {
   const installable = model.manifestState === 'pinned-file-manifest'
-  const installing = progress !== null || status?.installing
-  if (status?.installed) {
+  const installing = (progress !== null && progress.status !== 'installed') || status?.installing
+  const installButton = (
+    <button
+      type="button"
+      className="translation-model-install-btn"
+      aria-label={`${t('translation.models.install')}: ${model.name}`}
+      disabled={disabled || installing || !model.available}
+      onClick={() => { void onInstall(model.id) }}
+    >
+      {installing
+        ? t('translation.models.installing', { percent: progress?.percent ?? 0 })
+        : t('translation.models.install')}
+    </button>
+  )
+  if (status?.installed || status?.hasStoredFiles) {
     return (
       <div className="translation-model-actions">
-        <span className="translation-model-badge">{t('translation.models.installed')}</span>
+        <span className="translation-model-badge">{t(status.installed ? 'translation.models.installed' : 'translation.models.filesStored')}</span>
+        {!status.installed && model.available && installButton}
         <button
           type="button"
           className="translation-model-remove-btn"
-          disabled={disabled}
+          disabled={disabled || installing}
           aria-label={t('translation.models.removeLabel', { name: model.name })}
           onClick={() => onRequestRemove(model.id)}
         >
@@ -833,19 +850,7 @@ function TranslationModelInstallButton({
       </span>
     )
   }
-  return (
-    <button
-      type="button"
-      className="translation-model-install-btn"
-      aria-label={`${t('translation.models.install')}: ${model.name}`}
-      disabled={disabled || installing}
-      onClick={() => { void onInstall(model.id) }}
-    >
-      {installing
-        ? t('translation.models.installing', { percent: progress?.percent ?? 0 })
-        : t('translation.models.install')}
-    </button>
-  )
+  return installButton
 }
 
 function formatDocumentFormat(format: string | undefined, t: TFunction): string {
@@ -981,7 +986,7 @@ function formatStatusLabel(status: string, t: TFunction): string {
 // badge or button, so repeating it in text would be redundant.
 function formatModelSize(status?: TranslationModelStatus): string {
   if (!status) return ''
-  const bytes = status.installed ? status.installedBytes : status.archiveBytes
+  const bytes = status.installed || status.hasStoredFiles ? status.installedBytes : status.archiveBytes
   return bytes > 0 ? formatStorageSize(bytes) ?? '' : ''
 }
 

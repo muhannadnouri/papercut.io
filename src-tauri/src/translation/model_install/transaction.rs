@@ -65,22 +65,27 @@ impl Paths {
         remove(&self.previous)
     }
 
+    /// Read the same owned roots as removal; incomplete packs and interrupted installs still occupy storage.
+    pub(super) fn storage(&self) -> Result<(bool, u64), String> {
+        let mut bytes = 0u64;
+        let mut present = false;
+        for path in [&self.final_dir, &self.staging, &self.previous] {
+            let (exists, size) = storage(path)?;
+            present |= exists;
+            bytes = bytes
+                .checked_add(size)
+                .ok_or("Model storage size overflow")?;
+        }
+        Ok((present, bytes))
+    }
+
     /// Explicit removal includes interrupted installs/backups, never neighboring models or documents.
     pub(super) fn remove(&self) -> Result<(bool, u64), String> {
-        let mut bytes = 0u64;
-        let mut removed = false;
-        for path in [&self.final_dir, &self.staging, &self.previous] {
-            if exists(path)? {
-                removed = true;
-                bytes = bytes
-                    .checked_add(directory_size(path)?)
-                    .ok_or("Model storage size overflow")?;
-            }
-        }
+        let snapshot = self.storage()?;
         for path in [&self.staging, &self.previous, &self.final_dir] {
             remove(path)?;
         }
-        Ok((removed, bytes))
+        Ok(snapshot)
     }
 }
 
@@ -103,11 +108,17 @@ fn remove(path: &Path) -> Result<(), String> {
 
 /// Reclaim only an obsolete installer-owned cache directory, without following links.
 pub(super) fn clear_legacy(path: &Path) -> Result<(bool, u64), String> {
+    let snapshot = storage(path)?;
+    remove(path)?;
+    Ok(snapshot)
+}
+
+/// Presence is independent of model integrity; inspection shares removal's directory/symlink checks.
+pub(super) fn storage(path: &Path) -> Result<(bool, u64), String> {
     if !exists(path)? {
         return Ok((false, 0));
     }
     let bytes = directory_size(path)?;
-    remove(path)?;
     Ok((true, bytes))
 }
 

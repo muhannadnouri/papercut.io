@@ -82,6 +82,27 @@ pub(crate) async fn remove_translation_model<R: Runtime>(
     .and_then(|inner| inner)
 }
 
+/// Report removable storage without treating partial files as an installed model or changing recovery state.
+pub(super) fn model_storage<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    manifest: TranslationModelManifest,
+) -> Result<(bool, u64), String> {
+    if !manifest.installable {
+        return Ok((false, 0));
+    }
+    manifest.validate()?;
+    let paths = transaction::Paths::new(installed_translation_model_dir(app, manifest)?)?;
+    let (present, bytes) = paths.storage()?;
+    let (legacy_present, legacy_bytes) =
+        transaction::storage(&translation_model_work_dir(app, manifest)?)?;
+    Ok((
+        present || legacy_present,
+        bytes
+            .checked_add(legacy_bytes)
+            .ok_or("Model storage size overflow")?,
+    ))
+}
+
 /// Delete only installer-owned roots; translated documents and caches live elsewhere.
 fn remove_model_blocking<R: Runtime>(
     app: &tauri::AppHandle<R>,

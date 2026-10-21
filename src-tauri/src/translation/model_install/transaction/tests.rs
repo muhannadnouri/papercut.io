@@ -88,7 +88,9 @@ fn install_repair_status_and_remove_preserve_neighbors_and_check_every_file() {
     }
     pack(&paths.staging, b"abc");
     pack(&paths.previous, b"old");
+    assert_eq!(paths.storage().unwrap(), (true, 18));
     assert_eq!(paths.remove().unwrap(), (true, 18));
+    assert_eq!(paths.storage().unwrap(), (false, 0));
     assert_eq!(paths.remove().unwrap(), (false, 0));
     assert_eq!(fs::read(neighbor.join("model.bin")).unwrap(), b"old");
 }
@@ -317,6 +319,8 @@ fn symlinked_files_and_owned_roots_never_follow_or_delete_outside_data() {
         symlink(&outside, root).unwrap();
         assert!(install(&paths, PACK, fetch, |_, _| Ok(()), |a, b| fs::rename(a, b)).is_err());
         assert!(paths.remove().is_err());
+        assert!(paths.storage().is_err());
+        assert!(storage(root).is_err());
         assert!(clear_legacy(root).is_err());
         fs::remove_file(root).unwrap();
         assert_eq!(fs::read(outside.join("model.bin")).unwrap(), b"abc");

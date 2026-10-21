@@ -155,19 +155,54 @@ fn gated_model_status_and_removal_preserve_existing_document_cache_and_audio_fil
             manifest,
         )
         .unwrap();
-        std::fs::create_dir_all(&model_dir).unwrap();
-        std::fs::write(model_dir.join("model.bin"), b"old installation").unwrap();
-        let status = invoke(
-            &window,
-            "translation_model_status",
-            json!({"request":{"modelId":id}}),
-        )
-        .unwrap();
-        assert_eq!(status["modelId"], id);
-        assert!(status["message"].as_str().unwrap().contains("acceptance"));
-        let removed = invoke(&window, "translation_remove_model", json!({"modelId":id})).unwrap();
-        assert_eq!(removed["removed"], true);
-        assert!(!model_dir.exists());
+        // Each root alone must remain discoverable after an interrupted install or failed verification.
+        let legacy =
+            crate::translation::model_store::translation_model_work_dir(app.handle(), manifest)
+                .unwrap();
+        for root in [
+            model_dir.clone(),
+            model_dir.with_file_name(format!(".{id}.installing")),
+            model_dir.with_file_name(format!(".{id}.previous")),
+            legacy,
+        ] {
+            std::fs::create_dir_all(&root).unwrap();
+            std::fs::write(root.join("model.bin"), b"old installation").unwrap();
+            let status = invoke(
+                &window,
+                "translation_model_status",
+                json!({"request":{"modelId":id}}),
+            )
+            .unwrap();
+            assert_eq!(status["modelId"], id);
+            assert_eq!(
+                status["installed"], false,
+                "partial files are not model readiness"
+            );
+            assert_eq!(status["hasStoredFiles"], true);
+            assert_eq!(status["installedBytes"], 16);
+            assert!(status["message"].as_str().unwrap().contains("acceptance"));
+            assert_eq!(
+                std::fs::read(root.join("model.bin")).unwrap(),
+                b"old installation",
+                "status must not recover/delete files"
+            );
+            let error =
+                invoke(&window, "translation_install_model", json!({"modelId":id})).unwrap_err();
+            assert_eq!(error["code"], "provider-acceptance-pending");
+            let removed =
+                invoke(&window, "translation_remove_model", json!({"modelId":id})).unwrap();
+            assert_eq!(removed["removed"], true);
+            assert_eq!(removed["bytesFreed"], 16);
+            assert!(!root.exists());
+            let after = invoke(
+                &window,
+                "translation_model_status",
+                json!({"request":{"modelId":id}}),
+            )
+            .unwrap();
+            assert_eq!(after["hasStoredFiles"], false);
+            assert_eq!(after["installedBytes"], 0);
+        }
     }
     for path in [
         "uploads/saved.html",
@@ -176,4 +211,35 @@ fn gated_model_status_and_removal_preserve_existing_document_cache_and_audio_fil
     ] {
         assert_eq!(std::fs::read(dir.0.join(path)).unwrap(), b"keep");
     }
+}
+
+#[test]
+fn same_size_corrupt_worker_pack_is_removable_without_becoming_installed() {
+    let (_dir, app, window) = fixture();
+    let id = "bergamot-fr-en-worker";
+    let manifest = crate::translation::model_store::manifest_by_id(id).unwrap();
+    let model_dir =
+        crate::translation::model_store::installed_translation_model_dir(app.handle(), manifest)
+            .unwrap();
+    std::fs::create_dir_all(&model_dir).unwrap();
+    // Sparse synthetic files match the inventory sizes but never a trusted model hash.
+    for pin in manifest.files {
+        std::fs::File::create(model_dir.join(pin.path))
+            .unwrap()
+            .set_len(pin.bytes)
+            .unwrap();
+    }
+    assert!(manifest.has_required_files(&model_dir));
+    let status = invoke(
+        &window,
+        "translation_model_status",
+        json!({"request":{"modelId":id}}),
+    )
+    .unwrap();
+    assert_eq!(status["installed"], false);
+    assert_eq!(status["hasStoredFiles"], true);
+    assert_eq!(status["installedBytes"], manifest.total_bytes());
+    let removed = invoke(&window, "translation_remove_model", json!({"modelId":id})).unwrap();
+    assert_eq!(removed["bytesFreed"], manifest.total_bytes());
+    assert!(!model_dir.exists());
 }

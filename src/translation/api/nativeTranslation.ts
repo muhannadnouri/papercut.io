@@ -37,6 +37,8 @@ export interface TranslationModelInfo {
 export interface TranslationModelStatus {
   modelId: string
   installed: boolean
+  /** Missing on older backends; verified installations still imply stored files. */
+  hasStoredFiles?: boolean
   installing: boolean
   modelDir?: string | null
   sourceUrl: string

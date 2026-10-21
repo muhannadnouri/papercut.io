@@ -163,6 +163,7 @@ export function useTranslationManager({
             ...existing,
             installing: progress.status !== 'installed',
             installed: progress.status === 'installed' ? true : existing.installed,
+            hasStoredFiles: progress.status === 'installed' ? true : existing.hasStoredFiles,
             installedBytes: progress.status === 'installed' ? progress.totalBytes : existing.installedBytes,
           },
         }
