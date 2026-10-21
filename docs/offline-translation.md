@@ -11,8 +11,10 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - **Current CTranslate2 path:** [boundary-based translation](#boundary-based-ctranslate2-translation--2026-10-20)
   retains source formatting by translating fragments separately, with an explicit
   cross-fragment fluency tradeoff. It reuses the shared document pipeline and
-  does not load an aligner. Punctuation/symbol-only fragments are copied without
-  inference, including tails created by size-based splitting. The strict candidate
+  does not load an aligner. Within each source scope, Unicode sentence boundaries
+  are planned before native admission; long sentences still use the existing
+  bounded clause/whitespace cuts. Punctuation/symbol-only fragments are copied
+  without inference, including tails created by splitting. The strict candidate
   remains disabled; the Stage 9 investigations below do not block this separately
   approved boundary policy.
 
@@ -3642,11 +3644,13 @@ was posted. The strict alignment candidate remains disabled and unqualified.
   from every source shell endpoint and note/media attachment, with source
   whitespace copied explicitly. Compatible adjacent text within one scope is
   already coalesced by the DOM model; distinct source elements retain their
-  identities. A uniformly styled sentence remains one MT input when it fits.
+  identities. Even under budget, multiple sentences within a scope become
+  separate MT inputs. A uniformly styled sentence remains one input when it fits.
 - Reuse the existing native tokenizer budget and complete-decoder checks.
   Each actual prose input is at most **900 Unicode scalars** and fits the
-  OPUS-MT **448-token** source budget including framing. Over-budget prose is
-  split at sentence/clause/whitespace boundaries. Calls contain at most 16
+  OPUS-MT **448-token** source budget including framing. Unicode sentence cuts
+  come first inside each source scope; over-budget sentences then split at
+  clause/whitespace boundaries. Calls contain at most 16
   inputs; source and target grapheme boundaries and the combined target size
   are checked. The unmodified CTranslate2 core performs inference.
 - Code, `translate=no`, note labels and media payloads are copied, never sent
@@ -3661,14 +3665,14 @@ was posted. The strict alignment candidate remains disabled and unqualified.
   The source-context HTML fragment parser preserves table/list structure.
   Worker quote/note repositioning and legacy phrase matching are bypassed;
   translated text is escaped rather than accepted as model-generated HTML.
-- `ctranslate2-source-boundaries-v2` separates job/cache and saved-variant
+- `ctranslate2-source-boundaries-v3` separates job/cache and saved-variant
   identities from legacy phrase-hint output. Boundary cache entries bind
   source structure and fragment context, require validated markup and never
   reuse plaintext phrase memory. A whole batch must succeed before any new
   entries are checkpointed. Existing variants, assets, audio and timing files
   remain intact; a successful retry replaces only its own boundary variant.
-  Version 1 caches are retired by the changed key; existing version 1 saved
-  documents and their audio/timing files are left intact.
+  Version 1/2 caches are retired by the changed key; existing saved documents
+  and their audio/timing files are left intact.
 - Cancellation is checked around planning, each bounded native call, cache
   admission and before the shared writer claims saving. A failed/late-cancelled
   batch produces no partial saved document. A fully cached run still reaches
@@ -3701,6 +3705,62 @@ Python service or new alignment model is introduced.
 
 ### Regression coverage and remaining acceptance
 
+**Sentence-first planning and decoder diagnostics — 2026-10-20:** A native
+cutoff investigation confirmed that an under-budget, multi-sentence fragment can
+still generate repetitive output until the 512-token decoder limit. Source
+admission alone cannot prove generation will finish. The same fragment finished
+naturally when separated into sentences, through the unchanged native adapter.
+This is evidence for sentence-first inputs, not a general translation-quality
+or completeness guarantee.
+
+The boundary planner now applies Unicode sentence cuts inside each existing
+DOM-safe scope before checking native admission. It uses the same balanced,
+grapheme-safe split machinery and copied source joins; it never cuts an authored
+identity or moves a note/image into a guessed target location. Clauses/whitespace
+remain fallbacks only for over-budget sentences. The 128-prose/641-metadata,
+256-probe-per-island, 900-scalar, 448-source-token, 16-input-call and reconstruction
+bounds remain enforced. Strict planning retains its prior context policy and
+stays disabled; Bergamot and the legacy HY-MT2 path are unchanged.
+
+Native errors now distinguish no translated tokens, reaching the 512-token
+limit without an end token, missing an end token before that limit, and an
+oversized token reply. They contain no source or generated prose. No decoder
+limit was raised, no cutoff output is accepted, and no retry tree, model switch
+or upstream patch was introduced.
+
+The policy is **`ctranslate2-source-boundaries-v3`** because segmentation changes
+model inputs and their output. V1/v2 cache entries cannot resume into new jobs;
+existing saved variants, assets, audio and timing files remain intact. Synthetic
+HTML/EPUB tests for both OPUS model IDs seed structurally valid retired caches,
+checkpoint a first block, fail a later sentence, and verify that the failed
+batch stays uncached and unsaved. Retry translates only the unfinished batch;
+a further entirely cached retry saves identical markup without inference.
+Planner tests cover nested styles, links, notes/images, copied literals, Unicode
+graphemes/joins, the unchanged strict policy and the 128/129-sentence quota.
+The opt-in native fixture also covers two sentences within one nested wrapper
+for both installed language packs. No private corpus or repro is committed.
+
+Sentence-first validation passed:
+
+- Full offline base Rust suite: **555 passed, 4 ignored**.
+- Full suite with `native-translation-ctranslate2,native-translation-alignment-runtime`:
+  **581 passed, 14 ignored**.
+- Explicit opt-in native boundary regression: **1 passed across six synthetic
+  FR/ES fixtures**, now including two sentences in the same nested wrapper in
+  both languages. Existing manifest-verified packs were used; no downloads.
+- A separate disposable native backend replay completed actual inference,
+  source-owned reconstruction, final document validation and atomic save in
+  temporary storage. Its private input and harness remain outside the repository;
+  this does not substitute for AppImage/device smoke or manual quality acceptance.
+- The planner/cache-resume regressions and decoder-reason test failed before
+  the changes. Formatting and diff checks passed. Logs are
+  `/tmp/translation-boundary-sentence-{red,base,combined,native}.log` and
+  `/tmp/translation-boundary-decoder-red.log`.
+
+Unicode sentence boundaries are deterministic segmentation, not a language-specific
+grammar or a fluency guarantee. Broader app smoke, benchmarks, fresh platform CI
+and the version bump remain deferred.
+
 **Dense-markup budgets and strict formatting guidance — 2026-10-20:** Boundary
 translation inherited the strict prototype's combined 128-piece cap. Ordinary
 styled paragraphs could exceed that cap because each translated scope also
@@ -3729,9 +3789,9 @@ nested emphasis, unique authored IDs and the note's original parent. UI tests
 verify the actual English explanation, disabled strict checkbox and unchanged
 ordinary OPUS request for both missing-runtime and acceptance-pending states.
 
-This changes admission limits, not the translation or reconstruction of already
-accepted plans. Boundary policy/cache/variant identity therefore stays at v2;
-existing valid caches, saved translations, audio and timing files are retained.
+That admission-only change kept the then-current v2 policy and valid caches.
+The later sentence-first change above advances to v3; saved translations, audio
+and timing files are retained under both policies.
 
 Budget/copy validation passed:
 
@@ -3764,7 +3824,7 @@ or numbers still use the translator; punctuation attached to prose keeps its
 sentence context. Copied output is checked against its exact source slice
 before reconstruction. The strict planner, Bergamot and HY-MT2 are unchanged.
 
-The policy is now `ctranslate2-source-boundaries-v2`, so a structurally valid
+That follow-up introduced `ctranslate2-source-boundaries-v2`, so a structurally valid
 version 1 cache containing invented dialogue cannot resume into a corrected
 job. Synthetic HTML/EPUB lifecycle regressions for both model IDs seed such a
 retired cache, fail a later batch, resume only the unfinished prose, and then

@@ -333,7 +333,7 @@ impl SourcePlan {
     }
 }
 
-/// Split over-budget prose; recheck each subpiece so a new punctuation-only tail cannot reach MT.
+/// Boundary MT is sentence-first within each source scope; strict mapping keeps its context until over budget.
 #[allow(clippy::too_many_arguments)]
 fn plan_prose(
     text: &str,
@@ -374,7 +374,9 @@ fn plan_prose(
                 .chars()
                 .count();
         let end = start + trimmed.chars().count();
-        if end - start <= DEFAULT_MAX_SEGMENT_CHARS
+        let sentence = boundaries.then(|| cut_sentence(trimmed)).flatten();
+        if sentence.is_none()
+            && end - start <= DEFAULT_MAX_SEGMENT_CHARS
             && translator.source_fits(trimmed)?
             && aligner_fits(trimmed, Side::Source)?
         {
@@ -382,8 +384,9 @@ fn plan_prose(
             push(units, Kind::Prose, start..end, boundaries)?;
             push(units, Kind::Whitespace, end..range.end, boundaries)?;
         } else {
-            let cut =
-                cut_prose(trimmed).ok_or("An indivisible prose unit exceeds a runtime limit")?;
+            let cut = sentence
+                .or_else(|| cut_prose(trimmed))
+                .ok_or("An indivisible prose unit exceeds a runtime limit")?;
             let cut = start + cut;
             pending.push(cut..range.end);
             pending.push(range.start..cut);
@@ -397,15 +400,9 @@ fn plan_prose(
 
 /// Balanced sentence, clause, then whitespace cuts bound repeated tokenization; no word/grapheme chopping.
 fn cut_prose(text: &str) -> Option<usize> {
-    let len = text.chars().count();
-    let scalars = scalar_bytes(text);
-    let graphemes = text
-        .grapheme_indices(true)
-        .map(|(i, _)| i)
-        .collect::<Vec<_>>();
-    let sentence = text
-        .split_sentence_bound_indices()
-        .map(|(i, s)| i + s.len());
+    if let Some(cut) = cut_sentence(text) {
+        return Some(cut);
+    }
     let clause = text
         .char_indices()
         .filter(|(_, c)| matches!(c, ',' | ';' | ':' | '،' | '؛'))
@@ -414,31 +411,40 @@ fn cut_prose(text: &str) -> Option<usize> {
         .char_indices()
         .filter(|(_, c)| c.is_whitespace())
         .map(|(i, c)| i + c.len_utf8());
-    for cuts in [
-        sentence.collect::<Vec<_>>(),
-        clause.collect(),
-        space.collect(),
-    ] {
-        if let Some(cut) = cuts
-            .into_iter()
-            .filter(|i| {
-                *i > 0
-                    && *i < text.len()
-                    && graphemes.binary_search(i).is_ok()
-                    && !text[..*i].trim().is_empty()
-                    && !text[*i..].trim().is_empty()
-            })
-            .min_by_key(|i| {
-                scalars
-                    .binary_search(i)
-                    .expect("scalar cut")
-                    .abs_diff(len / 2)
-            })
-        {
-            return scalars.binary_search(&cut).ok();
-        }
-    }
-    None
+    nearest_cut(text, clause).or_else(|| nearest_cut(text, space))
+}
+
+/// Unicode sentence boundaries are model-independent and must not cut a source grapheme or invent a join.
+fn cut_sentence(text: &str) -> Option<usize> {
+    nearest_cut(
+        text,
+        text.split_sentence_bound_indices()
+            .map(|(i, s)| i + s.len()),
+    )
+}
+
+/// A balanced split bounds the existing work tree; return source scalars, never a rounded byte offset.
+fn nearest_cut(text: &str, cuts: impl Iterator<Item = usize>) -> Option<usize> {
+    let len = text.chars().count();
+    let scalars = scalar_bytes(text);
+    let graphemes = text
+        .grapheme_indices(true)
+        .map(|(i, _)| i)
+        .collect::<Vec<_>>();
+    cuts.filter(|i| {
+        *i > 0
+            && *i < text.len()
+            && graphemes.binary_search(i).is_ok()
+            && !text[..*i].trim().is_empty()
+            && !text[*i..].trim().is_empty()
+    })
+    .min_by_key(|i| {
+        scalars
+            .binary_search(i)
+            .expect("scalar cut")
+            .abs_diff(len / 2)
+    })
+    .and_then(|cut| scalars.binary_search(&cut).ok())
 }
 
 /// Keep a bounded full partition; copied joins must not spend the boundary decoder's work allowance.

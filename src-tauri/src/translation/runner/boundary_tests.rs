@@ -403,15 +403,20 @@ fn late_native_cancellation_commits_neither_partial_batch_nor_variant() {
     );
 }
 
-/// Old valid-looking hallucinations must not resume; new punctuation survives partial and cache-only retries.
+/// Retired whole-fragment caches must not resume into sentence-first jobs; only complete batches checkpoint.
 #[test]
-fn punctuation_cache_policy_invalidates_v1_and_resumes_only_corrected_markup() {
+fn sentence_cache_policy_retires_v1_v2_and_resumes_only_complete_sentence_batches() {
     use crate::translation::{hash::StableHasher, inline_markup::protected::ProtectedSource};
     for format in ["html", "epub"] {
-        for language in ["fr", "es"] {
+        for (language, retired_policy) in [
+            ("fr", "ctranslate2-source-boundaries-v1"),
+            ("es", "ctranslate2-source-boundaries-v1"),
+            ("fr", "ctranslate2-source-boundaries-v2"),
+            ("es", "ctranslate2-source-boundaries-v2"),
+        ] {
             let (_dir, app, mut source, old) = document_tests::fixture();
             source.format = format.into();
-            source.view_html = "<html><body><p>«<strong>Bonjour</strong>» !</p><p><em>Merci</em> ?</p></body></html>".into();
+            source.view_html = "<html><body><p>«<strong>Bonjour. Merci.</strong>» !</p><p><em>Encore. Demain.</em> ?</p></body></html>".into();
             let dom = DomPlan::new(&source.view_html);
             source.blocks = dom
                 .blocks
@@ -448,7 +453,7 @@ fn punctuation_cache_policy_invalidates_v1_and_resumes_only_corrected_markup() {
                 plan.request.model_id.as_str(),
                 "balanced",
                 plan.request.repair_mode.label(),
-                "ctranslate2-source-boundaries-v1",
+                retired_policy,
             ] {
                 key.write_str(field);
             }
@@ -467,7 +472,7 @@ fn punctuation_cache_policy_invalidates_v1_and_resumes_only_corrected_markup() {
             let mut engine = Engine {
                 state: state.clone(),
                 seen: vec![],
-                fail_on: Some("Merci".into()),
+                fail_on: Some("Demain.".into()),
                 cancel_in_call: false,
                 cancel_before_save: false,
             };
@@ -481,11 +486,11 @@ fn punctuation_cache_policy_invalidates_v1_and_resumes_only_corrected_markup() {
                 Instant::now()
             )
             .is_err());
-            assert_eq!(engine.seen, ["Bonjour", "Merci"]);
+            assert_eq!(engine.seen, ["Bonjour.", "Merci.", "Encore.", "Demain."]);
             let cache = load_segment_cache(app.handle(), &plan).unwrap();
             assert_eq!(
                 cache.mapped_output_for(segment, &mapping).unwrap().text,
-                "«BONJOUR» !"
+                "«BONJOUR. MERCI.» !"
             );
             assert!(cache
                 .translated_text_for(&plan.batches[1].segments[0])
@@ -507,7 +512,7 @@ fn punctuation_cache_policy_invalidates_v1_and_resumes_only_corrected_markup() {
                 Instant::now(),
             )
             .unwrap();
-            assert_eq!(engine.seen, ["Merci"]);
+            assert_eq!(engine.seen, ["Encore.", "Demain."]);
             let variants = super::super::storage::list_translated_documents(app.handle()).unwrap();
             assert_eq!(variants.len(), 1);
             let saved =
@@ -518,7 +523,7 @@ fn punctuation_cache_policy_invalidates_v1_and_resumes_only_corrected_markup() {
                     .iter()
                     .map(|b| b.text.as_str())
                     .collect::<Vec<_>>(),
-                ["«BONJOUR» !", "MERCI ?"]
+                ["«BONJOUR. MERCI.» !", "ENCORE. DEMAIN. ?"]
             );
             let parsed = DomPlan::new(&saved.view_html);
             assert_eq!(
@@ -527,11 +532,11 @@ fn punctuation_cache_policy_invalidates_v1_and_resumes_only_corrected_markup() {
                     .select_first("strong")
                     .unwrap()
                     .text_contents(),
-                "BONJOUR"
+                "BONJOUR. MERCI."
             );
             assert_eq!(
                 parsed.document.select_first("em").unwrap().text_contents(),
-                "MERCI"
+                "ENCORE. DEMAIN."
             );
             let before = document_tests::snapshot(&_dir.0);
             engine.seen.clear();

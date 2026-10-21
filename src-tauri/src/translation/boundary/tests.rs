@@ -61,6 +61,78 @@ fn translate(html: &str, engine: &mut Engine) -> Result<(String, ProtectedPlan, 
     Ok((restored.html, protected, transport))
 }
 
+/// Sentence cuts stay inside source scopes; copied joins, notes and assets keep their original owners.
+#[test]
+fn sentence_first_boundary_planning_keeps_nested_markup_and_exact_joins() {
+    let mut engine = Engine {
+        seen: vec![],
+        limit: 900,
+    };
+    let (html, _, _) = translate("<p><strong id='s'><em>Salut. Merci !</em><a role='doc-noteref' href='#n'>1</a><img data-papercut-asset='asset.png'></strong> <a id='link' href='https://example.org'>Hola. Adiós.</a> <code>let x = 1. Next;</code></p>", &mut engine).unwrap();
+    assert_eq!(engine.seen, ["Salut.", "Merci !", "Hola.", "Adiós."]);
+    let doc = crate::translation::html::parse_html_document(format!("<div>{html}</div>"));
+    assert_eq!(doc.select("strong#s").unwrap().count(), 1);
+    assert_eq!(
+        doc.select_first("strong#s > em").unwrap().text_contents(),
+        "SALUT. MERCI !"
+    );
+    assert_eq!(
+        doc.select_first("a#link").unwrap().text_contents(),
+        "HOLA. ADIÓS."
+    );
+    assert!(doc
+        .select_first("strong#s > a[role=doc-noteref] + img")
+        .is_ok());
+    assert_eq!(
+        doc.select_first("code").unwrap().text_contents(),
+        "let x = 1. Next;"
+    );
+    assert!(html.contains("</strong> <a"));
+
+    // The strict research contract still retains sentence context across emphasis.
+    let dom = DomPlan::new("<p><strong>Salut. Merci !</strong></p>");
+    let text = &dom.blocks[0].inline.text;
+    let segment = TranslationTextSegment {
+        id: "b0:s0".into(),
+        source_block_index: 0,
+        source_start: 0,
+        source_end: text.chars().count(),
+        text: text.clone(),
+    };
+    let protected = ProtectedSource::for_boundaries(&dom.blocks[0].node)
+        .unwrap()
+        .fragment(0..segment.source_end, text)
+        .unwrap();
+    let strict = SourcePlan::from_protected(&segment, protected, &engine, |_, _| Ok(true)).unwrap();
+    engine.seen.clear();
+    strict
+        .translate(&mut engine, |_, _| Ok(true), || false)
+        .unwrap();
+    assert_eq!(engine.seen, ["Salut. Merci !"]);
+}
+
+/// Sentence subdivision must spend the same decoder/work quota and retain Unicode graphemes and spaces.
+#[test]
+fn sentence_first_boundary_planning_enforces_prose_quota_and_unicode_cuts() {
+    let mut engine = Engine {
+        seen: vec![],
+        limit: 900,
+    };
+    let (html, _, _) = translate(
+        "<p><em>Éte\u{301}. ¿Hola? 日本語。 Next.</em></p>",
+        &mut engine,
+    )
+    .unwrap();
+    assert_eq!(engine.seen, ["Éte\u{301}.", "¿Hola?", "日本語。", "Next."]);
+    assert_eq!(html, "<em>ÉTE\u{301}. ¿HOLA? 日本語。 NEXT.</em>");
+    engine.seen.clear();
+    translate(&format!("<p>{}</p>", "Un. ".repeat(128)), &mut engine).unwrap();
+    assert_eq!(engine.seen.len(), 128);
+    engine.seen.clear();
+    assert!(translate(&format!("<p>{}</p>", "Un. ".repeat(129)), &mut engine).is_err());
+    assert!(engine.seen.is_empty());
+}
+
 #[test]
 fn uniform_formatting_keeps_sentence_context_and_nested_scopes_expand_without_word_guessing() {
     let mut engine = Engine {
@@ -361,8 +433,8 @@ fn installed_french_spanish_boundary_units_preserve_nested_styles_and_literals()
     use crate::translation::{ctranslate2::CTranslate2Engine, model_store::manifest_by_id};
     let root = std::env::var_os("PAPERCUT_CT2_MODELS_DIR").expect("Set PAPERCUT_CT2_MODELS_DIR");
     for (model, html, expected_word) in [
-        ("opus-mt-fr-en-ctranslate2", "<p><strong id='s'><em>Bonjour le monde.</em></strong> <code>private_key</code><a role='doc-noteref' href='#n'>1</a></p>", "world"),
-        ("opus-mt-es-en-ctranslate2", "<p><strong id='s'><em>Hola mundo.</em></strong> <code>private_key</code><a role='doc-noteref' href='#n'>1</a></p>", "world"),
+        ("opus-mt-fr-en-ctranslate2", "<p><strong id='s'><em>Bonjour le monde. Merci beaucoup.</em></strong> <code>private_key</code><a role='doc-noteref' href='#n'>1</a></p>", "world"),
+        ("opus-mt-es-en-ctranslate2", "<p><strong id='s'><em>Hola mundo. Muchas gracias.</em></strong> <code>private_key</code><a role='doc-noteref' href='#n'>1</a></p>", "world"),
 
         ("opus-mt-fr-en-ctranslate2", "<p>Une <strong id='s'><em>bague en or</em></strong> est ici.<a role='doc-noteref' href='#n'>1</a> <code>private_key</code></p>", "ring"),
         ("opus-mt-es-en-ctranslate2", "<p>Un <strong id='s'><em>libro azul</em></strong> está aquí.<a role='doc-noteref' href='#n'>1</a> <code>private_key</code></p>", "book"),
@@ -377,6 +449,9 @@ fn installed_french_spanish_boundary_units_preserve_nested_styles_and_literals()
             source_end:block.inline.text.chars().count(), text:block.inline.text.clone() };
         let protected = ProtectedSource::for_boundaries(&block.node).unwrap().fragment(0..segment.source_end,&segment.text).unwrap();
         let plan = SourcePlan::from_boundaries(&segment,protected.clone(),&engine).unwrap();
+        if html.contains("Merci beaucoup.") || html.contains("Muchas gracias.") {
+            assert_eq!(plan.units().iter().filter(|u| u.kind == crate::translation::inline_markup::provider::pieces::Kind::Prose).count(), 2);
+        }
         let translated = plan.translate(&mut engine, |_,_| Ok(true), || false).unwrap();
         let output = protected.boundary_output(&translated).unwrap();
         let restored = protected.restore_boundaries(&output).unwrap();

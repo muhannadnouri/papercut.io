@@ -232,11 +232,19 @@ impl ExactPieceTranslator for CTranslate2Engine {
 
 /// Native generation must end naturally within Marian's position limit; text retokenization cannot prove that.
 fn check_exact_target(tokens: &[String]) -> Result<(), String> {
-    if tokens.len() < 2
-        || tokens.len() > MARIAN_POSITION_LIMIT_TOKENS
-        || tokens.last().is_none_or(|s| s != "</s>")
-    {
-        Err("Exact-piece decoder reached a limit or returned empty output".into())
+    if tokens.is_empty() || tokens == ["</s>"] {
+        Err("Exact-piece decoder returned no translated tokens".into())
+    } else if tokens.len() > MARIAN_POSITION_LIMIT_TOKENS {
+        Err("Exact-piece decoder exceeded the 512-token output limit".into())
+    } else if tokens.last().is_none_or(|s| s != "</s>") {
+        if tokens.len() == MARIAN_POSITION_LIMIT_TOKENS {
+            Err(
+                "Exact-piece decoder reached the 512-token output limit without an end token"
+                    .into(),
+            )
+        } else {
+            Err("Exact-piece decoder did not return an end token".into())
+        }
     } else {
         Ok(())
     }
@@ -645,6 +653,25 @@ mod tests {
         ] {
             assert!(super::check_exact_target(&value).is_err());
         }
+    }
+
+    /// Invalid generations have distinct content-free errors; a cutoff must never masquerade as empty text.
+    #[test]
+    fn exact_decoder_errors_distinguish_empty_cutoff_missing_eos_and_overflow() {
+        for tokens in [vec![], vec!["</s>".into()]] {
+            assert!(super::check_exact_target(&tokens)
+                .unwrap_err()
+                .contains("no translated tokens"));
+        }
+        assert!(super::check_exact_target(&vec!["repeat".into(); 512])
+            .unwrap_err()
+            .contains("512-token output limit without an end token"));
+        assert!(super::check_exact_target(&["short".into()])
+            .unwrap_err()
+            .contains("did not return an end token"));
+        assert!(super::check_exact_target(&vec!["word".into(); 513])
+            .unwrap_err()
+            .contains("exceeded the 512-token output limit"));
     }
 
     #[cfg(feature = "native-translation-ctranslate2")]
