@@ -75,6 +75,7 @@ export function useTranslationManager({
   onDocumentLibraryChanged,
 }: TranslationManagerOptions): TranslationManagerState {
   const workerJob = useRef<{ jobId: string; controller: AbortController } | null>(null)
+  const finishedModelInstalls = useRef(new Set<string>())
   const [capabilities, setCapabilities] = useState<TranslationCapabilities | null>(null)
   const [translatedDocuments, setTranslatedDocuments] = useState<TranslatedDocumentInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -144,7 +145,9 @@ export function useTranslationManager({
     let disposed = false
     let unlisten: (() => void) | null = null
     void listenTranslationModelInstallProgress((progress) => {
-      if (disposed) return
+      // Queued progress from a finished install must not relock its retry controls.
+      if (disposed || finishedModelInstalls.current.has(progress.modelId)) return
+      if (progress.status === 'installed') finishedModelInstalls.current.add(progress.modelId)
       setModelInstallState((current) => ({
         ...current,
         installingModelId: progress.status === 'installed' ? '' : progress.modelId,
@@ -222,6 +225,7 @@ export function useTranslationManager({
   }, [refreshGeneratedDocuments, translatedDocuments])
 
   const onInstallTranslationModel = useCallback(async (modelId: string) => {
+    finishedModelInstalls.current.delete(modelId)
     setModelInstallState({
       installingModelId: modelId,
       progress: null,
@@ -230,6 +234,7 @@ export function useTranslationManager({
     })
     try {
       const result = await installTranslationModel(modelId)
+      finishedModelInstalls.current.add(modelId)
       setModelInstallState({
         installingModelId: '',
         progress: {
@@ -245,6 +250,17 @@ export function useTranslationManager({
       })
       await refresh()
     } catch (err) {
+      finishedModelInstalls.current.add(modelId)
+      // Failed installs may restore an older pack; re-check it instead of guessing readiness.
+      try {
+        const status = await getTranslationModelStatus(modelId)
+        setModelStatuses(current => ({ ...current, [modelId]: status }))
+      } catch {
+        // Without verification, release retry but never enable strict formatting.
+        setModelStatuses(current => current[modelId]
+          ? { ...current, [modelId]: { ...current[modelId], installed: false, installing: false } }
+          : current)
+      }
       setModelInstallState({
         installingModelId: '',
         progress: null,
@@ -301,11 +317,13 @@ export function useTranslationManager({
       }))
       await refreshGeneratedDocuments()
     } catch (err) {
+      const status = err instanceof TranslationError && err.code === 'operation-cancelled' ? 'cancelled' : 'failed'
       setStartState((current) => ({
         cancelling: false,
         checking: false,
         jobId,
-        progress: current.jobId === jobId ? current.progress : null,
+        // Model-load failures can reject without a final event; keep counts but end the animation.
+        progress: current.jobId === jobId && current.progress ? { ...current.progress, status } : null,
         result: null,
         message: translationErrorMessage(err),
       }))

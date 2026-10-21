@@ -943,6 +943,8 @@ function formatProgressStatusLabel(progress: TranslationJobProgress, t: TFunctio
     case 'stored':
     case 'completed':
       return t('translation.progress.status.completed')
+    case 'failed':
+      return t('translation.status.translationFailed')
     case 'cancelled':
       return t('translation.progress.status.cancelled')
     default:

@@ -76,7 +76,9 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   separates the auxiliary formatting pack from translation engines, adds explicit
   strict consent and localized progress/errors, and rejects forged native opt-in
   requests. The public acceptance constant remains **false**; ready UI fixtures
-  and successful internal inference are not release acceptance.
+  and successful internal inference are not release acceptance. The
+  [recovery follow-up](#stage-8-download-retry-and-terminal-progress-recovery--2026-10-20)
+  fixes failed-download retry and terminal loading progress in the shared UI.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -2395,13 +2397,58 @@ failures retain their own mapping error category before any write.
   because sandbox restrictions initially blocked unrelated existing loopback,
   CI-wrapper and Chromium layout tests.
 
-**Next:** focused Stage 8 review, then Stage 9 qualification. The existing
-auxiliary-word/missing-link semantic blockers, numeric and held-out acceptance,
-runtime redistribution/platform delivery and measured resource gates remain
-open. Compiled-feature detection is not proof that a packaged ORT runtime loads;
+**Handoff:** the focused review found two shared UI recovery defects, addressed
+in the follow-up below. The existing auxiliary-word/missing-link semantic blockers,
+numeric and held-out acceptance, runtime redistribution/platform delivery and
+measured resource gates remain open. Compiled-feature detection is not proof that a packaged ORT runtime loads;
 that remains a prerequisite to opening release admission. No new CI, packaged
 WebView/mobile acceptance, benchmark, broader smoke or app version bump is
 claimed. Private documents and sample-specific tests remain outside tracked code.
+
+### Stage 8 download retry and terminal progress recovery — 2026-10-20
+
+The focused review of `bb39949` found two P2 defects in the shared UI state
+handling: a download that emitted progress before failing left its pack marked
+installing, and a failed/cancelled model load could leave an animated loading
+bar after the command had ended. Both also affected ordinary translation models.
+
+**Fixes.** Failed installs now re-query the affected model's native status before
+releasing the UI operation. This retains a verified older pack restored by an
+unsuccessful repair. If status verification itself fails, the UI releases retry
+but treats that pack as unverified; it never enables strict formatting from stale
+readiness. The original install error remains visible. Finished installs ignore
+queued progress, with suppression reset on explicit retry. The UI can still
+observe an already-running native installation after refresh.
+
+Translation command rejection now changes the matching job's progress to failed
+or cancelled, even when a loader emitted no final event. Last checkpoint counts
+and percentages remain intact; late progress cannot restart the ended animation.
+Failed progress uses an existing translated label in all eight locales. Retry
+still receives a new job ID and no stale progress. Unknown-outcome errors retain
+their existing Library refresh and explanatory message; the UI makes no promise
+that output was not saved.
+
+**Regression evidence.** The hook tests now render the real workbench. They cover
+progress followed by download failure, enabled retry clicked through the actual
+button for both the auxiliary pack and ordinary model, renewed retry progress,
+late events, failed status verification, restored valid assets and observing an
+existing native install. Loading-model/loading-alignment each cover failure and
+cancellation without a terminal native event, stopped animation, accessible
+localized status, fresh retry and rejection after partial batch progress.
+These use generic synthetic fixtures only.
+
+**Fresh validation:** full frontend suite **503 passed/one existing skip**;
+translation subset **104 passed**. TypeScript, targeted ESLint, locale parity and
+diff checks passed. Two focused offline native admission regressions passed
+separately with features off and CTranslate2 plus alignment runtime compiled.
+Broader Rust/native integration counts in the earlier receipt are historical;
+no Rust implementation changed in this follow-up.
+
+**Next:** review these recovery fixes, then Stage 9 qualification. The native
+release constant remains **false**; test-only ready UI fixtures do not enable
+production formatting. No runtime, installer transaction, cache/storage format,
+model catalog, dependency or app version changed. Benchmarks, smoke, packaged
+acceptance and version bump remain deferred; no fresh CI result is claimed.
 
 ## Product Goals
 
