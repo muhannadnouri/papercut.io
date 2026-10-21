@@ -60,6 +60,8 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   now converts checked scopes and lexical/punctuation attachment evidence into
   the existing protected renderer. This internal path preserves hierarchy,
   literal islands and source-owned assets; ambiguous attachment scopes reject.
+  The [parent-boundary follow-up](#stage-6-leading-attachment-parent-boundaries--2026-10-20)
+  preserves leading notes/images across equivalent whitespace positions.
   Public runner, mapped cache/resume/save and packaged acceptance remain pending.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
@@ -2069,8 +2071,9 @@ are never amplified without charge. Cancellation is checked before and after
 reconstruction; a late result is discarded. Cooperative checks do not promise
 native-call preemption or replace Stage 7's atomic save guard.
 
-The strict policy identity is now
+The initial Stage 6 policy identity was
 `word-ownership-v2:whole-unit-or-complete-links:no-hull:unique-anchor-gap-v1:source-dom-v1`.
+The parent-boundary follow-up below supersedes it for strict maps.
 The worker mapping identity and existing stored variants are unchanged. Stage 7
 must bind this strict policy and source/target identities into mapped cache
 admission and use the retained source block's parsing context when inserting
@@ -2117,6 +2120,59 @@ resource/platform gates pass. Invalid strict output currently returns no
 reconstructed result and has no cache/writer caller; durable failure/no-save
 acceptance belongs to Stage 7. Benchmarks, broader smoke and version bump remain
 deferred.
+
+### Stage 6 leading attachment parent boundaries — 2026-10-20
+
+The Stage 6 review reproduced a false `Hierarchy` rejection with
+`Un <span id='phrase'><a role='doc-noteref'>1</a>deux</span>` and exact one-to-one
+links to `UN DEUX`. Pending source whitespace left the note at scalar position
+2, while its nonempty parent's lexical map started at 3. A leading image inside
+a nonempty styled link hit the same conflict. Both new positive regressions
+failed against the original implementation before this fix.
+
+The shared punctuation-gap helper now returns inclusive scalar **positions**
+within the same whitespace run after the checked punctuation boundary.
+Word-link validation still requires unique reciprocal lexical anchors and the
+same punctuation/quote evidence. A range of positions is not permission to move
+across punctuation, quotes, words or literal contents. DOM text/style ranges
+remain half-open scalar ranges.
+
+Piece projection retains this bounded evidence until all nonempty parent scopes
+are assembled, including parents that start in a later piece. Source preorder
+then resolves empty parents before their children. An attachment selects the
+earliest position in the intersection of its checked gap and its source-owned
+parent's mapped range. No intersection or more than one parent occurrence
+rejects; there is no nearest-parent guess, hull expansion, ID cloning or changed
+word formatting. Root attachments retain their previous preferred position.
+Copied-unit attachments retain their exact single position. The final combined
+hierarchy/range validation and late cancellation checks remain mandatory.
+
+Synthetic regressions exercise leading notes in compact/nested authored wrappers
+and leading images in nonempty styled links, with both a styled caption and an
+empty style around the image. They cover an intact piece and an actual split,
+Latin/Unicode/emoji prefixes, exact readable text, first-child placement,
+unchanged note/link URLs and asset keys, and exactly-once IDs. A contradictory
+gold graph places the parent outside the attachment gap and must still reject
+for both notes and images, rather than moving either marker across punctuation
+or target words. Existing quote, literal, disjoint-style and cancellation tests
+remain in the shared suite. These are structural regressions, not new model
+quality evidence.
+
+**Validation:** full offline Rust library suites passed **522 tests with features
+off** (four ignored), **549 with the alignment runtime** (ten ignored), and
+**548 with CTranslate2 plus alignment runtime** (twelve ignored). The two
+explicit cached native regressions passed separately with unavailable network
+proxies. Formatting and diff checks passed. No fresh CI, packaged/device
+acceptance or quality/resource benchmark is claimed.
+
+The strict policy identity is now
+`word-ownership-v3:whole-unit-or-complete-links:no-hull:parent-aware-unique-anchor-gap-v2:source-dom-v1`.
+Public runner/selector/cache/writer paths, worker mapping version, model/runtime
+versions, saved variants and owned asset files remain unchanged. The candidate
+is still disabled; the previously unmet semantic scopes and all public
+acceptance gates remain open. Review this fix before Stage 7 mapped-cache,
+resume and atomic-save integration. Benchmarks, smoke and the app version bump
+remain deferred.
 
 ## Product Goals
 

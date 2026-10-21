@@ -545,6 +545,155 @@ fn missing_fused_reversed_or_changed_punctuation_attachment_evidence_rejects() {
 }
 
 #[test]
+fn leading_notes_stay_inside_nonempty_authored_parents_across_whitespace_and_pieces() {
+    let note = "<a role='doc-noteref' id='ref' href='#n'><sup>1</sup></a>";
+    for prefix in ["Un", "Été🙂"] {
+        for limit in [20, 1] {
+            for shell in [
+                format!("<span id='phrase'>{note}deux</span>"),
+                format!("<span id='phrase'><strong id='style'>{note}deux</strong></span>"),
+            ] {
+                let p = plan(&format!("<p>{prefix} {shell}</p>"), limit);
+                let t = p
+                    .translate(&mut Translator { limit }, |_, _| Ok(true), || false)
+                    .unwrap();
+                let mapped = t.project(align, None, || Ok(())).unwrap();
+                let restored = mapped.restore::<Rejection>(|| Ok(())).unwrap();
+                assert_eq!(restored.text, format!("{} DEUX", prefix.to_uppercase()));
+                let dom = crate::translation::html::parse_html_document(restored.html);
+                assert_eq!(dom.select("#phrase").unwrap().count(), 1);
+                assert_eq!(dom.select("#ref[href='#n'] > sup").unwrap().count(), 1);
+                let parent = if shell.contains("strong") {
+                    "#phrase > strong#style"
+                } else {
+                    "#phrase"
+                };
+                assert_eq!(dom.select(&format!("{parent} > a#ref")).unwrap().count(), 1);
+                assert_eq!(
+                    dom.select_first(parent)
+                        .unwrap()
+                        .as_node()
+                        .first_child()
+                        .unwrap()
+                        .as_element()
+                        .unwrap()
+                        .attributes
+                        .borrow()
+                        .get("id"),
+                    Some("ref")
+                );
+                assert_eq!(
+                    crate::translation::inline_markup::source_inline_model(
+                        dom.select_first(parent).unwrap().as_node()
+                    )
+                    .text,
+                    "DEUX"
+                );
+                assert_eq!(dom.select_first("#ref").unwrap().text_contents(), "1");
+            }
+        }
+    }
+}
+
+#[test]
+fn leading_images_stay_inside_nonempty_styled_links_without_cloning_ids_or_assets() {
+    let asset = crate::document_uploads::ParsedDocumentAsset::new(
+        "image/png",
+        b"leading image bytes".to_vec(),
+    )
+    .unwrap();
+    for prefix in ["Un", "Été🙂"] {
+        for limit in [20, 1] {
+            for caption_in_style in [true, false] {
+                let image = format!(
+                    "<img id='picture' data-papercut-asset='{}'>",
+                    asset.file_name
+                );
+                // An empty style must resolve before its image, using the completed nonempty link's range.
+                let content = if caption_in_style {
+                    format!("<strong id='style'>{image}deux</strong>")
+                } else {
+                    format!("<strong id='style'>{image}</strong>deux")
+                };
+                let p = plan(
+                    &format!(
+                        "<p>{prefix} <a id='phrase' href='../notes.xhtml#n'>{content}</a></p>"
+                    ),
+                    limit,
+                );
+                let t = p
+                    .translate(&mut Translator { limit }, |_, _| Ok(true), || false)
+                    .unwrap();
+                let mapped = t.project(align, None, || Ok(())).unwrap();
+                let restored = mapped.restore::<Rejection>(|| Ok(())).unwrap();
+                assert_eq!(restored.text, format!("{} DEUX", prefix.to_uppercase()));
+                let dom = crate::translation::html::parse_html_document(restored.html);
+                let image = dom
+                    .select_first("a#phrase[href='../notes.xhtml#n'] > strong#style > img#picture")
+                    .unwrap();
+                assert_eq!(
+                    image.attributes.borrow().get("data-papercut-asset"),
+                    Some(asset.file_name.as_str())
+                );
+                for id in ["phrase", "style", "picture"] {
+                    assert_eq!(dom.select(&format!("#{id}")).unwrap().count(), 1);
+                }
+                let style = dom.select_first("strong#style").unwrap();
+                assert_eq!(
+                    style
+                        .as_node()
+                        .first_child()
+                        .unwrap()
+                        .as_element()
+                        .unwrap()
+                        .attributes
+                        .borrow()
+                        .get("id"),
+                    Some("picture")
+                );
+                assert_eq!(
+                    crate::translation::inline_markup::source_inline_model(style.as_node()).text,
+                    if caption_in_style { "DEUX" } else { "" }
+                );
+                assert_eq!(
+                    crate::translation::inline_markup::source_inline_model(
+                        dom.select_first("#phrase").unwrap().as_node()
+                    )
+                    .text,
+                    "DEUX"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn attachment_parent_conflict_cannot_move_a_marker_outside_its_checked_gap() {
+    for marker in [
+        "<a role='doc-noteref' id='ref' href='#n'>1</a>",
+        "<img id='picture' src='../images/picture.png'>",
+    ] {
+        let p = plan(
+            &format!("<p>Un <em id='phrase'>{marker};</em> deux;</p>"),
+            20,
+        );
+        let t = p
+            .translate(&mut Translator { limit: 20 }, |_, _| Ok(true), || false)
+            .unwrap();
+        // Complete gold links map the styled semicolon to the far end, outside the attachment's lexical gap.
+        assert_eq!(
+            t.project(
+                |s, t| lexical_links(s, t, vec![(0, 0), (1, 3), (2, 2), (3, 1)]),
+                None,
+                || Ok(())
+            )
+            .err(),
+            Some(Rejection::Hierarchy)
+        );
+    }
+}
+
+#[test]
 fn reconstruction_checks_cancellation_before_work_and_before_admitting_output() {
     let p = plan("<p><em>Un livre</em></p>", 20);
     let translated = p

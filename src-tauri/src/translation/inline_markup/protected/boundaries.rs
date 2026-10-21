@@ -232,11 +232,12 @@ fn closing_quote(ch: char) -> bool {
 }
 
 /// Map only the punctuation gap between checked lexical anchors; never zip sentence counts or guess a ratio.
+/// Inclusive bounds describe equivalent whitespace positions, not a half-open range of target text.
 pub(in crate::translation::inline_markup) fn map_gap(
     source: &str,
     offset: usize,
     target: &str,
-) -> Result<usize, String> {
+) -> Result<std::ops::RangeInclusive<usize>, String> {
     // Quote glyphs may change by language; their opening/closing roles and nesting count must not.
     let canonical = |ch| match ch {
         '«' | '“' => '“',
@@ -279,17 +280,25 @@ pub(in crate::translation::inline_markup) fn map_gap(
         }
         before_suffix(&target_clean, &Edge { prefix, suffix })?
     };
-    // Place an empty-prefix marker directly after its left anchor, before target whitespace.
-    if clean_offset == 0 {
-        return Ok(0);
-    }
-    target
-        .chars()
-        .enumerate()
-        .filter(|(_, c)| !c.is_whitespace())
-        .nth(clean_offset - 1)
-        .map(|(i, _)| i + 1)
-        .ok_or_else(|| "Attachment exceeds target gap".into())
+    let start = if clean_offset == 0 {
+        0
+    } else {
+        target
+            .chars()
+            .enumerate()
+            .filter(|(_, c)| !c.is_whitespace())
+            .nth(clean_offset - 1)
+            .map(|(i, _)| i + 1)
+            .ok_or("Attachment exceeds target gap")?
+    };
+    // Parent containment may select the other side of whitespace, never the other side of punctuation.
+    let end = start
+        + target
+            .chars()
+            .skip(start)
+            .take_while(|c| c.is_whitespace())
+            .count();
+    Ok(start..=end)
 }
 
 /// Numeric ids are retained source identities, never user-supplied selector strings.

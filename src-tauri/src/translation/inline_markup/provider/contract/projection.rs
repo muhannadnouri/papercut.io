@@ -2,7 +2,7 @@
 use super::*;
 
 pub(crate) const POLICY: &str =
-    "word-ownership-v2:whole-unit-or-complete-links:no-hull:unique-anchor-gap-v1:source-dom-v1";
+    "word-ownership-v3:whole-unit-or-complete-links:no-hull:parent-aware-unique-anchor-gap-v2:source-dom-v1";
 
 /// Exact input borrows bind word IDs to their original strings, not a second sentence/token split.
 pub(crate) struct WordLinks<'a> {
@@ -50,10 +50,11 @@ impl<'a> WordLinks<'a> {
 
     /// Adjacent lexical words must have unique reciprocal anchors; fused/missing/reversed gaps reject.
     /// Only the intervening punctuation may move a note relative to quotes, never another target word.
+    /// Inclusive scalar positions retain whitespace freedom until the complete parent map is available.
     pub(in crate::translation::inline_markup::provider) fn attachment(
         &self,
         offset: usize,
-    ) -> Result<usize, Rejection> {
+    ) -> Result<std::ops::RangeInclusive<usize>, Rejection> {
         if offset > self.source.chars().count()
             || self
                 .source_words
@@ -115,7 +116,7 @@ impl<'a> WordLinks<'a> {
             &gap(self.target, tl, tr),
         )
         .map_err(|_| Rejection::AttachmentRequiresEvidence)?;
-        Ok(tl + delta)
+        Ok(tl + *delta.start()..=tl + *delta.end())
     }
 
     /// Reject stale/wrong-pair results even if the provider returns a plausible correspondence graph.

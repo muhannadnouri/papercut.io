@@ -64,6 +64,7 @@ impl<'p> Translation<'p> {
             })
             .collect::<Vec<_>>();
         let mut previous = 0;
+        let mut pending_attachments = Vec::new();
         for (index, (unit, target)) in self.plan.units.iter().zip(&self.targets).enumerate() {
             check_cancelled()?;
             if target.start != previous || target.start > target.end || target.end >= tb.len() {
@@ -96,7 +97,7 @@ impl<'p> Translation<'p> {
                 .filter(|a| a.owner == index)
                 .collect::<Vec<_>>();
             let mut anchored = Vec::new();
-            let mut mapped = if unit.kind == Kind::Prose {
+            let mapped = if unit.kind == Kind::Prose {
                 let links = align(st, tt)?;
                 if !links.matches(st, tt) {
                     return Err(Rejection::Binding.into());
@@ -113,7 +114,8 @@ impl<'p> Translation<'p> {
                     return Err(Rejection::Binding.into());
                 }
                 for attachment in &attachments {
-                    anchored.push((attachment.source_id, attachment.offset - unit.source.start));
+                    let offset = attachment.offset - unit.source.start;
+                    anchored.push((attachment.source_id, offset..=offset));
                 }
                 local
                     .iter()
@@ -123,9 +125,11 @@ impl<'p> Translation<'p> {
                     })
                     .collect()
             };
-            mapped.extend(anchored.into_iter().map(|(source_id, offset)| NodeMapping {
-                source_id,
-                targets: vec![offset..offset],
+            pending_attachments.extend(anchored.into_iter().map(|(id, positions)| {
+                (
+                    id,
+                    target.start + *positions.start()..=target.start + *positions.end(),
+                )
             }));
             for mapped in mapped {
                 let node = nodes
@@ -152,6 +156,41 @@ impl<'p> Translation<'p> {
         }
         if previous != self.text.chars().count() {
             return Err(Rejection::Binding.into());
+        }
+        // A leading child can belong to the preceding piece; resolve only after all parent scopes exist.
+        // Source preorder resolves empty parents before their children without changing either identity.
+        pending_attachments.sort_unstable_by_key(|(id, _)| *id);
+        for (id, positions) in pending_attachments {
+            check_cancelled()?;
+            let code = codes
+                .iter()
+                .find(|c| c.id == id)
+                .ok_or(Rejection::Identity)?;
+            let offset = if let Some(parent) = code.parent {
+                let parent = nodes
+                    .iter()
+                    .find(|n| n.source_id == parent)
+                    .ok_or(Rejection::Identity)?;
+                let mut candidates = parent.targets.iter().filter_map(|range| {
+                    let start = range.start.max(*positions.start());
+                    let end = range.end.min(*positions.end());
+                    (start <= end).then_some(start)
+                });
+                let offset = candidates.next().ok_or(Rejection::Hierarchy)?;
+                // A disconnected parent occurrence remains ambiguous; never pick a nearest range or a hull.
+                if candidates.next().is_some() {
+                    return Err(Rejection::Hierarchy.into());
+                }
+                offset
+            } else {
+                *positions.start()
+            };
+            nodes
+                .iter_mut()
+                .find(|n| n.source_id == id)
+                .ok_or(Rejection::Identity)?
+                .targets
+                .push(offset..offset);
         }
         check_projected_nodes(&self.plan.protected, &self.text, &nodes)?;
         // Discard cancellation accepted during the last pair or final hierarchy assembly before returning any map.
