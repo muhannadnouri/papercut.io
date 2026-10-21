@@ -1,6 +1,6 @@
 import type { TranslationStartRequest } from '../api/nativeTranslation'
 import { invoke } from '@tauri-apps/api/core'
-import { runBergamotBatch, runBergamotDocument, validateBergamotSegments, type BergamotFiles, type TextSegment } from './nativeBridge'
+import { runBergamotDocument, type BergamotFiles } from './nativeBridge'
 
 type Language = BergamotFiles['sourceLanguage']
 
@@ -21,31 +21,17 @@ export function bergamotWorkerUnavailableReason(): string | null {
 }
 
 let active = false
-export async function runInstalledBergamotBatch(
-  segments: TextSegment[], sourceLanguage: Language, signal?: AbortSignal,
-) {
-  validateBergamotSegments(segments)
-  return withInstalledAssets(sourceLanguage, signal, (files, signal) => runBergamotBatch(segments, files, signal), false)
-}
-
+/** Verify installed buffers before handing one document to its foreground worker. */
 export async function runInstalledBergamotDocument(request: TranslationStartRequest, signal?: AbortSignal) {
   if (!['fr', 'es'].includes(request.sourceLanguage) || request.targetLanguage !== 'en'
       || request.modelId !== `bergamot-${request.sourceLanguage}-en-worker`) {
     throw new Error('Unsupported Bergamot document model or language pair')
   }
-  return withInstalledAssets(request.sourceLanguage as Language, signal,
-    (files, signal) => runBergamotDocument(request, files, signal), true)
-}
-
-async function withInstalledAssets<T>(
-  sourceLanguage: Language, signal: AbortSignal | undefined,
-  run: (files: BergamotFiles, signal: AbortSignal) => Promise<T>, documentJob: boolean,
-): Promise<T> {
+  const sourceLanguage = request.sourceLanguage as Language
   signal?.throwIfAborted()
   if (document.visibilityState === 'hidden') throw new Error('Bergamot requires a visible page')
   const unavailable = bergamotWorkerUnavailableReason()
   if (unavailable) throw new Error(unavailable)
-  if (!['fr', 'es'].includes(sourceLanguage)) throw new Error('Unsupported Bergamot language pair')
   if (active) throw new Error('A Bergamot asset operation is already in progress')
   active = true
   const controller = new AbortController()
@@ -81,8 +67,8 @@ async function withInstalledAssets<T>(
       }
     }
     // Document inference has a fresh bounded deadline per request, not per book.
-    if (documentJob) clearTimeout(timer)
-    return await run(files, controller.signal)
+    clearTimeout(timer)
+    return await runBergamotDocument(request, files, controller.signal)
   } finally {
     clearTimeout(timer)
     signal?.removeEventListener('abort', onAbort)

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { runBergamotBatch, validateBergamotSegments, type BergamotFiles } from './nativeBridge'
-import { runInstalledBergamotBatch, runInstalledBergamotDocument } from './assets'
+import { runBergamotDocument, validateBergamotSegments, type BergamotFiles } from './nativeBridge'
+import { runInstalledBergamotDocument } from './assets'
 
 const mock = vi.hoisted(() => ({ invoke: vi.fn(), channel: null as null | { onmessage: (message: unknown) => void } }))
 vi.mock('@tauri-apps/api/core', () => ({
@@ -19,6 +19,8 @@ class FakeWorker extends EventTarget {
   constructor() { super(); FakeWorker.instances.push(this) }
   reply(data: unknown) { this.onmessage?.(new MessageEvent('message', { data })) }
 }
+const request = { jobId: 'book-job', documentUrl: '/uploads/example.html', sourceLanguage: 'fr', targetLanguage: 'en', modelId: 'bergamot-fr-en-worker', qualityMode: 'balanced' }
+const stored = { jobId: 'book-job', status: 'stored', message: 'Stored document' }
 const batch = { kind: 'batch', attemptId: 'a'.repeat(32), batchId: 1, sourceLanguage: 'fr', targetLanguage: 'en', segments: [{ id: 'b0:s0', text: 'Bonjour🙂' }] }
 const outputs = [{ id: 'b0:s0', sourceText: 'Bonjour🙂', text: 'Hello🙂' }]
 const result = { kind: 'result', attemptId: batch.attemptId, batchId: 1, outputs }
@@ -27,7 +29,7 @@ let resolveNative: (value: unknown) => void
 let rejectNative: (error: Error) => void
 function start(signal?: AbortSignal) {
   const binary = files()
-  const promise = runBergamotBatch(batch.segments, binary, signal)
+  const promise = runBergamotDocument(request, binary, signal)
   const worker = FakeWorker.instances.at(-1)!
   return { promise, worker, binary }
 }
@@ -37,7 +39,7 @@ beforeEach(() => {
   vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
   FakeWorker.instances = []
   mock.invoke.mockReset()
-  mock.invoke.mockImplementation((command) => ['translation_bergamot_batch', 'translation_bergamot_document'].includes(command)
+  mock.invoke.mockImplementation((command) => command === 'translation_bergamot_document'
     ? new Promise((resolve, reject) => { resolveNative = resolve; rejectNative = reject })
     : command === 'translation_bergamot_asset'
       ? Promise.resolve(Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0]).buffer) : Promise.resolve(true))
@@ -59,7 +61,7 @@ describe('bounded Bergamot native/worker bridge', () => {
     const reply = { ...result, outputs: [{ id: 'b0:s0', sourceText: text, text: '<span data-pc="0">translated</span>' }] }
     worker.reply(reply)
     expect(mock.invoke).toHaveBeenLastCalledWith('translation_bergamot_reply', { reply })
-    resolveNative(outputs)
+    resolveNative(stored)
     await promise
     expect(vi.getTimerCount()).toBe(0)
   })
@@ -77,8 +79,8 @@ describe('bounded Bergamot native/worker bridge', () => {
     worker.reply(result)
     expect(mock.invoke.mock.calls.filter(([name]) => name === 'translation_bergamot_reply')).toHaveLength(1)
     mock.channel!.onmessage({ kind: 'stop', attemptId: batch.attemptId })
-    resolveNative(outputs)
-    await expect(promise).resolves.toEqual(outputs)
+    resolveNative(stored)
+    await expect(promise).resolves.toEqual(stored)
     expect(worker.terminate).toHaveBeenCalled()
     expect(vi.getTimerCount()).toBe(0)
     window.dispatchEvent(new Event('pagehide'))
@@ -98,7 +100,9 @@ describe('bounded Bergamot native/worker bridge', () => {
       document.dispatchEvent(new Event('visibilitychange'))
     }
     if (mode === 'timeout') await vi.advanceTimersByTimeAsync(120_000)
+    rejectNative(new Error(mode === 'abort' ? 'Translation cancelled' : 'Bergamot worker unavailable or lost'))
     await rejected
+    expect(mock.invoke).toHaveBeenCalledWith('translation_cancel', { request: { jobId: request.jobId } })
     expect(worker.terminate).toHaveBeenCalled()
     const failure = mock.invoke.mock.calls.find(([name]) => name === 'translation_bergamot_reply')![1].reply
     expect(failure).toEqual({ kind: 'failed', attemptId: batch.attemptId, batchId: 1, reason: mode === 'abort' ? 'cancelled' : 'workerLost' })
@@ -110,10 +114,11 @@ describe('bounded Bergamot native/worker bridge', () => {
     const { promise, worker } = start(controller.signal)
     const rejected = expect(promise).rejects.toThrow('cancelled')
     controller.abort()
-    await rejected
     mock.channel!.onmessage(batch)
     expect(worker.postMessage).not.toHaveBeenCalled()
     expect(mock.invoke).toHaveBeenLastCalledWith('translation_bergamot_reply', { reply: { kind: 'failed', attemptId: batch.attemptId, batchId: 1, reason: 'cancelled' } })
+    rejectNative(new Error('Translation cancelled'))
+    await rejected
   })
 
   it('ignores stale result/failure identities without extending the deadline', async () => {
@@ -126,6 +131,7 @@ describe('bounded Bergamot native/worker bridge', () => {
     expect(mock.invoke).toHaveBeenCalledTimes(1)
     const rejected = expect(promise).rejects.toThrow('unavailable or lost')
     await vi.advanceTimersByTimeAsync(30_000)
+    rejectNative(new Error('Bergamot worker unavailable or lost'))
     await rejected
   })
 
@@ -140,8 +146,9 @@ describe('bounded Bergamot native/worker bridge', () => {
     if (mode === 'oversize') bad.outputs[0].text = 'x'.repeat(256 * 1024 + 1)
     const rejected = expect(promise).rejects.toThrow('unavailable or lost')
     worker.reply(bad)
+    rejectNative(new Error('Bergamot worker unavailable or lost'))
     await rejected
-    expect(mock.invoke).toHaveBeenLastCalledWith('translation_bergamot_reply', { reply: { kind: 'failed', attemptId: batch.attemptId, batchId: 1, reason: 'engineFailed' } })
+    expect(mock.invoke).toHaveBeenCalledWith('translation_bergamot_reply', { reply: { kind: 'failed', attemptId: batch.attemptId, batchId: 1, reason: 'engineFailed' } })
   })
 
   it('cleans up when native preflight rejects without a worker request', async () => {
@@ -152,13 +159,28 @@ describe('bounded Bergamot native/worker bridge', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
-  it('rejects unbounded input and pre-aborted calls before allocating a worker', async () => {
+  it('rejects pre-aborted calls before allocating a worker', async () => {
     const controller = new AbortController(); controller.abort()
-    await expect(runBergamotBatch(batch.segments, files(), controller.signal)).rejects.toBeDefined()
-    await expect(runBergamotBatch(Array(17).fill(batch.segments[0]), files())).rejects.toThrow('bounded')
-    await expect(runBergamotBatch([{ id: 'x', text: '🙂'.repeat(901) }], files())).rejects.toThrow('bounded')
+    await expect(runBergamotDocument(request, files(), controller.signal)).rejects.toBeDefined()
     expect(FakeWorker.instances).toHaveLength(0)
     expect(mock.invoke).not.toHaveBeenCalled()
+  })
+
+  it.each(['count', 'scalars'])('rejects unbounded %s in native document batches before transferring model buffers', async mode => {
+    const { promise, worker } = start()
+    const segments = mode === 'count'
+      ? Array.from({ length: 17 }, (_, i) => ({ id: `s${i}`, text: 'Bonjour' }))
+      : [{ id: 's', text: '🙂'.repeat(901) }]
+    mock.channel!.onmessage({ ...batch, segments })
+    expect(worker.postMessage).not.toHaveBeenCalled()
+    expect(worker.terminate).toHaveBeenCalled()
+    expect(mock.invoke).toHaveBeenCalledWith('translation_bergamot_reply', { reply: {
+      kind: 'failed', attemptId: batch.attemptId, batchId: 1, reason: 'unavailable',
+    } })
+    expect(mock.invoke).toHaveBeenCalledWith('translation_cancel', { request: { jobId: request.jobId } })
+    rejectNative(new Error('Invalid worker input'))
+    await expect(promise).rejects.toThrow('Invalid worker input')
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it('rejects detached, aliased and excessive binary assets before worker allocation', async () => {
@@ -166,7 +188,7 @@ describe('bounded Bergamot native/worker bridge', () => {
     const aliased = files(); aliased.model = aliased.lex
     const excessive = files(); excessive.model = new ArrayBuffer(64 * 1024 * 1024)
     for (const binary of [empty, aliased, excessive]) {
-      await expect(runBergamotBatch(batch.segments, binary)).rejects.toThrow('binary assets')
+      await expect(runBergamotDocument(request, binary)).rejects.toThrow('binary assets')
     }
     expect(FakeWorker.instances).toHaveLength(0)
     expect(mock.invoke).not.toHaveBeenCalled()
@@ -178,8 +200,8 @@ describe('page lifecycle across asset loading and the real worker bridge', () =>
     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
     mock.invoke.mockRejectedValue(new Error('unexpected native call'))
     const pending = mode === 'direct'
-      ? runBergamotBatch(batch.segments, files())
-      : runInstalledBergamotBatch(batch.segments, 'fr')
+      ? runBergamotDocument(request, files())
+      : runInstalledBergamotDocument(request)
     await expect(pending).rejects.toThrow('visible page')
     expect(mock.invoke).not.toHaveBeenCalled()
     expect(FakeWorker.instances).toHaveLength(0)
@@ -203,7 +225,7 @@ describe('page lifecycle across asset loading and the real worker bridge', () =>
       return invoke(command, ...args)
     })
     const controller = new AbortController()
-    const pending = runInstalledBergamotBatch(batch.segments, 'fr', controller.signal)
+    const pending = runInstalledBergamotDocument(request, controller.signal)
     const rejected = vi.fn()
     const settled = pending.then(() => {}, rejected)
     try {
@@ -228,15 +250,15 @@ describe('page lifecycle across asset loading and the real worker bridge', () =>
       expect(reads).toBe(heldRead)
       expect(FakeWorker.instances).toHaveLength(0)
       vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
-      const retry = runInstalledBergamotBatch(batch.segments, 'fr')
+      const retry = runInstalledBergamotDocument(request)
       await vi.advanceTimersByTimeAsync(0)
       const worker = FakeWorker.instances.at(-1)!
       expect(FakeWorker.instances).toHaveLength(1)
       mock.channel!.onmessage(batch)
       worker.reply({ kind: 'ready' })
       worker.reply(result)
-      resolveNative(outputs)
-      await expect(retry).resolves.toEqual(outputs)
+      resolveNative(stored)
+      await expect(retry).resolves.toEqual(stored)
       expect(worker.terminate).toHaveBeenCalled()
       expect(vi.getTimerCount()).toBe(0)
     } finally {
@@ -246,7 +268,7 @@ describe('page lifecycle across asset loading and the real worker bridge', () =>
   })
 
   it.each(['hidden', 'pagehide'])('cancels %s after handing assets to the real worker bridge', async event => {
-    const pending = runInstalledBergamotBatch(batch.segments, 'fr')
+    const pending = runInstalledBergamotDocument(request)
     const rejected = expect(pending).rejects.toThrow('cancelled')
     await vi.advanceTimersByTimeAsync(0)
     const worker = FakeWorker.instances.at(-1)!
@@ -255,6 +277,7 @@ describe('page lifecycle across asset loading and the real worker bridge', () =>
       vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
       document.dispatchEvent(new Event('visibilitychange'))
     } else window.dispatchEvent(new Event('pagehide'))
+    rejectNative(new Error('Translation cancelled'))
     await rejected
     expect(worker.terminate).toHaveBeenCalled()
     expect(vi.getTimerCount()).toBe(0)
@@ -270,10 +293,10 @@ describe('page lifecycle across asset loading and the real worker bridge', () =>
     const removeWindow = vi.spyOn(window, 'removeEventListener')
     const addDocument = vi.spyOn(document, 'addEventListener')
     const removeDocument = vi.spyOn(document, 'removeEventListener')
-    const pending = runInstalledBergamotBatch(batch.segments, 'fr')
-    const checked = mode === 'success' ? expect(pending).resolves.toEqual(outputs) : expect(pending).rejects.toThrow('busy')
+    const pending = runInstalledBergamotDocument(request)
+    const checked = mode === 'success' ? expect(pending).resolves.toEqual(stored) : expect(pending).rejects.toThrow('busy')
     await vi.advanceTimersByTimeAsync(0)
-    if (mode === 'success') resolveNative(outputs)
+    if (mode === 'success') resolveNative(stored)
     else rejectNative(new Error('busy'))
     await checked
     for (const [, listener] of addWindow.mock.calls.filter(([name]) => name === 'pagehide')) {
@@ -288,10 +311,7 @@ describe('page lifecycle across asset loading and the real worker bridge', () =>
 })
 
 describe('full-document worker lifecycle', () => {
-  const request = { jobId: 'book-job', documentUrl: '/uploads/example.html', sourceLanguage: 'fr', targetLanguage: 'en', modelId: 'bergamot-fr-en-worker', qualityMode: 'balanced' }
-  const stored = { jobId: 'book-job', status: 'stored', message: 'Stored document' }
   async function documentJob(signal?: AbortSignal) {
-    const { runBergamotDocument } = await import('./nativeBridge')
     mock.invoke.mockImplementation((command) => command === 'translation_bergamot_document'
       ? new Promise((resolve, reject) => { resolveNative = resolve; rejectNative = reject }) : Promise.resolve(true))
     const promise = runBergamotDocument(request, files(), signal)

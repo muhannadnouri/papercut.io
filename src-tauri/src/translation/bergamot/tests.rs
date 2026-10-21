@@ -4,7 +4,7 @@ use std::thread;
 
 fn input() -> TranslationBatchInput {
     TranslationBatchInput {
-        model_id: "bergamot-worker-prototype".into(),
+        model_id: "bergamot-fr-en-worker".into(),
         source_language: "fr".into(),
         target_language: "en".into(),
         quality_mode: "balanced".into(),
@@ -227,7 +227,7 @@ fn strict_wire_shape_and_public_error_codes_do_not_accept_runtime_details() {
 }
 
 #[test]
-fn internal_bridge_and_reply_command_keep_channel_binding_and_job_claims() {
+fn document_engine_and_reply_command_keep_channel_binding() {
     use crate::translation::{commands, state::TranslationState};
     use tauri::{ipc::Channel, Manager};
     let mut context = tauri::test::mock_context(tauri::test::noop_assets());
@@ -258,31 +258,32 @@ fn internal_bridge_and_reply_command_keep_channel_binding_and_job_claims() {
         }
         Ok(())
     });
-    // Public starts are acceptance-gated; retain transport coverage without a production bypass.
-    let reply = run_batch(
-        app.state::<TranslationState>().inner(),
-        window.label().into(),
-        BatchRequest {
-            job_id: "round-trip".into(),
-            source_language: "fr".into(),
-            target_language: "en".into(),
-            segments: vec![Segment {
-                html: false,
-                id: "b0:s0".into(),
-                text: "Résumé 🙂".into(),
-            }],
-        },
-        move |message| channel.send(message).map_err(|e| e.to_string()),
-    )
-    .unwrap();
+    // Exercise the document engine directly; public starts remain acceptance-gated.
+    let state = app.state::<TranslationState>();
+    let mut engine = state
+        .bergamot
+        .open(
+            window.label().into(),
+            "round-trip".into(),
+            state.cancelled_jobs.clone(),
+            move |message| channel.send(message).map_err(|e| e.to_string()),
+        )
+        .unwrap();
+    let reply = engine.translate_batch(input()).unwrap();
     assert_eq!(
         serde_json::to_value(&reply).unwrap()[0]["sourceText"],
         "Résumé 🙂"
     );
     assert_eq!(reply[0].text, "Summary 🙂");
-    let state = app.state::<TranslationState>();
+    drop(engine);
     assert!(state
-        .claim_job("bergamot-worker-prototype", "bergamot-worker-prototype")
+        .bergamot
+        .open(
+            window.label().into(),
+            "retry".into(),
+            state.cancelled_jobs.clone(),
+            |_| Ok(())
+        )
         .is_ok());
 }
 

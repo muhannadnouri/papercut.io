@@ -16,22 +16,12 @@ const MAX_SEGMENTS: usize = 16;
 const MAX_SOURCE_CHARS: usize = 900;
 const MAX_OUTPUT_BYTES: usize = 256 * 1024;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct Segment {
     pub id: String,
     pub text: String,
-    #[serde(default, skip_deserializing)]
     pub html: bool,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(crate) struct BatchRequest {
-    pub job_id: String,
-    pub source_language: String,
-    pub target_language: String,
-    pub segments: Vec<Segment>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -405,50 +395,6 @@ impl Drop for WorkerEngine {
     fn drop(&mut self) {
         self.close();
     }
-}
-
-/// Reuse translation job admission and cancellation without creating a parallel document writer.
-pub(super) fn run_batch(
-    state: &super::state::TranslationState,
-    owner: String,
-    request: BatchRequest,
-    emit: impl Fn(WorkerRequest) -> Result<(), String> + Send + 'static,
-) -> Result<Vec<TranslationSegmentOutput>, String> {
-    let _job = state.claim_job("bergamot-worker-prototype", "bergamot-worker-prototype")?;
-    let job_id = request.job_id;
-    state
-        .cancelled_jobs
-        .lock()
-        .map_err(|_| "Translation cancellation lock poisoned")?
-        .remove(&job_id);
-    let result = (|| {
-        let mut engine =
-            state
-                .bergamot
-                .open(owner, job_id.clone(), state.cancelled_jobs.clone(), emit)?;
-        engine.translate_batch(TranslationBatchInput {
-            model_id: "bergamot-worker-prototype".into(),
-            source_language: request.source_language,
-            target_language: request.target_language,
-            quality_mode: "balanced".into(),
-            repair_mode: Default::default(),
-            glossary: Vec::new(),
-            segments: request
-                .segments
-                .into_iter()
-                .map(|s| super::engine::TranslationSegmentInput {
-                    markup: None,
-                    id: s.id,
-                    text: s.text,
-                    context: Default::default(),
-                })
-                .collect(),
-        })
-    })();
-    if let Ok(mut cancelled) = state.cancelled_jobs.lock() {
-        cancelled.remove(&job_id);
-    }
-    result
 }
 
 #[cfg(test)]

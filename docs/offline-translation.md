@@ -3731,7 +3731,7 @@ with warnings. This stage changes availability, not inference or reconstruction:
   be selected for a new job. This does not claim OPUS has passed language-quality
   or packaged-device acceptance.
 - One catalog-owned admission rule guards native and worker document starts,
-  raw worker batch/asset commands and new model downloads. Crafted/stale UI
+  worker asset commands and new model downloads. Crafted/stale UI
   requests return `provider-acceptance-pending` before model reads, claims,
   downloads or worker startup. No runtime flag or installed-file state bypasses it.
 - Status/removal and saved-translation access remain independent of inference
@@ -3746,7 +3746,7 @@ with warnings. This stage changes availability, not inference or reconstruction:
   installed-model removal. Arabic translation remains deferred with HY-MT2.
 
 Regression coverage uses real Tauri command handlers to reject jobs, downloads,
-worker batches and asset reads; verifies unchanged saved/cache/audio files during
+asset reads; verifies unchanged saved/cache/audio files during
 model removal; and checks disabled selectors/downloads, stale selection fallback
 to OPUS, removal confirmation, saved-result access and WebView probe precedence.
 
@@ -3808,15 +3808,48 @@ passed. No Rust changes or additional native test run were needed for this
 presentation fix. Strict stays disabled; benchmarks, smoke and version bump
 remain deferred.
 
-**Next bounded stage:** remove the confirmed unused flat-span mapping API and
-raw Bergamot batch prototype, retaining scalar-offset validation and the live
-document worker bridge. Then centralize document formatting-policy selection
-before wider renderer/UI cleanup. Do not rewrite the pipeline or delete the
-shared DOM, asset, installer, cache and atomic-write protections. Re-admit a
-provider only after fixing its documented completeness/formatting behavior and
-passing explicit acceptance; compilation alone is insufficient.
+### Retired prototype APIs — 2026-10-21
 
-Benchmarks, smoke, strict enablement and the app version bump remain deferred.
+Removed the unused flat-span mapping DTO/validator and the raw Bergamot batch
+command, request DTO and frontend wrappers. Neither had a product caller; the
+current internal Bergamot document entry remains the only worker job route.
+Its asset delivery and worker host no longer carry generic callbacks or a
+batch/document mode flag. The catalog admission gate remains closed.
+
+The shared strict UTF-8-to-scalar conversion remains in place because the token
+contract uses it. Accent, emoji, Arabic combining-mark and untrimmed-offset tests
+remain alongside it. The renderer safety regression now tests source-owned
+styles directly, preserving its escaped-HTML and original note/backlink checks.
+Existing protected-code and strict-contract tests retain identity, hierarchy,
+overlap, repeated-word and literal-content rejection coverage.
+
+Batch prototype tests now exercise the document path: verified sequential binary
+reads and capability probes, corrupt/oversized/lost asset replies, input/output
+ceilings, source echoes, stale identities, page lifecycle and cancellation,
+worker reuse, final-result loss and retry. The real Rust engine/channel round
+trip still exercises the reply command and releases the worker slot. Document
+cancellation continues to await Rust's authoritative save result, with the
+existing bounded unknown-outcome grace period. No cache identity, model pin,
+saved document, original, audio or highlighting migration is involved.
+
+Validation passed: **284 base Rust translation tests**, **310 translation tests
+with CTranslate2, llama.cpp and alignment-runtime compiled** (10 opt-in tests
+ignored), **2 worker-only capability tests**, and **124 frontend translation
+tests**. TypeScript, changed-file ESLint, all eight locale resources, Rustfmt and
+diff checks passed. Four tests of the deleted flat-span API were retired; its
+unique scalar/renderer checks and the live strict/protected rejection tests
+remain. These checks establish cleanup/lifecycle safety, not language quality
+or packaged-device acceptance.
+
+**Next bounded stage:** review this cleanup, then centralize document
+formatting-policy selection and validated batch/checkpoint handling. Separate
+worker transport, protected mapping and legacy projection only where their
+responsibilities currently overlap. Keep shared DOM, asset, installer, cache and
+atomic-write protections; avoid a pipeline rewrite or generic plugin framework.
+Provider re-admission still requires completeness/formatting fixes and explicit
+acceptance; compilation alone is insufficient.
+
+Strict stays disabled. Benchmarks, smoke and the app version bump remain deferred.
 
 ## Boundary-based CTranslate2 translation — 2026-10-20
 
@@ -4745,6 +4778,10 @@ provide this lifecycle bridge.
 
 ##### Implemented Validation Slice
 
+**Historical slice:** the fixture-only flat-span API described here was removed
+in the [prototype cleanup](#retired-prototype-apis--2026-10-21). The live protected
+mapping/token contracts, scalar conversion and renderer checks remain.
+
 - `translation::engine::validate_outputs` checks the whole reply for exact
   count/order, unique nonempty requested ids, exact source text and nonempty
   translated text before consuming any returned segment. Both normal batches
@@ -4816,6 +4853,10 @@ installed-app or mobile/WebView validation was added by this review.
 
 ##### Bounded Bergamot Worker Bridge — Prototype (2026-10-19)
 
+**Historical slice:** the standalone batch entry was removed in the
+[prototype cleanup](#retired-prototype-apis--2026-10-21). Current internal calls use
+verified assets and the document entry; all public Bergamot starts remain gated.
+
 At this initial slice, the text-only bridge was **not selectable in the Translation
 panel or used by `translation_start`**. It proved the bounded runtime/transport
 boundary before verified asset delivery and the full-document integration
@@ -4828,8 +4869,8 @@ Responsibilities:
 - `translation::bergamot`: one active, main-WebView-owned worker attempt,
   single-slot reply mailbox and a `TranslationEngine` implementation. The backend
   reuses `TranslationState` job admission/cancellation and `validate_outputs`.
-  The thin `translation_bergamot_batch` / `translation_bergamot_reply` commands
-  pass text and control messages through a Tauri channel. The prototype returns
+  The prototype batch command and retained `translation_bergamot_reply` command
+  passed text and control messages through a Tauri channel. The prototype returned
   validated text only; it never opens document files or writes cache/variant rows.
 - `src/translation/bergamot/nativeBridge.ts`: starts the worker, transfers binary
   files, relays bounded requests/replies, handles AbortSignal, worker/message
@@ -4863,8 +4904,9 @@ weights are not bundled or downloaded automatically.
 | Deadline | Independent 120-second Rust and host deadlines include initialization and inference. Stale messages never renew them. Rust polls cancellation at most every 25 ms while waiting and checks it again before accepting a reply. |
 | Failure | Timeout, cancellation, lost channel/worker, bad output and engine failure close the attempt and release its slot. Explicit worker errors/lifecycle events notify Rust; if a WebView disappears without notification, Rust's deadline still releases the attempt. |
 
-The future installer must supply verified local binary buffers to
-`runBergamotBatch(segments, files, signal)`. These are transferred to the worker
+The prototype accepted local binary buffers directly. Current internal document
+calls instead use `runInstalledBergamotDocument(request, signal)` to verify and
+load installed buffers before `runBergamotDocument`. Buffers transfer to the worker
 outside JSON/base64. Transfer consumes the buffers; a failed/cancelled call may
 already have detached them, so reload buffers for a retry. The loader is a fixed
 app-owned same-origin script, not an IPC URL.
@@ -4970,13 +5012,14 @@ remain unchanged.
   reads at most the pin plus one byte, with a 32 MiB per-file ceiling, and returns
   a raw Tauri binary response. Papercut does not JSON/base64-encode model bytes
   or widen filesystem/CSP scopes. The worker checks the resulting snapshot again.
-- `src/translation/bergamot/assets.ts` exposes
-  `runInstalledBergamotBatch(segments, sourceLanguage, signal)`. It validates text
-  before reading files, serializes frontend admission, loads four ArrayBuffers
-  sequentially under a 64 MiB combined ceiling and hands them to the existing
-  bounded bridge. A 120-second absolute host budget includes asset loading and
-  the worker batch. Cancellation/timeout releases frontend admission even if a
-  binary IPC reply is lost; native bounded disk reads finish independently.
+- `src/translation/bergamot/assets.ts` now exposes only
+  `runInstalledBergamotDocument(request, signal)`. It validates the model/pair
+  before reading files, serializes frontend admission and loads four ArrayBuffers
+  sequentially under a 64 MiB combined ceiling. Asset loading has a 120-second
+  absolute budget; document inference has independent per-request deadlines.
+  Cancellation/timeout releases frontend admission even if a binary IPC reply
+  is lost; native bounded disk reads finish independently. The former batch
+  wrapper and its single-batch deadline were removed in the prototype cleanup.
 - Capability checks require a secure context, Worker, WebCrypto and WASM SIMD,
   using a minimal `v128.const` module rather than OS-version guesses. The actual
   downloaded WASM is validated before loading model files. Worker initialization
@@ -5189,7 +5232,7 @@ code, `translate="no"` content, notes and image/media subtrees become opaque
 `translate="no"` tokens, without sending their text, paths or targets. Whole
 sentence context across inline tags is retained within each existing segment.
 The stock worker uses the supported response options `html: true` and
-`alignment: true` for these requests; the plain batch prototype remains text-only.
+`alignment: true` for these requests; the former plain batch prototype was text-only and has since been removed.
 The vendored loader, runtime and model pins are unchanged. This call shape follows
 Mozilla's [pinned engine wrapper](https://github.com/mozilla/translations/blob/69455acaecbe8650cdba988dbcf7c10ca20e7c48/inference/wasm/tests/engine/translations-engine.worker.mjs).
 

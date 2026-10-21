@@ -28,7 +28,6 @@ fn fixture() -> (
             translation_capabilities,
             translation_start,
             translation_bergamot_document,
-            translation_bergamot_batch,
             translation_bergamot_asset,
             translation_install_model,
             translation_model_status,
@@ -90,10 +89,14 @@ fn public_commands_gate_unqualified_providers_before_files_downloads_or_workers(
         ];
         if id.starts_with("bergamot-") {
             calls.extend([
-                ("translation_bergamot_document", json!({"request":request,"onRequest":"__CHANNEL__:9"})),
-                ("translation_bergamot_batch", json!({"request":{"jobId":"blocked","sourceLanguage":source,
-                    "targetLanguage":"en","segments":[{"id":"s","text":"Bonjour."}]},"onRequest":"__CHANNEL__:9"})),
-                ("translation_bergamot_asset", json!({"sourceLanguage":source,"asset":"model"})),
+                (
+                    "translation_bergamot_document",
+                    json!({"request":request,"onRequest":"__CHANNEL__:9"}),
+                ),
+                (
+                    "translation_bergamot_asset",
+                    json!({"sourceLanguage":source,"asset":"model"}),
+                ),
             ]);
         }
         for (command, body) in calls {

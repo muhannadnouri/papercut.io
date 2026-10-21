@@ -8,8 +8,8 @@ export interface BergamotFiles {
   lex: ArrayBuffer
   vocab: ArrayBuffer
 }
-export interface TextSegment { id: string; text: string; html?: boolean }
-export interface WorkerOutput extends TextSegment { sourceText: string }
+interface TextSegment { id: string; text: string; html?: boolean }
+interface WorkerOutput extends TextSegment { sourceText: string }
 interface Batch {
   kind: 'batch'
   attemptId: string
@@ -33,33 +33,11 @@ export function validateBergamotSegments(segments: TextSegment[]): void {
   }
 }
 
-// Internal text boundary; installed callers deliver verified buffers through assets.ts.
-export async function runBergamotBatch(
-  segments: TextSegment[], files: BergamotFiles, signal?: AbortSignal,
-): Promise<WorkerOutput[]> {
-  validateBergamotSegments(segments)
-  return runWorker<WorkerOutput[]>(files, signal, crypto.randomUUID(), channel => invoke('translation_bergamot_batch', {
-    request: { jobId: channel.jobId, sourceLanguage: files.sourceLanguage, targetLanguage: 'en', segments },
-    onRequest: channel.requests,
-  }), false)
-}
-
 /** Keep one host for all rich document batches; only Rust may authorize persistence. */
 export async function runBergamotDocument(
   request: TranslationStartRequest, files: BergamotFiles, signal?: AbortSignal,
 ): Promise<TranslationStartResult> {
   const jobId = request.jobId || crypto.randomUUID()
-  return runWorker<TranslationStartResult>(files, signal, jobId, channel => invoke('translation_bergamot_document', {
-    request: { ...request, jobId }, onRequest: channel.requests,
-  }), true)
-}
-
-/** Bind callbacks to one attempt and await Rust through the save/cancel cutoff, with bounded loss recovery. */
-async function runWorker<T>(
-  files: BergamotFiles, signal: AbortSignal | undefined, jobId: string,
-  start: (channel: { jobId: string; requests: Channel<Batch | Confirm | Stop> }) => Promise<T>,
-  documentJob: boolean,
-): Promise<T> {
   signal?.throwIfAborted()
   if (document.visibilityState === 'hidden') throw new Error('Bergamot requires a visible page')
   const buffers = [files.wasm, files.model, files.lex, files.vocab]
@@ -90,11 +68,9 @@ async function runWorker<T>(
     failure = reason
     worker.terminate()
     if (current) reportFailure(current, reason)
-    if (documentJob) {
-      void invoke('translation_cancel', { request: { jobId } }).catch(() => {
-        // Saving may already own the atomic commit; await Rust's final outcome below.
-      })
-    }
+    void invoke('translation_cancel', { request: { jobId } }).catch(() => {
+      // Saving may already own the atomic commit; await Rust's final outcome below.
+    })
     rejectLifecycle(new Error(reason === 'cancelled' ? 'Translation cancelled' : 'Bergamot worker unavailable or lost'))
   }
   const onAbort = () => fail('cancelled')
@@ -170,19 +146,18 @@ async function runWorker<T>(
     if (signal?.aborted) fail('cancelled')
     if (closed) return await lifecycle
     const channel = new Channel<Batch | Confirm | Stop>(onRequest)
-    const native = start({ jobId, requests: channel })
-    if (documentJob) {
-      // Rust may already be committing. Allow its result a bounded grace period.
-      const finalResponse = lifecycle.catch(() => new Promise<never>((_, reject) => {
-        clearTimeout(timer)
-        timer = setTimeout(() => reject(new TranslationError(
-          'translation-outcome-unknown',
-          'The translation outcome could not be confirmed. Check the Library before trying again.',
-        )), 30_000)
-      }))
-      return await Promise.race([native, finalResponse])
-    }
-    return await Promise.race([native, lifecycle])
+    const native = invoke<TranslationStartResult>('translation_bergamot_document', {
+      request: { ...request, jobId }, onRequest: channel,
+    })
+    // Rust may already be committing. Allow its result a bounded grace period.
+    const finalResponse = lifecycle.catch(() => new Promise<never>((_, reject) => {
+      clearTimeout(timer)
+      timer = setTimeout(() => reject(new TranslationError(
+        'translation-outcome-unknown',
+        'The translation outcome could not be confirmed. Check the Library before trying again.',
+      )), 30_000)
+    }))
+    return await Promise.race([native, finalResponse])
   } finally {
     closed = true
     clearTimeout(timer)
