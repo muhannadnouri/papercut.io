@@ -187,6 +187,10 @@ Terminated operations cannot be relocked by late progress events.
   variants, indexes and assets on write failure. Model removal is independent
   of document deletion. No existing audio or timing files are rewritten.
 
+The deletion ownership/dependency gaps in the readiness review below remain
+unfixed. Rollback alone does not enforce which documents a command may delete
+or preserve a source referenced by an audiobook.
+
 ## Storage, cache and compatibility
 
 There are two distinct forms of storage:
@@ -386,15 +390,78 @@ eight-locale validation, local/inbound/history links, evidence identity and diff
 checks. Disclosure/dismissal resets on view unmount are presentation-only;
 manager-owned jobs and results survive conditional tab presentation as before.
 
+## Branch integration/readiness review — 2026-10-21
+
+Reviewed `4570dbf6` against local `main` (`8ebc9d0f`), using merge base `871d7026`:
+118 branch-changed files, including tests, stock worker glue and retained evidence.
+Main has one additional README-only commit; no merge or remote fetch was performed.
+Assumed one foreground HTML/EPUB translation job with a local library;
+crafted IPC requests still need
+native validation. Traced import/sanitization, shared DOM/assets, sentence/review
+planning, batch/cache admission, cancellation/save ownership, derived upload
+storage, reader/search/TTS consumers, model management and build/provider gates.
+No new inference, private corpus, provider re-admission or production changes.
+
+The current separation is useful: OPUS keeps sentence context with explicit
+review originals; shared source/cache/writer guards remain connected; worker
+transport and mapping are separate; gated providers cannot become runnable from
+installed files. Search/Find/narration exclude review originals/labels. Desktop
+builds compile native engines; mobile opt-in compiles only the worker host and
+still has no admitted public provider. Passing these paths' existing tests is
+not a language-quality or packaged-platform acceptance result.
+
+### Confirmed findings — fix before merging
+
+1. **P1 — Translation deletion does not validate identity or prove ownership.**
+   `translation/storage.rs:247` calls the derived-file deleter even when deleting
+   zero translation metadata rows. `document_uploads/derived.rs:199` constructs
+   its path from the unchecked ID and unconditionally deletes upload rows.
+   Real IPC probes confirmed that an empty ID removes the temporary uploads
+   root including `search.sqlite3`; an ordinary upload ID removes that source
+   while returning `deleted: false`/not found. Reject malformed IDs before path
+   work, prove translation ownership before mutation, and make unknown valid
+   IDs harmless. Preserve staged rollback/idempotent retry. Permanent tests must
+   cover empty/unsafe/unknown IDs, original HTML/EPUB/PDF IDs, unchanged source/
+   assets/index/metadata, valid variant deletion and failed deletion recovery.
+2. **P1 — Translation deletion bypasses audiobook source protection.**
+   Ordinary Library deletion uses `with_audiobook_reference_lock` and
+   `document_has_audiobook_reference` in `document_uploads/pipeline.rs:642`.
+   The derived translation path uses neither. A real IPC probe deleted a valid
+   variant with a matching audiobook manifest: the source disappeared while
+   the audio reference remained. Reuse the existing lock/reference check at
+   the shared deletion boundary; a UI-only disabled button cannot protect this.
+   Test pending and completed references, rejected deletion preserving all data,
+   unrelated references and successful deletion after references are removed.
+3. **P2 — Library deletion leaves a ghost saved translation.**
+   `document_uploads/store.rs:705` removes upload/section/search rows but does
+   not remove the matching translation metadata. The only translation foreign
+   key refers to the *source* upload, not the derived upload's own ID. A normal
+   `document_uploads_delete` IPC probe removed a variant's files but subsequent
+   translation listing still returned one row. Clean matching metadata in the
+   shared upload-delete transaction, including batch/folder entrypoints, without
+   deleting variants when their original source is removed. Test both deletion
+   surfaces, rollback, source deletion and any existing-schema migration needed.
+
+Four synthetic preservation assertions reproduced these three findings in a
+disposable `/tmp` copy through real Tauri IPC. All 153 other Rust source files
+were byte-identical; only the temporary test module/handler registration differed.
+No user data, private inputs, model weights or repro scripts were added to Git.
+The tracked suites do not currently cover these failures: 501 base Rust library
+tests passed (4 ignored), 222 native-feature translation tests passed (2 ignored),
+223 worker-only translation tests passed, and 535 frontend/script tests passed
+(1 skipped). TypeScript, eight-locale validation, Rustfmt, links/evidence and
+diff checks passed. These green counts do not override the failing IPC probes.
+Cross-platform CI/linking, installed-app behavior, linguistic quality, current
+dependency advisories and real-device resources were not revalidated here.
+
 ## Next bounded work
 
-Review the branch against `main` for integration/readiness before another UI
-split. Trace HTML/EPUB import through source planning, sentence/review outcomes,
-cache/resume and atomic saving to reader/search/TTS; check packaging/admission
-and identify remaining release blockers separately from structural test passes.
-Keep private inputs outside tracked files and keep benchmarks, smoke and version
-bump deferred. Keep provider admission unchanged; assess code and architecture
-without running new inference.
+Fix findings 1–3 as one shared deletion-safety stage with permanent native IPC/
+storage regressions, then review those fixes. Keep the existing source/DOM,
+cache, atomic writer and audiobook-reference patterns; do not add a second
+storage system or rely on frontend guards. Preserve originals, saved variants,
+assets and existing audio, including rollback and source-delete semantics.
+Keep provider admission unchanged and benchmarks, smoke and version bump deferred.
 
 No further UI split is justified by this extraction review alone. Model/language
 selection, provider admission and shared busy conditions remain coordinated in
