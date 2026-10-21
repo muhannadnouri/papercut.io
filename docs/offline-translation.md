@@ -83,6 +83,10 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   reproduces missing auxiliary/contraction and adjective links on actual OPUS-MT
   output. Neither FP32 nor the older diagnostic runtime resolves the real-output
   failures. No production repair or public enablement is justified by these checks.
+- The [fine-tuned provider evaluation](#stage-9-fine-tuned-provider-evaluation--2026-10-20)
+  tests an alternative Awesome-align checkpoint against the frozen cases. It
+  repairs the Spanish adjective and fixed French future but leaves important
+  actual-output gaps. No provider replacement is approved.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -2561,6 +2565,127 @@ evidence, not durable repository tooling or release artifacts. Production code,
 dependencies, model pins, saved documents, candidate gate and app version are
 unchanged. Only this roadmap is updated. Benchmarks, broader/device smoke,
 packaged acceptance, fresh CI and version bump remain deferred.
+
+## Stage 9 fine-tuned provider evaluation — 2026-10-20
+
+**Decision: do not implement a provider swap.** The least disruptive alternative
+improves a few examples but fails the mandatory auxiliary/disjoint-scope cases.
+The preceding investigation was committed as `00e6085` before this evaluation.
+Production code and `FORMATTING_ACCEPTED = false` remain unchanged.
+
+### Candidate, provenance and reproducible method
+
+Tested [aneuraz/awesome-align-with-co](https://huggingface.co/aneuraz/awesome-align-with-co/tree/777756717e1fa9556e304d4d5db173ee386b9c16),
+revision `777756717e1fa9556e304d4d5db173ee386b9c16`, rather than retraining the
+current raw-mBERT export or changing its extraction threshold. The publisher's
+model card supplies the same layer-8, softmax-intersection `> 0.001` recipe and
+attributes the checkpoint to [Awesome-align](https://github.com/neulab/awesome-align).
+Its language metadata includes French but not Spanish; Spanish performance must
+be established independently. The publisher labels it BSD-3-Clause; complete
+weight provenance and redistribution notices were not qualified for app delivery.
+
+- Downloaded only the pinned checkpoint/config/tokenizer/card into `/tmp`.
+  The 1,086,292,375-byte `pytorch_model.bin` SHA-256 is
+  `9f9d19adbab07c9f5ec2d74fe5701a66c123919feb35d05fce29969b6a85adb9`,
+  checked against repository LFS metadata. All downloaded files have local
+  size/hash receipts. This is the full research checkpoint, including unused
+  heads/layers, **not** a measured deployment-pack requirement.
+- Reused installed research Torch **2.9.0+cpu** and Transformers **4.57.1** with
+  `weights_only=True`, `trust_remote_code=False`, local files and unavailable
+  network proxies during inference. No repository Python model code, custom
+  model class, library patch, training or new app dependency was used. Standard
+  `BertModel` loaded the first eight layers without a pooler/MLM head, matching
+  the documented eighth hidden state. The checkpoint's raw fast tokenizer
+  supplies word IDs/offsets; its vocabulary hash matches the existing candidate.
+- Before inference, froze **58 synthetic cases** outside Git: the original 24
+  fixed-target scopes plus two adjective controls; those same 26 scopes on
+  previously captured exact native OPUS-MT targets; two existing fused-negation
+  controls; and four existing deliberately wrong translation pairs. Required
+  lexical scopes on the actual targets were annotated **before seeing the new
+  provider's results**, without rewriting the targets. The frozen JSON SHA-256 is
+  `8c0a50b23bf51d088e8728991b740b754217a3cc7aaa8a8ccb72686a042ebad5`.
+  These familiar diagnostic inputs are not a new held-out acceptance corpus.
+- Ran the same pinned, unmodified guide head and missing-source/lexical-target/
+  mixed-ownership screen over exact pairs. No threshold/layer sweep, alternate
+  matching rule, case normalization, contraction expansion or extra source
+  context was tried. Shape/finite/token/annotation checks passed for all cases.
+  No private article or sample-derived fixture was read or added to Git.
+- Re-ran the same 58 cases with the cached original mBERT safetensors using the
+  same Torch/Transformers, eighth layer and extraction setup. Its scope/blocker
+  totals reproduce the earlier native INT8 totals below. Individual link sets
+  need not be identical across precision/runtime; this same-software FP32
+  control supports the limited scope improvements, not ONNX equivalence.
+
+### Results
+
+The original 24-case denominators exclude the two added adjective controls and
+the six negative controls. Baseline results below are the preceding native INT8
+receipt; the new checkpoint is **PyTorch FP32 research inference**, not a
+production ONNX/quantized equivalence result.
+
+| Original scope set | Existing candidate: exact direct scope / no graph blockers | Fine-tuned checkpoint: exact direct scope / no graph blockers |
+| --- | --- | --- |
+| Fixed targets, French (12) | 8 / 7 | 9 / 8 |
+| Fixed targets, Spanish (12) | 10 / 8 | 10 / 8 |
+| Actual targets, French (12) | 7 / 6 | 8 / 7 |
+| Actual targets, Spanish (12) | 7 / 6 | 8 / 6 |
+
+Thus the fixed-target totals improve **18 → 19 exact scopes** and **15 → 16
+without graph blockers**, out of 24. Actual-target totals improve **14 → 16
+exact scopes** and **12 → 13 without graph blockers**, out of 24. No positive
+scope admitted by this screen was incorrect within this small annotated set.
+These counts describe lexical ownership only, not full HTML/attachment
+reconstruction, semantic completeness or a population-wide success rate.
+
+- **Improved:** fixed French `reviendra` now owns `will return`; Spanish short
+  `rojo` owns `red`/`Red` on both fixed and actual targets. Actual French lexical
+  `a` in `She's got a book.` now owns the auxiliary `s` and `got` together.
+- **Still blocked:** actual French future `He'll be back tomorrow.` owns `ll`
+  and `back` but misses `be`. The problem changes shape rather than disappearing.
+  French progressive/disjoint and French/Spanish negation cases still lack
+  auxiliary links. Spanish implicit future now owns `ll be back` correctly but
+  leaves generated `He` unlinked, so the unchanged global coverage guard rejects.
+  Spanish `salir` → `get out` now owns `get` instead of `out`; the other lexical
+  component is still missing. No auxiliary allowlist would repair that case.
+- **Safety limits:** both fused `won't` controls still have missing lexical
+  evidence and reject under the screen. All four deliberately wrong translation
+  pairs still have complete graphs and pass that screen (for example, `rouge`
+  aligns to `blue`). As before, correspondence coverage cannot certify MT
+  meaning; those are negative semantic counterexamples, not successful outputs.
+
+The mandatory positive gate remains unmet even before considering unknowns,
+attachments, identities, hierarchy, held-out quality or resource acceptance.
+There is no reason to spend a production slice exporting/quantizing/installing
+this checkpoint hoping that quantization will repair its FP32 scope failures.
+
+### Other providers screened, not executed
+
+| Provider | Evidence and disposition |
+| --- | --- |
+| [WSPAlign](https://github.com/qiyuw/WSPAlign) | Both inspected base-model cards and the code declare CC-BY-NC-SA-4.0. This is not the existing permissive redistribution path; it would need a separate permission/distribution decision. Do not add a new span-prediction adapter or download these weights merely on the strength of published accuracy. No frozen-case result is claimed. |
+| [BinaryAlign](https://github.com/ubisoft/ubisoft-laforge-binaryalign) | The actual [license file](https://github.com/ubisoft/ubisoft-laforge-binaryalign/blob/main/license.txt) specifies CC-BY-NC-ND-4.0, beyond the README's shorter noncommercial description. This also needs a separate permission/distribution decision. No weights downloaded or quality result claimed. |
+| [AccAlign](https://github.com/sufenlp/AccAlign) | Published recipe relies on LaBSE and an adapter checkpoint with legacy `adapter-transformers 4.16.2`/Torch 1.9.0 training requirements. It is not an already verified encoder pack for the shared app runtime. No port, dependency downgrade or frozen-case result claimed. |
+| [OmniAlign](https://github.com/MilkDargon/OmniAlign) | A distinct Apache-2.0 candidate whose published language list includes French/Spanish. Metadata at `WPS-Qingqiu/OmniAlign@eaeeb279332156479b9092641a6b9e189e83a6d8` lists a 610,751,248-byte safetensors file plus custom GTE/NEW architecture Python modules, with no ONNX artifact. The authors describe approximately 305M parameters. Its existing published payload is outside the 200 MiB pack target; a smaller export's size/quality and shared-ORT compatibility remain unknown. No quality, RAM, speed or mobile result is claimed. |
+
+**Next bounded decision:** keep the existing provider-independent contract and
+defer production alignment enablement. If further provider research is pursued,
+OmniAlign is the remaining distinct permissively labelled lead from this screen:
+first evaluate its reviewed offline loading/export feasibility and ability to
+meet the unchanged pack budget, before any app adapter. Do not assume that a
+larger model or a published alignment score solves grammatical ownership, and
+do not silently raise the pack/resource budgets. If that path cannot fit without
+a maintained fork or materially larger delivery, revisit the strict-formatting
+scope with the user rather than introduce ownership guesses or an open-ended
+sequence of model swaps. No model is approved for replacement by this evaluation.
+
+**Evidence/validation:** all 116 local correctness probes completed (58 per
+checkpoint); receipts,
+frozen inputs, comparison assertions and results are under
+`/tmp/papercut-stage9-provider-evaluation/`, with logs
+`/tmp/stage9-provider-{fetch,evaluation,baseline}.log`. These are disposable, outside-Git
+research files. No ONNX export, quantization, shared-runtime run of the new
+checkpoint, installer/catalog change, public admission, saved-document change,
+fresh app/CI build, benchmark, broader/device smoke or version bump was performed.
 
 ## Product Goals
 
