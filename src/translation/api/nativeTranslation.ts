@@ -8,6 +8,8 @@ export interface TranslationCapabilities {
     backend: string
     device: string
   } | null
+  /** Missing on older backends: conservative unavailable, never an engine entry. */
+  formatting?: { available: boolean; reason: 'available' | 'acceptance-pending' | 'runtime-unavailable'; modelId: string | null; archiveBytes: number }
   models: TranslationModelInfo[]
 }
 
@@ -74,6 +76,7 @@ export interface TranslationStartRequest {
   modelId: string
   qualityMode: string
   useHardwareAcceleration?: boolean
+  preserveFormatting?: boolean
   repairMode?: 'off' | 'chapter'
   glossary?: TranslationGlossaryEntry[]
 }

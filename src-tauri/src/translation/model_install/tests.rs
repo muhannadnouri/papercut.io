@@ -243,6 +243,16 @@ fn pinned_auxiliary_commands_verify_reuse_notices_and_remove_under_the_runtime_l
     };
     assert!(!status().installed);
     assert!(status().message.contains("Auxiliary alignment"));
+    let installing = state.claim_model_install(manifest.directory_name).unwrap();
+    assert!(status().installing);
+    assert!(!status().installed);
+    assert!(
+        !crate::translation::capabilities::translation_capabilities()
+            .formatting
+            .available
+    );
+    drop(installing);
+    assert!(!status().installing);
     let dir = installed_translation_model_dir(app.handle(), manifest).unwrap();
     fs::create_dir_all(&dir).unwrap();
     for pin in manifest.files {

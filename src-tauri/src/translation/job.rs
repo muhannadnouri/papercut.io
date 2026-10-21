@@ -95,6 +95,10 @@ pub(crate) fn build_translation_cache_key(request: &TranslationStartRequest) -> 
     hasher.write_str(&request.model_id);
     hasher.write_str(&request.quality_mode);
     hasher.write_str(request.repair_mode.label());
+    // Leave existing plain cache identities unchanged.
+    if request.preserve_formatting {
+        hasher.write_str("strict-formatting-v1");
+    }
     for entry in &request.glossary {
         hasher.write_str(entry.source.trim());
         hasher.write_str(entry.target.trim());
@@ -186,9 +190,20 @@ mod tests {
             model_id: "opus-ar-en".into(),
             quality_mode: "balanced".into(),
             use_hardware_acceleration: false,
+            preserve_formatting: false,
             repair_mode: Default::default(),
             glossary: Vec::new(),
         }
+    }
+
+    #[test]
+    fn strict_request_cannot_resume_a_plain_job_cache() {
+        let mut request = request();
+        let plain = build_translation_cache_key(&request);
+        request.preserve_formatting = true;
+        assert_ne!(plain, build_translation_cache_key(&request));
+        request.preserve_formatting = false;
+        assert_eq!(plain, build_translation_cache_key(&request));
     }
 
     #[test]

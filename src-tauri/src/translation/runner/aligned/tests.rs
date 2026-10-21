@@ -485,7 +485,15 @@ fn corrupted_target_nodes_and_piece_boundaries_are_discarded_before_cache_resume
 
 #[test]
 fn cancellation_during_native_work_and_before_save_preserves_existing_variant_and_source() {
-    for mode in ["translation", "alignment", "last-batch", "save"] {
+    for mode in [
+        "translation",
+        "alignment",
+        "last-batch",
+        "save",
+        "translating-batch",
+        "aligning-batch",
+        "reconstructing-batch",
+    ] {
         let (dir, app, source, plan) = fixture("<p>Un <em>livre</em></p>", "html", 2);
         let state = TranslationState::default();
         let (mut engine, mut aligner) = engines(&state);
@@ -499,11 +507,16 @@ fn cancellation_during_native_work_and_before_save_preserves_existing_variant_an
         )
         .unwrap();
         let before = super::super::document_tests::snapshot(&dir.0);
-        let listener = if mode == "last-batch" {
+        let listener = if mode == "last-batch" || mode.ends_with("-batch") {
             use tauri::Listener;
             let host = state.clone();
+            let phase = if mode == "last-batch" {
+                "batch-complete"
+            } else {
+                mode
+            };
             Some(app.listen(TRANSLATION_JOB_PROGRESS_EVENT, move |event| {
-                if event.payload().contains("batch-complete") {
+                if event.payload().contains(phase) {
                     host.cancel("document-job").unwrap();
                 }
             }))
@@ -533,7 +546,7 @@ fn cancellation_during_native_work_and_before_save_preserves_existing_variant_an
         }
         assert_eq!(super::super::document_tests::snapshot(&dir.0), before);
         let cache = load_segment_cache(app.handle(), &plan).unwrap();
-        if mode == "translation" || mode == "alignment" {
+        if mode != "save" && mode != "last-batch" {
             assert_eq!(
                 cache
                     .aligned_for("b0:s0")
@@ -774,6 +787,7 @@ fn installed_native_french_spanish_jobs_save_and_resume_through_the_shared_runne
         let (_dir, app, source, mut plan) = fixture(html, "html", 2);
         plan.request.model_id = model.into();
         plan.request.source_language = language.into();
+        plan.request.preserve_formatting = true;
         let manifest = manifest_by_id(model).unwrap();
         for (pack, origin) in [
             (manifest, std::path::Path::new(&translators).join(model)),
@@ -813,8 +827,7 @@ fn installed_native_french_spanish_jobs_save_and_resume_through_the_shared_runne
                 &state,
                 plan.request.clone(),
                 manifest,
-                |dir, _, job| {
-                    job.load_alignment(app.handle())?;
+                |dir, _, _job| {
                     Ok(Box::new(CTranslate2Engine::for_installed_model(
                         model,
                         dir.to_path_buf(),
@@ -838,6 +851,12 @@ fn installed_native_french_spanish_jobs_save_and_resume_through_the_shared_runne
         assert!(settings.contains("ort-rc13-api17"));
         assert!(settings.contains(PROJECTION_POLICY));
         // Compiling/installing the auxiliary does not opt ordinary command starts into strict alignment.
+        assert!(
+            start_translation(app.handle(), &state, plan.request.clone())
+                .unwrap_err()
+                .contains("not available")
+        );
+        plan.request.preserve_formatting = false;
         start_translation(app.handle(), &state, plan.request.clone()).unwrap();
         let variants =
             super::super::super::storage::list_translated_documents(app.handle()).unwrap();
@@ -857,4 +876,54 @@ fn installed_native_french_spanish_jobs_save_and_resume_through_the_shared_runne
             1
         );
     }
+}
+
+/// Progress names actual phases; a resumed receipt does not pretend to run inference again.
+#[test]
+fn strict_progress_reports_alignment_reconstruction_and_cache_resume() {
+    use tauri::Listener;
+    let (_dir, app, source, plan) = fixture("<p>Un <em>livre</em></p>", "html", 2);
+    let state = TranslationState::default();
+    let (mut engine, mut aligner) = engines(&state);
+    let stages = Arc::new(Mutex::new(Vec::new()));
+    let captured = stages.clone();
+    let listener = app.listen(TRANSLATION_JOB_PROGRESS_EVENT, move |event| {
+        let payload: serde_json::Value = serde_json::from_str(event.payload()).unwrap();
+        captured
+            .lock()
+            .unwrap()
+            .push(payload["status"].as_str().unwrap().to_string());
+    });
+    run(
+        app.handle(),
+        &state,
+        &source,
+        &plan,
+        &mut engine,
+        &mut aligner,
+    )
+    .unwrap();
+    let first = stages.lock().unwrap().clone();
+    let align = first.iter().position(|s| s == "aligning-batch").unwrap();
+    let reconstruct = first
+        .iter()
+        .position(|s| s == "reconstructing-batch")
+        .unwrap();
+    let complete = first.iter().position(|s| s == "batch-complete").unwrap();
+    assert!(align < reconstruct && reconstruct < complete);
+    stages.lock().unwrap().clear();
+    run(
+        app.handle(),
+        &state,
+        &source,
+        &plan,
+        &mut engine,
+        &mut aligner,
+    )
+    .unwrap();
+    let resumed = stages.lock().unwrap();
+    assert!(!resumed.iter().any(|s| s == "aligning-batch"));
+    assert!(resumed.iter().any(|s| s == "reconstructing-batch"));
+    assert_eq!(aligner.calls, 1);
+    app.unlisten(listener);
 }

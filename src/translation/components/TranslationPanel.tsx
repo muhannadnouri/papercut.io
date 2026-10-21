@@ -108,8 +108,10 @@ export function TranslationPanel({
     [confirmingDeleteId, translatedDocuments],
   )
   const confirmingModel = useMemo(
-    () => installableModels.find((model) => model.id === confirmingModelId) ?? null,
-    [confirmingModelId, installableModels],
+    () => installableModels.find(model => model.id === confirmingModelId)
+      ?? (confirmingModelId && capabilities?.formatting?.modelId === confirmingModelId
+        ? { id: confirmingModelId, name: t('translation.formatting.packName'), sizeNotes: '' } : null),
+    [confirmingModelId, installableModels, capabilities, t],
   )
   const [docsOpen, setDocsOpen] = useState(true)
   // Local-only dismissal of finished status messages; a new message (different
@@ -119,6 +121,8 @@ export function TranslationPanel({
   const [sourceLanguage, setSourceLanguage] = useState('')
   const [targetLanguage, setTargetLanguage] = useState('en')
   const [useHardwareAcceleration, setUseHardwareAcceleration] = useState(false)
+  // Bind consent to the exact engine/pair; switching away cannot silently carry it forward.
+  const [formattingChoice, setFormattingChoice] = useState('')
   // Preserve catalog ordering/defaults, but never fall back to an unavailable engine.
   const activeModelId = runnableModels.some((model) => model.id === modelId)
     ? modelId
@@ -143,6 +147,20 @@ export function TranslationPanel({
     ?? capabilities?.defaultQualityMode
     ?? 'balanced'
   const bergamotSelected = selectedModel?.engine === 'bergamot'
+  const formatting = capabilities?.formatting
+  const formattingPair = ['opus-mt-fr-en-ctranslate2', 'opus-mt-es-en-ctranslate2'].includes(activeModelId)
+    && activeSourceLanguage === (activeModelId.includes('-fr-') ? 'fr' : 'es') && activeTargetLanguage === 'en'
+  const formattingKey = [activeModelId, activeSourceLanguage, activeTargetLanguage].join(':')
+  const formattingStatus = formatting?.modelId ? modelStatuses[formatting.modelId] : undefined
+  const formattingReady = Boolean(
+    formattingPair && formatting?.available && formattingStatus?.installed && !formattingStatus.installing,
+  )
+  const formattingReasonKey = !formattingPair ? 'translation.formatting.unsupported'
+    : formatting?.available ? 'translation.formatting.description'
+      : formatting?.reason === 'acceptance-pending' ? 'translation.formatting.pending'
+        : 'translation.formatting.runtimeUnavailable'
+  const formattingRequested = formattingChoice !== ''
+  const preserveFormatting = formattingReady && formattingChoice === formattingKey
   const supportedDocument = Boolean(selectedDocument && ['html', 'epub'].includes(selectedDocument.format ?? ''))
   const hardwareAcceleration = selectedModel?.id === 'hy-mt2-1.8b-q8'
     ? capabilities?.hardwareAcceleration ?? null
@@ -191,7 +209,9 @@ export function TranslationPanel({
       ? t('translation.status.cancellingJob')
       : startState.checking && !startState.progress
         ? t('translation.status.preparingJob')
-        : startState.message
+        : startState.checking && startState.progress && ['loading-alignment', 'aligning-batch', 'reconstructing-batch'].includes(startState.progress.status)
+          ? formatProgressStatusLabel(startState.progress, t)
+          : startState.message
   const installMessage = modelInstallState.result
     ? t('translation.status.modelInstalledMessage')
     : modelInstallState.installingModelId && !modelInstallState.progress
@@ -364,6 +384,7 @@ export function TranslationPanel({
                 onChange={(event) => {
                   const nextModelId = event.target.value
                   const nextModel = installableModels.find((model) => model.id === nextModelId)
+                  setFormattingChoice('')
                   setModelId(nextModelId)
                   setSourceLanguage(nextModel?.sourceLanguages[0] ?? '')
                   setTargetLanguage(nextModel?.targetLanguages[0] ?? 'en')
@@ -383,7 +404,7 @@ export function TranslationPanel({
               <select
                 value={activeSourceLanguage}
                 disabled={startState.checking || sourceLanguages.length <= 1}
-                onChange={(event) => setSourceLanguage(event.target.value)}
+                onChange={(event) => { setFormattingChoice(''); setSourceLanguage(event.target.value) }}
               >
                 {sourceLanguages.map((language) => (
                   <option key={language} value={language}>
@@ -397,7 +418,7 @@ export function TranslationPanel({
               <select
                 value={activeTargetLanguage}
                 disabled={startState.checking}
-                onChange={(event) => setTargetLanguage(event.target.value)}
+                onChange={(event) => { setFormattingChoice(''); setTargetLanguage(event.target.value) }}
               >
                 {targetLanguages.map((language) => (
                   <option key={language} value={language}>
@@ -420,6 +441,37 @@ export function TranslationPanel({
               <strong>{t('translation.models.highResourceTitle')}</strong>{' '}
               {t('translation.models.hyMt2ResourceNote')}
             </p>
+          )}
+          {!bergamotSelected && (
+            <section className="translation-resource-note" aria-label={t('translation.formatting.label')}>
+              <label className="translation-acceleration-option">
+                <input
+                  type="checkbox"
+                  checked={formattingRequested}
+                  disabled={(!formattingReady && !formattingRequested) || startState.checking
+                    || Boolean(modelInstallState.installingModelId) || Boolean(modelRemoveState.removingModelId)}
+                  onChange={event => setFormattingChoice(event.target.checked ? formattingKey : '')}
+                />
+                <strong>{t('translation.formatting.label')}</strong>
+              </label>
+              <p>{t(formattingReasonKey)}</p>
+              {formatting?.modelId && ((formattingPair && formatting.available) || formattingStatus?.installed) && (
+                <>
+                  <strong>{t('translation.formatting.packName')}</strong>
+                  <p>{t('translation.formatting.downloadNote', { size: formatStorageSize(formatting.archiveBytes) ?? '' })}</p>
+                  <p role="status">{t(formattingStatus?.installed ? 'translation.formatting.packReady' : 'translation.formatting.packMissing')}</p>
+                  <TranslationModelInstallButton
+                    model={{ id: formatting.modelId, name: t('translation.formatting.packName'), manifestState: 'pinned-file-manifest' }}
+                    disabled={startState.checking || Boolean(modelInstallState.installingModelId) || Boolean(modelRemoveState.removingModelId)}
+                    status={formattingStatus}
+                    progress={modelInstallState.progress?.modelId === formatting.modelId ? modelInstallState.progress : null}
+                    onInstall={onInstallTranslationModel}
+                    onRequestRemove={setConfirmingModelId}
+                    t={t}
+                  />
+                </>
+              )}
+            </section>
           )}
           {hardwareAcceleration && (
             <label className="translation-acceleration-option">
@@ -446,6 +498,7 @@ export function TranslationPanel({
                 startState.checking ||
                 Boolean(modelInstallState.installingModelId) ||
                 Boolean(modelRemoveState.removingModelId) ||
+                (formattingRequested && !preserveFormatting) ||
                 !activeModelId ||
                 !supportedDocument ||
                 !modelStatuses[activeModelId]?.installed
@@ -459,6 +512,7 @@ export function TranslationPanel({
                   modelId: activeModelId,
                   qualityMode: activeQualityMode,
                   useHardwareAcceleration: Boolean(hardwareAcceleration && useHardwareAcceleration),
+                  ...(preserveFormatting ? { preserveFormatting: true } : {}),
                 })
               }}
             >
@@ -729,7 +783,7 @@ function TranslationProgressMeter({
 
 interface TranslationModelInstallButtonProps {
   disabled: boolean
-  model: TranslationModelInfo
+  model: Pick<TranslationModelInfo, 'id' | 'name' | 'manifestState'>
   progress: TranslationModelInstallProgress | null
   status?: TranslationModelStatus
   onInstall: (modelId: string) => Promise<void>
@@ -775,6 +829,7 @@ function TranslationModelInstallButton({
     <button
       type="button"
       className="translation-model-install-btn"
+      aria-label={`${t('translation.models.install')}: ${model.name}`}
       disabled={disabled || installing}
       onClick={() => { void onInstall(model.id) }}
     >
@@ -856,6 +911,12 @@ function formatLanguageLabel(language: string, locale: string, t: TFunction): st
 function formatProgressStatusLabel(progress: TranslationJobProgress, t: TFunction): string {
   const nextBatch = Math.min(progress.completedBatches + 1, progress.totalBatches)
   switch (progress.status) {
+    case 'loading-alignment':
+      return t('translation.progress.status.loadingAlignment')
+    case 'aligning-batch':
+      return t('translation.progress.status.aligningBatch')
+    case 'reconstructing-batch':
+      return t('translation.progress.status.reconstructingBatch')
     case 'loading-model':
       return t('translation.progress.status.loadingModel')
     case 'starting':

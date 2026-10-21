@@ -14,6 +14,7 @@ pub(super) fn batch(
     plans: &BTreeMap<String, ProtectedPlan>,
     cache: &TranslationSegmentCache,
     check_cancelled: impl Fn() -> Result<(), String>,
+    mut report: impl FnMut(&str) -> Result<(), String>,
 ) -> Result<(Vec<MappedSegment>, usize), String> {
     let versions = aligner.versions(model)?;
     let translator = engine
@@ -39,6 +40,8 @@ pub(super) fn batch(
             reused += 1;
             translated
         } else {
+            report("translating-batch")?;
+            check_cancelled()?;
             plan.translate(
                 translator,
                 |text, side| aligner.text_fits(text, side),
@@ -54,11 +57,15 @@ pub(super) fn batch(
         }) {
             cached.clone()
         } else {
+            report("aligning-batch")?;
+            check_cancelled()?;
             let nodes = aligner.map(&translated)?;
             check_cancelled()?;
             MappedSegment::new(&translated, versions.clone(), nodes)?
         };
         // Rendering is part of admission even on a cache hit, before any progress becomes reusable.
+        report("reconstructing-batch")?;
+        check_cancelled()?;
         receipt.restore(&plan.protected, segment)?;
         check_cancelled()?;
         completed.push(receipt);

@@ -52,7 +52,10 @@
       "noTranslatableText": "This document has no text that can be translated.",
       "qualityCheckFailed": "The translated document did not pass quality checks and was not saved.",
       "documentNotFound": "The translated document could not be found.",
-      "libraryRefresh": "Translation changed, but the document library could not refresh: {{detail}}"
+      "libraryRefresh": "Translation changed, but the document library could not refresh: {{detail}}",
+      "alignmentRuntime": "The formatting runtime could not load. Retry or use translation without formatting preservation.",
+      "alignmentUnit": "This text cannot be aligned safely. No translated document was saved.",
+      "alignmentMapping": "Formatting could not be placed safely. No translated document was saved."
     },
     "workbench": {
       "selectedDocument": "Selected Document",
@@ -128,7 +131,10 @@
         "validating": "Validating",
         "storing": "Saving",
         "completed": "Completed",
-        "cancelled": "Cancelled"
+        "cancelled": "Cancelled",
+        "loadingAlignment": "Loading Formatting Pack",
+        "aligningBatch": "Aligning Translated Text",
+        "reconstructingBatch": "Reconstructing Formatting"
       }
     },
     "tiers": {
@@ -138,6 +144,18 @@
     },
     "languages": {
       "autoDetect": "Auto Detect"
+    },
+    "formatting": {
+      "label": "Preserve Formatting",
+      "packName": "Offline Formatting Pack",
+      "description": "Uses a separate offline pack to place emphasis, links and notes. Ambiguous mappings stop the job.",
+      "pending": "Formatting preservation is unavailable while validation is pending.",
+      "runtimeUnavailable": "Formatting preservation is not supported by this build.",
+      "unsupported": "Formatting preservation is not supported by this model and language pair.",
+      "downloadNote": "Requires a separate {{size}} download and storage. Nothing is downloaded automatically.",
+      "packReady": "Formatting pack verified.",
+      "packMissing": "Formatting pack is missing or failed verification. Install or repair it to continue.",
+      "unavailable": "Formatting preservation is unavailable in this build or is awaiting validation."
     }
   },
   "common": {

@@ -72,6 +72,11 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   saved results. Its [focused lifecycle review](#stage-7-lifecycle-review--2026-10-20)
   found no actionable issue within this internal scope. The candidate is still
   disabled for public starts.
+- [Stage 8 capability/setup/progress UI](#stage-8-gated-formatting-setup-and-progress--2026-10-20)
+  separates the auxiliary formatting pack from translation engines, adds explicit
+  strict consent and localized progress/errors, and rejects forged native opt-in
+  requests. The public acceptance constant remains **false**; ready UI fixtures
+  and successful internal inference are not release acceptance.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -386,6 +391,10 @@ failure, host shutdown and model removal. Originals, older variants, audiobook
 files and read-along metadata remain byte-stable; no orphaned assets or FTS rows.
 
 #### 8. Expose truthful capabilities and useful progress/errors
+
+**Status:** integration and regression evidence are recorded in the
+[Stage 8 receipt](#stage-8-gated-formatting-setup-and-progress--2026-10-20).
+Public capability remains unavailable; Stage 9 gates are still open.
 
 **Tasks.** Reuse the current model setup and translation panel. Offer one
 verified alignment pack for eligible native models; do not add an aligner picker
@@ -2314,12 +2323,85 @@ proxies: French/Spanish native runner/save/resume plus the two-model lifecycle
 and cancellation probe. The latter uses identity decoding to isolate lifecycle;
 it is not translation-quality evidence. Formatting and diff checks passed.
 
-**Next:** Stage 8 truthful capability/setup/progress and error UI integration,
-with tests for unavailable/corrupt/unsupported assets and cancellation/resume.
-Keep the strict capability unavailable in production until the existing semantic
-and public acceptance gates pass; test-only ready fixtures do not approve the
-candidate. No new CI, packaged/device acceptance, benchmarks, broader smoke or
-app version bump is claimed by this review.
+**Handoff:** the Stage 8 integration below follows this review. The strict
+capability remains unavailable until semantic and public acceptance gates pass;
+test-only ready fixtures do not approve the candidate. No new CI, packaged/device
+acceptance, benchmarks, broader smoke or app version bump was claimed by this review.
+
+### Stage 8 gated formatting setup and progress — 2026-10-20
+
+**Scope.** Reuse the existing workbench, installer/status/removal commands and
+job lifecycle. No new engine, aligner picker, automatic download, runtime upgrade
+or shipping feature flag is introduced. The trusted auxiliary remains outside
+`capabilities.models` and the engine selector. Its status includes verified
+weights/tokenizer/notices; possession alone does not advertise formatting support.
+
+**Admission and setup.** Capabilities now include a separate `formatting` payload
+(`available`, reason, optional auxiliary model ID and download bytes). Compiled
+CTranslate2 plus the alignment runtime on desktop are prerequisites; the shared
+`FORMATTING_ACCEPTED` constant remains **false**. Default and worker-only builds
+explain runtime unavailability; combined internal builds explain pending
+acceptance. Ready capability fixtures exist only in tests. An older backend
+without this payload stays conservatively unavailable.
+
+The workbench offers the named pack's explicit install and confirmed removal via
+existing handlers when admitted, explains its separate download/storage cost and
+never installs automatically. Previously installed packs can still be removed
+while admission is closed. Missing, corrupt or installing packs cannot enable
+strict consent. The consent is bound to the selected French/Spanish OPUS-MT →
+English pair, resets on an explicit engine/language change, and cannot quietly
+downgrade to plain output when assets/capability disappear. The user can clear
+the choice to continue with ordinary translation. Bergamot never receives this
+auxiliary checkbox and is not selected as a fallback.
+
+**Native boundary and lifecycle.** The optional `preserveFormatting` request
+field defaults to false. Both native and Bergamot document commands enforce the
+release/provider/pair gate before loading resources or opening a worker; crafted
+true requests currently reject even with both packs installed. Internal runner
+tests exercise the true flag through verified auxiliary loading, the existing
+two-model ownership and strict receipts. Strict jobs use a distinct cache key;
+plain keys and saved variants retain their existing identities. No aligner is
+loaded by an ordinary public request.
+
+Loading the auxiliary, translating, aligning and reconstructing now report their
+actual phases through the existing event stream. Cached mappings still reconstruct
+but do not pretend to run alignment again. Progress publication is followed by a
+cancellation check before the next native/reconstruction operation; a cancelled
+batch retains the last complete cache and saved variant. The UI localizes the
+new phase labels, active messages and actionable release/pair, asset verification,
+runtime, unsupported-unit and unsafe-mapping failures in all eight locales.
+These errors add no private source-content logging. Strict final rendering
+failures retain their own mapping error category before any write.
+
+**Fresh validation.**
+
+- Full frontend suite: **493 passed, one existing skip**; the final translation
+  subset also passed **94 tests** after presentation cleanup. Tests cover disabled
+  release/worker capabilities, absent/corrupt/installing/ready fixtures, explicit
+  setup/removal confirmation, install/removal errors and retry, lost-pack blocking,
+  engine changes, native cancellation/retry and localized progress.
+- Full offline Rust library suites: **536 passed/four ignored** with features off
+  and **562 passed/13 ignored** with CTranslate2 plus alignment runtime. The
+  cancellation regression additionally covers each new phase notification.
+- Worker-only native capability suite: **two passed**; it does not claim native
+  alignment availability. Separate cached-asset tests: **two native runner/lifecycle
+  regressions passed** (French/Spanish strict load/save/resume and cancellation),
+  plus **one auxiliary command/status regression passed**, including absent,
+  installing, verified, tampered/missing notice, in-use and removed states.
+  These run with unavailable network proxies and pinned local assets; the
+  identity-decoding lifecycle probe is not semantic-quality evidence.
+- TypeScript, targeted ESLint, eight-locale parity, Rust formatting and diff
+  checks passed. Full suites were rerun with local subprocess/socket permission
+  because sandbox restrictions initially blocked unrelated existing loopback,
+  CI-wrapper and Chromium layout tests.
+
+**Next:** focused Stage 8 review, then Stage 9 qualification. The existing
+auxiliary-word/missing-link semantic blockers, numeric and held-out acceptance,
+runtime redistribution/platform delivery and measured resource gates remain
+open. Compiled-feature detection is not proof that a packaged ORT runtime loads;
+that remains a prerequisite to opening release admission. No new CI, packaged
+WebView/mobile acceptance, benchmark, broader smoke or app version bump is
+claimed. Private documents and sample-specific tests remain outside tracked code.
 
 ## Product Goals
 

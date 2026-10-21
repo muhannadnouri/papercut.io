@@ -52,7 +52,10 @@
       "noTranslatableText": "Este documento no contiene texto que se pueda traducir.",
       "qualityCheckFailed": "El documento traducido no superó las comprobaciones de calidad y no se guardó.",
       "documentNotFound": "No se pudo encontrar el documento traducido.",
-      "libraryRefresh": "La traducción cambió, pero no se pudo actualizar la biblioteca de documentos: {{detail}}"
+      "libraryRefresh": "La traducción cambió, pero no se pudo actualizar la biblioteca de documentos: {{detail}}",
+      "alignmentRuntime": "No se pudo cargar el motor de formato. Reintenta o traduce sin conservar el formato.",
+      "alignmentUnit": "Este texto no puede alinearse con seguridad. No se guardó ningún documento traducido.",
+      "alignmentMapping": "No se pudo ubicar el formato con seguridad. No se guardó ningún documento traducido."
     },
     "workbench": {
       "selectedDocument": "Documento Seleccionado",
@@ -128,7 +131,10 @@
         "validating": "Validando",
         "storing": "Guardando",
         "completed": "Completado",
-        "cancelled": "Cancelado"
+        "cancelled": "Cancelado",
+        "loadingAlignment": "Cargando paquete de formato",
+        "aligningBatch": "Alineando texto traducido",
+        "reconstructingBatch": "Reconstruyendo formato"
       }
     },
     "tiers": {
@@ -138,6 +144,18 @@
     },
     "languages": {
       "autoDetect": "Detección Automática"
+    },
+    "formatting": {
+      "label": "Conservar formato",
+      "packName": "Paquete de formato sin conexión",
+      "description": "Usa un paquete sin conexión independiente para ubicar énfasis, enlaces y notas. Las correspondencias ambiguas detienen la tarea.",
+      "pending": "La conservación del formato no está disponible mientras se valida.",
+      "runtimeUnavailable": "Esta compilación no admite conservar el formato.",
+      "unsupported": "Este modelo y par de idiomas no admiten conservar el formato.",
+      "downloadNote": "Requiere una descarga independiente de {{size}} y almacenamiento. No se descarga nada automáticamente.",
+      "packReady": "Paquete de formato verificado.",
+      "packMissing": "El paquete falta o no pasó la verificación. Instálalo o repáralo para continuar.",
+      "unavailable": "La conservación del formato no está disponible en esta compilación o está pendiente de validación."
     }
   },
   "common": {

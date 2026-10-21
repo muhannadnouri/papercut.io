@@ -112,3 +112,71 @@ describe('Bergamot catalog workbench', () => {
     expect(props.onOpenTranslatedDocument).toHaveBeenCalledExactlyOnceWith('/uploads/translated.html')
   })
 })
+
+const pack = 'alignment-awesome-align-int8'
+const readyFormatting = { available: true, reason: 'available' as const, modelId: pack, archiveBytes: 153000000 }
+function formattingCheckbox() { return container.querySelector<HTMLInputElement>('section input[type=checkbox]')! }
+async function chooseFormatting() { await act(async () => formattingCheckbox().click()) }
+
+describe('strict formatting setup and consent (test-only ready capability)', () => {
+  it('keeps the release gate honest without a download or automatic worker fallback', async () => {
+    await render({ capabilities: { ...props.capabilities!, formatting: { ...readyFormatting, available: false, reason: 'acceptance-pending' } }, modelStatuses: { [opus.id]: installed, [pack]: installed } })
+    expect(formattingCheckbox().disabled).toBe(true)
+    expect(container.textContent).toContain('translation.formatting.pending')
+    expect(button('translation.workbench.run').disabled).toBe(false)
+    await click('translation.workbench.run')
+    expect(props.onStartTranslationPreflight).toHaveBeenLastCalledWith(expect.not.objectContaining({ preserveFormatting: true }))
+    expect(props.onInstallTranslationModel).not.toHaveBeenCalled()
+    expect(picker().value).toBe(opus.id)
+  })
+
+  it.each([undefined, { ...installed, modelId: pack, installed: false }, { ...installed, modelId: pack, installing: true }])('requires verified idle assets (%j) and never installs automatically', async status => {
+    await render({ capabilities: { ...props.capabilities!, formatting: readyFormatting }, modelStatuses: { [opus.id]: installed, ...(status ? { [pack]: status } : {}) } })
+    expect(formattingCheckbox().disabled).toBe(true)
+    expect(formattingCheckbox().checked).toBe(false)
+    expect([...picker().options].some(o => o.value === pack)).toBe(false)
+    expect(props.onInstallTranslationModel).not.toHaveBeenCalled()
+  })
+
+  it('reuses explicit pack installation and removal confirmation outside the engine selector', async () => {
+    await render({ capabilities: { ...props.capabilities!, formatting: readyFormatting } })
+    const setup = container.querySelector('section[aria-label="translation.formatting.label"]')!
+    await act(async () => setup.querySelector<HTMLButtonElement>('button')!.click())
+    expect(props.onInstallTranslationModel).toHaveBeenCalledExactlyOnceWith(pack)
+    await render({ modelStatuses: { [pack]: { ...installed, modelId: pack } } })
+    await act(async () => setup.querySelector<HTMLButtonElement>('button')!.click())
+    expect(props.onRemoveTranslationModel).not.toHaveBeenCalled()
+    // Shared confirmation names this pack, not the currently selected translation engine.
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain('translation.confirmModelRemove.title')
+    await act(async () => container.querySelector<HTMLButtonElement>('[role="dialog"] .app-dialog-danger')!.click())
+    expect(props.onRemoveTranslationModel).toHaveBeenCalledExactlyOnceWith(pack)
+  })
+
+  it('passes explicit strict consent, blocks pack loss and resets consent on engine changes', async () => {
+    await render({ capabilities: { ...props.capabilities!, formatting: readyFormatting }, modelStatuses: { [opus.id]: installed, [pack]: { ...installed, modelId: pack } } })
+    expect(formattingCheckbox().checked).toBe(false)
+    await chooseFormatting()
+    await click('translation.workbench.run')
+    expect(props.onStartTranslationPreflight).toHaveBeenLastCalledWith(expect.objectContaining({ modelId: opus.id, preserveFormatting: true }))
+    await render({ modelStatuses: { [opus.id]: installed, [pack]: { ...installed, modelId: pack, installed: false } } })
+    expect(formattingCheckbox().checked).toBe(true)
+    expect(button('translation.workbench.run').disabled).toBe(true)
+    await chooseFormatting()
+    expect(button('translation.workbench.run').disabled).toBe(false)
+    await render({ modelStatuses: { [opus.id]: installed, [pack]: { ...installed, modelId: pack } } })
+    await chooseFormatting()
+    await select(french.id)
+    expect(formattingCheckbox()).toBeNull()
+    await select(opus.id)
+    expect(formattingCheckbox().checked).toBe(false)
+  })
+})
+
+  it.each(['loading-alignment', 'aligning-batch', 'reconstructing-batch'])('localizes the %s progress phase and keeps Cancel reachable', async status => {
+    await render({ startState: { ...props.startState, checking: true, jobId: 'strict-job', message: 'Formatting progress', progress: { jobId: 'strict-job', status, message: 'Internal diagnostic', totalSegments: 10, completedSegments: 0, totalBatches: 2, completedBatches: 0, percent: 0, elapsedMs: 0 } as NonNullable<typeof props.startState.progress> } })
+    const key = { 'loading-alignment': 'loadingAlignment', 'aligning-batch': 'aligningBatch', 'reconstructing-batch': 'reconstructingBatch' }[status]!
+    expect(container.textContent).toContain('translation.progress.status.' + key)
+    expect(container.textContent).not.toContain('Formatting progress')
+    await click('common.cancel')
+    expect(props.onCancelTranslation).toHaveBeenCalledOnce()
+  })

@@ -62,6 +62,7 @@ pub(super) fn fixture() -> (
         quality_mode: "balanced".into(),
         repair_mode: TranslationRepairMode::Off,
         use_hardware_acceleration: false,
+        preserve_formatting: false,
         glossary: vec![],
     };
     let plan = plan_translation_job(
@@ -985,4 +986,28 @@ fn compact_ids_and_reverse_quote_notes_save_and_resume_without_identity_loss() {
             load_translation_source_document(app.handle(), &source.document_url).unwrap()
         );
     }
+}
+
+/// Direct commands reject strict admission before touching the source/model filesystem or worker.
+#[test]
+fn public_commands_cannot_enable_strict_formatting_by_forging_request_flags() {
+    let (_dir, app, _source, mut plan) = fixture();
+    let state = TranslationState::default();
+    plan.request.preserve_formatting = true;
+    plan.request.model_id = "opus-mt-fr-en-ctranslate2".into();
+    assert!(
+        start_translation(app.handle(), &state, plan.request.clone())
+            .unwrap_err()
+            .contains("not available")
+    );
+    plan.request.model_id = "bergamot-fr-en-worker".into();
+    let error = start_bergamot_translation(
+        app.handle(),
+        &state,
+        plan.request,
+        "test-owner".into(),
+        |_| panic!("must not open the worker"),
+    )
+    .unwrap_err();
+    assert!(error.contains("does not support"));
 }

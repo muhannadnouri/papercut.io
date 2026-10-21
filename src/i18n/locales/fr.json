@@ -52,7 +52,10 @@
       "noTranslatableText": "Ce document ne contient aucun texte traduisible.",
       "qualityCheckFailed": "Le document traduit n’a pas réussi les contrôles de qualité et n’a pas été enregistré.",
       "documentNotFound": "Le document traduit est introuvable.",
-      "libraryRefresh": "La traduction a changé, mais la bibliothèque de documents n’a pas pu être actualisée : {{detail}}"
+      "libraryRefresh": "La traduction a changé, mais la bibliothèque de documents n’a pas pu être actualisée : {{detail}}",
+      "alignmentRuntime": "Le moteur de mise en forme ne peut pas démarrer. Réessayez ou traduisez sans préserver la mise en forme.",
+      "alignmentUnit": "Ce texte ne peut pas être aligné de façon sûre. Aucun document traduit enregistré.",
+      "alignmentMapping": "La mise en forme ne peut pas être placée de façon sûre. Aucun document traduit enregistré."
     },
     "workbench": {
       "selectedDocument": "Document Sélectionné",
@@ -128,7 +131,10 @@
         "validating": "Validation",
         "storing": "Enregistrement",
         "completed": "Terminé",
-        "cancelled": "Annulé"
+        "cancelled": "Annulé",
+        "loadingAlignment": "Chargement du pack de mise en forme",
+        "aligningBatch": "Alignement du texte traduit",
+        "reconstructingBatch": "Reconstruction de la mise en forme"
       }
     },
     "tiers": {
@@ -138,6 +144,18 @@
     },
     "languages": {
       "autoDetect": "Détection Automatique"
+    },
+    "formatting": {
+      "label": "Préserver la mise en forme",
+      "packName": "Pack de mise en forme hors ligne",
+      "description": "Utilise un pack hors ligne distinct pour placer les emphases, liens et notes. Les correspondances ambiguës arrêtent la tâche.",
+      "pending": "La préservation de la mise en forme est indisponible pendant la validation.",
+      "runtimeUnavailable": "Cette version ne prend pas en charge la préservation de la mise en forme.",
+      "unsupported": "Ce modèle et cette paire de langues ne prennent pas en charge la préservation de la mise en forme.",
+      "downloadNote": "Nécessite un téléchargement distinct de {{size}} et du stockage. Aucun téléchargement automatique.",
+      "packReady": "Pack de mise en forme vérifié.",
+      "packMissing": "Pack absent ou non vérifié. Installez-le ou réparez-le pour continuer.",
+      "unavailable": "La préservation de la mise en forme est indisponible dans cette version ou en attente de validation."
     }
   },
   "common": {

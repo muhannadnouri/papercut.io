@@ -13,7 +13,8 @@ use super::model_store::{directory_size, manifest_by_id, resolve_translation_mod
 use super::models::{find_planned_model, planned_models};
 use super::state::TranslationState;
 use super::types::{
-    TranslationCapabilities, TranslationModelStatus, TranslationModelStatusRequest,
+    TranslationCapabilities, TranslationFormattingCapability, TranslationModelStatus,
+    TranslationModelStatusRequest, TranslationStartRequest,
 };
 
 pub(super) const NOT_IMPLEMENTED: &str =
@@ -56,7 +57,58 @@ pub(super) fn translation_capabilities() -> TranslationCapabilities {
         default_quality_mode: DEFAULT_TRANSLATION_QUALITY_MODE.into(),
         hardware_acceleration: hy_mt2_hardware_acceleration(),
         models,
+        formatting: formatting_capability(FORMATTING_ACCEPTED),
     }
+}
+
+// Release gate stays closed until semantic, resource and platform acceptance (Stage 9).
+const FORMATTING_ACCEPTED: bool = false;
+
+/// Test-only accepted fixtures cannot bypass the compiled runtime/platform gates.
+fn formatting_capability(accepted: bool) -> TranslationFormattingCapability {
+    let runtime = cfg!(all(
+        feature = "native-translation-alignment-runtime",
+        feature = "native-translation-ctranslate2"
+    )) && matches!(std::env::consts::OS, "linux" | "macos" | "windows");
+    #[cfg(feature = "native-translation-alignment")]
+    let manifest = manifest_by_id(super::alignment::assets::MODEL_KEY);
+    #[cfg(not(feature = "native-translation-alignment"))]
+    let manifest: Option<super::model_store::TranslationModelManifest> = None;
+    TranslationFormattingCapability {
+        available: runtime && accepted,
+        reason: if !runtime {
+            "runtime-unavailable"
+        } else if !accepted {
+            "acceptance-pending"
+        } else {
+            "available"
+        },
+        model_id: manifest.map(|m| m.model_id.into()),
+        archive_bytes: manifest.map_or(0, |m| m.total_bytes()),
+    }
+}
+
+/// Enforce the same provider/pair/release gates for crafted commands as for the UI.
+pub(super) fn admit_formatting(request: &TranslationStartRequest) -> Result<(), String> {
+    if !request.preserve_formatting {
+        return Ok(());
+    }
+    if !matches!(
+        (
+            request.model_id.as_str(),
+            request.source_language.as_str(),
+            request.target_language.as_str()
+        ),
+        ("opus-mt-fr-en-ctranslate2", "fr", "en") | ("opus-mt-es-en-ctranslate2", "es", "en")
+    ) {
+        return Err("Strict formatting does not support this model and language pair".into());
+    }
+    if !formatting_capability(FORMATTING_ACCEPTED).available {
+        return Err(
+            "Strict formatting is not available: acceptance or runtime gates are pending".into(),
+        );
+    }
+    Ok(())
 }
 
 /// Return install status for a catalog model or trusted auxiliary resource, never engine readiness.
@@ -137,6 +189,46 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn public_formatting_is_closed_even_with_installed_or_compiled_assets() {
+        let caps = translation_capabilities();
+        assert!(!caps.formatting.available);
+        assert!(!caps
+            .models
+            .iter()
+            .any(|m| Some(&m.id) == caps.formatting.model_id.as_ref()));
+        let runtime = cfg!(all(
+            feature = "native-translation-alignment-runtime",
+            feature = "native-translation-ctranslate2"
+        )) && matches!(std::env::consts::OS, "linux" | "macos" | "windows");
+        assert_eq!(formatting_capability(true).available, runtime);
+        assert_eq!(
+            caps.formatting.reason,
+            if runtime {
+                "acceptance-pending"
+            } else {
+                "runtime-unavailable"
+            }
+        );
+        for (model, lang, expected) in [
+            ("opus-mt-fr-en-ctranslate2", "fr", "not available"),
+            ("opus-mt-es-en-ctranslate2", "es", "not available"),
+            ("opus-mt-fr-en-ctranslate2", "es", "does not support"),
+            ("bergamot-fr-en-worker", "fr", "does not support"),
+            ("hy-mt2-1.8b-q8", "fr", "does not support"),
+        ] {
+            let mut request: TranslationStartRequest = serde_json::from_value(serde_json::json!({
+                "documentUrl": "/uploads/absent.html", "modelId": model,
+                "sourceLanguage": lang, "targetLanguage": "en", "qualityMode": "balanced"
+            }))
+            .unwrap();
+            assert!(!request.preserve_formatting, "older callers remain plain");
+            assert!(admit_formatting(&request).is_ok());
+            request.preserve_formatting = true;
+            assert!(admit_formatting(&request).unwrap_err().contains(expected));
+        }
+    }
 
     /// Run in both minimal and engine-enabled builds: pinned files alone must not imply execution support.
     #[test]

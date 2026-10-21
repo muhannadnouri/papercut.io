@@ -52,7 +52,10 @@
       "noTranslatableText": "Questo documento non contiene testo traducibile.",
       "qualityCheckFailed": "Il documento tradotto non ha superato i controlli di qualità e non è stato salvato.",
       "documentNotFound": "Impossibile trovare il documento tradotto.",
-      "libraryRefresh": "La traduzione è cambiata, ma non è stato possibile aggiornare la raccolta dei documenti: {{detail}}"
+      "libraryRefresh": "La traduzione è cambiata, ma non è stato possibile aggiornare la raccolta dei documenti: {{detail}}",
+      "alignmentRuntime": "Impossibile caricare il motore di formattazione. Riprova o traduci senza preservare la formattazione.",
+      "alignmentUnit": "Questo testo non può essere allineato in sicurezza. Nessun documento tradotto è stato salvato.",
+      "alignmentMapping": "Impossibile posizionare la formattazione in sicurezza. Nessun documento tradotto è stato salvato."
     },
     "workbench": {
       "selectedDocument": "Documento Selezionato",
@@ -128,7 +131,10 @@
         "validating": "Convalida",
         "storing": "Salvataggio",
         "completed": "Completato",
-        "cancelled": "Annullato"
+        "cancelled": "Annullato",
+        "loadingAlignment": "Caricamento pacchetto di formattazione",
+        "aligningBatch": "Allineamento del testo tradotto",
+        "reconstructingBatch": "Ricostruzione della formattazione"
       }
     },
     "tiers": {
@@ -138,6 +144,18 @@
     },
     "languages": {
       "autoDetect": "Rilevamento Automatico"
+    },
+    "formatting": {
+      "label": "Preserva formattazione",
+      "packName": "Pacchetto di formattazione offline",
+      "description": "Usa un pacchetto offline separato per posizionare enfasi, link e note. Le corrispondenze ambigue interrompono il processo.",
+      "pending": "La conservazione della formattazione non è disponibile durante la convalida.",
+      "runtimeUnavailable": "Questa versione non supporta la conservazione della formattazione.",
+      "unsupported": "Questo modello e questa coppia di lingue non supportano la conservazione della formattazione.",
+      "downloadNote": "Richiede un download separato di {{size}} e spazio di archiviazione. Nessun download automatico.",
+      "packReady": "Pacchetto di formattazione verificato.",
+      "packMissing": "Pacchetto assente o verifica fallita. Installalo o riparalo per continuare.",
+      "unavailable": "La conservazione della formattazione non è disponibile in questa versione o è in attesa di convalida."
     }
   },
   "common": {

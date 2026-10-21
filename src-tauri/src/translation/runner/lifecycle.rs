@@ -87,7 +87,8 @@ impl<'a> Job<'a> {
             .register_alignment_cancellation(self.id())?;
         let manifest = model_store::manifest_by_id(assets::MODEL_KEY)
             .ok_or("Auxiliary alignment assets unavailable")?;
-        let dir = model_store::installed_translation_model_dir(app, manifest)?;
+        let dir = model_store::installed_translation_model_dir(app, manifest)
+            .map_err(|_| "Auxiliary alignment assets unavailable".to_string())?;
         let session =
             AlignmentSession::load_installed(self.cleanup.state, &dir, &cancellation.cancellation)
                 .map_err(|e| {

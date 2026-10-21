@@ -5,12 +5,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TranslationError, type TranslationStartRequest, type TranslationJobProgress } from '../api/nativeTranslation'
 import { useTranslationManager } from './useTranslationManager'
 
-const mock = vi.hoisted(() => ({ start: vi.fn(), cancel: vi.fn(), list: vi.fn(), libraryChanged: vi.fn(), listen: vi.fn(), progress: null as null | ((event: TranslationJobProgress) => void) }))
+const mock = vi.hoisted(() => ({ start: vi.fn(), cancel: vi.fn(), list: vi.fn(), libraryChanged: vi.fn(), listen: vi.fn(), capabilities: vi.fn(), status: vi.fn(), install: vi.fn(), remove: vi.fn(), progress: null as null | ((event: TranslationJobProgress) => void) }))
 vi.mock('../api/nativeTranslation', async importOriginal => ({
   ...await importOriginal<typeof import('../api/nativeTranslation')>(),
   startTranslationJob: mock.start,
   cancelTranslationJob: mock.cancel,
-  getTranslationCapabilities: async () => ({ models: [] }),
+  getTranslationCapabilities: mock.capabilities,
+  getTranslationModelStatus: mock.status,
+  installTranslationModel: mock.install,
+  removeTranslationModel: mock.remove,
   listTranslatedDocuments: mock.list,
   listenTranslationProgress: mock.listen,
 }))
@@ -28,6 +31,8 @@ beforeEach(async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   vi.clearAllMocks()
   mock.listen.mockImplementation(handler => { mock.progress = handler; return Promise.resolve(() => {}) })
+  mock.capabilities.mockResolvedValue({ models: [] })
+  mock.status.mockResolvedValue({ installed: false, installing: false })
   mock.cancel.mockResolvedValue(undefined)
   mock.list.mockResolvedValue([])
   mock.libraryChanged.mockResolvedValue(undefined)
@@ -99,5 +104,56 @@ describe('translation manager cancellation ownership', () => {
     await begin()
     await act(async () => { mock.progress!({ jobId, status: 'stored', message: 'Old save event' } as TranslationJobProgress) })
     expect(manager.startState.message).toBe('Preparing translation job')
+  })
+})
+
+const pack = 'alignment-awesome-align-int8'
+describe('auxiliary setup uses the shared installer lifecycle', () => {
+  it('refreshes the separate auxiliary status without inserting it into engine choices or downloading', async () => {
+    mock.capabilities.mockResolvedValue({ models: [{ id: request.modelId }], formatting: { modelId: pack, available: false } })
+    mock.status.mockImplementation(async modelId => ({ modelId, installed: modelId === pack, installing: false }))
+    await act(async () => { await manager.refresh() })
+    expect(mock.status.mock.calls.map(c => c[0])).toEqual([request.modelId, pack])
+    expect(manager.modelStatuses[pack].installed).toBe(true)
+    expect(manager.capabilities!.models).toHaveLength(1)
+    expect(mock.install).not.toHaveBeenCalled()
+  })
+
+  it('keeps failed installs/removals actionable and re-verifies status after a successful retry', async () => {
+    mock.capabilities.mockResolvedValue({ models: [], formatting: { modelId: pack } })
+    mock.status.mockResolvedValue({ modelId: pack, installed: false, installing: false })
+    await act(async () => { await manager.refresh() })
+    mock.install.mockRejectedValueOnce(new Error('Pack download failed'))
+    await act(async () => { await manager.onInstallTranslationModel(pack) })
+    expect(manager.modelInstallState).toMatchObject({ installingModelId: '', result: null, message: 'Pack download failed' })
+    expect(manager.modelStatuses[pack].installed).toBe(false)
+    mock.install.mockResolvedValue({ modelId: pack, bytes: 123 })
+    mock.status.mockResolvedValue({ modelId: pack, installed: true, installing: false })
+    await act(async () => { await manager.onInstallTranslationModel(pack) })
+    expect(manager.modelStatuses[pack].installed).toBe(true)
+    mock.remove.mockRejectedValueOnce(new Error('Pack is in use'))
+    await act(async () => { await manager.onRemoveTranslationModel(pack) })
+    expect(manager.modelRemoveState).toMatchObject({ removingModelId: '', result: null, message: 'Pack is in use' })
+    expect(manager.modelStatuses[pack].installed).toBe(true)
+    mock.remove.mockResolvedValue({ modelId: pack, removed: true, bytesFreed: 123 })
+    mock.status.mockResolvedValue({ modelId: pack, installed: false, installing: false })
+    await act(async () => { await manager.onRemoveTranslationModel(pack) })
+    expect(manager.modelStatuses[pack].installed).toBe(false)
+  })
+
+  it('retains strict intent across native cancellation and retry, ignoring late alignment progress', async () => {
+    let first!: Promise<void>
+    const strict = { ...request, modelId: 'opus-mt-fr-en-ctranslate2', preserveFormatting: true }
+    await act(async () => { first = manager.onStartTranslationPreflight(strict) })
+    const jobId = manager.startState.jobId
+    await act(async () => { mock.progress!({ jobId, status: 'aligning-batch', message: 'Aligning' } as TranslationJobProgress) })
+    expect(manager.startState.progress?.status).toBe('aligning-batch')
+    await act(async () => { await manager.onCancelTranslation(); rejectJob(new TranslationError('operation-cancelled', 'Translation cancelled')); await first })
+    await act(async () => { mock.progress!({ jobId, status: 'batch-complete', message: 'Late' } as TranslationJobProgress) })
+    expect(manager.startState.checking).toBe(false)
+    expect(manager.startState.message).not.toBe('Late')
+    await act(async () => { void manager.onStartTranslationPreflight(strict) })
+    expect(mock.start.mock.calls[1][0]).toMatchObject({ preserveFormatting: true, modelId: strict.modelId })
+    expect(manager.startState.jobId).not.toBe(jobId)
   })
 })

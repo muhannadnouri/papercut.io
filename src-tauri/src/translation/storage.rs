@@ -120,7 +120,13 @@ pub(crate) fn persist_translated_document<R: Runtime>(
         request.source.title,
         format_language_label(&request.target_language)
     );
-    let view_html = render_translated_html(&title, &request)?;
+    let view_html = render_translated_html(&title, &request).map_err(|error| {
+        if request.alignment.is_some() {
+            format!("Aligned output validation failed: {error}")
+        } else {
+            error
+        }
+    })?;
     validate_translated_output(
         &view_html,
         &request.source.blocks,

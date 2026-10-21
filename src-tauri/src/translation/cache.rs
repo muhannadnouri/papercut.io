@@ -497,6 +497,7 @@ mod tests {
                 model_id: "opus-mt-es-en-ctranslate2".into(),
                 quality_mode: "balanced".into(),
                 use_hardware_acceleration: false,
+                preserve_formatting: false,
                 repair_mode: Default::default(),
                 glossary: Vec::new(),
             },

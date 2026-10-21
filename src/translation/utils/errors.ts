@@ -2,6 +2,12 @@ import i18n from '../../i18n'
 import { TranslationError } from '../api/nativeTranslation'
 
 const ERROR_KEYS = {
+  'formatting-unavailable': 'translation.formatting.unavailable',
+  'formatting-unsupported': 'translation.formatting.unsupported',
+  'alignment-assets-invalid': 'translation.formatting.packMissing',
+  'alignment-runtime-error': 'translation.errors.alignmentRuntime',
+  'alignment-unit-unsupported': 'translation.errors.alignmentUnit',
+  'alignment-mapping-failed': 'translation.errors.alignmentMapping',
   'translation-unavailable': 'translation.errors.unavailable',
   'model-not-installed': 'translation.errors.modelNotInstalled',
   'unsupported-translation-option': 'translation.errors.unsupportedOption',

@@ -52,7 +52,10 @@
       "noTranslatableText": "Este documento não contém texto que possa ser traduzido.",
       "qualityCheckFailed": "O documento traduzido não passou nas verificações de qualidade e não foi salvo.",
       "documentNotFound": "Não foi possível encontrar o documento traduzido.",
-      "libraryRefresh": "A tradução mudou, mas não foi possível atualizar a biblioteca de documentos: {{detail}}"
+      "libraryRefresh": "A tradução mudou, mas não foi possível atualizar a biblioteca de documentos: {{detail}}",
+      "alignmentRuntime": "Não foi possível carregar o mecanismo de formatação. Tente novamente ou traduza sem preservar a formatação.",
+      "alignmentUnit": "Este texto não pode ser alinhado com segurança. Nenhum documento traduzido foi salvo.",
+      "alignmentMapping": "Não foi possível posicionar a formatação com segurança. Nenhum documento traduzido foi salvo."
     },
     "workbench": {
       "selectedDocument": "Documento Selecionado",
@@ -128,7 +131,10 @@
         "validating": "Validando",
         "storing": "Salvando",
         "completed": "Concluído",
-        "cancelled": "Cancelado"
+        "cancelled": "Cancelado",
+        "loadingAlignment": "Carregando pacote de formatação",
+        "aligningBatch": "Alinhando texto traduzido",
+        "reconstructingBatch": "Reconstruindo formatação"
       }
     },
     "tiers": {
@@ -138,6 +144,18 @@
     },
     "languages": {
       "autoDetect": "Detecção Automática"
+    },
+    "formatting": {
+      "label": "Preservar formatação",
+      "packName": "Pacote de formatação offline",
+      "description": "Usa um pacote offline separado para posicionar ênfases, links e notas. Mapeamentos ambíguos interrompem a tarefa.",
+      "pending": "A preservação da formatação está indisponível enquanto a validação estiver pendente.",
+      "runtimeUnavailable": "Esta versão não oferece preservação da formatação.",
+      "unsupported": "Este modelo e par de idiomas não oferecem preservação da formatação.",
+      "downloadNote": "Requer download separado de {{size}} e armazenamento. Nada é baixado automaticamente.",
+      "packReady": "Pacote de formatação verificado.",
+      "packMissing": "O pacote está ausente ou falhou na verificação. Instale ou repare para continuar.",
+      "unavailable": "A preservação da formatação não está disponível nesta versão ou aguarda validação."
     }
   },
   "common": {

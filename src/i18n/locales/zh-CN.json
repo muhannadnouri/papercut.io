@@ -52,7 +52,10 @@
       "noTranslatableText": "此文档没有可翻译的文本。",
       "qualityCheckFailed": "翻译文档未通过质量检查，因此未保存。",
       "documentNotFound": "找不到翻译文档。",
-      "libraryRefresh": "翻译已更改，但无法刷新文档库：{{detail}}"
+      "libraryRefresh": "翻译已更改，但无法刷新文档库：{{detail}}",
+      "alignmentRuntime": "无法加载格式运行时。请重试或不保留格式进行翻译。",
+      "alignmentUnit": "无法安全对齐此文本。未保存任何翻译文档。",
+      "alignmentMapping": "无法安全放置格式。未保存任何翻译文档。"
     },
     "workbench": {
       "selectedDocument": "所选文档",
@@ -128,7 +131,10 @@
         "validating": "正在验证",
         "storing": "正在保存",
         "completed": "已完成",
-        "cancelled": "已取消"
+        "cancelled": "已取消",
+        "loadingAlignment": "正在加载格式包",
+        "aligningBatch": "正在对齐译文",
+        "reconstructingBatch": "正在重建格式"
       }
     },
     "tiers": {
@@ -138,6 +144,18 @@
     },
     "languages": {
       "autoDetect": "自动检测"
+    },
+    "formatting": {
+      "label": "保留格式",
+      "packName": "离线格式包",
+      "description": "使用单独的离线包定位强调、链接和注释。遇到不明确的映射时会停止任务。",
+      "pending": "验证尚未完成，暂不支持保留格式。",
+      "runtimeUnavailable": "此构建版本不支持保留格式。",
+      "unsupported": "此模型和语言对不支持保留格式。",
+      "downloadNote": "需要单独下载 {{size}} 并占用存储空间。不会自动下载。",
+      "packReady": "格式包已验证。",
+      "packMissing": "格式包缺失或验证失败。请安装或修复后继续。",
+      "unavailable": "此构建版本不支持保留格式，或验证尚未完成。"
     }
   },
   "common": {

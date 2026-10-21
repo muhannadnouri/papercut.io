@@ -109,8 +109,10 @@ export function useTranslationManager({
         getTranslationCapabilities(),
         listTranslatedDocuments(),
       ])
+      const statusIds = new Set(nextCapabilities.models.map(model => model.id))
+      if (nextCapabilities.formatting?.modelId) statusIds.add(nextCapabilities.formatting.modelId)
       const statusEntries = await Promise.all(
-        nextCapabilities.models.map(async (model) => [model.id, await getTranslationModelStatus(model.id)] as const),
+        [...statusIds].map(async id => [id, await getTranslationModelStatus(id)] as const),
       )
       setCapabilities(nextCapabilities)
       setTranslatedDocuments(nextDocuments)

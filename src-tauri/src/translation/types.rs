@@ -35,6 +35,31 @@ fn translation_error_code(message: &str) -> &'static str {
     if message.contains("cancelled") {
         return "operation-cancelled";
     }
+    if message.contains("strict formatting is not available") {
+        return "formatting-unavailable";
+    }
+    if message.contains("strict formatting does not support") {
+        return "formatting-unsupported";
+    }
+    if message.contains("alignment session failed: admission")
+        || message.contains("auxiliary alignment assets")
+    {
+        return "alignment-assets-invalid";
+    }
+    if message.contains("alignment session failed") {
+        return "alignment-runtime-error";
+    }
+    if message.contains("alignment admission rejected") || message.contains("exact-piece") {
+        return "alignment-unit-unsupported";
+    }
+    if message.contains("alignment mapping rejected")
+        || message.contains("aligned reconstruction rejected")
+        || message.contains("aligned fragment")
+        || message.contains("aligned cache receipt")
+        || message.contains("aligned output validation failed")
+    {
+        return "alignment-mapping-failed";
+    }
     if message.contains("not compiled") || message.contains("only available in") {
         return "translation-unavailable";
     }
@@ -83,6 +108,17 @@ pub(crate) struct TranslationCapabilities {
     pub(crate) default_quality_mode: String,
     pub(crate) hardware_acceleration: Option<TranslationHardwareAcceleration>,
     pub(crate) models: Vec<TranslationModelInfo>,
+    pub(crate) formatting: TranslationFormattingCapability,
+}
+
+/// Separate auxiliary setup from the engine catalog; verified files alone never grant admission.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TranslationFormattingCapability {
+    pub(crate) available: bool,
+    pub(crate) reason: &'static str,
+    pub(crate) model_id: Option<String>,
+    pub(crate) archive_bytes: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -171,6 +207,8 @@ pub(crate) struct TranslationStartRequest {
     pub(crate) quality_mode: String,
     #[serde(default)]
     pub(crate) use_hardware_acceleration: bool,
+    #[serde(default)]
+    pub(crate) preserve_formatting: bool,
     #[serde(default)]
     pub(crate) repair_mode: TranslationRepairMode,
     #[serde(default)]
@@ -277,6 +315,51 @@ pub(crate) struct TranslationDeleteResponse {
 #[cfg(test)]
 mod tests {
     use super::translation_error_code;
+
+    #[test]
+    fn alignment_errors_keep_actionable_categories_and_cancellation_priority() {
+        for (message, code) in [
+            (
+                "Strict formatting is not available",
+                "formatting-unavailable",
+            ),
+            (
+                "Strict formatting does not support this model",
+                "formatting-unsupported",
+            ),
+            (
+                "Alignment session failed: Admission(Assets(Hash))",
+                "alignment-assets-invalid",
+            ),
+            (
+                "Auxiliary alignment assets unavailable",
+                "alignment-assets-invalid",
+            ),
+            (
+                "Alignment session failed: RuntimeUnavailable",
+                "alignment-runtime-error",
+            ),
+            (
+                "Alignment admission rejected: TooLong",
+                "alignment-unit-unsupported",
+            ),
+            (
+                "Exact-piece target is empty or exceeds its bound",
+                "alignment-unit-unsupported",
+            ),
+            (
+                "Alignment mapping rejected: Ambiguous",
+                "alignment-mapping-failed",
+            ),
+            (
+                "Aligned reconstruction rejected: Hierarchy",
+                "alignment-mapping-failed",
+            ),
+            ("Alignment session failed: Cancelled", "operation-cancelled"),
+        ] {
+            assert_eq!(translation_error_code(message), code);
+        }
+    }
 
     #[test]
     fn expected_translation_errors_have_stable_codes() {

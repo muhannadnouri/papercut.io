@@ -51,6 +51,7 @@ pub(super) fn start_translation<R: tauri::Runtime>(
     state: &TranslationState,
     request: TranslationStartRequest,
 ) -> Result<TranslationStartResponse, String> {
+    super::capabilities::admit_formatting(&request)?;
     let model = find_planned_model(&request.model_id).ok_or_else(|| {
         format!(
             "Translation model {:?} is not in the planned catalog",
@@ -80,6 +81,7 @@ pub(super) fn start_bergamot_translation<R: tauri::Runtime>(
     owner: String,
     emit: impl Fn(super::bergamot::WorkerRequest) -> Result<(), String> + Send + 'static,
 ) -> Result<TranslationStartResponse, String> {
+    super::capabilities::admit_formatting(&request)?;
     let manifest = super::bergamot::assets::manifest_for_language(&request.source_language)?;
     if request.model_id != manifest.model_id
         || request.target_language != "en"
@@ -133,22 +135,25 @@ fn start_with_engine<R: tauri::Runtime>(
         DEFAULT_BATCH_SEGMENT_LIMIT,
     )?;
     let started = Instant::now();
-    emit_translation_progress(
-        app,
-        progress(
-            &job_id,
-            "loading-model",
-            "Loading translation model",
-            &plan,
-            started,
-            None,
-            0,
-            0,
-            0,
-            0,
-            "",
-        ),
-    )?;
+    // Reuse the same bounded snapshot for both model loads; neither phase advances batch counts.
+    let report_loading = |status, message| {
+        emit_translation_progress(
+            app,
+            progress(
+                &job_id, status, message, &plan, started, None, 0, 0, 0, 0, "",
+            ),
+        )
+    };
+    job.check_cancelled()?;
+    if plan.request.preserve_formatting {
+        report_loading("loading-alignment", "Loading offline formatting pack")?;
+        #[cfg(feature = "native-translation-alignment-runtime")]
+        job.load_alignment(app)?;
+        #[cfg(not(feature = "native-translation-alignment-runtime"))]
+        return Err("Strict formatting is not available in this build".into());
+    }
+    job.check_cancelled()?;
+    report_loading("loading-model", "Loading translation model")?;
     job.check_cancelled()?;
     let mut engine = load(&model_dir, &plan.request, &mut job)?;
     job.check_cancelled()?;
@@ -542,15 +547,6 @@ fn run_translation_batches<R: tauri::Runtime>(
                     Ok(())
                 }
             };
-            emit_translation_progress(
-                app,
-                run.progress(
-                    "translating-batch",
-                    "Translating and aligning current batch",
-                    0,
-                ),
-            )
-            .map_err(|e| run.failure("failed", e))?;
             let (receipts, reused) = aligned::batch(
                 engine,
                 aligner,
@@ -559,6 +555,9 @@ fn run_translation_batches<R: tauri::Runtime>(
                 &markup_plans,
                 &cache,
                 check,
+                |stage| {
+                    emit_translation_progress(app, run.progress(stage, "Processing formatting", 0))
+                },
             )
             .map_err(|e| {
                 run.failure(
@@ -1168,6 +1167,7 @@ mod tests {
             model_id: "opus-mt-es-en-ctranslate2".into(),
             quality_mode: "balanced".into(),
             use_hardware_acceleration: false,
+            preserve_formatting: false,
             repair_mode: TranslationRepairMode::Off,
             glossary: Vec::new(),
         }
