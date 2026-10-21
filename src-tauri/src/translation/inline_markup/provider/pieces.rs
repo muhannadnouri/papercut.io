@@ -1,4 +1,4 @@
-//! Exact model pairs and source-owned islands; checked projection/reconstruction stays internal, without IPC/cache writes.
+//! Exact model pairs and source-owned islands; strict cache/runner integration remains internal and default off.
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -13,6 +13,18 @@ const MAX_UNITS: usize = 128;
 
 mod projection;
 pub(crate) use projection::Projection;
+mod cached;
+pub(crate) use cached::MappedSegment;
+
+/// One job-owned backend supplies checked maps; engines and cache code never interpret embeddings.
+pub(crate) trait PieceAligner {
+    fn versions(&self, model: &str) -> Result<super::contract::Versions, String>;
+    fn text_fits(&self, text: &str, side: Side) -> Result<bool, String>;
+    fn map(
+        &mut self,
+        translation: &Translation<'_>,
+    ) -> Result<Vec<super::contract::NodeMapping>, String>;
+}
 
 /// Providers translate each admitted input exactly once; hidden subdivisions must not be joined away.
 pub(crate) trait ExactPieceTranslator {
@@ -22,14 +34,15 @@ pub(crate) trait ExactPieceTranslator {
     fn translate_exact(&mut self, sources: &[&str]) -> Result<Vec<String>, String>;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) enum Kind {
     Prose,
     Whitespace,
     Literal(usize),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Unit {
     pub(crate) kind: Kind,
     /// Scalars in the retained segment source; adjacent units partition every source character.
@@ -75,6 +88,25 @@ impl SourcePlan {
             return Err("Exact-piece source exceeds its bound".into());
         }
         let protected = source.fragment(segment.source_start..segment.source_end, &segment.text)?;
+        Self::from_protected(segment, protected, translator, aligner_fits)
+    }
+
+    /// The runner already retains each bounded DOM fragment; do not extract or clip its identities again.
+    pub(crate) fn from_protected(
+        segment: &TranslationTextSegment,
+        protected: ProtectedPlan,
+        translator: &dyn ExactPieceTranslator,
+        aligner_fits: impl Fn(&str, Side) -> Result<bool, String>,
+    ) -> Result<Self, String> {
+        if segment.id.is_empty()
+            || segment.id.len() > 256
+            || segment.text != protected.source_text()
+            || segment.source_end.checked_sub(segment.source_start)
+                != Some(segment.text.chars().count())
+            || segment.text.len() > MAX_HTML_BYTES
+        {
+            return Err("Exact-piece source binding mismatch".into());
+        }
         if !protected.alignment_payload_fits(MAX_HTML_BYTES * 8) {
             return Err("Exact-piece source structure exceeds its bound".into());
         }

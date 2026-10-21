@@ -5,7 +5,7 @@ use crate::translation::engine::TranslationSegmentOutput;
 use crate::translation::source::TranslationSourceBlock;
 use tauri::Manager;
 
-pub(super) struct Fixture(std::path::PathBuf);
+pub(super) struct Fixture(pub(super) std::path::PathBuf);
 impl Fixture {
     fn new() -> Self {
         let mut nonce = [0u8; 16];

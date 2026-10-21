@@ -51,6 +51,12 @@ struct Engine {
     auxiliary_expected: bool,
 }
 impl TranslationEngine for Engine {
+    fn exact_translator(
+        &mut self,
+    ) -> Option<&mut dyn crate::translation::inline_markup::provider::pieces::ExactPieceTranslator>
+    {
+        Some(self)
+    }
     fn translate_batch(
         &mut self,
         input: TranslationBatchInput,
@@ -89,6 +95,38 @@ impl TranslationEngine for Engine {
             return Err("synthetic pre-save failure".into());
         }
         Ok(())
+    }
+}
+
+impl crate::translation::inline_markup::provider::pieces::ExactPieceTranslator for Engine {
+    fn source_fits(&self, _: &str) -> Result<bool, String> {
+        Ok(true)
+    }
+
+    /// Identity decoding isolates lifecycle from translation quality while retaining all existing failure hooks.
+    fn translate_exact(&mut self, sources: &[&str]) -> Result<Vec<String>, String> {
+        let input = TranslationBatchInput {
+            model_id: TRANSLATOR.into(),
+            source_language: "fr".into(),
+            target_language: "en".into(),
+            quality_mode: "balanced".into(),
+            repair_mode: Default::default(),
+            glossary: vec![],
+            segments: sources
+                .iter()
+                .enumerate()
+                .map(
+                    |(i, s)| crate::translation::engine::TranslationSegmentInput {
+                        id: i.to_string(),
+                        text: (*s).into(),
+                        markup: None,
+                        context: Default::default(),
+                    },
+                )
+                .collect(),
+        };
+        self.translate_batch(input)
+            .map(|outputs| outputs.into_iter().map(|o| o.source_text).collect())
     }
 }
 impl Drop for Engine {

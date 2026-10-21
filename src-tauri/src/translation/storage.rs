@@ -57,6 +57,8 @@ pub(super) fn list_translated_documents<R: Runtime>(
 }
 
 pub(crate) struct PersistTranslationRequest {
+    /// Declared independently of fragments so losing every receipt cannot downgrade a strict job to legacy output.
+    pub(crate) alignment: Option<super::inline_markup::provider::contract::Versions>,
     pub(crate) source: TranslationSourceDocument,
     pub(crate) source_language: String,
     pub(crate) target_language: String,
@@ -79,6 +81,7 @@ pub(crate) struct PersistTranslationSection {
 
 #[derive(Debug, Clone)]
 pub(crate) struct PersistTranslationFragment {
+    pub(crate) aligned: Option<super::inline_markup::provider::pieces::MappedSegment>,
     pub(crate) source_start: usize,
     pub(crate) source_end: usize,
     pub(crate) source_text: String,
@@ -129,15 +132,19 @@ pub(crate) fn persist_translated_document<R: Runtime>(
         .map(|model| model.engine)
         .ok_or("Unknown translation engine for stored variant")?;
     on_validated()?;
-    let settings_json = serde_json::json!({
+    let mut settings = serde_json::json!({
         "providerIdentity": super::bergamot::assets::provider_identity(&request.model_id),
         "jobId": request.job_id,
         "qualityMode": request.quality_mode,
         "repairMode": request.repair_mode.label(),
         "sourceFormat": request.source.format,
         "glossaryEntries": request.glossary.len(),
-    })
-    .to_string();
+    });
+    if let Some(versions) = request.alignment.as_ref() {
+        settings["alignment"] = serde_json::to_value(versions)
+            .map_err(|_| "Alignment provenance serialization failed")?;
+    }
+    let settings_json = settings.to_string();
     let glossary_hash = translation_glossary_hash(&request.glossary);
     let mut db = open_translation_db(app)?;
     let replaced = persist_derived_document(
@@ -320,6 +327,12 @@ fn translated_document_id(request: &PersistTranslationRequest) -> String {
     hasher.write_str(&request.quality_mode);
     hasher.write_str(request.repair_mode.label());
     hash_glossary_entries(&request.glossary, &mut hasher);
+    // Strict results never replace legacy or differently aligned variants that existing audio may reference.
+    if let Some(versions) = request.alignment.as_ref() {
+        hasher.write_str("strict-source-dom-v1");
+        hasher
+            .write_str(&serde_json::to_string(versions).expect("serializable alignment versions"));
+    }
     hasher.finish_hex()
 }
 
@@ -422,6 +435,7 @@ mod tests {
 
     fn persist_request(job_id: &str) -> PersistTranslationRequest {
         PersistTranslationRequest {
+            alignment: None,
             source: TranslationSourceDocument {
                 document_id: "source1".into(),
                 document_url: "/uploads/source1.html".into(),
@@ -445,6 +459,7 @@ mod tests {
     #[test]
     fn refuses_storage_render_without_the_source_dom() {
         let request = PersistTranslationRequest {
+            alignment: None,
             source: TranslationSourceDocument {
                 document_id: "source1".into(),
                 document_url: "/uploads/source1.html".into(),

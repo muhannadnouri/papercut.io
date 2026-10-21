@@ -20,8 +20,8 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - Translation jobs run through the shared Rust engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
 - The [Stage 2 alignment contract](#stage-2-pure-alignment-contract--2026-10-20)
   has passed its [contract-only review](#stage-2-contract-review--2026-10-20)
-  and pure validation/rejection tests. It has no engine/installer/UI caller;
-  the offline aligner candidate remains disabled and formatting acceptance open.
+  and pure validation/rejection tests. The internal stages below now consume
+  these checks; public alignment admission remains disabled and formatting acceptance open.
 - The [Stage 3 asset/tokenizer slice](#stage-3-asset-and-raw-tokenizer-admission--2026-10-20)
   verifies local candidate files and connects real raw-tokenizer evidence to the
   contract behind a default-off internal feature. Its [admission review](#stage-3-admission-review--2026-10-20)
@@ -42,14 +42,15 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - The internal [two-model job lifecycle](#stage-3-two-model-job-lifecycle--2026-10-20)
   now holds translator/aligner ownership through the shared runner, bridges job
   cancellation to native alignment and retains the existing atomic save cutoff.
-  Its alignment load hook remains internal and unused by public starts; exact
-  piece integration with the public runner/cache/writer is still pending.
+  Its alignment load hook remains internal and unused by public starts;
+  [Stage 7](#stage-7-mapped-cache-resume-and-atomic-save--2026-10-20) connects
+  explicitly loaded sessions to the shared runner/cache/writer.
 - [Stage 4 exact-piece/literal-island planning](#stage-4-exact-pieces-and-literal-islands--2026-10-20)
   now retains DOM-owned identities, exact source/target ranges, whitespace joins
   and attachment ownership. Its internal CTranslate2 path admits both source
   tokenizers before inference and rejects target overflow/decoder cutoffs.
-  Public jobs, caches and rendering do not consume this strict path yet;
-  public formatting acceptance remains open.
+  Public starts do not opt into the strict path; internal cache/renderer
+  integration is recorded in Stage 7. Public formatting acceptance remains open.
 - [Stage 5 word links and conservative projection](#stage-5-word-links-and-conservative-projection--2026-10-20)
   now runs the fixed extraction rule over checked raw-tokenizer evidence and
   projects exact pieces against the retained source hierarchy. Missing links,
@@ -63,7 +64,12 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   The [parent-boundary follow-up](#stage-6-leading-attachment-parent-boundaries--2026-10-20)
   preserves leading notes/images across equivalent whitespace positions and has
   passed its [focused review](#stage-6-parent-boundary-review--2026-10-20).
-  Public runner, mapped cache/resume/save and packaged acceptance remain pending.
+  Internal mapped cache/resume/save integration is recorded in Stage 7;
+  public admission and packaged acceptance remain pending.
+- [Stage 7 mapped-cache, resume and atomic saving](#stage-7-mapped-cache-resume-and-atomic-save--2026-10-20)
+  now reuses the shared batch checkpoints, source-owned renderer and writer.
+  Strict receipts and variant identities remain separate from legacy hints and
+  saved results. The candidate is still disabled for public starts.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -83,8 +89,8 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 
 ## Engine-independent offline alignment plan — 2026-10-19
 
-**Decision: use a separate offline word aligner (Option 7). This is a plan, not
-an implemented capability; no alignment model is approved for production.**
+**Decision: use a separate offline word aligner (Option 7). Internal implementation
+progress is recorded below; no alignment model is approved for production.**
 This is the current forward plan for native rich formatting, superseding the
 earlier attention-first proposal below. Further Bergamot upstream work is
 shelved. Existing experimental Bergamot code is retained without extending or
@@ -331,7 +337,8 @@ all formatted inputs is not success: mandatory positive cases must render.
 **Status:** internal reconstruction and synthetic/native regression evidence are
 recorded in the [Stage 6 receipt](#stage-6-source-owned-mapped-reconstruction--2026-10-20).
 This does not close the Stage 5 semantic gates or enable public strict output;
-Stage 7 mapped-cache/save admission is separate work.
+Stage 7 internal mapped-cache/save admission is recorded below; public starts
+remain disabled pending semantic acceptance.
 
 **Tasks.** Feed validated mappings into source-owned protected reconstruction.
 Allow repeated style-only wrappers for disjoint emphasis; retain source-owned
@@ -352,6 +359,9 @@ target plus source-owned literals/markers under the documented text contract.
 An invalid mapping must yield no saved variant, never a degraded fallback.
 
 #### 7. Integrate job lifecycle, resume and atomic saving
+
+**Status:** internal integration is implemented in the [Stage 7 receipt](#stage-7-mapped-cache-resume-and-atomic-save--2026-10-20).
+Public admission remains disabled; this does not close the Stage 5 semantic gates.
 
 **Tasks.** Use the existing runner and cache: translate → align → validate the
 whole batch → mark progress reusable. Add alignment/model/tokenizer/projection
@@ -2171,8 +2181,8 @@ The strict policy identity is now
 Public runner/selector/cache/writer paths, worker mapping version, model/runtime
 versions, saved variants and owned asset files remain unchanged. The candidate
 is still disabled; the previously unmet semantic scopes and all public
-acceptance gates remain open. The focused review below completes the review
-handoff; Stage 7 mapped-cache, resume and atomic-save integration is next.
+acceptance gates remain open. The focused review below completed the review
+handoff to the Stage 7 implementation recorded below.
 Benchmarks, smoke and the app version bump remain deferred.
 
 ### Stage 6 parent-boundary review — 2026-10-20
@@ -2193,14 +2203,88 @@ native French/Spanish alignment regressions passed separately with unavailable
 network proxies. Formatting and diff checks passed. Synthetic ownership tests
 and these small native cases do not establish general formatting/model quality.
 
-**Next:** Stage 7 should integrate the strict path with the existing runner,
-bounded mapped-cache admission, resume and atomic save guard, following its
-existing tasks/tests above. Cache reuse must bind the retained source plan,
-exact target and aligner/tokenizer/projection identities; stale translated text
-is not a validated map. Keep the candidate disabled while implementing this
-internal integration. The previously unmet semantic scopes and public acceptance
-gates remain open. No fresh CI, packaged/device acceptance, benchmarks, broader
-smoke or app version bump is claimed.
+**Handoff:** the Stage 7 implementation below follows this review. Stale
+translated text is not a validated map. The previously unmet semantic scopes
+and public acceptance gates remain open. No fresh CI, packaged/device acceptance,
+benchmarks, broader smoke or app version bump is claimed by this review.
+
+### Stage 7 mapped cache, resume and atomic save — 2026-10-20
+
+The internal exact-piece path now reaches the existing job runner, batch cache,
+DOM renderer and SQLite/filesystem writer. A job whose internal load closure
+explicitly calls `Job::load_alignment` uses its one retained auxiliary session
+and cancellation registration. Public native and worker starts do not call this
+hook; build flags, model selectors and public formatting claims are unchanged.
+No second engine, retry ladder or storage pipeline was added.
+
+**Batch admission and resume.** Each strict batch rebuilds source-owned plans
+from the current reader DOM, then translates, aligns and reconstructs all its
+segments before any strict record is checkpointed. An unresolved or
+late-cancelled segment leaves the entire current batch uncommitted; earlier
+validated batches remain reusable. The shared runner checks cancellation around
+native work, reconstruction, checkpoint admission and the existing atomic save
+guard. Native calls still need to return before their late results/resources can
+be discarded. Completed checkpoints may survive a later job cancellation;
+cancellation before the save cutoff prevents a durable variant.
+
+Strict records live separately from legacy segment/probe memory and worker HTML.
+They contain bounded source/target text, exact source units and decoder target
+ranges, checked node maps and version identities, never embeddings or tensors.
+Admission binds the source structure/literals, block parsing context, segment
+location, exact target, translator pins/decoder adapter, aligner revision/runtime
+build, tokenizer, normalization and extraction/projection policy. The pure
+binding contract is now version **2** to include the block context. The worker's
+`protected-codes-v6` transport/cache identity is unchanged.
+
+Receipt checksums detect accidental local corruption; they are not an
+authentication boundary against someone who can edit the app's data directory.
+Every cache hit rechecks bounds, exact bindings, piece partitions/tokenizer
+admission, copied literals and source-owned reconstruction. A valid exact
+translation can be reused when only alignment versions change, but its map must
+be recomputed. Changed translator/normalization/source structure/context or
+incompatible piece boundaries requires fresh exact translation. Legacy text or
+phrase hints never certify strict output. Corrupt receipts are discarded.
+
+**Rendering and storage.** Strict fragments are rebound to the cloned source
+DOM and parsed in that block's HTML context. The save request declares its
+strict profile independently of its fragments, so losing every receipt cannot
+downgrade it to legacy output. A missing/mixed/changed receipt
+fails before save admission; worker note repositioning, phrase probes and
+plain-text fallback are bypassed. The existing quality checks, save cutoff,
+transaction/rollback and owned-asset writer still apply. Installed-model/runtime
+identities are recorded in `settings_json.alignment`. Strict variants include
+these identities in their derived ID: retries replace only the same strict
+profile, while legacy/differently aligned variants retain their IDs, files and
+search rows. No migration rewrites originals, older variants, audio or read-along
+metadata. Tables retain the existing importer/opaque-island behavior; this is
+not a new table-cell translation feature.
+
+**Regression coverage.** Synthetic gold links exercise HTML/EPUB reader plans,
+real cache files and SQLite/file writes: nested/leading notes, images inside
+styled links, unique authored IDs, literal code, list context and owned asset
+bytes; cache-only resume; policy/tokenizer/aligner versus translator/source/context
+invalidation; corrupt targets/maps/piece boundaries; partly failed batches;
+late translation/alignment cancellation, cached pre-save cancellation and the
+shared save cutoff; missing/mixed receipts; transaction failure and retry;
+legacy variant and existing audio/timing-file preservation. Existing shared
+worker-loss and model ownership/removal tests remain applicable.
+
+**Validation:** full offline Rust library suites passed **531 tests with features
+off** (four ignored), **558 with the alignment runtime** (ten ignored), and
+**557 with CTranslate2 plus alignment runtime** (thirteen ignored). Four explicit
+cached native regressions passed separately with unavailable network proxies:
+the reference extraction/scopes, actual French/Spanish piece projection,
+installed two-model lifecycle and installed French/Spanish runner/save/resume.
+The latter also verifies that ordinary command starts remain translator-only
+when the auxiliary is compiled and installed. Formatting and diff checks passed.
+These small native cases and gold ownership graphs do not close general
+semantic/resource acceptance. No fresh CI or packaged/device acceptance is claimed.
+
+**Next:** review this Stage 7 change before Stage 8 truthful capability/progress
+and setup UI work. Keep public strict admission disabled: the three previously
+unmet native semantic scopes, mandatory positive formatting gate and held-out,
+numeric, runtime-notice, resource/platform acceptance remain open. Benchmarks,
+broader smoke and the app version bump remain deferred.
 
 ## Product Goals
 

@@ -55,7 +55,18 @@ impl<'a> Job<'a> {
         }
     }
 
-    /// Internal opt-in seam only: no command/catalog path calls this before strict mapping is implemented.
+    /// Only an explicitly loaded auxiliary activates strict processing; public load closures leave it absent.
+    #[cfg(feature = "native-translation-alignment-runtime")]
+    pub(super) fn alignment_backend(
+        &mut self,
+    ) -> Option<crate::translation::alignment::runtime::NativeAlignment<'_>> {
+        Some(crate::translation::alignment::runtime::NativeAlignment {
+            session: self.alignment.as_mut()?,
+            cancellation: self.alignment_cancel.as_ref()?.cancellation.clone(),
+        })
+    }
+
+    /// Internal opt-in seam only: command/catalog admission remains closed pending semantic acceptance.
     #[cfg(feature = "native-translation-alignment-runtime")]
     #[allow(dead_code)]
     pub(super) fn load_alignment<R: tauri::Runtime>(

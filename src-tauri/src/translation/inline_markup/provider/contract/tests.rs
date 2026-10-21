@@ -12,7 +12,25 @@ fn versions() -> Versions {
     }
 }
 
-pub(in crate::translation::inline_markup::provider) fn rules() -> TokenRules<'static> {
+#[test]
+fn strict_binding_retains_block_context_without_invalidating_worker_transport_identity() {
+    let paragraph = plan("<p>Un <em>livre</em></p>");
+    let list_item = plan("<ul><li>Un <em>livre</em></li></ul>");
+    assert_eq!(paragraph.identity(), list_item.identity());
+    let v = versions();
+    assert_ne!(
+        pair(&paragraph, "A book", &v)
+            .binding()
+            .unwrap()
+            .source_plan,
+        pair(&list_item, "A book", &v)
+            .binding()
+            .unwrap()
+            .source_plan
+    );
+}
+
+pub(crate) fn rules() -> TokenRules<'static> {
     TokenRules {
         identity: "tokens@one",
         unknown: 100,
@@ -46,7 +64,7 @@ fn pair<'a>(plan: &'a ProtectedPlan, target: &'a str, versions: &'a Versions) ->
 }
 
 /// A deterministic word-token fixture, not an imitation of the candidate's neural tokenizer.
-pub(in crate::translation::inline_markup::provider) fn tokens(text: &str) -> Vec<Token> {
+pub(crate) fn tokens(text: &str) -> Vec<Token> {
     let mut result = vec![Token {
         id: 101,
         word: None,

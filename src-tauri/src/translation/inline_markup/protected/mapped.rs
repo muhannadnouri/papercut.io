@@ -7,7 +7,7 @@ use crate::translation::inline_markup::provider::contract::{
 impl ProtectedPlan {
     /// Recheck the combined hierarchy and copied literals before constructing any reader markup.
     /// Strict maps bypass worker note repositioning; their attachment offsets already require lexical evidence.
-    pub(in crate::translation::inline_markup) fn restore_mapped(
+    pub(crate) fn restore_mapped(
         &self,
         target: &str,
         nodes: &[NodeMapping],

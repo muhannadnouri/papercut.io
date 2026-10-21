@@ -565,6 +565,7 @@ mod tests {
     #[test]
     fn prefers_verified_fragment_offsets() {
         let fragment = PersistTranslationFragment {
+            aligned: None,
             markup: None,
             source_start: 14,
             source_end: 19,

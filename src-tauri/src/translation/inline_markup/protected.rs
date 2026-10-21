@@ -21,6 +21,9 @@ pub(crate) const MAX_HTML_BYTES: usize = 32 * 1024;
 
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct ProtectedPlan {
+    /// Strict cache admission retains the HTML fragment context without changing worker transport/cache identities.
+    #[serde(skip)]
+    context: String,
     pub(crate) html: String,
     source: String,
     codes: Vec<Code>,
@@ -67,6 +70,7 @@ pub(crate) struct RestoredMarkup {
 
 /// Retain only the current block's scalar table; fragment planning does not rescan a long paragraph.
 pub(crate) struct ProtectedSource {
+    context: String,
     chars: Vec<char>,
     codes: Vec<Code>,
 }
@@ -74,6 +78,10 @@ pub(crate) struct ProtectedSource {
 impl ProtectedSource {
     /// Extract once using the shared DOM text contract, keeping normalized wrappers around leading children.
     pub(crate) fn new(node: &NodeRef) -> Result<Self, String> {
+        let element = node
+            .as_element()
+            .ok_or("Protected source requires an element context")?;
+        let context = format!("{}:{}", element.name.ns, element.name.local);
         let mut text = String::new();
         let mut codes = Vec::new();
         let mut pending = false;
@@ -96,7 +104,11 @@ impl ProtectedSource {
                 codes[parent].start = codes[parent].start.min(codes[index].start);
             }
         }
-        Ok(Self { chars, codes })
+        Ok(Self {
+            context,
+            chars,
+            codes,
+        })
     }
 
     /// Clip formatting with all selected ancestors; boundary children may need an empty wrapper.
@@ -151,6 +163,7 @@ impl ProtectedSource {
             retained.push(code);
         }
         let mut plan = ProtectedPlan {
+            context: self.context.clone(),
             html: String::new(),
             source: source.into(),
             codes: retained,
@@ -329,7 +342,10 @@ impl ProtectedPlan {
         self.codes
             .iter()
             .try_fold(
-                self.source.len().saturating_add(self.html.len()),
+                self.source
+                    .len()
+                    .saturating_add(self.html.len())
+                    .saturating_add(self.context.len()),
                 |size, code| {
                     size.checked_add(code.open.len())?
                         .checked_add(code.close.len())?
@@ -344,6 +360,11 @@ impl ProtectedPlan {
         crate::translation::hash::stable_text_hash(
             &serde_json::to_string(&(MAPPING_VERSION, self)).expect("serializable protected plan"),
         )
+    }
+
+    /// Parsing a paragraph and a list item is not interchangeable, even when their inline text matches.
+    pub(crate) fn alignment_identity(&self) -> String {
+        crate::translation::hash::stable_text_hash(&format!("{}:{}", self.context, self.identity()))
     }
 
     /// Strict XML rejects repaired/crossing tags; rebuild only source-owned shells after identity checks.

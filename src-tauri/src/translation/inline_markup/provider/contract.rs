@@ -25,12 +25,13 @@ pub(crate) fn validate_tokens(
     tokens::check(text, rules, evidence, side).map(|_| ())
 }
 
-const CONTRACT_VERSION: u32 = 1;
+const CONTRACT_VERSION: u32 = 2;
 const MAX_TOKENS: usize = 512;
 pub(crate) const MAX_LINKS: usize = MAX_TOKENS * 8;
 pub(super) const MAX_MAPPED_RANGES: usize = MAX_TOKENS;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Versions {
     /// Each identity includes the pinned model/tokenizer revision, not a display name.
     pub(crate) translator: String,
@@ -41,7 +42,8 @@ pub(crate) struct Versions {
     pub(crate) policy: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Binding {
     pub(crate) version: u32,
     pub(crate) versions: Versions,
@@ -65,7 +67,8 @@ pub(crate) struct Pair<'a> {
     pub(crate) versions: &'a Versions,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct NodeMapping {
     pub(crate) source_id: usize,
     pub(crate) targets: Vec<Range<usize>>,
@@ -176,7 +179,7 @@ impl Pair<'_> {
             source_ordinal: self.source_ordinal,
             source_range: self.source_start..source_end,
             target_range: self.target_start..target_end,
-            source_plan: self.plan.identity(),
+            source_plan: self.plan.alignment_identity(),
             source: source.into(),
             target: self.target.into(),
         })
@@ -438,4 +441,4 @@ fn check_source_scope(
 }
 
 #[cfg(test)]
-pub(super) mod tests;
+pub(crate) mod tests;

@@ -1,4 +1,4 @@
-//! Default-off alignment assets/tokenizer and internal CPU session; no translation-job integration.
+//! Default-off alignment assets/tokenizer and job-owned CPU session; public starts remain translator-only.
 use std::path::Path;
 
 use tokenizers::{NormalizedString, Normalizer, Tokenizer};

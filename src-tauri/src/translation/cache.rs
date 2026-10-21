@@ -33,6 +33,9 @@ pub(crate) struct TranslationSegmentCache {
     max_segment_chars: usize,
     batch_segment_limit: usize,
     segments: BTreeMap<String, CachedTranslationSegment>,
+    /// Separate admission: neither legacy text memory nor worker markup is a checked native mapping.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    aligned: BTreeMap<String, super::inline_markup::provider::pieces::MappedSegment>,
     #[serde(default)]
     memory: BTreeMap<String, String>,
     /// Inline-alignment strategy version active when this cache was written.
@@ -56,6 +59,23 @@ struct CachedTranslationSegment {
 }
 
 impl TranslationSegmentCache {
+    pub(crate) fn aligned_for(
+        &self,
+        id: &str,
+    ) -> Option<&super::inline_markup::provider::pieces::MappedSegment> {
+        self.aligned.get(id)
+    }
+
+    /// The runner commits these together only after every strict result in the batch has reconstructed.
+    pub(crate) fn store_aligned_batch(
+        &mut self,
+        values: Vec<super::inline_markup::provider::pieces::MappedSegment>,
+    ) {
+        for value in values {
+            self.aligned.insert(value.binding.segment_id.clone(), value);
+        }
+    }
+
     /// Rich resume is location/DOM-bound and revalidated; plain translation memory cannot supply mappings.
     pub(crate) fn mapped_output_for(
         &self,
@@ -249,6 +269,7 @@ fn new_segment_cache(plan: &TranslationJobPlan) -> TranslationSegmentCache {
         max_segment_chars: plan.max_segment_chars,
         batch_segment_limit: plan.batch_segment_limit,
         segments: BTreeMap::new(),
+        aligned: BTreeMap::new(),
         memory: BTreeMap::new(),
         inline_alignment_version: INLINE_ALIGNMENT_VERSION,
     }

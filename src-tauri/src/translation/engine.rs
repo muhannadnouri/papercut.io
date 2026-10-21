@@ -59,6 +59,13 @@ pub(crate) struct TranslationSegmentOutput {
 }
 
 pub(crate) trait TranslationEngine {
+    /// Internal strict jobs require exact decoder pieces; ordinary starts never request this opt-in.
+    fn exact_translator(
+        &mut self,
+    ) -> Option<&mut dyn super::inline_markup::provider::pieces::ExactPieceTranslator> {
+        None
+    }
+
     /// Opt in only when an adapter validates and returns protected codes, not plain MT text.
     fn supports_protected_markup(&self) -> bool {
         false

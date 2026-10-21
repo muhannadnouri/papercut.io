@@ -41,7 +41,9 @@ use super::types::{
 };
 
 const MAX_INLINE_PHRASE_PROBES_PER_SEGMENT: usize = 8;
+mod aligned;
 mod lifecycle;
+use super::inline_markup::provider::pieces::PieceAligner;
 
 /// Start a translation job and persist the completed output as a derived upload.
 pub(super) fn start_translation<R: tauri::Runtime>(
@@ -150,6 +152,19 @@ fn start_with_engine<R: tauri::Runtime>(
     job.check_cancelled()?;
     let mut engine = load(&model_dir, &plan.request, &mut job)?;
     job.check_cancelled()?;
+    #[cfg(feature = "native-translation-alignment-runtime")]
+    if let Some(mut alignment) = job.alignment_backend() {
+        return finish_with_alignment(
+            app,
+            state,
+            engine.as_mut(),
+            &plan,
+            &source,
+            &job_id,
+            started,
+            Some(&mut alignment),
+        );
+    }
     finish_translation(
         app,
         state,
@@ -170,8 +185,27 @@ fn finish_translation<R: tauri::Runtime>(
     job_id: &str,
     started: Instant,
 ) -> Result<TranslationStartResponse, String> {
+    finish_with_alignment(app, state, engine, plan, source, job_id, started, None)
+}
+
+/// One persistence path for ordinary and internal strict jobs; save ownership/cancellation stays shared.
+#[allow(clippy::too_many_arguments)]
+fn finish_with_alignment<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    state: &TranslationState,
+    engine: &mut dyn TranslationEngine,
+    plan: &TranslationJobPlan,
+    source: &TranslationSourceDocument,
+    job_id: &str,
+    started: Instant,
+    alignment: Option<&mut dyn PieceAligner>,
+) -> Result<TranslationStartResponse, String> {
+    let alignment_versions = alignment
+        .as_ref()
+        .map(|a| a.versions(&plan.request.model_id))
+        .transpose()?;
     let mut saving = None;
-    match run_translation_batches(app, state, engine, plan, source, job_id, started) {
+    match run_translation_batches(app, state, engine, plan, source, job_id, started, alignment) {
         Ok(summary) => {
             let TranslationRunSummary {
                 preview,
@@ -197,6 +231,7 @@ fn finish_translation<R: tauri::Runtime>(
             let stored = persist_translated_document(
                 app,
                 PersistTranslationRequest {
+                    alignment: alignment_versions,
                     source: source.clone(),
                     source_language: plan.request.source_language.clone(),
                     target_language: plan.request.target_language.clone(),
@@ -407,6 +442,7 @@ fn run_translation_batches<R: tauri::Runtime>(
     source: &TranslationSourceDocument,
     job_id: &str,
     started: Instant,
+    mut alignment: Option<&mut dyn PieceAligner>,
 ) -> Result<TranslationRunSummary, TranslationRunFailure> {
     let mut run = BatchRunState {
         job_id,
@@ -427,8 +463,7 @@ fn run_translation_batches<R: tauri::Runtime>(
     let mut translated_blocks = vec![String::new(); source.blocks.len()];
     let mut translated_fragments =
         vec![Vec::<PersistTranslationFragment>::new(); source.blocks.len()];
-    let rich_dom = engine
-        .supports_protected_markup()
+    let rich_dom = (engine.supports_protected_markup() || alignment.is_some())
         .then(|| super::dom::DomPlan::new(&source.view_html));
     let mut rich_source = None;
     let inline_phrase_probes = if rich_dom.is_some() {
@@ -499,6 +534,69 @@ fn run_translation_batches<R: tauri::Runtime>(
                 markup_plans.insert(segment.id.clone(), mapping);
             }
         }
+        if let Some(aligner) = alignment.as_deref_mut() {
+            let check = || {
+                if is_cancelled(&state.cancelled_jobs, job_id)? {
+                    Err("Translation cancelled".into())
+                } else {
+                    Ok(())
+                }
+            };
+            emit_translation_progress(
+                app,
+                run.progress(
+                    "translating-batch",
+                    "Translating and aligning current batch",
+                    0,
+                ),
+            )
+            .map_err(|e| run.failure("failed", e))?;
+            let (receipts, reused) = aligned::batch(
+                engine,
+                aligner,
+                &plan.request.model_id,
+                &batch.segments,
+                &markup_plans,
+                &cache,
+                check,
+            )
+            .map_err(|e| {
+                run.failure(
+                    if is_cancelled(&state.cancelled_jobs, job_id).unwrap_or(false) {
+                        "cancelled"
+                    } else {
+                        "failed"
+                    },
+                    e,
+                )
+            })?;
+            check().map_err(|e| run.failure("cancelled", e))?;
+            for (segment, receipt) in batch.segments.iter().zip(&receipts) {
+                append_translated_segment(
+                    &mut translated_blocks,
+                    &mut translated_fragments,
+                    segment,
+                    segment.source_block_index,
+                    &receipt.binding.target,
+                    Vec::new(),
+                    None,
+                    Some(receipt.clone()),
+                );
+                run.note_preview(&receipt.binding.target);
+            }
+            check().map_err(|e| run.failure("cancelled", e))?;
+            cache.store_aligned_batch(receipts);
+            save_segment_cache(app, plan, &cache).map_err(|e| run.failure("failed", e))?;
+            run.completed_segments += batch.segments.len();
+            run.cached_segments += reused;
+            run.completed_batches = batch.index + 1;
+            emit_translation_progress(
+                app,
+                run.progress("batch-complete", "Validated aligned batch", reused),
+            )
+            .map_err(|e| run.failure("failed", e))?;
+            continue;
+        }
         let mut pending_batch = TranslationBatchPlan {
             index: batch.index,
             segments: Vec::new(),
@@ -519,6 +617,7 @@ fn run_translation_batches<R: tauri::Runtime>(
                         &output.text,
                         Vec::new(),
                         output.markup,
+                        None,
                     );
                     run.note_preview(&output.text);
                 } else {
@@ -540,6 +639,7 @@ fn run_translation_batches<R: tauri::Runtime>(
                         .cloned()
                         .unwrap_or_default(),
                     None,
+                    None,
                 );
                 run.note_preview(&cached_text);
             } else if let Some(memory_text) =
@@ -559,6 +659,7 @@ fn run_translation_batches<R: tauri::Runtime>(
                         .get(&segment.id)
                         .cloned()
                         .unwrap_or_default(),
+                    None,
                     None,
                 );
                 run.note_preview(&memory_text);
@@ -612,6 +713,7 @@ fn run_translation_batches<R: tauri::Runtime>(
                         .cloned()
                         .unwrap_or_default(),
                     output.markup.clone(),
+                    None,
                 );
                 run.note_preview(&translated_text);
                 if let Some(mapping) = markup_plans.get(&segment.id) {
@@ -801,11 +903,12 @@ fn append_translated_segment(
     text: &str,
     inline_phrases: Vec<PersistTranslationInlinePhrase>,
     markup: Option<String>,
+    aligned: Option<super::inline_markup::provider::pieces::MappedSegment>,
 ) {
     let Some(block_text) = blocks.get_mut(source_block_index) else {
         return;
     };
-    let text = text.trim();
+    let text = if aligned.is_some() { text } else { text.trim() };
     if text.is_empty() {
         return;
     }
@@ -815,6 +918,7 @@ fn append_translated_segment(
     block_text.push_str(text);
     if let Some(block_fragments) = fragments.get_mut(source_block_index) {
         block_fragments.push(PersistTranslationFragment {
+            aligned,
             markup,
             source_start: segment.source_start,
             source_end: segment.source_end,

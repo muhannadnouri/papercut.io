@@ -51,6 +51,31 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
         return None;
     }
     let plan = DomPlan::new(&request.source.view_html);
+    // Strict jobs are all-or-nothing; one missing receipt must never enter a legacy best-effort branch.
+    let alignment = request.alignment.as_ref();
+    if alignment.is_none()
+        && request
+            .translated_sections
+            .iter()
+            .flat_map(|s| &s.fragments)
+            .any(|f| f.aligned.is_some())
+    {
+        return None;
+    }
+    if let Some(versions) = alignment {
+        if request.translated_sections.iter().any(|s| {
+            s.fragments.is_empty()
+                || s.fragments.iter().any(|f| {
+                    f.markup.is_some()
+                        || !f.inline_phrases.is_empty()
+                        || f.aligned
+                            .as_ref()
+                            .is_none_or(|m| &m.binding.versions != versions)
+                })
+        }) {
+            return None;
+        }
+    }
     if plan.blocks.len() != request.source.blocks.len()
         || plan.blocks.len() != request.translated_sections.len()
     {
@@ -76,14 +101,19 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
     annotate_article(&document, request);
 
     let mut replaced_any = false;
-    for (block, section) in plan.blocks.into_iter().zip(&request.translated_sections) {
+    for (block_index, (block, section)) in plan
+        .blocks
+        .into_iter()
+        .zip(&request.translated_sections)
+        .enumerate()
+    {
         let node = block.node;
         annotate_block(&node, section);
         if section.text.trim().is_empty() {
             continue;
         }
-        if section.fragments.iter().any(|f| f.markup.is_some()) {
-            replace_protected_fragments(&node, section).ok()?;
+        if alignment.is_some() || section.fragments.iter().any(|f| f.markup.is_some()) {
+            replace_protected_fragments(&node, block_index, section).ok()?;
         } else if requires_preserved_block(&node) {
             insert_translation_after(&node, section);
         } else if replace_text_with_fragment_formatting(&node, &section.fragments) {
@@ -109,9 +139,11 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
     serialize_document(&document)
 }
 
-/// Rebind every rich fragment to the cloned source DOM; never fall back after a malformed rich reply.
+/// Rebind every rich fragment to the cloned source DOM; malformed rich output never falls back.
+/// Strict receipts bypass worker note movement and retain their source block's HTML parsing context.
 fn replace_protected_fragments(
     node: &NodeRef,
+    block_index: usize,
     section: &PersistTranslationSection,
 ) -> Result<(), String> {
     let source = source_inline_model(node).text.chars().collect::<Vec<_>>();
@@ -119,7 +151,7 @@ fn replace_protected_fragments(
     let mut html = Vec::new();
     let mut texts = Vec::new();
     let mut cursor = 0;
-    for fragment in &section.fragments {
+    for (part_index, fragment) in section.fragments.iter().enumerate() {
         if source
             .get(cursor..fragment.source_start)
             .is_none_or(|gap| gap.iter().any(|c| !c.is_whitespace()))
@@ -130,12 +162,23 @@ fn replace_protected_fragments(
             fragment.source_start..fragment.source_end,
             &fragment.source_text,
         )?;
-        let restored = plan.restore(
-            fragment
-                .markup
-                .as_deref()
-                .ok_or("Missing protected fragment")?,
-        )?;
+        let restored = if let Some(receipt) = &fragment.aligned {
+            let segment = super::segment::TranslationTextSegment {
+                id: format!("b{block_index}:s{part_index}"),
+                source_block_index: block_index,
+                source_start: fragment.source_start,
+                source_end: fragment.source_end,
+                text: fragment.source_text.clone(),
+            };
+            receipt.restore(&plan, &segment)?
+        } else {
+            plan.restore(
+                fragment
+                    .markup
+                    .as_deref()
+                    .ok_or("Missing protected fragment")?,
+            )?
+        };
         if restored.text != fragment.text {
             return Err("Protected fragment text changed after validation".into());
         }
@@ -150,18 +193,34 @@ fn replace_protected_fragments(
     {
         return Err("Protected fragments do not cover the source/result".into());
     }
-    let document = parse_html_document(format!(
-        "<html><body><div>{}</div></body></html>",
-        html.join(" ")
-    ));
+    let strict = section.fragments.iter().any(|f| f.aligned.is_some());
+    let document = if strict {
+        use kuchikiki::traits::TendrilSink;
+        let context = node
+            .as_element()
+            .ok_or("Missing aligned block context")?
+            .name
+            .clone();
+        kuchikiki::parse_fragment(context, vec![])
+            .one(html.join(" "))
+            .document_node
+    } else {
+        parse_html_document(format!(
+            "<html><body><div>{}</div></body></html>",
+            html.join(" ")
+        ))
+    };
     let wrapper = document
-        .select_first("body > div")
+        .select_first(if strict { "html" } else { "body > div" })
         .map_err(|_| "Invalid protected render")?;
     for child in node.children().collect::<Vec<_>>() {
         child.detach();
     }
     for child in wrapper.as_node().children().collect::<Vec<_>>() {
         node.append(child);
+    }
+    if strict && source_inline_model(node).text != section.text {
+        return Err("Aligned block context changed readable text".into());
     }
     Ok(())
 }
@@ -1578,6 +1637,7 @@ mod tests {
         translated_sections: Vec<PersistTranslationSection>,
     ) -> PersistTranslationRequest {
         PersistTranslationRequest {
+            alignment: None,
             source: TranslationSourceDocument {
                 document_id: "source1".into(),
                 document_url: "/uploads/source1.html".into(),
@@ -1628,6 +1688,7 @@ mod tests {
 
     fn fragment(source_text: &str, text: &str) -> PersistTranslationFragment {
         PersistTranslationFragment {
+            aligned: None,
             markup: None,
             source_start: 0,
             source_end: 0,

@@ -5,9 +5,9 @@ use std::ops::Range;
 
 use super::{InlineSourceModel, ProjectedInlineSpan};
 
-// Internal strict evidence; public jobs/catalog/cache/writer do not consume these mappings yet.
+// Internal strict evidence; public jobs/catalog do not opt in before semantic acceptance.
 pub(crate) mod contract;
-// Internal strict planning only; public translation/cache/rendering do not consume it yet.
+// Internal exact-piece planning, cache admission and source-owned reconstruction.
 #[allow(dead_code)]
 pub(crate) mod pieces;
 

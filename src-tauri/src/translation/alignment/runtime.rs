@@ -132,6 +132,73 @@ pub(crate) struct AlignmentSession {
     _lease: TranslationModelOperation,
 }
 
+/// Borrow the job-owned session; its existing registration terminates inference on cancellation.
+pub(crate) struct NativeAlignment<'a> {
+    pub(crate) session: &'a mut AlignmentSession,
+    pub(crate) cancellation: std::sync::Arc<Cancellation>,
+}
+
+impl crate::translation::inline_markup::provider::pieces::PieceAligner for NativeAlignment<'_> {
+    /// Runtime/model/tokenizer identities are independent from projection policy so MT text can be reused.
+    fn versions(
+        &self,
+        model: &str,
+    ) -> Result<crate::translation::inline_markup::provider::contract::Versions, String> {
+        use crate::translation::{
+            inline_markup::{protected, provider::contract},
+            model_store,
+        };
+        if !matches!(
+            model,
+            "opus-mt-fr-en-ctranslate2" | "opus-mt-es-en-ctranslate2"
+        ) {
+            return Err("Strict alignment pair is not supported".into());
+        }
+        let manifest = model_store::manifest_by_id(model).ok_or("Missing translator pins")?;
+        let files = manifest
+            .files
+            .iter()
+            .map(|f| (f.path, f.sha256, f.bytes))
+            .collect::<Vec<_>>();
+        let pins = crate::translation::hash::stable_text_hash(
+            &serde_json::to_string(&(manifest.revision, files))
+                .map_err(|_| "Translator identity failed")?,
+        );
+        Ok(contract::Versions {
+            translator: format!("{model}:{pins}:ct2rs-0.9.19:exact-v1"),
+            aligner: format!(
+                "{}:{}:ort-rc13-api17:cpu:{}",
+                assets::MODEL_KEY,
+                assets::REVISION,
+                crate::translation::hash::stable_text_hash(ort::info())
+            ),
+            tokenizer: assets::TOKENIZER_ID.into(),
+            normalization: format!("{}:exact-pieces-v1", protected::MAPPING_VERSION),
+            policy: format!("{}:{}", super::extract::POLICY, contract::PROJECTION_POLICY),
+        })
+    }
+
+    fn text_fits(&self, text: &str, side: Side) -> Result<bool, String> {
+        self.cancellation
+            .check()
+            .map_err(|e| format!("Alignment rejected: {e:?}"))?;
+        self.session
+            .text_fits(text, side)
+            .map_err(|e| format!("Alignment admission rejected: {e:?}"))
+    }
+
+    fn map(
+        &mut self,
+        translation: &Translation<'_>,
+    ) -> Result<Vec<crate::translation::inline_markup::provider::contract::NodeMapping>, String>
+    {
+        self.session
+            .project_translation(translation, &self.cancellation, None)
+            .map(|p| p.nodes().to_vec())
+            .map_err(|e| format!("Alignment mapping rejected: {e:?}"))
+    }
+}
+
 impl AlignmentSession {
     /// Reuse the job's session for exact pieces, dropping each pair's tensors before the next pair.
     pub(crate) fn project_translation<'a, 'p>(

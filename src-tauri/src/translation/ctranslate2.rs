@@ -243,6 +243,10 @@ fn check_exact_target(tokens: &[String]) -> Result<(), String> {
 }
 
 impl TranslationEngine for CTranslate2Engine {
+    fn exact_translator(&mut self) -> Option<&mut dyn ExactPieceTranslator> {
+        Some(self)
+    }
+
     fn translate_batch(
         &mut self,
         input: TranslationBatchInput,
