@@ -656,6 +656,7 @@ fn missing_mixed_or_changed_strict_receipts_never_reach_save_admission_or_legacy
         let result = persist_translated_document(
             app.handle(),
             PersistTranslationRequest {
+                boundary: false,
                 alignment: Some(aligner.versions.clone()),
                 source: source.clone(),
                 source_language: "fr".into(),
@@ -704,6 +705,7 @@ fn strict_result_preserves_legacy_variant_identity_files_and_search_rows() {
     let legacy = persist_translated_document(
         app.handle(),
         PersistTranslationRequest {
+            boundary: false,
             alignment: None,
             source: source.clone(),
             source_language: "fr".into(),

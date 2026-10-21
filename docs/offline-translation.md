@@ -8,6 +8,12 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 
 ## Current Implementation Status
 
+- **Current CTranslate2 path:** [boundary-based translation](#boundary-based-ctranslate2-translation--2026-10-20)
+  retains source formatting by translating fragments separately, with an explicit
+  cross-fragment fluency tradeoff. It reuses the shared document pipeline and
+  does not load an aligner. The strict candidate remains disabled; the Stage 9
+  investigations below do not block this separately approved boundary policy.
+
 - Translation accepts **HTML and EPUB only**, enforced in both the UI and native source loader. PDF and other formats remain unsupported.
 
 - Desktop builds on this branch enable `native-tts-shared,experimental-search-embeddings,native-translation-ctranslate2,native-translation-llama` through `npm run desktop`.
@@ -113,10 +119,10 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - The [pretrained alignment-aware model screen](#stage-9-pretrained-alignment-aware-translation-screen--2026-10-20)
   establishes no replacement. The original French model is already guided and
   its trained last-layer setting matches the existing pack. No new checkpoint
-  or ownership signal is qualified; seek specific checkpoint/evidence details
-  before resuming production work.
+  or ownership signal is qualified; strict implementation remains blocked.
+  The separately approved boundary policy does not depend on this research.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
-- Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
+- Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; this worker mitigation is separate from the native boundary policy.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
 - OPUS-MT exposes no quality, glossary, or repair controls because that engine cannot honor them; direct requests using those options are rejected.
 - Translation controls, normal progress states, confirmations, counts, language names, and expected native failures use the app's eight locale resources. Translation commands return stable error codes while retaining the original Rust diagnostic; unexpected failures still fall back to that detail.
@@ -125,7 +131,7 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   batch inference, completed batches, final validation, and storage. Before
   the first measurable batch completes, the UI shows indeterminate activity
   instead of an apparently idle empty progress bar.
-- OPUS-MT jobs use both a conservative 900-character planner cap and an engine-local tokenizer split before CTranslate2 inference, so long Spanish/French prose can be subdivided below Marian's 512-position limit without changing public cache segment ids.
+- OPUS-MT boundary jobs retain bounded whole reader blocks for DOM identity; their actual MT fragments use the shared 900-scalar and native-token limits. Cache and saved-result identities are separate from the previous phrase-hint path.
 - Translated variants are separate durable documents that can be opened, searched, deleted, and later used by the normal TTS flow.
 - HTML/EPUB rendering uses the sanitized reader HTML where possible and preserves links, ids, images, tables, and EPUB-rewritten assets conservatively.
 - Historical Stage 5B validation, before the latest main merge, covered local desktop and packaged `.deb` model-install, translation, open/search/delete, cancellation, restart recovery, cache-assisted retry, removal, and reinstall smoke tests. It does not validate the merged build; current smoke and release validation remain pending.
@@ -134,8 +140,10 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 
 ## Engine-independent offline alignment plan — 2026-10-19
 
-**Decision: use a separate offline word aligner (Option 7). Internal implementation
-progress is recorded below; no alignment model is approved for production.**
+**Historical strict-formatting plan: use a separate offline word aligner (Option 7).
+No alignment model is approved for production. The current deliverable is the
+separately approved [boundary-based CTranslate2 path](#boundary-based-ctranslate2-translation--2026-10-20);
+the strict candidate below remains disabled.**
 This records the selected Option 7 plan, superseding the earlier attention-first
 proposal below. Its sole-aligner assumption is now under the
 [Stage 9 strategy reassessment](#stage-9-alignment-strategy-reassessment--2026-10-20);
@@ -3569,7 +3577,11 @@ upstream work shelved. Do not resume the failed policy with threshold/control
 changes, train an NLP subsystem, replace the existing translator by size or
 popularity, or silently downgrade formatting requirements.
 
-The smallest useful follow-up is a **checkpoint/evidence clarification**, not
+The following follow-up was recommended at the time of this screen. The user
+subsequently declined maintainer outreach and approved the boundary path below.
+No questions were posted.
+
+The proposed follow-up was a **checkpoint/evidence clarification**, not
 more infrastructure: prepare a short maintainer question asking for an existing
 FR/ES → EN checkpoint with its supervised head/layer, extraction method,
 auxiliary/null-link behavior and redistribution terms. The French original
@@ -3601,6 +3613,121 @@ anchors, disabled-capability check and `git diff --check` pass. Only this docume
 changes. No inference, production code/dependency/runtime, catalog/install,
 cache/storage or app-version change was made. Benchmarks, smoke, fresh app/CI
 builds and version bump remain deferred; no new semantic acceptance is claimed.
+
+## Boundary-based CTranslate2 translation — 2026-10-20
+
+**Current decision:** French/Spanish → English CTranslate2 jobs now translate
+source-owned fragments instead of translating whole passages and guessing
+where their emphasis belongs. The user accepted the potential fluency loss at
+formatting boundaries. This supersedes the previous prohibition on independent
+fragment translation for this path. Maintainer outreach is cancelled; no draft
+was posted. The strict alignment candidate remains disabled and unqualified.
+
+### Architecture and limits
+
+- Keep the existing HTML/EPUB reader snapshot, DOM identities, owned assets,
+  model leases, job cancellation, progress, cache and atomic writer. No model,
+  runtime, dependency, download manifest or provider selector is added.
+- Plan one segment per normalized reader block, capped at **32 KiB UTF-8**.
+  This avoids splitting authored links/IDs at an arbitrary outer 900-character
+  cut. Protected transport is independently capped at 32 KiB; existing depth,
+  128-code, 128-unit and reconstruction-work limits remain enforced. Oversized
+  or unsupported structures fail before saving rather than flattening markup.
+- The shared exact-piece planner gains a separate boundary policy. Cuts come
+  from every source shell endpoint and note/media attachment, with source
+  whitespace copied explicitly. Compatible adjacent text within one scope is
+  already coalesced by the DOM model; distinct source elements retain their
+  identities. A uniformly styled sentence remains one MT input when it fits.
+- Reuse the existing native tokenizer budget and complete-decoder checks.
+  Each actual prose input is at most **900 Unicode scalars** and fits the
+  OPUS-MT **448-token** source budget including framing. Over-budget prose is
+  split at sentence/clause/whitespace boundaries. Calls contain at most 16
+  inputs; source and target grapheme boundaries and the combined target size
+  are checked. The unmodified CTranslate2 core performs inference.
+- Code, `translate=no`, note labels and media payloads are copied, never sent
+  to translation. Boundary extraction can traverse table/figure prose inside
+  a selected reader block while retaining cells, captions and media shells.
+  The existing reader's block selection still determines coverage: layout
+  outside those selected blocks stays unchanged. This is not a new promise
+  to translate every text node in arbitrary HTML.
+- Each translated unit returns to the same source parent and position. Target
+  word order may change **within** a unit. Source code IDs/order, literals and
+  hierarchy are rechecked before cache admission and again during rendering.
+  The source-context HTML fragment parser preserves table/list structure.
+  Worker quote/note repositioning and legacy phrase matching are bypassed;
+  translated text is escaped rather than accepted as model-generated HTML.
+- `ctranslate2-source-boundaries-v1` separates job/cache and saved-variant
+  identities from legacy phrase-hint output. Boundary cache entries bind
+  source structure and fragment context, require validated markup and never
+  reuse plaintext phrase memory. A whole batch must succeed before any new
+  entries are checkpointed. Existing variants, assets, audio and timing files
+  remain intact; a successful retry replaces only its own boundary variant.
+- Cancellation is checked around planning, each bounded native call, cache
+  admission and before the shared writer claims saving. A failed/late-cancelled
+  batch produces no partial saved document. A fully cached run still reaches
+  the same pre-save validation and cancellation cutoff.
+
+### Product behavior and tradeoff
+
+This is the default document path for the two existing CTranslate2 OPUS pairs;
+it needs no auxiliary formatting pack. `preserveFormatting=true` still means
+**strict semantic alignment**, and public requests for it remain rejected by
+`FORMATTING_ACCEPTED = false`. The UI labels that separate option “Strict
+Formatting (Experimental)” and explains the boundary tradeoff in all eight
+locales. Shared piece errors in a boundary job do not advise users to install
+an alignment pack.
+
+For a synthetic example, `<strong>viendra</strong>` can retain a complete
+translated fragment such as `<strong>will come</strong>` without discovering
+word links. This is an illustration, not an asserted model output. A mixed
+sentence split across unstyled text, a link and emphasis cannot reorder those
+fragments together; articles, agreement, negation and punctuation may translate
+less naturally. Fine-grained/intra-word markup is especially risky for fluency;
+a boundary through a grapheme is rejected. No semantic ownership or translation
+quality guarantee is inferred from valid HTML or passing synthetic tests.
+
+Bergamot transport/planning and HY-MT2's legacy path retain their policies.
+The earlier alignment experiments and contracts remain historical/internal
+work, not an automatic fallback, an enabled public feature or a requirement
+for using the boundary path. No upstream fork, custom training, maintained
+Python service or new alignment model is introduced.
+
+### Regression coverage and remaining acceptance
+
+Synthetic provider tests cover uniform/nested emphasis, repeated words,
+one-to-many translated fragments, leading notes/images, copied literals,
+links/IDs, escaped text, table context, >900-character authored wrappers,
+grapheme-safe rejection, malformed/reordered/duplicate/missing markup and invalid
+native reply counts/empty/oversized targets. HTML/EPUB lifecycle tests exercise
+both model IDs through the real cache, renderer and writer: failed batches,
+cache-only resume, missing-markup rejection, late native cancellation,
+pre-save cancellation, separate legacy variants, owned assets and existing
+read-along/audio files. UI tests verify the model-specific guidance and closed
+strict checkbox. A separately opt-in native regression uses only externally
+cached, manifest-verified FR/ES packs and synthetic text; it downloads nothing.
+
+Validation passed:
+
+- `cargo test --manifest-path src-tauri/Cargo.toml --lib --offline`: **547 passed,
+  4 ignored**. Existing socket/D-Bus regressions require local socket permission.
+- The same suite with `--features native-translation-ctranslate2,native-translation-alignment-runtime`:
+  **573 passed, 14 ignored**, including the still-disabled strict candidate's
+  internal regression coverage.
+- Explicitly ran the ignored native boundary regression with
+  `PAPERCUT_CT2_MODELS_DIR` pointing to the existing manifest-verified packs:
+  **1 test passed across four synthetic FR/ES fixtures**, covering uniform and
+  mixed formatting. No downloads or alignment session were involved. The
+  existing Linux CPU backend reported its expected FP16 → FP32 compute fallback;
+  no RAM/speed claim follows from this correctness check.
+- Translation UI/hooks: **105 passed** across six Vitest files. TypeScript,
+  eight-locale validation, Rust formatting and `git diff --check` passed.
+
+Logs are `/tmp/translation-boundary-{base,strict,inference,ui}.log` for this local
+run. These are engineering correctness checks, not release acceptance.
+Model-quality review on representative HTML/EPUB documents, platform packaging
+and device behavior remain future work. Benchmarks, app smoke, fresh CI and
+version bump remain deferred. No existing audiobook was played or regenerated;
+file/identity preservation is regression-tested without changing audio code.
 
 ## Product Goals
 

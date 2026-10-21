@@ -1,4 +1,4 @@
-//! Exact model pairs and source-owned islands; strict cache/runner integration remains internal and default off.
+//! Exact decoder units and copied literals, shared by boundary jobs and the disabled strict candidate.
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -98,6 +98,26 @@ impl SourcePlan {
         translator: &dyn ExactPieceTranslator,
         aligner_fits: impl Fn(&str, Side) -> Result<bool, String>,
     ) -> Result<Self, String> {
+        Self::plan(segment, protected, translator, aligner_fits, false)
+    }
+
+    /// Boundary translation cuts at every source shell/attachment; it needs no semantic aligner.
+    pub(crate) fn from_boundaries(
+        segment: &TranslationTextSegment,
+        protected: ProtectedPlan,
+        translator: &dyn ExactPieceTranslator,
+    ) -> Result<Self, String> {
+        Self::plan(segment, protected, translator, |_, _| Ok(true), true)
+    }
+
+    /// Both policies retain the same size, coverage, literal, grapheme and tokenizer checks.
+    fn plan(
+        segment: &TranslationTextSegment,
+        protected: ProtectedPlan,
+        translator: &dyn ExactPieceTranslator,
+        aligner_fits: impl Fn(&str, Side) -> Result<bool, String>,
+        boundaries: bool,
+    ) -> Result<Self, String> {
         if segment.id.is_empty()
             || segment.id.len() > 256
             || segment.text != protected.source_text()
@@ -119,34 +139,50 @@ impl SourcePlan {
             .collect::<Vec<_>>();
         let codes = protected.source_codes().collect::<Vec<_>>();
         let mut units = Vec::new();
-        let mut cursor = 0;
-        for code in codes.iter().filter(|c| c.literal && !c.range.is_empty()) {
-            if code.range.start < cursor
-                || code.range.end >= bytes.len()
-                || graphemes.binary_search(&bytes[code.range.start]).is_err()
-                || graphemes.binary_search(&bytes[code.range.end]).is_err()
-            {
-                return Err("Literal island has an invalid source boundary".into());
+        if boundaries {
+            let mut cuts = vec![0, bytes.len() - 1];
+            for code in &codes {
+                cuts.extend([code.range.start, code.range.end]);
+            }
+            cuts.sort_unstable();
+            cuts.dedup();
+            for range in cuts.windows(2).map(|p| p[0]..p[1]) {
+                if let Some(code) = codes.iter().find(|c| c.literal && c.range == range) {
+                    push(&mut units, Kind::Literal(code.id), range)?;
+                } else {
+                    plan_prose(text, &bytes, range, translator, &aligner_fits, &mut units)?;
+                }
+            }
+        } else {
+            let mut cursor = 0;
+            for code in codes.iter().filter(|c| c.literal && !c.range.is_empty()) {
+                if code.range.start < cursor
+                    || code.range.end >= bytes.len()
+                    || graphemes.binary_search(&bytes[code.range.start]).is_err()
+                    || graphemes.binary_search(&bytes[code.range.end]).is_err()
+                {
+                    return Err("Literal island has an invalid source boundary".into());
+                }
+                plan_prose(
+                    text,
+                    &bytes,
+                    cursor..code.range.start,
+                    translator,
+                    &aligner_fits,
+                    &mut units,
+                )?;
+                push(&mut units, Kind::Literal(code.id), code.range.clone())?;
+                cursor = code.range.end;
             }
             plan_prose(
                 text,
                 &bytes,
-                cursor..code.range.start,
+                cursor..bytes.len() - 1,
                 translator,
                 &aligner_fits,
                 &mut units,
             )?;
-            push(&mut units, Kind::Literal(code.id), code.range.clone())?;
-            cursor = code.range.end;
         }
-        plan_prose(
-            text,
-            &bytes,
-            cursor..bytes.len() - 1,
-            translator,
-            &aligner_fits,
-            &mut units,
-        )?;
         // Whitespace trimming must not detach a combining mark from its original grapheme either.
         if units.iter().any(|u| {
             graphemes.binary_search(&bytes[u.source.start]).is_err()
@@ -216,7 +252,7 @@ impl SourcePlan {
                 .collect::<Vec<_>>();
             for text in &inputs {
                 if !translator.source_fits(text)? || !aligner_fits(text, Side::Source)? {
-                    return Err("Exact-piece source no longer fits both runtimes".into());
+                    return Err("Exact-piece source exceeds the configured limits".into());
                 }
             }
             let translated = translator.translate_exact(&inputs)?;

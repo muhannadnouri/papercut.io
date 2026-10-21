@@ -96,6 +96,19 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
             return None;
         }
     }
+    if request.boundary
+        && (!super::boundary::applies(&request.model_id)
+            || alignment.is_some()
+            || request.translated_sections.iter().any(|s| {
+                s.text.trim().is_empty()
+                    || s.fragments.is_empty()
+                    || s.fragments.iter().any(|f| {
+                        f.markup.is_none() || f.aligned.is_some() || !f.inline_phrases.is_empty()
+                    })
+            }))
+    {
+        return None;
+    }
     let document = plan.document;
     update_title(&document, title);
     annotate_article(&document, request);
@@ -113,7 +126,7 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
             continue;
         }
         if alignment.is_some() || section.fragments.iter().any(|f| f.markup.is_some()) {
-            replace_protected_fragments(&node, block_index, section).ok()?;
+            replace_protected_fragments(&node, block_index, section, request.boundary).ok()?;
         } else if requires_preserved_block(&node) {
             insert_translation_after(&node, section);
         } else if replace_text_with_fragment_formatting(&node, &section.fragments) {
@@ -145,9 +158,14 @@ fn replace_protected_fragments(
     node: &NodeRef,
     block_index: usize,
     section: &PersistTranslationSection,
+    boundary: bool,
 ) -> Result<(), String> {
     let source = source_inline_model(node).text.chars().collect::<Vec<_>>();
-    let rich_source = super::inline_markup::protected::ProtectedSource::new(node)?;
+    let rich_source = if boundary {
+        super::inline_markup::protected::ProtectedSource::for_boundaries(node)?
+    } else {
+        super::inline_markup::protected::ProtectedSource::new(node)?
+    };
     let mut html = Vec::new();
     let mut texts = Vec::new();
     let mut cursor = 0;
@@ -172,12 +190,15 @@ fn replace_protected_fragments(
             };
             receipt.restore(&plan, &segment)?
         } else {
-            plan.restore(
-                fragment
-                    .markup
-                    .as_deref()
-                    .ok_or("Missing protected fragment")?,
-            )?
+            let markup = fragment
+                .markup
+                .as_deref()
+                .ok_or("Missing protected fragment")?;
+            if boundary {
+                plan.restore_boundaries(markup)?
+            } else {
+                plan.restore(markup)?
+            }
         };
         if restored.text != fragment.text {
             return Err("Protected fragment text changed after validation".into());
@@ -193,7 +214,7 @@ fn replace_protected_fragments(
     {
         return Err("Protected fragments do not cover the source/result".into());
     }
-    let strict = section.fragments.iter().any(|f| f.aligned.is_some());
+    let strict = section.fragments.iter().any(|f| f.aligned.is_some()) || boundary;
     let document = if strict {
         use kuchikiki::traits::TendrilSink;
         let context = node
@@ -1637,6 +1658,7 @@ mod tests {
         translated_sections: Vec<PersistTranslationSection>,
     ) -> PersistTranslationRequest {
         PersistTranslationRequest {
+            boundary: false,
             alignment: None,
             source: TranslationSourceDocument {
                 document_id: "source1".into(),

@@ -94,7 +94,8 @@
       "unavailable": "不可用",
       "engineUnavailable": "此版本未编译此翻译引擎。",
       "webviewUnavailable": "Bergamot 需要支持 Worker、WebCrypto 和 WebAssembly SIMD 的安全 WebView。当前 WebView 无法使用。",
-      "bergamotNote": "实验性：保留受保护的 HTML 标记。请保持 Papercut 在前台；切换到后台会停止任务。设备上的质量和内存使用情况尚未验证。"
+      "bergamotNote": "实验性：保留受保护的 HTML 标记。请保持 Papercut 在前台；切换到后台会停止任务。设备上的质量和内存使用情况尚未验证。",
+      "ctranslate2BoundaryNote": "通过分别翻译片段来保留格式。包含多种格式的句子可能不够自然。无需额外的格式资源包。"
     },
     "documents": {
       "ariaLabel": "翻译文档",
@@ -146,7 +147,7 @@
       "autoDetect": "自动检测"
     },
     "formatting": {
-      "label": "保留格式",
+      "label": "严格格式保留（实验性）",
       "packName": "离线格式包",
       "description": "使用单独的离线包定位强调、链接和注释。遇到不明确的映射时会停止任务。",
       "pending": "验证尚未完成，暂不支持保留格式。",

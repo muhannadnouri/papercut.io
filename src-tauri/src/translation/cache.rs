@@ -84,12 +84,16 @@ impl TranslationSegmentCache {
     ) -> Option<super::engine::TranslationSegmentOutput> {
         let cached = self.segments.get(&segment.id)?;
         if cached.source_hash != hash_segment_text(&segment.text)
-            || cached.markup_identity.as_deref() != Some(plan.identity().as_str())
+            || cached.markup_identity.as_deref() != Some(self.markup_identity(plan).as_str())
         {
             return None;
         }
         let markup = cached.markup.as_ref()?;
-        if plan.restore(markup).ok()?.text != cached.translated_text {
+        if super::boundary::restore(&self.model_id, plan, markup)
+            .ok()?
+            .text
+            != cached.translated_text
+        {
             return None;
         }
         Some(super::engine::TranslationSegmentOutput {
@@ -98,6 +102,15 @@ impl TranslationSegmentCache {
             text: cached.translated_text.clone(),
             markup: Some(markup.clone()),
         })
+    }
+
+    /// Context participates in boundary cache identity because table children need their source parser context.
+    fn markup_identity(&self, plan: &super::inline_markup::protected::ProtectedPlan) -> String {
+        if super::boundary::applies(&self.model_id) {
+            plan.alignment_identity()
+        } else {
+            plan.identity()
+        }
     }
 
     /// Persist only validated rich replies, without adding provider HTML to plain-text translation memory.
@@ -113,7 +126,7 @@ impl TranslationSegmentCache {
                 source_hash: hash_segment_text(&segment.text),
                 translated_text: output.text.clone(),
                 markup: output.markup.clone(),
-                markup_identity: Some(plan.identity()),
+                markup_identity: Some(self.markup_identity(plan)),
             },
         );
     }
@@ -345,6 +358,50 @@ mod tests {
     use super::{cache_is_compatible, hash_segment_text, new_segment_cache};
     use crate::translation::job::plan_translation_job;
     use crate::translation::types::TranslationStartRequest;
+
+    #[test]
+    fn boundary_cache_rejects_reordered_missing_markup_and_changed_fragment_context() {
+        use crate::translation::{
+            dom::DomPlan, engine::TranslationSegmentOutput,
+            inline_markup::protected::ProtectedSource, segment::TranslationTextSegment,
+        };
+        let mut job = plan();
+        job.request.model_id = "opus-mt-fr-en-ctranslate2".into();
+        let mut cache = new_segment_cache(&job);
+        let dom = DomPlan::new("<p><strong>un</strong> et <em>deux</em></p>");
+        let source = &dom.blocks[0];
+        let segment = TranslationTextSegment {
+            id: "b0:s0".into(),
+            source_block_index: 0,
+            source_start: 0,
+            source_end: source.inline.text.chars().count(),
+            text: source.inline.text.clone(),
+        };
+        let mapping = ProtectedSource::for_boundaries(&source.node)
+            .unwrap()
+            .fragment(0..segment.source_end, &segment.text)
+            .unwrap();
+        let output = TranslationSegmentOutput {
+            id: segment.id.clone(),
+            source_text: segment.text.clone(),
+            text: "one and two".into(),
+            markup: Some("<span data-pc='0'>one</span> and <span data-pc='1'>two</span>".into()),
+        };
+        cache.store_mapped_output(&segment, &mapping, &output);
+        assert!(cache.mapped_output_for(&segment, &mapping).is_some());
+        let list = DomPlan::new("<ul><li><strong>un</strong> et <em>deux</em></li></ul>");
+        let changed = ProtectedSource::for_boundaries(&list.blocks[0].node)
+            .unwrap()
+            .fragment(0..segment.source_end, &segment.text)
+            .unwrap();
+        assert!(cache.mapped_output_for(&segment, &changed).is_none());
+        cache.segments.get_mut(&segment.id).unwrap().markup =
+            Some("<span data-pc='1'>one</span> and <span data-pc='0'>two</span>".into());
+        assert!(cache.mapped_output_for(&segment, &mapping).is_none());
+        cache.store_translation(&segment, "plaintext memory".into());
+        assert!(cache.translated_text_for_source(&segment).is_some());
+        assert!(cache.mapped_output_for(&segment, &mapping).is_none());
+    }
 
     #[test]
     fn worker_resume_requires_current_provider_identity_without_invalidating_native_caches() {

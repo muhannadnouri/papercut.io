@@ -51,6 +51,15 @@ beforeEach(async () => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals() })
 
 describe('Bergamot catalog workbench', () => {
+  it('explains boundary translation only for CTranslate2 without enabling strict formatting', async () => {
+    expect(container.textContent).toContain('translation.models.ctranslate2BoundaryNote')
+    const strict = container.querySelector('input[type=checkbox]') as HTMLInputElement
+    expect(strict.disabled).toBe(true)
+    expect(strict.checked).toBe(false)
+    await select(french.id)
+    expect(container.textContent).not.toContain('translation.models.ctranslate2BoundaryNote')
+  })
+
   it('preserves the native default and requires explicit installation before running', async () => {
     expect(picker().value).toBe(opus.id)
     await select(french.id)

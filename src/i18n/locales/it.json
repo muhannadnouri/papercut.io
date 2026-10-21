@@ -94,7 +94,8 @@
       "unavailable": "Non disponibile",
       "engineUnavailable": "Questo motore di traduzione non è compilato in questa versione.",
       "webviewUnavailable": "Bergamot richiede una WebView sicura con worker, WebCrypto e WebAssembly SIMD. Non è disponibile in questa WebView.",
-      "bergamotNote": "Sperimentale: conserva il markup HTML protetto. Mantieni Papercut in primo piano; il passaggio in background interrompe il lavoro. Qualità e memoria sui dispositivi non sono ancora state convalidate."
+      "bergamotNote": "Sperimentale: conserva il markup HTML protetto. Mantieni Papercut in primo piano; il passaggio in background interrompe il lavoro. Qualità e memoria sui dispositivi non sono ancora state convalidate.",
+      "ctranslate2BoundaryNote": "La formattazione viene mantenuta traducendo i frammenti separatamente. Le frasi con formattazioni diverse possono risultare meno naturali. Non serve un pacchetto di formattazione aggiuntivo."
     },
     "documents": {
       "ariaLabel": "Documenti tradotti",
@@ -146,7 +147,7 @@
       "autoDetect": "Rilevamento Automatico"
     },
     "formatting": {
-      "label": "Preserva formattazione",
+      "label": "Formattazione rigorosa (sperimentale)",
       "packName": "Pacchetto di formattazione offline",
       "description": "Usa un pacchetto offline separato per posizionare enfasi, link e note. Le corrispondenze ambigue interrompono il processo.",
       "pending": "La conservazione della formattazione non è disponibile durante la convalida.",

@@ -1,7 +1,7 @@
 //! Translation job runner.
 //!
 //! Owns the long-running translate/persist path: preflight, cache reuse,
-//! native CTranslate2 batches, inline phrase probes, progress/cancellation
+//! native CTranslate2 boundary batches, legacy phrase probes, progress/cancellation
 //! events, and handoff to durable storage. Capability/status reporting lives
 //! in `capabilities`; batch planning lives in `job`.
 
@@ -236,6 +236,9 @@ fn finish_with_alignment<R: tauri::Runtime>(
             let stored = persist_translated_document(
                 app,
                 PersistTranslationRequest {
+                    boundary: alignment_versions.is_none()
+                        && !plan.request.preserve_formatting
+                        && super::boundary::applies(&plan.request.model_id),
                     alignment: alignment_versions,
                     source: source.clone(),
                     source_language: plan.request.source_language.clone(),
@@ -437,7 +440,7 @@ impl BatchRunState<'_> {
 /// Segments are batched for engine throughput, but storage needs section-sized
 /// text again. The source block index lets us stitch translated segments back
 /// into their original document sections before the durable variant is written.
-/// Rich providers validate DOM-bound replies as a whole batch before caching; text providers retain probes.
+/// Rich/boundary providers validate whole DOM-bound batches; other text providers retain legacy probes.
 #[allow(clippy::too_many_arguments)]
 fn run_translation_batches<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
@@ -468,7 +471,9 @@ fn run_translation_batches<R: tauri::Runtime>(
     let mut translated_blocks = vec![String::new(); source.blocks.len()];
     let mut translated_fragments =
         vec![Vec::<PersistTranslationFragment>::new(); source.blocks.len()];
-    let rich_dom = (engine.supports_protected_markup() || alignment.is_some())
+    let boundary =
+        super::boundary::applies(&plan.request.model_id) && !plan.request.preserve_formatting;
+    let rich_dom = (engine.supports_protected_markup() || alignment.is_some() || boundary)
         .then(|| super::dom::DomPlan::new(&source.view_html));
     let mut rich_source = None;
     let inline_phrase_probes = if rich_dom.is_some() {
@@ -525,9 +530,14 @@ fn run_translation_batches<R: tauri::Runtime>(
                     if block.inline.text != source.blocks[segment.source_block_index].text {
                         return Err(run.failure("failed", "Protected DOM source mismatch"));
                     }
-                    let extracted =
+                    let extracted = if boundary {
+                        super::inline_markup::protected::ProtectedSource::for_boundaries(
+                            &block.node,
+                        )
+                    } else {
                         super::inline_markup::protected::ProtectedSource::new(&block.node)
-                            .map_err(|e| run.failure("failed", e))?;
+                    }
+                    .map_err(|e| run.failure("failed", e))?;
                     rich_source = Some((segment.source_block_index, extracted));
                 }
                 let mapping = rich_source
@@ -592,6 +602,57 @@ fn run_translation_batches<R: tauri::Runtime>(
             emit_translation_progress(
                 app,
                 run.progress("batch-complete", "Validated aligned batch", reused),
+            )
+            .map_err(|e| run.failure("failed", e))?;
+            continue;
+        }
+        if boundary {
+            let check = || {
+                if is_cancelled(&state.cancelled_jobs, job_id)? {
+                    Err("Translation cancelled".into())
+                } else {
+                    Ok(())
+                }
+            };
+            emit_translation_progress(
+                app,
+                run.progress("translating-batch", "Translating current batch", 0),
+            )
+            .map_err(|e| run.failure("failed", e))?;
+            let (outputs, reused) =
+                super::boundary::batch(engine, &batch.segments, &markup_plans, &cache, check)
+                    .map_err(|e| {
+                        run.failure(
+                            if is_cancelled(&state.cancelled_jobs, job_id).unwrap_or(false) {
+                                "cancelled"
+                            } else {
+                                "failed"
+                            },
+                            format!("Boundary translation failed: {e}"),
+                        )
+                    })?;
+            check().map_err(|e| run.failure("cancelled", e))?;
+            for (segment, output) in batch.segments.iter().zip(&outputs) {
+                append_translated_segment(
+                    &mut translated_blocks,
+                    &mut translated_fragments,
+                    segment,
+                    segment.source_block_index,
+                    &output.text,
+                    Vec::new(),
+                    output.markup.clone(),
+                    None,
+                );
+                run.note_preview(&output.text);
+                cache.store_mapped_output(segment, &markup_plans[&segment.id], output);
+            }
+            save_segment_cache(app, plan, &cache).map_err(|e| run.failure("failed", e))?;
+            run.completed_segments += outputs.len();
+            run.cached_segments += reused;
+            run.completed_batches = batch.index + 1;
+            emit_translation_progress(
+                app,
+                run.progress("batch-complete", "Translated batch", reused),
             )
             .map_err(|e| run.failure("failed", e))?;
             continue;
@@ -1228,3 +1289,7 @@ mod tests {
 #[cfg(test)]
 #[path = "runner_tests.rs"]
 mod document_tests;
+
+#[cfg(test)]
+#[path = "runner/boundary_tests.rs"]
+mod boundary_tests;

@@ -44,6 +44,9 @@ where
     S: AsRef<str>,
 {
     validate_request_shape(&request)?;
+    if max_segment_chars == 0 {
+        return Err("Translation segment size must be greater than zero".into());
+    }
     if batch_segment_limit == 0 {
         return Err("Translation batch size must be greater than zero".into());
     }
@@ -54,7 +57,23 @@ where
     } else {
         max_segment_chars
     };
-    let segments = if bergamot {
+    // Keep source identities intact; the boundary adapter still caps actual MT inputs at 900 scalars and the model's token budget.
+    let boundary = super::boundary::applies(&request.model_id) && !request.preserve_formatting;
+    let max_segment_chars = if boundary {
+        super::inline_markup::protected::MAX_HTML_BYTES
+    } else {
+        max_segment_chars
+    };
+    let segments = if boundary {
+        let blocks = source_blocks
+            .into_iter()
+            .map(|b| b.as_ref().split_whitespace().collect::<Vec<_>>().join(" "))
+            .collect::<Vec<_>>();
+        if blocks.iter().any(|b| b.len() > max_segment_chars) {
+            return Err("Boundary translation source block exceeds its bound".into());
+        }
+        segment_text_blocks(blocks, max_segment_chars)?
+    } else if bergamot {
         segment_bergamot_blocks(source_blocks, max_segment_chars)?
     } else {
         segment_text_blocks(source_blocks, max_segment_chars)?
@@ -95,9 +114,11 @@ pub(crate) fn build_translation_cache_key(request: &TranslationStartRequest) -> 
     hasher.write_str(&request.model_id);
     hasher.write_str(&request.quality_mode);
     hasher.write_str(request.repair_mode.label());
-    // Leave existing plain cache identities unchanged.
+    // Strict keys stay stable; boundary OPUS jobs must not reuse legacy text/probe caches.
     if request.preserve_formatting {
         hasher.write_str("strict-formatting-v1");
+    } else if super::boundary::applies(&request.model_id) {
+        hasher.write_str(super::boundary::POLICY);
     }
     for entry in &request.glossary {
         hasher.write_str(entry.source.trim());

@@ -12,6 +12,7 @@ use crate::document_uploads::{is_note_marker, tag_separates_text};
 use crate::translation::html::parse_html_document;
 
 pub(super) mod boundaries;
+mod boundary;
 mod mapped;
 
 /// Source normalization and hierarchy semantics participate in worker cache compatibility.
@@ -78,6 +79,15 @@ pub(crate) struct ProtectedSource {
 impl ProtectedSource {
     /// Extract once using the shared DOM text contract, keeping normalized wrappers around leading children.
     pub(crate) fn new(node: &NodeRef) -> Result<Self, String> {
+        Self::extract(node, true)
+    }
+
+    /// Boundary MT can translate table/figure prose inside retained source shells; media and literals stay opaque.
+    pub(crate) fn for_boundaries(node: &NodeRef) -> Result<Self, String> {
+        Self::extract(node, false)
+    }
+
+    fn extract(node: &NodeRef, opaque_layout: bool) -> Result<Self, String> {
         let element = node
             .as_element()
             .ok_or("Protected source requires an element context")?;
@@ -86,7 +96,14 @@ impl ProtectedSource {
         let mut codes = Vec::new();
         let mut pending = false;
         for child in node.children() {
-            collect(&child, None, &mut text, &mut pending, &mut codes)?;
+            collect(
+                &child,
+                None,
+                &mut text,
+                &mut pending,
+                &mut codes,
+                opaque_layout,
+            )?;
         }
         if text != source_inline_model(node).text {
             return Err("Protected markup does not match the source DOM".into());
@@ -193,6 +210,7 @@ fn collect(
     text: &mut String,
     pending: &mut bool,
     codes: &mut Vec<Code>,
+    opaque_layout: bool,
 ) -> Result<(), String> {
     if let Some(value) = node.as_text() {
         append_normalized_text(text, &value.borrow(), pending);
@@ -205,10 +223,8 @@ fn collect(
     let attrs = element.attributes.borrow();
     let note_marker = is_note_marker(node);
     let opaque = note_marker
-        || matches!(
-            tag,
-            "code" | "img" | "svg" | "math" | "audio" | "video" | "table" | "figure"
-        )
+        || matches!(tag, "code" | "img" | "svg" | "math" | "audio" | "video")
+        || (opaque_layout && matches!(tag, "table" | "figure"))
         || attrs
             .get("translate")
             .is_some_and(|v| v.eq_ignore_ascii_case("no"));
@@ -252,7 +268,7 @@ fn collect(
             *pending = true;
         }
         for child in node.children() {
-            collect(&child, Some(id), text, pending, codes)?;
+            collect(&child, Some(id), text, pending, codes, opaque_layout)?;
         }
         if tag_separates_text(tag) {
             *pending = true;

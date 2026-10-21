@@ -57,6 +57,8 @@ pub(super) fn list_translated_documents<R: Runtime>(
 }
 
 pub(crate) struct PersistTranslationRequest {
+    /// Boundary results cannot fall back to legacy rendering or overwrite its saved/audio identities.
+    pub(crate) boundary: bool,
     /// Declared independently of fragments so losing every receipt cannot downgrade a strict job to legacy output.
     pub(crate) alignment: Option<super::inline_markup::provider::contract::Versions>,
     pub(crate) source: TranslationSourceDocument,
@@ -98,7 +100,7 @@ pub(crate) struct PersistTranslationInlinePhrase {
 
 /// Store a completed translation as its own reader/search document.
 ///
-/// The translated text is generated as escaped plain HTML, then inserted through
+/// Rendering retains source-owned shells and escapes translated prose before insertion through
 /// `document_uploads` so Find, search, viewing, and TTS see the same
 /// contract as imported HTML/EPUB. The translation row only records provenance
 /// and delete/list metadata. `on_validated` runs after quality checks but before
@@ -149,6 +151,9 @@ pub(crate) fn persist_translated_document<R: Runtime>(
     if let Some(versions) = request.alignment.as_ref() {
         settings["alignment"] = serde_json::to_value(versions)
             .map_err(|_| "Alignment provenance serialization failed")?;
+    }
+    if request.boundary {
+        settings["formattingPolicy"] = super::boundary::POLICY.into();
     }
     let settings_json = settings.to_string();
     let glossary_hash = translation_glossary_hash(&request.glossary);
@@ -339,6 +344,9 @@ fn translated_document_id(request: &PersistTranslationRequest) -> String {
         hasher
             .write_str(&serde_json::to_string(versions).expect("serializable alignment versions"));
     }
+    if request.boundary {
+        hasher.write_str(super::boundary::POLICY);
+    }
     hasher.finish_hex()
 }
 
@@ -441,6 +449,7 @@ mod tests {
 
     fn persist_request(job_id: &str) -> PersistTranslationRequest {
         PersistTranslationRequest {
+            boundary: false,
             alignment: None,
             source: TranslationSourceDocument {
                 document_id: "source1".into(),
@@ -465,6 +474,7 @@ mod tests {
     #[test]
     fn refuses_storage_render_without_the_source_dom() {
         let request = PersistTranslationRequest {
+            boundary: false,
             alignment: None,
             source: TranslationSourceDocument {
                 document_id: "source1".into(),

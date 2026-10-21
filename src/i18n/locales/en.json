@@ -94,7 +94,8 @@
       "unavailable": "Unavailable",
       "engineUnavailable": "This translation engine is not compiled in this build.",
       "webviewUnavailable": "Bergamot needs a secure WebView with workers, WebCrypto and WebAssembly SIMD. It is unavailable in this WebView.",
-      "bergamotNote": "Experimental: preserves protected HTML markup. Keep Papercut in the foreground; backgrounding stops the job. Device quality and memory use are not yet validated."
+      "bergamotNote": "Experimental: preserves protected HTML markup. Keep Papercut in the foreground; backgrounding stops the job. Device quality and memory use are not yet validated.",
+      "ctranslate2BoundaryNote": "Formatting is preserved by translating fragments separately. Sentences with mixed formatting may read less naturally. No extra formatting pack is needed."
     },
     "documents": {
       "ariaLabel": "Translated documents",
@@ -146,7 +147,7 @@
       "autoDetect": "Auto Detect"
     },
     "formatting": {
-      "label": "Preserve Formatting",
+      "label": "Strict Formatting (Experimental)",
       "packName": "Offline Formatting Pack",
       "description": "Uses a separate offline pack to place emphasis, links and notes. Ambiguous mappings stop the job.",
       "pending": "Formatting preservation is unavailable while validation is pending.",

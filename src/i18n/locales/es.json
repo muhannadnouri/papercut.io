@@ -94,7 +94,8 @@
       "unavailable": "No disponible",
       "engineUnavailable": "Este motor de traducción no está compilado en esta versión.",
       "webviewUnavailable": "Bergamot requiere una WebView segura con workers, WebCrypto y WebAssembly SIMD. No está disponible en esta WebView.",
-      "bergamotNote": "Experimental: conserva el marcado HTML protegido. Mantén Papercut en primer plano; pasar a segundo plano detiene la tarea. La calidad y el uso de memoria en dispositivos aún no se han validado."
+      "bergamotNote": "Experimental: conserva el marcado HTML protegido. Mantén Papercut en primer plano; pasar a segundo plano detiene la tarea. La calidad y el uso de memoria en dispositivos aún no se han validado.",
+      "ctranslate2BoundaryNote": "El formato se conserva traduciendo los fragmentos por separado. Las frases con formatos distintos pueden resultar menos naturales. No se necesita un paquete de formato adicional."
     },
     "documents": {
       "ariaLabel": "Documentos traducidos",
@@ -146,7 +147,7 @@
       "autoDetect": "Detección Automática"
     },
     "formatting": {
-      "label": "Conservar formato",
+      "label": "Formato estricto (experimental)",
       "packName": "Paquete de formato sin conexión",
       "description": "Usa un paquete sin conexión independiente para ubicar énfasis, enlaces y notas. Las correspondencias ambiguas detienen la tarea.",
       "pending": "La conservación del formato no está disponible mientras se valida.",

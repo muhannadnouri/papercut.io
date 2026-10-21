@@ -181,7 +181,7 @@ impl CTranslate2Engine {
 }
 
 impl ExactPieceTranslator for CTranslate2Engine {
-    /// Strict OPUS-MT uses the actual tokenizer's EOS-inclusive count; other future providers must opt in explicitly.
+    /// Checked OPUS-MT inputs use the actual EOS-inclusive token count; other providers must opt in explicitly.
     fn source_fits(&self, source: &str) -> Result<bool, String> {
         if !matches!(
             self.config.model_id.as_str(),

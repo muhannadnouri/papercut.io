@@ -428,6 +428,9 @@ export function TranslationPanel({
               </select>
             </label>
           </div>
+          {selectedModel?.engine === 'ctranslate2' && (
+            <p className="translation-resource-note">{t('translation.models.ctranslate2BoundaryNote')}</p>
+          )}
           {bergamotSelected && (
             <p className="translation-resource-note">{t('translation.models.bergamotNote')}</p>
           )}

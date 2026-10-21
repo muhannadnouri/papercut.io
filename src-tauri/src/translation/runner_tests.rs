@@ -360,7 +360,7 @@ fn inline_probes_use_bounded_requests_and_resume_without_more_inference() {
     // A native adapter has no remote save checkpoint and still uses the shared writer.
     let native = plan_translation_job(
         TranslationStartRequest {
-            model_id: "opus-mt-fr-en-ctranslate2".into(),
+            model_id: "hy-mt2-1.8b-q8".into(),
             ..plan.request
         },
         source.blocks.iter().map(|b| b.text.as_str()),
@@ -384,7 +384,7 @@ fn inline_probes_use_bounded_requests_and_resume_without_more_inference() {
             r.get(0)
         })
         .unwrap();
-    assert_eq!(engine, "ctranslate2");
+    assert_eq!(engine, "llama.cpp");
 }
 
 #[test]
