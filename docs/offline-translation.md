@@ -4283,9 +4283,38 @@ identities are unchanged. The frontend was not modified or revalidated; no model
 inference, new CI, benchmark or packaged-device test was run. Smoke and version
 bump remain deferred; strict alignment remains retired.
 
-**Next:** review this separation, then isolate the legacy rendering path as
-specified above. This cleanup does not fix Bergamot's known model-output failures
-or qualify it for new document jobs.
+#### Adapter separation review — 2026-10-21
+
+Reviewed `09a5f72f`, its connected command/engine/provider/cache/render/save paths
+and strengthened bridge/document tests against the earlier architecture and
+lifecycle decisions recalled with MemSearch. Assumed one foreground HTML/EPUB
+job, sequential bounded batches and a long document spanning many batches.
+No actionable correctness, security, data-loss, performance or unnecessary-layer
+finding was identified in this separation. The moved batch/trait bodies match
+the pre-refactor implementation after excluding comments; module registration,
+imports and callers still compile in all three checked configurations.
+
+Transport ownership, size bounds, deadlines and cancellation remain in the
+mailbox; the adapter validates the transport echo before source rebinding and
+closes on rejection. The mixed plain/protected regression covers valid output
+and five invalid-reply cases. HTML/EPUB runner tests prove wrong echoes and forged
+markup cannot cache a valid first fragment or save an incomplete variant. Resume
+still revalidates source-bound mappings, and all-cache jobs still require a live
+owner confirmation before atomic save admission. These repeated checks protect
+different trust boundaries; none should be removed as duplicate work.
+
+Fresh review validation passed: **220 base**, **222 worker-only** and **221 native
+Rust translation tests** (2 inference tests intentionally ignored), Rustfmt and
+diff checks. No production code changed during review. The refactor has no
+identified merge blocker; model-quality and packaged-device acceptance remain
+separate. Frontend, new CI, inference, benchmarks, smoke and version bump were
+not checked or advanced.
+
+**Next:** isolate the legacy rendering path as specified above, preserving its
+behavior and adding the explicit rejection/dispatch guard regression. This
+review does not fix Bergamot's known model-output failures or qualify it for new
+document jobs. Strict alignment remains retired; Bergamot/HY-MT2 admission stays
+closed and OPUS admission is unchanged.
 
 ## Boundary-based CTranslate2 translation — 2026-10-20
 
