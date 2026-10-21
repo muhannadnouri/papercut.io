@@ -4150,10 +4150,41 @@ notice payloads are byte-identical, and the lockfile changes only the removed
 direct tokenizer edge. Model inference, benchmarks, broader/device smoke and
 version bump remain deferred.
 
-**Next bounded stage:** review the retirement diff and compatibility regressions.
-After that, evaluate the remaining worker transport/protected-mapping and legacy
-rendering boundaries; keep any further refactor separate from provider admission
-or translation-quality claims.
+#### Retirement review — 2026-10-21
+
+Reviewed `0817069b` and its connected command, planner, cache, renderer, installer,
+job/save-ownership and UI paths against the earlier architecture decision. Assumed
+one foreground local HTML/EPUB job with sequential bounded batches, including long
+documents. No correctness, security or data-loss merge blocker was identified in
+this retirement. Old strict requests still reject; retired receipts cannot supply
+ordinary cached prose. Saved-document reads and pack removal remain independent
+of the removed runtime. The shared planner retains literal/attachment ownership,
+Unicode limits and late-cancellation checks. Provider admission is unchanged.
+
+1. **P3, non-blocking cleanup:** `model_store/verified.rs::read_cancellable` now
+   exists only under `cfg(test)`. Its former production caller was the retired
+   aligner; both remaining production entry points (`read` and `verify`) pass an
+   always-false callback to `checked`. Remove that test-only entry point, its
+   cancellation-only test, the unused callback/checks/error variant and the
+   unreachable Bergamot error arm. Keep the live size/hash/path/symlink and
+   immutable-snapshot tests, plus job/worker cancellation guards. Leaving this
+   in place does not change user behavior, but retains unused branches and a test
+   that no longer covers a production capability. This is roughly 45 removable
+   lines, not a reason to enable or redesign cancellation elsewhere.
+
+Fresh review validation passed: **221 base Rust translation tests**, **222
+native-feature tests** (2 inference tests intentionally ignored), **223 worker-only
+tests**, **121 frontend translation tests**, Rustfmt and diff checks. These are
+new runs; the build/CI, TypeScript, locale and ONNX configuration checks above are
+the earlier implementation receipt and were not repeated during this review.
+No production code changed during review. Model quality, packaged-device behavior,
+new CI, benchmarks, smoke and version bump were not checked or advanced.
+
+**Next bounded stage:** remove the orphaned asset-read cancellation scaffolding
+with the existing live verification tests retained. Then evaluate the remaining
+worker transport/protected-mapping and legacy rendering boundaries before another
+production refactor. This review clears the retirement's behavior; it does not
+establish translation-quality or packaged-device acceptance for the full feature.
 
 ## Boundary-based CTranslate2 translation — 2026-10-20
 
