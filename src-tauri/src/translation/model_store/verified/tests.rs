@@ -36,7 +36,7 @@ fn snapshots_and_streaming_verification_require_exact_hash_size_and_regular_file
         assert!(read(&dir.0, &PIN, 3).is_err());
         assert!(verify(&dir.0, &PIN, 3).is_err());
     }
-    // A successful tokenizer snapshot is immutable even when the path is later replaced.
+    // A verified snapshot is immutable even when the path is later replaced.
     assert_eq!(snapshot, b"abc");
     fs::remove_file(&path).unwrap();
     fs::create_dir(&path).unwrap();
@@ -64,25 +64,6 @@ fn manifest_names_and_size_caps_reject_escapes_and_overflow_before_reading() {
         let pin = TranslationModelFile { bytes, ..PIN };
         assert_eq!(verify(&dir.0, &pin, u64::MAX), Err(AssetError::Size));
     }
-}
-
-#[test]
-fn cancellation_before_io_or_during_snapshot_read_never_returns_partial_bytes() {
-    let dir = Directory::new();
-    assert_eq!(
-        read_cancellable(&dir.0, &PIN, 3, || true),
-        Err(AssetError::Cancelled)
-    );
-    fs::write(dir.0.join(PIN.path), b"abc").unwrap();
-    let mut checks = 0;
-    assert_eq!(
-        read_cancellable(&dir.0, &PIN, 3, || {
-            checks += 1;
-            checks >= 3
-        }),
-        Err(AssetError::Cancelled)
-    );
-    assert_eq!(read_cancellable(&dir.0, &PIN, 3, || false).unwrap(), b"abc");
 }
 
 #[cfg(unix)]

@@ -12,32 +12,20 @@ pub(crate) enum AssetError {
     Size,
     Read,
     Integrity,
-    Cancelled,
 }
 
-/// Keep tokenizer/worker bytes from the same bounded read whose digest was checked.
+/// Keep worker bytes from the same bounded read whose digest was checked.
 pub(crate) fn read(
     dir: &Path,
     pin: &TranslationModelFile,
     limit: u64,
 ) -> Result<Vec<u8>, AssetError> {
-    checked(dir, pin, limit, true, &mut || false)
-}
-
-/// Check cancellation at each bounded read; never return a partially verified snapshot.
-#[cfg(test)]
-pub(crate) fn read_cancellable(
-    dir: &Path,
-    pin: &TranslationModelFile,
-    limit: u64,
-    mut cancelled: impl FnMut() -> bool,
-) -> Result<Vec<u8>, AssetError> {
-    checked(dir, pin, limit, true, &mut cancelled)
+    checked(dir, pin, limit, true)
 }
 
 /// Stream large weights without retaining a second model-sized buffer; this grants no future load lease.
 pub(crate) fn verify(dir: &Path, pin: &TranslationModelFile, limit: u64) -> Result<(), AssetError> {
-    checked(dir, pin, limit, false, &mut || false).map(|_| ())
+    checked(dir, pin, limit, false).map(|_| ())
 }
 
 /// Manifest names are single normal components on every supported OS, not relative paths.
@@ -54,11 +42,7 @@ fn checked(
     pin: &TranslationModelFile,
     limit: u64,
     retain: bool,
-    cancelled: &mut dyn FnMut() -> bool,
 ) -> Result<Vec<u8>, AssetError> {
-    if cancelled() {
-        return Err(AssetError::Cancelled);
-    }
     if pin.bytes == 0 || pin.bytes > limit || pin.bytes.checked_add(1).is_none() {
         return Err(AssetError::Size);
     }
@@ -98,9 +82,6 @@ fn checked(
     let mut total = 0u64;
     let mut buffer = [0; 64 * 1024];
     loop {
-        if cancelled() {
-            return Err(AssetError::Cancelled);
-        }
         let count = input.read(&mut buffer).map_err(|_| AssetError::Read)?;
         if count == 0 {
             break;
@@ -110,9 +91,6 @@ fn checked(
         if retain {
             bytes.extend_from_slice(&buffer[..count]);
         }
-    }
-    if cancelled() {
-        return Err(AssetError::Cancelled);
     }
     if total != pin.bytes || format!("{:x}", hash.finalize()) != pin.sha256 {
         return Err(AssetError::Integrity);

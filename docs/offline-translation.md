@@ -26,6 +26,7 @@ unqualified provider in the app.
 - [Shared formatting policy](#shared-formatting-policy-selection--2026-10-21) follows each job through planning, cache admission and saving. [Shared batch checkpoints](#shared-batch-admission-and-checkpoints--2026-10-21) preserve whole-batch admission and source order across mixed cache/fresh results. Provider admission is unchanged.
 - [Disabled aligner archival evaluation](#disabled-aligner-archival-evaluation--2026-10-21) defines the preservation rules now applied by [strict-pipeline retirement](#strict-alignment-pipeline-retirement--2026-10-21).
 - [Shared sentence-planner separation](#shared-sentence-planner-separation--2026-10-21) now gives live planning/decoding its own module outside strict research, with unchanged translation policy and cache identities.
+- [Worker and rendering boundary evaluation](#worker-and-rendering-boundary-evaluation--2026-10-21) defines the next two small refactors; provider admission and formatting behavior stay unchanged.
 
 - Translation accepts **HTML and EPUB only**, enforced in both the UI and native source loader. PDF and other formats remain unsupported.
 
@@ -4180,11 +4181,77 @@ the earlier implementation receipt and were not repeated during this review.
 No production code changed during review. Model quality, packaged-device behavior,
 new CI, benchmarks, smoke and version bump were not checked or advanced.
 
-**Next bounded stage:** remove the orphaned asset-read cancellation scaffolding
-with the existing live verification tests retained. Then evaluate the remaining
-worker transport/protected-mapping and legacy rendering boundaries before another
-production refactor. This review clears the retirement's behavior; it does not
-establish translation-quality or packaged-device acceptance for the full feature.
+#### Asset-reader cleanup — 2026-10-21
+
+Retirement review finding 1 is resolved: removed `read_cancellable`, the callback
+and cancellation branches in the shared verified reader, its unused error variant,
+the unreachable worker error arm and the test of that retired capability. Both
+production callers already supplied an always-false callback. Size/hash/path and
+symlink validation, immutable snapshots, streamed verification, and job/worker
+cancellation remain unchanged. The code/test diff removes 42 net lines.
+
+Fresh validation passed: **220 base**, **221 native-feature** (2 model-inference
+tests ignored) and **222 worker-only Rust translation tests**, Rustfmt and diff
+checks. Each configuration loses exactly the one obsolete cancellation-only
+test; live asset-admission, installer, worker lifecycle and save/resume tests remain.
+No frontend, model, pin, cache identity or stored data changed. New CI, inference,
+benchmarks, smoke and version bump remain deferred.
+
+### Worker and rendering boundary evaluation — 2026-10-21
+
+Traced the current code against the earlier architecture decision. This section
+is an evaluation and implementation order, not another engine integration or
+translation-quality claim. The admitted OPUS sentence/review path remains the
+product baseline; Bergamot/HY-MT2 remain gated and strict alignment stays retired.
+
+| Responsibility | Current owner | Decision |
+| --- | --- | --- |
+| DOM/source identities, literals, hierarchy and safe restoration | `dom.rs`, `inline_markup/protected.rs` and its children | Keep shared. Sentence and worker normalization differ deliberately; do not merge their policies. |
+| Worker window/attempt ownership, sequence, bounded mailbox, absolute deadline, stop and cancellation | `bergamot.rs` | Keep together as transport/lifetime logic. |
+| Engine input admission, opaque HTML encoding, exact transport echo validation and source rebinding | `WorkerEngine::batch` in `bergamot.rs` | Separate from mailbox transport into a small Bergamot adapter module, reusing current types. |
+| Whole-batch cache/fresh admission and checkpoints | `runner/provider.rs`, `runner.rs`, `cache.rs` | Keep shared. Do not add a second job or cache path. |
+| Source/result coverage, review-original rendering, annotations and final serialization | `render.rs` | Keep at the persistence boundary. |
+| Text/phrase-probe best-effort projection and marker guesses | Older branches/helpers in `render.rs`, `runner.rs`, `inline_markup.rs` | Isolate behind the existing Provider path in a later stage; never route sentence/review output through it. |
+
+**Next bounded implementation: separate the Bergamot adapter from transport.**
+Move the existing `WorkerEngine::batch` and `TranslationEngine` implementation
+into `bergamot/adapter.rs`. Keep the existing `WorkerEngine` identity, mailbox
+methods and wire DTOs; the child module can use the existing transport without a
+new trait, wrapper or provider framework. Move adapter-only imports and document
+the two source echoes: worker replies echo opaque transport HTML, whereas admitted
+engine outputs must echo the original normalized prose. A worker cannot supply
+trusted `markup` or declare its own formatting policy. Preserve the order of
+validation, source rebinding, error-triggered close and pre-save confirmation.
+
+Completion requires the existing bridge tests to pass for wrong-window/stale/
+duplicate replies, size/count/source mismatches, absolute timeout, cancellation,
+slot release and save confirmation. Add or strengthen a synthetic adapter test
+that exercises plain and protected requests plus invalid transport/markup replies
+through that same bridge; invalid results must never reach a cache checkpoint or
+save. Keep document tests for nested markup, copied literals, quote notes, assets,
+mixed cache/fresh order, full-cache confirmation and failed-batch resume. Check
+base, worker-only and native Rust configurations. No new inference is needed to
+verify this separation, and moving code does not justify changing cache versions.
+
+**Following stage: isolate legacy rendering, separately.** Move the existing
+plain-output best-effort fallback chain and its helpers into `render/legacy.rs`
+with one local entry point. Keep escaping, serialization and annotation helpers
+shared where they already have multiple callers. Preserve the existing legacy
+tests and add an explicit dispatch guard test: an invalid sentence/review or
+protected fragment must reject, never fall through into legacy projection.
+Saved translations are read as durable documents and do not need this renderer
+to reopen; keeping the legacy implementation is for existing internal provider
+behavior/tests, not a saved-file compatibility requirement. Do not silently delete
+HY-MT2 research behavior or re-admit it as part of a module move.
+
+The frontend `bergamot/nativeBridge.ts` already owns document-worker lifetime and
+IPC; `assets.ts` separately owns binary delivery. Leave both alone for this stage.
+Repeated protected restoration at adapter, cache and final-render boundaries is
+intentional: fresh replies, resumed records and persisted fragments have different
+trust boundaries. Reuse `ProtectedPlan` checks rather than deleting validation or
+introducing a generic cache of trusted DOM. Broader UI responsibility splitting
+and roadmap condensation can follow these small refactors; neither solves model
+quality. Benchmarks, smoke and version bump remain deferred.
 
 ## Boundary-based CTranslate2 translation — 2026-10-20
 

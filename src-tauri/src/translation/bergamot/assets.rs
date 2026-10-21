@@ -84,7 +84,6 @@ fn read_verified(dir: &Path, pin: &TranslationModelFile) -> Result<Vec<u8>, Stri
             AssetError::Missing => "Bergamot assets are not installed",
             AssetError::Read => "Could not read Bergamot asset",
             AssetError::Integrity => "Bergamot asset integrity check failed; reinstall its files",
-            AssetError::Cancelled => "Bergamot asset read cancelled",
         }
         .into()
     })
