@@ -82,12 +82,114 @@ fn uniform_formatting_keeps_sentence_context_and_nested_scopes_expand_without_wo
     .unwrap();
     assert_eq!(
         engine.seen,
-        ["Elle", "viendra", "demain; une", "bague en or", "."]
+        ["Elle", "viendra", "demain; une", "bague en or"]
     );
     assert_eq!(
         html,
         "ELLE <strong><em>will come</em></strong> DEMAIN; UNE <i>gold ring</i>."
     );
+}
+
+/// Punctuation around translated scopes must stay source-owned, including styled and linked punctuation.
+#[test]
+fn punctuation_symbols_and_emoji_keep_markup_and_never_enter_inference() {
+    let mut engine = Engine {
+        seen: vec![],
+        limit: 900,
+    };
+    let (html, _, _) = translate("<p>«<strong id='word'><em>bonjour</em></strong>» ! <a href='https://example.org'>?</a> <span>！？—…،؛؟</span> 👩‍💻 &amp; + =<a role='doc-noteref' href='#note'>1</a></p>", &mut engine).unwrap();
+    assert_eq!(engine.seen, ["bonjour"]);
+    let doc = crate::translation::html::parse_html_document(format!("<div>{html}</div>"));
+    assert_eq!(
+        doc.select_first("strong#word > em")
+            .unwrap()
+            .text_contents(),
+        "BONJOUR"
+    );
+    assert_eq!(
+        doc.select_first("a[href='https://example.org']")
+            .unwrap()
+            .text_contents(),
+        "?"
+    );
+    assert_eq!(
+        doc.select_first("span").unwrap().text_contents(),
+        "！？—…،؛؟"
+    );
+    assert!(doc.select_first("a[role=doc-noteref]").is_ok());
+    assert!(html.starts_with("«<strong"));
+    assert!(html.contains("</strong>» !"));
+    assert!(html.contains("👩‍💻 &amp; + ="));
+    engine.seen.clear();
+    translate(
+        "<p><em>été</em> <strong>عَرَبِيّ</strong> <i>日本語</i> <b>42</b> <u>١٢٣</u> !</p>",
+        &mut engine,
+    )
+    .unwrap();
+    assert_eq!(engine.seen, ["été", "عَرَبِيّ", "日本語", "42", "١٢٣"]);
+    engine.seen.clear();
+    engine.limit = 7;
+    let (html, _, _) = translate("<p><strong>bonjour !</strong></p>", &mut engine).unwrap();
+    assert_eq!(engine.seen, ["bonjour"]);
+    assert_eq!(html, "<strong>BONJOUR !</strong>");
+}
+
+/// A punctuation-only block needs neither tokenizer nor inference; strict planning keeps its existing policy.
+#[test]
+fn punctuation_only_blocks_bypass_runtime_but_keep_cancellation_and_strict_planning() {
+    struct NoRuntime;
+    impl ExactPieceTranslator for NoRuntime {
+        fn source_fits(&self, _: &str) -> Result<bool, String> {
+            panic!("copied punctuation was tokenized")
+        }
+        fn translate_exact(&mut self, _: &[&str]) -> Result<Vec<String>, String> {
+            panic!("copied punctuation was translated")
+        }
+    }
+    let dom = DomPlan::new("<p><strong>¿</strong><em>?!</em> «» … 👩‍💻</p>");
+    let block = &dom.blocks[0];
+    let segment = TranslationTextSegment {
+        id: "b0:s0".into(),
+        source_block_index: 0,
+        source_start: 0,
+        source_end: block.inline.text.chars().count(),
+        text: block.inline.text.clone(),
+    };
+    let protected = ProtectedSource::for_boundaries(&block.node)
+        .unwrap()
+        .fragment(0..segment.source_end, &segment.text)
+        .unwrap();
+    let mut engine = NoRuntime;
+    let plan = SourcePlan::from_boundaries(&segment, protected.clone(), &engine).unwrap();
+    assert!(plan
+        .translate(&mut engine, |_, _| Ok(true), || true)
+        .err()
+        .unwrap()
+        .contains("cancelled"));
+    let mut translated = plan
+        .translate(&mut engine, |_, _| Ok(true), || false)
+        .unwrap();
+    assert_eq!(translated.text, segment.text);
+    let markup = protected.boundary_output(&translated).unwrap();
+    assert_eq!(
+        protected.restore_boundaries(&markup).unwrap().text,
+        segment.text
+    );
+    translated.text = translated.text.replacen('¿', "X", 1);
+    assert!(protected
+        .boundary_output(&translated)
+        .err()
+        .unwrap()
+        .contains("copied source content"));
+    let engine = Engine {
+        seen: vec![],
+        limit: 900,
+    };
+    let strict = SourcePlan::from_protected(&segment, protected, &engine, |_, _| Ok(true)).unwrap();
+    assert!(strict
+        .units()
+        .iter()
+        .any(|u| u.kind == crate::translation::inline_markup::provider::pieces::Kind::Prose));
 }
 
 #[test]
@@ -264,6 +366,8 @@ fn installed_french_spanish_boundary_units_preserve_nested_styles_and_literals()
 
         ("opus-mt-fr-en-ctranslate2", "<p>Une <strong id='s'><em>bague en or</em></strong> est ici.<a role='doc-noteref' href='#n'>1</a> <code>private_key</code></p>", "ring"),
         ("opus-mt-es-en-ctranslate2", "<p>Un <strong id='s'><em>libro azul</em></strong> está aquí.<a role='doc-noteref' href='#n'>1</a> <code>private_key</code></p>", "book"),
+        ("opus-mt-fr-en-ctranslate2", "<p>«<strong id='s'><em>Bonjour le monde.</em></strong>» ! ? <code>private_key</code><a role='doc-noteref' href='#n'>1</a></p>", "world"),
+        ("opus-mt-es-en-ctranslate2", "<p>«<strong id='s'><em>Hola mundo.</em></strong>» ! ? <code>private_key</code><a role='doc-noteref' href='#n'>1</a></p>", "world"),
     ] {
         let dir = std::path::PathBuf::from(&root).join(model);
         manifest_by_id(model).unwrap().verify_files(&dir).unwrap();
@@ -279,6 +383,9 @@ fn installed_french_spanish_boundary_units_preserve_nested_styles_and_literals()
         let parsed=crate::translation::html::parse_html_document(restored.html);
         let emphasis=parsed.select_first("strong#s > em").unwrap().text_contents();
         assert!(emphasis.to_lowercase().contains(expected_word), "{model}: {emphasis}");
+        if html.starts_with("<p>«") {
+            assert_eq!(restored.text, format!("«{emphasis}» ! ? private_key"));
+        }
         assert_eq!(parsed.select_first("code").unwrap().text_contents(),"private_key");
         assert!(parsed.select_first("a[role=doc-noteref]").is_ok());
     }

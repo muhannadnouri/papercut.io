@@ -11,8 +11,10 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - **Current CTranslate2 path:** [boundary-based translation](#boundary-based-ctranslate2-translation--2026-10-20)
   retains source formatting by translating fragments separately, with an explicit
   cross-fragment fluency tradeoff. It reuses the shared document pipeline and
-  does not load an aligner. The strict candidate remains disabled; the Stage 9
-  investigations below do not block this separately approved boundary policy.
+  does not load an aligner. Punctuation/symbol-only fragments are copied without
+  inference, including tails created by size-based splitting. The strict candidate
+  remains disabled; the Stage 9 investigations below do not block this separately
+  approved boundary policy.
 
 - Translation accepts **HTML and EPUB only**, enforced in both the UI and native source loader. PDF and other formats remain unsupported.
 
@@ -3656,12 +3658,14 @@ was posted. The strict alignment candidate remains disabled and unqualified.
   The source-context HTML fragment parser preserves table/list structure.
   Worker quote/note repositioning and legacy phrase matching are bypassed;
   translated text is escaped rather than accepted as model-generated HTML.
-- `ctranslate2-source-boundaries-v1` separates job/cache and saved-variant
+- `ctranslate2-source-boundaries-v2` separates job/cache and saved-variant
   identities from legacy phrase-hint output. Boundary cache entries bind
   source structure and fragment context, require validated markup and never
   reuse plaintext phrase memory. A whole batch must succeed before any new
   entries are checkpointed. Existing variants, assets, audio and timing files
   remain intact; a successful retry replaces only its own boundary variant.
+  Version 1 caches are retired by the changed key; existing version 1 saved
+  documents and their audio/timing files are left intact.
 - Cancellation is checked around planning, each bounded native call, cache
   admission and before the shared writer claims saving. A failed/late-cancelled
   batch produces no partial saved document. A fully cached run still reaches
@@ -3694,6 +3698,48 @@ Python service or new alignment model is introduced.
 
 ### Regression coverage and remaining acceptance
 
+**Punctuation follow-up — 2026-10-20:** The focused review reproduced real
+model hallucinations from isolated `!`: the official French pack generated
+“I'm sorry” dialogue and the Spanish pack generated “Oh, my God”. These replies
+passed structural checks and reached storage, so ordinary markup validity was
+not enough. Boundary planning now copies any piece with **no Unicode letters
+or numbers**, retaining its punctuation, symbols, emoji and normalized whitespace
+at the same source position and inside the same markup. It performs this check
+before tokenization on every size-based subpiece too. Pieces containing letters
+or numbers still use the translator; punctuation attached to prose keeps its
+sentence context. Copied output is checked against its exact source slice
+before reconstruction. The strict planner, Bergamot and HY-MT2 are unchanged.
+
+The policy is now `ctranslate2-source-boundaries-v2`, so a structurally valid
+version 1 cache containing invented dialogue cannot resume into a corrected
+job. Synthetic HTML/EPUB lifecycle regressions for both model IDs seed such a
+retired cache, fail a later batch, resume only the unfinished prose, and then
+perform a completely cached retry. They check saved text, bold/italic markup
+and the unchanged retired cache. Additional tests cover linked/styled Unicode
+punctuation, symbols/emoji, Unicode letters/numbers, punctuation-only blocks
+without a tokenizer/runtime, size-split punctuation tails, cancellation and
+rejection of changed copied content. All fixtures are synthetic. The opt-in
+native regression now includes two quote/exclamation/question-mark cases in
+addition to its four original fixtures.
+
+Follow-up validation passed:
+
+- Full offline base Rust suite: **550 passed, 4 ignored**.
+- Full suite with `native-translation-ctranslate2,native-translation-alignment-runtime`:
+  **576 passed, 14 ignored**, including the disabled strict candidate's internal tests.
+- Explicit native boundary regression using the existing manifest-verified
+  FR/ES packs: **1 passed across six synthetic fixtures**, with exact quote and
+  trailing `! ?` preservation. No downloads or runtime/model changes were needed.
+- New punctuation/markup/cache regressions failed before the fix. A separate
+  size-split punctuation-tail check also failed before the per-subpiece fix.
+  Rust formatting and `git diff --check` passed. Logs are
+  `/tmp/translation-boundary-punctuation-{red,split-red,base,combined,inference}.log`.
+
+The strict candidate remains disabled. Benchmarks, app smoke, fresh platform CI
+and the app version bump remain deferred; mixed-fragment translation quality
+still needs representative document acceptance. This fix prevents translation
+of punctuation-only pieces, not all possible model hallucinations.
+
 Synthetic provider tests cover uniform/nested emphasis, repeated words,
 one-to-many translated fragments, leading notes/images, copied literals,
 links/IDs, escaped text, table context, >900-character authored wrappers,
@@ -3706,7 +3752,7 @@ read-along/audio files. UI tests verify the model-specific guidance and closed
 strict checkbox. A separately opt-in native regression uses only externally
 cached, manifest-verified FR/ES packs and synthetic text; it downloads nothing.
 
-Validation passed:
+Initial boundary implementation validation passed (before this follow-up):
 
 - `cargo test --manifest-path src-tauri/Cargo.toml --lib --offline`: **547 passed,
   4 ignored**. Existing socket/D-Bus regressions require local socket permission.

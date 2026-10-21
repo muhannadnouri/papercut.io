@@ -39,6 +39,8 @@ pub(crate) enum Kind {
     Prose,
     Whitespace,
     Literal(usize),
+    /// Boundary-only punctuation/symbol fragments have no words to translate and can trigger hallucinations.
+    Verbatim,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -150,7 +152,15 @@ impl SourcePlan {
                 if let Some(code) = codes.iter().find(|c| c.literal && c.range == range) {
                     push(&mut units, Kind::Literal(code.id), range)?;
                 } else {
-                    plan_prose(text, &bytes, range, translator, &aligner_fits, &mut units)?;
+                    plan_prose(
+                        text,
+                        &bytes,
+                        range,
+                        boundaries,
+                        translator,
+                        &aligner_fits,
+                        &mut units,
+                    )?;
                 }
             }
         } else {
@@ -167,6 +177,7 @@ impl SourcePlan {
                     text,
                     &bytes,
                     cursor..code.range.start,
+                    boundaries,
                     translator,
                     &aligner_fits,
                     &mut units,
@@ -178,6 +189,7 @@ impl SourcePlan {
                 text,
                 &bytes,
                 cursor..bytes.len() - 1,
+                boundaries,
                 translator,
                 &aligner_fits,
                 &mut units,
@@ -313,11 +325,13 @@ impl SourcePlan {
     }
 }
 
-/// Split only over-budget prose; formatting boundaries never enter the candidate cut list.
+/// Split over-budget prose; recheck each subpiece so a new punctuation-only tail cannot reach MT.
+#[allow(clippy::too_many_arguments)]
 fn plan_prose(
     text: &str,
     bytes: &[usize],
     range: Range<usize>,
+    boundaries: bool,
     translator: &dyn ExactPieceTranslator,
     aligner_fits: &impl Fn(&str, Side) -> Result<bool, String>,
     units: &mut Vec<Unit>,
@@ -333,6 +347,10 @@ fn plan_prose(
             return Err("Exact-piece planning exceeds its work bound".into());
         }
         let value = &text[bytes[range.start]..bytes[range.end]];
+        if boundaries && !value.chars().any(char::is_alphanumeric) {
+            push(units, Kind::Verbatim, range)?;
+            continue;
+        }
         let trimmed = value.trim();
         if trimmed.is_empty() {
             push(units, Kind::Whitespace, range)?;

@@ -31,9 +31,9 @@ impl ProtectedPlan {
             code.start = endpoint(code.start)?;
             code.end = endpoint(code.end)?;
         }
-        // Literal content was copied, not synthesized; transport still contains only its opaque placeholder.
+        // Copied content is never synthesized; literals still use opaque placeholders in transport.
         for (unit, target) in translation.plan.units().iter().zip(&translation.targets) {
-            if matches!(unit.kind, Kind::Literal(_)) {
+            if matches!(unit.kind, Kind::Literal(_) | Kind::Verbatim) {
                 let source: String = self
                     .source
                     .chars()
@@ -47,7 +47,7 @@ impl ProtectedPlan {
                     .take(target.len())
                     .collect();
                 if source != copied {
-                    return Err("Boundary translation changed a literal".into());
+                    return Err("Boundary translation changed copied source content".into());
                 }
             }
         }

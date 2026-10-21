@@ -10,7 +10,7 @@ use super::{
 };
 use std::collections::BTreeMap;
 
-pub(super) const POLICY: &str = "ctranslate2-source-boundaries-v1";
+pub(super) const POLICY: &str = "ctranslate2-source-boundaries-v2";
 
 /// Fixed OPUS pairs use source-boundary translation by default; strict requests retain their separate gate.
 pub(super) fn applies(model: &str) -> bool {

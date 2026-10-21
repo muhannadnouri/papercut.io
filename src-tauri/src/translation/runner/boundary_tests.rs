@@ -270,3 +270,159 @@ fn late_native_cancellation_commits_neither_partial_batch_nor_variant() {
             .is_empty()
     );
 }
+
+/// Old valid-looking hallucinations must not resume; new punctuation survives partial and cache-only retries.
+#[test]
+fn punctuation_cache_policy_invalidates_v1_and_resumes_only_corrected_markup() {
+    use crate::translation::{hash::StableHasher, inline_markup::protected::ProtectedSource};
+    for format in ["html", "epub"] {
+        for language in ["fr", "es"] {
+            let (_dir, app, mut source, old) = document_tests::fixture();
+            source.format = format.into();
+            source.view_html = "<html><body><p>«<strong>Bonjour</strong>» !</p><p><em>Merci</em> ?</p></body></html>".into();
+            let dom = DomPlan::new(&source.view_html);
+            source.blocks = dom
+                .blocks
+                .iter()
+                .map(|b| TranslationSourceBlock {
+                    ordinal: b.ordinal,
+                    is_heading: b.is_heading,
+                    heading: b.heading.clone(),
+                    text: b.inline.text.clone(),
+                })
+                .collect();
+            let plan = plan_translation_job(
+                TranslationStartRequest {
+                    source_language: language.into(),
+                    model_id: format!("opus-mt-{language}-en-ctranslate2"),
+                    ..old.request
+                },
+                source.blocks.iter().map(|b| &b.text),
+                900,
+                1,
+            )
+            .unwrap();
+            let segment = &plan.batches[0].segments[0];
+            let mapping = ProtectedSource::for_boundaries(&dom.blocks[0].node)
+                .unwrap()
+                .fragment(segment.source_start..segment.source_end, &segment.text)
+                .unwrap();
+            // Freeze the retired key, rather than deriving it from the new policy constant under test.
+            let mut key = StableHasher::new();
+            for field in [
+                plan.request.document_url.as_str(),
+                language,
+                "en",
+                plan.request.model_id.as_str(),
+                "balanced",
+                plan.request.repair_mode.label(),
+                "ctranslate2-source-boundaries-v1",
+            ] {
+                key.write_str(field);
+            }
+            let mut retired_plan = plan.clone();
+            retired_plan.cache_key = key.finish_hex();
+            assert_ne!(retired_plan.cache_key, plan.cache_key);
+            let mut retired_cache = load_segment_cache(app.handle(), &retired_plan).unwrap();
+            retired_cache.store_mapped_output(segment, &mapping, &TranslationSegmentOutput {
+                id: segment.id.clone(), source_text: segment.text.clone(),
+                text: "\"OLD\" - I'm sorry, I'm sorry.".into(),
+                markup: Some("&quot;<span data-pc='0'>OLD</span>&quot; - I&apos;m sorry, I&apos;m sorry.".into())
+            });
+            assert!(retired_cache.mapped_output_for(segment, &mapping).is_some());
+            save_segment_cache(app.handle(), &retired_plan, &retired_cache).unwrap();
+            let state = TranslationState::default();
+            let mut engine = Engine {
+                state: state.clone(),
+                seen: vec![],
+                fail_on: Some("Merci".into()),
+                cancel_in_call: false,
+                cancel_before_save: false,
+            };
+            assert!(finish_translation(
+                app.handle(),
+                &state,
+                &mut engine,
+                &plan,
+                &source,
+                "document-job",
+                Instant::now()
+            )
+            .is_err());
+            assert_eq!(engine.seen, ["Bonjour", "Merci"]);
+            let cache = load_segment_cache(app.handle(), &plan).unwrap();
+            assert_eq!(
+                cache.mapped_output_for(segment, &mapping).unwrap().text,
+                "«BONJOUR» !"
+            );
+            assert!(cache
+                .translated_text_for(&plan.batches[1].segments[0])
+                .is_none());
+            assert!(
+                super::super::storage::list_translated_documents(app.handle())
+                    .unwrap()
+                    .is_empty()
+            );
+            engine.seen.clear();
+            engine.fail_on = None;
+            finish_translation(
+                app.handle(),
+                &state,
+                &mut engine,
+                &plan,
+                &source,
+                "document-job",
+                Instant::now(),
+            )
+            .unwrap();
+            assert_eq!(engine.seen, ["Merci"]);
+            let variants = super::super::storage::list_translated_documents(app.handle()).unwrap();
+            assert_eq!(variants.len(), 1);
+            let saved =
+                load_translation_source_document(app.handle(), &variants[0].document_url).unwrap();
+            assert_eq!(
+                saved
+                    .blocks
+                    .iter()
+                    .map(|b| b.text.as_str())
+                    .collect::<Vec<_>>(),
+                ["«BONJOUR» !", "MERCI ?"]
+            );
+            let parsed = DomPlan::new(&saved.view_html);
+            assert_eq!(
+                parsed
+                    .document
+                    .select_first("strong")
+                    .unwrap()
+                    .text_contents(),
+                "BONJOUR"
+            );
+            assert_eq!(
+                parsed.document.select_first("em").unwrap().text_contents(),
+                "MERCI"
+            );
+            let before = document_tests::snapshot(&_dir.0);
+            engine.seen.clear();
+            finish_translation(
+                app.handle(),
+                &state,
+                &mut engine,
+                &plan,
+                &source,
+                "document-job",
+                Instant::now(),
+            )
+            .unwrap();
+            assert!(engine.seen.is_empty());
+            assert_eq!(before, document_tests::snapshot(&_dir.0));
+            assert_eq!(
+                load_segment_cache(app.handle(), &retired_plan)
+                    .unwrap()
+                    .mapped_output_for(segment, &mapping)
+                    .unwrap()
+                    .text,
+                "\"OLD\" - I'm sorry, I'm sorry."
+            );
+        }
+    }
+}
