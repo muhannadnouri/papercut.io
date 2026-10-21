@@ -53,7 +53,7 @@ fn has_reference(root: &Path, document_url: &str) -> Result<bool, String> {
         return Ok(false);
     }
 
-    // Upload IDs own storage across URL fragments, queries and source-kind aliases.
+    // Protect case aliases too: supported filesystems may resolve them to one source.
     let upload_id = crate::document_uploads::upload_id_from_url(document_url).ok();
     let entries = fs::read_dir(root)
         .map_err(|err| format!("Failed to inspect saved audiobook references: {err}"))?;
@@ -80,9 +80,8 @@ fn has_reference(root: &Path, document_url: &str) -> Result<bool, String> {
         if reference.document_url == document_url
             || upload_id.as_ref().is_some_and(|id| {
                 crate::document_uploads::upload_id_from_url(&reference.document_url)
-                    .as_ref()
                     .ok()
-                    == Some(id)
+                    .is_some_and(|reference_id| reference_id.eq_ignore_ascii_case(id))
             })
         {
             return Ok(true);

@@ -200,8 +200,10 @@ Library deletion validates the requested source kind against stored metadata and
 returns the stored canonical URL. Audiobook checks compare upload IDs, so query/
 fragment aliases in either requests or existing manifests cannot bypass them;
 bundled document references retain their exact-URL behavior.
-Case aliases remain a destructive-boundary gap on case-insensitive storage;
-see the follow-up review below before treating deletion safety as complete.
+Deletion requires exact stored ID/directory case and rejects case-only aliases
+or collisions before staging. Existing mixed-case legacy IDs remain valid;
+no URLs, directories or metadata are lowercased or migrated. Audiobook reference
+checks conservatively ignore ASCII ID case across supported filesystems.
 
 ## Storage, cache and compatibility
 
@@ -508,50 +510,46 @@ passed. Evaluation evidence is byte-identical. The explicit post-commit cleanup
 limit above is unchanged; this does not add inference, language-quality or
 packaged-platform acceptance.
 
-### Mutation and identity follow-up review — 2026-10-21
+### Exact-case deletion identity — 2026-10-21
 
-Reviewed `e104dfc0` with its native IPC callers, writer recovery/commit/rollback,
-single/batch/folder deletion, audiobook publication, parser/DB identity and tests.
-Assumed one app process, one foreground translation and concurrent local delete
-requests. The shared lock now covers the reproduced save/delete interleaving;
-no lock-order reversal was found in production callers. Query/fragment aliases,
-stored source-kind checks and canonical replies are connected to actual deletion.
-The prior two reproduced cases are addressed, but one identity case remains.
+The [case-alias review](https://github.com/muhannadnouri/papercut.io/blob/03c12ccc7058ac9c59f307ee6124a21f4aaeae2a/docs/offline-translation.md#mutation-and-identity-follow-up-review--2026-10-21)
+identified uppercase IDs bypassing exact DB/reference matching while a filesystem
+could resolve them to lowercase storage. The shared destructive-boundary rule is
+now **unique, exact stored case**, rather than globally lowercasing existing IDs:
 
-**Must fix — 1. P1: case aliases bypass stored identity and audiobook checks.**
-`storage.rs:164` accepts uppercase hexadecimal IDs. `store.rs:61` uses an exact
-SQLite lookup, and `native_tts/references.rs:81` compares IDs case-sensitively.
-For a stored/referenced `def456`, `/uploads/DEF456.html` misses both checks and
-takes the no-metadata fallback in `pipeline.rs:653`, then uses the raw uppercase
-ID for file removal and row deletion. On case-insensitive storage this names the
-real lowercase directory while the SQL delete still misses its metadata.
-[Windows defaults to case-insensitive names](https://learn.microsoft.com/en-us/windows/wsl/case-sensitivity#differences-between-windows-and-linux-case-sensitivity);
-[SQLite defaults to BINARY comparison](https://www.sqlite.org/datatype3.html#collating_sequences).
-That combination can remove a referenced reader and leave provenance/index rows.
+- `store::validate_upload_deletion_id` rejects another upload ID differing only
+  by ASCII case before either translation or Library deletion proceeds. This
+  includes ambiguous case-only metadata collisions, even when an exact row exists.
+  Syntax validation/read parsing and transfer restoration retain legacy ID case.
+- Shared staged deletion checks actual live/staged directory names before any
+  recovery/rename. Missing metadata cannot turn a case alias into a cleanup retry;
+  exact-case retries still work. Errors roll back owned provenance and leave
+  reader/assets/index/audio data intact. Batch/folder routes reuse the same gate.
+- Audiobook reference matching ignores ASCII case for upload IDs on both sides,
+  conservatively protecting potentially shared storage; bundled exact matching
+  remains unchanged. No source URL, ID, directory, audio or timing migration occurs.
 
-Use one canonical ID rule before lookup, reference checks, fallback/staging and
-filesystem mutation; reject noncanonical case aliases or resolve the stored ID
-without losing its ownership checks. Do not fix only the reference comparison
-or add a case-insensitive SQL lookup while still deleting with the raw ID.
-Add uppercase/mixed-case tests for single/batch deletion, reference URLs, absent
-metadata/staged retries and both source kinds; verify on case-insensitive storage.
+Four permanent synthetic IPC regressions in `translation/case_identity_tests.rs`
+cover upper/mixed-case HTML/PDF requests with/without audio, exact mixed-case
+legacy variants through translation/single/batch deletion, referenced staged
+retries without metadata, live/staged filename aliases and conflicting metadata.
+All four failed before the production fix and pass afterward. These assertions
+exercise rejection on case-sensitive Linux too, without pretending to emulate
+Windows filesystem aliasing. A real case-insensitive/device run remains deferred.
 
-A disposable synthetic IPC probe confirmed both routes accept the uppercase
-request, find zero uppercase DB rows, miss the lowercase audiobook reference and
-report successful zero-byte deletion on Linux. The lowercase file survived on
-this case-sensitive filesystem. The destructive Windows outcome is a code-based
-inference using documented platform behavior, not a physical-device reproduction.
-Only the disposable test module differed; 155 other Rust source files matched.
-Fresh committed-suite validation passed 513 Rust library tests (4 existing
-ignores); the extra case-alias preservation assertion failed. Rustfmt, links,
-immutable evidence and diff checks passed. No production changes or fresh
-frontend/native-feature/platform CI, inference, benchmark or smoke runs were made.
+Validation: 517 base Rust library tests passed (4 existing ignores), 238
+native-feature translation tests passed (2 existing ignores), 239 worker-only
+translation tests passed, and 535 frontend/script tests passed (1 existing skip).
+TypeScript, eight locales, Rustfmt, links/evidence and diff checks passed. No new
+schema, cache identity, provider admission, model, dependency or app version.
+Benchmarks, new inference, smoke and cross-platform CI remain deferred; structural
+storage validation does not establish translation quality or release readiness.
 
 ## Next bounded work
 
-Fix follow-up finding 1 with a shared canonical-ID rule and permanent case-alias
-regressions, preserving original/legacy ownership and staged retries; then review.
-After deletion safety is clear, the next gate is representative FR/ES meaning,
+Review the exact-case deletion gate, filesystem fallback, conservative reference
+matching and legacy/recovery regressions. After deletion safety is clear, the
+next gate is representative FR/ES meaning,
 formatted-original review usability and rebuilt-app integration acceptance.
 Keep the existing
 source/DOM, cache, writer and reference-lock owners. Provider admission is

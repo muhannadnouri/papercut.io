@@ -12,7 +12,8 @@ use super::pipeline;
 use super::reader_assets::{owned_assets, snapshot_assets};
 use super::storage::{upload_dir, upload_url, validate_upload_id, StoredSourceKind};
 use super::store::{
-    delete_document_rows_in_transaction, open_db, upsert_document_in_transaction, PdfTextStatus,
+    delete_document_rows_in_transaction, open_db, upsert_document_in_transaction,
+    validate_upload_deletion_id, PdfTextStatus,
 };
 use super::types::UploadedDocumentSourceRequest;
 
@@ -207,6 +208,7 @@ where
         let tx = db
             .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
             .map_err(db_err)?;
+        validate_upload_deletion_id(&tx, id)?;
         if !delete_metadata(&tx)? {
             return Ok(None);
         }

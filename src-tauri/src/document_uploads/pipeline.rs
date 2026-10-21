@@ -34,6 +34,7 @@ use super::storage::{
 };
 use super::store::{
     delete_document_rows, find_upload_by_id, normalize_document_title, open_db, upsert_document,
+    validate_upload_deletion_id,
 };
 use super::text::{decode_text_bytes, parse_text_document, TextDocumentFormat};
 use super::types::{
@@ -642,6 +643,7 @@ pub(crate) fn delete_upload<R: Runtime>(
     let (id, source_kind) = upload_reference_from_url(&request.document_url)?;
     crate::native_tts::with_audiobook_reference_lock(|| {
         let mut db = open_db(app)?;
+        validate_upload_deletion_id(&db, &id)?;
         let document_url = match find_upload_by_id(&db, &id)? {
             Some(document) => {
                 if StoredSourceKind::from_str(&document.source_kind)? != source_kind {
@@ -680,7 +682,28 @@ pub(super) fn delete_stored_document<F>(dir: &Path, id: &str, delete_rows: F) ->
 where
     F: FnOnce() -> Result<(), String>,
 {
-    let staged = dir.with_file_name(format!(".{id}.deleting"));
+    let staged_name = format!(".{id}.deleting");
+    let staged = dir.with_file_name(&staged_name);
+    // SQLite may already be gone on retry. Compare actual names before Windows
+    // can resolve a differently cased path to another live/staged directory.
+    if let Some(parent) = dir.parent().filter(|parent| parent.exists()) {
+        for entry in fs::read_dir(parent)
+            .map_err(|err| format!("Failed to inspect document storage identity: {err}"))?
+        {
+            let name = entry
+                .map_err(|err| format!("Failed to inspect document storage identity: {err}"))?
+                .file_name();
+            if name.to_str().is_some_and(|name| {
+                [id, staged_name.as_str()]
+                    .iter()
+                    .any(|expected| name.eq_ignore_ascii_case(expected) && name != *expected)
+            }) {
+                return Err(
+                    "Uploaded document id does not match stored directory letter case".into(),
+                );
+            }
+        }
+    }
     if staged.exists() {
         if dir.exists() {
             return Err(format!(

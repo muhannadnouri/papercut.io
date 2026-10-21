@@ -8,6 +8,8 @@ use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fs, path::Path};
 use tauri::test::MockRuntime;
 
+#[path = "case_identity_tests.rs"]
+mod case_identity_tests;
 #[path = "mutation_tests.rs"]
 mod mutation_tests;
 

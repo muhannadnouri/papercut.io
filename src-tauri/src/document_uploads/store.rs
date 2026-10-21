@@ -12,7 +12,7 @@ use tauri::Runtime;
 use super::parsed::ParsedDocument;
 use super::search_form;
 use super::spelling;
-use super::storage::{upload_id_from_url, uploads_root, StoredSourceKind};
+use super::storage::{upload_id_from_url, uploads_root, validate_upload_id, StoredSourceKind};
 use super::types::UploadedDocument;
 
 const MAX_TITLE_CHARS: usize = 512;
@@ -81,6 +81,23 @@ fn uploaded_document_from_row(row: &Row<'_>) -> rusqlite::Result<UploadedDocumen
         cover_media_type: row.get(9)?,
         text_status: row.get(10)?,
     })
+}
+
+/// Preserve exact legacy IDs; never let a case alias fall through to unowned-file cleanup.
+pub(super) fn validate_upload_deletion_id(db: &Connection, id: &str) -> Result<(), String> {
+    validate_upload_id(id)?;
+    let has_case_alias: bool = db
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM uploaded_documents
+         WHERE id = ?1 COLLATE NOCASE AND id != ?1 COLLATE BINARY)",
+            [id],
+            |row| row.get(0),
+        )
+        .map_err(db_err)?;
+    if has_case_alias {
+        return Err("Uploaded document id has a conflicting stored letter case".into());
+    }
+    Ok(())
 }
 
 /// Open (creating if needed) the search database and ensure the schema exists.
