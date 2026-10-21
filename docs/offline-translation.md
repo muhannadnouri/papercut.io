@@ -3841,13 +3841,33 @@ unique scalar/renderer checks and the live strict/protected rejection tests
 remain. These checks establish cleanup/lifecycle safety, not language quality
 or packaged-device acceptance.
 
-**Next bounded stage:** review this cleanup, then centralize document
-formatting-policy selection and validated batch/checkpoint handling. Separate
-worker transport, protected mapping and legacy projection only where their
-responsibilities currently overlap. Keep shared DOM, asset, installer, cache and
-atomic-write protections; avoid a pipeline rewrite or generic plugin framework.
-Provider re-admission still requires completeness/formatting fixes and explicit
-acceptance; compilation alone is insufficient.
+### Prototype cleanup review — 2026-10-21
+
+Ponytail Review of `8cc78e12` found no actionable must-fix or should-fix issue
+within this cleanup. The review traced command registration and callers, verified
+asset delivery, worker transport, source-owned mapping, job/model ownership and
+Rust's cancellation/atomic-save cutoff. The expected load remains one foreground
+worker handling bounded batches over a potentially long HTML/EPUB job.
+
+The removed APIs have no remaining product callers. The retained document path
+keeps its source/identity and byte ceilings, independent request deadlines,
+worker reuse, stale-reply rejection, lifecycle cleanup and bounded final-result
+recovery. Strict scalar conversion and renderer escaping/note-target coverage
+remain connected to their real contracts. The earlier architecture decisions
+were checked against MemSearch; this cleanup introduces no new acceptance claim.
+
+Fresh review validation passed **284 base Rust translation tests** and **124
+frontend translation tests**. The implementation receipt above records the native
+feature and worker-only checks; those configurations were not rerun in this
+review. No model inference, full platform CI or packaged-device acceptance was
+performed.
+
+**Next bounded implementation:** select document formatting policy once, then
+reuse that decision across planning, cache admission, batch validation and
+reconstruction. Add policy/cache-resume regressions before consolidating shared
+validated-batch/checkpoint handling. Preserve sentence/review output, provider
+gates, cache compatibility and atomic-write ownership. This is a behavior-
+preserving refactor; do not reopen strict admission or rewrite the pipeline.
 
 Strict stays disabled. Benchmarks, smoke and the app version bump remain deferred.
 
