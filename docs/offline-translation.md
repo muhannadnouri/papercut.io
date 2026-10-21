@@ -211,6 +211,92 @@ IDs, notes, links, media and literals. A larger tag-aware HY model is the next
 quality candidate to evaluate before another production mapping change; size is
 not evidence that it will pass. No upstream fork or local runtime patch is proposed.
 
+### Current-machine 7B feasibility — 2026-10-21
+
+Read-only inspection of the current Xiaomi Redmi Book Pro 16 2026 found an
+Intel Core Ultra 5 325 (eight cores, AVX2), 23.0 GiB usable RAM and an Intel
+Panther Lake integrated GPU using the Linux `xe` driver. Outside the execution
+sandbox, Mesa 26.2.4 exposes the real Intel Vulkan device. The installed inference
+runtime also enumerates `Vulkan0: Intel(R) Graphics (PTL)` when its existing Vulkan
+backend is loaded. The earlier sandbox's missing `/dev/dri` and CPU-only probe
+were not evidence of absent GPU hardware. Device enumeration does not establish
+working model offload or faster inference; integrated GPU memory shares system RAM.
+
+At follow-up inspection, approximately 4–5 GiB of RAM was available and zram held
+about 12–13 GiB of logical swapped data (about 7–8 GiB compressed). This is current memory
+pressure, not an additional physical-memory allowance. The disk-backed filesystem
+had about 806 GiB free. `/tmp` is a 12 GiB RAM-backed filesystem with only about
+2.4 GiB free: do not download a 7B pack there. Use an isolated disk-backed cache
+outside the repo for the next evaluation, preserving private inputs separately.
+
+The [official 7B GGUF files](https://huggingface.co/tencent/Hy-MT2-7B-GGUF/tree/main)
+are Q4_K_M 4.62 GB (about 4.30 GiB), Q6_K 6.16 GB (5.74 GiB), and Q8_0 7.98 GB
+(7.43 GiB). Weights are not total process memory. From the
+[model configuration](https://huggingface.co/tencent/Hy-MT2-7B/blob/main/config.json),
+a conventional FP16 KV cache for 32 layers, eight KV heads and head dimension
+128 uses approximately 512 MiB at 4096 tokens or 1 GiB at 8192, before runtime
+and computation buffers. These are estimates, not measured 7B allocations.
+
+**Assessment:** this machine is capacity-feasible for a bounded 7B evaluation;
+hardware replacement is not justified by the available evidence. Current free
+memory is too tight for a comfortable run. After the user frees other workloads,
+start with one job, short whole-inline-context blocks and a 4096-token context.
+Aim for roughly 8 GiB available for Q4, or 10–12 GiB for a Q8 comparison that
+reduces quantization as a quality confound. These are conservative planning
+targets, not admission thresholds or memory guarantees. Use conventional official
+GGUFs and a maintained runtime; no custom quantization kernels or library patches.
+CPU inference is the baseline; evaluate Vulkan offload separately if needed.
+Do not terminate unrelated applications or clear user data automatically.
+
+If 7B fits but is slow, consider it an optional background desktop mode using the
+existing progress/cancellation/resume owners, subject to actual quality and
+usability acceptance. If it cannot fit after freeing memory, first try conventional
+Q4 and a smaller context while preserving whole sentence/inline units. If no
+maintained local candidate meets both resource and formatting requirements,
+evaluate another model or use a stronger computer owned by the user; commercial
+services are excluded. An optional private-LAN inference service would be a
+separate security/product decision, not the current offline implementation.
+If none meets quality requirements, retain explicit review/manual correction or
+defer release rather than resume phrase-placement guesses, silently drop emphasis
+or present mixed-language output as complete. No 7B weights were downloaded or
+loaded, and no throughput or acceleration result is claimed in this assessment.
+
+### TranslateLocally comparison — 2026-10-21
+
+Read-only source inspection pinned
+[TranslateLocally](https://github.com/XapaJIaMnu/translateLocally/tree/1d0d382cd6c9085cb4b8144c4a8962d74ed609c8)
+at `1d0d382cd6c9085cb4b8144c4a8962d74ed609c8`. Its Bergamot submodule is
+`9271618ebbdc5d21ac4dc4df9e72beb7ce644774`, distinct from the Firefox runtime
+screened above. No TranslateLocally binary was installed or tested on our cases.
+
+- **Resource strategy:** compact specialized Marian/Bergamot models, distilled
+  students, 8-bit inference and lexical shortlists. The
+  [project's model guidance](https://github.com/XapaJIaMnu/translateLocally/blob/1d0d382cd6c9085cb4b8144c4a8962d74ed609c8/README.md#quantising-the-model)
+  explains these optimizations. Its default
+  [catalogue](https://translatelocally.com/models.json) currently lists French→English
+  and Spanish→English tiny v1 packs; it also supports external model repositories.
+  These records are not proof of better quality than Mozilla's v2 models or OPUS.
+- **Desktop scope:** the
+  [main window](https://github.com/XapaJIaMnu/translateLocally/blob/1d0d382cd6c9085cb4b8144c4a8962d74ed609c8/src/mainwindow.cpp#L444)
+  reads and displays plain text. A successful desktop translation therefore does
+  not demonstrate preservation of an imported HTML/EPUB document's rich markup.
+- **HTML scope:** the
+  [native-messaging handler](https://github.com/XapaJIaMnu/translateLocally/blob/1d0d382cd6c9085cb4b8144c4a8962d74ed609c8/src/cli/NativeMsgIface.cpp#L169)
+  passes the request's HTML flag to Bergamot and returns its translated target.
+  Its alignment worker queries model alignments for interactive highlighting;
+  it is not an independent offline aligner or a model-agnostic rich-text mapper.
+
+**Implication:** efficient local translation does not require a 7B LLM. Our
+compact OPUS/Bergamot paths already follow that resource strategy, while semantic
+emphasis and output completeness remain separate acceptance problems. If 7B is
+impractical, a bounded comparison with an unmodified TranslateLocally release in
+HTML mode and its exact model pack is reasonable before changing another engine
+or wrapper. A native runtime or older/different pack may produce different output,
+but source inspection alone cannot establish an improvement. Keep any such
+comparison outside production and private inputs outside the repo. Do not revive
+the retired generic alignment stack, promise perfect formatting, or build a local
+fork merely because another app uses the same engine family.
+
 ### Bounds and explicit failures
 
 - Default planning uses 900 Unicode scalars per segment and 16 segments per batch.
