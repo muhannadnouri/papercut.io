@@ -826,7 +826,7 @@ fixtures/references remain outside tracked files.
 | **4. Atomic publication** | Extend the existing derived-document writer and reference-lock preflight, with revision checks under lock. Test concurrent save/delete/regeneration, partial file/SQLite/index failures, rollback retaining prior variant and draft, repeated completion and startup recovery. Deleted-variant stale saves must create no orphan or revived variant. Published status cannot clear unresolved obligations or edited/reset approvals; neither draft nor stale input can overwrite newer output |
 | **5. Accessible review UI and consumer integration** | Dedicated paragraph panel: source collapsed by default, read-only selection, B/I controls, mark list, undo/reset, explicit paragraph approval, progress save and completion. Test keyboard/touch selection, toolbar focus retention, selected/mixed states, navigation with dirty drafts, conflict/error/retry and non-emphasis blockers. Reuse `translationReview.test.ts` and current highlight invalidation to prove identical English extraction, search sections, TTS chunk IDs/text hashes/spans and read-along behavior across added text-node boundaries; existing audio/timings remain unchanged |
 
-The three Stage 2b review findings are addressed in the correction receipt below.
+The Stage 2b review findings are addressed in the correction receipts below.
 The next task is a focused review of those corrections, then Stage 3 durable
 snapshots, drafts and pure reconstruction if that review is clear. CSS import work and assisted review
 remain separate leaves even though they share normalized source identity. Do not
@@ -1196,8 +1196,8 @@ malformed XML and entity-bearing sources cannot certify font CSS. Decoded upperc
 type selectors also warn, while uppercase/escaped class and ID identifiers retain
 their XML case semantics. The comparison shares the import-wide node/depth budget
 and uses depth-bounded traversal, not a second unbounded node collection. A source
-context mismatch only becomes a mode warning when font CSS is present; unrelated
-presentation or unstyled documents retain the existing readable import path.
+context mismatch warns when parsed font CSS or active original-XML stylesheet
+evidence is present; unstyled documents retain the existing readable import path.
 Some harmless XML whitespace repairs can also trigger this conservative warning;
 V1 does not attempt to certify arbitrary XML through an HTML-only matcher.
 
@@ -1235,6 +1235,58 @@ uploads, saved translations, identical-file deduplication, audiobooks and highli
 are untouched. These fixes improve source evidence; assisted English emphasis
 placement still awaits Stage 3 onward. Benchmarks, inference, packaged/device smoke
 and the version bump remain deferred.
+
+### Stage 2b literal and original-XML coverage follow-up — 2026-10-21
+
+Review of `4a8244af` confirmed three residual import gaps. Numeric CR character
+references bypassed the LF-only literal guard, prefixed XML stylesheets disappeared
+before HTML-side detection, and explicit HTML EPUB chapters still passed through
+XHTML empty-tag expansion. These are now corrected in their shared owners.
+
+The existing atomic literal guard now covers leading decoded CR as well as LF in
+`pre`, `textarea` and `listing`. It falls back only when generated emphasis would
+introduce an unsafe serialization pass. Fresh HTML and full EPUB regressions prove
+exact baseline reader HTML, text and section ranges for decimal/hex references;
+unstyled and safe interior-CR controls still normalize normally.
+
+The existing non-expanding XML parse retains compatibility and active-sheet
+evidence in one depth-bounded traversal. Ordinary tree/name/attribute mismatches
+stop HTML comparison, but the XML walk continues under the same import-wide work
+cap. Expanded namespace/local names identify XHTML `style`/stylesheet `link` and
+SVG `style`, including prefixed sheets and SVG styles outside an SVG container.
+Only genuine XHTML inert ancestors suppress their descendants. A mismatched
+context with original sheet evidence warns immediately, before stylesheet reads
+or matching; unknown source sheets cannot become a complete-coverage claim simply
+because the HTML parser forgot them. This is conservative: an uninterpretable
+original sheet can warn even when its particular declarations might be harmless.
+Ordinary prefixed prose, unrelated namespace elements and non-stylesheet links do
+not invent stylesheet warnings. Depth/work exhaustion remains an immediate failure.
+XML parse errors and rejected entity-bearing input also return an immediate
+unchanged-source warning, including unstyled files: no original XML tree exists
+to prove that HTML-side stylesheet detection is complete. Entities remain disabled.
+
+EPUB source mode now reaches both pre-normalization compatibility processing and
+final fragment sanitization, including the stylesheet-warning bypass. Nonvoid
+self-closing tags are expanded only for XHTML; `text/html` retains HTML parsing
+semantics even with an `.xhtml` filename. Paired final-import tests preserve the
+different correct emphasis scopes while retaining metadata, notes/backlinks,
+literals, text/section order and identical image assets.
+
+Validation: 13 new synthetic regression functions. The final complete base Rust
+library suite passed (668 passed, four existing ignores); the native-translation
+suite passed (670 passed, four existing ignores). Existing transfer tests used
+local loopback/temporary D-Bus permission. The CR tests reproduced lost newlines
+before the guard fix; positive controls continued to pass. Independent code review
+found no remaining issue in these fixes. Rust formatting, diff checks and
+documentation file links passed; historical evaluation JSON is byte-identical.
+Private sources/repros remain outside tracked files. No new full CI, inference
+or app/device acceptance result is claimed.
+
+No new parser, dependency, engine behavior, schema or provider admission was
+introduced. Existing uploads, saved translations, deduplication, audio and
+highlighting are untouched. Providers stay gated and strict alignment disabled;
+benchmarks, engine inference, packaged/device smoke and the version bump remain
+deferred. Review these corrections before Stage 3's durable snapshots and drafts.
 
 ## Architecture and ownership
 
@@ -1850,8 +1902,8 @@ separate fixable source/structure defects from unqualified linguistic placement.
 The maintainer has chosen planning for an explicitly assisted mixed-formatting
 workflow and safe import normalization. Follow the [staged implementation plan](#opus-assisted-formatting-plan--2026-10-21).
 Stage 1's pure contracts and Stage 2a's inline normalization are complete.
-Stage 2b's three coverage blockers are corrected; review those corrections before
-Stage 3's durable snapshots, drafts and pure reconstruction.
+Stage 2b's coverage and literal-preservation blockers are corrected; review those
+corrections before Stage 3's durable snapshots, drafts and pure reconstruction.
 Assisted review integration remains pending. This is
 not another provider experiment or a claim of automatic target formatting.
 Additional passing examples cannot erase a known failure. Use Firefox's

@@ -4,6 +4,26 @@ use super::super::emphasis_policy::{
 use super::*;
 
 #[test]
+fn original_xml_evidence_keeps_the_work_limit_after_an_early_context_mismatch() {
+    let mut normalizer = Normalizer::default();
+    normalizer
+        .charge(Work {
+            node_work: policy::MAX_NODE_WORK - 3,
+            ..Work::default()
+        })
+        .unwrap();
+    let raw = "<doc><style>p{font-weight:bold}</style><p>Words</p></doc>";
+    let result = normalizer.normalize_with(
+        raw,
+        SourceKind::Xhtml,
+        |_| panic!("An exhausted XML traversal must not resolve a stylesheet"),
+        |_, _| panic!("An exhausted XML traversal must not read a stylesheet"),
+    );
+    assert_eq!(result.warning, Some("node-work-limit"));
+    assert_eq!(result.html, raw);
+}
+
+#[test]
 fn resets_of_retained_default_emphasis_warn_instead_of_claiming_visual_equivalence() {
     for source in [
         "<cite style='font-style:normal'>Plain</cite>",

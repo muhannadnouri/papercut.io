@@ -418,7 +418,7 @@ mod image_issue_tests {
         ] {
             assets.errors.insert(path.into(), reason);
         }
-        let annotated = super::super::sanitize_epub_fragment(raw);
+        let annotated = super::super::sanitize_epub_fragment(raw, super::super::SourceKind::Xhtml);
         let html = rewrite_epub_fragment(
             &annotated,
             "OPS/ch.xhtml",

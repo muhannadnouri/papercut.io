@@ -332,7 +332,7 @@ mod tests {
         assert_eq!(svg.matches("data:image/jpeg;base64,").count(), 3);
         assert!(!svg.contains("../cover.jpg"));
         assert!(!svg.contains("missing.jpg"));
-        let sanitized = super::super::sanitize_epub_fragment(&converted);
+        let sanitized = super::super::sanitize_epub_fragment(&converted, SourceKind::Xhtml);
         let paths =
             super::super::rewrite::collect_image_paths(&sanitized, "OPS/text/chapter.xhtml");
         assert!(assets.paths.keys().all(|path| paths.contains(path)));
@@ -365,7 +365,7 @@ mod tests {
         assert!(svg.contains(r#"<rect width="100" height="100"/>"#));
         assert!(svg.contains("data:image/jpeg;base64,"));
         assert!(!svg.contains("cover.jpg"));
-        let sanitized = super::super::sanitize_epub_fragment(&converted);
+        let sanitized = super::super::sanitize_epub_fragment(&converted, SourceKind::Xhtml);
         let paths = super::super::rewrite::collect_image_paths(&sanitized, "OPS/chapter.xhtml");
         assert_eq!(paths.len(), 1);
         assert!(assets.paths.keys().all(|path| paths.contains(path)));

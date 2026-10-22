@@ -30,6 +30,74 @@ fn extra_normalization_roundtrip_never_consumes_a_literal_leading_newline() {
 }
 
 #[test]
+fn carriage_return_references_keep_the_existing_final_html_text_and_sections() {
+    // Numeric references survive the first parse as CR, then serialize into LF-consuming contexts.
+    for tag in ["textarea", "listing", "pre"] {
+        for reference in ["&#13;", "&#xD;"] {
+            for head_and_style in [
+                ("", " style='font-weight:bold'"),
+                ("<style>#other{font-style:italic}</style>", ""),
+            ] {
+                let (head, style) = head_and_style;
+                let raw = format!("<!doctype html><html><head>{head}</head><body><div id='outer'><p id='other'{style}>Before</p><{tag}>{reference}{reference}A  B\n C</{tag}></div></body></html>");
+                let prepared = prepare_html_document(&raw);
+                let baseline = parse_html_document(&raw);
+                assert_eq!(prepared.view_html, baseline.view_html, "{tag}, {reference}");
+                assert_eq!(
+                    prepared.source_formatting.unwrap().warnings,
+                    ["literal-roundtrip"],
+                    "{tag}, {reference}, {head}"
+                );
+                let text = |html: &str| parse_html().one(html).document_node.text_contents();
+                assert_eq!(text(&prepared.view_html), text(&baseline.view_html));
+                assert_eq!(
+                    prepared
+                        .sections
+                        .iter()
+                        .map(|s| (&s.heading, &s.text, s.page_index, &s.body_ranges))
+                        .collect::<Vec<_>>(),
+                    baseline
+                        .sections
+                        .iter()
+                        .map(|s| (&s.heading, &s.text, s.page_index, &s.body_ranges))
+                        .collect::<Vec<_>>()
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn carriage_return_literals_only_block_an_unsafe_extra_roundtrip() {
+    for tag in ["pre", "textarea", "listing"] {
+        for reference in ["&#13;", "&#xD;"] {
+            let unstyled = format!("<!doctype html><div><p>Before</p><{tag}>{reference}{reference}Literal</{tag}></div>");
+            let prepared = prepare_html_document(&unstyled);
+            assert!(prepared.source_formatting.unwrap().warnings.is_empty());
+            assert_eq!(prepared.view_html, parse_html_document(&unstyled).view_html);
+
+            // An interior CR becomes LF on both paths; no leading literal newline can be consumed.
+            let raw = format!("<!doctype html><div><p id='other' style='font-weight:bold'>Before</p><{tag}>Prefix {reference}Literal</{tag}></div>");
+            let prepared = prepare_html_document(&raw);
+            let baseline = parse_html_document(&raw);
+            assert!(prepared.source_formatting.unwrap().warnings.is_empty());
+            let dom = parse_html().one(prepared.view_html).document_node;
+            assert_eq!(
+                dom.select_first("#other > b").unwrap().text_contents(),
+                "Before"
+            );
+            assert_eq!(
+                dom.text_contents(),
+                parse_html()
+                    .one(baseline.view_html)
+                    .document_node
+                    .text_contents()
+            );
+        }
+    }
+}
+
+#[test]
 fn fresh_html_normalizes_before_the_same_sanitizer_and_section_extractor() {
     let html = r##"<html lang="fr"><head><title>Fixture</title></head>
     <body style="font-weight: bold"><p id="p">Été <span style="font-weight: normal; font-style: italic">calme</span>.

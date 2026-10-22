@@ -28,6 +28,12 @@ pub(crate) struct Normalizer {
     local_sheets: HashMap<String, Result<Rc<Sheet>, &'static str>>,
 }
 
+/// XML compatibility and source stylesheet evidence must survive the same bounded traversal.
+struct XhtmlContext {
+    compatible: bool,
+    stylesheets: bool,
+}
+
 #[derive(Clone, Copy, Default)]
 struct Frame {
     effective: FontState,
@@ -56,14 +62,24 @@ impl Normalizer {
     ) -> Normalized {
         let document = parse_html().one(html).document_node;
         // Compare original XML with the reader DOM before trusting folded names or repaired trees.
-        let source_warning = if kind == SourceKind::Xhtml {
-            self.xhtml_context(html, &document).err()
+        let (source_warning, xml_stylesheets) = if kind == SourceKind::Xhtml {
+            match self.xhtml_context(html, &document) {
+                Ok(context) => (
+                    (!context.compatible).then_some("unsupported-document-mode"),
+                    context.stylesheets,
+                ),
+                // Rejected XML cannot prove that HTML parsing retained its stylesheet evidence.
+                Err(warning) => {
+                    return Normalized {
+                        html: html.to_owned(),
+                        warning: Some(warning),
+                    }
+                }
+            }
         } else {
-            None
+            (None, false)
         };
-        if let Some(warning) =
-            source_warning.filter(|warning| *warning != "unsupported-document-mode")
-        {
+        if let Some(warning) = source_warning.filter(|_| xml_stylesheets) {
             return Normalized {
                 html: html.to_owned(),
                 warning: Some(warning),
@@ -124,8 +140,12 @@ impl Normalizer {
         }
     }
 
-    /// Admit only XML names/namespaces unchanged by the shared HTML parser; never expand entities.
-    fn xhtml_context(&mut self, html: &str, parsed: &NodeRef) -> Result<(), &'static str> {
+    /// Compare XML without expansion; retain active sheets even after an early HTML-tree mismatch.
+    fn xhtml_context(
+        &mut self,
+        html: &str,
+        parsed: &NodeRef,
+    ) -> Result<XhtmlContext, &'static str> {
         if html.contains("<!ENTITY") {
             return Err("unsupported-document-mode");
         }
@@ -138,9 +158,10 @@ impl Normalizer {
         )
         .map_err(|_| "unsupported-document-mode")?;
         let namespace = document.root_element().tag_name().namespace();
-        if !matches!(namespace, None | Some("http://www.w3.org/1999/xhtml")) {
-            return Err("unsupported-document-mode");
-        }
+        let mut context = XhtmlContext {
+            compatible: matches!(namespace, None | Some("http://www.w3.org/1999/xhtml")),
+            stylesheets: false,
+        };
         // Match ordered elements/text and depth: HTML repair must not invent matching containers,
         // reparent styled text, or interpret XML character data using different raw-text rules.
         let mut parsed_nodes = parsed
@@ -165,11 +186,11 @@ impl Normalizer {
             })
             .flatten();
         // Preorder plus parent links needs only a depth-bounded stack, never a wide child queue.
-        let mut ancestors = Vec::new();
+        let mut ancestors: Vec<(roxmltree::Node<'_, '_>, bool)> = Vec::new();
         for node in document.descendants() {
             while ancestors
                 .last()
-                .is_some_and(|parent| Some(*parent) != node.parent())
+                .is_some_and(|(parent, _)| Some(*parent) != node.parent())
             {
                 ancestors.pop();
             }
@@ -180,70 +201,75 @@ impl Normalizer {
                 node_work: 1 + node.attributes().len(),
                 ..Work::default()
             })?;
-            let parsed_node = if node.is_element() || node.is_text() {
-                let (parsed_node, depth) =
-                    parsed_nodes.next().ok_or("unsupported-document-mode")?;
-                if depth != ancestors.len() {
-                    return Err("unsupported-document-mode");
-                }
-                Some(parsed_node)
-            } else {
-                None
-            };
-            if node.is_element() {
-                // Extracted SVG is already an img; surviving foreign XML cannot use HTML matching.
-                let name = node.tag_name().name();
-                let lexical_name = html[node.range().start + 1..]
-                    .split(|c: char| c.is_ascii_whitespace() || matches!(c, '/' | '>'))
-                    .next();
-                if node.tag_name().namespace() != namespace
-                    || name.bytes().any(|byte| byte.is_ascii_uppercase())
-                    || lexical_name != Some(name)
-                {
-                    return Err("unsupported-document-mode");
-                }
-                let element = parsed_node
-                    .as_ref()
-                    .and_then(|node| node.as_element())
-                    .ok_or("unsupported-document-mode")?;
-                if element.name.ns.as_ref() != "http://www.w3.org/1999/xhtml"
-                    || element.name.local.as_ref() != name
-                {
-                    return Err("unsupported-document-mode");
-                }
-                let attributes = element.attributes.borrow();
-                for attribute in node.attributes() {
-                    if attribute
-                        .name()
-                        .bytes()
-                        .any(|byte| byte.is_ascii_uppercase())
-                        || attributes.get(&html[attribute.range_qname()]) != Some(attribute.value())
-                        || match attribute.namespace() {
-                            None => false,
-                            Some("http://www.w3.org/XML/1998/namespace") => {
-                                !matches!(attribute.name(), "lang" | "space")
-                            }
-                            Some("http://www.idpf.org/2007/ops") => attribute.name() != "type",
-                            _ => true,
-                        }
-                    {
-                        return Err("unsupported-document-mode");
-                    }
-                }
-            } else if node.is_text()
-                && parsed_node
-                    .as_ref()
-                    .and_then(|node| node.as_text())
-                    .is_none_or(|text| text.borrow().as_str() != node.text().unwrap_or_default())
-            {
-                return Err("unsupported-document-mode");
+            let name = node.tag_name().name();
+            let html_namespace = node.tag_name().namespace()
+                == Some("http://www.w3.org/1999/xhtml")
+                || (namespace.is_none() && node.tag_name().namespace().is_none());
+            let inert = ancestors.last().is_some_and(|(_, inert)| *inert)
+                || (html_namespace && matches!(name, "template" | "noscript" | "script"));
+            // Expanded XML names, not HTML spelling, identify sheets hidden by namespace folding.
+            if !inert && node.is_element() {
+                context.stylesheets |= (name == "style"
+                    && (html_namespace
+                        || node.tag_name().namespace() == Some("http://www.w3.org/2000/svg")))
+                    || (html_namespace
+                        && name == "link"
+                        && node.attribute("rel").is_some_and(|rel| {
+                            rel.split_ascii_whitespace()
+                                .any(|token| token.eq_ignore_ascii_case("stylesheet"))
+                        }));
             }
-            ancestors.push(node);
+            if context.compatible && (node.is_element() || node.is_text()) {
+                context.compatible = parsed_nodes.next().is_some_and(|(parsed_node, depth)| {
+                    if depth != ancestors.len() {
+                        return false;
+                    }
+                    if node.is_text() {
+                        return parsed_node.as_text().is_some_and(|text| {
+                            text.borrow().as_str() == node.text().unwrap_or_default()
+                        });
+                    }
+                    // Extracted SVG is already an img; surviving foreign XML cannot use HTML matching.
+                    let lexical_name = html[node.range().start + 1..]
+                        .split(|c: char| c.is_ascii_whitespace() || matches!(c, '/' | '>'))
+                        .next();
+                    if node.tag_name().namespace() != namespace
+                        || name.bytes().any(|byte| byte.is_ascii_uppercase())
+                        || lexical_name != Some(name)
+                    {
+                        return false;
+                    }
+                    let Some(element) = parsed_node.as_element() else {
+                        return false;
+                    };
+                    if element.name.ns.as_ref() != "http://www.w3.org/1999/xhtml"
+                        || element.name.local.as_ref() != name
+                    {
+                        return false;
+                    }
+                    let attributes = element.attributes.borrow();
+                    node.attributes().all(|attribute| {
+                        !attribute
+                            .name()
+                            .bytes()
+                            .any(|byte| byte.is_ascii_uppercase())
+                            && attributes.get(&html[attribute.range_qname()])
+                                == Some(attribute.value())
+                            && match attribute.namespace() {
+                                None => true,
+                                Some("http://www.w3.org/XML/1998/namespace") => {
+                                    matches!(attribute.name(), "lang" | "space")
+                                }
+                                Some("http://www.idpf.org/2007/ops") => attribute.name() == "type",
+                                _ => false,
+                            }
+                    })
+                });
+            }
+            ancestors.push((node, inert));
         }
-        if parsed_nodes.next().is_some() {
-            return Err("unsupported-document-mode");
-        }
-        Ok(())
+        context.compatible = context.compatible && parsed_nodes.next().is_none();
+        Ok(context)
     }
 
     /// Carry computed properties, not declaration importance, down an iterative DOM traversal.
@@ -270,11 +296,11 @@ impl Normalizer {
                         node_work: 1,
                         ..Work::default()
                     })?;
-                    // Another HTML roundtrip can consume an untouched literal's leading LF.
+                    // Another parse normalizes decoded CR to LF and can consume a literal's leading LF.
                     // Fall back instead of changing literal bytes to compensate for serialization.
                     if node
                         .as_text()
-                        .is_some_and(|text| text.borrow().starts_with('\n'))
+                        .is_some_and(|text| text.borrow().starts_with(['\n', '\r']))
                     {
                         literal_roundtrip |= node.parent().is_some_and(|parent| {
                             parent.as_element().is_some_and(|element| {

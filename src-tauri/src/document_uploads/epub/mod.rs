@@ -119,16 +119,16 @@ pub(crate) fn parse_epub_document(
         let raw = externalized.html;
         // Extract XML metadata before HTML serialization changes void-tag syntax.
         let (language, direction, translate) = extract_xhtml_metadata(&raw);
-        // Expand XHTML non-void empty tags before the HTML DOM parser can swallow siblings.
+        // Only XML self-closes non-void tags; HTML must retain its own parsing semantics.
         // Keep the head/html/body through normalization for sheet detection and inheritance.
         let normalized = if let Some(warning) = externalized.stylesheet_warning {
             super::html::emphasis::Normalized {
-                html: normalize_empty_xhtml_elements(&raw),
+                html: normalize_empty_xhtml_elements(&raw, source_kind),
                 warning: Some(warning),
             }
         } else {
             normalizer.normalize_with(
-                &normalize_empty_xhtml_elements(&raw),
+                &normalize_empty_xhtml_elements(&raw, source_kind),
                 source_kind,
                 |href| stylesheets::resolve(chapter_path, href, &manifest_css),
                 |path, limit| stylesheets::read(&mut archive, path, limit),
@@ -144,7 +144,7 @@ pub(crate) fn parse_epub_document(
             }
         }
         let body = extract_body_inner(&normalized.html).unwrap_or(normalized.html.as_str());
-        let sanitized = sanitize_epub_fragment(body);
+        let sanitized = sanitize_epub_fragment(body, source_kind);
         let image_paths = collect_image_paths(&sanitized, chapter_path);
         if normalize_text(&strip_tags(&sanitized)).is_empty()
             && image_paths.is_empty()
@@ -504,8 +504,8 @@ fn read_zip_text_limited<R: Read + std::io::Seek>(
 ///
 /// IDs are needed for TOC links, footnotes, and backlinks. We preserve them here
 /// and prefix them later so duplicate ids across chapters cannot collide.
-fn sanitize_epub_fragment(fragment: &str) -> String {
-    let normalized = normalize_empty_xhtml_elements(fragment);
+fn sanitize_epub_fragment(fragment: &str, kind: SourceKind) -> String {
+    let normalized = normalize_empty_xhtml_elements(fragment, kind);
     let annotated = rewrite::annotate_image_issues(&normalized);
     let mut builder = ammonia::Builder::default();
     builder.add_tags(&["aside", "nav", "section"]);
@@ -528,7 +528,11 @@ fn sanitize_epub_fragment(fragment: &str) -> String {
 /// HTML parsers do not self-close non-void tags such as `<a/>`, `<div/>`, or
 /// `<pre/>`; leaving them intact can wrap the rest of a chapter in that element.
 /// Keep genuine HTML void tags unchanged and expand every other XHTML empty tag.
-fn normalize_empty_xhtml_elements(fragment: &str) -> String {
+/// HTML inputs must bypass this pass: their self-closing flag does not close a span/em/etc.
+fn normalize_empty_xhtml_elements(fragment: &str, kind: SourceKind) -> String {
+    if kind == SourceKind::Html {
+        return fragment.to_owned();
+    }
     let mut out = String::with_capacity(fragment.len());
     let mut pos = 0usize;
 
@@ -651,6 +655,7 @@ mod tests {
     fn normalizes_empty_xhtml_non_void_elements_before_html_parsing() {
         let normalized = normalize_empty_xhtml_elements(
             r#"<h2><a id="chap01"/>I.</h2><div/><pre/><p>After</p>"#,
+            SourceKind::Xhtml,
         );
 
         assert_eq!(
@@ -661,8 +666,10 @@ mod tests {
 
     #[test]
     fn preserves_html_void_elements_and_quoted_angle_brackets() {
-        let normalized =
-            normalize_empty_xhtml_elements(r#"<a title="1 > 0"/><br/><img src="cover.jpg"/><hr/>"#);
+        let normalized = normalize_empty_xhtml_elements(
+            r#"<a title="1 > 0"/><br/><img src="cover.jpg"/><hr/>"#,
+            SourceKind::Xhtml,
+        );
 
         assert_eq!(
             normalized,
@@ -672,7 +679,10 @@ mod tests {
 
     #[test]
     fn self_closing_xhtml_anchor_does_not_wrap_chapter_prose() {
-        let sanitized = sanitize_epub_fragment(r#"<h2><a id="chap01"/>I.</h2><p>Body</p>"#);
+        let sanitized = sanitize_epub_fragment(
+            r#"<h2><a id="chap01"/>I.</h2><p>Body</p>"#,
+            SourceKind::Xhtml,
+        );
 
         let anchor_end = sanitized.find("</a>").expect("anchor should be preserved");
         let heading_text = sanitized
@@ -688,10 +698,13 @@ mod tests {
     #[test]
     fn chapter_sanitizer_strips_css_url_variants() {
         for function in ["url", "URL", "uRl"] {
-            let sanitized = sanitize_epub_fragment(&format!(
-                r#"<style>p {{ background-image: {function}("https://tracker.invalid/pixel"); }}</style>
+            let sanitized = sanitize_epub_fragment(
+                &format!(
+                    r#"<style>p {{ background-image: {function}("https://tracker.invalid/pixel"); }}</style>
                 <p id="passage" style='background-image: {function}("https://tracker.invalid/pixel"); color: red'>Readable passage.</p>"#
-            ));
+                ),
+                SourceKind::Xhtml,
+            );
 
             assert!(!sanitized.contains("<style"));
             assert!(!sanitized.contains("style="));
@@ -707,6 +720,7 @@ mod tests {
             r#"<aside epub:type="footnote" id="note" onclick="alert(1)"><p>Harbor note.</p></aside>
             <section role="doc-bibliography button"><p>A citation.</p></section>
             <p>港 Ferry routes. <span epub:type="footnote"><b>Inline note.</b></span> Island stops.</p>"#,
+            SourceKind::Xhtml,
         );
         let parsed = parsed_html_document(
             "Transit guide".into(),

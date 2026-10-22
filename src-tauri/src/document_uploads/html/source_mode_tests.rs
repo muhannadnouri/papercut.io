@@ -271,3 +271,72 @@ fn xhtml_source_comparison_obeys_the_existing_import_depth_limit() {
     assert_eq!(normalized.warning, Some("dom-depth-limit"));
     assert_eq!(normalized.html, raw);
 }
+
+#[test]
+fn original_xml_sheets_remain_visible_after_namespace_or_earlier_tree_mismatches() {
+    for (root, sheet) in [
+        ("html", "<h:style>p{font-weight:bold}</h:style>"),
+        ("h:html", "<h:style>p{font-weight:bold}</h:style>"),
+        (
+            "html",
+            "<h:link rel='alternate STYLESHEET' href='unread.css'/>",
+        ),
+        ("html", "<s:style>p{font-weight:bold}</s:style>"),
+        (
+            "html",
+            "<style xmlns='http://www.w3.org/2000/svg'>p{font-weight:bold}</style>",
+        ),
+    ] {
+        let raw = format!("<{root} xmlns='http://www.w3.org/1999/xhtml' xmlns:h='http://www.w3.org/1999/xhtml' xmlns:s='http://www.w3.org/2000/svg'><head>{sheet}</head><body><p>Words</p></body></{root}>");
+        let normalized = normalized_xhtml(&raw);
+        assert_eq!(
+            normalized.warning,
+            Some("unsupported-document-mode"),
+            "{root}: {sheet}"
+        );
+        assert_eq!(normalized.html, raw);
+    }
+}
+
+#[test]
+fn only_genuine_html_inert_ancestors_suppress_original_xml_sheet_evidence() {
+    for (container, namespace, warning) in [
+        ("template", "http://www.w3.org/1999/xhtml", None),
+        ("noscript", "http://www.w3.org/1999/xhtml", None),
+        ("script", "http://www.w3.org/1999/xhtml", None),
+        ("template", "urn:foreign", Some("unsupported-document-mode")),
+        ("script", "urn:foreign", Some("unsupported-document-mode")),
+    ] {
+        let raw = format!("<html xmlns='http://www.w3.org/1999/xhtml' xmlns:h='http://www.w3.org/1999/xhtml' xmlns:f='{namespace}'><head/><body><f:{container}><h:style>p{{font-weight:bold}}</h:style></f:{container}><p>Words</p></body></html>");
+        let normalized = normalized_xhtml(&raw);
+        assert_eq!(normalized.warning, warning, "{container}: {namespace}");
+        assert_eq!(normalized.html, raw);
+    }
+}
+
+#[test]
+fn unrelated_prefixed_xml_and_non_stylesheet_links_do_not_invent_a_sheet_warning() {
+    for content in [
+        "<h:p>Words</h:p>",
+        "<f:style xmlns:f='urn:foreign'>Unrelated words</f:style>",
+        "<h:link rel='preload' href='unread.css'/><p>Words</p>",
+    ] {
+        let raw = format!("<html xmlns='http://www.w3.org/1999/xhtml' xmlns:h='http://www.w3.org/1999/xhtml'><head/><body>{content}</body></html>");
+        let normalized = normalized_xhtml(&raw);
+        assert_eq!(normalized.warning, None, "{content}");
+        assert_eq!(normalized.html, raw);
+    }
+}
+
+#[test]
+fn rejected_xml_never_certifies_sheets_that_html_cannot_recognize() {
+    for raw in [
+        "<!DOCTYPE html [<!ENTITY unused 'never expanded'>]><html xmlns='http://www.w3.org/1999/xhtml' xmlns:h='http://www.w3.org/1999/xhtml'><head><h:style>p{font-weight:bold}</h:style></head><body><p>Words</p></body></html>",
+        "<html xmlns='http://www.w3.org/1999/xhtml' xmlns:h='http://www.w3.org/1999/xhtml'><head><h:style>p{font-weight:bold}</h:style></head><body><p>Words</body></html>",
+        "<html xmlns='http://www.w3.org/1999/xhtml'><head/><body><p>Words</body></html>",
+    ] {
+        let normalized = normalized_xhtml(raw);
+        assert_eq!(normalized.warning, Some("unsupported-document-mode"));
+        assert_eq!(normalized.html, raw);
+    }
+}

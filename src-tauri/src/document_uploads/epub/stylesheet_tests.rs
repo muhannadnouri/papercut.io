@@ -256,6 +256,127 @@ fn xhtml_local_css_preserves_case_sensitive_class_and_id_matching_through_reader
 }
 
 #[test]
+fn original_xml_stylesheets_keep_coverage_after_prefix_or_early_source_mismatches() {
+    let body = "<p id='p'>Words <strong>authored</strong> <a id='r' href='#n' role='doc-noteref'><sup>1</sup></a>.</p><aside id='n' role='doc-footnote'>Note <a role='doc-backlink' href='#r'>Back</a></aside><img src='../images/diagram.svg' alt='Diagram'/><p><code translate='no'>user_id=42</code></p>";
+    let resources = [(
+        "images/diagram.svg",
+        Some("image/svg+xml"),
+        Some("<svg xmlns='http://www.w3.org/2000/svg'><path d='M0 0'/></svg>"),
+    )];
+    let later = chapter("", "<p id='later' style='font-style:italic'>Later</p>");
+    let (baseline, _) = imported(&[chapter("", body), later.clone()], &resources);
+    for head in [
+        "<h:style>p{font-weight:bold}</h:style>",
+        "<h:link rel='stylesheet' href='https://example.invalid/unread.css'/>",
+        "<s:style>p{font-weight:bold}</s:style>",
+        "<meta NAME='description' content='Early mismatch'/><h:style>p{font-weight:bold}</h:style>",
+    ] {
+        // Only expanded XML names reveal these active sheets; HTML repair hides them.
+        let first = format!("<html xmlns='http://www.w3.org/1999/xhtml' xmlns:h='http://www.w3.org/1999/xhtml' xmlns:s='http://www.w3.org/2000/svg' lang='fr' dir='ltr' translate='yes'><head>{head}</head><body>{body}</body></html>");
+        let (parsed, dom) = imported(&[first, later.clone()], &resources);
+        assert_eq!(
+            parsed.source_formatting.as_ref().unwrap().warnings,
+            ["unsupported-document-mode"],
+            "{head}"
+        );
+        assert_eq!(
+            parsed
+                .sections
+                .iter()
+                .map(|section| (&section.text, &section.body_ranges))
+                .collect::<Vec<_>>(),
+            baseline
+                .sections
+                .iter()
+                .map(|section| (&section.text, &section.body_ranges))
+                .collect::<Vec<_>>(),
+            "{head}"
+        );
+        assert_eq!(parsed.assets, baseline.assets, "{head}");
+        assert_eq!(
+            dom.select_first("#ch0-p").unwrap().text_contents(),
+            "Words authored 1."
+        );
+        assert!(dom.select_first("#ch0-p b, #ch0-p i").is_err());
+        assert_eq!(
+            dom.select_first("#ch0-p > strong").unwrap().text_contents(),
+            "authored"
+        );
+        assert!(dom
+            .select_first("#ch0-r[role='doc-noteref'][href='#ch0-n'] > sup")
+            .is_ok());
+        assert!(dom
+            .select_first("#ch0-n a[role='doc-backlink'][href='#ch0-r']")
+            .is_ok());
+        assert!(dom
+            .select_first("#chapter-0[lang='fr'][dir='ltr'][translate='yes']")
+            .is_ok());
+        assert_eq!(
+            dom.select_first("code[translate='no']")
+                .unwrap()
+                .text_contents(),
+            "user_id=42"
+        );
+        assert!(dom
+            .select_first("img[alt='Diagram'][data-papercut-asset]")
+            .is_ok());
+        assert_eq!(
+            dom.select_first("#ch1-later > i").unwrap().text_contents(),
+            "Later"
+        );
+        assert!(dom
+            .select_first("style, link, script, h\\:style, h\\:link, s\\:style")
+            .is_err());
+        assert!(!parsed.view_html.contains("example.invalid"));
+    }
+}
+
+#[test]
+fn xml_stylesheet_evidence_distinguishes_foreign_templates_from_actual_inert_scopes() {
+    for (scope, warnings) in [
+        (
+            "<template xmlns='urn:foreign'><h:style>p{font-weight:bold}</h:style></template>",
+            vec!["unsupported-document-mode"],
+        ),
+        (
+            "<template><h:style>p{font-weight:bold}</h:style></template>",
+            vec![],
+        ),
+    ] {
+        let first = format!("<html xmlns='http://www.w3.org/1999/xhtml' xmlns:h='http://www.w3.org/1999/xhtml'><head>{scope}</head><body><p id='p'>Words <strong>authored</strong>.</p></body></html>");
+        let (parsed, dom) = imported(
+            &[
+                first,
+                chapter("", "<p id='later' style='font-style:italic'>Later</p>"),
+            ],
+            &[],
+        );
+        assert_eq!(
+            parsed.source_formatting.unwrap().warnings,
+            warnings,
+            "{scope}"
+        );
+        assert_eq!(
+            dom.select_first("#ch0-p").unwrap().text_contents(),
+            "Words authored."
+        );
+        assert!(dom.select_first("#ch0-p b, #ch0-p i").is_err());
+        assert_eq!(
+            dom.select_first("#ch0-p > strong").unwrap().text_contents(),
+            "authored"
+        );
+        assert_eq!(
+            dom.select_first("#ch1-later > i").unwrap().text_contents(),
+            "Later"
+        );
+        assert!(dom
+            .select_first("style, link, script, template, h\\:style")
+            .is_err());
+        assert!(parsed.assets.is_empty());
+    }
+}
+
+#[test]
 fn an_explicit_html_manifest_item_uses_html_type_matching_even_with_an_xhtml_filename() {
     let html = "<!DOCTYPE html><html><head><link rel='stylesheet' href='../styles/case.css'/></head><body><p id='Target' class='Emphasis'>Été عربيّ</p><p id='target' class='emphasis'>Plain</p></body></html>".into();
     let bytes = book(
@@ -288,6 +409,118 @@ fn an_explicit_html_manifest_item_uses_html_type_matching_even_with_an_xhtml_fil
         .collect();
     assert_eq!(paragraphs, ["Été عربيّ", "Plain"]);
     assert!(dom.select_first("style, link, script").is_err());
+}
+
+#[test]
+fn nonvoid_self_closing_tags_follow_spine_media_type_without_losing_notes_or_assets() {
+    // Identical .xhtml bytes have different span scope when explicitly served as HTML.
+    let chapter = "<!DOCTYPE html><html xmlns='http://www.w3.org/1999/xhtml' lang='fr' dir='ltr' translate='yes'><head></head><body><p id='p'><span style='font-weight:bold'/>Words <em>authored</em> <a id='r' href='#n' role='doc-noteref'><sup>1</sup></a>.</p><aside id='n' role='doc-footnote'>Note <a role='doc-backlink' href='#r'>Back</a></aside><img src='../images/diagram.svg' alt='Diagram'/><code translate='no'>user_id=42</code></body></html>";
+    let resources = [(
+        "images/diagram.svg",
+        Some("image/svg+xml"),
+        Some("<svg xmlns='http://www.w3.org/2000/svg'><path d='M0 0'/></svg>"),
+    )];
+    let mut imports = Vec::new();
+    for (media_type, bold) in [("text/html", true), ("application/xhtml+xml", false)] {
+        let parsed =
+            parse_epub_document(&book(&[chapter.into()], &resources, media_type), "Fallback")
+                .unwrap();
+        assert!(parsed
+            .source_formatting
+            .as_ref()
+            .unwrap()
+            .warnings
+            .is_empty());
+        let safe = super::super::html::sanitize_html(&parsed.view_html);
+        assert_eq!(super::super::html::sanitize_html(&safe), safe);
+        let dom = parse_html().one(safe).document_node;
+        let paragraph = dom.select_first("#ch0-p").unwrap();
+        assert_eq!(paragraph.text_contents(), "Words authored 1.");
+        assert_eq!(paragraph.as_node().select_first("span > b").is_ok(), bold);
+        if bold {
+            assert_eq!(
+                paragraph
+                    .as_node()
+                    .select_first("span > b")
+                    .unwrap()
+                    .text_contents(),
+                "Words "
+            );
+        } else {
+            assert!(paragraph.as_node().select_first("b").is_err());
+        }
+        assert_eq!(
+            dom.select_first("#ch0-p em").unwrap().text_contents(),
+            "authored"
+        );
+        assert!(dom
+            .select_first("#ch0-r[role='doc-noteref'][href='#ch0-n'] > sup")
+            .is_ok());
+        assert!(dom
+            .select_first("#ch0-n a[role='doc-backlink'][href='#ch0-r']")
+            .is_ok());
+        assert!(dom
+            .select_first(".epub-chapter[lang='fr'][dir='ltr'][translate='yes']")
+            .is_ok());
+        assert_eq!(
+            dom.select_first("code[translate='no']")
+                .unwrap()
+                .text_contents(),
+            "user_id=42"
+        );
+        assert_eq!(parsed.assets.len(), 1);
+        let image = dom.select_first("img[alt='Diagram']").unwrap();
+        assert_eq!(
+            image.attributes.borrow().get("data-papercut-asset"),
+            Some(parsed.assets[0].file_name.as_str())
+        );
+        assert!(image.attributes.borrow().get("src").is_none());
+        assert!(dom.select_first("style, link, script").is_err());
+        imports.push(parsed);
+    }
+    assert_eq!(imports[0].assets, imports[1].assets);
+    assert_eq!(
+        imports[0]
+            .sections
+            .iter()
+            .map(|section| &section.text)
+            .collect::<Vec<_>>(),
+        imports[1]
+            .sections
+            .iter()
+            .map(|section| &section.text)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn stylesheet_extraction_fallback_keeps_html_and_xhtml_empty_tag_semantics() {
+    // This warning bypasses normalization, so the final sanitizer must retain source mode too.
+    let chapter = "<!DOCTYPE html><html xmlns='http://www.w3.org/1999/xhtml'><head></head><body><svg xmlns='http://www.w3.org/2000/svg' aria-label='Diagram'><style>p{font-weight:normal!important}</style><rect width='1' height='1'/></svg><p id='p'><em/>Words</p></body></html>";
+    let mut imports = Vec::new();
+    for (media_type, italic) in [("text/html", true), ("application/xhtml+xml", false)] {
+        let parsed =
+            parse_epub_document(&book(&[chapter.into()], &[], media_type), "Fallback").unwrap();
+        assert_eq!(
+            parsed.source_formatting.as_ref().unwrap().warnings,
+            ["unsupported-stylesheet"]
+        );
+        let safe = super::super::html::sanitize_html(&parsed.view_html);
+        assert_eq!(super::super::html::sanitize_html(&safe), safe);
+        let dom = parse_html().one(safe).document_node;
+        let paragraph = dom.select_first("#ch0-p").unwrap();
+        assert_eq!(paragraph.text_contents(), "Words");
+        let emphasized = paragraph.as_node().select_first("em").unwrap();
+        assert_eq!(
+            emphasized.text_contents(),
+            if italic { "Words" } else { "" }
+        );
+        assert_eq!(parsed.assets.len(), 1);
+        assert!(dom.select_first("img[alt='Diagram']").is_ok());
+        assert!(dom.select_first("svg, style, link, script").is_err());
+        imports.push(parsed);
+    }
+    assert_eq!(imports[0].assets, imports[1].assets);
 }
 
 #[test]
@@ -696,7 +929,7 @@ fn xml_fallback_without_a_stylesheet_instruction_does_not_invent_its_warning() {
         "<?xml-stylesheet-other href='unread.css'?><html xmlns='http://www.w3.org/1999/xhtml'><head/><body><p id='p'>Words</body></html>",
     ] {
         let (parsed, dom) = imported(&[html.into()], &[]);
-        assert!(!parsed.source_formatting.unwrap().warnings.iter().any(|warning| warning == "unsupported-stylesheet"));
+        assert_eq!(parsed.source_formatting.unwrap().warnings, ["unsupported-document-mode"]);
         assert_eq!(dom.select_first("#ch0-p").unwrap().text_contents(), "Words");
         assert!(parsed.assets.is_empty());
     }

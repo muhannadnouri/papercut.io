@@ -136,6 +136,85 @@ fn literal_newlines_keep_the_existing_epub_import_roundtrip() {
 }
 
 #[test]
+fn carriage_return_references_keep_the_existing_complete_epub_import() {
+    for tag in ["textarea", "listing", "pre"] {
+        for reference in ["&#13;", "&#xD;"] {
+            for (head, style) in [
+                ("", " style='font-weight:bold'"),
+                ("<style>#other{font-style:italic}</style>", ""),
+            ] {
+                let styled = format!("<html><head>{head}</head><body><div id='outer'><p id='other'{style}>Before</p><{tag}>{reference}{reference}A  B\n C</{tag}></div></body></html>");
+                let plain = styled.replace(style, "").replace(head, "");
+                let last = "<html><head/><body><p>Last chapter.</p></body></html>";
+                let prepared = parse_epub_document(&book(&[&styled, last]), "Fallback").unwrap();
+                let baseline = parse_epub_document(&book(&[&plain, last]), "Fallback").unwrap();
+                assert_eq!(prepared.view_html, baseline.view_html, "{tag}, {reference}");
+                assert_eq!(
+                    prepared.source_formatting.unwrap().warnings,
+                    ["literal-roundtrip"],
+                    "{tag}, {reference}, {head}"
+                );
+                let text = |html: &str| parse_html().one(html).document_node.text_contents();
+                assert_eq!(text(&prepared.view_html), text(&baseline.view_html));
+                assert_eq!(
+                    prepared
+                        .sections
+                        .iter()
+                        .map(|s| (&s.heading, &s.text, s.page_index, &s.body_ranges))
+                        .collect::<Vec<_>>(),
+                    baseline
+                        .sections
+                        .iter()
+                        .map(|s| (&s.heading, &s.text, s.page_index, &s.body_ranges))
+                        .collect::<Vec<_>>()
+                );
+                assert!(baseline.source_formatting.unwrap().warnings.is_empty());
+            }
+        }
+    }
+}
+
+#[test]
+fn interior_carriage_return_references_do_not_disable_epub_normalization() {
+    for tag in ["pre", "textarea", "listing"] {
+        for reference in ["&#13;", "&#xD;"] {
+            let styled = format!("<html><head/><body><div id='outer'><p id='other' style='font-weight:bold'>Before</p><{tag}>Prefix {reference}Literal</{tag}></div></body></html>");
+            let plain = styled.replace(" style='font-weight:bold'", "");
+            let prepared = parse_epub_document(&book(&[&styled]), "Fallback").unwrap();
+            let baseline = parse_epub_document(&book(&[&plain]), "Fallback").unwrap();
+            assert!(
+                prepared.source_formatting.unwrap().warnings.is_empty(),
+                "{tag}, {reference}"
+            );
+            let dom = parse_html().one(prepared.view_html).document_node;
+            assert_eq!(
+                dom.select_first("#ch0-other > b").unwrap().text_contents(),
+                "Before"
+            );
+            assert_eq!(
+                dom.text_contents(),
+                parse_html()
+                    .one(baseline.view_html)
+                    .document_node
+                    .text_contents()
+            );
+            assert_eq!(
+                prepared
+                    .sections
+                    .iter()
+                    .map(|s| (&s.text, &s.body_ranges))
+                    .collect::<Vec<_>>(),
+                baseline
+                    .sections
+                    .iter()
+                    .map(|s| (&s.text, &s.body_ranges))
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+}
+
+#[test]
 fn declaration_budget_is_shared_across_chapters_and_exhaustion_keeps_import_readable() {
     let declarations = "color:red;".repeat(4095);
     let chapter = format!(
