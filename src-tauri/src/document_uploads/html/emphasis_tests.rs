@@ -173,22 +173,26 @@ fn font_and_all_shorthands_cannot_silently_override_supported_longhands() {
 }
 
 #[test]
-fn unread_embedded_and_linked_sheets_prevent_false_coverage() {
-    for sheet in [
-        "<style>.x { font-weight:normal!important }</style>",
-        "<link rel='stylesheet' href='chapter.css'>",
-        "<link rel='alternate StyleSheet' media='print' href='other.css'>",
-        "<style></style>",
+fn linked_html_sheets_remain_unread_and_uncertain_activation_warns() {
+    for (sheet, reason) in [
+        (
+            "<link rel='stylesheet' href='chapter.css'>",
+            "unread-stylesheet",
+        ),
+        (
+            "<link rel='alternate StyleSheet' media='print' href='other.css'>",
+            "unsupported-activation",
+        ),
     ] {
         let source = format!("<html><head>{sheet}</head><body><p class='x' style='font-weight:bold'>Words</p></body></html>");
         let result = Normalizer::default().normalize(&source);
-        assert_eq!(result.warning, Some("unread-stylesheet"));
+        assert_eq!(result.warning, Some(reason));
         assert_eq!(result.html, source);
     }
-    assert!(
-        normalize("<link rel='icon' href='cover.png'><p style='font-weight:bold'>Words</p>")
-            .contains("<b>Words</b>")
-    );
+    assert!(normalize(
+        "<style></style><link rel='icon' href='cover.png'><p style='font-weight:bold'>Words</p>"
+    )
+    .contains("<b>Words</b>"));
 }
 
 #[test]
@@ -289,15 +293,15 @@ fn declaration_budget_is_import_wide_and_exhaustion_is_transactional() {
 #[test]
 fn node_budget_is_import_wide_and_charges_generated_work_before_mutation() {
     let mut normalizer = Normalizer::default();
-    normalizer.budget.used.node_work = MAX_NODE_WORK - 6;
+    normalizer.budget.used.node_work = MAX_NODE_WORK - 11;
     let source = "<p style='font-weight:bold'>Words</p>";
-    // html/head/body/p/text need five visits plus one wrapper.
+    // Discovery and planning each visit html/head/body/p/text, plus one wrapper.
     assert_eq!(normalizer.normalize(source).warning, None);
     let result = normalizer.normalize(source);
     assert_eq!(result.warning, Some("node-work-limit"));
     assert_eq!(result.html, source);
     let mut normalizer = Normalizer::default();
-    normalizer.budget.used.node_work = MAX_NODE_WORK - 5;
+    normalizer.budget.used.node_work = MAX_NODE_WORK - 10;
     let result = normalizer.normalize(source);
     assert_eq!(result.warning, Some("node-work-limit"));
     assert_eq!(result.html, source);
@@ -319,4 +323,121 @@ fn depth_admission_includes_generated_wrappers_before_recursive_serialization() 
         assert_eq!(result.warning, Some("dom-depth-limit"));
         assert_eq!(result.html, source);
     }
+}
+
+#[test]
+fn rejected_local_sheets_are_cached_and_counted_before_any_repeated_zip_work() {
+    let mut normalizer = Normalizer::default();
+    normalizer.budget.used.css_bytes = MAX_CSS_BYTES - 1;
+    let source = "<link rel='stylesheet' href='style.css'><p style='font-weight:bold'>Words</p>";
+    let mut reads = 0;
+    for _ in 0..2 {
+        let result = normalizer.normalize_with(
+            source,
+            |href| Ok(href.into()),
+            |_, limit| {
+                reads += 1;
+                assert_eq!(limit, 1);
+                // Even a faulty callback cannot bypass the pre-decode byte admission.
+                Ok(b"p{}".to_vec())
+            },
+        );
+        assert_eq!(result.warning, Some("css-byte-limit"));
+        assert_eq!(result.html, source);
+    }
+    assert_eq!(reads, 1);
+    assert_eq!(normalizer.budget.used.sheets, 1);
+    assert_eq!(normalizer.budget.used.css_bytes, MAX_CSS_BYTES - 1);
+
+    let mut normalizer = Normalizer::default();
+    let mut reads = 0;
+    for index in 0..policy::MAX_SHEETS + 2 {
+        let source = format!("<link rel='stylesheet' href='{index}.css'><p>Words</p>");
+        let result = normalizer.normalize_with(
+            &source,
+            |href| Ok(href.into()),
+            |_, _| {
+                reads += 1;
+                Err("unread-stylesheet")
+            },
+        );
+        assert_eq!(
+            result.warning,
+            Some(if index < policy::MAX_SHEETS {
+                "unread-stylesheet"
+            } else {
+                "sheet-limit"
+            })
+        );
+        assert_eq!(result.html, source);
+    }
+    assert_eq!(reads, policy::MAX_SHEETS);
+    assert_eq!(normalizer.local_sheets.len(), policy::MAX_SHEETS);
+}
+
+#[test]
+fn sheet_derived_wrappers_keep_literal_and_select_atomic_fallbacks() {
+    for (body, warning) in [
+        (
+            "<p>Words</p><plaintext>literal <stuff>",
+            "literal-roundtrip",
+        ),
+        ("<p>Words</p><pre>\n\nLiteral</pre>", "literal-roundtrip"),
+        (
+            "<p>Words</p><select><option>Choice</option></select>",
+            "unsupported-context",
+        ),
+    ] {
+        let source = format!("<style>body{{font-style:italic}}</style>{body}");
+        let result = Normalizer::default().normalize(&source);
+        assert_eq!(result.warning, Some(warning));
+        assert_eq!(result.html, source);
+    }
+}
+
+#[test]
+fn invalid_utf8_local_css_stays_unread_and_cannot_clear_the_cached_warning() {
+    let source = "<link rel='stylesheet' href='style.css'><p style='font-weight:bold'>Words</p>";
+    let mut normalizer = Normalizer::default();
+    let mut reads = 0;
+    for _ in 0..2 {
+        let result = normalizer.normalize_with(
+            source,
+            |href| Ok(href.into()),
+            |_, _| {
+                reads += 1;
+                Ok(vec![0xff])
+            },
+        );
+        assert_eq!(result.html, source);
+        assert_eq!(result.warning, Some("unread-stylesheet"));
+    }
+    assert_eq!(reads, 1);
+    assert_eq!(normalizer.budget.used.sheets, 1);
+    assert_eq!(normalizer.budget.used.css_bytes, 1);
+}
+
+#[test]
+fn external_utf8_bom_is_decoded_without_spending_or_matching_its_bytes_twice() {
+    for selector in ["p", ".word", "#word"] {
+        let source = "<link rel='stylesheet' href='style.css'><p id='word' class='word'>Words</p>";
+        let css = format!("\u{feff}{selector}{{font-weight:bold}}");
+        let mut normalizer = Normalizer::default();
+        let result = normalizer.normalize_with(
+            source,
+            |href| Ok(href.into()),
+            |_, _| Ok(css.as_bytes().to_vec()),
+        );
+        assert_eq!(result.warning, None);
+        assert!(result.html.contains("<b>Words</b>"), "{selector}");
+        assert_eq!(normalizer.budget.used.css_bytes, css.len());
+    }
+    let source = "<link rel='stylesheet' href='style.css' charset='windows-1252'><p>Words</p>";
+    let result = Normalizer::default().normalize_with(
+        source,
+        |href| Ok(href.into()),
+        |_, _| panic!("Unsupported encoding must not be read"),
+    );
+    assert_eq!(result.warning, Some("unsupported-activation"));
+    assert_eq!(result.html, source);
 }

@@ -67,15 +67,24 @@ fn full_chapter_ancestry_is_normalized_before_body_extraction_and_note_rewriting
 }
 
 #[test]
-fn unread_head_css_is_not_lost_when_extraction_discards_the_head() {
-    for sheet in [
-        "<style>.x{font-weight:normal!important}</style>",
-        "<link rel='stylesheet' href='missing.css'/>",
-        "<link rel='stylesheet' href='https://invalid.test/style.css'/>",
+fn head_css_is_resolved_or_reported_before_extraction_discards_the_head() {
+    for (sheet, warning) in [
+        ("<style>.x{font-weight:normal!important}</style>", None),
+        (
+            "<link rel='stylesheet' href='missing.css'/>",
+            Some("unread-stylesheet"),
+        ),
+        (
+            "<link rel='stylesheet' href='https://invalid.test/style.css'/>",
+            Some("unread-stylesheet"),
+        ),
     ] {
         let parsed = parse_epub_document(&book(&[&format!("<html><head>{sheet}</head><body><p class='x' style='font-weight:bold'>Chapter.</p></body></html>")]), "Fallback").unwrap();
         let report = parsed.source_formatting.unwrap();
-        assert_eq!(report.warnings, ["unread-stylesheet"]);
+        assert_eq!(
+            report.warnings,
+            warning.into_iter().map(str::to_owned).collect::<Vec<_>>()
+        );
         assert!(!parsed.view_html.contains("<b>"));
         assert!(parsed.sections.iter().any(|s| s.text == "Chapter."));
         let safe = super::super::html::sanitize_html(&parsed.view_html);

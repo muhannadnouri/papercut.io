@@ -21,6 +21,7 @@ mod inline_svg;
 mod paths;
 mod render;
 mod rewrite;
+mod stylesheets;
 
 use assets::{load_cover_asset, load_image_assets, LoadedImageAssets, ManifestItem};
 use paths::{opf_base_dir, resolve_archive_path};
@@ -39,6 +40,8 @@ const XML_NAMESPACE: &str = "http://www.w3.org/XML/1998/namespace";
 
 #[cfg(test)]
 mod emphasis_tests;
+#[cfg(test)]
+mod stylesheet_tests;
 
 /// Parse an EPUB archive into Papercut's format-neutral document shape.
 ///
@@ -81,6 +84,7 @@ pub(crate) fn parse_epub_document(
     let mut total_chapter_text_bytes = 0u64;
     // One budget spans the complete book; no chapter may reset exhausted CSS work.
     let mut normalizer = Normalizer::default();
+    let manifest_css: HashSet<&str> = package.css_paths.iter().map(String::as_str).collect();
     let mut source_formatting = SourceFormatting {
         policy: SOURCE_EMPHASIS_POLICY.into(),
         warnings: Vec::new(),
@@ -93,18 +97,30 @@ pub(crate) fn parse_epub_document(
         if total_chapter_text_bytes > MAX_TOTAL_CHAPTER_TEXT_BYTES {
             return Err("EPUB chapter text is too large to import".into());
         }
-        let raw = inline_svg::externalize_inline_svgs(
+        let externalized = inline_svg::externalize_inline_svgs(
             &raw,
             chapter_path,
             &mut archive,
             &package.manifest,
             &mut image_assets,
         );
+        let raw = externalized.html;
         // Extract XML metadata before HTML serialization changes void-tag syntax.
         let (language, direction, translate) = extract_xhtml_metadata(&raw);
         // Expand XHTML non-void empty tags before the HTML DOM parser can swallow siblings.
         // Keep the head/html/body through normalization for sheet detection and inheritance.
-        let normalized = normalizer.normalize(&normalize_empty_xhtml_elements(&raw));
+        let normalized = if let Some(warning) = externalized.stylesheet_warning {
+            super::html::emphasis::Normalized {
+                html: normalize_empty_xhtml_elements(&raw),
+                warning: Some(warning),
+            }
+        } else {
+            normalizer.normalize_with(
+                &normalize_empty_xhtml_elements(&raw),
+                |href| stylesheets::resolve(chapter_path, href, &manifest_css),
+                |path, limit| stylesheets::read(&mut archive, path, limit),
+            )
+        };
         if let Some(warning) = normalized.warning {
             if !source_formatting
                 .warnings
@@ -207,6 +223,7 @@ struct ParsedPackage {
     direction: Option<String>,
     spine_paths: Vec<String>,
     manifest: Vec<ManifestItem>,
+    css_paths: HashSet<String>,
     cover: Option<ManifestItem>,
 }
 
@@ -296,6 +313,7 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
 
     let mut manifest_by_id = HashMap::new();
     let mut manifest = Vec::new();
+    let mut css_paths = HashSet::new();
     let mut cover = None;
     for item in doc
         .descendants()
@@ -313,6 +331,16 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
             .split_ascii_whitespace()
             .any(|property| property == "cover-image");
         let media_type = item.attribute("media-type").unwrap_or_default().to_string();
+        // Unhandled XML bases or nonlocal URL syntax cannot certify an archive-local CSS source.
+        if media_type.eq_ignore_ascii_case("text/css")
+            && !item
+                .ancestors()
+                .any(|node| node.attribute((XML_NAMESPACE, "base")).is_some())
+        {
+            if let Ok(path) = stylesheets::local_path(&base, href) {
+                css_paths.insert(path);
+            }
+        }
         let item = ManifestItem {
             href: resolve_archive_path(&base, href)?,
             media_type,
@@ -353,6 +381,7 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
         direction,
         spine_paths,
         manifest,
+        css_paths,
         cover,
     })
 }

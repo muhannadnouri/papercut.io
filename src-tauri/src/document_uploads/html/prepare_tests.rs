@@ -103,15 +103,18 @@ fn fresh_html_normalizes_before_the_same_sanitizer_and_section_extractor() {
 }
 
 #[test]
-fn unread_head_sheets_warn_and_do_not_guess_inline_equivalence() {
-    for sheet in [
-        "<style>.x { font-weight: normal !important }</style>",
-        "<link rel='alternate stylesheet' href='https://invalid.test/style.css'>",
+fn head_sheets_resolve_overrides_or_warn_without_guessing_inline_equivalence() {
+    for (sheet, warning) in [
+        ("<style>.x { font-weight: normal !important }</style>", None),
+        (
+            "<link rel='alternate stylesheet' href='https://invalid.test/style.css'>",
+            Some("unsupported-activation"),
+        ),
     ] {
         let parsed = prepare_html_document(&format!("<html><head>{sheet}</head><body><p class='x' style='font-weight:bold'>Readable</p></body></html>"));
         assert_eq!(
             parsed.source_formatting.unwrap().warnings,
-            ["unread-stylesheet"]
+            warning.into_iter().map(str::to_owned).collect::<Vec<_>>()
         );
         assert!(!parsed.view_html.contains("<b>"));
         assert!(!parsed.view_html.contains("<style"));

@@ -229,6 +229,11 @@ pub(super) struct Budget {
 }
 
 impl Budget {
+    /// A ZIP reader may inflate only bytes which can still be admitted by this import.
+    pub(super) fn sheet_byte_allowance(&self) -> usize {
+        MAX_SHEET_BYTES.min(MAX_CSS_BYTES - self.used.css_bytes)
+    }
+
     /// Precharge a complete sheet atomically before decoding/parsing its bounded bytes.
     pub(super) fn sheet(&mut self, bytes: usize) -> Result<(), Limit> {
         if bytes > MAX_SHEET_BYTES {

@@ -1,14 +1,12 @@
-//! Import-only inline font normalization; sanitization remains the caller's security boundary.
+//! Import-only source font normalization; sanitization remains the caller's security boundary.
 
-use cssparser::{
-    parse_important, AtRuleParser, CowRcStr, DeclarationListParser, DeclarationParser, ParseError,
-    Parser, ParserInput, Token,
-};
-use kuchikiki::{iter::NodeEdge, parse_html, traits::TendrilSink, NodeRef};
+use std::{collections::HashMap, rc::Rc};
 
-use super::emphasis_policy::{
-    self as policy, Budget, Declaration, FontState, ParsedValue, Property, Work,
-};
+use cssparser::{Parser, ParserInput};
+use kuchikiki::{iter::NodeEdge, parse_html, traits::TendrilSink, NodeRef, Specificity};
+
+use super::emphasis_policy::{self as policy, Budget, Declaration, FontState, Property, Work};
+use super::emphasis_sheets::{self as sheets, Sheet};
 
 pub(crate) struct Normalized {
     pub(crate) html: String,
@@ -20,6 +18,7 @@ pub(crate) struct Normalized {
 #[derive(Default)]
 pub(crate) struct Normalizer {
     budget: Budget,
+    local_sheets: HashMap<String, Result<Rc<Sheet>, &'static str>>,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -30,10 +29,26 @@ struct Frame {
 }
 
 impl Normalizer {
-    /// Plan all text wrappers first: unsupported CSS or exhaustion cannot leave a half-normalized chapter.
+    /// HTML reads embedded CSS only; linked files never escape to the host filesystem/network.
     pub(crate) fn normalize(&mut self, html: &str) -> Normalized {
+        self.normalize_with(
+            html,
+            |_| Err("unread-stylesheet"),
+            |_, _| Err("unread-stylesheet"),
+        )
+    }
+
+    /// The EPUB importer supplies archive-only URL admission and bounded bytes, never DOM mutation.
+    pub(crate) fn normalize_with(
+        &mut self,
+        html: &str,
+        mut resolve: impl FnMut(&str) -> Result<String, &'static str>,
+        mut read: impl FnMut(&str, usize) -> Result<Vec<u8>, &'static str>,
+    ) -> Normalized {
         let document = parse_html().one(html).document_node;
-        let planned = self.plan(&document);
+        let planned = self
+            .collect_sheets(&document, &mut resolve, &mut read)
+            .and_then(|sheets| self.plan(&document, &sheets));
         let wrappers = match planned {
             Ok(wrappers) => wrappers,
             Err(warning) => {
@@ -73,7 +88,11 @@ impl Normalizer {
     }
 
     /// Carry computed properties, not declaration importance, down an iterative DOM traversal.
-    fn plan(&mut self, document: &NodeRef) -> Result<Vec<(NodeRef, FontState)>, &'static str> {
+    fn plan(
+        &mut self,
+        document: &NodeRef,
+        sheets: &[Rc<Sheet>],
+    ) -> Result<Vec<(NodeRef, FontState)>, &'static str> {
         let mut stack = vec![Frame::default()];
         let mut wrappers = Vec::new();
         let mut literal_roundtrip = false;
@@ -111,15 +130,6 @@ impl Normalizer {
                         // Plaintext has no closing tag: serialization would invent readable text.
                         literal_roundtrip |= tag == "plaintext"
                             && element.name.ns.as_ref() == "http://www.w3.org/1999/xhtml";
-                        if tag == "style"
-                            || (tag == "link"
-                                && attrs.get("rel").is_some_and(|rel| {
-                                    rel.split_ascii_whitespace()
-                                        .any(|part| part.eq_ignore_ascii_case("stylesheet"))
-                                }))
-                        {
-                            return Err("unread-stylesheet");
-                        }
                         state.inert |= element.name.ns.as_ref() != "http://www.w3.org/1999/xhtml"
                             || matches!(
                                 tag,
@@ -149,20 +159,49 @@ impl Normalizer {
                         state.authored.bold |= own_bold;
                         state.authored.italic |= own_italic;
                         if !state.inert {
-                            if let Some(style) = attrs.get("style") {
-                                let declarations = self.declarations(style)?;
-                                for declaration in declarations.into_iter().flatten() {
-                                    match declaration.property {
-                                        Property::Weight => {
-                                            state.effective.bold =
-                                                declaration.value.resolve(inherited.bold)
+                            // Sheet occurrences retain document order; only winners carry importance.
+                            let mut selected: [Option<(Declaration, Option<Specificity>)>; 2] =
+                                [None, None];
+                            let element_ref =
+                                node.clone().into_element_ref().expect("Element node");
+                            for sheet in sheets {
+                                for rule in &sheet.rules {
+                                    if let Some(specificity) =
+                                        rule.select(&element_ref, &mut self.budget)?
+                                    {
+                                        for (index, declaration) in rule.selected.iter().enumerate()
+                                        {
+                                            if let Some(declaration) = declaration {
+                                                cascade(
+                                                    &mut selected[index],
+                                                    *declaration,
+                                                    Some(specificity),
+                                                );
+                                            }
                                         }
-                                        Property::Style => {
-                                            state.effective.italic =
-                                                declaration.value.resolve(inherited.italic)
-                                        }
-                                        _ => unreachable!("Only longhands are admitted"),
                                     }
+                                }
+                            }
+                            if let Some(style) = attrs.get("style") {
+                                for (index, declaration) in
+                                    self.declarations(style)?.into_iter().enumerate()
+                                {
+                                    if let Some(declaration) = declaration {
+                                        cascade(&mut selected[index], declaration, None);
+                                    }
+                                }
+                            }
+                            for (declaration, _) in selected.into_iter().flatten() {
+                                match declaration.property {
+                                    Property::Weight => {
+                                        state.effective.bold =
+                                            declaration.value.resolve(inherited.bold)
+                                    }
+                                    Property::Style => {
+                                        state.effective.italic =
+                                            declaration.value.resolve(inherited.italic)
+                                    }
+                                    _ => unreachable!("Only longhands are admitted"),
                                 }
                             }
                             if policy::semantic_reset(state.authored, state.effective)
@@ -203,43 +242,181 @@ impl Normalizer {
         Ok(wrappers)
     }
 
-    /// A real CSS tokenizer resolves comments/escapes before the deliberately small value policy.
+    /// Discover sheets before resolving any text, including styles declared after the body text.
+    fn collect_sheets(
+        &mut self,
+        document: &NodeRef,
+        resolve: &mut impl FnMut(&str) -> Result<String, &'static str>,
+        read: &mut impl FnMut(&str, usize) -> Result<Vec<u8>, &'static str>,
+    ) -> Result<Vec<Rc<Sheet>>, &'static str> {
+        let mut result = Vec::new();
+        let mut stack = vec![(false, false)];
+        for edge in document.traverse() {
+            match edge {
+                NodeEdge::Start(node) => {
+                    if stack.len() > policy::MAX_DOM_DEPTH {
+                        return Err("dom-depth-limit");
+                    }
+                    self.charge(Work {
+                        node_work: 1,
+                        ..Work::default()
+                    })?;
+                    let (mut inert, mut foreign) =
+                        *stack.last().expect("Traversal has a root frame");
+                    if let Some(element) = node.as_element() {
+                        let tag = element.name.local.as_ref();
+                        foreign |= element.name.ns.as_ref() != "http://www.w3.org/1999/xhtml";
+                        inert |= element.name.ns.as_ref() == "http://www.w3.org/1999/xhtml"
+                            && matches!(tag, "template" | "noscript" | "script");
+                        let attrs = element.attributes.borrow();
+                        // SVG styles can affect sibling HTML; unknown foreign sheets are not inert CSS.
+                        if !inert
+                            && foreign
+                            && (tag == "style"
+                                || (tag == "link"
+                                    && attrs.get("rel").is_some_and(|rel| {
+                                        rel.split_ascii_whitespace()
+                                            .any(|v| v.eq_ignore_ascii_case("stylesheet"))
+                                    })))
+                        {
+                            return Err("unsupported-stylesheet");
+                        }
+                        if !inert && !foreign {
+                            // Browser base selection/inherited xml:base are outside this archive-only URL model.
+                            if (tag == "base" && attrs.get("href").is_some())
+                                || attrs.get("xml:base").is_some()
+                                || attrs.map.iter().any(|(name, _)| {
+                                    name.local.as_ref() == "base"
+                                        && name.ns.as_ref()
+                                            == "http://www.w3.org/XML/1998/namespace"
+                                })
+                            {
+                                return Err("unsupported-base");
+                            }
+                            let rel = attrs.get("rel").unwrap_or("");
+                            let linked = tag == "link"
+                                && rel
+                                    .split_ascii_whitespace()
+                                    .any(|v| v.eq_ignore_ascii_case("stylesheet"));
+                            if tag == "style" || linked {
+                                if attrs.get("disabled").is_some()
+                                    || attrs.get("scoped").is_some()
+                                    || attrs.get("title").is_some_and(|v| !v.is_empty())
+                                    || rel
+                                        .split_ascii_whitespace()
+                                        .any(|v| v.eq_ignore_ascii_case("alternate"))
+                                    || attrs.get("media").is_some_and(|v| {
+                                        !v.trim_ascii().is_empty()
+                                            && !v.trim_ascii().eq_ignore_ascii_case("all")
+                                    })
+                                    || attrs.get("type").is_some_and(|v| {
+                                        !v.trim_ascii().is_empty()
+                                            && !v.trim_ascii().eq_ignore_ascii_case("text/css")
+                                    })
+                                    || (linked
+                                        && attrs.get("charset").is_some_and(|v| {
+                                            !v.is_empty()
+                                                && !v.eq_ignore_ascii_case("utf-8")
+                                                && !v.eq_ignore_ascii_case("utf8")
+                                        }))
+                                {
+                                    return Err("unsupported-activation");
+                                }
+                                let sheet = if linked {
+                                    let key =
+                                        resolve(attrs.get("href").ok_or("unread-stylesheet")?)?;
+                                    self.local_sheet(&key, read)?
+                                } else {
+                                    // Charge the text length before allocating a combined sheet string.
+                                    let bytes = node
+                                        .children()
+                                        .filter_map(|n| n.as_text().map(|t| t.borrow().len()))
+                                        .sum();
+                                    self.budget.sheet(bytes).map_err(sheets::reason)?;
+                                    Rc::new(sheets::parse_charged(
+                                        &node.text_contents(),
+                                        &mut self.budget,
+                                    )?)
+                                };
+                                // Repeated includes do not reparse cached sheets, but do cost traversal and matching.
+                                self.charge(Work {
+                                    node_work: 1,
+                                    ..Work::default()
+                                })?;
+                                result.push(sheet);
+                            }
+                        }
+                    }
+                    stack.push((inert, foreign));
+                }
+                NodeEdge::End(_) => {
+                    stack.pop();
+                }
+            }
+        }
+        Ok(result)
+    }
+
+    /// Count failed attempts too, and cache their warning so later chapters cannot repeat ZIP work.
+    fn local_sheet(
+        &mut self,
+        key: &str,
+        read: &mut impl FnMut(&str, usize) -> Result<Vec<u8>, &'static str>,
+    ) -> Result<Rc<Sheet>, &'static str> {
+        if let Some(sheet) = self.local_sheets.get(key) {
+            return sheet.clone();
+        }
+        self.budget.sheet(0).map_err(sheets::reason)?;
+        let limit = self.budget.sheet_byte_allowance();
+        let result = (|| {
+            let bytes = read(key, limit)?;
+            // Defense in depth for the importer callback: reject before decoding or parsing.
+            if bytes.len() > limit {
+                return Err(if limit == policy::MAX_SHEET_BYTES {
+                    "sheet-byte-limit"
+                } else {
+                    "css-byte-limit"
+                });
+            }
+            self.charge(Work {
+                css_bytes: bytes.len(),
+                ..Work::default()
+            })?;
+            let css = std::str::from_utf8(&bytes).map_err(|_| "unread-stylesheet")?;
+            // An external UTF-8 BOM is an encoding signature, not part of the first selector.
+            let css = css.strip_prefix('\u{feff}').unwrap_or(css);
+            sheets::parse_charged(css, &mut self.budget).map(Rc::new)
+        })();
+        self.local_sheets.insert(key.into(), result.clone());
+        result
+    }
+
+    /// Inline bytes use the same declaration tokenizer and importance policy as local sheets.
     fn declarations(&mut self, style: &str) -> Result<[Option<Declaration>; 2], &'static str> {
         self.charge(Work {
             css_bytes: style.len(),
             ..Work::default()
         })?;
         let mut input = ParserInput::new(style);
-        let mut parser = Parser::new(&mut input);
-        let mut selected: [Option<Declaration>; 2] = [None, None];
-        let mut declarations = DeclarationListParser::new(&mut parser, InlineDeclarations);
-        while !declarations.input.is_exhausted() {
-            self.charge(Work {
-                declarations: 1,
-                ..Work::default()
-            })?;
-            let Some(parsed) = declarations.next() else {
-                break;
-            };
-            if let Some(declaration) = parsed.map_err(|_| "unsupported-value")?? {
-                let index = usize::from(declaration.property == Property::Style);
-                if selected[index]
-                    .is_none_or(|previous| declaration.important || !previous.important)
-                {
-                    selected[index] = Some(declaration);
-                }
-            }
-        }
-        Ok(selected)
+        sheets::declarations(&mut Parser::new(&mut input), &mut self.budget)
     }
 
     fn charge(&mut self, work: Work) -> Result<(), &'static str> {
-        self.budget.charge(work).map_err(|limit| match limit {
-            policy::Limit::CssBytes => "css-byte-limit",
-            policy::Limit::Declarations => "declaration-limit",
-            policy::Limit::NodeWork => "node-work-limit",
-            _ => "work-limit",
-        })
+        sheets::charge(&mut self.budget, work)
+    }
+}
+
+/// Importance outranks specificity; inline wins ties at either importance, then later source wins.
+fn cascade(
+    selected: &mut Option<(Declaration, Option<Specificity>)>,
+    declaration: Declaration,
+    specificity: Option<Specificity>,
+) {
+    let priority = |d: Declaration, s: Option<Specificity>| (d.important, s.is_none(), s);
+    if selected
+        .is_none_or(|(previous, s)| priority(declaration, specificity) >= priority(previous, s))
+    {
+        *selected = Some((declaration, specificity));
     }
 }
 
@@ -268,57 +445,6 @@ fn can_wrap(node: &NodeRef) -> Result<bool, &'static str> {
             .all(|byte| matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | 0x0c))
     });
     Ok(!table_space)
-}
-
-struct InlineDeclarations;
-
-impl<'i> DeclarationParser<'i> for InlineDeclarations {
-    type Declaration = Result<Option<Declaration>, &'static str>;
-    type Error = ();
-
-    fn parse_value<'t>(
-        &mut self,
-        name: CowRcStr<'i>,
-        input: &mut Parser<'i, 't>,
-    ) -> Result<Self::Declaration, ParseError<'i, Self::Error>> {
-        let property = if name.eq_ignore_ascii_case("font-weight") {
-            Property::Weight
-        } else if name.eq_ignore_ascii_case("font-style") {
-            Property::Style
-        } else if name.eq_ignore_ascii_case("font") || name.eq_ignore_ascii_case("all") {
-            while input.next().is_ok() {}
-            return Ok(Err("unsupported-shorthand"));
-        } else {
-            // Unrelated properties are inert here and still pass through the unchanged sanitizer.
-            while input.next().is_ok() {}
-            return Ok(Ok(None));
-        };
-        let value = match input.next()?.clone() {
-            Token::Ident(value) => match value.to_ascii_lowercase().as_str() {
-                "normal" => ParsedValue::Normal,
-                "bold" => ParsedValue::Bold,
-                "italic" => ParsedValue::Italic,
-                "oblique" => ParsedValue::Oblique,
-                "inherit" => ParsedValue::Inherit,
-                "initial" => ParsedValue::Initial,
-                "unset" => ParsedValue::Unset,
-                _ => ParsedValue::Other,
-            },
-            Token::Number { value, .. } => ParsedValue::Number(f64::from(value)),
-            _ => ParsedValue::Other,
-        };
-        let important = input.try_parse(parse_important).is_ok();
-        input.expect_exhausted()?;
-        Ok(policy::declaration(property, value, important)
-            .map(Some)
-            .map_err(|_| "unsupported-value"))
-    }
-}
-
-impl<'i> AtRuleParser<'i> for InlineDeclarations {
-    type Prelude = ();
-    type AtRule = Result<Option<Declaration>, &'static str>;
-    type Error = ();
 }
 
 #[cfg(test)]

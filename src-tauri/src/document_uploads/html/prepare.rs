@@ -3,7 +3,7 @@
 use super::{emphasis::Normalizer, emphasis_policy::POLICY, parse_html_document};
 use crate::document_uploads::parsed::{ParsedDocument, SourceFormatting};
 
-/// Resolve supported inline presentation while the raw head and ancestors still exist,
+/// Resolve supported inline/embedded presentation while the raw head and ancestors still exist,
 /// then retain the existing sanitizer as the only reader-HTML security boundary.
 pub(crate) fn prepare_html_document(html: &str) -> ParsedDocument {
     let normalized = Normalizer::default().normalize(html);

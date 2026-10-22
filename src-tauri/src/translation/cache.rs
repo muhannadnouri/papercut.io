@@ -688,6 +688,52 @@ mod tests {
         assert!(cache_is_compatible(&legacy_cache, &repeated));
     }
 
+    /// Equal English/planning keys do not permit resume against a different normalized source.
+    #[test]
+    fn stylesheet_derived_markup_and_coverage_invalidate_resume_after_cache_reload() {
+        use crate::document_uploads::prepare_html_document;
+        use crate::translation::{job::bind_source_identity, source::TranslationSourceDocument};
+
+        let mut job = plan();
+        let source = |css: &str| {
+            let parsed = prepare_html_document(&format!(
+                "<style>{css}</style><p class='word'>Hola mundo.</p>"
+            ));
+            TranslationSourceDocument {
+                document_id: "source".into(),
+                document_url: job.request.document_url.clone(),
+                title: "Example".into(),
+                format: "html".into(),
+                view_html: parsed.view_html,
+                source_formatting: parsed.source_formatting,
+                blocks: vec![],
+                assets: Default::default(),
+            }
+        };
+        let bold = source(".word{font-weight:bold}");
+        let italic = source(".word{font-style:italic}");
+        let unsupported = source(".word:hover{font-weight:bold}");
+        let plain = source(".word{font-weight:normal}");
+        assert!(bold.view_html.contains("<b>Hola mundo.</b>"));
+        assert!(italic.view_html.contains("<i>Hola mundo.</i>"));
+        assert_eq!(unsupported.view_html, plain.view_html);
+        bind_source_identity(&mut job, &bold).unwrap();
+        let cache = new_segment_cache(&job);
+        let cache = serde_json::from_value(serde_json::to_value(cache).unwrap()).unwrap();
+        assert!(cache_is_compatible(&cache, &job));
+        for source in [&italic, &unsupported, &plain] {
+            let mut changed = job.clone();
+            bind_source_identity(&mut changed, source).unwrap();
+            assert_eq!(changed.cache_key, job.cache_key);
+            assert!(!cache_is_compatible(&cache, &changed));
+        }
+        let mut unresolved = job.clone();
+        bind_source_identity(&mut unresolved, &unsupported).unwrap();
+        let cache = new_segment_cache(&unresolved);
+        bind_source_identity(&mut unresolved, &plain).unwrap();
+        assert!(!cache_is_compatible(&cache, &unresolved));
+    }
+
     #[test]
     fn probe_translations_reuse_shared_memory() {
         let plan = plan();

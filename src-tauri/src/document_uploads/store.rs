@@ -1861,7 +1861,7 @@ mod tests {
     #[test]
     fn source_formatting_metadata_roundtrips_without_certifying_legacy_documents() {
         let mut db = test_db();
-        let parsed = super::super::html::prepare_html_document("<head><style>p{font-weight:normal!important}</style></head><body><p style='font-weight:bold'>Readable.</p></body>");
+        let parsed = super::super::html::prepare_html_document("<head><style>@media print {p{font-weight:normal!important}}</style></head><body><p style='font-weight:bold'>Readable.</p></body>");
         upsert_document(
             &mut db,
             "abc123",
@@ -1878,7 +1878,7 @@ mod tests {
         assert_eq!(reloaded.source_formatting, parsed.source_formatting);
         assert_eq!(
             reloaded.source_formatting.unwrap().warnings,
-            ["unread-stylesheet"]
+            ["unsupported-rule"]
         );
         let legacy = parsed_document("Legacy", &["Existing text"]);
         upsert_document(

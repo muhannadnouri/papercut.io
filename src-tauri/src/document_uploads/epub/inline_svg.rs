@@ -17,6 +17,12 @@ use crate::document_uploads::parsed::ParsedDocumentAsset;
 const SVG_NS: &str = "http://www.w3.org/2000/svg";
 const XLINK_NS: &str = "http://www.w3.org/1999/xlink";
 
+pub(super) struct Externalized {
+    pub(super) html: String,
+    /// Keep source-global CSS evidence before its SVG container becomes a standalone image.
+    pub(super) stylesheet_warning: Option<&'static str>,
+}
+
 /// Preserve complete SVG compositions, including their viewport and local raster
 /// images. Generated SVG is used only as an external img, like manifest SVGs.
 /// Malformed XHTML keeps the existing forgiving HTML import path.
@@ -26,11 +32,14 @@ pub(super) fn externalize_inline_svgs<R: Read + Seek>(
     archive: &mut ZipArchive<R>,
     manifest: &[ManifestItem],
     assets: &mut LoadedImageAssets,
-) -> String {
+) -> Externalized {
     // EPUB XHTML commonly declares a doctype. roxmltree never fetches external
     // DTDs; reject entity declarations so source ranges remain unexpanded.
     if raw.contains("<!ENTITY") {
-        return raw.to_string();
+        return Externalized {
+            html: raw.to_string(),
+            stylesheet_warning: None,
+        };
     }
     let Ok(document) = Document::parse_with_options(
         raw,
@@ -39,16 +48,42 @@ pub(super) fn externalize_inline_svgs<R: Read + Seek>(
             ..Default::default()
         },
     ) else {
-        return raw.to_string();
+        return Externalized {
+            html: raw.to_string(),
+            stylesheet_warning: None,
+        };
     };
     let mut replacements = Vec::new();
-    for node in document.descendants().filter(|node| {
-        node.has_tag_name((SVG_NS, "svg"))
-            && !node
-                .ancestors()
-                .skip(1)
-                .any(|parent| parent.has_tag_name((SVG_NS, "svg")))
-    }) {
+    let mut stylesheet_warning = None;
+    // Track only context changes by source range: stylesheet checks must not rescan deep ancestors.
+    let mut scopes: Vec<(usize, bool, bool)> = Vec::new();
+    for node in document.descendants() {
+        while scopes
+            .last()
+            .is_some_and(|(end, _, _)| *end <= node.range().start)
+        {
+            scopes.pop();
+        }
+        let (_, inside_svg, inert) = scopes.last().copied().unwrap_or((0, false, false));
+        let svg = node.has_tag_name((SVG_NS, "svg"));
+        let next_svg = inside_svg || svg;
+        let next_inert = inert
+            || (matches!(
+                node.tag_name().namespace(),
+                None | Some("http://www.w3.org/1999/xhtml")
+            ) && matches!(node.tag_name().name(), "template" | "noscript" | "script"));
+        if (next_svg, next_inert) != (inside_svg, inert) {
+            scopes.push((node.range().end, next_svg, next_inert));
+        }
+        // Do not lose global source CSS when extracting SVG, or XML-only stylesheet instructions.
+        if node.pi().is_some_and(|pi| pi.target == "xml-stylesheet")
+            || (node.tag_name().name() == "style" && next_svg && !next_inert)
+        {
+            stylesheet_warning = Some("unsupported-stylesheet");
+        }
+        if !svg || inside_svg {
+            continue;
+        }
         if node.range().len() as u64 > MAX_IMAGE_BYTES
             || node
                 .ancestors()
@@ -96,7 +131,10 @@ pub(super) fn externalize_inline_svgs<R: Read + Seek>(
     for (range, replacement) in replacements.into_iter().rev() {
         output.replace_range(range, &replacement);
     }
-    output
+    Externalized {
+        html: output,
+        stylesheet_warning,
+    }
 }
 
 /// Rebuild only the opening tag to carry inherited namespace declarations.
@@ -236,7 +274,8 @@ mod tests {
             &mut archive(),
             &manifest,
             &mut assets,
-        );
+        )
+        .html;
         assert_eq!(assets.files.len(), 2); // Nested SVG stays inside its composition.
         assert!(converted.contains("alt=\"A &quot;cover&quot;\""));
         assert!(converted.contains("id=\"cover\""));
@@ -278,7 +317,8 @@ mod tests {
             &mut archive(),
             &manifest,
             &mut assets,
-        );
+        )
+        .html;
 
         assert_eq!(assets.files.len(), 1);
         let svg = std::str::from_utf8(&assets.files[0].bytes).unwrap();
@@ -311,7 +351,7 @@ mod tests {
         let raw = format!(r#"<html xml:base="elsewhere/"><svg xmlns="{SVG_NS}"/></html>"#);
         let mut assets = LoadedImageAssets::default();
         assert_eq!(
-            externalize_inline_svgs(&raw, "OPS/ch.xhtml", &mut archive(), &[], &mut assets),
+            externalize_inline_svgs(&raw, "OPS/ch.xhtml", &mut archive(), &[], &mut assets).html,
             raw
         );
         assert!(assets.files.is_empty());
@@ -320,7 +360,7 @@ mod tests {
             "<!DOCTYPE html [<!ENTITY x 'expanded'>]><html>&x;</html>",
         ] {
             assert_eq!(
-                externalize_inline_svgs(raw, "OPS/ch.xhtml", &mut archive(), &[], &mut assets),
+                externalize_inline_svgs(raw, "OPS/ch.xhtml", &mut archive(), &[], &mut assets).html,
                 raw
             );
             assert!(assets.files.is_empty());

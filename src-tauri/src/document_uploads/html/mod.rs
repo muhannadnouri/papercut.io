@@ -6,12 +6,15 @@
 
 mod decode;
 pub(super) mod emphasis;
-// Selectors/local-sheet policy is frozen; Stage 2b will consume the remaining contract.
+// Pure policy also documents conservative rejection states beyond the active subset.
 #[allow(dead_code)]
 mod emphasis_policy;
+mod emphasis_sheets;
 mod parser;
 mod prepare;
 mod sanitize;
+#[cfg(test)]
+mod stylesheet_tests;
 mod util;
 pub(crate) use decode::decode_html_bytes;
 pub(super) use emphasis_policy::POLICY as SOURCE_EMPHASIS_POLICY;
