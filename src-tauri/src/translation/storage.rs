@@ -302,13 +302,11 @@ pub(super) fn save_translation_review<R: Runtime>(
     validate_review_id(id)?;
     crate::native_tts::with_audiobook_reference_lock(|| {
         let mut db = open_translation_db(app)?;
-        let snapshot = super::review_store::load_in(&db, id)?
-            .ok_or_else(|| super::review_store::review_error(super::review::Error::Missing))?;
-        verify_review_baseline(app, id, &snapshot)?;
-        // Finish fallible filesystem reads before committing the new revision, so retry is safe.
-        let assets = review_assets(app, id)?;
-        let snapshot = super::review_store::apply_in(&mut db, request)?;
-        review_draft(snapshot, assets)
+        // Prepare the entire response in the edit transaction; failure leaves the same revision retryable.
+        super::review_store::apply_prepared_in(&mut db, request, |snapshot| {
+            verify_review_baseline(app, id, &snapshot)?;
+            review_draft(snapshot, review_assets(app, id)?)
+        })
     })
 }
 
@@ -363,11 +361,8 @@ fn review_draft(
     snapshot: super::review::Snapshot,
     asset_paths: std::collections::HashMap<String, String>,
 ) -> Result<TranslationReviewDraft, String> {
-    let source_preview_html = snapshot
-        .source_preview()
-        .map_err(super::review_store::review_error)?;
-    let preview_html = snapshot
-        .reconstruct()
+    let (source_preview_html, preview_html) = snapshot
+        .previews()
         .map_err(super::review_store::review_error)?;
     Ok(TranslationReviewDraft {
         document: snapshot.document,

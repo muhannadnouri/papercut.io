@@ -6,7 +6,7 @@ use crate::translation::{
     types::TranslationRepairMode,
 };
 
-fn snapshot(source: &str, english: &[&str]) -> Snapshot {
+pub(super) fn snapshot(source: &str, english: &[&str]) -> Snapshot {
     let source = crate::document_uploads::sanitize_html(source);
     let plan = DomPlan::new(&source);
     assert_eq!(plan.blocks.len(), english.len());
@@ -68,7 +68,7 @@ fn snapshot(source: &str, english: &[&str]) -> Snapshot {
     Snapshot::capture(&request, "abc2".into(), "12".repeat(16), &html).unwrap()
 }
 
-fn edit(snapshot: &Snapshot, ordinal: usize, marks: Vec<Mark>) -> EditRequest {
+pub(super) fn edit(snapshot: &Snapshot, ordinal: usize, marks: Vec<Mark>) -> EditRequest {
     EditRequest {
         expected: snapshot.document.expected.clone(),
         block: snapshot.document.blocks[ordinal].key.clone(),
@@ -76,7 +76,7 @@ fn edit(snapshot: &Snapshot, ordinal: usize, marks: Vec<Mark>) -> EditRequest {
     }
 }
 
-fn bold(start: u32, end: u32) -> Mark {
+pub(super) fn bold(start: u32, end: u32) -> Mark {
     Mark {
         range: ScalarRange { start, end },
         kind: MarkKind::Bold,
@@ -369,10 +369,11 @@ fn structural_english_keeps_fixed_marks_links_literals_notes_and_attachments() {
     let html = crate::document_uploads::sanitize_html("<p id='p'>The <strong>house <em>is</em></strong> <code>API</code><a href='#n'>link</a><a role='doc-noteref' href='#n'>1</a><img alt='image' data-papercut-asset='image-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png'> end.</p>");
     let plan = checked_plan(&html).unwrap();
     let node = &plan.blocks[0].node;
+    let (paths, _) = block_paths(&plan).unwrap();
     let mapping = Mapping {
         ordinal: 0,
-        source_path: path(&plan.document, node).unwrap(),
-        target_path: path(&plan.document, node).unwrap(),
+        source_path: paths[0].clone(),
+        target_path: paths[0].clone(),
         needs_review: false,
         source_formatting: false,
     };

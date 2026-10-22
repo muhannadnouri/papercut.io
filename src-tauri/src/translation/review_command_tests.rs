@@ -112,6 +112,222 @@ fn published(
     )
 }
 
+/// Compare the exact saved evidence independently of reader whitespace normalization.
+fn review_evidence(app: &tauri::AppHandle<MockRuntime>, id: &str) -> Value {
+    let db = open_document_uploads_db(app).unwrap();
+    let snapshot: String = db
+        .query_row(
+            "SELECT snapshot_json FROM translation_review WHERE variant_id=?1",
+            [id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    serde_json::from_str(&snapshot).unwrap()
+}
+
+#[test]
+fn reader_whitespace_equivalence_saves_and_resumes_without_rewriting_english() {
+    use sha2::{Digest, Sha256};
+    for separator in [" ", "  ", "\n", "\t", "\u{a0}"] {
+        let (dir, app, window) = fixture();
+        let source = source(app.handle());
+        let english = format!("A{separator}house <safe> & exact.");
+        let mut request = request(&source);
+        request.translated_sections[0].text = english.clone();
+        request.translated_sections[0].fragments[0].text = english.clone();
+        let info = persist_translated_document(app.handle(), request, || Ok(()))
+            .unwrap_or_else(|error| panic!("separator {separator:?}: {error}"));
+        let before = published(app.handle(), &dir.0, &info.id);
+        let immutable = review_evidence(app.handle(), &info.id);
+        assert_eq!(
+            immutable["baselineHtml"].as_str().unwrap().as_bytes(),
+            before.0
+        );
+        let draft = load(&window, &info.id).unwrap();
+        let block = &draft["document"]["blocks"][0];
+        assert_eq!(block["text"], english);
+        assert_eq!(
+            block["textHash"],
+            format!("{:x}", Sha256::digest(english.as_bytes()))
+        );
+        assert_eq!(
+            draft["document"]["publishedHash"],
+            format!("{:x}", Sha256::digest(&before.0))
+        );
+        let start = english.find("house").unwrap();
+        let start = english[..start].chars().count();
+        let changed = save(
+            &window,
+            &edit(
+                &draft,
+                0,
+                json!({"action":"replaceMarks","marks":[{"range":{"start":start,"end":start+5},"kind":"bold"}]}),
+            ),
+        )
+        .unwrap();
+        assert_eq!(changed["document"]["blocks"][0]["text"], english);
+        assert_eq!(
+            changed["document"]["blocks"][0]["textHash"],
+            block["textHash"]
+        );
+        let preview = changed["previewHtml"].as_str().unwrap();
+        assert!(preview.contains("<b>house</b> &lt;safe&gt; &amp; exact."));
+        let target = crate::translation::dom::DomPlan::new(preview);
+        assert_eq!(target.blocks[0].node.text_contents(), english);
+        assert!(crate::translation::html::parse_html_document(preview)
+            .select("safe")
+            .unwrap()
+            .next()
+            .is_none());
+        assert_eq!(load(&window, &info.id).unwrap(), changed);
+        assert_eq!(review_evidence(app.handle(), &info.id), immutable);
+        assert_eq!(published(app.handle(), &dir.0, &info.id), before);
+    }
+}
+
+#[test]
+fn whitespace_review_keeps_protected_literal_note_and_attachment_bytes_and_locks() {
+    use crate::translation::inline_markup::protected::ProtectedSource;
+    let (dir, app, window) = fixture();
+    let literal = "API  \n\tvalue\u{a0}x";
+    let asset = crate::document_uploads::ParsedDocumentAsset::new(
+        "image/png",
+        b"owned review image".to_vec(),
+    )
+    .unwrap();
+    let mut db = open_document_uploads_db(app.handle()).unwrap();
+    persist_derived_document(
+        app.handle(),
+        &mut db,
+        "abc123",
+        "/uploads/abc123.html",
+        "Synthetic protected source",
+        "html",
+        format!("<p id='ref'>Gardez <code>{literal}</code><a role='doc-noteref' href='#n'><sup>1</sup></a><img data-papercut-asset='{}'> fin.</p><p id='n' role='doc-footnote'>Note<a role='doc-backlink' href='#ref'>Retour</a>.</p>", asset.file_name),
+        std::slice::from_ref(&asset),
+        1,
+        |_| Ok(()),
+    )
+    .unwrap();
+    let source = load_translation_source_document(app.handle(), "/uploads/abc123.html").unwrap();
+    let plan = crate::translation::dom::DomPlan::new(&source.view_html);
+    let first = &plan.blocks[0];
+    let protected = ProtectedSource::for_boundaries(&first.node)
+        .unwrap()
+        .fragment(0..first.inline.text.chars().count(), &first.inline.text)
+        .unwrap();
+    let transport = protected
+        .html
+        .replacen("Gardez ", "Keep  \n\t", 1)
+        .replacen(" fin.", " end.", 1);
+    let restored = protected.restore_boundaries(&transport).unwrap();
+    let mut request = request(&source);
+    request.translated_sections[0].text = restored.text.clone();
+    request.translated_sections[0].fragments[0].text = restored.text;
+    request.translated_sections[0].fragments[0].needs_review = false;
+    request.translated_sections[0].fragments[0].markup = Some(transport);
+    let info = persist_translated_document(app.handle(), request, || Ok(())).unwrap();
+    let before = published(app.handle(), &dir.0, &info.id);
+    let immutable = review_evidence(app.handle(), &info.id);
+    let draft = load(&window, &info.id).unwrap();
+    let english = draft["document"]["blocks"][0]["text"].as_str().unwrap();
+    assert!(english.starts_with("Keep  \n\t"));
+    assert!(english.contains(literal));
+    let start = english[..english.find("API").unwrap()].chars().count();
+    let end = start + literal.chars().count();
+    assert!(draft["document"]["blocks"][0]["locked"]
+        .as_array()
+        .unwrap()
+        .contains(&json!({"start":start,"end":end})));
+    assert!(save(
+        &window,
+        &edit(
+            &draft,
+            0,
+            json!({"action":"replaceMarks","marks":[{"range":{"start":start+1,"end":start+2},"kind":"bold"}]}),
+        ),
+    )
+    .is_err());
+    assert_eq!(load(&window, &info.id).unwrap(), draft);
+    let changed = save(
+        &window,
+        &edit(
+            &draft,
+            0,
+            json!({"action":"replaceMarks","marks":[{"range":{"start":0,"end":4},"kind":"italic"}]}),
+        ),
+    )
+    .unwrap();
+    let original = crate::translation::dom::DomPlan::new(std::str::from_utf8(&before.0).unwrap());
+    let preview = crate::translation::dom::DomPlan::new(changed["previewHtml"].as_str().unwrap());
+    assert_eq!(preview.blocks[0].node.text_contents(), english);
+    assert_eq!(
+        preview.blocks[0]
+            .node
+            .select_first("i")
+            .unwrap()
+            .text_contents(),
+        "Keep"
+    );
+    for selector in ["code", "a[role='doc-noteref']", "img"] {
+        assert_eq!(
+            preview.blocks[0]
+                .node
+                .select_first(selector)
+                .unwrap()
+                .as_node()
+                .to_string(),
+            original.blocks[0]
+                .node
+                .select_first(selector)
+                .unwrap()
+                .as_node()
+                .to_string(),
+            "{selector} must remain byte-identical"
+        );
+    }
+    assert_eq!(load(&window, &info.id).unwrap(), changed);
+    assert_eq!(review_evidence(app.handle(), &info.id), immutable);
+    assert_eq!(published(app.handle(), &dir.0, &info.id), before);
+    assert_eq!(
+        fs::read(dir.0.join(format!(
+            "document_uploads/{}/assets/{}",
+            info.id, asset.file_name
+        )))
+        .unwrap(),
+        asset.bytes
+    );
+}
+
+#[test]
+fn whitespace_coverage_check_still_rejects_changed_words_and_interpreted_decoder_markup() {
+    let (_dir, app, _window) = fixture();
+    let source = source(app.handle());
+    let english = "A  house <b>safe</b>.";
+    let mut request = request(&source);
+    request.translated_sections[0].text = english.into();
+    request.translated_sections[0].fragments[0].text = english.into();
+    let html = crate::document_uploads::sanitize_html(
+        &crate::translation::render::render_translated_html("English", &request).unwrap(),
+    );
+    let capture = |html: &str| {
+        crate::translation::review::Snapshot::capture(
+            &request,
+            "abc124".into(),
+            "12".repeat(16),
+            html,
+        )
+    };
+    assert!(capture(&html).is_ok());
+    for changed in [
+        html.replacen("A  house", "A  home", 1),
+        html.replacen("&lt;b&gt;safe&lt;/b&gt;", "<b>safe</b>", 1),
+    ] {
+        assert_ne!(changed, html);
+        assert!(capture(&changed).is_err());
+    }
+}
+
 #[test]
 fn real_commands_resume_drafts_without_source_models_or_published_audio_changes() {
     let (dir, app, window) = fixture();

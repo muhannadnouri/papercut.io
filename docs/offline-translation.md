@@ -659,7 +659,7 @@ version bump remain deferred; no further candidate evaluation is scheduled.
 
 ## OPUS assisted formatting plan — 2026-10-21
 
-**Stages 1–2a implemented; assisted review integration pending.** Use existing OPUS-MT French/Spanish → English sentence
+**Stages 1–3 implemented; publication and review UI pending.** Use existing OPUS-MT French/Spanish → English sentence
 translation, then let the user correct bold/italic scopes without changing the
 translated characters. Source formatting normalization and target formatting
 review are separate responsibilities. CSS normalization prevents additional
@@ -1384,6 +1384,51 @@ this stage does not claim automatic semantic word placement. Other providers
 remain gated; strict alignment disabled; benchmarks, smoke and version bump
 remain deferred.
 
+### Stage 3 whitespace and traversal corrections — 2026-10-21
+
+The focused review found two implementation defects, corrected without changing
+provider admission, English output or the review schema:
+
+- Snapshot coverage previously compared normalized reader text with exact decoder
+  text. Double spaces, line breaks, tabs or nonbreaking spaces could pass decoding,
+  rendering and output checks, then fail at saving. Coverage now uses the existing
+  plain-text whitespace normalizer on the comparison only. Saved English, literal
+  payloads, hashes, scalar offsets and protected boundaries remain exact; decoder
+  text is never parsed as HTML or rewritten to make the check pass.
+- Resolving each paragraph's saved path previously rescanned earlier siblings,
+  making large flat books quadratic. One depth-first walk now gathers all native
+  block paths, retaining the existing all-child index representation. Validation
+  checks those paths; reconstruction uses the already ordered block nodes rather
+  than resolving every path again. Both previews share one checked pair of DOMs
+  for that operation; no serialized admission flag or cross-command DOM cache is
+  introduced. Immutable evidence and current drafts still receive their native
+  checks on reload, and bounded edits retain their mutation-boundary validation.
+- A draft save now loads its evidence once inside the SQLite write transaction
+  and prepares its complete response before the conditional update and commit.
+  Baseline-file checks, asset reads and preview reconstruction remain under the
+  existing reference lock. A preparation failure preserves the prior revision
+  and allows the same request to retry; no fallible response work follows commit.
+
+New synthetic regressions cover exact whitespace/text/hash preservation through
+native persistence, draft save/reload and preview; protected code, notes, image
+bytes and locked ranges; changed-word/markup rejection; and response-failure retry
+and immutable-record tampering. An 8,000-paragraph repeated-text fixture counts
+actual path-walk node visits through capture, validation and reconstruction, with
+no timing threshold. Nested/comment/whitespace child paths remain compatible with
+saved records, and tampered paths cannot redirect an edit to identical prose.
+This is deterministic traversal-work coverage, not a hardware speed/RAM benchmark.
+
+Validation: eight new synthetic regressions. Complete offline Rust library suites
+passed: 704 base tests and 706 with `native-translation`, with four existing ignores
+in each. The whitespace test reproduced the final-save failure before the fix.
+Rust formatting, diff checks and all 18 local documentation links passed;
+historical evaluation JSON remains byte-identical. No inference, full CI or
+packaged acceptance result is claimed.
+
+Review these corrections before Stage 4 atomic publication. The existing published
+fallback, saved sources, variants, audio and highlighting are unchanged. Providers
+remain gated, strict disabled; benchmarks, smoke and version bump remain deferred.
+
 ## Architecture and ownership
 
 Keep shared source/data safety separate from provider inference. Formatting
@@ -1496,7 +1541,7 @@ There are two distinct forms of storage:
 
 | Data | Current implementation |
 | --- | --- |
-| Durable variant | Existing upload database/files, shared sections/assets/FTS and a `translated_documents` provenance row; translation schema version `1` in `upload_schema_metadata` |
+| Durable variant/review | Existing upload database/files, shared sections/assets/FTS, `translated_documents` provenance and generation-owned `translation_review` evidence/drafts; translation schema version `2` in `upload_schema_metadata`. Review-contract version remains `1` |
 | Retry/resume | JSON at `<app-data>/translation/segment-cache/{cache-key}/segments.json`, cache version `1`, inline strategy version `3` |
 
 There is **no production `translation_segments` SQLite table**. Metadata records
@@ -2003,7 +2048,8 @@ workflow and safe import normalization. Follow the [staged implementation plan](
 Stage 1's pure contracts and Stage 2a's inline normalization are complete.
 Stage 2b's coverage and literal-preservation blockers passed focused review.
 Stage 3's durable snapshots, resumable drafts and pure reconstruction are now
-implemented; review them before Stage 4's guarded atomic publication. Stage 5's
+implemented, including the whitespace/traversal corrections; review those fixes
+before Stage 4's guarded atomic publication. Stage 5's
 accessible editor/consumer integration remains pending. This is
 not another provider experiment or a claim of automatic target formatting.
 Additional passing examples cannot erase a known failure. Use Firefox's

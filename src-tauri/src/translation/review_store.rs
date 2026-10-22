@@ -77,17 +77,21 @@ pub(super) fn load_in(db: &Connection, variant_id: &str) -> Result<Option<Snapsh
         .map_err(review_error)
 }
 
-/// Serialize competing windows with SQLite, then conditionally advance only the loaded generation.
-pub(super) fn apply_in(db: &mut Connection, request: &EditRequest) -> Result<Snapshot, String> {
+/// Prepare the whole native response before committing; an unreadable asset or preview can be retried.
+pub(super) fn apply_prepared_in<T>(
+    db: &mut Connection,
+    request: &EditRequest,
+    prepare: impl FnOnce(Snapshot) -> Result<T, String>,
+) -> Result<T, String> {
     let tx = db
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(db_err)?;
     let mut snapshot = load_in(&tx, &request.expected.variant_id)?
         .ok_or("Formatting review is unavailable for this saved translation")?;
     snapshot.apply(request).map_err(review_error)?;
-    // An edit that cannot reconstruct safe source-owned HTML must never become a durable draft.
-    snapshot.reconstruct().map_err(review_error)?;
     let draft = encode(&snapshot.document)?;
+    let revision = snapshot.document.expected().revision;
+    let prepared = prepare(snapshot)?;
     let changed = tx
         .execute(
             "UPDATE translation_review SET revision = ?4, document_json = ?5
@@ -96,7 +100,7 @@ pub(super) fn apply_in(db: &mut Connection, request: &EditRequest) -> Result<Sna
                 request.expected.variant_id,
                 request.expected.generation,
                 request.expected.revision as i64,
-                snapshot.document.expected().revision as i64,
+                revision as i64,
                 draft,
             ],
         )
@@ -105,7 +109,15 @@ pub(super) fn apply_in(db: &mut Connection, request: &EditRequest) -> Result<Sna
         return Err("Formatting review changed; reload this saved translation".into());
     }
     tx.commit().map_err(db_err)?;
-    Ok(snapshot)
+    Ok(prepared)
+}
+
+#[cfg(test)]
+fn apply_in(db: &mut Connection, request: &EditRequest) -> Result<Snapshot, String> {
+    apply_prepared_in(db, request, |snapshot| {
+        snapshot.reconstruct().map_err(review_error)?;
+        Ok(snapshot)
+    })
 }
 
 fn encode(value: &impl serde::Serialize) -> Result<String, String> {

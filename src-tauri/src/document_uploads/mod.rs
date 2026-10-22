@@ -80,5 +80,5 @@ pub(crate) use types::{
 
 #[cfg(test)]
 pub(crate) use html::prepare_html_document;
-pub(crate) use html::{reader_block_nodes, sanitize_html, tag_separates_text};
+pub(crate) use html::{normalize_text, reader_block_nodes, sanitize_html, tag_separates_text};
 pub(crate) use search_content::is_note_marker;

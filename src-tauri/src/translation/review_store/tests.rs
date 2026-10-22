@@ -279,6 +279,69 @@ fn failed_draft_update_rolls_back_without_mutating_baseline_metadata_or_search_c
 }
 
 #[test]
+fn failed_response_preparation_leaves_the_draft_retryable() {
+    let file = TestDb::new();
+    let mut db = file.open();
+    let initial = snapshot("a1b2", &"12".repeat(16));
+    insert(&mut db, &initial);
+    let stored = |db: &Connection| {
+        db.query_row(
+            "SELECT revision,snapshot_json,document_json FROM translation_review",
+            [],
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            },
+        )
+        .unwrap()
+    };
+    let before = stored(&db);
+    let request = edit(&initial, 0);
+    let error = apply_prepared_in(&mut db, &request, |snapshot| {
+        assert_eq!(snapshot.document.expected().revision, 1);
+        assert!(snapshot.reconstruct().unwrap().contains("<b>Hello</b>"));
+        Err::<(), _>("Cannot prepare native review response".to_string())
+    })
+    .unwrap_err();
+    assert_eq!(error, "Cannot prepare native review response");
+    assert_eq!(stored(&db), before);
+    let saved = apply_in(&mut db, &request).unwrap();
+    assert_eq!(saved.document.expected().revision, 1);
+    assert_eq!(load_in(&db, "a1b2").unwrap().unwrap(), saved);
+}
+
+#[test]
+fn immutable_document_corruption_rejects_even_when_the_saved_draft_is_valid() {
+    let file = TestDb::new();
+    let mut db = file.open();
+    let initial = snapshot("a1b2", &"12".repeat(16));
+    insert(&mut db, &initial);
+    let immutable: String = db
+        .query_row("SELECT snapshot_json FROM translation_review", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    let mut corrupt: serde_json::Value = serde_json::from_str(&immutable).unwrap();
+    corrupt["document"]["blocks"][0]["text"] = "Forged immutable text.".into();
+    db.execute(
+        "UPDATE translation_review SET snapshot_json=?1",
+        [corrupt.to_string()],
+    )
+    .unwrap();
+    assert!(load_in(&db, "a1b2").is_err());
+    assert!(apply_in(&mut db, &edit(&initial, 0)).is_err());
+    db.execute(
+        "UPDATE translation_review SET snapshot_json=?1",
+        [&immutable],
+    )
+    .unwrap();
+    assert_eq!(load_in(&db, "a1b2").unwrap().unwrap(), initial);
+}
+
+#[test]
 fn corrupted_evidence_or_forged_draft_text_is_rejected_on_reload() {
     let file = TestDb::new();
     let mut db = file.open();

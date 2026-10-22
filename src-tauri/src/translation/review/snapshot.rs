@@ -2,6 +2,7 @@
 //! Paths identify source/English nodes even when whole paragraphs repeat.
 
 use kuchikiki::NodeRef;
+use std::collections::HashMap;
 
 use super::*;
 use crate::translation::{
@@ -11,6 +12,11 @@ use crate::translation::{
 
 const MAX_NODES: usize = 262_144;
 const MAX_DEPTH: usize = 128;
+
+#[cfg(test)]
+thread_local! {
+    static PATH_VISITS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -30,6 +36,13 @@ pub(in crate::translation) struct Snapshot {
     pub(in crate::translation) document: Document,
     normalization_policy: String,
     mappings: Vec<Mapping>,
+}
+
+/// Parsed evidence is borrowed for one operation; deserialized snapshots never carry admission flags.
+struct ValidatedSnapshot<'a> {
+    snapshot: &'a Snapshot,
+    source: DomPlan,
+    target: DomPlan,
 }
 
 impl Snapshot {
@@ -53,6 +66,8 @@ impl Snapshot {
             .to_owned();
         let source = checked_plan(&source_html)?;
         let target = checked_plan(published_html)?;
+        let (source_paths, _) = block_paths(&source)?;
+        let (target_paths, _) = block_paths(&target)?;
         if source.blocks.len() != request.source.blocks.len()
             || source.blocks.len() != request.translated_sections.len()
             || source.blocks.len() != target.blocks.len()
@@ -61,26 +76,28 @@ impl Snapshot {
         }
         let mut mappings = Vec::with_capacity(source.blocks.len());
         let mut blocks = Vec::with_capacity(source.blocks.len());
-        for (((source_block, original), translated), target_block) in source
+        for (index, (((source_block, original), translated), target_block)) in source
             .blocks
             .iter()
             .zip(&request.source.blocks)
             .zip(&request.translated_sections)
             .zip(&target.blocks)
+            .enumerate()
         {
             if source_block.ordinal != original.ordinal
                 || source_block.inline.text != original.text
                 || original.ordinal != translated.source_ordinal
                 || original.is_heading != translated.is_heading
                 || original.is_heading != source_block.is_heading
-                || target_block.inline.text != translated.text
+                // Reader coverage collapses whitespace; immutable text and edit coordinates stay exact.
+                || target_block.inline.text != crate::document_uploads::normalize_text(&translated.text)
             {
                 return Err(Error::Evidence);
             }
             let mapping = Mapping {
                 ordinal: original.ordinal.try_into().map_err(|_| Error::Limit)?,
-                source_path: path(&source.document, &source_block.node)?,
-                target_path: path(&target.document, &target_block.node)?,
+                source_path: source_paths[index].clone(),
+                target_path: target_paths[index].clone(),
                 needs_review: translated.fragments.iter().any(|f| f.needs_review),
                 source_formatting: request
                     .source
@@ -119,6 +136,11 @@ impl Snapshot {
 
     /// Deserialize is not admission: rebuild immutable text/structure/locks before accepting a draft.
     pub(in crate::translation) fn validate(&self) -> Result<(), Error> {
+        self.validated().map(|_| ())
+    }
+
+    /// Keep the checked native trees so preview work cannot detach their block identities by reparsing.
+    fn validated(&self) -> Result<ValidatedSnapshot<'_>, Error> {
         self.document
             .check(&self.document.expected, self.evidence())?;
         if !valid_document_ids(
@@ -129,6 +151,8 @@ impl Snapshot {
         }
         let source = checked_plan(&self.source_html)?;
         let target = checked_plan(&self.baseline_html)?;
+        let (source_paths, _) = block_paths(&source)?;
+        let (target_paths, _) = block_paths(&target)?;
         if self.mappings.is_empty()
             || self.mappings.len() > MAX_BLOCKS
             || self.mappings.len() != source.blocks.len()
@@ -138,16 +162,17 @@ impl Snapshot {
             return Err(Error::Evidence);
         }
         let mut total = 0usize;
-        for (((mapping, source_block), target_block), saved) in self
+        for (index, (((mapping, source_block), target_block), saved)) in self
             .mappings
             .iter()
             .zip(&source.blocks)
             .zip(&target.blocks)
             .zip(&self.document.blocks)
+            .enumerate()
         {
             if source_block.ordinal != mapping.ordinal as usize
-                || path(&source.document, &source_block.node)? != mapping.source_path
-                || path(&target.document, &target_block.node)? != mapping.target_path
+                || source_paths[index] != mapping.source_path
+                || target_paths[index] != mapping.target_path
             {
                 return Err(Error::Evidence);
             }
@@ -167,7 +192,11 @@ impl Snapshot {
         if total > MAX_DOCUMENT_TEXT_BYTES {
             return Err(Error::Limit);
         }
-        Ok(())
+        Ok(ValidatedSnapshot {
+            snapshot: self,
+            source,
+            target,
+        })
     }
 
     pub(in crate::translation) fn with_document(&self, document: Document) -> Result<Self, Error> {
@@ -194,14 +223,51 @@ impl Snapshot {
     }
 
     /// Split existing English text nodes only; source shells, anchors and literal nodes never move.
+    #[cfg(test)]
     pub(in crate::translation) fn reconstruct(&self) -> Result<String, Error> {
-        self.validate()?;
-        if self.document.blocks.iter().all(|b| b.editable.is_empty()) {
-            return Ok(self.baseline_html.clone());
+        self.validated()?.reconstruct()
+    }
+
+    /// Both response previews share one evidence validation and the same parsed source/English trees.
+    pub(in crate::translation) fn previews(&self) -> Result<(String, String), Error> {
+        let validated = self.validated()?;
+        Ok((validated.source_preview()?, validated.reconstruct()?))
+    }
+
+    /// A separate namespace keeps full-source notes/backlinks usable beside the English preview.
+    #[cfg(test)]
+    pub(in crate::translation) fn source_preview(&self) -> Result<String, Error> {
+        self.validated()?.source_preview()
+    }
+
+    fn evidence(&self) -> Evidence<'_> {
+        Evidence {
+            normalization_policy: &self.normalization_policy,
+            source_snapshot: &self.source_html,
+            published_html: &self.baseline_html,
         }
-        let document = parse_html_document(&self.baseline_html);
-        for (mapping, block) in self.mappings.iter().zip(&self.document.blocks) {
-            let node = at_path(&document, &mapping.target_path)?;
+    }
+}
+
+impl ValidatedSnapshot<'_> {
+    /// Consume this operation's fresh tree; another preview always starts from the immutable baseline.
+    fn reconstruct(self) -> Result<String, Error> {
+        if self
+            .snapshot
+            .document
+            .blocks
+            .iter()
+            .all(|b| b.editable.is_empty())
+        {
+            return Ok(self.snapshot.baseline_html.clone());
+        }
+        for (target, block) in self
+            .target
+            .blocks
+            .iter()
+            .zip(&self.snapshot.document.blocks)
+        {
+            let node = &target.node;
             let mut offset = 0u32;
             let runs = canonical_runs(block.editable.iter().copied(), &block.locked);
             for text_node in node
@@ -224,14 +290,13 @@ impl Snapshot {
                 return Err(Error::Evidence);
             }
         }
-        serialize(&document)
+        serialize(&self.target.document)
     }
 
-    /// A separate namespace keeps full-source notes/backlinks usable beside the English preview.
-    pub(in crate::translation) fn source_preview(&self) -> Result<String, Error> {
-        self.validate()?;
-        let document = parse_html_document(&self.source_html);
-        let baseline = parse_html_document(&self.baseline_html);
+    /// Rewrite only the separate source tree, leaving English anchors and saved evidence untouched.
+    fn source_preview(&self) -> Result<String, Error> {
+        let document = &self.source.document;
+        let baseline = &self.target.document;
         let identifiers = |document: &NodeRef| {
             document
                 .inclusive_descendants()
@@ -243,12 +308,12 @@ impl Snapshot {
                 })
                 .collect::<BTreeSet<_>>()
         };
-        let existing = identifiers(&baseline);
-        let source_ids = identifiers(&document);
+        let existing = identifiers(baseline);
+        let source_ids = identifiers(document);
         // Native generation tokens make collisions unlikely, but authored ids must never defeat isolation.
         let base = format!(
             "papercut-review-source-{}-",
-            self.document.expected.generation
+            self.snapshot.document.expected.generation
         );
         let mut blocked = BTreeSet::new();
         for id in &existing {
@@ -293,15 +358,7 @@ impl Snapshot {
                 }
             }
         }
-        serialize(&document)
-    }
-
-    fn evidence(&self) -> Evidence<'_> {
-        Evidence {
-            normalization_policy: &self.normalization_policy,
-            source_snapshot: &self.source_html,
-            published_html: &self.baseline_html,
-        }
+        serialize(document)
     }
 }
 
@@ -438,35 +495,54 @@ fn collect(node: &NodeRef, geometry: &mut Geometry) -> Result<(), Error> {
     Ok(())
 }
 
-fn path(root: &NodeRef, node: &NodeRef) -> Result<Vec<usize>, Error> {
-    let mut child = node.clone();
-    let mut result = Vec::new();
-    while child != *root {
-        let parent = child.parent().ok_or(Error::Evidence)?;
-        result.push(
-            parent
-                .children()
-                .position(|n| n == child)
-                .ok_or(Error::Evidence)?,
-        );
-        child = parent;
-        if result.len() > MAX_DEPTH {
-            return Err(Error::Limit);
-        }
-    }
-    result.reverse();
-    Ok(result)
+/// Each sibling list is enumerated once; persisted paths keep their existing all-child indices.
+fn block_paths(plan: &DomPlan) -> Result<(Vec<Vec<usize>>, usize), Error> {
+    // Pointers identify nodes only inside this parsed tree, never in saved evidence or IPC.
+    let blocks: HashMap<_, _> = plan
+        .blocks
+        .iter()
+        .enumerate()
+        .map(|(index, block)| (std::rc::Rc::as_ptr(&block.node.0) as usize, index))
+        .collect();
+    let mut paths = vec![None; plan.blocks.len()];
+    let mut visited = 0usize;
+    collect_paths(
+        &plan.document,
+        &mut Vec::new(),
+        &blocks,
+        &mut paths,
+        &mut visited,
+    )?;
+    let paths = paths
+        .into_iter()
+        .map(|path| path.ok_or(Error::Evidence))
+        .collect::<Result<_, _>>()?;
+    Ok((paths, visited))
 }
 
-fn at_path(root: &NodeRef, path: &[usize]) -> Result<NodeRef, Error> {
-    if path.len() > MAX_DEPTH {
+/// Carry child indices down the tree instead of searching each node's preceding siblings.
+fn collect_paths(
+    node: &NodeRef,
+    path: &mut Vec<usize>,
+    blocks: &HashMap<usize, usize>,
+    paths: &mut [Option<Vec<usize>>],
+    visited: &mut usize,
+) -> Result<(), Error> {
+    *visited += 1;
+    #[cfg(test)]
+    PATH_VISITS.with(|visits| visits.set(visits.get() + 1));
+    if *visited > MAX_NODES || path.len() > MAX_DEPTH {
         return Err(Error::Limit);
     }
-    let mut node = root.clone();
-    for index in path {
-        node = node.children().nth(*index).ok_or(Error::Evidence)?;
+    if let Some(index) = blocks.get(&(std::rc::Rc::as_ptr(&node.0) as usize)) {
+        paths[*index] = Some(path.clone());
     }
-    Ok(node)
+    for (index, child) in node.children().enumerate() {
+        path.push(index);
+        collect_paths(&child, path, blocks, paths, visited)?;
+        path.pop();
+    }
+    Ok(())
 }
 
 /// Escaped text nodes retain exact characters; b/i wrappers are created by native constants only.
@@ -528,3 +604,6 @@ fn serialize(node: &NodeRef) -> Result<String, Error> {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod traversal_tests;
