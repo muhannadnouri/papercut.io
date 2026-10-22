@@ -6,6 +6,7 @@ import { isUploadedPdfDocumentUrl, type PdfPageTextLayer } from '../../uploads/D
 import type { PdfReadableSegment } from '../../pdf/pdfTts'
 import type { ChunkTargetResult } from './sourceChunkResolver'
 import { verifiedHtmlResolver, verifiedPdfResolver } from './verifiedSource'
+import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 
 export interface TextTargetPreparationOptions {
   documentUrl: string | null
@@ -30,7 +31,7 @@ export function createTextTargetPreparation(options: TextTargetPreparationOption
   let active = true
   let chunkRequest: Promise<TtsChunk[]> | undefined
   let expectedHtml: string[] | undefined
-  let htmlCache: { chunks: TtsChunk[]; texts: readonly string[]; resolver: ReturnType<typeof verifiedHtmlResolver> } | undefined
+  let htmlCache: { chunks: TtsChunk[]; texts: readonly string[]; sourceMatches: boolean; resolver: ReturnType<typeof verifiedHtmlResolver> } | undefined
   let pdfCache: { chunks: TtsChunk[]; resolver: ReturnType<typeof verifiedPdfResolver> } | undefined
   let pageCache: { pageIndex: number; promise: Promise<PdfPageTextLayer> } | undefined
   const unavailable = (reason: 'stale' | 'not-ready' | 'unmapped' | 'invalid-point') => ({ status: 'unavailable', reason }) as const
@@ -55,10 +56,14 @@ export function createTextTargetPreparation(options: TextTargetPreparationOption
           expectedHtml ??= extractReadableSegmentsFromHtml(options.docContent).map(segment => segment.text)
           const matches = expectedHtml.length === capture.segmentTexts.length &&
             expectedHtml.every((text, index) => text === capture.segmentTexts[index])
-          htmlCache = { chunks, texts: capture.segmentTexts, resolver: matches
+          htmlCache = { chunks, texts: capture.segmentTexts, sourceMatches: matches, resolver: matches
             ? verifiedHtmlResolver(chunks, capture.segmentTexts, isUserUploadUrl(documentUrl)) : { status: 'unavailable', reason: 'unmapped' } }
         }
         result = htmlCache.resolver.status === 'ready' ? htmlCache.resolver.resolve(capture.point) : htmlCache.resolver
+        if (result.status === 'unavailable') logTtsDiagnostic('[play-anywhere] HTML target rejected', {
+          stage: !htmlCache.sourceMatches ? 'source-identity' : htmlCache.resolver.status !== 'ready' ? 'chunk-verification' : 'point-lookup',
+          reason: result.reason, chunks: chunks.length, sourceSegments: expectedHtml!.length, viewSegments: capture.segmentTexts.length,
+        })
       } else {
         if (!isUploadedPdfDocumentUrl(documentUrl)) return unavailable('unmapped')
         const point = capture.point

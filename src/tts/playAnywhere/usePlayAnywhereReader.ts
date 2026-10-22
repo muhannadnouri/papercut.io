@@ -95,6 +95,7 @@ export function usePlayAnywhereReader({ documentUrl, active, playFromHere, playF
         const capture = action === 'selection'
           ? chosen?.read() ?? { status: 'unavailable', reason: 'no-selection' } as const
           : await targetApi.captureViewport()
+        if (capture.status === 'unavailable') logTtsDiagnostic('[play-anywhere] capture rejected', { requestId: intent, action, reason: capture.reason })
         if (valid()) setCapturing(false)
         return capture
       } }, started)

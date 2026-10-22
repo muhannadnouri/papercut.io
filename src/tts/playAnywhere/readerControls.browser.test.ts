@@ -106,7 +106,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
   it.each(['pointer', 'keyboard'])('keeps the chosen passage through %s menu focus and native selection collapse', async method => {
     const frame = join(directory, 'selection.html')
     writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>${css}article{margin:80px 30px;font:20px/1.6 Arial}</style>
-      <div class="app-reader"><header class="doc-header"><div id="controls"></div></header><main class="document-view"><article><p>First paragraph.</p><p>Selected readable passage here.</p></article></main></div>
+      <div class="app-reader"><header class="doc-header"><div id="controls"></div></header><main class="document-view"><article><p>First paragraph.</p><p>Selected readable passage here.</p><p>A parenthetical (with an abbreviation.).</p></article></main></div>
       <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
       (async()=>{await ReaderControls.mount('en',true);while(!window.captureReady)await new Promise(requestAnimationFrame);
       const text=document.querySelectorAll('article p')[1].firstChild;document.getSelection().setBaseAndExtent(text,15,text,9);
@@ -125,10 +125,10 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     expect(result.point).toEqual({ format: 'html', segmentIndex: 1, offset: 9 })
   }, 30_000)
 
-  it.each([false, true])('resolves imported clause-spaced audio from the top and browse controls (legacy=%s)', async legacy => {
+  it.each([false, true])('resolves imported chunker punctuation from the top and browse controls (legacy=%s)', async legacy => {
     const frame = join(directory, 'imported.html')
     const text = 'A narrated clause with repeated words '.repeat(4).trim() + ',“Another clause follows without a source space”, ' +
-      'A final long clause keeps the sentence above the splitting limit '.repeat(8).trim() + '.'
+      'A final long clause keeps the sentence above the splitting limit '.repeat(8).trim() + '. A parenthetical (with an abbreviation.). Next phrase.'
     writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>body{margin:0}${css}
       .doc-header{position:fixed;inset:0 0 auto;height:65px;background:white;z-index:2}
       .document-view{margin-top:80px}article{font:20px/1.7 Arial;margin:0 30px}p{margin-bottom:24px}

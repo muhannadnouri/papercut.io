@@ -6,6 +6,9 @@ import type { ViewerTextTargetResult } from '../../viewers/types'
 import type { TtsChunk } from '../types'
 import { pdfNarrationToReadableSegments } from '../../pdf/pdfTts'
 import * as verification from './verifiedSource'
+import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
+
+vi.mock('../diagnostics/TtsDiagnostics', () => ({ logTtsDiagnostic: vi.fn() }))
 
 vi.mock('../../uploads/DocumentUploads', async importOriginal => ({
   ...await importOriginal<typeof import('../../uploads/DocumentUploads')>(), getUploadedPdfPageText: vi.fn(),
@@ -71,6 +74,23 @@ describe('source-only target preparation', () => {
     const capture = htmlCapture()
     if (capture.status === 'captured') capture.isCurrent = () => false
     expect(await preparation.resolve('/book.html', capture)).toMatchObject({ reason: 'stale' })
+  })
+
+  it('identifies source, chunk and point failures without logging private text or IDs', async () => {
+    const preparation = createTextTargetPreparation(options())
+    await preparation.resolve('/book.html', htmlCapture(['First.', 'Changed']))
+    expect(logTtsDiagnostic).toHaveBeenLastCalledWith('[play-anywhere] HTML target rejected', {
+      stage: 'source-identity', reason: 'unmapped', chunks: 2, sourceSegments: 2, viewSegments: 2,
+    })
+    await createTextTargetPreparation(options({ chunks: [{ ...chunks[0], text: 'Changed' }, chunks[1]] })).resolve('/book.html', htmlCapture())
+    expect(logTtsDiagnostic).toHaveBeenLastCalledWith('[play-anywhere] HTML target rejected', {
+      stage: 'chunk-verification', reason: 'unmapped', chunks: 2, sourceSegments: 2, viewSegments: 2,
+    })
+    await preparation.resolve('/book.html', { ...htmlCapture(), point: { format: 'html', segmentIndex: 9, offset: 0 } } as ViewerTextTargetResult)
+    expect(logTtsDiagnostic).toHaveBeenLastCalledWith('[play-anywhere] HTML target rejected', {
+      stage: 'point-lookup', reason: 'invalid-point', chunks: 2, sourceSegments: 2, viewSegments: 2,
+    })
+    preparation.dispose()
   })
 
   it('recovers imported metadata without re-chunking or mutating authoritative IDs, text, hashes or spans', async () => {

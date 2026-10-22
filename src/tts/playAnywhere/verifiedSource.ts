@@ -1,5 +1,5 @@
 import {
-  buildTextLocatorIndex, locatorTextIsIgnorable, locatorTextsMatch, recoverOrderedSourceSpans,
+  buildTextLocatorIndex, locatorRangeIsIgnorable, locatorTextIsIgnorable, locatorTextsMatch, recoverOrderedSourceSpans,
   sourceSpanEndGlobalOffset, sourceSpanStartGlobalOffset,
 } from '../alignment/domTextSegments'
 import type { PdfReadableSegment } from '../../pdf/pdfTts'
@@ -22,13 +22,13 @@ export function verifiedHtmlResolver(chunks: readonly TtsChunk[], texts: readonl
       const span = chunk.sourceSpan!
       const start = sourceSpanStartGlobalOffset(locator, span)
       const end = sourceSpanEndGlobalOffset(locator, span)
-      if (!locatorTextIsIgnorable(locator.text.slice(cursor, start)) ||
+      if (!locatorRangeIsIgnorable(locator, cursor, start) ||
         !locatorTextsMatch(locator.text.slice(start, end), chunk.text)) {
         return { status: 'unavailable', reason: 'unmapped' } as const
       }
       cursor = end
     }
-    return locatorTextIsIgnorable(locator.text.slice(cursor)) ? resolver
+    return locatorRangeIsIgnorable(locator, cursor, locator.text.length) ? resolver
       : { status: 'unavailable', reason: 'unmapped' } as const
   }
   const durable = validate(chunks)

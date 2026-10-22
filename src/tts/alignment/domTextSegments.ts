@@ -183,6 +183,14 @@ export function locatorTextIsIgnorable(text: string): boolean {
   return !buildLocatorMatchIndex(normalizeLocatorText(text)).matchText.trim()
 }
 
+/** A dropped trailing terminator needs its preceding sentence/closer context. */
+export function locatorRangeIsIgnorable(locator: ReadableDomTextLocatorIndex, start: number, end: number): boolean {
+  const text = locator.text.slice(start, end)
+  if (locatorTextIsIgnorable(text)) return true
+  if (/[^\s.!?؟。！？।॥]/u.test(text)) return false
+  return !locator.matchText.slice(matchOffsetAtOrAfterGlobalOffset(locator, start), matchOffsetAtOrAfterGlobalOffset(locator, end)).trim()
+}
+
 export function locatorTextsMatch(rangeText: string, chunkText: string): boolean {
   const normalizedRange = normalizeLocatorText(rangeText)
   const normalizedChunk = normalizeLocatorText(chunkText)
@@ -309,6 +317,8 @@ function normalizeLocatorText(text: string): string {
 function buildLocatorMatchIndex(text: string): { matchText: string; matchTextOffsets: number[] } {
   let matchText = ''
   let afterChunkSeparator = false
+  let afterSentenceEnd = false
+  let afterSentenceCloser = false
   const matchTextOffsets: number[] = []
 
   // Map every output UTF-16 unit to its original codepoint start. NFKC
@@ -319,10 +329,21 @@ function buildLocatorMatchIndex(text: string): { matchText: string; matchTextOff
     if (codePoint === undefined) break
     const char = String.fromCodePoint(codePoint)
     const normalized = normalizeLocatorMatchChar(char)
+    // Ignoring a display mark must not invent raw adjacency for the sentence splitter.
+    if (!normalized) { afterSentenceEnd = false; afterSentenceCloser = false }
     for (const outputChar of normalized) {
       // Sentence/clause chunking inserts punctuation spacing; keep original source offsets.
-      if (outputChar === ' ' && afterChunkSeparator) continue
-      afterChunkSeparator = /[.!?؟。！？।॥,;:،؛，；：、]/u.test(outputChar) || (afterChunkSeparator && /["'”’»)\]）】」』》]/u.test(outputChar))
+      if (outputChar === ' ' && afterChunkSeparator) {
+        afterSentenceEnd = false; afterSentenceCloser = false
+        continue
+      }
+      const sentenceEnd = /[.!?؟。！？।॥]/u.test(outputChar)
+      const closer = /["'”’»)\]）】」』》]/u.test(outputChar)
+      // The sentence splitter omits terminators immediately after a consumed closer.
+      if (sentenceEnd && afterSentenceCloser) continue
+      afterSentenceCloser = closer && (afterSentenceEnd || afterSentenceCloser)
+      afterSentenceEnd = sentenceEnd
+      afterChunkSeparator = /[.!?؟。！？।॥,;:،؛，；：、]/u.test(outputChar) || (afterChunkSeparator && closer)
       matchText += outputChar
       for (let unit = 0; unit < outputChar.length; unit++) matchTextOffsets.push(offset)
     }

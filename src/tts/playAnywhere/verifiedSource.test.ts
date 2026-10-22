@@ -67,6 +67,46 @@ describe('verified source lookup', () => {
     expect(verifiedHtmlResolver(chunks, [text.replace('Another', 'Changed')], true).status).toBe('unavailable')
   })
 
+  it.each(['.', '?', '!', '؟', '。', '！', '？', '।', '॥'])('matches production sentence punctuation after a closer: %s', terminator => {
+    for (const suffix of [' Next passage continues.', '']) {
+      const text = `A saved parenthetical (with an abbreviation${terminator})${terminator}${suffix}`
+      const chunks = chunkAudiobookSaveHtmlWithSpans(`<p>${text}</p>`).map((chunk, i) => ({ ...chunk, id: 'saved-' + i }))
+      expect(chunks[0].text).not.toContain(')' + terminator)
+      const original = structuredClone(chunks)
+      for (const mapped of [chunks, chunks.map(({ id, text }) => ({ id, text }))]) {
+        const resolver = verifiedHtmlResolver(mapped, [text], mapped !== chunks)
+        expect(resolver.status).toBe('ready')
+        if (resolver.status === 'ready') {
+          expect(resolver.resolve({ segmentIndex: 0, offset: text.indexOf('abbreviation') }))
+            .toMatchObject({ status: 'resolved', chunkId: 'saved-0' })
+          if (!suffix) expect(resolver.resolve({ segmentIndex: 0, offset: text.length - 1 })).toMatchObject({ reason: 'unmapped' })
+        }
+      }
+      expect(chunks).toEqual(original)
+    }
+    expect(locatorTextsMatch('Same.) .', 'Same.)')).toBe(false)
+    expect(locatorTextsMatch('Same. ).', 'Same. )')).toBe(false)
+    expect(locatorTextsMatch('Value 1.2.', 'Value 12.')).toBe(false)
+    expect(locatorTextsMatch('Same.) Next.', 'Same.) Other.')).toBe(false)
+  })
+
+  it.each([')', ']', '"', '”', '’', '»', '）', '】', '」', '』', '》'])('keeps UTF-16 source offsets through consumed closer %s', closer => {
+    const text = `😀 Abbreviation.${closer}. Next phrase.`
+    const chunks = chunkAudiobookSaveHtmlWithSpans(`<p>${text}</p>`).map(({ text }, i) => ({ id: 'saved-' + i, text }))
+    const resolver = verifiedHtmlResolver(chunks, [text], true)
+    expect(resolver.status).toBe('ready')
+    if (resolver.status === 'ready') expect(resolver.resolve({ segmentIndex: 0, offset: text.indexOf('Next') }))
+      .toMatchObject({ status: 'resolved', chunkId: 'saved-0' })
+  })
+
+  it.each(['\u200f', '\u0640', '\u064e'])('does not invent adjacent sentence punctuation through display mark %j', mark => {
+    for (const text of [`A.${mark}). Next words.`, `A.)${mark}. Next words.`]) {
+      const chunks = chunkAudiobookSaveHtmlWithSpans(`<p>${text}</p>`).map((chunk, i) => ({ ...chunk, id: 'saved-' + i }))
+      expect(verifiedHtmlResolver(chunks, [text], false).status).toBe('ready')
+      expect(verifiedHtmlResolver(chunks.map(({ id, text }) => ({ id, text })), [text], true).status).toBe('ready')
+    }
+  })
+
   it('keeps exact-first matching and UTF-16 offsets through Arabic marks, NFKC expansions and emoji', () => {
     const texts = ['😀 بِدايَةٌ واضحةٌ.', 'ﻻ 😀', '𝔸 😀']
     const locator = buildTextLocatorIndex(texts)

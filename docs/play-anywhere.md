@@ -5,8 +5,8 @@ and viewport/selection controls with follow behavior are implemented through
 Stage 5. Stopped play captures the visible passage; the audio menu also offers
 Play from selection. Resume retains its exact position and Play from beginning
 is explicit. Stage 6 Linux AppImage acceptance is in progress; owner-reported
-false passage-change and imported punctuation-spacing rejections have automated
-regressions and pending manual retests. Baseline listening, device,
+false passage-change, imported punctuation-spacing and sentence-closer rejections
+have automated regressions and pending manual retests. Baseline listening, device,
 assistive-technology and performance gates remain open.
 Created 2026-10-21 against `main` at `8ebc9d0f`; working branch:
 `feature/play-anywhere`. Checked boxes record only the specific completed work.
@@ -254,7 +254,7 @@ Native WebView/device acceptance remains pending.
 | `src/tts/hooks/useAudiobookManager.ts`, `useAudiobookDocument.ts` | Expose `preparedChunks` / `resolveTextTarget` / `playFromHere` / `playFromBeginning` / `cancelTargetPlayback`; bind transport/options cancellation and stamp prepared state by document/content/model and exclude unverified import display fallback. Canonical getter retries manifest loading. | Disconnect the two feature hooks/exports and restore zero-start Read wiring. Remove canonical/getter exports only if unused; ordinary Read now uses canonical preparation too. Keep document/model ownership guards, ordinary preparation, and highlight recovery. |
 | `src/tts/hooks/useTtsPlayer.ts` | Optional start index, explicit seek-and-play, full sequence/option reuse, source/job/navigation guards and an optional guarded `onStarted` callback. | Restore zero-start calls and remove unused feature entry points/guard inputs; retain late-reply, pause/resume and teardown fixes used by ordinary playback. |
 | `src/tts/playback/nativeMobileAudio.ts`, `playbackState.ts` | Optional predicates run immediately before queued native mutations; pure timing/option checks use native manifest tolerance. | Remove feature-only predicate inputs if unused; retain lifecycle serialization, timing compatibility and general cancellation protections. |
-| `src/tts/alignment/domTextSegments.ts` and imported-span helpers | `normalizeDomTextPoint` supplies inverse offsets. `recoverOrderedSourceSpans` now serves both highlighting and target validation; normalized locator construction is shared and its tolerant index is lazy. | Remove inverse/snapshot-only helpers if unused after removing capture; keep shared ordered recovery, punctuation-spacing compatibility and UTF-16 fixes used by highlighting. |
+| `src/tts/alignment/domTextSegments.ts` and imported-span helpers | `normalizeDomTextPoint` supplies inverse offsets. `recoverOrderedSourceSpans` serves highlighting and target validation; normalized locator construction and sentence/clause compatibility are shared and its tolerant index is lazy. `locatorRangeIsIgnorable` proves context-dependent gaps for verified target preparation. | Remove inverse/snapshot-only helpers and `locatorRangeIsIgnorable` if unused after deleting feature validation; keep shared ordered recovery, punctuation compatibility and UTF-16 fixes used by highlighting. No shared alignment module imports play-anywhere. |
 | `src/pdf/ocr/pdfOcrTextLayer.ts` | Render-time WeakMap and source runs invert selectable OCR lines to stored words. | Remove `sourceRuns`, `lineSources`, `pdfOcrSourcePoint` and its renderer assignment; restore direct line text concatenation and retain rendering/persisted OCR data. |
 | `src/pdf/pdfTtsHighlight.ts` | Export existing pinned PDF item-map types for the capture adapter; highlight behavior is unchanged. | Remove the type exports if unused after removing capture. |
 | `src/tts/hooks/useTtsHighlight.ts`, PDF highlight/reveal path | Optional following control and pending-scroll cancellation. | Omit the optional policy to retain baseline automatic following; keep unrelated highlight fixes. |
@@ -495,7 +495,8 @@ Implementation details for Stage 2c:
 - HTML validation compares the complete live normalized segment snapshot to the
   selected source HTML once per view/chunk pair. It then checks source bounds,
   uniqueness/order/overlap, each chunk's actual span text and full source coverage.
-  Only whitespace and existing Arabic display-mark compatibility can occupy gaps.
+  Only whitespace, existing Arabic display-mark compatibility and source-proven
+  punctuation discarded by sentence splitting can occupy gaps.
   This rejects equal-length edits and extra/missing repeated occurrences instead
   of silently assigning them to the first available match. Only imported HTML may
   use shared ordered legacy recovery; no import re-chunking is used for targeting.
@@ -1123,6 +1124,163 @@ device/performance acceptance is recorded yet.
   unloaded; the hardware speaker remained the default before and after cleanup.
   This was temporary host test setup, not an app feature or device fault. No
   Papercut source/configuration creates that output.
+
+### 2026-10-22 — Stage 6 sentence-closer compatibility and review
+
+- The active isolated test profile contains a different imported HTML book from
+  the earlier 175-chunk probe: **1,139 chunks / 351,726 source bytes**. Read-only
+  process metadata identified the running standard AppImage and its data directory;
+  no app UI, playback, output routing or library data was changed.
+- One chunk differs because the production sentence regex consumes a terminator
+  and closer, then omits an immediately following terminator. Synthetic example:
+  source `An abbreviation (etc.). Next sentence.` becomes stored narration
+  `An abbreviation (etc.) Next sentence.` The source span still includes the
+  omitted period. Re-chunking this local source reproduces all 1,139 saved chunk
+  texts exactly; this is a known narration transformation, not a changed book.
+- Extend shared matching to this exact consumed-closer behavior. Keep raw
+  whitespace/display-mark adjacency significant when deciding whether punctuation
+  was omitted. A context-aware gap check handles an omitted book-final terminator;
+  selecting that non-narrated character alone remains unmapped. Changed words,
+  decimal values and independent punctuation still reject. No saved text, IDs,
+  hashes, audio bytes or format/schema are rewritten.
+- Regressions cover nine sentence terminators, eleven closers, source UTF-16
+  offsets/emoji, book-final punctuation and Arabic/display marks, plus actual
+  reader controls/selection with source preparation. Review caught and corrected
+  an introduced display-mark adjacency edge case before packaging.
+- HTML diagnostics now distinguish `source-identity`, `chunk-verification` and
+  `point-lookup`; reader capture failures log their own phase. Logs contain only
+  stage, typed reason and counts/request metadata, never source/selection prose
+  or chunk IDs. All new diagnostic calls live in feature-owned modules.
+- The final read-only local probe verifies all 1,139 chunks and **4,556 boundary
+  points** across durable and no-span variants. Source/metadata bytes and chunk
+  objects remain unchanged. Full frontend: **576 passed, 1 existing skip in 79
+  files**; ESLint, TypeScript, locale parity and whitespace checks passed.
+- Production build, native release, AppImage packaging and media-bundle checks
+  passed. Existing Vite mixed-import/large-chunk warnings remain. Named artifact:
+  `src-tauri/target/play-anywhere-acceptance/Papercut-play-anywhere-punctuation-fix.AppImage`;
+  SHA-256 `e53f953c2e95681df0e2bda2319b7ef5e105fa831205878fcfd07471dafa4d57`.
+  This is base `333cca52` plus the uncommitted correction/diagnostics patch.
+  `punctuation-fix-build.json` records source/patch hashes and numeric probe data.
+  Earlier artifacts remain preserved and lack this sentence-closer correction.
+  Owner retest must use this exact named artifact with the same imported book;
+  changing app versions does not require audio regeneration. The observed test
+  app used a disposable data profile, so retain that profile when launching or
+  import the original bundle again if the test-profile owner has removed it.
+- Resolver-only Node timings, 30 samples on this host while other automated
+  checks ran: cold durable p95 **133.3835 ms**, cold legacy p95 **143.1658 ms**,
+  warm point lookup p95 **0.0123 ms**. Inputs were already extracted segments.
+  These exclude source parsing, DOM capture, disk/audio loading, seeking and
+  audible output; they establish no WebKit/device or product latency acceptance.
+  Numeric receipt: local ignored `diagnosis/mapping-review-results.json` beside
+  the test artifacts. Cold work is a performance concern, not a passed gate.
+
+### Matching architecture review and recommended next work
+
+What this change does: recover compatibility with the narration already saved in
+an imported book, without altering or regenerating audio. The current design is
+safe to continue owner testing, but the repeated mismatch cases and cold timings
+do not justify broad release yet. Assumed load: one local reader with a book of
+roughly 1,000 chunks, plus larger/mobile cases still to measure.
+
+| Action | How the target is chosen | Matching required? |
+| --- | --- | --- |
+| Play from beginning | Load the authoritative saved sequence and dispatch canonical index zero. | No DOM/source-passage match. Normal saved-audio/options checks still apply. |
+| Play from here | Capture the first visible narratable source point in reading order, below/above obscuring reader controls; resolve its containing saved chunk. | Yes; incidental mouse selection is ignored. |
+| Play from selection | Snapshot the document-order Range start before menu focus changes; resolve its containing saved chunk. | Yes; backward selection uses the same source-order start. |
+| Resume | Continue the current transport time. | No new passage match. |
+| Return to audio | Reveal the playing/paused chunk in the reader. | No seek or new playback. |
+
+Viewport and selection use the same pipeline:
+
+1. The optional viewer adapter captures a normalized source point and a live
+   snapshot guard; it neither loads nor starts audio.
+2. Source preparation compares the live normalized segment list with the selected
+   sanitized HTML, then validates saved source spans, actual text, ordering,
+   overlap and complete source coverage. Legacy imports may recover spans by
+   exact-first, ordered text lookup with bounded compatibility normalization.
+3. One immutable validated index is cached for the current source/chunk revision.
+   A point lookup uses binary search. Currently **one unverified chunk makes the
+   complete index unavailable**, even for a trustworthy passage elsewhere.
+4. The playback coordinator rechecks document/options/request validity and sends
+   the original full sequence plus its canonical index to the existing player.
+   The player starts at that saved chunk's beginning and continues in order.
+   Stop/close/newer requests invalidate pending work; failure never falls back
+   to chunk zero without an explicit beginning action.
+
+The issue is therefore not simply “exact matching versus fuzzy matching.” Exact
+source identity and word/order checks protect against wrong audio. Compatibility
+with deterministic chunker punctuation changes was incomplete, and global
+coverage validation magnified each mismatch into a book-wide failure.
+
+**Should fix before broad release:**
+
+1. **Chunker/matcher rules can drift.** The comma and consumed-closer failures
+   are concrete examples of matching reconstructing narration behavior separately
+   from `appendSegmentChunks`. Next, extract a small shared, pure source-to-speech
+   projection/compatibility contract while preserving every existing saved chunk
+   text/hash. Reuse it for generation, highlighting and target validation. This
+   reduces repeated exception patches; the cost is a carefully tested shared-code
+   refactor. Keep it independent of the play-anywhere folder. Do not change old
+   synthesis text/cache versions to repair targeting.
+2. **Cold validation can block interaction.** The measured synchronous resolver
+   path takes about 133–143 ms p95 in Node before capture/audio costs. Warm binary
+   lookup is cheap, so replacing the lookup algorithm is not the priority. Measure
+   the packaged WebKit flow, then split cold preparation into cancellable batches
+   that yield to rendering. Move pure string/index work to a feature-owned worker
+   only if batching cannot meet device budgets; worker startup and copying have
+   costs. No per-scroll/timeupdate whole-book work or unbounded range cache.
+3. **A local mismatch currently disables every passage.** First keep truthful
+   phase diagnostics and the explicit beginning fallback. Then evaluate validating
+   each requested durable span independently, after source identity and global
+   bounds/order/overlap checks, while preserving its original canonical index.
+   This can keep verified regions usable; it adds partial-state/indexing cases
+   that require tests. Keep full ordered coverage proof for legacy recovery and
+   repeated-text ambiguity. Never guess the nearest phrase or silently seek zero.
+
+Keep the current modular architecture. A generalized fuzzy-search/ranking system
+would introduce confidence thresholds and risk wrong repeated passages without
+solving the known deterministic transformations. Persistent per-word timestamps,
+new settings, schema migrations and audio regeneration remain out of scope.
+
+Removal remains bounded: disconnect App/manager feature hooks and optional viewer/
+control capabilities; restore ordinary zero-start Read and default following;
+delete `src/tts/playAnywhere/` and unused feature labels/diagnostics. Remove the
+new `locatorRangeIsIgnorable` export if unused after that deletion. Retain stable
+HTML node rendering and the shared punctuation/Unicode fixes used by baseline
+highlighting. No saved book, cache, preference or schema rollback is required.
+The Stage 7 disposable removal rehearsal must verify this, rather than assuming
+that the dependency map alone proves removability.
+
+Verdict: finish packaged listening/accessibility/timing acceptance and the shared
+projection/cold-preparation work before broad release. The current corrective
+patch is ready for owner retesting once its package checks complete; those gates
+and the removal rehearsal remain open. This review does not authorize unrelated
+refactors, automatic manual app testing or changes to saved data.
+
+Recommended next checklist, after the owner retests this candidate:
+
+- [ ] Extract the shared pure narration compatibility contract without changing
+  generated chunk texts, IDs or hashes. Acceptance: existing golden cases plus
+  sentence/clause/closer/Unicode cases produce identical canonical narration;
+  generation, highlighting and targeting use the same rules; the shared helper
+  imports no feature module and baseline tests run without the feature adapter.
+- [ ] Measure cold/warm packaged WebKit capture-to-dispatch and audible timing,
+  including first action, large imports and mobile. Acceptance: recorded samples
+  separate capture, validation, audio preparation and audible start; no Node-only
+  number is presented as device acceptance.
+- [ ] Make cold preparation yield in bounded batches if packaged timings confirm
+  the synchronous stall. Acceptance: loading can paint and Stop/close/newer intent
+  can invalidate work between batches; original source/chunk identities and warm
+  cache lookup stay intact. Keep any worker/batching lifecycle feature-owned.
+- [ ] Decide whether durable span verification may be local to the requested
+  chunk. Acceptance: source identity, global bounds/order/overlap and original
+  canonical indices remain verified; unrelated invalid text cannot cause a wrong
+  seek; legacy repeated/ambiguous text still requires complete ordered proof.
+  Update the conservative all-or-nothing contract before implementing this change.
+- [ ] Complete the existing Stage 7 disposable removal rehearsal. Acceptance:
+  ordinary beginning/resume/highlighting, Find and bookmarks still work after
+  optional capture/target/follow/control wiring is disconnected; no user-data
+  deletion, schema migration, cache regeneration or worker/process leak.
 
 ## 7. Standards and design rationale
 
