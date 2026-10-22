@@ -6,6 +6,8 @@ import { createPlayAnywherePlayback, usePlayAnywherePlayback } from './usePlayAn
 import type { PreparedTextTargetResult } from './prepareTextTarget'
 import type { ViewerTextTargetApi, ViewerTextTargetResult } from '../../viewers/types'
 import type { TtsOptions } from '../types'
+import { createTextTargetPreparation } from './prepareTextTarget'
+import { chunkAudiobookSaveHtmlWithSpans } from '../utils/text'
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 afterEach(() => document.body.replaceChildren())
@@ -33,6 +35,26 @@ it('requires completed saved audio and never changes playback when capture or re
   expect(config.play).not.toHaveBeenCalled()
   const disabled = createPlayAnywherePlayback({ ...config, complete: false })
   expect(await disabled.playFromBeginning()).toMatchObject({ reason: 'not-ready' })
+})
+
+it('targets imported saved chunks after playing from the beginning despite clause spacing elsewhere in the book', async () => {
+  const text = 'A narrated clause with repeated words '.repeat(4).trim() + ',“Another clause follows without a source space”, ' +
+    'A final long clause keeps the sentence above the splitting limit '.repeat(8).trim() + '.'
+  const docContent = `<p>${text}</p><p>Later viewport passage.</p>`
+  const saved = chunkAudiobookSaveHtmlWithSpans(docContent).map(({ text }, i) => ({ id: 'saved-' + i, text, textHash: 'keep-' + i }))
+  const original = structuredClone(saved), documentUrl = '/user-uploads/ab.html'
+  const preparation = createTextTargetPreparation({ documentUrl, docContent, chunks: saved, getChunks: async () => saved,
+    getPdfSegments: async () => [], getPdfPageText: async () => { throw new Error('HTML must not read PDF') } })
+  const config = { ...setup(), options: { ...options, documentUrl }, resolve: preparation.resolve, getChunks: async () => saved }
+  const scope = createPlayAnywherePlayback(config)
+  expect(await scope.playFromBeginning()).toEqual({ status: 'dispatched' })
+  expect(config.play).toHaveBeenLastCalledWith(saved, config.options, 0, expect.any(Function), undefined)
+  const visible: ViewerTextTargetResult = { status: 'captured', point: { format: 'html', segmentIndex: 1, offset: 2 },
+    segmentTexts: [text, 'Later viewport passage.'], segmentLengths: [text.length, 23], isCurrent: () => true }
+  expect(await scope.playFromHere({ captureViewport: async () => visible })).toEqual({ status: 'dispatched' })
+  expect(config.play).toHaveBeenLastCalledWith(saved, config.options, saved.length - 1, expect.any(Function), undefined)
+  expect(saved).toEqual(original)
+  scope.dispose(); preparation.dispose()
 })
 it.each(['capture', 'resolve'])('keeps only the newest action during %s and honors cancellation', async phase => {
   const config = setup(), scope = createPlayAnywherePlayback(config)

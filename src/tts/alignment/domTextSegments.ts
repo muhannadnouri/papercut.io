@@ -308,7 +308,7 @@ function normalizeLocatorText(text: string): string {
 // marks and folds common Arabic/Persian codepoint variants for compatibility.
 function buildLocatorMatchIndex(text: string): { matchText: string; matchTextOffsets: number[] } {
   let matchText = ''
-  let afterSentenceEnd = false
+  let afterChunkSeparator = false
   const matchTextOffsets: number[] = []
 
   // Map every output UTF-16 unit to its original codepoint start. NFKC
@@ -320,9 +320,9 @@ function buildLocatorMatchIndex(text: string): { matchText: string; matchTextOff
     const char = String.fromCodePoint(codePoint)
     const normalized = normalizeLocatorMatchChar(char)
     for (const outputChar of normalized) {
-      // Sentence chunking can insert a space inside a decimal/initialism; keep original offset mapping.
-      if (outputChar === ' ' && afterSentenceEnd) continue
-      afterSentenceEnd = /[.!?؟。！？।॥]/u.test(outputChar) || (afterSentenceEnd && /["'”’»)\]）】」』》]/u.test(outputChar))
+      // Sentence/clause chunking inserts punctuation spacing; keep original source offsets.
+      if (outputChar === ' ' && afterChunkSeparator) continue
+      afterChunkSeparator = /[.!?؟。！？।॥,;:،؛，；：、]/u.test(outputChar) || (afterChunkSeparator && /["'”’»)\]）】」』》]/u.test(outputChar))
       matchText += outputChar
       for (let unit = 0; unit < outputChar.length; unit++) matchTextOffsets.push(offset)
     }

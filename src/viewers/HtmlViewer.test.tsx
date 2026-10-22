@@ -53,3 +53,29 @@ it('returns a rejected Promise when the viewport provider unexpectedly fails', a
     await expect(capture.api.captureViewport()).rejects.toThrow('Fixture bounds failed')
   } finally { capture.dispose() }
 })
+
+it('preserves source nodes, selection and target snapshots when only audio follow state changes', async () => {
+  const container = document.createElement('div'); document.body.append(container)
+  const app = createRoot(container), ref = createRef<HTMLElement>()
+  const register = vi.fn<(api: ViewerTextTargetApi | null) => void>()
+  const render = async (revision: number, content = '<p>Selected passage.</p>') => act(async () => app.render(
+    <HtmlViewer url="one" content={content} contentRef={ref} onTextTargetApiChange={register}
+      audioFollowPolicy={{ active: true, allowsReveal: () => false, revision }} />,
+  ))
+  try {
+    await render(0)
+    const text = container.querySelector('p')!.firstChild!
+    document.getSelection()!.setBaseAndExtent(text, 3, text, 8)
+    const capture = register.mock.calls.at(-1)![0]!.captureSelection!()
+    expect(capture.status).toBe('captured')
+    if (capture.status !== 'captured') throw new Error('Expected source selection')
+    await render(1)
+    expect(container.querySelector('p')!.firstChild).toBe(text)
+    expect(document.getSelection()!.toString()).toBe('ected')
+    expect(capture.isCurrent()).toBe(true)
+    expect(register).toHaveBeenCalledOnce()
+    await render(2, '<p>Changed source.</p>')
+    expect(capture.isCurrent()).toBe(false)
+    expect(container.querySelector('p')!.textContent).toBe('Changed source.')
+  } finally { await act(async () => app.unmount()) }
+})

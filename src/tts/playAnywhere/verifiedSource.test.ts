@@ -46,6 +46,27 @@ describe('verified source lookup', () => {
     expect(locatorTextsMatch('another', 'an other')).toBe(false)
   })
 
+  it.each([',', ';', ':', '،', '؛', '，', '；', '：', '、'])('accepts production clause spacing after %s without changing imported chunks', separator => {
+    const text = 'A narrated clause with repeated words '.repeat(4).trim() + separator +
+      '“Another clause follows without a source space”' + separator + ' ' +
+      'A final long clause keeps the sentence above the splitting limit '.repeat(8).trim() + '.'
+    const chunks = chunkAudiobookSaveHtmlWithSpans(`<p>${text}</p>`).map((chunk, i) => ({ ...chunk, id: 'saved-' + i, textHash: 'original-' + i }))
+    expect(chunks.some(chunk => chunk.text.includes(separator + ' “'))).toBe(true)
+    const original = structuredClone(chunks)
+    for (const mapped of [chunks, chunks.map(({ id, text, textHash }) => ({ id, text, textHash }))]) {
+      const resolver = verifiedHtmlResolver(mapped, [text], mapped !== chunks)
+      expect(resolver.status).toBe('ready')
+      if (resolver.status === 'ready') expect(resolver.resolve({ segmentIndex: 0, offset: text.indexOf('Another') }))
+        .toMatchObject({ status: 'resolved', chunkIndex: 0, chunkId: 'saved-0' })
+    }
+    expect(chunks).toEqual(original)
+    expect(locatorTextsMatch('another', 'an other')).toBe(false)
+    expect(locatorTextsMatch('one,two', 'one two')).toBe(false)
+    expect(locatorTextsMatch('one-two', 'one- two')).toBe(false)
+    expect(locatorTextsMatch('Keep,all words.', 'Keep, other words.')).toBe(false)
+    expect(verifiedHtmlResolver(chunks, [text.replace('Another', 'Changed')], true).status).toBe('unavailable')
+  })
+
   it('keeps exact-first matching and UTF-16 offsets through Arabic marks, NFKC expansions and emoji', () => {
     const texts = ['😀 بِدايَةٌ واضحةٌ.', 'ﻻ 😀', '𝔸 😀']
     const locator = buildTextLocatorIndex(texts)

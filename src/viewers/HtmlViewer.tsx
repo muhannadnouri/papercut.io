@@ -20,6 +20,8 @@ export const HtmlViewer = memo(function HtmlViewer({
   }, [content, contentRef, t])
 
   const document = useMemo(() => parseHtmlDocument(content ?? ''), [content])
+  // Keep audio UI updates from replacing source nodes and invalidating reader ranges.
+  const body = useMemo(() => ({ __html: document.bodyHtml }), [document.bodyHtml])
 
   useEffect(() => {
     const root = contentRef?.current
@@ -49,7 +51,7 @@ export const HtmlViewer = memo(function HtmlViewer({
       lang={document.language}
       dir={document.direction}
     >
-      <div className="document-html-content" dangerouslySetInnerHTML={{ __html: document.bodyHtml }} />
+      <div className="document-html-content" dangerouslySetInnerHTML={body} />
     </article>
   )
 })

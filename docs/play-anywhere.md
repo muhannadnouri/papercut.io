@@ -4,8 +4,10 @@ Status: source capture, verified prepared-chunk lookup, guarded player integrati
 and viewport/selection controls with follow behavior are implemented through
 Stage 5. Stopped play captures the visible passage; the audio menu also offers
 Play from selection. Resume retains its exact position and Play from beginning
-is explicit. Baseline listening,
-device, assistive-technology and performance gates remain open.
+is explicit. Stage 6 Linux AppImage acceptance is in progress; owner-reported
+false passage-change and imported punctuation-spacing rejections have automated
+regressions and pending manual retests. Baseline listening, device,
+assistive-technology and performance gates remain open.
 Created 2026-10-21 against `main` at `8ebc9d0f`; working branch:
 `feature/play-anywhere`. Checked boxes record only the specific completed work.
 Feature, performance, accessibility, and device acceptance remain pending.
@@ -501,9 +503,10 @@ Implementation details for Stage 2c:
   preserving the forward cursor and exact-first, Arabic-aware match policy.
   Tolerant character maps now retain every UTF-16 unit around supplementary
   characters/NFKC expansions. Matching tolerates spaces inserted by existing
-  sentence splitting after terminators/closers, including decimals and initialisms;
-  ordinary word spacing is still significant. Source text and audio/cache identities
-  are untouched. The full tolerant offset map is built only if matching needs it.
+  sentence/clause splitting after terminators, clause separators and closers,
+  including decimals and initialisms; ordinary word spacing is still significant.
+  Source text and audio/cache identities are untouched. The full tolerant offset
+  map is built only if matching needs it.
 - PDF validation checks normalized narration and source-run coverage/bounds, then
   requires each runtime PDF span to equal the production `pdfSourceSpansForChunk`
   projection of that chunk. The captured page's original item/word text must match
@@ -994,8 +997,8 @@ device/performance acceptance is recorded yet.
 
 ### 2026-10-22 — Stage 5 explicit selection action
 
-- Committed Stage 4 first as `84faec4` on `feature/play-anywhere`. This selection
-  stage remains an uncommitted review patch.
+- Committed Stage 4 first as `84faec4` on `feature/play-anywhere`. The selection
+  stage was subsequently committed as `5c7802b` before Stage 6 packaging.
 - Added optional synchronous HTML/PDF/OCR selection capture and an audio-menu
   entry using the existing coordinator/resolver/player. Added only shared
   selection validation/input helpers and the existing reader hook's bounded
@@ -1018,6 +1021,108 @@ device/performance acceptance is recorded yet.
   fixture, hardware, first audible chunk and cold/warm measurements; complete
   keyboard/screen-reader/reduced-motion checks and retain other platform gates.
   Stage 7 removal rehearsal and release decision remain separate.
+
+### 2026-10-22 — Stage 6 Linux passage-change regression
+
+- Owner testing of the `5c7802b` AppImage found “The passage changed. Try again.”
+  when invoking Play from here, including with text selected. Linux acceptance
+  remains open; manual testing belongs to the owner and no app automation is used
+  for this fix.
+- Reproduced the rejection in an isolated Chromium fixture using the actual
+  `HtmlViewer`, reader coordinator and controls. The previous fixture used a
+  static article and missed the viewer's React updates. Idle, playing and paused
+  capture all failed before the fix; a separate viewer regression confirmed
+  unchanged text nodes were replaced on an audio-follow prop update.
+- Root cause: the viewer supplied a fresh `dangerouslySetInnerHTML` object on
+  every render. React rewrote identical book content when audio UI state changed,
+  invalidating DOM ranges and the adapter's source revision. Memoize that object
+  by body HTML so unrelated renders preserve source nodes, selection, Find and
+  highlighting ranges. Actual content replacement and viewer teardown still
+  invalidate targets. No stale-target guard is relaxed.
+- Integration surface: `src/viewers/HtmlViewer.tsx` only; the tests cover viewer
+  node/selection identity, actual source replacement, idle/active/paused capture
+  and pointer/keyboard selection-menu activation. Source capture, resolver,
+  player, native APIs, saved chunks/audio, dependencies and formats are unchanged.
+  The viewer correction also stands independently if play-anywhere is removed.
+- Checks: **540 passed, 1 existing skip across 79 frontend files**; full ESLint,
+  TypeScript, locale parity, production build (Vite/Pagefind), native AppImage
+  packaging, media-bundle verification and whitespace checks passed. Existing
+  Vite mixed-import/large-chunk warnings remain. No audible, WebKit, screen-reader
+  or latency acceptance follows from Chromium success.
+- Rebuilt local artifact:
+  `src-tauri/target/play-anywhere-acceptance/Papercut-play-anywhere-passage-fix.AppImage`;
+  SHA-256 `582b95d5758cd3c7093707020f446337fa118c107a57f1d3089bcecd94e6ef1b`.
+  This is base `5c7802b` plus the uncommitted viewer fix; the neighboring
+  `passage-fix-build.json` records the exact code/test patch and runtime-source
+  hashes. The earlier named `5c7802b` AppImage is preserved and still has the bug.
+- Retest: close the previous AppImage and launch the newly named fixed artifact.
+  In the same saved book, scroll away from playback and invoke Play from here
+  while playing, paused and stopped. Expect the containing saved chunk's beginning
+  without the stale notice. Repeat with an incidental selection: Play from here
+  still targets the viewport. For selection targeting, use the audio menu's
+  explicit Play from selection; test both forward and backward selection.
+  Confirm changing/closing the source or stopping during a request cannot start
+  old audio. Leave other device/format, accessibility and timing gates pending.
+
+### 2026-10-22 — Stage 6 imported HTML clause-spacing regression
+
+- Owner reported the unmapped-passage notice from both the top Play from here
+  icon and the browse action after Play from beginning. Owner confirmed an
+  imported `.papercut-audiobook` bundle with HTML source. Manual app control and
+  listening remain with the owner.
+- A read-only probe of the existing local imported copy found matching source
+  and reader segment text, but only 174 of 175 chunks validated. One stored
+  chunk had a space inserted after a comma by the production long-sentence
+  chunker; its source span correctly pointed to text without that space. The
+  all-chunk coverage check therefore rejected targets anywhere in the book.
+  No private title, prose, IDs or audio are added to tracked fixtures or logs.
+- Extend the existing shared locator match normalization to the exact clause
+  separator vocabulary used by `splitLongSentence`, alongside its existing
+  sentence-terminator compatibility. Ignore only post-boundary spacing introduced
+  by chunk joining. Preserve word spacing, punctuation, UTF-16 source offsets,
+  exact-first lookup, ordered recovery and full coverage checks. Do not re-chunk,
+  rewrite or bypass validation of imported audio.
+- Runtime seam: `src/tts/alignment/domTextSegments.ts`; both highlighting and
+  verified target preparation already use it. No new integration surface,
+  dependency, native command, persisted schema or cache identity is introduced.
+  Keep this compatibility fix if play-anywhere is removed, because highlighting
+  uses the same lookup. The earlier stable-viewer correction remains included.
+- Synthetic production-chunker regressions cover all nine clause separators,
+  durable spans and legacy no-span recovery, preserved IDs/text/hashes, and
+  rejection of changed words or punctuation. Browser controls now validate
+  captures through real source preparation instead of treating capture alone
+  as success. Coordinator coverage includes beginning playback followed by a
+  later viewport target in a book containing the spacing mismatch.
+- The read-only local probe now recovers all 175 chunks and verifies 700 boundary
+  points across durable and no-span variants. Source/metadata bytes and canonical
+  chunk objects remain unchanged. This establishes mapping only, not audible or
+  WebKit acceptance.
+- Checks: **552 passed, 1 existing skip across 79 frontend files**; full ESLint,
+  TypeScript, locale parity, production Vite/Pagefind build, native release
+  compilation and media-bundle verification passed. Existing Vite mixed-import/
+  large-chunk warnings remain. AppImage packaging completed successfully.
+- Rebuilt local artifact:
+  `src-tauri/target/play-anywhere-acceptance/Papercut-play-anywhere-import-fix.AppImage`;
+  SHA-256 `b5424b3d5600f458095e46d29cff1aa8023174d54682b50ae5773a403128a373`.
+  This is base `5c7802b` plus both uncommitted corrections. The neighboring
+  `import-fix-build.json` records exact code/test patch and runtime-source hashes.
+  Earlier named artifacts are preserved; the passage-fix build does not contain
+  the clause-spacing correction.
+- Owner retest: launch the new import-fix AppImage normally, reopen the existing
+  imported book, and retry the top Play from here icon. Then use Play from
+  beginning, scroll away and invoke the browse Play from here action; verify the
+  containing saved chunk begins and continues in order. No audio regeneration or
+  reimport is required. Also retry Play from selection. Keep remaining device,
+  accessibility and performance gates open.
+- Owner subsequently requested committing both corrections together. The code
+  patch still matches the recorded import-fix AppImage and its 552-test receipt;
+  no additional runtime changes were made for the commit. Manual acceptance
+  remains pending.
+- Test setup cleanup: the agent-created `PapercutAcceptance` virtual null output
+  was left loaded after the earlier packaging investigation. It has now been
+  unloaded; the hardware speaker remained the default before and after cleanup.
+  This was temporary host test setup, not an app feature or device fault. No
+  Papercut source/configuration creates that output.
 
 ## 7. Standards and design rationale
 
