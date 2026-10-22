@@ -1,8 +1,9 @@
 import { execFileSync, spawn } from 'node:child_process'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { Readable, Writable } from 'node:stream'
 import { StringDecoder } from 'node:string_decoder'
+import { mkdirSync, writeFileSync } from 'node:fs'
 
 export const browser = [process.env.CHROME_BIN, 'chromium', 'chromium-browser', 'google-chrome', 'google-chrome-stable']
   .find(candidate => {
@@ -11,7 +12,7 @@ export const browser = [process.env.CHROME_BIN, 'chromium', 'chromium-browser', 
   })
 if (process.env.CI && !browser) throw new Error('Viewport capture tests require Chrome/Chromium; set CHROME_BIN.')
 
-export async function runBrowserFixture(directory: string, frame: string, width = 620) {
+export async function runBrowserFixture(directory: string, frame: string, width = 620, screenshotPath?: string) {
   // A DevTools pipe waits for real asynchronous layout; dump-dom virtual time can stop between RAFs.
   const child = spawn(browser!, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-background-networking',
     '--allow-file-access-from-files', '--disable-dev-shm-usage', '--no-first-run', '--remote-debugging-pipe',
@@ -64,6 +65,11 @@ export async function runBrowserFixture(directory: string, frame: string, width 
     if (!value.value) throw new Error(`No capture result: ${JSON.stringify(evaluated)}`)
     const result = JSON.parse(value.value)
     if (result.error) throw new Error(result.error)
+    if (screenshotPath) {
+      const screenshot = await send('Page.captureScreenshot', { format: 'png' }, sessionId)
+      mkdirSync(dirname(screenshotPath), { recursive: true })
+      writeFileSync(screenshotPath, Buffer.from(String(screenshot.data), 'base64'))
+    }
     return result
   } finally { clearTimeout(timer); child.kill(); await closed }
 }

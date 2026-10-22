@@ -12,7 +12,9 @@ UX, optional integration contracts, debugging/removal path, and acceptance gates
 Its isolated HTML/PDF chunk lookup and optional HTML/PDF/OCR viewport capabilities
 feed verified prepared-chunk lookup and guarded player integration with ordered
 legacy recovery. Viewport play and independent follow/browse controls are wired;
-the audio menu also offers Play from selection through the same verified lookup.
+the player shows contextual Return to audio inside transport, while the popover
+groups icon-and-label viewport, selection and beginning commands. Selection
+availability is captured before focus changes; matching still runs at activation.
 Canonical generation and matching share the pure `alignment/narrationText.ts`
 grammar. Cold target preparation yields cooperatively with feature-owned timers
 and cancellation; warm targets reuse the verified index. HTML parsing remains

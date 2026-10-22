@@ -47,7 +47,7 @@ No storage migration, cache epoch change, or model download is planned.
 | Completed audiobook, stopped | Reader primary play is **Play from here**. Capture the visible passage and start its containing chunk at offset zero. |
 | Paused | Primary action is **Resume**, preserving the paused audio position regardless of scrolling. |
 | Playing | Primary action is Pause. Browsing never seeks or pauses audio on its own. |
-| User browses during playing or paused playback | Suspend automatic following. Expose **Play from here** and **Return to audio** in the playback controls; retain normal transport controls. |
+| User browses during playing or paused playback | Suspend automatic following. Show **Return to audio** inside the transport surface; **Play from here** is in its popover. Retain normal transport controls and meanings; no separate sticky browse panel. |
 | Play from here while paused | Seek to the chosen chunk beginning and play; a seek that remains paused does not satisfy this action. |
 | Return to audio | Reveal the current audio passage and enable following. Preserve playing/paused state and current audio time. |
 | Play from beginning | Explicit audio-menu action; start canonical chunk zero. Also provides an accessible fallback when location mapping is unavailable. |
@@ -155,7 +155,7 @@ and performance acceptance remains pending.
 | Target snapshot | HTML capture snapshots viewport geometry synchronously, then yields at least two animation frames for browser visibility delivery (up to 500 ms for initial observations). Source/view mutations, scroll or reflow before completion return stale rather than retargeting. HTML output includes frozen normalized `segmentTexts` and `segmentLengths` arrays reused for the lifetime of its source index; PDF includes the original item/word `sourceText`. Both provide `isCurrent()` for source/view lifetime validation. PDF captures already-rendered geometry synchronously inside the Promise method, with no animation-frame wait or page rendering. No DOM references are serialized. Selection snapshots its actual DOM point before menu focus loss. Both endpoints must belong to the current reader. The snapshot survives native collapse during Tab/button focus changes, but rejects a different live range; a reader input epoch invalidates pending targets on fresh non-audio pointer input or non-Tab key input. |
 | Normalized source point | HTML: readable segment index + normalized UTF-16 offset. PDF: page index + original text-item/block order + source offset. Do not conflate the two coordinate systems. |
 | Resolver result | `resolved` with canonical chunk index/id, or `unavailable` with `not-ready`, `unmapped`, `ambiguous`, `invalid-source` or `invalid-point`. Capture/coordinator additionally own `no-visible-text`, `no-selection` and `stale`; the pure resolver does not inspect DOM or session identity. Unexpected errors remain errors rather than successful fallbacks. |
-| Prepared target boundary | `useAudiobookManager.preparedChunks` exposes canonical chunks without active playback. `resolveTextTarget(documentUrl, capture)` returns a Promise of a verified canonical index/ID plus original full chunks, document URL and `isCurrent()`, or typed unavailable. It never starts audio. Commit-time document/content/model/chunk changes and unmount dispose preparation caches. The Stage 3 coordinator additionally guards action/options changes and synchronous cancellation before dispatch. |
+| Prepared target boundary | `useAudiobookManager.preparedChunks` exposes canonical chunks without active playback. `resolveTextTarget(documentUrl, capture, signal?)` returns a Promise of a verified canonical index/ID plus original full chunks, document URL and `isCurrent()`, or typed unavailable. It never starts audio. Commit-time document/content/model/chunk changes and unmount dispose preparation caches. The Stage 3 coordinator additionally guards action/options changes and synchronous cancellation before dispatch. |
 | Player initial start | `speak(chunks, options, startIndex = 0, guard?, onStarted?)` validates a safe integer in the canonical nonempty sequence before changing audio. Pass the complete sequence, never a sliced tail. It returns whether dispatch was accepted, not whether sound was heard. |
 | Player active target | `playFromChunk(fullChunks, options, index, guard?, onStarted?)` reuses an active session only for matching canonical IDs/text/hashes and options. It uses `jumpToChunk(index, true, guard)` for explicit seek-and-play, otherwise starts the existing player at that index. Ordinary mobile jump keeps paused state; Resume keeps time on both platforms. Desktop ordinary jump retains its prior play behavior. |
 | Target playback action | `usePlayAnywherePlayback` owns newest action identity and immutable audio-option/document scope. Manager exposes `playFromHere(viewerApi)`; existing Read uses its guarded `playFromBeginning()`. Results are `dispatched`, typed `unavailable`, or `error` with the original error. The reader hook presents loading/failure results. Optional `onStarted` runs only after the existing transport play Promise succeeds, under request/job/navigation guards; it is not acoustic confirmation. |
@@ -259,7 +259,7 @@ Native WebView/device acceptance remains pending.
 | `src/pdf/ocr/pdfOcrTextLayer.ts` | Render-time WeakMap and source runs invert selectable OCR lines to stored words. | Remove `sourceRuns`, `lineSources`, `pdfOcrSourcePoint` and its renderer assignment; restore direct line text concatenation and retain rendering/persisted OCR data. |
 | `src/pdf/pdfTtsHighlight.ts` | Export existing pinned PDF item-map types for the capture adapter; highlight behavior is unchanged. | Remove the type exports if unused after removing capture. |
 | `src/tts/hooks/useTtsHighlight.ts`, PDF highlight/reveal path | Optional following control and pending-scroll cancellation. | Omit the optional policy to retain baseline automatic following; keep unrelated highlight fixes. |
-| `src/tts/components/AudioControls.tsx` and existing styles | Optional viewport/selection/beginning/return actions and localized live status. Controls portal into the reader shell outside its auto-hiding PDF header; dock stacks/reflows controls and notices. Selection uses an ordinary audio-menu button with focus snapshot/cleanup hooks. | Omit `playAnywhere` and restore baseline idle play wiring; remove unused feature keys/browse/notice styles. Retain general fullscreen/focus/responsive fixes if desired. |
+| `src/tts/components/AudioControls.tsx` and existing styles | Optional viewport/selection/beginning/return actions and localized live status. Controls portal into the reader shell outside its auto-hiding PDF header; Return is a contextual button inside transport; passage commands use a responsive icon-and-label popover group. Selection uses focus snapshot/cleanup hooks; its optional snapshot callback reports availability. Popover fitting owns a scoped ResizeObserver/viewport listeners; close/unmount removes them. Transient notices remain live but are visually clipped during capture or an open popover. | Omit `playAnywhere` and restore baseline idle play wiring; remove unused passage/return glyphs, feature keys and passage/return/notice styles. Retain general popover fitting if desired. Retain general fullscreen/focus/responsive fixes if desired. |
 | `src/i18n/locales/*.json`, `src/tts/diagnostics/TtsDiagnostics.ts` callers | Localized labels/reasons; bounded feature-prefixed diagnostic events. | Remove unused keys/event call sites; keep shared diagnostics infrastructure. |
 | This plan, README and TTS documentation links | Design, acceptance receipts and user behavior reference. | Mark withdrawn/remove links so documentation cannot advertise removed behavior. |
 
@@ -651,8 +651,8 @@ Implementation details:
   view teardown. No book geometry is walked on these input events. Actual mobile momentum and platform scrollbar behavior
   still require device acceptance.
 - The idle primary action uses viewport capture. Resume keeps its existing time;
-  browse actions have visible labels and Play from beginning is in the existing
-  audio menu, including while stopped. Failed capture/resolve never invokes a
+  Return has a visible label inside transport; viewport, selection and beginning
+  commands live in the existing audio popover, including while stopped. Failed capture/resolve never invokes a
   fallback automatically. Pending feedback remains until play acknowledgement,
   so the live region announces explicit action work rather than every chunk or
   time update. During HTML's asynchronous capture, status remains available to
@@ -662,8 +662,9 @@ Implementation details:
   failures remain visible, and retries remain usable.
 - The floating dock is portaled into the current reader shell, outside the
   transform/opacity of PDF's auto-hiding header and inside native fullscreen.
-  Browse actions, wrapping notices and transport stack and reflow together.
-  Viewport geometry excludes this full dock. Menu actions receive focus; Escape
+  Return reflows within transport. Transient notices sit above transport when
+  the popover is closed; opening it visually clips the notice while retaining its
+  live status. Viewport geometry excludes the full dock. Menu actions receive focus; Escape
   and selection restore the trigger. Disappearing browse/start actions transfer
   focus to surviving transport controls rather than the document text.
 - Diagnostics use the existing local bounded logger for `[play-anywhere]` action
@@ -731,8 +732,9 @@ Implementation details:
   Completed saved-audio gating, full canonical sequence, chunk-zero offset,
   newest-action guards, paused seek-and-play and follow-on-start remain shared.
   **Play from selection** means continue the audiobook from that selected passage,
-  not speak only the selection. Missing/invalid selections show the new localized
-  message; beginning/viewport fallback always requires an explicit action.
+  not speak only the selection. A missing captured selection disables the menu
+  command and shows the existing localized guidance. A changed/invalid target
+  still fails its action-time guards; beginning/viewport fallback always requires an explicit action.
 - Both new strings exist in all eight locales. The ordinary menu button has a
   visible accessible label, receives existing menu focus and restores the trigger
   on activation/Escape. There is no new global shortcut, selection-clearing call,
@@ -1377,6 +1379,89 @@ synchronous wrappers. There is no worker/process, saved state or migration to un
 A failed target still reports source identity, chunk verification or point lookup;
 batch metrics distinguish cold preparation from cached lookup. One incompatible
 chunk still disables the full map; this conservative rule is unchanged.
+
+### 2026-10-22 — Option 1: inline Return and passage popover
+
+The preceding shared narration/cancellable preparation work is committed as
+`039d11d` (`refactor(reader): share narration rules and yield target preparation`).
+The owner approved the compact UI after reporting that targeting works better.
+This follow-up changes presentation and capture timing, preserving source matching,
+canonical chunks, audio queues, native behavior, schemas and persisted data.
+
+Implementation and acceptance checklist:
+
+- [x] Remove the separate `.audio-browse-actions` surface. Show one labeled,
+  icon-prefixed **Return to audio** button within `.audio-floating-playback`
+  while the existing browsing state is active. Return only reveals/restores
+  following; paused/playing state and audio time are unchanged. Previous, next,
+  pause/resume, speed and Stop keep their meanings. At narrow widths/large text,
+  controls may wrap inside the same surface; no forced single-row layout.
+- [x] Add **Play from here** to the existing popover alongside **Play from
+  selection** and **Play from beginning**. Use the existing inline SVG renderer,
+  visible labels, theme colors, command focus/hover/disabled states and control
+  radii. Here spans the group; selection/beginning share a row when they fit and
+  stack when available width, text size or translations require it. These commands
+  no longer reuse the word-highlight toggle's pill styling.
+- [x] Keep word highlighting as its existing real toggle, visually separate from
+  passage commands. Reuse existing labels/guidance in all eight locales; no new
+  dependency, locale key, setting or global shortcut.
+- [x] Extend only the optional UI seam `onSnapshotSelection?: () => boolean`.
+  The reader hook still stores at most one guarded snapshot; its return value
+  reports whether a selection was captured (including reuse after native focus
+  collapse). Controls store availability for this popover session. Without a
+  capture, disable selection and expose the existing localized no-selection hint
+  through visible text and `aria-describedby`. Availability is not proof of a
+  resolvable audio chunk; existing action-time source/intent guards still decide.
+- [x] Focus the first enabled popover command. Escape/dismissal and actions retain
+  trigger-focus behavior. Removing a focused Return transfers focus to surviving
+  transport. Native selection remains untouched. Selection consumes its saved
+  snapshot before popover-effect cleanup; synchronous early closure was caught
+  by pointer/keyboard browser regressions and corrected before packaging.
+- [x] Close the popover synchronously before viewport capture. The feature reader
+  hook commits pending/capture/feedback UI before measuring source bounds, so
+  old error notices cannot cause a false stale target on retry. Selection retains
+  its original pre-focus source snapshot. No additional frame/timer lifecycle.
+- [x] Fit popover height to the space above the dock and visible viewport. Own the
+  ResizeObserver and window/visualViewport listeners only while open; remove them
+  on close/unmount. Keep overflow reachable under large text, including the jump
+  list; preserve virtualized 44 CSS-pixel rows without oversized vertical padding.
+  Prior notices are visually clipped while the popover is open; live status stays
+  mounted and new action failures reappear after the command closes it. This
+  prevents old feedback from consuming most of the remaining reader height.
+- [x] Tests cover 320 px English, 620 px English, large-text dark Arabic RTL and
+  large-text French desktop. All commands retain at least 44 CSS-pixel height;
+  the two secondary commands share a row at 620 px and stack in the narrow
+  large-text case. Popover stays on screen; scrolled commands/list remain
+  reachable; disabled selection, Escape/focus return, inline Return, missing
+  feature capability and real viewport/selection targeting retain coverage.
+  Synthetic screenshots were visually inspected; local ignored captures are
+  under `src-tauri/target/play-anywhere-acceptance/ui-review/`.
+- [x] Full frontend **598 passed, 1 existing skip, 82 files**. Lint, TypeScript,
+  eight-locale parity and production Vite/Pagefind build pass. Existing mixed-import
+  and large-bundle warnings remain. No app UI, playback or output routing was
+  controlled; automated browser fixtures are isolated from the owner's profile.
+- [x] Final native release/AppImage packaging passed. Candidate:
+  `src-tauri/target/play-anywhere-acceptance/Papercut-play-anywhere-compact-controls.AppImage`;
+  SHA-256 `48dec9b4eb39063925f46fe041bdb126ce548e5213aad97a3b0e54f4288163a9`. Adjacent
+  `compact-controls-build.json` records base `039d11d` and runtime source hashes.
+  Older named candidates are preserved. New UI code was expanded into readable
+  blocks/imports following owner feedback, then targeted tests/build were rerun.
+  Function-level notes explain selection/menu lifetime, chrome-before-capture
+  timing, Return/follow intent and large-text popover fitting. Documentation-only
+  comments added after packaging emit byte-identical frontend assets; receipt
+  records both source hashes. GStreamer media verification also passes.
+- [ ] Owner Linux candidate acceptance: browse and use inline Return without a
+  seek; use all three popover commands on the same imported book; mouse/keyboard
+  selection survives focus; Resume stays at its exact time; retry after a prior
+  error; check narrow/large-text layouts and Stop during preparation. Audible
+  correctness, actual WebKit/screen reader/mobile and release/removal gates remain
+  pending. Estimated jump-list timestamps remain a separate follow-up.
+
+Removal remains through the existing optional `playAnywhere` prop and App/manager
+composition seams. Delete feature hooks and passage/Return controls/styles/glyphs
+when unused; restore ordinary idle play/default follow. The general popover fit,
+focus and virtual-row layout fixes may remain with the baseline audio menu. There
+is no native/player/matching change or user-data rollback in this UI follow-up.
 
 ## 7. Standards and design rationale
 

@@ -1,4 +1,11 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { flushSync } from 'react-dom'
 import type { AudioFollowPolicy, ViewerTextTargetApi, ViewerTextTargetResult } from '../../viewers/types'
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import type { PlaybackTargetResult } from './usePlayAnywherePlayback'
@@ -11,7 +18,10 @@ interface ReaderPlaybackOptions {
   cancelTargetPlayback: () => void
 }
 
-// Reader intent owns following; transport remains in the existing player.
+/**
+ * Browsing suspends reveals without pausing audio; Return restores reveals without seeking.
+ * Explicit starts restore following after audio acknowledgement only if newer browsing has not won.
+ */
 export function usePlayAnywhereReader({ documentUrl, active, playFromHere, playFromBeginning, cancelTargetPlayback }: ReaderPlaybackOptions) {
   const api = useRef<ViewerTextTargetApi | null>(null)
   const selectionEpoch = useRef(0)
@@ -42,20 +52,30 @@ export function usePlayAnywhereReader({ documentUrl, active, playFromHere, playF
     invalidateSelection(); api.current = value
   }, [invalidateSelection])
   const clearSelection = useCallback(() => { selection.current = null }, [])
+  /**
+   * Freeze the source-order start before menu focus collapses native selection.
+   * The boolean is UI availability, not audio proof; the retained snapshot still checks source/input lifetime.
+   */
   const snapshotSelection = useCallback(() => {
     const targetApi = api.current, epoch = selectionEpoch.current
-    if (!targetApi) { selection.current = null; return }
+    if (!targetApi) {
+      selection.current = null
+      return false
+    }
+    let available = false
     let read: () => ViewerTextTargetResult
     try {
       const capture = targetApi.captureSelection?.() ?? { status: 'unavailable', reason: 'no-selection' } as const
+      available = capture.status === 'captured'
       if (capture.status === 'unavailable' && capture.reason === 'no-selection' && selection.current?.api === targetApi) {
         const previous = selection.current.read()
-        if (previous.status === 'captured' && previous.isCurrent()) return
+        if (previous.status === 'captured' && previous.isCurrent()) return true
       }
       read = () => capture.status === 'captured' ? { ...capture,
         isCurrent: () => api.current === targetApi && selectionEpoch.current === epoch && capture.isCurrent() } : capture
     } catch (error) { read = () => { throw error } }
     selection.current = { api: targetApi, read }
+    return available
   }, [])
   const selectionActions = useMemo(() => ({ snapshot: snapshotSelection, invalidate: invalidateSelection }), [snapshotSelection, invalidateSelection])
   const browse = useCallback(() => {
@@ -76,13 +96,22 @@ export function usePlayAnywhereReader({ documentUrl, active, playFromHere, playF
     invalidateSelection()
     cancelTargetPlayback(); setPending(false); setCapturing(false); setFeedback(null)
   }, [cancelTargetPlayback, invalidateSelection])
+  /**
+   * Choose selection before menu cleanup can release it, then settle chrome before viewport measurement.
+   * Beginning bypasses capture; actual playback and stale-action rejection stay in the coordinator.
+   */
   const run = useCallback(async (action: 'viewport' | 'beginning' | 'selection' = 'viewport') => {
     const current = scope.current, intent = ++current.intent, browseVersion = current.browse
     const valid = () => current.alive && current.intent === intent
     if (action === 'selection' && !selection.current) snapshotSelection()
     const chosen = action === 'selection' ? selection.current : null
     if (chosen) selection.current = null
-    setPending(true); setCapturing(action !== 'beginning'); setFeedback(null)
+    // Commit chrome changes before viewport capture stamps its unobscured bounds.
+    flushSync(() => {
+      setPending(true)
+      setCapturing(action !== 'beginning')
+      setFeedback(null)
+    })
     logTtsDiagnostic('[play-anywhere] action requested', { requestId: intent, action })
     const started = () => {
       if (!valid()) return

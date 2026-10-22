@@ -79,9 +79,9 @@ it('snapshots selection before focus loss, keeps viewport independent and invali
   })
   try {
     app.reader.register({ captureViewport, captureSelection })
-    app.reader.snapshotSelection()
+    expect(app.reader.snapshotSelection()).toBe(true)
     captureSelection.mockReturnValue({ status: 'unavailable', reason: 'no-selection' })
-    app.reader.snapshotSelection()
+    expect(app.reader.snapshotSelection()).toBe(true)
     await act(async () => app.reader.playFromSelection())
     expect(seen[0]).toMatchObject({ status: 'captured', point: { segmentIndex: 3, offset: 7 } })
     expect(captureViewport).not.toHaveBeenCalled()
