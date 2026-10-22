@@ -978,6 +978,18 @@
       "deleteDescription": "L'audio generato verrà rimosso da questo dispositivo.",
       "deleteImportDescription": "Questa operazione rimuove l'audio generato e il documento audiolibro importato da questo dispositivo.",
       "deleteAudiobook": "Elimina l'audiolibro"
+    },
+    "playAnywhere": {
+      "here": "Riproduci da qui",
+      "beginning": "Riproduci dall’inizio",
+      "return": "Torna all’audio",
+      "description": "Inizia dall’inizio del segmento audio che contiene questo passaggio.",
+      "preparing": "Ricerca dell’audio di questo passaggio…",
+      "notReady": "Questo passaggio è ancora in preparazione. Riprova o riproduci dall’inizio.",
+      "noText": "Non c’è testo leggibile visibile. Scorri fino a un passaggio e riprova.",
+      "stale": "Il passaggio è cambiato. Riprova.",
+      "unmapped": "Impossibile associare l’audio a questo passaggio. Usa Riproduci dall’inizio o il menu audio.",
+      "failed": "Impossibile preparare la riproduzione. Riprova o riproduci dall’inizio."
     }
   },
   "imageIssues": {

@@ -62,6 +62,12 @@ export interface ViewerBookmarkApi {
   subscribe: (listener: () => void) => () => void
 }
 
+export interface AudioFollowPolicy {
+  active?: boolean
+  allowsReveal: () => boolean
+  revision: number
+}
+
 export interface ViewerProps {
   url: string
   format?: string
@@ -69,6 +75,8 @@ export interface ViewerProps {
   contentRef?: React.RefObject<HTMLElement | null>
   toolbarTarget?: HTMLElement | null
   searchTarget?: SearchOpenTarget | null
+  audioFollowPolicy?: AudioFollowPolicy
+  onReaderBrowse?: () => void
   pdfTtsHighlightSpans?: PdfTtsSourceSpan[]
   fullscreen?: boolean
   onBookmarkApiChange?: (api: ViewerBookmarkApi | null) => void

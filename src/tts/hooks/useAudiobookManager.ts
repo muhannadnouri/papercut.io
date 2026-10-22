@@ -565,6 +565,8 @@ export function useAudiobookManager({
     preparedChunks,
     resolveTextTarget,
     playFromHere,
+    cancelTargetPlayback,
+    playFromBeginning: handleReadDocument,
     audioControlsProps: {
       audiobookState: audioControlsAudiobookState,
       canPlayAudiobook: audioControlsAudiobookState.complete,
@@ -575,7 +577,7 @@ export function useAudiobookManager({
       saveInProgress: downloadIsForSelectedDoc && activeDownloadIsRunning,
       onCancelSave: handleCancelAudiobookSave,
       onPause: () => { cancelTargetPlayback(); pauseTts() },
-      onRead: handleReadDocument,
+      onRead: () => { void handleReadDocument() },
       onResume: () => { cancelTargetPlayback(); resumeTts() },
       onSelectSavedAudiobook: selectSavedAudiobook,
       onJumpToChunk: (index: number) => { cancelTargetPlayback(); jumpTtsToChunk(index) },

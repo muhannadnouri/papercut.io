@@ -967,6 +967,18 @@
       "deleteDescription": "This removes the generated audio from this device.",
       "deleteImportDescription": "This removes the generated audio and imported audiobook document from this device.",
       "deleteAudiobook": "Delete Audiobook"
+    },
+    "playAnywhere": {
+      "here": "Play from here",
+      "beginning": "Play from beginning",
+      "return": "Return to audio",
+      "description": "Starts at the beginning of the audio segment containing this passage.",
+      "preparing": "Finding audio for this passage…",
+      "notReady": "This passage is still preparing. Try again, or play from beginning.",
+      "noText": "No readable text is in view. Scroll to a passage and try again.",
+      "stale": "The passage changed. Try again.",
+      "unmapped": "Audio could not be matched to this passage. Use Play from beginning or the audio menu.",
+      "failed": "Unable to prepare playback. Try again, or play from beginning."
     }
   },
   "imageIssues": {

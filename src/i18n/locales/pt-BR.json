@@ -978,6 +978,18 @@
       "deleteDescription": "Isso remove o áudio gerado deste dispositivo.",
       "deleteImportDescription": "Isso remove o áudio gerado e o documento de audiolivro importado deste dispositivo.",
       "deleteAudiobook": "Excluir audiolivro"
+    },
+    "playAnywhere": {
+      "here": "Reproduzir daqui",
+      "beginning": "Reproduzir do início",
+      "return": "Voltar ao áudio",
+      "description": "Começa no início do segmento de áudio que contém este trecho.",
+      "preparing": "Buscando o áudio deste trecho…",
+      "notReady": "Este trecho ainda está sendo preparado. Tente novamente ou reproduza do início.",
+      "noText": "Não há texto legível à vista. Role até um trecho e tente novamente.",
+      "stale": "O trecho mudou. Tente novamente.",
+      "unmapped": "Não foi possível associar o áudio a este trecho. Use Reproduzir do início ou o menu de áudio.",
+      "failed": "Não foi possível preparar a reprodução. Tente novamente ou reproduza do início."
     }
   },
   "imageIssues": {

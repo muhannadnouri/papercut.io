@@ -19,10 +19,10 @@ it('dispatches verified chunk boundaries with the original full sequence and a l
   const config = setup(), scope = createPlayAnywherePlayback(config)
   const api = { captureViewport: vi.fn(async () => capture) }
   expect(await scope.playFromHere(api)).toEqual({ status: 'dispatched' })
-  expect(config.play).toHaveBeenCalledWith(chunks, options, 1, expect.any(Function))
+  expect(config.play).toHaveBeenCalledWith(chunks, options, 1, expect.any(Function), undefined)
   const guard = config.play.mock.calls[0]![3]
   expect(guard()).toBe(true); scope.cancel(); expect(guard()).toBe(false)
-  await scope.playFromBeginning(); expect(config.play).toHaveBeenLastCalledWith(chunks, options, 0, expect.any(Function))
+  await scope.playFromBeginning(); expect(config.play).toHaveBeenLastCalledWith(chunks, options, 0, expect.any(Function), undefined)
 })
 it('requires completed saved audio and never changes playback when capture or resolution fails', async () => {
   const config = setup(), scope = createPlayAnywherePlayback(config)

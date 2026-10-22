@@ -602,5 +602,5 @@ export function scrollRangeIntoView(range: Range): void {
   if (!Number.isFinite(rangeRect.top)) return
 
   const top = window.scrollY + rangeRect.top - window.innerHeight / 2
-  window.scrollTo({ top: Math.max(top, 0), behavior: 'smooth' })
+  window.scrollTo({ top: Math.max(top, 0), behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
 }

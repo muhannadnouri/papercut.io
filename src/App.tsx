@@ -37,6 +37,7 @@ import { AudioSetupDialog } from './tts/components/AudioSetupDialog'
 import { TtsDiagnosticsPanel } from './tts/components/TtsDiagnosticsPanel'
 import { getImportedAudiobookSource } from './tts/api/nativeTts'
 import { getUserUploads, isUserUploadUrl, type UserUploadDocument } from './tts/storage/UserUploads'
+import { usePlayAnywhereReader } from './tts/playAnywhere/usePlayAnywhereReader'
 import { useAudiobookManager } from './tts/hooks/useAudiobookManager'
 import {
   getUploadedDocumentSource,
@@ -166,6 +167,14 @@ function App() {
     setAudioSavedOnly,
     ttsHighlight,
   } = audiobook
+
+  const readerPlayback = usePlayAnywhereReader({
+    documentUrl: selectedDoc,
+    active: hasFloatingAudioControls || audioControlsProps.ttsState.currentChunkIndex !== null,
+    playFromHere: audiobook.playFromHere,
+    playFromBeginning: audiobook.playFromBeginning,
+    cancelTargetPlayback: audiobook.cancelTargetPlayback,
+  })
 
   const libraryDocuments = useMemo<DocumentInfo[]>(() => [
     ...allDocuments.map((doc) => ({ ...doc, format: 'html', source: 'bundled' as const })),
@@ -481,6 +490,17 @@ function App() {
                 )}
                 <AudioControls
                   {...audioControlsProps}
+                  playAnywhere={{
+                    browsing: readerPlayback.browsing, pending: readerPlayback.pending, capturing: readerPlayback.capturing, feedback: readerPlayback.feedback,
+                    onPlayFromHere: readerPlayback.playFromHere, onPlayFromBeginning: readerPlayback.playFromBeginning,
+                    onReturnToAudio: readerPlayback.returnToAudio,
+                  }}
+                  onPause={() => { readerPlayback.cancel(); audioControlsProps.onPause() }}
+                  onResume={() => { readerPlayback.cancel(); audioControlsProps.onResume() }}
+                  onStop={() => { readerPlayback.cancel(); audioControlsProps.onStop() }}
+                  onSkipBackward={() => { readerPlayback.cancel(); audioControlsProps.onSkipBackward() }}
+                  onSkipForward={() => { readerPlayback.cancel(); audioControlsProps.onSkipForward() }}
+                  onJumpToChunk={(index) => { readerPlayback.cancel(); audioControlsProps.onJumpToChunk(index) }}
                   onManageSave={handleManageAudiobookSave}
                   onOpenAudioSetup={() => setReaderAudioSetupOpen(true)}
                 />
@@ -490,6 +510,9 @@ function App() {
               <TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />
             )}
             ttsHighlight={ttsHighlight}
+            audioFollowPolicy={readerPlayback.followPolicy}
+            onReaderBrowse={readerPlayback.browse}
+            onTextTargetApiChange={readerPlayback.register}
             searchTarget={searchOpenTarget}
             restoreBookmark={restoreBookmark}
             loading={documentLoad.status === 'loading' && documentLoad.url === selectedDoc}

@@ -177,7 +177,7 @@ export function readerTextViewport(shell: HTMLElement): ViewerViewportBounds | n
     right: (viewport?.offsetLeft ?? 0) + (viewport?.width ?? view.innerWidth),
   })
   if (!bounds) return null
-  for (const control of shell.querySelectorAll('.doc-header, .find-bar, .audio-floating-playback')) {
+  for (const control of shell.querySelectorAll('.doc-header, .find-bar, .audio-playback-dock, .audio-floating-playback')) {
     const rect = control.getBoundingClientRect()
     const style = view.getComputedStyle(control)
     if (!validBounds(rect) || style.visibility !== 'visible' || style.opacity === '0' ||

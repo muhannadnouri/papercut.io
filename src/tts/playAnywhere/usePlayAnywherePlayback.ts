@@ -8,10 +8,10 @@ interface PlaybackTargetOptions {
   options: TtsOptions
   resolve: (url: string, capture: ViewerTextTargetResult) => Promise<PreparedTextTargetResult>
   getChunks: () => Promise<readonly TtsChunk[]>
-  play: (chunks: readonly TtsChunk[], options: TtsOptions, index: number, isCurrent: () => boolean) => boolean
+  play: (chunks: readonly TtsChunk[], options: TtsOptions, index: number, isCurrent: () => boolean, onStarted?: () => void) => boolean
 }
 
-type PlaybackTargetResult = { status: 'dispatched' }
+export type PlaybackTargetResult = { status: 'dispatched' }
   | { status: 'error'; error: unknown }
   | Extract<PreparedTextTargetResult, { status: 'unavailable' }>
 
@@ -19,7 +19,7 @@ type PlaybackTargetResult = { status: 'dispatched' }
 export function createPlayAnywherePlayback(scope: PlaybackTargetOptions) {
   let alive = true, intent = 0
   const unavailable = (reason: 'stale' | 'not-ready' | 'invalid-point') => ({ status: 'unavailable', reason }) as const
-  const run = async (api?: ViewerTextTargetApi): Promise<PlaybackTargetResult> => {
+  const run = async (api?: ViewerTextTargetApi, onStarted?: () => void): Promise<PlaybackTargetResult> => {
     const request = ++intent
     const current = () => alive && intent === request
     const url = scope.options.documentUrl
@@ -41,10 +41,10 @@ export function createPlayAnywherePlayback(scope: PlaybackTargetOptions) {
         chunks = await scope.getChunks()
       }
       if (!accepts()) return unavailable('stale')
-      return scope.play(chunks, scope.options, index, accepts) ? { status: 'dispatched' } : unavailable('invalid-point')
+      return scope.play(chunks, scope.options, index, accepts, onStarted ? () => { if (current()) onStarted() } : undefined) ? { status: 'dispatched' } : unavailable('invalid-point')
     } catch (error) { return current() ? { status: 'error', error } : unavailable('stale') }
   }
-  return { playFromHere: (api: ViewerTextTargetApi) => run(api), playFromBeginning: () => run(),
+  return { playFromHere: (api: ViewerTextTargetApi, onStarted?: () => void) => run(api, onStarted), playFromBeginning: (onStarted?: () => void) => run(undefined, onStarted),
     cancel() { intent++ }, dispose() { alive = false; intent++ } }
 }
 
@@ -57,9 +57,9 @@ export function usePlayAnywherePlayback(options: PlaybackTargetOptions) {
     return () => { scope.dispose(); active.current = null }
   }, [complete, playbackOptions, resolve, getChunks, play])
   const cancel = useCallback(() => active.current?.cancel(), [])
-  const playFromHere = useCallback((api: ViewerTextTargetApi) => active.current?.playFromHere(api)
+  const playFromHere = useCallback((api: ViewerTextTargetApi, onStarted?: () => void) => active.current?.playFromHere(api, onStarted)
     ?? Promise.resolve({ status: 'unavailable', reason: 'not-ready' } as const), [])
-  const playFromBeginning = useCallback(() => active.current?.playFromBeginning()
+  const playFromBeginning = useCallback((onStarted?: () => void) => active.current?.playFromBeginning(onStarted)
     ?? Promise.resolve({ status: 'unavailable', reason: 'not-ready' } as const), [])
   return { cancel, playFromHere, playFromBeginning }
 }

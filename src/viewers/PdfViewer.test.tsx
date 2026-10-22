@@ -4,8 +4,12 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { PdfViewer } from './PdfViewer'
 import { createPdfTextTargetApi } from '../tts/playAnywhere/pdfTextTarget'
+import { applyPdfTtsHighlight } from '../pdf/pdfTtsHighlight'
+import type { PdfTtsSourceSpan } from '../tts/types'
 import type { ViewerTextTargetApi } from './types'
 
+const scene = vi.hoisted(() => ({ viewer: null as { currentPageNumber: number } | null, scroll: vi.fn() }))
+vi.mock('../pdf/pdfTtsHighlight', () => ({ clearPdfTtsHighlight: vi.fn(), applyPdfTtsHighlight: vi.fn(() => ({ startContainer: { parentElement: { scrollIntoView: scene.scroll } } })) }))
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
 vi.mock('./PdfControls', () => ({ PdfControls: () => null }))
 vi.mock('../pdf/pdfJs', () => ({
@@ -19,6 +23,7 @@ vi.mock('../pdf/pdfJs', () => ({
     PDFLinkService: class { setViewer() {} setDocument() {} },
     PDFFindController: class { setDocument() {} },
     PDFViewer: class {
+      constructor() { scene.viewer = this }
       pagesCount = 2
       currentPageNumber = 1
       onePageRendered = Promise.resolve()
@@ -77,4 +82,22 @@ it('registers ready PDF capabilities and disposes them on URL replacement, opt-o
   } finally { await act(async () => app.unmount()) }
   expect(disposals.every(dispose => dispose.mock.calls.length === 1)).toBe(true)
   expect(register.mock.calls.at(-1)![0]).toBeNull()
+})
+
+it('highlights offscreen audio without moving PDF pages while browsing, then reveals on Return', async () => {
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => window.setTimeout(() => callback(0), 0))
+  vi.stubGlobal('cancelAnimationFrame', window.clearTimeout)
+  const element = document.createElement('div'); document.body.append(element); const app = createRoot(element)
+  let follow = false
+  const spans = [{ pageIndex: 1, blockOrder: 0, startOffset: 0, endOffset: 4 }] as PdfTtsSourceSpan[]
+  const policy = { allowsReveal: () => follow, revision: 0 }
+  try {
+    await act(async () => app.render(<PdfViewer url="one.pdf" pdfTtsHighlightSpans={spans} audioFollowPolicy={policy} />))
+    await act(() => vi.dynamicImportSettled()); await act(() => new Promise(resolve => setTimeout(resolve, 5)))
+    expect(applyPdfTtsHighlight).toHaveBeenCalled(); expect(scene.viewer?.currentPageNumber).toBe(1); expect(scene.scroll).not.toHaveBeenCalled()
+    follow = true
+    await act(async () => app.render(<PdfViewer url="one.pdf" pdfTtsHighlightSpans={spans} audioFollowPolicy={{ ...policy, revision: 1 }} />))
+    await act(() => new Promise(resolve => setTimeout(resolve, 5)))
+    expect(scene.viewer?.currentPageNumber).toBe(2); expect(scene.scroll).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' })
+  } finally { await act(async () => app.unmount()) }
 })

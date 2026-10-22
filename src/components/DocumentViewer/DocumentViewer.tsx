@@ -9,7 +9,7 @@ import {
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { resolveViewer } from '../../viewers/registry'
-import type { ViewerBookmarkApi, ViewerFindApi, ViewerTextTargetApi } from '../../viewers/types'
+import type { AudioFollowPolicy, ViewerBookmarkApi, ViewerFindApi, ViewerTextTargetApi } from '../../viewers/types'
 import { FindBar } from '../FindBar/FindBar'
 import { ScrollTopButton } from '../ScrollTopButton/ScrollTopButton'
 import { ReaderSettings } from '../ReaderSettings/ReaderSettings'
@@ -20,6 +20,7 @@ import { getExternalLinkUrl, getInternalDocumentHash } from './linkUtils'
 import { useFindInPage } from '../../hooks/useFindInPage'
 import { useReaderBookmark } from '../../hooks/useReaderBookmark'
 import { useTtsHighlight } from '../../tts/hooks/useTtsHighlight'
+import { bindReaderBrowse } from '../../tts/playAnywhere/readerBrowse'
 import { readerTextViewport } from '../../tts/playAnywhere/htmlTextTarget'
 import type { SearchOpenTarget } from '../../types/search'
 import type { TtsChunk } from '../../tts/types'
@@ -63,6 +64,8 @@ interface DocumentViewerProps {
   appControls?: ReactNode
   headerControls?: ReactNode
   beforeDocument?: ReactNode
+  audioFollowPolicy?: AudioFollowPolicy
+  onReaderBrowse?: () => void
   ttsHighlight?: TtsHighlightOptions
   searchTarget?: SearchOpenTarget | null
   restoreBookmark?: boolean
@@ -81,6 +84,8 @@ export function DocumentViewer({
   headerControls,
   beforeDocument,
   ttsHighlight,
+  audioFollowPolicy,
+  onReaderBrowse,
   searchTarget,
   restoreBookmark = false,
   loading = false,
@@ -141,8 +146,13 @@ export function DocumentViewer({
     handleViewerFindResult,
   } = useFindInPage(readerRef, viewerFindApi, content)
 
+  useEffect(() => {
+    const shell = readerShellRef.current
+    if (shell && onReaderBrowse && audioFollowPolicy?.active !== false) return bindReaderBrowse(shell, onReaderBrowse)
+  }, [audioFollowPolicy?.active, onReaderBrowse, url])
+
   useTtsHighlight(readerRef, ttsHighlight
-    ? { ...ttsHighlight, enabled: ttsHighlight.enabled && plugin.id !== 'pdf' }
+    ? { ...ttsHighlight, audioFollowPolicy, enabled: ttsHighlight.enabled && plugin.id !== 'pdf' }
     : {
       enabled: false,
       currentChunkIndex: null,
@@ -304,12 +314,14 @@ export function DocumentViewer({
     const target = idTarget && root.contains(idTarget) ? idTarget : namedTarget
     if (!target) return
 
+    onReaderBrowse?.()
     scrollToReaderElement(target)
-  }, [])
+  }, [onReaderBrowse])
 
   useEffect(() => {
     if (plugin.id === 'pdf' || loading || loadError || !content || !searchTarget) return
 
+    onReaderBrowse?.()
     let highlightedRoot: HTMLElement | null = null
     const frame = requestAnimationFrame(() => {
       const root = readerRef.current
@@ -346,7 +358,7 @@ export function DocumentViewer({
       cancelAnimationFrame(frame)
       if (highlightedRoot) clearSearchTargetHighlight(highlightedRoot)
     }
-  }, [content, loadError, loading, plugin.id, scrollToHash, searchTarget, url])
+  }, [content, loadError, loading, onReaderBrowse, plugin.id, scrollToHash, searchTarget, url])
 
   // Direct rendering makes document links ordinary DOM events again. Internal
   // hash links scroll in-place; everything else asks before leaving the app.
@@ -391,12 +403,13 @@ export function DocumentViewer({
 
   const scrollToTop = useCallback(() => {
     dismissBookmarkNotice()
+    onReaderBrowse?.()
     if (plugin.id === 'pdf' && viewerBookmarkApi) {
       viewerBookmarkApi.scrollToTop()
       return
     }
     window.scrollTo({ top: 0, behavior: readerScrollBehavior() })
-  }, [dismissBookmarkNotice, plugin.id, viewerBookmarkApi])
+  }, [dismissBookmarkNotice, onReaderBrowse, plugin.id, viewerBookmarkApi])
 
   const openPendingExternalUrl = useCallback(async () => {
     if (!pendingExternalUrl) return
@@ -499,9 +512,9 @@ export function DocumentViewer({
           matchCount={findMatchCount}
           currentIndex={findCurrentIndex}
           inputRef={findInputRef}
-          onChange={handleFind}
-          onNext={findNext}
-          onPrev={findPrev}
+          onChange={(query) => { onReaderBrowse?.(); handleFind(query) }}
+          onNext={() => { onReaderBrowse?.(); findNext() }}
+          onPrev={() => { onReaderBrowse?.(); findPrev() }}
           onClose={closeFind}
         />
       )}
@@ -540,6 +553,8 @@ export function DocumentViewer({
             toolbarTarget={viewerToolbarTarget}
             searchTarget={searchTarget}
             pdfTtsHighlightSpans={pdfTtsHighlightSpans}
+            audioFollowPolicy={audioFollowPolicy}
+            onReaderBrowse={onReaderBrowse}
             fullscreen={pdfFullscreen}
             onBookmarkApiChange={setViewerBookmarkApi}
             onFindApiChange={setViewerFindApi}
@@ -558,7 +573,7 @@ export function DocumentViewer({
             isAtBookmark={isAtBookmark}
             onMove={moveBookmark}
             onRemove={removeBookmark}
-            onRestore={returnToBookmark}
+            onRestore={() => { onReaderBrowse?.(); returnToBookmark() }}
             onSave={saveBookmark}
           />
 
