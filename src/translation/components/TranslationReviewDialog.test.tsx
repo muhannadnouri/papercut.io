@@ -25,7 +25,7 @@ function fixture(): ReviewDraft {
         locked: [], fixed: [], editable: [], obligations: ['emphasis'], approved: false,
       })) },
     sourcePreviewHtml: '', previewHtml: '', assetPaths: {}, publicationError: null,
-    blockPreviews: [{ sourceHtml: '<p><strong>Un matin</strong> <em>lumineux.</em></p>', blockers: [] }, { sourceHtml: '<p>Un soir calme.</p>', blockers: [] }],
+    blockPreviews: [{ sourceHtml: '<p><strong>Un matin</strong> <em>lumineux.</em></p>', inheritedMarks: [], blockers: [] }, { sourceHtml: '<p>Un soir calme.</p>', inheritedMarks: [], blockers: [] }],
   }
 }
 async function render(overrides: Partial<typeof props> = {}) {
@@ -189,9 +189,81 @@ describe('assisted formatting editor', () => {
     await render(); await selectText(2, 8)
     expect(english().querySelector('strong')?.textContent).toBe('bright')
     expect(button('translation.review.bold').disabled).toBe(true)
-    expect(button('translation.review.bold').getAttribute('aria-pressed')).toBe('false')
+    expect(button('translation.review.bold').getAttribute('aria-pressed')).toBe('true')
     expect(container.textContent).toContain('translation.review.baselineHint')
     expect(container.querySelector('.translation-review-marks li')).toBeNull()
+  })
+
+  it('retains readonly ancestor bold in both paragraph previews without adding editable marks', async () => {
+    stored.blockPreviews.forEach((preview, ordinal) => {
+      preview.sourceHtml = `<strong>${preview.sourceHtml}</strong>`
+      preview.inheritedMarks = [{ kind: 'bold', range: { start: 0, end: Array.from(stored.document.blocks[ordinal].text).length } }]
+    })
+    await render()
+    for (let ordinal = 0; ordinal < stored.document.blocks.length; ordinal++) {
+      expect(english().querySelector('strong')?.textContent).toBe(stored.document.blocks[ordinal].text)
+      expect(container.querySelector('.translation-review-source > div > strong')).not.toBeNull()
+      await selectText(2, 7)
+      expect(button('translation.review.bold').disabled).toBe(true)
+      expect(button('translation.review.bold').getAttribute('aria-pressed')).toBe('true')
+      expect(button('translation.review.italic').disabled).toBe(false)
+      expect(container.textContent).toContain('translation.review.baselineHint')
+      expect(container.querySelector('.translation-review-marks li')).toBeNull()
+      if (ordinal === 0) await click('translation.review.next')
+    }
+    expect(stored.document.blocks.every(block => block.fixed.length === 0 && block.editable.length === 0)).toBe(true)
+    expect(mock.save).not.toHaveBeenCalled()
+  })
+
+  it('resumes editable marks beside inherited italic and publishes without saving presentation context', async () => {
+    stored.blockPreviews[0] = { sourceHtml: '<em><blockquote><p>Un matin lumineux.</p></blockquote></em>',
+      inheritedMarks: [{ kind: 'italic', range: { start: 0, end: 17 } }], blockers: [] }
+    await render()
+    expect(container.querySelector('.translation-review-source em blockquote p')?.textContent).toBe('Un matin lumineux.')
+    expect(english().querySelector('em')?.textContent).toBe('A bright morning.')
+    await selectText(2, 8)
+    expect(button('translation.review.italic').disabled).toBe(true)
+    expect(button('translation.review.italic').getAttribute('aria-pressed')).toBe('true')
+    await click('translation.review.bold')
+    expect(english().querySelector('strong em')?.textContent).toBe('bright')
+    await click('translation.review.save')
+    expect(mock.save.mock.calls[0][0]).toEqual({ expected: { ...stored.document.expected, revision: 0 }, block: stored.document.blocks[0].key,
+      edit: { action: 'replaceMarks', marks: [{ kind: 'bold', range: { start: 2, end: 8 } }] } })
+    await click('translation.review.reload')
+    expect(mock.load).toHaveBeenCalledTimes(2)
+    expect(english().querySelector('strong em')?.textContent).toBe('bright')
+    expect([...english().querySelectorAll('em')].map(node => node.textContent).join('')).toBe('A bright morning.')
+    expect(stored.document.blocks[0].fixed).toEqual([])
+    expect(stored.document.blocks[0].editable).toEqual([{ kind: 'bold', range: { start: 2, end: 8 } }])
+    await selectText(2, 8)
+    expect(button('translation.review.italic').disabled).toBe(true)
+    await click('translation.review.approve')
+    await click('translation.review.next'); await click('translation.review.approve')
+    await click('translation.review.finish')
+    expect(mock.finish).toHaveBeenCalledWith(stored.document.expected)
+    expect(mock.save.mock.calls.map(([request]) => request.edit)).toEqual([
+      { action: 'replaceMarks', marks: [{ kind: 'bold', range: { start: 2, end: 8 } }] }, { action: 'approve' }, { action: 'approve' },
+    ])
+    expect(props.onPublished).toHaveBeenCalledTimes(1)
+  })
+
+  it('removes a resumed redundant edit without removing readonly inherited emphasis', async () => {
+    stored.blockPreviews[0].inheritedMarks = [{ kind: 'bold', range: { start: 0, end: 17 } }]
+    stored.document.blocks[0].editable = [{ kind: 'bold', range: { start: 2, end: 8 } }]
+    await render(); await selectText(2, 8)
+    expect(button('translation.review.bold').disabled).toBe(true)
+    const remove = container.querySelector<HTMLButtonElement>('.translation-review-marks li button')!
+    expect(remove.disabled).toBe(false)
+    await act(async () => remove.click())
+    expect(english().querySelector('strong')?.textContent).toBe('A bright morning.')
+    expect(container.querySelector('.translation-review-marks li')).toBeNull()
+    await click('translation.review.save'); await click('translation.review.reload')
+    expect(mock.save.mock.calls[0][0].edit).toEqual({ action: 'replaceMarks', marks: [] })
+    expect(stored.document.blocks[0].editable).toEqual([])
+    expect(english().querySelector('strong')?.textContent).toBe('A bright morning.')
+    await selectText(2, 8)
+    expect(button('translation.review.bold').disabled).toBe(true)
+    expect(button('translation.review.bold').getAttribute('aria-pressed')).toBe('true')
   })
 
   it('requires an explicit dirty-navigation choice and saves before moving with revision-bound approval', async () => {

@@ -618,3 +618,138 @@ fn editor_presentation_survives_save_resume_and_finish_without_publishing_a_draf
             .contains("<b>house</b>")
     );
 }
+
+#[test]
+fn inherited_emphasis_presentation_resumes_old_evidence_and_publishes_only_authored_marks() {
+    let (dir, app, window) = fixture();
+    let mut db = open_document_uploads_db(app.handle()).unwrap();
+    persist_derived_document(
+        app.handle(),
+        &mut db,
+        "abc123",
+        "/uploads/abc123.html",
+        "Synthetic inherited emphasis",
+        "html",
+        "<strong><p id='first'>Bonjour.</p><p id='second'>Salut.</p></strong><em><blockquote><p id='third'>À bientôt.</p></blockquote></em>".into(),
+        &[],
+        1,
+        |_| Ok(()),
+    )
+    .unwrap();
+    let source = load_translation_source_document(app.handle(), "/uploads/abc123.html").unwrap();
+    let info = persist_translated_document(app.handle(), request(&source), || Ok(())).unwrap();
+    let before = published(app.handle(), &dir.0, &info.id);
+    let immutable = review_evidence(app.handle(), &info.id);
+    let audio = dir.0.join("audiobooks/existing");
+    fs::create_dir_all(&audio).unwrap();
+    fs::write(
+        audio.join("manifest.json"),
+        json!({"documentUrl":info.document_url}).to_string(),
+    )
+    .unwrap();
+    fs::write(audio.join("audio.wav"), b"existing audio").unwrap();
+    fs::write(audio.join("timings.json"), b"existing highlighting").unwrap();
+    // The old persisted schema has no presentation fields; loading must not migrate its evidence.
+    assert!(!serde_json::to_string(&immutable)
+        .unwrap()
+        .contains("inheritedMarks"));
+    let mut draft = load(&window, &info.id).unwrap();
+    let original_document = draft["document"].clone();
+    assert_eq!(draft["document"]["blocks"].as_array().unwrap().len(), 3);
+    for (index, (kind, tag, text)) in [
+        ("bold", "strong", "Bonjour."),
+        ("bold", "strong", "Salut."),
+        ("italic", "em", "À bientôt."),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert_eq!(
+            draft["blockPreviews"][index]["inheritedMarks"],
+            json!([{"range":{"start":0,"end":8},"kind":kind}])
+        );
+        assert_eq!(draft["document"]["blocks"][index]["fixed"], json!([]));
+        let source_preview = crate::translation::html::parse_html_document(
+            draft["blockPreviews"][index]["sourceHtml"]
+                .as_str()
+                .unwrap(),
+        );
+        assert_eq!(source_preview.select(tag).unwrap().count(), 1);
+        assert_eq!(
+            source_preview.select_first(tag).unwrap().text_contents(),
+            text
+        );
+    }
+    assert_eq!(review_evidence(app.handle(), &info.id), immutable);
+    assert_eq!(
+        load(&window, &info.id).unwrap()["document"],
+        original_document
+    );
+    let presentations = draft["blockPreviews"].clone();
+    for (index, kind) in [(0, "italic"), (2, "bold")] {
+        draft = save(
+            &window,
+            &edit(
+                &draft,
+                index,
+                json!({"action":"replaceMarks","marks":[{"range":{"start":2,"end":7},"kind":kind}]}),
+            ),
+        )
+        .unwrap();
+    }
+    assert_eq!(draft["blockPreviews"], presentations);
+    assert_eq!(review_evidence(app.handle(), &info.id), immutable);
+    assert_eq!(published(app.handle(), &dir.0, &info.id), before);
+    invoke(
+        &window,
+        "document_uploads_delete",
+        json!({"request":{"documentUrl":source.document_url}}),
+    )
+    .unwrap();
+    assert_eq!(load(&window, &info.id).unwrap(), draft);
+    for block in 0..3 {
+        draft = save(&window, &edit(&draft, block, json!({"action":"approve"}))).unwrap();
+    }
+    assert!(draft["publicationError"].is_null());
+    invoke(
+        &window,
+        "translation_review_finish",
+        json!({"request":draft["document"]["expected"].to_string()}),
+    )
+    .unwrap();
+    let finished = published(app.handle(), &dir.0, &info.id);
+    assert_eq!(finished.1, before.1, "reader/search text and body ranges");
+    let html = std::str::from_utf8(&finished.0).unwrap();
+    let dom = crate::translation::html::parse_html_document(html);
+    assert_eq!(dom.select("strong").unwrap().count(), 1);
+    assert_eq!(dom.select("em").unwrap().count(), 1);
+    assert_eq!(
+        dom.select_first("strong > #first > i")
+            .unwrap()
+            .text_contents(),
+        "house"
+    );
+    assert_eq!(
+        dom.select_first("strong > #second")
+            .unwrap()
+            .text_contents(),
+        "A house."
+    );
+    assert_eq!(
+        dom.select_first("em > blockquote > #third > b")
+            .unwrap()
+            .text_contents(),
+        "house"
+    );
+    assert!(!html.contains("data-papercut-translation-review"));
+    assert_eq!(review_evidence(app.handle(), &info.id), immutable);
+    assert_eq!(load(&window, &info.id).unwrap(), draft);
+    assert_eq!(
+        fs::read(audio.join("audio.wav")).unwrap(),
+        b"existing audio"
+    );
+    assert_eq!(
+        fs::read(audio.join("timings.json")).unwrap(),
+        b"existing highlighting"
+    );
+}

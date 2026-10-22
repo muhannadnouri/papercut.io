@@ -1344,7 +1344,7 @@ do not require a translation model, engine or network:
 
 | Command | Input / result |
 | --- | --- |
-| `translation_review_load` | `{ id }` returns the current draft document, namespaced full-source preview, reconstructed draft HTML and variant-owned asset paths. Stage 5 adds ordered `blockPreviews` (`sourceHtml`, blocker codes) and `publicationError`, derived from native evidence rather than persisted into old drafts. `null` means no editable evidence, including legacy results; published reading remains available |
+| `translation_review_load` | `{ id }` returns the current draft document, namespaced full-source preview, reconstructed draft HTML and variant-owned asset paths. Stage 5 adds ordered `blockPreviews` (`sourceHtml`, display-only `inheritedMarks`, blocker codes) and `publicationError`, derived from native evidence rather than persisted into old drafts. `null` means no editable evidence, including legacy results; published reading remains available |
 | `translation_review_save` | `{ request: JSON.stringify({ expected, block, edit }) }`, using the returned generation/revision and block key. Edits are `replaceMarks`, `reset` or `approve`; success returns the next draft revision. No input text, HTML, path, asset URL or caller-defined obligation is accepted |
 
 The edge bounds JSON before typed edit decoding (16 KiB; the Tauri transport
@@ -1639,7 +1639,7 @@ URL; opening the reader reloads native HTML. Original documents, saved audio,
 English text and timing coordinates remain
 unchanged. This does not introduce automatic word alignment or verify meaning.
 
-Validation: seven new Rust regressions and 38 new frontend cases. Complete
+Validation: seven new Rust regressions and 39 new frontend cases. Complete
 offline Rust suites passed **746 base** and **748 native-translation** tests,
 with four existing ignores each. The full frontend suite passed **581 tests**
 with one existing skip, including the seven search/narration/read-along consumer
@@ -1658,9 +1658,51 @@ the original meanings, emphasis scopes, search and existing audio/highlighting.
 These manual cases remain deferred; automated geometry and DOM tests do not
 certify those environments or translation meaning.
 
-Next: focused review of Stage 5 before the prepared human/packaged acceptance.
-Providers remain gated and strict disabled. Benchmarks, packaged/device smoke
-and the app version bump remain deferred.
+Focused review found that paragraph-only previews omitted semantic emphasis
+inherited from enclosing elements. The correction below precedes the prepared
+human/packaged acceptance. Providers remain gated and strict disabled.
+Benchmarks, packaged/device smoke and the app version bump remain deferred.
+
+### Stage 5 inherited-emphasis presentation correction — 2026-10-21
+
+An authored ancestor such as `<strong><p>…</p><p>…</p></strong>` or
+`<em><blockquote><p>…</p></blockquote></em>` already survives in the reader.
+Review previously displayed only each leaf paragraph and its descendant marks,
+so both the original comparison and English preview incorrectly appeared plain.
+
+Native preview generation now derives inherited semantic B/I from the validated
+source and English trees. It wraps only the original comparison fragment in
+display-only semantic tags and returns at most two whole-paragraph English
+`inheritedMarks`. The editor combines these with fixed baseline marks for
+display, pressed-state announcements and read-only toggle protection. User-added
+emphasis remains editable; inherited context never enters editable mark lists
+or Save requests.
+
+This changes presentation only. Snapshot schema, immutable evidence, stored
+`fixed` marks, generation/revision identity, translation/cache behavior and
+publication reconstruction stay unchanged. Existing serialized drafts derive
+the context on load without migration. Finish preserves the authored ancestor
+hierarchy; comparison wrappers are never written to the reader document.
+
+Synthetic regressions cover shared strong ancestors across paragraphs, nested
+italic ancestry, mixed ancestor/descendant emphasis, save/reload and source
+deletion, read-only controls, approval and final publication. They check that
+English text and index/body ranges remain unchanged and presentation fields
+never enter saved evidence.
+
+Validation: four new Rust regressions and three new frontend cases, including
+failures observed before the fix. Complete offline Rust suites passed **750 base**
+and **752 native-translation** tests, with four existing ignores each; the full
+frontend suite passed **584 tests**, with one existing skip. TypeScript, focused
+ESLint, eight-locale parity, non-test Rust checking, Rust formatting, diff checks
+and all 25 local documentation links passed. Rust checking reports only the
+three existing gated HY-MT2 dead-code warnings. Historical evaluation JSON
+remains byte-identical. No model inference, fresh CI, packaged/device smoke,
+language-quality or assistive-technology acceptance is claimed.
+
+Next: focused review of this correction, then the prepared human/packaged
+acceptance when smoke is resumed. Providers remain gated and strict disabled;
+benchmarks, packaged/device smoke and the version bump remain deferred.
 
 ## Architecture and ownership
 

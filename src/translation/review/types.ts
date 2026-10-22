@@ -38,7 +38,8 @@ export interface ReviewDraft {
   sourcePreviewHtml: string
   previewHtml: string
   assetPaths: Record<string, string>
-  blockPreviews: Array<{ sourceHtml: string; blockers: string[] }>
+  /** Ancestor marks are presentation-only; the persisted document remains the edit authority. */
+  blockPreviews: Array<{ sourceHtml: string; inheritedMarks: Mark[]; blockers: string[] }>
   publicationError: string | null
 }
 

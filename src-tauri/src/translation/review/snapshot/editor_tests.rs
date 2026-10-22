@@ -174,3 +174,129 @@ fn valid_editor_preview_is_repeatable_and_cannot_mutate_future_publication() {
     );
     assert_eq!(saved, frozen);
 }
+
+#[test]
+fn inherited_emphasis_reaches_each_source_fragment_and_entire_english_block() {
+    for (source, english, selector, kinds) in [
+        (
+            "<strong><p>Bonjour.</p><p>Salut.</p></strong>",
+            vec!["Hello.", "Hi 🌅."],
+            "strong > p",
+            vec!["bold"],
+        ),
+        (
+            "<em><blockquote><p>Bonjour.</p></blockquote></em>",
+            vec!["Hello."],
+            "em > p",
+            vec!["italic"],
+        ),
+        (
+            "<b><strong><em><blockquote><p>Bonjour.</p></blockquote></em></strong></b>",
+            vec!["Hello."],
+            "em > strong > p",
+            vec!["bold", "italic"],
+        ),
+    ] {
+        let saved = snapshot(source, &english);
+        let preview = saved.editor_preview().unwrap();
+        for (index, block) in preview.blocks.iter().enumerate() {
+            let comparison = parse_html_document(&block.source_html);
+            assert!(comparison.select_first(selector).is_ok(), "{source}");
+            let encoded = serde_json::to_value(block).unwrap();
+            let expected = kinds
+                .iter()
+                .map(|kind| {
+                    serde_json::json!({
+                        "kind": kind,
+                        "range": { "start": 0, "end": english[index].chars().count() },
+                    })
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(encoded["inheritedMarks"], serde_json::json!(expected));
+            assert!(saved.document.blocks[index].fixed.is_empty());
+        }
+    }
+}
+
+#[test]
+fn inherited_presentation_does_not_duplicate_owned_or_descendant_emphasis() {
+    let saved = mapped_snapshot(
+        "<strong><p>A <em>quiet</em> evening.</p></strong><p>A <b>bright</b> morning.</p>",
+    );
+    let preview = saved.editor_preview().unwrap();
+    let first = parse_html_document(&preview.blocks[0].source_html);
+    assert_eq!(first.select("strong").unwrap().count(), 1);
+    assert_eq!(first.select("em").unwrap().count(), 1);
+    assert_eq!(saved.document.blocks[0].fixed.len(), 1);
+    assert_eq!(saved.document.blocks[0].fixed[0].kind, MarkKind::Italic);
+    assert_eq!(
+        serde_json::to_value(&preview.blocks[0]).unwrap()["inheritedMarks"],
+        serde_json::json!([{ "kind": "bold", "range": { "start": 0, "end": 16 } }])
+    );
+    let second = parse_html_document(&preview.blocks[1].source_html);
+    assert!(second.select_first("strong").is_err());
+    assert_eq!(second.select("b").unwrap().count(), 1);
+    assert_eq!(saved.document.blocks[1].fixed.len(), 1);
+    assert_eq!(
+        serde_json::to_value(&preview.blocks[1]).unwrap()["inheritedMarks"],
+        serde_json::json!([])
+    );
+    // An emphasis owner is already captured by the existing immutable geometry.
+    let owner = parse_html_document("<strong>Owned.</strong>")
+        .select_first("strong")
+        .unwrap()
+        .as_node()
+        .clone();
+    let mut geometry = Geometry::default();
+    collect(&owner, &mut geometry).unwrap();
+    assert_eq!(geometry.fixed, vec![bold(0, 6)]);
+    assert!(inherited_emphasis(&owner).is_empty());
+}
+
+#[test]
+fn ancestor_presentation_does_not_migrate_saved_evidence_or_publication() {
+    let mut saved = snapshot(
+        "<strong><em><blockquote><p>Bonjour.</p><p>Salut.</p></blockquote></em></strong>",
+        &["Hello.", "Hi."],
+    );
+    let before = serde_json::to_string(&saved).unwrap();
+    assert!(!before.contains("inheritedMarks"));
+    let mut resumed: Snapshot = serde_json::from_str(&before).unwrap();
+    resumed.validate().unwrap();
+    let preview = resumed.editor_preview().unwrap();
+    assert_eq!(serde_json::to_string(&resumed).unwrap(), before);
+    assert_eq!(serde_json::to_string(&saved).unwrap(), before);
+    assert!(preview.blocks.iter().all(|block| {
+        serde_json::to_value(block).unwrap()["inheritedMarks"]
+            .as_array()
+            .unwrap()
+            .len()
+            == 2
+    }));
+    approve_all(&mut saved);
+    approve_all(&mut resumed);
+    let output = resumed.publication(&resumed.document.expected).unwrap();
+    assert_eq!(saved.publication(&saved.document.expected).unwrap(), output);
+    let published = parse_html_document(&output);
+    assert_eq!(published.select("strong").unwrap().count(), 1);
+    assert_eq!(published.select("em").unwrap().count(), 1);
+    assert_eq!(
+        published
+            .select("strong > em > blockquote > p")
+            .unwrap()
+            .count(),
+        2
+    );
+    assert_eq!(
+        published
+            .select_first("blockquote")
+            .unwrap()
+            .text_contents(),
+        "Hello.Hi."
+    );
+    assert!(resumed
+        .document
+        .blocks
+        .iter()
+        .all(|block| block.fixed.is_empty() && block.editable.is_empty()));
+}

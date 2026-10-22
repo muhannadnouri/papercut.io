@@ -43,6 +43,7 @@ pub(in crate::translation) struct Snapshot {
 #[serde(rename_all = "camelCase")]
 pub(in crate::translation) struct BlockPreview {
     source_html: String,
+    inherited_marks: Vec<Mark>,
     blockers: Vec<String>,
 }
 
@@ -392,7 +393,7 @@ impl ValidatedSnapshot<'_> {
         Ok(output)
     }
 
-    /// Derive display-only blockers rather than persisting new obligations into older snapshot generations.
+    /// Derive presentation context without migrating immutable geometry in older snapshot generations.
     fn block_previews(&self) -> Result<Vec<BlockPreview>, Error> {
         self.snapshot
             .document
@@ -421,8 +422,31 @@ impl ValidatedSnapshot<'_> {
                         blockers.push(code.to_owned());
                     }
                 }
+                let mut source_html = serialize(&source.node)?;
+                for kind in inherited_emphasis(&source.node) {
+                    let tag = if kind == MarkKind::Bold {
+                        "strong"
+                    } else {
+                        "em"
+                    };
+                    source_html = format!("<{tag}>{source_html}</{tag}>");
+                }
+                let end = block
+                    .text
+                    .chars()
+                    .count()
+                    .try_into()
+                    .map_err(|_| Error::Limit)?;
+                let inherited_marks = inherited_emphasis(&target.node)
+                    .into_iter()
+                    .map(|kind| Mark {
+                        range: ScalarRange { start: 0, end },
+                        kind,
+                    })
+                    .collect();
                 Ok(BlockPreview {
-                    source_html: serialize(&source.node)?,
+                    source_html,
+                    inherited_marks,
                     blockers,
                 })
             })
@@ -546,6 +570,25 @@ impl ValidatedSnapshot<'_> {
         }
         serialize(document)
     }
+}
+
+/// Strict ancestors style the isolated preview; owned/descendant marks already belong to saved geometry.
+fn inherited_emphasis(node: &NodeRef) -> Vec<MarkKind> {
+    let mut bold = false;
+    let mut italic = false;
+    for ancestor in node.ancestors() {
+        if let Some(element) = ancestor.as_element() {
+            match element.name.local.as_ref() {
+                "b" | "strong" => bold = true,
+                "i" | "em" => italic = true,
+                _ => {}
+            }
+        }
+    }
+    [(bold, MarkKind::Bold), (italic, MarkKind::Italic)]
+        .into_iter()
+        .filter_map(|(present, kind)| present.then_some(kind))
+        .collect()
 }
 
 /// The retained pair is renderer-owned; arbitrary preceding siblings cannot stand in for native evidence.

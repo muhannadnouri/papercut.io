@@ -59,7 +59,9 @@ export function TranslationReviewDialog({ document: info, onClose, onPublished }
   const selectionSupported = typeof Intl.Segmenter === 'function'
   const usableSelection = Boolean(selectionSupported && block && selection && rangeAllowed(block.text, selection, block.locked))
   const selectedText = block && selection ? Array.from(block.text).slice(selection.start, selection.end).join('') : ''
-  const runs = useMemo(() => block ? markedRuns(block.text, [...block.fixed, ...local.marks]) : [], [block, local.marks])
+  // Ancestor emphasis is readonly presentation, not a change to saved evidence or editable marks.
+  const baselineMarks = useMemo(() => [...(block?.fixed ?? []), ...(blockPreview?.inheritedMarks ?? [])], [block, blockPreview])
+  const runs = useMemo(() => block ? markedRuns(block.text, [...baselineMarks, ...local.marks]) : [], [block, baselineMarks, local.marks])
   const source = useMemo(() => inertSource(blockPreview?.sourceHtml ?? ''), [blockPreview?.sourceHtml])
 
   // A synchronous guard also covers two click events before React paints the disabled button.
@@ -281,8 +283,8 @@ export function TranslationReviewDialog({ document: info, onClose, onPublished }
           {!selectionSupported && <p role="status">{t('translation.review.selectionUnsupported')}</p>}
           <p className="translation-review-selection" role="status">{invalidSelection ? t('translation.review.invalidSelection') : selectedText ? t('translation.review.selected', { text: selectedText }) : t('translation.review.lockedHint')}</p>
           <div ref={toolbar} className="translation-review-buttons" role="group" aria-label={t('translation.review.applied')}>
-            {(['bold', 'italic'] as const).map(kind => <button key={kind} type="button" disabled={controlsDisabled || !usableSelection || Boolean(selection && markState(block.fixed, selection, kind) === true)}
-              aria-pressed={selection ? markState(local.marks, selection, kind) : false} onClick={() => toggle(kind)}>{t(`translation.review.${kind}`)}</button>)}
+            {(['bold', 'italic'] as const).map(kind => <button key={kind} type="button" disabled={controlsDisabled || !usableSelection || Boolean(selection && markState(baselineMarks, selection, kind) === true)}
+              aria-pressed={selection ? markState([...baselineMarks, ...local.marks], selection, kind) : false} onClick={() => toggle(kind)}>{t(`translation.review.${kind}`)}</button>)}
             <button type="button" disabled={controlsDisabled || !history.length} onClick={() => {
               const previous = history.at(-1)
               if (previous) { setLocal(previous); setHistory(history.slice(0, -1)); setMessage('') }
@@ -291,7 +293,7 @@ export function TranslationReviewDialog({ document: info, onClose, onPublished }
           </div>
           <div className="translation-review-marks">
             <h3>{t('translation.review.applied')}</h3>
-            {block.fixed.length > 0 && <p>{t('translation.review.baselineHint')}</p>}
+            {baselineMarks.length > 0 && <p>{t('translation.review.baselineHint')}</p>}
             {!local.marks.length ? <p>{t('translation.review.noMarks')}</p> : <ul>{local.marks.map((mark, at) => {
               const kind = t(`translation.review.${mark.kind}`)
               const text = Array.from(block.text).slice(mark.range.start, mark.range.end).join('')
