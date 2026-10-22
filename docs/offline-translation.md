@@ -910,7 +910,9 @@ wrappers; source containers/IDs are not cloned and characters are not normalized
 Local normal resets work on ordinary styled containers. Authored emphasis stays
 intact; conflicting resets report incomplete coverage rather than flatten it.
 The same guard covers retained default emphasis on headings/table headers and
-`address`/`cite`/`dfn`/`var`, which would otherwise reappear after removing CSS.
+`cite`/`dfn`/`var`, which would otherwise reappear after removing CSS. Removed
+containers such as `address` do not count as surviving emphasis: their supported
+explicit/inherited CSS italics become `<i>` wrappers before sanitization.
 Unrelated properties are not rendered or executed. No publisher CSS or active
 attributes bypass the unchanged sanitizers.
 
@@ -925,8 +927,17 @@ failure cannot leave half a chapter converted. A new 256-level DOM-depth bound
 also avoids extra recursive serialization by the normalizer; generated wrappers
 count toward depth and node work. Existing import/sanitizer limits remain intact.
 If an extra serialization could consume a leading newline in `pre`, `textarea`
-or `listing`, the chapter instead keeps its existing import path and reports
-`literal-roundtrip`; unstyled input needing no wrappers avoids that extra pass.
+or `listing`, or invent closing-tag text inside `plaintext`, the chapter instead
+keeps its existing import path and reports `literal-roundtrip`; unstyled input
+needing no wrappers avoids that extra pass. This preserves the existing import
+behavior rather than attempting to repair legacy raw-text parsing.
+
+HTML whitespace directly within table structures remains unwrapped, so the next
+parser does not move it before the table. Caption/cell prose still receives its
+supported emphasis; non-ASCII text is not mistaken for structural whitespace.
+Requested wrappers in `select`/`option`/`optgroup` would be discarded by the HTML
+parser, so they trigger the atomic chapter fallback with `unsupported-context`.
+Plain or reset controls needing no wrapper do not trigger this warning.
 
 The existing upload transaction stores optional `source_formatting` JSON with
 `source-emphasis-v1` and bounded reason codes. Its nullable additive column leaves
@@ -956,10 +967,33 @@ tests, TypeScript, eight-locale validation, targeted ESLint, Rust formatting,
 documentation links and diff checks passed. The historical evaluation JSON is
 byte-identical. Independent review found the XHTML metadata, retained-default
 reset and literal-newline defects above; regression-backed corrections leave no
-known blocking finding in this stage. Other providers and strict alignment stay
+known blocking finding at that implementation handoff. The subsequent review
+found the raw-text, removed-container and content-model defects corrected below.
+Other providers and strict alignment stay
 gated/disabled. No model inference, benchmark, packaged
 or device smoke, assisted editor, existing-source rewrite or version bump is part
 of Stage 2a. Inline import preservation does not solve mixed target-word placement.
+
+#### Stage 2a source-preservation corrections — 2026-10-21
+
+The shared normalizer now addresses all three follow-up review findings without
+changing either sanitizer, the import entry points, provider admission, schema or
+dependencies. `plaintext` uses the existing literal-roundtrip fallback only when
+serialization would be required. Removed `address` containers no longer suppress
+CSS-derived italics. Wrapper admission respects table whitespace and unsupported
+select contexts before any mutation or generated-node work is committed.
+
+Ten new synthetic regressions cover final HTML/EPUB output rather than only the
+first parsed DOM: exact fallback source/section ranges, Unicode, no-wrapper
+controls and resets, surviving IDs and cross-chapter notes, exact table whitespace
+and hierarchy, formatted caption/cell text, and non-ASCII table text. Full base
+Rust library tests passed (596 passed, four existing ignores); native-translation
+library tests passed (598 passed, four existing ignores). Rust formatting,
+documentation links/anchors, synthetic-input privacy and diff checks passed;
+the historical evaluation JSON is byte-identical. Independent review found no
+remaining issue in these fixes. Existing uploads/results/audio remain untouched;
+benchmarks, smoke, full CI and the version bump remain deferred. Frontend code and
+dependency pins are unchanged; no model inference was run.
 
 ### Bounds and explicit failures
 

@@ -146,3 +146,152 @@ fn declaration_budget_is_shared_across_chapters_and_exhaustion_keeps_import_read
     );
     assert_eq!(dom.select(".epub-chapter").unwrap().count(), 3);
 }
+
+#[test]
+fn plaintext_chapter_fallback_matches_the_existing_final_import_roundtrip() {
+    let styled = "<html><body><p id='before' style='font-weight:bold'>Before</p><plaintext>literal &lt;stuff&gt;</plaintext></body></html>";
+    let plain = styled.replace(" style='font-weight:bold'", "");
+    let prepared = parse_epub_document(&book(&[styled]), "Fallback").unwrap();
+    let baseline = parse_epub_document(&book(&[&plain]), "Fallback").unwrap();
+    assert_eq!(prepared.view_html, baseline.view_html);
+    assert_eq!(
+        prepared
+            .sections
+            .iter()
+            .map(|s| (&s.text, &s.body_ranges))
+            .collect::<Vec<_>>(),
+        baseline
+            .sections
+            .iter()
+            .map(|s| (&s.text, &s.body_ranges))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        prepared.source_formatting.unwrap().warnings,
+        ["literal-roundtrip"]
+    );
+    assert!(baseline.source_formatting.unwrap().warnings.is_empty());
+}
+
+#[test]
+fn address_italics_survive_chapter_sanitization_and_cross_chapter_note_rewriting() {
+    let parsed = parse_epub_document(&book(&[
+        "<html><body><div id='outer'><address style='font-style:italic'><span id='own'>Été عربيّ</span><a id='r' role='doc-noteref' href='c1.xhtml#n'><sup>1</sup></a></address><div style='font-style:italic'><address><span id='inherited'>Inherited</span><span id='reset' style='font-style:normal'> Plain</span></address></div><address style='font-style:normal'><span id='normal'>Normal</span></address></div></body></html>",
+        "<html><body><aside id='n' role='doc-footnote'>Note <a role='doc-backlink' href='c0.xhtml#r'>↩</a></aside></body></html>",
+    ]), "Fallback").unwrap();
+    let safe = super::super::html::sanitize_html(&parsed.view_html);
+    let dom = parse_html().one(safe).document_node;
+    assert_eq!(
+        dom.select_first("#ch0-outer").unwrap().text_contents(),
+        "Été عربيّ1Inherited PlainNormal"
+    );
+    for (id, text) in [("own", "Été عربيّ"), ("inherited", "Inherited")] {
+        assert_eq!(
+            dom.select_first(&format!("#ch0-{id} > i"))
+                .unwrap()
+                .text_contents(),
+            text
+        );
+        assert_eq!(dom.select(&format!("#ch0-{id}")).unwrap().count(), 1);
+    }
+    for id in ["reset", "normal"] {
+        assert!(dom.select_first(&format!("#ch0-{id} i")).is_err());
+    }
+    assert!(dom.select_first("address").is_err());
+    assert!(dom
+        .select_first("#ch0-r[role='doc-noteref'][href='#ch1-n'] > sup > i")
+        .is_ok());
+    assert!(dom
+        .select_first("#ch1-n a[role='doc-backlink'][href='#ch0-r']")
+        .is_ok());
+    assert!(parsed.source_formatting.unwrap().warnings.is_empty());
+}
+
+#[test]
+fn table_structure_and_whitespace_survive_the_complete_epub_import() {
+    let styled = "<html><body><div id='outer'>Before<table id='t' style='font-weight:bold'>\n \t<caption id='caption' style='font-style:italic'>Caption</caption>\n<colgroup id='cols'>\n<col/>\t</colgroup>\n<thead id='head'>\n<tr id='hr'>\n<th>Heading</th>\n</tr>\n</thead>\n<tbody id='body'>\n<tr id='br'>\n<td id='cell'>Cell</td>\n</tr>\n</tbody>\n<tfoot id='foot'>\n<tr id='fr'>\n<td>Footer</td>\n</tr>\n</tfoot>\n</table>After</div></body></html>";
+    let plain = styled
+        .replace(" style='font-weight:bold'", "")
+        .replace(" style='font-style:italic'", "");
+    let prepared = parse_epub_document(&book(&[styled]), "Fallback").unwrap();
+    let baseline = parse_epub_document(&book(&[&plain]), "Fallback").unwrap();
+    let safe = super::super::html::sanitize_html(&prepared.view_html);
+    let dom = parse_html().one(safe).document_node;
+    let expected = parse_html()
+        .one(super::super::html::sanitize_html(&baseline.view_html))
+        .document_node;
+    assert_eq!(
+        dom.select_first("#ch0-outer").unwrap().text_contents(),
+        expected.select_first("#ch0-outer").unwrap().text_contents()
+    );
+    // Retain the unchanged sanitizer's tfoot-to-tbody repair, including all whitespace.
+    for selector in [
+        "#ch0-t",
+        "#ch0-cols",
+        "#ch0-head",
+        "#ch0-hr",
+        "#ch0-body",
+        "#ch0-br",
+        "#ch0-fr",
+        "#ch0-t > tbody:last-child",
+    ] {
+        let actual = dom.select_first(selector).unwrap();
+        let expected = expected.select_first(selector).unwrap();
+        let direct_text = |node: &kuchikiki::NodeRef| {
+            node.children()
+                .filter_map(|child| child.as_text().map(|text| text.borrow().to_string()))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            direct_text(actual.as_node()),
+            direct_text(expected.as_node()),
+            "{selector}"
+        );
+        assert!(
+            actual.as_node().children().all(|child| child
+                .as_element()
+                .is_none_or(|element| !matches!(element.name.local.as_ref(), "b" | "i"))),
+            "{selector}"
+        );
+    }
+    assert_eq!(
+        dom.select_first("#ch0-caption > i > b")
+            .unwrap()
+            .text_contents(),
+        "Caption"
+    );
+    assert_eq!(
+        dom.select_first("#ch0-cell > b").unwrap().text_contents(),
+        "Cell"
+    );
+    assert!(prepared.source_formatting.unwrap().warnings.is_empty());
+}
+
+#[test]
+fn select_chapter_fallback_preserves_readable_source_and_does_not_warn_for_plain_options() {
+    for selection in [
+        "<select style='font-style:italic'><option>First</option></select>",
+        "<select><optgroup style='font-weight:bold' label='Group'><option>First</option></optgroup></select>",
+        "<select><option style='font-style:italic'>First</option></select>",
+        "<div style='font-style:italic'><select><option>First</option></select></div>",
+    ] {
+        let styled = format!("<html><body><p id='before' style='font-weight:bold'>Before</p>{selection}<p id='after'>After</p></body></html>");
+        let plain = styled.replace(" style='font-weight:bold'", "").replace(" style='font-style:italic'", "");
+        let prepared = parse_epub_document(&book(&[&styled]), "Fallback").unwrap();
+        let baseline = parse_epub_document(&book(&[&plain]), "Fallback").unwrap();
+        assert_eq!(prepared.view_html, baseline.view_html, "{selection}");
+        assert_eq!(prepared.sections.iter().map(|s| (&s.text, &s.body_ranges)).collect::<Vec<_>>(), baseline.sections.iter().map(|s| (&s.text, &s.body_ranges)).collect::<Vec<_>>());
+        assert_eq!(prepared.source_formatting.unwrap().warnings, ["unsupported-context"]);
+        assert!(baseline.source_formatting.unwrap().warnings.is_empty());
+    }
+    for selection in [
+        "<select><option>First</option></select>",
+        "<div style='font-style:italic'><select style='font-style:normal'><option>First</option></select></div>",
+    ] {
+        let raw = format!("<html><body><p id='before' style='font-weight:bold'>Before</p>{selection}</body></html>");
+        let prepared = parse_epub_document(&book(&[&raw]), "Fallback").unwrap();
+        let dom = parse_html().one(prepared.view_html).document_node;
+        assert_eq!(dom.select_first("#ch0-before > b").unwrap().text_contents(), "Before");
+        assert!(prepared.source_formatting.unwrap().warnings.is_empty());
+    }
+}

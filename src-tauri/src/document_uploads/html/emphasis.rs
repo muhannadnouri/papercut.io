@@ -76,7 +76,7 @@ impl Normalizer {
     fn plan(&mut self, document: &NodeRef) -> Result<Vec<(NodeRef, FontState)>, &'static str> {
         let mut stack = vec![Frame::default()];
         let mut wrappers = Vec::new();
-        let mut leading_literal_newline = false;
+        let mut literal_roundtrip = false;
         for edge in document.traverse() {
             match edge {
                 NodeEdge::Start(node) => {
@@ -94,7 +94,7 @@ impl Normalizer {
                         .as_text()
                         .is_some_and(|text| text.borrow().starts_with('\n'))
                     {
-                        leading_literal_newline |= node.parent().is_some_and(|parent| {
+                        literal_roundtrip |= node.parent().is_some_and(|parent| {
                             parent.as_element().is_some_and(|element| {
                                 element.name.ns.as_ref() == "http://www.w3.org/1999/xhtml"
                                     && matches!(
@@ -108,6 +108,9 @@ impl Normalizer {
                     if let Some(element) = node.as_element() {
                         let tag = element.name.local.as_ref();
                         let attrs = element.attributes.borrow();
+                        // Plaintext has no closing tag: serialization would invent readable text.
+                        literal_roundtrip |= tag == "plaintext"
+                            && element.name.ns.as_ref() == "http://www.w3.org/1999/xhtml";
                         if tag == "style"
                             || (tag == "link"
                                 && attrs.get("rel").is_some_and(|rel| {
@@ -133,15 +136,13 @@ impl Normalizer {
                                     | "template"
                                     | "noscript"
                             );
-                        // Authored semantics survive sanitization; conflicting resets must stay explicit.
-                        // Retained browser-default emphasis would reappear after CSS is stripped,
-                        // so its resets need the same explicit warning as authored b/i semantics.
+                        // Retained defaults survive sanitization and cannot be reset safely;
+                        // removed containers such as address still need generated CSS wrappers.
                         let own_bold = matches!(
                             tag,
                             "b" | "strong" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "th"
                         );
-                        let own_italic =
-                            matches!(tag, "i" | "em" | "address" | "cite" | "dfn" | "var");
+                        let own_italic = matches!(tag, "i" | "em" | "cite" | "dfn" | "var");
                         let inherited = state.effective;
                         state.effective.bold |= own_bold;
                         state.effective.italic |= own_italic;
@@ -178,7 +179,7 @@ impl Normalizer {
                             italic: state.effective.italic && !state.authored.italic,
                         };
                         let count = usize::from(font.bold) + usize::from(font.italic);
-                        if count != 0 {
+                        if count != 0 && can_wrap(&node)? {
                             if stack.len() + count > policy::MAX_DOM_DEPTH {
                                 return Err("dom-depth-limit");
                             }
@@ -196,7 +197,7 @@ impl Normalizer {
                 }
             }
         }
-        if leading_literal_newline && !wrappers.is_empty() {
+        if literal_roundtrip && !wrappers.is_empty() {
             return Err("literal-roundtrip");
         }
         Ok(wrappers)
@@ -240,6 +241,33 @@ impl Normalizer {
             _ => "work-limit",
         })
     }
+}
+
+/// Keep wrappers within HTML content models: table space must stay in place,
+/// and select/option formatting would be discarded by the following parser.
+fn can_wrap(node: &NodeRef) -> Result<bool, &'static str> {
+    let Some(parent) = node.parent() else {
+        return Ok(true);
+    };
+    let Some(element) = parent
+        .as_element()
+        .filter(|element| element.name.ns.as_ref() == "http://www.w3.org/1999/xhtml")
+    else {
+        return Ok(true);
+    };
+    let tag = element.name.local.as_ref();
+    if matches!(tag, "select" | "option" | "optgroup") {
+        return Err("unsupported-context");
+    }
+    let table_space = matches!(
+        tag,
+        "table" | "tbody" | "thead" | "tfoot" | "tr" | "colgroup"
+    ) && node.as_text().is_some_and(|text| {
+        text.borrow()
+            .bytes()
+            .all(|byte| matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | 0x0c))
+    });
+    Ok(!table_space)
 }
 
 struct InlineDeclarations;
