@@ -636,8 +636,9 @@ restore only supported whole-sentence/block or copied-literal scopes under the
 existing checks. The maintainer has authorized the assisted-workflow plan below;
 mixed inline formatting needs explicit review/correction, with the original
 available on demand rather than repeated throughout the reading output. English
-remains unchanged while formatting is edited. Implementation has not started;
-this is reduced automation, not the original fully automatic requirement.
+remains unchanged while formatting is edited. Only Stage 1's pure contracts are
+implemented; import, inference and reader behavior are unchanged. This is reduced
+automation, not the original fully automatic requirement.
 
 If automatic preservation of arbitrary inline bold/italic remains required
 without manual correction, keep public translation release deferred. None of
@@ -649,7 +650,7 @@ version bump remain deferred; no further candidate evaluation is scheduled.
 
 ## OPUS assisted formatting plan — 2026-10-21
 
-**Planning only.** Use existing OPUS-MT French/Spanish → English sentence
+**Stage 1 implemented; integration pending.** Use existing OPUS-MT French/Spanish → English sentence
 translation, then let the user correct bold/italic scopes without changing the
 translated characters. Source formatting normalization and target formatting
 review are separate responsibilities. CSS normalization prevents additional
@@ -814,20 +815,82 @@ fixtures/references remain outside tracked files.
 
 | Stage | Deliverable and required regression gates |
 | --- | --- |
-| **1. Pure review and normalization contracts** | Freeze eligibility/obligation states, schema/command bounds, CSS grammar/work caps and policy identities. Test repeated identical paragraphs, mixed obligation types, invalid/oversized ranges, stale generation/revision, Unicode scalar↔UTF-16 conversion, combining marks/emoji/Arabic diacritics and B/I overlap. A reviewed emphasis scope must not clear a note/link obligation; edit/reset must invalidate approval. No UI, inference or published-document writes |
+| **1. Pure review and normalization contracts — implemented** | Freeze eligibility/obligation states, schema/command bounds, CSS grammar/work caps and policy identities. Test repeated identical paragraphs, mixed obligation types, invalid/oversized ranges, stale generation/revision, Unicode scalar↔UTF-16 conversion, combining marks/emoji/Arabic diacritics and B/I overlap. A reviewed emphasis scope must not clear a note/link obligation; edit/reset must invalidate approval. No UI, inference or published-document writes |
 | **2a. Inline source normalization** | Pure normalizer plus HTML/full-EPUB-chapter import integration, followed by unchanged sanitization. Test bold/italic nesting, inheritance/local normal resets, semantic-tag conflicts, comments/escapes/invalid values, shorthands and limits. An unread embedded/linked `.x { font-weight: normal !important }` must make conflicting inline bold unresolved. Prove exact text, whitespace, IDs, links, note payloads, literals and chapter order; normalization and sanitization idempotence; scripts, CSS and unsafe URLs remain removed |
 | **2b. Bounded local stylesheet normalization** | Add the declared embedded/EPUB-local selector subset and cascade. Test specificity/source order/important precedence, child overrides of inherited importance, multiple sheets/chapter isolation, missing/unsupported rules, media/disabled/alternate-sheet activation, EPUB-relative paths/traversal, recursive imports and budget exhaustion. Zero network or unrelated filesystem reads. Verify duplicate imports preserve old sources and changed normalized identity invalidates incompatible checkpoints |
 | **3. Durable snapshots, drafts and pure reconstruction** | Add the real schema migration, saved immutable evidence and model-independent review commands. Test draft save/reload/offline resume, original/model removal, repeated blocks, stale windows and new-generation conflicts. Source deletion must preserve cross-block footnotes/backlinks and source-only assets; preview IDs must not collide with English. B/I patches preserve exact target characters and protected structure; reject text/HTML/path injection. Legacy variants remain readable/read-only and new generations preserve prior variants/audio. Draft failure never changes the published document |
 | **4. Atomic publication** | Extend the existing derived-document writer and reference-lock preflight, with revision checks under lock. Test concurrent save/delete/regeneration, partial file/SQLite/index failures, rollback retaining prior variant and draft, repeated completion and startup recovery. Deleted-variant stale saves must create no orphan or revived variant. Published status cannot clear unresolved obligations or edited/reset approvals; neither draft nor stale input can overwrite newer output |
 | **5. Accessible review UI and consumer integration** | Dedicated paragraph panel: source collapsed by default, read-only selection, B/I controls, mark list, undo/reset, explicit paragraph approval, progress save and completion. Test keyboard/touch selection, toolbar focus retention, selected/mixed states, navigation with dirty drafts, conflict/error/retry and non-emphasis blockers. Reuse `translationReview.test.ts` and current highlight invalidation to prove identical English extraction, search sections, TTS chunk IDs/text hashes/spans and read-along behavior across added text-node boundaries; existing audio/timings remain unchanged |
 
-The first implementation task is Stage 1. CSS import work and assisted review
+The next implementation task is Stage 2a. CSS import work and assisted review
 remain separate leaves even though they share normalized source identity. Do not
 revive retired alignment setup or split unrelated UI merely to shorten files.
 Implementation completion requires the above automated gates and a focused code
 review. Later human FR/ES meaning/formatting usability and rebuilt HTML/EPUB
 integration acceptance remain release gates; broader smoke, device benchmarks
 and version bump are still explicitly deferred, not recorded as passed.
+
+### Stage 1 pure contracts — 2026-10-21
+
+The [review contract](../src-tauri/src/translation/review/mod.rs) compiles in base
+and native-translation builds, but has no registered IPC, persistence, runner or
+UI caller. It freezes `opus-assisted-emphasis-v1` and review schema version 1;
+this is not a database migration. Native-owned snapshots/normalization policy,
+generation, source ordinal/identity and exact English are retained separately
+from client edits. Edits cannot provide English, HTML, paths, obligation states
+or an approval override. Explicit approval resolves emphasis only; editing/reset
+invalidates it. Absent records and stale/exhausted revisions reject without
+mutation. Source-validated fixed marks remain separate from editable marks.
+
+UTF-16 selection conversion rejects surrogate/grapheme cuts without normalization.
+Canonical B/I geometry preserves protected cut points: adjacent ranges cannot
+merge across a zero-width note anchor. These are geometry/evidence checks, not
+HTML reconstruction or proof that supplied native blocks correspond to source
+hierarchy. Stage 3 must verify that correspondence; Stage 4 must enforce the
+same optimistic preconditions under the existing writer lock. Pure eligibility
+does not establish database atomicity, deletion cascades or durable publication.
+
+| Review bound | Frozen limit |
+| --- | --- |
+| Raw edit request | 16 KiB before typed decoding; future IPC must use equivalent admission |
+| Editable marks, fixed marks and protected ranges | 128 each per block; input counts checked before coalescing |
+| Exact target text | 32 KiB per block; 25 MiB combined; at most 16,384 blocks |
+| Native source and published snapshots | 120 MiB each; nonempty; byte hashes and normalization policy checked |
+| Identity/revision | Native variant ID at most 128 hex characters; 32-hex generation token; bounded opaque block identities; revision at most JavaScript's exact integer maximum, `2^53 - 1` |
+
+The raw decoder caps its own typed allocation/work, not Tauri's input-buffer
+allocation. Do not bypass it by directly deserializing an unrestricted future
+command DTO. These new bounds restrict assisted-review admission only; they do
+not change import or ordinary translation budgets.
+
+The [source-emphasis contract](../src-tauri/src/document_uploads/html/emphasis_policy.rs)
+freezes `source-emphasis-v1`: typed font values/selectors, explicit sheet
+activation/coverage and authored semantic-reset rejection. It parses no CSS and
+performs no DOM/cascade/import work. Missing, unread, conditional or unsupported
+sheets cannot certify coverage, and later success cannot erase a blocker.
+Atomic work charges reject over-budget/overflow without spending a partial charge.
+
+| CSS bound | Frozen limit for one entire HTML/EPUB import |
+| --- | --- |
+| One stylesheet / all CSS bytes | 64 KiB / 256 KiB, including inline declarations |
+| Stylesheets / rules / declarations | 32 / 2,048 / 8,192 |
+| Node work | 1,000,000 combined traversal visits and selector-node attempts across all chapters |
+
+Shared cached sheets need charging only once, but matching work always counts.
+Stage 2 must precharge before parsing/matching and preserve readable import with
+an explicit incomplete-normalization warning on exhaustion. These are conservative
+work limits, not measured throughput or representative-book coverage claims.
+
+Validation: 35 new synthetic regressions cover Unicode, repeated blocks, caller
+injection, atomic rejection, revisions, independent obligations, fixed/locked
+marks, canonical cut points, grammar/coverage and budget boundaries. Full base
+Rust library tests passed (552 passed, four existing ignores); the final
+native-translation library suite passed (554 passed, four existing ignores).
+Existing transfer unit tests needed local loopback/temp D-Bus socket permission;
+the restricted-sandbox failures were permission denials, not changed transfer
+behavior. Formatting/diff checks passed and the historical evaluation JSON is
+byte-identical. No model inference, frontend/packaged smoke, benchmark, source
+rewriting, migration or version bump occurred. Other providers remain gated.
 
 ### Bounds and explicit failures
 
@@ -1462,9 +1525,10 @@ meaning/scope failures still prevent admission. Further model/runtime comparison
 were declined. The [conclusion and development direction](#conclusion-and-development-direction--2026-10-21)
 separate fixable source/structure defects from unqualified linguistic placement.
 The maintainer has chosen planning for an explicitly assisted mixed-formatting
-workflow and safe import normalization. Follow the [staged implementation plan](#opus-assisted-formatting-plan--2026-10-21),
-starting with pure contracts and rejection tests. Implementation remains pending;
-this is not another provider experiment or a claim of automatic formatting.
+workflow and safe import normalization. Follow the [staged implementation plan](#opus-assisted-formatting-plan--2026-10-21).
+Stage 1's pure contracts and rejection tests are complete. Stage 2a's inline
+source normalization is next; all runtime integration remains pending. This is
+not another provider experiment or a claim of automatic target formatting.
 Additional passing examples cannot erase a known failure. Use Firefox's
 DOM ownership as an architectural reference, not evidence of solved completeness
 or semantic styling. Representative

@@ -5,6 +5,9 @@
 //! format-agnostic.
 
 mod decode;
+// Stage 1 freezes policy only; import preparation does not call a normalizer yet.
+#[allow(dead_code)]
+mod emphasis_policy;
 mod parser;
 mod sanitize;
 mod util;
