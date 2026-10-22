@@ -410,6 +410,9 @@ function DocumentBatchImportStatus({
   const imageWarningCount = imageWarnings
     .flatMap((document) => Object.values(document.importImageWarnings ?? {}))
     .reduce((total, count) => total + count, 0)
+  const formattingWarnings = (result?.imported ?? []).filter((document) =>
+    (document.sourceFormatting?.warnings.length ?? 0) > 0,
+  )
   const added = Math.max(0, (result?.imported.length ?? 0) - alreadyInLibrary.length)
   const importing = status.status === 'importing'
   const total = progress?.total ?? 0
@@ -510,6 +513,20 @@ function DocumentBatchImportStatus({
               </li>
             ))}
           </ul>
+        </details>
+      )}
+      {formattingWarnings.length > 0 && (
+        <details className="document-batch-failures" open>
+          <summary>{t('library.status.sourceFormattingWarnings')}</summary>
+          <p>{t('library.status.sourceFormattingWarning')}</p>
+          <ul>
+            {formattingWarnings.slice(0, 10).map((document) => (
+              <li key={document.id}><bdi>{document.originalFileName ?? document.title}</bdi></li>
+            ))}
+          </ul>
+          {formattingWarnings.length > 10 && (
+            <p>{t('library.status.sourceFormattingMore', { count: formattingWarnings.length - 10 })}</p>
+          )}
         </details>
       )}
       {alreadyInLibrary.length > 0 && (

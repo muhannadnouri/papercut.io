@@ -10,8 +10,11 @@ use std::io::{Cursor, Read};
 use roxmltree::Document;
 use zip::ZipArchive;
 
-use super::html::{extract_body_inner, normalize_text, parsed_html_document, strip_tags};
-use super::parsed::{ParsedDocument, ParsedDocumentCover};
+use super::html::{
+    emphasis::Normalizer, extract_body_inner, normalize_text, parsed_html_document, strip_tags,
+    SOURCE_EMPHASIS_POLICY,
+};
+use super::parsed::{ParsedDocument, ParsedDocumentCover, SourceFormatting};
 
 mod assets;
 mod inline_svg;
@@ -33,6 +36,9 @@ const MAX_OPF_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_CHAPTER_TEXT_BYTES: u64 = 20 * 1024 * 1024;
 const MAX_TOTAL_CHAPTER_TEXT_BYTES: u64 = 120 * 1024 * 1024;
 const XML_NAMESPACE: &str = "http://www.w3.org/XML/1998/namespace";
+
+#[cfg(test)]
+mod emphasis_tests;
 
 /// Parse an EPUB archive into Papercut's format-neutral document shape.
 ///
@@ -73,6 +79,12 @@ pub(crate) fn parse_epub_document(
     let mut chapter_drafts = Vec::new();
     let mut referenced_image_paths = HashSet::new();
     let mut total_chapter_text_bytes = 0u64;
+    // One budget spans the complete book; no chapter may reset exhausted CSS work.
+    let mut normalizer = Normalizer::default();
+    let mut source_formatting = SourceFormatting {
+        policy: SOURCE_EMPHASIS_POLICY.into(),
+        warnings: Vec::new(),
+    };
     for (index, chapter_path) in package.spine_paths.iter().enumerate() {
         let raw = read_zip_text_limited(&mut archive, chapter_path, MAX_CHAPTER_TEXT_BYTES)?;
         total_chapter_text_bytes = total_chapter_text_bytes
@@ -88,8 +100,21 @@ pub(crate) fn parse_epub_document(
             &package.manifest,
             &mut image_assets,
         );
+        // Extract XML metadata before HTML serialization changes void-tag syntax.
         let (language, direction, translate) = extract_xhtml_metadata(&raw);
-        let body = extract_body_inner(&raw).unwrap_or(raw.as_str());
+        // Expand XHTML non-void empty tags before the HTML DOM parser can swallow siblings.
+        // Keep the head/html/body through normalization for sheet detection and inheritance.
+        let normalized = normalizer.normalize(&normalize_empty_xhtml_elements(&raw));
+        if let Some(warning) = normalized.warning {
+            if !source_formatting
+                .warnings
+                .iter()
+                .any(|value| value == warning)
+            {
+                source_formatting.warnings.push(warning.into());
+            }
+        }
+        let body = extract_body_inner(&normalized.html).unwrap_or(normalized.html.as_str());
         let sanitized = sanitize_epub_fragment(body);
         let image_paths = collect_image_paths(&sanitized, chapter_path);
         if normalize_text(&strip_tags(&sanitized)).is_empty()
@@ -167,6 +192,7 @@ pub(crate) fn parse_epub_document(
         package.direction.as_deref(),
     );
     let mut parsed = parsed_html_document(package.title, "epub", view_html);
+    parsed.source_formatting = Some(source_formatting);
     if parsed.sections.is_empty() {
         return Err("EPUB did not contain readable sections".into());
     }

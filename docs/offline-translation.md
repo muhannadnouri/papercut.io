@@ -636,8 +636,9 @@ restore only supported whole-sentence/block or copied-literal scopes under the
 existing checks. The maintainer has authorized the assisted-workflow plan below;
 mixed inline formatting needs explicit review/correction, with the original
 available on demand rather than repeated throughout the reading output. English
-remains unchanged while formatting is edited. Only Stage 1's pure contracts are
-implemented; import, inference and reader behavior are unchanged. This is reduced
+remains unchanged while formatting is edited. Stage 1's pure contracts and Stage
+2a's inline import normalization are implemented; the assisted editor is still
+pending. This is reduced
 automation, not the original fully automatic requirement.
 
 If automatic preservation of arbitrary inline bold/italic remains required
@@ -650,7 +651,7 @@ version bump remain deferred; no further candidate evaluation is scheduled.
 
 ## OPUS assisted formatting plan — 2026-10-21
 
-**Stage 1 implemented; integration pending.** Use existing OPUS-MT French/Spanish → English sentence
+**Stages 1–2a implemented; assisted review integration pending.** Use existing OPUS-MT French/Spanish → English sentence
 translation, then let the user correct bold/italic scopes without changing the
 translated characters. Source formatting normalization and target formatting
 review are separate responsibilities. CSS normalization prevents additional
@@ -747,9 +748,9 @@ reusing the saved URL and its existing audio. Do not overwrite audio or timings.
 ### Safe CSS normalization contract
 
 Normalize source presentation at **import**, before the unchanged Ammonia
-sanitizer. HTML preparation currently calls `sanitize_html` immediately; EPUB
-currently extracts chapter body HTML and discards publisher stylesheets. Parse
-the full chapter first. Share one pure normalizer across HTML/EPUB; keep it out
+sanitizer. Fresh HTML preparation and full EPUB chapters now share the inline
+normalizer before sanitization/body extraction. Publisher stylesheets remain
+uninterpreted in Stage 2a and cause explicit incomplete coverage. Keep normalization out
 of MT adapters and the sanitizer used for generated/saved documents.
 
 1. Start with inline `font-weight` and `font-style`. Resolve effective properties
@@ -816,13 +817,13 @@ fixtures/references remain outside tracked files.
 | Stage | Deliverable and required regression gates |
 | --- | --- |
 | **1. Pure review and normalization contracts — implemented** | Freeze eligibility/obligation states, schema/command bounds, CSS grammar/work caps and policy identities. Test repeated identical paragraphs, mixed obligation types, invalid/oversized ranges, stale generation/revision, Unicode scalar↔UTF-16 conversion, combining marks/emoji/Arabic diacritics and B/I overlap. A reviewed emphasis scope must not clear a note/link obligation; edit/reset must invalidate approval. No UI, inference or published-document writes |
-| **2a. Inline source normalization** | Pure normalizer plus HTML/full-EPUB-chapter import integration, followed by unchanged sanitization. Test bold/italic nesting, inheritance/local normal resets, semantic-tag conflicts, comments/escapes/invalid values, shorthands and limits. An unread embedded/linked `.x { font-weight: normal !important }` must make conflicting inline bold unresolved. Prove exact text, whitespace, IDs, links, note payloads, literals and chapter order; normalization and sanitization idempotence; scripts, CSS and unsafe URLs remain removed |
+| **2a. Inline source normalization — implemented** | Pure normalizer plus HTML/full-EPUB-chapter import integration, followed by unchanged sanitization. Test bold/italic nesting, inheritance/local normal resets, semantic-tag conflicts, comments/escapes/invalid values, shorthands and limits. An unread embedded/linked `.x { font-weight: normal !important }` must make conflicting inline bold unresolved. Prove exact text, whitespace, IDs, links, note payloads, literals and chapter order; normalization and sanitization idempotence; scripts, CSS and unsafe URLs remain removed |
 | **2b. Bounded local stylesheet normalization** | Add the declared embedded/EPUB-local selector subset and cascade. Test specificity/source order/important precedence, child overrides of inherited importance, multiple sheets/chapter isolation, missing/unsupported rules, media/disabled/alternate-sheet activation, EPUB-relative paths/traversal, recursive imports and budget exhaustion. Zero network or unrelated filesystem reads. Verify duplicate imports preserve old sources and changed normalized identity invalidates incompatible checkpoints |
 | **3. Durable snapshots, drafts and pure reconstruction** | Add the real schema migration, saved immutable evidence and model-independent review commands. Test draft save/reload/offline resume, original/model removal, repeated blocks, stale windows and new-generation conflicts. Source deletion must preserve cross-block footnotes/backlinks and source-only assets; preview IDs must not collide with English. B/I patches preserve exact target characters and protected structure; reject text/HTML/path injection. Legacy variants remain readable/read-only and new generations preserve prior variants/audio. Draft failure never changes the published document |
 | **4. Atomic publication** | Extend the existing derived-document writer and reference-lock preflight, with revision checks under lock. Test concurrent save/delete/regeneration, partial file/SQLite/index failures, rollback retaining prior variant and draft, repeated completion and startup recovery. Deleted-variant stale saves must create no orphan or revived variant. Published status cannot clear unresolved obligations or edited/reset approvals; neither draft nor stale input can overwrite newer output |
 | **5. Accessible review UI and consumer integration** | Dedicated paragraph panel: source collapsed by default, read-only selection, B/I controls, mark list, undo/reset, explicit paragraph approval, progress save and completion. Test keyboard/touch selection, toolbar focus retention, selected/mixed states, navigation with dirty drafts, conflict/error/retry and non-emphasis blockers. Reuse `translationReview.test.ts` and current highlight invalidation to prove identical English extraction, search sections, TTS chunk IDs/text hashes/spans and read-along behavior across added text-node boundaries; existing audio/timings remain unchanged |
 
-The next implementation task is Stage 2a. CSS import work and assisted review
+The next implementation task is Stage 2b. CSS import work and assisted review
 remain separate leaves even though they share normalized source identity. Do not
 revive retired alignment setup or split unrelated UI merely to shorten files.
 Implementation completion requires the above automated gates and a focused code
@@ -877,7 +878,7 @@ Atomic work charges reject over-budget/overflow without spending a partial charg
 | Node work | 1,000,000 combined traversal visits and selector-node attempts across all chapters |
 
 Shared cached sheets need charging only once, but matching work always counts.
-Stage 2 must precharge before parsing/matching and preserve readable import with
+Import normalization must precharge before parsing/matching and preserve readable import with
 an explicit incomplete-normalization warning on exhaustion. These are conservative
 work limits, not measured throughput or representative-book coverage claims.
 
@@ -891,6 +892,74 @@ the restricted-sandbox failures were permission denials, not changed transfer
 behavior. Formatting/diff checks passed and the historical evaluation JSON is
 byte-identical. No model inference, frontend/packaged smoke, benchmark, source
 rewriting, migration or version bump occurred. Other providers remain gated.
+
+### Stage 2a inline import normalization — 2026-10-21
+
+Fresh HTML imports use [import preparation](../src-tauri/src/document_uploads/html/prepare.rs)
+and full EPUB chapters use the same [inline normalizer](../src-tauri/src/document_uploads/html/emphasis.rs)
+before their existing sanitizers. Shared reader/generated/transfer parsing does
+not normalize CSS. EPUB metadata is read from original XHTML before HTML
+serialization; non-void XHTML empty tags are expanded before the HTML DOM parse.
+This preserves chapter language, direction, `translate`, source order and empty
+note anchors while root/body styles are still available for inheritance.
+
+`cssparser` 0.29.6, already locked transitively through Kuchikiki, is now explicit.
+It tokenizes inline declarations, comments/escapes, duplicate declarations and
+property-specific `!important`. Text runs receive only needed visual `<b>/<i>`
+wrappers; source containers/IDs are not cloned and characters are not normalized.
+Local normal resets work on ordinary styled containers. Authored emphasis stays
+intact; conflicting resets report incomplete coverage rather than flatten it.
+The same guard covers retained default emphasis on headings/table headers and
+`address`/`cite`/`dfn`/`var`, which would otherwise reappear after removing CSS.
+Unrelated properties are not rendered or executed. No publisher CSS or active
+attributes bypass the unchanged sanitizers.
+
+Any embedded/linked stylesheet, unsupported affecting declaration, conflicting
+semantic reset or exhausted budget skips CSS-derived normalization for that
+chapter. The original input still follows normal sanitization and remains
+readable. This intentionally conservative fallback does not guess which rules
+might apply. There are no stylesheet, network, adjacent-file, font or `url()`
+reads; even local EPUB stylesheets await Stage 2b. One budget spans the book,
+including declarations in earlier chapters. Planning precedes DOM mutation;
+failure cannot leave half a chapter converted. A new 256-level DOM-depth bound
+also avoids extra recursive serialization by the normalizer; generated wrappers
+count toward depth and node work. Existing import/sanitizer limits remain intact.
+If an extra serialization could consume a leading newline in `pre`, `textarea`
+or `listing`, the chapter instead keeps its existing import path and reports
+`literal-roundtrip`; unstyled input needing no wrappers avoids that extra pass.
+
+The existing upload transaction stores optional `source_formatting` JSON with
+`source-emphasis-v1` and bounded reason codes. Its nullable additive column leaves
+legacy documents unclassified and preserves their stored content/index/audio.
+Import results and listing return `sourceFormatting`; incomplete imports show a
+distinct localized warning that stays visible until dismissed (at most ten file
+names, with an omitted count). This reports supported source B/I coverage, not
+exact typography, correct English word placement or human formatting approval.
+Restored/generated HTML receives no new source-coverage certification; transfer
+formats are unchanged and this new import report is local metadata.
+
+New normalized sources bind exact sanitized HTML plus the policy/report into
+resume compatibility and retain the report in translated settings. Markup-only,
+policy or warning changes invalidate that resume state. Legacy caches without a
+normalization report remain compatible; request ownership keys and saved variant
+IDs stay unchanged. Existing uploads are not reparsed, and identical-file
+deduplication still returns the old source; recovering already-discarded CSS
+requires the separately planned explicit source refresh.
+
+Validation: 34 new Rust regressions plus four frontend regressions cover the
+parser subset, reset/importance/inheritance, limits and atomic fallback, Unicode,
+literal newlines, XHTML metadata/empty anchors, notes/order, unchanged sanitizer,
+nullable migration, persisted reports and normalized-source save/resume. Full
+base library tests passed (586 passed, four existing ignores); native-translation
+library tests passed (588 passed, four existing ignores). Seven focused frontend
+tests, TypeScript, eight-locale validation, targeted ESLint, Rust formatting,
+documentation links and diff checks passed. The historical evaluation JSON is
+byte-identical. Independent review found the XHTML metadata, retained-default
+reset and literal-newline defects above; regression-backed corrections leave no
+known blocking finding in this stage. Other providers and strict alignment stay
+gated/disabled. No model inference, benchmark, packaged
+or device smoke, assisted editor, existing-source rewrite or version bump is part
+of Stage 2a. Inline import preservation does not solve mixed target-word placement.
 
 ### Bounds and explicit failures
 
@@ -1526,8 +1595,9 @@ were declined. The [conclusion and development direction](#conclusion-and-develo
 separate fixable source/structure defects from unqualified linguistic placement.
 The maintainer has chosen planning for an explicitly assisted mixed-formatting
 workflow and safe import normalization. Follow the [staged implementation plan](#opus-assisted-formatting-plan--2026-10-21).
-Stage 1's pure contracts and rejection tests are complete. Stage 2a's inline
-source normalization is next; all runtime integration remains pending. This is
+Stage 1's pure contracts and Stage 2a's inline import normalization are complete.
+Stage 2b's bounded local stylesheet normalization is next; assisted review
+integration remains pending. This is
 not another provider experiment or a claim of automatic target formatting.
 Additional passing examples cannot erase a known failure. Use Firefox's
 DOM ownership as an architectural reference, not evidence of solved completeness

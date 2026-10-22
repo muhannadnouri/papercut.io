@@ -8,6 +8,7 @@ export type UploadedDocumentTextStatus =
 
 export interface UploadedDocument {
   importImageWarnings?: Record<string, number>
+  sourceFormatting?: { policy: string; warnings: string[] }
   id: string
   url: string
   title: string

@@ -19,7 +19,7 @@ use super::cover::{
 use super::epub::{externalize_inline_image_assets, parse_epub_document};
 use super::html::{
     add_section_locators, decode_html_bytes, has_complete_section_locators, parse_html_document,
-    sanitize_html,
+    prepare_html_document, sanitize_html,
 };
 use super::parsed::{
     is_reader_asset_file_name, ParsedDocument, ParsedDocumentAsset, READER_ASSET_DIR_NAME,
@@ -70,7 +70,7 @@ pub(crate) fn import_html_source<R: Runtime>(
     let html = decode_html_bytes(&bytes)?;
 
     progress(UploadedDocumentImportStage::PreparingDocument);
-    let parsed = parse_html_document(&html);
+    let parsed = prepare_html_document(&html);
     if parsed.sections.is_empty() {
         return Err("HTML document did not contain readable text".into());
     }
@@ -234,6 +234,7 @@ fn persist_document<R: Runtime>(
         .map(|cover| cover.media_type.to_string());
 
     Ok(UploadedDocument {
+        source_formatting: parsed.source_formatting,
         import_image_warnings: super::parsed::image_import_warnings(&parsed.view_html),
         id,
         url,
@@ -315,6 +316,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
         .map(|cover| cover.media_type.to_string());
 
     Ok(UploadedDocument {
+        source_formatting: parsed.source_formatting,
         import_image_warnings: super::parsed::image_import_warnings(&parsed.view_html),
         id,
         url,
@@ -915,6 +917,7 @@ mod tests {
                 .as_nanos()
         ));
         let mut parsed = ParsedDocument {
+            source_formatting: None,
             title: "Test".into(),
             format: "html".into(),
             view_html: "<html><body>Test</body></html>".into(),

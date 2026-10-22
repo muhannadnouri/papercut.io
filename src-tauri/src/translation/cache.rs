@@ -30,6 +30,8 @@ pub(crate) struct TranslationSegmentCache {
     formatting: FormattingPolicy,
     #[serde(default)]
     provider_identity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_identity: Option<String>,
     cache_key: String,
     model_id: String,
     source_language: String,
@@ -298,6 +300,7 @@ fn new_segment_cache(plan: &TranslationJobPlan) -> TranslationSegmentCache {
         version: SEGMENT_CACHE_VERSION,
         formatting: plan.formatting,
         provider_identity: super::bergamot::assets::provider_identity(&plan.request.model_id),
+        source_identity: plan.source_identity.clone(),
         cache_key: plan.cache_key.clone(),
         model_id: plan.request.model_id.clone(),
         source_language: plan.request.source_language.clone(),
@@ -313,6 +316,7 @@ fn new_segment_cache(plan: &TranslationJobPlan) -> TranslationSegmentCache {
 
 fn cache_is_compatible(cache: &TranslationSegmentCache, plan: &TranslationJobPlan) -> bool {
     cache.provider_identity == super::bergamot::assets::provider_identity(&plan.request.model_id)
+        && cache.source_identity == plan.source_identity
         && cache.version == SEGMENT_CACHE_VERSION
         && cache.cache_key == plan.cache_key
         && cache.model_id == plan.request.model_id
@@ -620,6 +624,68 @@ mod tests {
         assert!(cache_is_compatible(&cache, &plan));
         plan.request.quality_mode = "quality".into();
         assert!(!cache_is_compatible(&cache, &plan));
+    }
+
+    /// Normalization identity augments compatibility, never request ownership or legacy key/JSON shapes.
+    #[test]
+    fn normalized_resume_binds_exact_html_policy_and_warnings_without_retiring_legacy_caches() {
+        use crate::document_uploads::SourceFormatting;
+        use crate::translation::{job::bind_source_identity, source::TranslationSourceDocument};
+
+        let legacy = plan();
+        let legacy_cache = new_segment_cache(&legacy);
+        let legacy_json = serde_json::to_value(&legacy_cache).unwrap();
+        assert!(legacy_json.get("sourceIdentity").is_none());
+        let legacy_cache = serde_json::from_value(legacy_json).unwrap();
+        assert!(cache_is_compatible(&legacy_cache, &legacy));
+
+        let mut source = TranslationSourceDocument {
+            document_id: "source".into(),
+            document_url: legacy.request.document_url.clone(),
+            title: "Example".into(),
+            format: "html".into(),
+            view_html: "<p>Hola <b>mundo</b>.</p>".into(),
+            source_formatting: Some(SourceFormatting {
+                policy: "source-emphasis-v1".into(),
+                warnings: vec!["unread-stylesheet".into()],
+            }),
+            blocks: vec![],
+            assets: Default::default(),
+        };
+        let mut normalized = legacy.clone();
+        bind_source_identity(&mut normalized, &source).unwrap();
+        assert_eq!(normalized.cache_key, legacy.cache_key);
+        assert!(!cache_is_compatible(&legacy_cache, &normalized));
+        let cache = new_segment_cache(&normalized);
+        assert!(!cache_is_compatible(&cache, &legacy));
+        let cache: super::TranslationSegmentCache =
+            serde_json::from_value(serde_json::to_value(cache).unwrap()).unwrap();
+        assert!(cache_is_compatible(&cache, &normalized));
+        let mut repeated = normalized.clone();
+        bind_source_identity(&mut repeated, &source).unwrap();
+        assert!(cache_is_compatible(&cache, &repeated));
+
+        for change in ["html", "policy", "warning", "missing-report"] {
+            let mut changed = source.clone();
+            match change {
+                "html" => changed.view_html = "<p>Hola <i>mundo</i>.</p>".into(),
+                "policy" => changed
+                    .source_formatting
+                    .as_mut()
+                    .unwrap()
+                    .policy
+                    .push_str("-next"),
+                "warning" => changed.source_formatting.as_mut().unwrap().warnings.clear(),
+                _ => changed.source_formatting = None,
+            }
+            let mut plan = normalized.clone();
+            bind_source_identity(&mut plan, &changed).unwrap();
+            assert_eq!(plan.cache_key, normalized.cache_key);
+            assert!(!cache_is_compatible(&cache, &plan), "{change}");
+        }
+        source.source_formatting = None;
+        bind_source_identity(&mut repeated, &source).unwrap();
+        assert!(cache_is_compatible(&legacy_cache, &repeated));
     }
 
     #[test]

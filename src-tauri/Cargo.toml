@@ -76,6 +76,7 @@ roxmltree = "0.20"
 zip = { version = "9.0.4", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 percent-encoding = "2.3"
 kuchikiki = "=0.8.8-speedreader"
+cssparser = "=0.29.6"
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 tauri-plugin-opener = "=2.5.3"
 unicode-segmentation = "1.13"

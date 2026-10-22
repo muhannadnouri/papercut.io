@@ -1586,6 +1586,7 @@ fn stored_index_is_independent_of_ready_coverage_and_empty_retained_tables() {
 
 fn put(db: &mut Connection, id: &str, title: &str, texts: &[&str]) {
     let parsed = ParsedDocument {
+        source_formatting: None,
         title: title.into(),
         format: "html".into(),
         view_html: String::new(),

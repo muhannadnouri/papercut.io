@@ -148,6 +148,7 @@ pub(crate) fn restore_transferred_pdf<R: Runtime>(
     }
 
     Ok(UploadedDocument {
+        source_formatting: None,
         import_image_warnings: Default::default(),
         id,
         url,
@@ -266,6 +267,7 @@ fn persist_unindexed_pdf<R: Runtime>(
     }
 
     Ok(UploadedDocument {
+        source_formatting: None,
         import_image_warnings: Default::default(),
         id,
         url,

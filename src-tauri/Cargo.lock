@@ -120,6 +120,7 @@ dependencies = [
  "ammonia",
  "base64 0.22.1",
  "bzip2",
+ "cssparser 0.29.6",
  "ct2rs",
  "dbus",
  "encoding_rs",

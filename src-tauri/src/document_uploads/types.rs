@@ -10,6 +10,8 @@ use tauri_plugin_dialog::FilePath;
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocument {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) source_formatting: Option<super::parsed::SourceFormatting>,
     /// Diagnostics for this import attempt; list metadata does not re-read source HTML.
     #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub(crate) import_image_warnings: std::collections::BTreeMap<String, usize>,

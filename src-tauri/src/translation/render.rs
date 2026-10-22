@@ -1359,6 +1359,7 @@ mod tests {
                 title: "Source".into(),
                 format: "html".into(),
                 view_html: view_html.into(),
+                source_formatting: None,
                 blocks: super::DomPlan::new(view_html)
                     .blocks
                     .into_iter()

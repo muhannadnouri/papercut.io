@@ -37,6 +37,25 @@ describe('shouldAutoDismissDocumentImport', () => {
       recognitionIssues: { failedPages: [2], unrecognizedPages: [3], lowConfidencePages: [4] },
     })).toBe(false)
   })
+
+  it('retains incomplete source-formatting reports without warning on complete or legacy imports', () => {
+    const imported: UploadedDocument[] = [{
+      sourceFormatting: { policy: 'source-emphasis-v1', warnings: ['unread-stylesheet'] },
+    } as UploadedDocument]
+    const status: DocumentImportStatus = {
+      status: 'imported',
+      batchResult: {
+        selected: 1, processed: 1, imported, alreadyInLibrary: [], failures: [], cancelled: false,
+      },
+    }
+
+    expect(shouldAutoDismissDocumentImport(status)).toBe(false)
+    expect(shouldAutoDismissDocumentImport({ ...status, status: 'cancelled' })).toBe(false)
+    imported[0].sourceFormatting!.warnings = []
+    expect(shouldAutoDismissDocumentImport(status)).toBe(true)
+    delete imported[0].sourceFormatting
+    expect(shouldAutoDismissDocumentImport(status)).toBe(true)
+  })
 })
 
 describe('shouldRecognizeImportedScan', () => {

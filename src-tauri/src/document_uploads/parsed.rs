@@ -7,12 +7,22 @@ pub(crate) const READER_ASSET_DIR_NAME: &str = "assets";
 
 /// A parsed, sanitized document ready to store and index.
 pub(crate) struct ParsedDocument {
+    pub(crate) source_formatting: Option<SourceFormatting>,
     pub(crate) title: String,
     pub(crate) format: String,
     pub(crate) view_html: String,
     pub(crate) sections: Vec<ParsedSection>,
     pub(crate) cover: Option<ParsedDocumentCover>,
     pub(crate) assets: Vec<ParsedDocumentAsset>,
+}
+
+/// Import-owned coverage, separate from translated-word placement or human review.
+/// Legacy/generated documents have no record; absence never certifies preservation.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct SourceFormatting {
+    pub(crate) policy: String,
+    pub(crate) warnings: Vec<String>,
 }
 
 /// One bounded raster cover selected from format metadata during import.

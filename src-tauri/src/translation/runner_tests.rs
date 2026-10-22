@@ -41,6 +41,7 @@ pub(super) fn fixture() -> (
         title: "Example".into(),
         format: "html".into(),
         view_html: html.into(),
+        source_formatting: None,
         assets: Default::default(),
         blocks: ["Bonjour le monde.", "Merci beaucoup.", "Au revoir."]
             .iter()
@@ -234,6 +235,10 @@ fn failed_later_batch_resumes_only_completed_work_and_stores_one_provenanced_var
         .unwrap();
     assert_eq!(engine_id, "bergamot");
     assert!(settings.contains("bergamot-protected-codes-v6:"));
+    assert!(serde_json::from_str::<serde_json::Value>(&settings)
+        .unwrap()
+        .get("sourceFormatting")
+        .is_none());
     assert_eq!(
         super::super::storage::list_translated_documents(app.handle())
             .unwrap()

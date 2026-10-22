@@ -9,7 +9,7 @@ use tauri::Runtime;
 use crate::document_uploads::{open_document_uploads_db, read_uploaded_document_source};
 
 use super::dom::DomPlan;
-use crate::document_uploads::ParsedDocumentAsset;
+use crate::document_uploads::{ParsedDocumentAsset, SourceFormatting};
 use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -19,6 +19,7 @@ pub(crate) struct TranslationSourceDocument {
     pub(crate) title: String,
     pub(crate) format: String,
     pub(crate) view_html: String,
+    pub(crate) source_formatting: Option<SourceFormatting>,
     pub(crate) blocks: Vec<TranslationSourceBlock>,
     // Share up to 100 MiB of snapshot bytes across runner/persistence clones.
     pub(crate) assets: Arc<Vec<ParsedDocumentAsset>>,
@@ -68,7 +69,7 @@ fn query_translation_source_document(
 ) -> Result<TranslationSourceDocument, String> {
     let metadata = db
         .query_row(
-            "SELECT id, url, title, format FROM uploaded_documents WHERE url = ?1",
+            "SELECT id, url, title, format, source_formatting FROM uploaded_documents WHERE url = ?1",
             [document_url],
             |row| {
                 Ok((
@@ -76,12 +77,13 @@ fn query_translation_source_document(
                     row.get::<_, String>(1)?,
                     row.get::<_, String>(2)?,
                     row.get::<_, String>(3)?,
+                    row.get::<_, Option<String>>(4)?,
                 ))
             },
         )
         .optional()
         .map_err(db_err)?;
-    let Some((document_id, document_url, title, format)) = metadata else {
+    let Some((document_id, document_url, title, format, source_formatting)) = metadata else {
         return Err("Source document was not found for translation".into());
     };
     if !matches!(format.as_str(), "html" | "epub") {
@@ -89,6 +91,10 @@ fn query_translation_source_document(
             "Translation does not support this document format; choose HTML or EPUB".into(),
         );
     }
+    let source_formatting = source_formatting
+        .map(|json| serde_json::from_str(&json))
+        .transpose()
+        .map_err(|_| "Translation source formatting metadata is invalid".to_string())?;
 
     Ok(TranslationSourceDocument {
         document_id,
@@ -96,6 +102,7 @@ fn query_translation_source_document(
         title,
         format,
         view_html: String::new(),
+        source_formatting,
         assets: Arc::default(),
         blocks: Vec::new(),
     })
@@ -123,6 +130,7 @@ mod tests {
         assert_eq!(source.title, "Book");
         assert_eq!(source.format, "html");
         assert_eq!(source.view_html, "");
+        assert!(source.source_formatting.is_none());
         assert!(source.blocks.is_empty());
     }
 
@@ -133,6 +141,38 @@ mod tests {
             query_translation_source_document(&db, "/missing.html").expect_err("missing document");
 
         assert!(error.contains("not found"));
+    }
+
+    #[test]
+    fn retains_import_policy_and_warnings_and_rejects_malformed_provenance() {
+        let db = test_db();
+        let report = crate::document_uploads::SourceFormatting {
+            policy: "source-emphasis-v1".into(),
+            warnings: vec!["unread-stylesheet".into()],
+        };
+        db.execute(
+            "UPDATE uploaded_documents SET source_formatting=?1",
+            [serde_json::to_string(&report).unwrap()],
+        )
+        .unwrap();
+        let source = query_translation_source_document(&db, "/user-uploads/book.html").unwrap();
+        assert_eq!(source.source_formatting, Some(report));
+        for invalid in [
+            "not json",
+            "null",
+            "{}",
+            r#"{"policy":"source-emphasis-v1","warnings":[],"ready":true}"#,
+        ] {
+            db.execute(
+                "UPDATE uploaded_documents SET source_formatting=?1",
+                [invalid],
+            )
+            .unwrap();
+            let error =
+                query_translation_source_document(&db, "/user-uploads/book.html").unwrap_err();
+            assert!(error.contains("source formatting metadata is invalid"));
+            assert!(!error.contains(invalid));
+        }
     }
 
     #[test]
@@ -194,6 +234,7 @@ mod tests {
                url TEXT NOT NULL UNIQUE,
                title TEXT NOT NULL,
                format TEXT NOT NULL,
+               source_formatting TEXT,
                imported_at_ms INTEGER NOT NULL,
                bytes INTEGER NOT NULL,
                sections INTEGER NOT NULL

@@ -181,6 +181,7 @@ pub(crate) fn finalize_pdf_index<R: Runtime>(
         None => None,
     };
     let parsed = ParsedDocument {
+        source_formatting: None,
         title: title.clone(),
         format: "pdf".into(),
         view_html: String::new(),

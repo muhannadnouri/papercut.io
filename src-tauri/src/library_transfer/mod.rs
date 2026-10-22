@@ -1657,6 +1657,7 @@ mod tests {
 
     fn test_document(id: &str) -> UploadedDocument {
         UploadedDocument {
+            source_formatting: None,
             import_image_warnings: Default::default(),
             id: id.into(),
             url: format!("/uploads/{id}.html"),

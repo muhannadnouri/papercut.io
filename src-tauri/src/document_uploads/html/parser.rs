@@ -49,6 +49,7 @@ pub(crate) fn parsed_html_document(
     }
 
     ParsedDocument {
+        source_formatting: None,
         title,
         format: format.into(),
         view_html,

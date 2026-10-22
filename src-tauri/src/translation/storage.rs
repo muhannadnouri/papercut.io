@@ -141,6 +141,10 @@ pub(crate) fn persist_translated_document<R: Runtime>(
         "sourceFormat": request.source.format,
         "glossaryEntries": request.glossary.len(),
     });
+    if let Some(report) = &request.source.source_formatting {
+        settings["sourceFormatting"] = serde_json::to_value(report)
+            .map_err(|_| "Failed to serialize translation source formatting".to_string())?;
+    }
     if request.formatting == FormattingPolicy::SentenceReview {
         settings["formattingPolicy"] = super::formatting::SENTENCE_REVIEW_POLICY.into();
     }
@@ -469,6 +473,7 @@ mod tests {
                 title: "Livre".into(),
                 format: "html".into(),
                 view_html: String::new(),
+                source_formatting: None,
                 assets: Default::default(),
                 blocks: Vec::new(),
             },
@@ -494,6 +499,7 @@ mod tests {
                 title: "Livre".into(),
                 format: "html".into(),
                 view_html: String::new(),
+                source_formatting: None,
                 assets: Default::default(),
                 blocks: vec![
                     TranslationSourceBlock {

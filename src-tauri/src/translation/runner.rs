@@ -130,12 +130,13 @@ fn start_with_engine<R: tauri::Runtime>(
     let model_dir = resolve_translation_model_dir(app, manifest)?;
     let source = load_translation_source_document(app, &request.document_url)?;
     let source_blocks = source.blocks.iter().map(|block| block.text.as_str());
-    let plan = plan_translation_job(
+    let mut plan = plan_translation_job(
         request,
         source_blocks,
         DEFAULT_MAX_SEGMENT_CHARS,
         DEFAULT_BATCH_SEGMENT_LIMIT,
     )?;
+    super::job::bind_source_identity(&mut plan, &source)?;
     let started = Instant::now();
     // Model loading uses the bounded progress snapshot without advancing batch counts.
     let report_loading = |status, message| {

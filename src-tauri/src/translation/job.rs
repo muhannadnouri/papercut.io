@@ -16,6 +16,7 @@ const BERGAMOT_MAX_SEGMENT_CHARS: usize = 320;
 #[derive(Debug, Clone)]
 pub(crate) struct TranslationJobPlan {
     pub(crate) cache_key: String,
+    pub(crate) source_identity: Option<String>,
     pub(crate) formatting: FormattingPolicy,
     pub(crate) request: TranslationStartRequest,
     pub(crate) batches: Vec<TranslationBatchPlan>,
@@ -96,6 +97,7 @@ where
 
     Ok(TranslationJobPlan {
         cache_key: cache_key(&request, formatting),
+        source_identity: None,
         formatting,
         request,
         total_segments: segments.len(),
@@ -103,6 +105,31 @@ where
         batch_segment_limit,
         batches,
     })
+}
+
+/// Bind normalized imports without changing the request key used by job ownership and legacy caches.
+pub(crate) fn bind_source_identity(
+    plan: &mut TranslationJobPlan,
+    source: &super::source::TranslationSourceDocument,
+) -> Result<(), String> {
+    use sha2::{Digest, Sha256};
+
+    plan.source_identity = source
+        .source_formatting
+        .as_ref()
+        .map(|report| -> Result<String, String> {
+            let report = serde_json::to_vec(report)
+                .map_err(|_| "Failed to serialize translation source formatting".to_string())?;
+            let mut hash = Sha256::new();
+            hash.update(b"translation-normalized-source-v1");
+            hash.update((source.view_html.len() as u64).to_le_bytes());
+            hash.update(source.view_html.as_bytes());
+            hash.update((report.len() as u64).to_le_bytes());
+            hash.update(report);
+            Ok(format!("{:x}", hash.finalize()))
+        })
+        .transpose()?;
+    Ok(())
 }
 
 /// Build a stable key for completed segment caches.

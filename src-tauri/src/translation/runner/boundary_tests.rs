@@ -656,3 +656,111 @@ fn sentence_review_disk_cache_rebinds_policy_without_changing_schema_or_strict_a
         );
     }
 }
+
+/// Import evidence survives the real writer while resume refuses changed coverage with identical prose.
+#[test]
+fn normalized_source_provenance_survives_save_and_invalidates_disk_resume() {
+    use crate::document_uploads::SourceFormatting;
+    use crate::translation::job::bind_source_identity;
+
+    for format in ["html", "epub"] {
+        let (_dir, app, mut source, old) = document_tests::fixture();
+        source.format = format.into();
+        source.source_formatting = Some(SourceFormatting {
+            policy: "source-emphasis-v1".into(),
+            warnings: vec!["unread-stylesheet".into()],
+        });
+        let mut request = old.request;
+        request.model_id = "opus-mt-fr-en-ctranslate2".into();
+        let mut plan =
+            plan_translation_job(request, source.blocks.iter().map(|b| &b.text), 900, 1).unwrap();
+        bind_source_identity(&mut plan, &source).unwrap();
+        let state = TranslationState::default();
+        let mut engine = Engine {
+            state: state.clone(),
+            seen: vec![],
+            fail_on: None,
+            cancel_in_call: false,
+            cancel_before_save: false,
+        };
+        finish_translation(
+            app.handle(),
+            &state,
+            &mut engine,
+            &plan,
+            &source,
+            "document-job",
+            Instant::now(),
+        )
+        .unwrap();
+        assert_eq!(engine.seen.len(), source.blocks.len());
+        let cache = load_segment_cache(app.handle(), &plan).unwrap();
+        assert!(cache
+            .translated_text_for(&plan.batches[0].segments[0])
+            .is_some());
+        let db = crate::document_uploads::open_document_uploads_db(app.handle()).unwrap();
+        let (id, settings): (String, String) = db
+            .query_row(
+                "SELECT id, settings_json FROM translated_documents",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        let settings: serde_json::Value = serde_json::from_str(&settings).unwrap();
+        assert_eq!(
+            settings["sourceFormatting"],
+            serde_json::to_value(&source.source_formatting).unwrap()
+        );
+
+        engine.seen.clear();
+        finish_translation(
+            app.handle(),
+            &state,
+            &mut engine,
+            &plan,
+            &source,
+            "document-job",
+            Instant::now(),
+        )
+        .unwrap();
+        assert!(engine.seen.is_empty());
+        assert_eq!(
+            db.query_row("SELECT id FROM translated_documents", [], |r| r
+                .get::<_, String>(0))
+                .unwrap(),
+            id
+        );
+
+        for change in ["html", "policy", "warning"] {
+            let mut changed = source.clone();
+            match change {
+                "html" => {
+                    changed.view_html = changed
+                        .view_html
+                        .replace("<p>", "<p><b>")
+                        .replace("</p>", "</b></p>")
+                }
+                "policy" => changed
+                    .source_formatting
+                    .as_mut()
+                    .unwrap()
+                    .policy
+                    .push_str("-next"),
+                _ => changed.source_formatting.as_mut().unwrap().warnings.clear(),
+            }
+            let mut changed_plan = plan.clone();
+            bind_source_identity(&mut changed_plan, &changed).unwrap();
+            let cache = load_segment_cache(app.handle(), &changed_plan).unwrap();
+            assert!(
+                cache
+                    .translated_text_for(&plan.batches[0].segments[0])
+                    .is_none(),
+                "{change}"
+            );
+        }
+        assert!(load_segment_cache(app.handle(), &plan)
+            .unwrap()
+            .translated_text_for(&plan.batches[0].segments[0])
+            .is_some());
+    }
+}

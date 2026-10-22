@@ -80,7 +80,7 @@ interface DocumentCollectionImportOptions {
   titleOverride?: string
 }
 
-/** Auto-dismiss only outcomes that have no failures or image warnings to retain. */
+/** Keep import limitations visible until dismissed, even when readable text was imported. */
 export function shouldAutoDismissDocumentImport(status: DocumentImportStatus): boolean {
   if (status.status === 'recognized') {
     return (status.recognitionIssues?.failedPages.length ?? 0) === 0 &&
@@ -91,7 +91,10 @@ export function shouldAutoDismissDocumentImport(status: DocumentImportStatus): b
   const hasImageWarnings = status.batchResult?.imported.some((document) =>
     Object.values(document.importImageWarnings ?? {}).some((count) => count > 0),
   )
-  return !status.batchResult?.failures.length && !hasImageWarnings
+  const hasFormattingWarnings = status.batchResult?.imported.some((document) =>
+    (document.sourceFormatting?.warnings.length ?? 0) > 0,
+  )
+  return !status.batchResult?.failures.length && !hasImageWarnings && !hasFormattingWarnings
 }
 
 export function shouldRecognizeImportedScan(

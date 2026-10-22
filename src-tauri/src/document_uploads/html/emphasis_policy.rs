@@ -1,13 +1,14 @@
-//! Pure admission policy for future import-time font normalization.
-//! No CSS parsing, DOM changes or importer calls are implemented here.
+//! Pure admission policy shared by import-time normalization and future local-sheet support.
+//! Parsing, DOM changes and importer calls live outside this policy module.
 
-pub(super) const POLICY: &str = "source-emphasis-v1";
+pub(crate) const POLICY: &str = "source-emphasis-v1";
 pub(super) const MAX_SHEET_BYTES: usize = 64 * 1024;
 pub(super) const MAX_CSS_BYTES: usize = 256 * 1024;
 pub(super) const MAX_SHEETS: usize = 32;
 pub(super) const MAX_RULES: usize = 2048;
 pub(super) const MAX_DECLARATIONS: usize = 8192;
 pub(super) const MAX_NODE_WORK: usize = 1_000_000;
+pub(super) const MAX_DOM_DEPTH: usize = 256;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Property {
@@ -17,7 +18,7 @@ pub(super) enum Property {
     AllShorthand,
 }
 
-/// Tokens come from a future real CSS parser, never string splitting here.
+/// Tokens come from a real CSS parser, never string splitting here.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) enum ParsedValue {
     Normal,

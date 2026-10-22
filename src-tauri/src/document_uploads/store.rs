@@ -40,7 +40,7 @@ pub(crate) fn list_uploads<R: Runtime>(
     let db = open_db(app)?;
     let mut stmt = db
         .prepare(
-            "SELECT id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type, text_status \
+            "SELECT id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type, text_status, source_formatting \
              FROM uploaded_documents ORDER BY imported_at_ms DESC",
         )
         .map_err(db_err)?;
@@ -57,7 +57,7 @@ pub(crate) fn find_upload_by_id(
     id: &str,
 ) -> Result<Option<UploadedDocument>, String> {
     db.query_row(
-        "SELECT id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type, text_status \
+        "SELECT id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type, text_status, source_formatting \
          FROM uploaded_documents WHERE id = ?1",
         [id],
         uploaded_document_from_row,
@@ -68,6 +68,18 @@ pub(crate) fn find_upload_by_id(
 
 fn uploaded_document_from_row(row: &Row<'_>) -> rusqlite::Result<UploadedDocument> {
     Ok(UploadedDocument {
+        source_formatting: row
+            .get::<_, Option<String>>(11)?
+            .map(|value| {
+                serde_json::from_str(&value).map_err(|error| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        11,
+                        rusqlite::types::Type::Text,
+                        Box::new(error),
+                    )
+                })
+            })
+            .transpose()?,
         import_image_warnings: Default::default(),
         id: row.get(0)?,
         url: row.get(1)?,
@@ -138,7 +150,8 @@ pub(super) fn open_db_in(root: &std::path::Path) -> Result<Connection, String> {
            bytes INTEGER NOT NULL,
            sections INTEGER NOT NULL,
            cover_media_type TEXT,
-           text_status TEXT NOT NULL DEFAULT 'ready'
+           text_status TEXT NOT NULL DEFAULT 'ready',
+           source_formatting TEXT
          );
          CREATE TABLE IF NOT EXISTS uploaded_sections (
            id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -614,6 +627,13 @@ fn write_spelling_terms(
 /// Add metadata columns and the reading-order section index in place so
 /// existing documents and FTS rows survive upgrades without a rebuild.
 fn ensure_schema_columns(db: &Connection) -> Result<(), String> {
+    // Nullable import evidence preserves legacy sources/audio and needs no reparse or reindex.
+    ensure_column(
+        db,
+        "uploaded_documents",
+        "source_formatting",
+        "ALTER TABLE uploaded_documents ADD COLUMN source_formatting TEXT",
+    )?;
     ensure_column(
         db,
         "uploaded_sections",
@@ -840,8 +860,8 @@ pub(super) fn upsert_document_in_transaction(
         .map_err(db_err)?;
     tx.execute(
         "INSERT INTO uploaded_documents \
-         (id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type, text_status) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) \
+         (id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type, text_status, source_formatting) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) \
          ON CONFLICT(id) DO UPDATE SET \
            url = excluded.url, \
            title = excluded.title, \
@@ -852,7 +872,8 @@ pub(super) fn upsert_document_in_transaction(
            bytes = excluded.bytes, \
            sections = excluded.sections, \
            cover_media_type = excluded.cover_media_type, \
-           text_status = excluded.text_status",
+           text_status = excluded.text_status, \
+           source_formatting = excluded.source_formatting",
         params![
             id,
             url,
@@ -865,6 +886,7 @@ pub(super) fn upsert_document_in_transaction(
             parsed.sections.len() as i64,
             parsed.cover.as_ref().map(|cover| cover.media_type),
             document_text_status(source_kind, parsed, pdf_text_status),
+            parsed.source_formatting.as_ref().map(serde_json::to_string).transpose().map_err(|error| error.to_string())?,
         ],
     )
     .map_err(db_err)?;
@@ -1749,6 +1771,10 @@ mod tests {
             )
             .expect("original filename column");
         assert!(has_original_file_name);
+        assert!(db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('uploaded_documents') WHERE name='source_formatting' AND \"notnull\"=0)",
+            [], |row| row.get::<_, bool>(0),
+        ).unwrap());
         let has_section_lookup_index: bool = db
             .query_row(
                 "SELECT EXISTS(SELECT 1 FROM pragma_index_list('uploaded_sections') \
@@ -1832,6 +1858,74 @@ mod tests {
         );
     }
 
+    #[test]
+    fn source_formatting_metadata_roundtrips_without_certifying_legacy_documents() {
+        let mut db = test_db();
+        let parsed = super::super::html::prepare_html_document("<head><style>p{font-weight:normal!important}</style></head><body><p style='font-weight:bold'>Readable.</p></body>");
+        upsert_document(
+            &mut db,
+            "abc123",
+            "/uploads/abc123.html",
+            &parsed,
+            Some("fixture.html"),
+            StoredSourceKind::Html,
+            1,
+            100,
+            PdfTextStatus::Ready,
+        )
+        .unwrap();
+        let reloaded = find_upload_by_id(&db, "abc123").unwrap().unwrap();
+        assert_eq!(reloaded.source_formatting, parsed.source_formatting);
+        assert_eq!(
+            reloaded.source_formatting.unwrap().warnings,
+            ["unread-stylesheet"]
+        );
+        let legacy = parsed_document("Legacy", &["Existing text"]);
+        upsert_document(
+            &mut db,
+            "def456",
+            "/uploads/def456.html",
+            &legacy,
+            None,
+            StoredSourceKind::Html,
+            2,
+            100,
+            PdfTextStatus::Ready,
+        )
+        .unwrap();
+        assert!(find_upload_by_id(&db, "def456")
+            .unwrap()
+            .unwrap()
+            .source_formatting
+            .is_none());
+        // Emulate the preceding installed schema, then exercise its idempotent additive upgrade.
+        db.execute(
+            "ALTER TABLE uploaded_documents DROP COLUMN source_formatting",
+            [],
+        )
+        .unwrap();
+        ensure_schema_columns(&db).unwrap();
+        ensure_schema_columns(&db).unwrap();
+        assert!(find_upload_by_id(&db, "abc123")
+            .unwrap()
+            .unwrap()
+            .source_formatting
+            .is_none());
+        let legacy = find_upload_by_id(&db, "def456").unwrap().unwrap();
+        assert_eq!(legacy.title, "Legacy");
+        assert_eq!(legacy.sections, 1);
+        assert!(legacy.source_formatting.is_none());
+        assert_eq!(
+            db.query_row(
+                "SELECT text FROM uploaded_sections WHERE document_id='def456'",
+                [],
+                |row| row.get::<_, String>(0)
+            )
+            .unwrap(),
+            "Existing text"
+        );
+    }
+
     /// Minimal in-memory schema for `upsert_document` without booting a Tauri app.
     fn test_db() -> Connection {
         let db = Connection::open_in_memory().expect("open test db");
@@ -1848,7 +1942,8 @@ mod tests {
                bytes INTEGER NOT NULL,
                sections INTEGER NOT NULL,
                cover_media_type TEXT,
-               text_status TEXT NOT NULL DEFAULT 'ready'
+               text_status TEXT NOT NULL DEFAULT 'ready',
+               source_formatting TEXT
              );
              CREATE TABLE uploaded_sections (
                id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1910,6 +2005,7 @@ mod tests {
     /// Build small parsed documents whose section count/text can prove FTS rebuild behavior.
     fn parsed_document(title: &str, texts: &[&str]) -> ParsedDocument {
         ParsedDocument {
+            source_formatting: None,
             title: title.to_string(),
             format: "html".to_string(),
             view_html: format!("<html><body><h1>{title}</h1></body></html>"),

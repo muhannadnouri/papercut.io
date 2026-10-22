@@ -5,17 +5,21 @@
 //! format-agnostic.
 
 mod decode;
-// Stage 1 freezes policy only; import preparation does not call a normalizer yet.
+pub(super) mod emphasis;
+// Selectors/local-sheet policy is frozen; Stage 2b will consume the remaining contract.
 #[allow(dead_code)]
 mod emphasis_policy;
 mod parser;
+mod prepare;
 mod sanitize;
 mod util;
 pub(crate) use decode::decode_html_bytes;
+pub(super) use emphasis_policy::POLICY as SOURCE_EMPHASIS_POLICY;
 pub(crate) use parser::{
     add_section_locators, has_complete_section_locators, parse_html_document, parsed_html_document,
     reader_block_nodes,
 };
+pub(crate) use prepare::prepare_html_document;
 pub(crate) use sanitize::{
     decode_entities, normalize_text, sanitize_html, strip_tags, tag_separates_text, valid_translate,
 };

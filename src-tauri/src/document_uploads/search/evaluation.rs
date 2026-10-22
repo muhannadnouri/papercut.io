@@ -192,6 +192,7 @@ fn library_evaluation_preserves_source_quotes_scope_and_spelling_retry_read_only
         ("e101", "The guide calls it silver compass for navigation."),
     ] {
         let parsed = ParsedDocument {
+            source_formatting: None,
             title: "Navigation guide".into(),
             format: "html".into(),
             view_html: String::new(),
@@ -343,6 +344,7 @@ fn index_documents(root: &Path, documents: &[Document]) {
             StoredSourceKind::Html
         };
         let parsed = ParsedDocument {
+            source_formatting: None,
             title: doc.title.clone(),
             format: format.into(),
             view_html: String::new(),
@@ -732,6 +734,7 @@ fn normalized_pdf_search_keeps_page_locator_after_ocr_replacement() {
     ));
     let mut db = open_db_in(&root).unwrap();
     let mut parsed = ParsedDocument {
+        source_formatting: None,
         title: "بحث عربي".into(),
         format: "pdf".into(),
         view_html: String::new(),
@@ -835,6 +838,7 @@ fn typo_retry_protects_quotes_scripts_identifiers_and_literal_results() {
     ));
     let mut db = open_db_in(&root).unwrap();
     let parsed = ParsedDocument {
+        source_formatting: None,
         title: "Colonialism".into(),
         format: "html".into(),
         view_html: String::new(),
