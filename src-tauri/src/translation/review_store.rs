@@ -3,7 +3,7 @@
 
 use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
 
-use super::review::{Document, EditRequest, Snapshot};
+use super::review::{Document, EditRequest, Expected, Snapshot};
 
 // JSON escaping can grow otherwise valid native snapshots; refuse oversized records before loading them.
 const MAX_JSON_BYTES: usize = 256 * 1024 * 1024;
@@ -71,17 +71,80 @@ pub(super) fn load_in(db: &Connection, variant_id: &str) -> Result<Option<Snapsh
     {
         return Err("Saved formatting review generation or revision does not match".into());
     }
-    snapshot
-        .with_document(document)
-        .map(Some)
-        .map_err(review_error)
+    let snapshot = snapshot.with_document(document).map_err(review_error)?;
+    publication_in(db, &snapshot)?;
+    Ok(Some(snapshot))
+}
+
+/// A publication receipt tracks the live file without rewriting immutable generation evidence.
+pub(super) struct Publication {
+    pub revision: u64,
+    pub hash: String,
+}
+
+pub(super) fn publication_in(
+    db: &Connection,
+    snapshot: &Snapshot,
+) -> Result<Option<Publication>, String> {
+    let expected = snapshot.document.expected();
+    let (revision, hash): (Option<i64>, Option<String>) = db
+        .query_row(
+            "SELECT published_revision,
+             CASE WHEN published_hash IS NULL OR length(CAST(published_hash AS BLOB))=64
+                  THEN published_hash ELSE '' END
+             FROM translation_review WHERE variant_id=?1 AND generation=?2",
+            params![expected.variant_id, expected.generation],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(db_err)?;
+    match (revision, hash) {
+        (None, None) => Ok(None),
+        (Some(revision), Some(hash))
+            if revision >= 0
+                && revision as u64 <= expected.revision
+                && hash.len() == 64
+                && hash
+                    .bytes()
+                    .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()) =>
+        {
+            Ok(Some(Publication {
+                revision: revision as u64,
+                hash,
+            }))
+        }
+        _ => Err("Invalid saved formatting publication receipt".into()),
+    }
+}
+
+/// The guarded writer calls this only after HTML/index promotion succeeds in the same transaction.
+pub(super) fn record_publication_in(
+    tx: &Transaction<'_>,
+    expected: &Expected,
+    hash: &str,
+) -> Result<(), String> {
+    let changed = tx
+        .execute(
+            "UPDATE translation_review SET published_revision=?3, published_hash=?4
+         WHERE variant_id=?1 AND generation=?2 AND revision=?3",
+            params![
+                expected.variant_id,
+                expected.generation,
+                expected.revision as i64,
+                hash
+            ],
+        )
+        .map_err(db_err)?;
+    if changed != 1 {
+        return Err("Formatting review changed; reload this saved translation".into());
+    }
+    Ok(())
 }
 
 /// Prepare the whole native response before committing; an unreadable asset or preview can be retried.
 pub(super) fn apply_prepared_in<T>(
     db: &mut Connection,
     request: &EditRequest,
-    prepare: impl FnOnce(Snapshot) -> Result<T, String>,
+    prepare: impl FnOnce(&Transaction<'_>, Snapshot) -> Result<T, String>,
 ) -> Result<T, String> {
     let tx = db
         .transaction_with_behavior(TransactionBehavior::Immediate)
@@ -91,7 +154,7 @@ pub(super) fn apply_prepared_in<T>(
     snapshot.apply(request).map_err(review_error)?;
     let draft = encode(&snapshot.document)?;
     let revision = snapshot.document.expected().revision;
-    let prepared = prepare(snapshot)?;
+    let prepared = prepare(&tx, snapshot)?;
     let changed = tx
         .execute(
             "UPDATE translation_review SET revision = ?4, document_json = ?5
@@ -114,7 +177,7 @@ pub(super) fn apply_prepared_in<T>(
 
 #[cfg(test)]
 fn apply_in(db: &mut Connection, request: &EditRequest) -> Result<Snapshot, String> {
-    apply_prepared_in(db, request, |snapshot| {
+    apply_prepared_in(db, request, |_, snapshot| {
         snapshot.reconstruct().map_err(review_error)?;
         Ok(snapshot)
     })

@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 use std::{fs, path::Path};
 use tauri::test::MockRuntime;
 
-fn source(app: &tauri::AppHandle<MockRuntime>) -> TranslationSourceDocument {
+pub(super) fn source(app: &tauri::AppHandle<MockRuntime>) -> TranslationSourceDocument {
     let mut db = open_document_uploads_db(app).unwrap();
     persist_derived_document(
         app,
@@ -33,7 +33,7 @@ fn source(app: &tauri::AppHandle<MockRuntime>) -> TranslationSourceDocument {
 }
 
 /// Use the real renderer and transaction; no engine, model files or private document participates.
-fn request(source: &TranslationSourceDocument) -> PersistTranslationRequest {
+pub(super) fn request(source: &TranslationSourceDocument) -> PersistTranslationRequest {
     PersistTranslationRequest {
         formatting: FormattingPolicy::SentenceReview,
         source: source.clone(),
@@ -66,15 +66,18 @@ fn request(source: &TranslationSourceDocument) -> PersistTranslationRequest {
     }
 }
 
-fn load(window: &tauri::WebviewWindow<MockRuntime>, id: &str) -> Result<Value, Value> {
+pub(super) fn load(window: &tauri::WebviewWindow<MockRuntime>, id: &str) -> Result<Value, Value> {
     invoke(window, "translation_review_load", json!({"id":id}))
 }
 
-fn edit(draft: &Value, block: usize, action: Value) -> Value {
+pub(super) fn edit(draft: &Value, block: usize, action: Value) -> Value {
     json!({"expected":draft["document"]["expected"], "block":draft["document"]["blocks"][block]["key"], "edit":action})
 }
 
-fn save(window: &tauri::WebviewWindow<MockRuntime>, edit: &Value) -> Result<Value, Value> {
+pub(super) fn save(
+    window: &tauri::WebviewWindow<MockRuntime>,
+    edit: &Value,
+) -> Result<Value, Value> {
     invoke(
         window,
         "translation_review_save",
@@ -83,7 +86,7 @@ fn save(window: &tauri::WebviewWindow<MockRuntime>, edit: &Value) -> Result<Valu
 }
 
 /// Compare semantic index rows and actual files, rather than SQLite's changing WAL bytes.
-fn published(
+pub(super) fn published(
     app: &tauri::AppHandle<MockRuntime>,
     root: &Path,
     id: &str,

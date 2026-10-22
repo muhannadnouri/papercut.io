@@ -134,6 +134,7 @@ pub fn run() {
             translation::commands::translation_delete_document,
             translation::commands::translation_review_load,
             translation::commands::translation_review_save,
+            translation::commands::translation_review_finish,
         ])
         .setup(|app| {
             library_transfer::initialize_storage(app.handle()).map_err(std::io::Error::other)?;

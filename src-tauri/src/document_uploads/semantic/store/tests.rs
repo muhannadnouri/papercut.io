@@ -1634,6 +1634,54 @@ fn sync(db: &mut Connection, identity: &Identity, id: &str) -> (usize, usize) {
     (embedded, reused)
 }
 
+/// Real invalidation triggers must distinguish unchanged English evidence from changed embedding inputs.
+#[test]
+fn formatting_only_upsert_retains_ready_semantic_vectors_but_changed_inputs_invalidate() {
+    let baseline = "<title>Harbor Guide</title><p>Electric ferries serve the harbor.</p>";
+    let styled =
+        "<title>Harbor Guide</title><p>Electric <b>ferries</b> serve the <i>harbor</i>.</p>";
+    for (reason, changed) in [
+        ("text", "<title>Harbor Guide</title><p>Solar ferries serve the harbor.</p>"),
+        ("title", "<title>New Harbor Guide</title><p>Electric ferries serve the harbor.</p>"),
+        ("body ranges", "<title>Harbor Guide</title><p role='doc-footnote'>Electric ferries serve the harbor.</p>"),
+    ] {
+        let library = Library::new();
+        let mut db = library.db();
+        let save = |db: &mut Connection, html: &str, at| {
+            let parsed = crate::document_uploads::prepare_html_document(html);
+            upsert_document(db, "abc123", "/uploads/abc123.html", &parsed, None,
+                StoredSourceKind::Html, at, html.len() as u64, PdfTextStatus::Ready).unwrap();
+        };
+        let state = |db: &Connection| {
+            db.query_row("SELECT m.generation,d.generation,d.ready FROM upload_semantic_metadata m JOIN upload_semantic_documents d ON d.document_id='abc123' WHERE m.id=1",
+                [], |row| Ok((row.get::<_, i64>(0)?,row.get::<_, i64>(1)?,row.get::<_, bool>(2)?))).unwrap()
+        };
+        let passages = |db: &Connection| {
+            db.prepare("SELECT section_ordinal,byte_start,byte_end,content_hash,vector,vector_hash FROM upload_semantic_passages WHERE document_id='abc123' ORDER BY section_ordinal,byte_start,byte_end").unwrap()
+                .query_map([], |row| Ok((row.get::<_, i64>(0)?,row.get::<_, i64>(1)?,row.get::<_, i64>(2)?,row.get::<_, String>(3)?,row.get::<_, Vec<u8>>(4)?,row.get::<_, String>(5)?))).unwrap()
+                .collect::<Result<Vec<_>, _>>().unwrap()
+        };
+        save(&mut db, baseline, 1);
+        let identity = identity();
+        initialize(&mut db, &identity).unwrap();
+        assert_eq!(sync(&mut db, &identity, "abc123"), (1, 0));
+        let before = state(&db);
+        let indexed = passages(&db);
+        assert!(before.2);
+        assert_eq!(indexed.len(), 1);
+        save(&mut db, styled, 2);
+        assert_eq!(state(&db), before, "formatting only: {reason}");
+        assert_eq!(passages(&db), indexed, "vectors and their input coordinates remain exact");
+        assert!(source(&mut db, "abc123").unwrap().unwrap().indexed);
+        assert_eq!(coverage(&mut db, Some(&identity)).unwrap().indexed_documents, 1);
+        save(&mut db, changed, 3);
+        let after = state(&db);
+        assert!(!after.2, "changed {reason} must invalidate ready coverage");
+        assert!(after.0 > before.0 && after.1 > before.1, "changed {reason} advances generations");
+        assert_eq!(coverage(&mut db, Some(&identity)).unwrap().indexed_documents, 0);
+    }
+}
+
 #[test]
 fn optional_storage_reuses_passages_across_reimport_and_cascades_delete() {
     let library = Library::new();
@@ -1680,12 +1728,13 @@ fn optional_storage_reuses_passages_across_reimport_and_cascades_delete() {
         coverage(&mut db, Some(&identity))
             .unwrap()
             .indexed_documents,
-        0
+        1,
+        "identical reimports retain their ready section/index projection"
     );
     assert_eq!(
         sync(&mut db, &identity, "abc123"),
-        (0, 3),
-        "replacement section row IDs must not force inference"
+        (0, 0),
+        "unchanged section row IDs require neither inference nor vector synchronization"
     );
     db.execute(
         "UPDATE uploaded_sections SET ordinal=ordinal+10 WHERE document_id='abc123'",

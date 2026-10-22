@@ -61,8 +61,21 @@ pub(super) fn snapshot_assets(
     html: &str,
     paths: &HashMap<String, String>,
 ) -> Result<Vec<ParsedDocumentAsset>, String> {
+    snapshot_assets_with_evidence(html, None, paths)
+}
+
+/// Source-only images stay owned after the English reading stream no longer embeds its original.
+pub(crate) fn snapshot_assets_with_evidence(
+    html: &str,
+    source_evidence: Option<&str>,
+    paths: &HashMap<String, String>,
+) -> Result<Vec<ParsedDocumentAsset>, String> {
     let mut total = 0;
-    referenced_assets(html)?
+    let mut names = referenced_assets(html)?;
+    if let Some(source) = source_evidence {
+        names.extend(referenced_assets(source)?);
+    }
+    names
         .into_iter()
         .map(|name| {
             let path = paths
@@ -143,6 +156,15 @@ mod tests {
         let paths = HashMap::from([(asset.file_name.clone(), path.to_str().unwrap().into())]);
         let snapshot = snapshot_assets(&html, &paths).unwrap();
         assert_eq!(snapshot, vec![asset]);
+        assert_eq!(
+            snapshot_assets_with_evidence("<p>English only.</p>", Some(&html), &paths).unwrap(),
+            snapshot
+        );
+        assert_eq!(
+            snapshot_assets_with_evidence(&html, Some(&html), &paths).unwrap(),
+            snapshot,
+            "source and target own the same image once"
+        );
         fs::write(&path, b"tampered content").unwrap();
         assert!(snapshot_assets(&html, &paths).unwrap_err().contains("hash"));
         fs::remove_file(&path).unwrap();

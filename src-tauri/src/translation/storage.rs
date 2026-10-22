@@ -25,7 +25,11 @@ use super::types::{
     TranslationRepairMode,
 };
 
-const TRANSLATION_SCHEMA_VERSION: &str = "2";
+const TRANSLATION_SCHEMA_VERSION: &str = "3";
+
+#[path = "review_publication.rs"]
+mod publication;
+pub(super) use publication::finish_translation_review;
 
 pub(super) fn list_translated_documents<R: Runtime>(
     app: &tauri::AppHandle<R>,
@@ -285,10 +289,11 @@ pub(super) fn load_translation_review<R: Runtime>(
     validate_review_id(id)?;
     crate::native_tts::with_audiobook_reference_lock(|| {
         let db = open_translation_db(app)?;
+        crate::document_uploads::recover_derived_document_locked(app, &db, id)?;
         let Some(snapshot) = super::review_store::load_in(&db, id)? else {
             return Ok(None);
         };
-        verify_review_baseline(app, id, &snapshot)?;
+        verify_review_baseline(app, &db, id, &snapshot)?;
         review_draft(snapshot, review_assets(app, id)?).map(Some)
     })
 }
@@ -302,9 +307,10 @@ pub(super) fn save_translation_review<R: Runtime>(
     validate_review_id(id)?;
     crate::native_tts::with_audiobook_reference_lock(|| {
         let mut db = open_translation_db(app)?;
+        crate::document_uploads::recover_derived_document_locked(app, &db, id)?;
         // Prepare the entire response in the edit transaction; failure leaves the same revision retryable.
-        super::review_store::apply_prepared_in(&mut db, request, |snapshot| {
-            verify_review_baseline(app, id, &snapshot)?;
+        super::review_store::apply_prepared_in(&mut db, request, |tx, snapshot| {
+            verify_review_baseline(app, tx, id, &snapshot)?;
             review_draft(snapshot, review_assets(app, id)?)
         })
     })
@@ -320,6 +326,7 @@ fn validate_review_id(id: &str) -> Result<(), String> {
 /// Read only the native-owned canonical file, bounded before allocation; supplied paths never reach storage.
 fn verify_review_baseline<R: Runtime>(
     app: &tauri::AppHandle<R>,
+    db: &rusqlite::Connection,
     id: &str,
     snapshot: &super::review::Snapshot,
 ) -> Result<(), String> {
@@ -340,7 +347,11 @@ fn verify_review_baseline<R: Runtime>(
         .take(super::review::MAX_SNAPSHOT_BYTES as u64 + 1)
         .read_to_string(&mut html)
         .map_err(|_| "Cannot read formatting review published document".to_string())?;
-    if html != snapshot.baseline_html {
+    let matches = match super::review_store::publication_in(db, snapshot)? {
+        Some(receipt) => super::review::fingerprint(&html) == receipt.hash,
+        None => html == snapshot.baseline_html,
+    };
+    if !matches {
         return Err(super::review_store::review_error(
             super::review::Error::Evidence,
         ));
@@ -434,7 +445,7 @@ pub(super) fn ensure_translation_schema(db: &rusqlite::Connection) -> Result<(),
         )
         .optional()
         .map_err(db_err)?;
-    if !matches!(version.as_deref(), None | Some("1") | Some("2")) {
+    if !matches!(version.as_deref(), None | Some("1") | Some("2") | Some("3")) {
         return Err("Unsupported translation schema version; a newer app may be required".into());
     }
     tx.execute_batch(
@@ -466,10 +477,31 @@ pub(super) fn ensure_translation_schema(db: &rusqlite::Connection) -> Result<(),
            revision INTEGER NOT NULL CHECK(revision >= 0 AND revision <= 9007199254740991),
            snapshot_json TEXT NOT NULL,
            document_json TEXT NOT NULL,
+           published_revision INTEGER,
+           published_hash TEXT,
            FOREIGN KEY(variant_id) REFERENCES translated_documents(id) ON DELETE CASCADE
          );",
     )
     .map_err(db_err)?;
+    // v2 evidence/drafts remain byte-identical; absent receipts still require their original baseline.
+    let columns = tx
+        .prepare("PRAGMA table_info(translation_review)")
+        .map_err(db_err)?
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(db_err)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(db_err)?;
+    for (column, kind) in [
+        ("published_revision", "INTEGER"),
+        ("published_hash", "TEXT"),
+    ] {
+        if !columns.iter().any(|name| name == column) {
+            tx.execute_batch(&format!(
+                "ALTER TABLE translation_review ADD COLUMN {column} {kind}"
+            ))
+            .map_err(db_err)?;
+        }
+    }
     tx.execute(
         "INSERT INTO upload_schema_metadata(key, value) VALUES ('translation_schema_version', ?1)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -574,7 +606,7 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("version");
-        assert_eq!(version, "2");
+        assert_eq!(version, "3");
     }
 
     #[test]
@@ -626,7 +658,7 @@ mod tests {
 
     #[test]
     fn future_or_invalid_schema_version_is_never_downgraded_or_partially_bootstrapped() {
-        for version in ["3", "broken", "0"] {
+        for version in ["4", "broken", "0"] {
             let db = Connection::open_in_memory().unwrap();
             db.execute_batch("CREATE TABLE upload_schema_metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE uploaded_documents(id TEXT PRIMARY KEY);").unwrap();
             db.execute(
@@ -642,6 +674,61 @@ mod tests {
                 version
             );
             assert_eq!(db.query_row("SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('translated_documents','translation_review')", [], |r| r.get::<_,i64>(0)).unwrap(), 0);
+        }
+    }
+
+    #[test]
+    fn v2_publication_migration_preserves_evidence_drafts_and_rolls_back_failed_alters() {
+        for fail in [false, true] {
+            let db = Connection::open_in_memory().unwrap();
+            db.execute_batch(
+                "CREATE TABLE upload_schema_metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+                CREATE TABLE uploaded_documents(id TEXT PRIMARY KEY);",
+            )
+            .unwrap();
+            ensure_translation_schema(&db).unwrap();
+            db.execute_batch("DROP TABLE translation_review;
+                CREATE TABLE translation_review(variant_id TEXT PRIMARY KEY,generation TEXT NOT NULL,
+                    revision INTEGER NOT NULL,snapshot_json TEXT NOT NULL,document_json TEXT NOT NULL);
+                INSERT INTO translation_review VALUES('a1b2','generation',7,'immutable exact bytes','draft exact bytes');
+                UPDATE upload_schema_metadata SET value='2' WHERE key='translation_schema_version';").unwrap();
+            if fail {
+                db.execute_batch(
+                    "CREATE TRIGGER fail_migration BEFORE UPDATE ON upload_schema_metadata
+                    BEGIN SELECT RAISE(ABORT,'injected migration failure'); END;",
+                )
+                .unwrap();
+            }
+            assert_eq!(ensure_translation_schema(&db).is_err(), fail);
+            let version: String = db.query_row("SELECT value FROM upload_schema_metadata WHERE key='translation_schema_version'", [], |r| r.get(0)).unwrap();
+            assert_eq!(version, if fail { "2" } else { "3" });
+            let columns: Vec<String> = db
+                .prepare("PRAGMA table_info(translation_review)")
+                .unwrap()
+                .query_map([], |r| r.get(1))
+                .unwrap()
+                .collect::<Result<_, _>>()
+                .unwrap();
+            assert_eq!(columns.iter().any(|c| c == "published_hash"), !fail);
+            assert_eq!(columns.iter().any(|c| c == "published_revision"), !fail);
+            let preserved: (i64, String, String) = db
+                .query_row(
+                    "SELECT revision,snapshot_json,document_json FROM translation_review",
+                    [],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )
+                .unwrap();
+            assert_eq!(
+                preserved,
+                (
+                    7,
+                    "immutable exact bytes".into(),
+                    "draft exact bytes".into()
+                )
+            );
+            if !fail {
+                assert_eq!(db.query_row("SELECT published_revision IS NULL AND published_hash IS NULL FROM translation_review", [], |r| r.get::<_, bool>(0)).unwrap(), true);
+            }
         }
     }
 

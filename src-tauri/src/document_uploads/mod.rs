@@ -51,8 +51,10 @@ pub(crate) use batch::import_scanner_source;
 pub(crate) use derived::persist_derived_document;
 pub(crate) use derived::{
     delete_derived_document, open_document_uploads_db, persist_derived_document_with_evidence,
-    read_uploaded_document_source,
+    persist_guarded_derived_document_with_evidence, read_uploaded_document_source,
+    recover_derived_document_locked,
 };
+pub(crate) use reader_assets::snapshot_assets_with_evidence;
 pub(crate) use state::DocumentUploadState;
 pub(crate) use store::schedule_search_index_rebuild;
 
@@ -80,5 +82,8 @@ pub(crate) use types::{
 
 #[cfg(test)]
 pub(crate) use html::prepare_html_document;
-pub(crate) use html::{normalize_text, reader_block_nodes, sanitize_html, tag_separates_text};
+pub(crate) use html::{
+    normalize_text, parse_html_document as parse_reader_html_document, reader_block_nodes,
+    sanitize_html, tag_separates_text,
+};
 pub(crate) use search_content::is_note_marker;

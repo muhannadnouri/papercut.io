@@ -792,8 +792,8 @@ impl PdfTextStatus {
 ///
 /// This deliberately avoids `INSERT OR REPLACE` because SQLite implements that
 /// as delete-then-insert, which would cascade-delete the document's library
-/// location. The document row updates in place while section and FTS rows are
-/// rebuilt from the latest parsed content.
+/// location. Exact search projections keep their section/index identities; changed
+/// content rebuilds them from the latest parse.
 pub(crate) fn upsert_document(
     db: &mut Connection,
     id: &str,
@@ -836,28 +836,33 @@ pub(super) fn upsert_document_in_transaction(
     bytes: u64,
     pdf_text_status: PdfTextStatus,
 ) -> Result<(), String> {
-    tx.execute(
-        "DELETE FROM uploaded_spelling_terms WHERE document_id = ?1",
-        [id],
-    )
-    .map_err(db_err)?;
-    tx.execute(
-        "DELETE FROM uploaded_spelling_indexed WHERE document_id = ?1",
-        [id],
-    )
-    .map_err(db_err)?;
-    tx.execute(
-        "DELETE FROM uploaded_document_search_fts WHERE document_id = ?1",
-        [id],
-    )
-    .map_err(db_err)?;
-    tx.execute(
-        "DELETE FROM uploaded_document_fts WHERE document_id = ?1",
-        [id],
-    )
-    .map_err(db_err)?;
-    tx.execute("DELETE FROM uploaded_sections WHERE document_id = ?1", [id])
+    // B/I-only publication must not invalidate ready conceptual-search vectors or section links.
+    let preserve_projection =
+        same_search_projection(tx, id, url, parsed, source_kind, pdf_text_status)?;
+    if !preserve_projection {
+        tx.execute(
+            "DELETE FROM uploaded_spelling_terms WHERE document_id = ?1",
+            [id],
+        )
         .map_err(db_err)?;
+        tx.execute(
+            "DELETE FROM uploaded_spelling_indexed WHERE document_id = ?1",
+            [id],
+        )
+        .map_err(db_err)?;
+        tx.execute(
+            "DELETE FROM uploaded_document_search_fts WHERE document_id = ?1",
+            [id],
+        )
+        .map_err(db_err)?;
+        tx.execute(
+            "DELETE FROM uploaded_document_fts WHERE document_id = ?1",
+            [id],
+        )
+        .map_err(db_err)?;
+        tx.execute("DELETE FROM uploaded_sections WHERE document_id = ?1", [id])
+            .map_err(db_err)?;
+    }
     tx.execute(
         "INSERT INTO uploaded_documents \
          (id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type, text_status, source_formatting) \
@@ -896,6 +901,10 @@ pub(super) fn upsert_document_in_transaction(
         params![id, -(imported_at_ms as i64)],
     )
     .map_err(db_err)?;
+
+    if preserve_projection {
+        return Ok(());
+    }
 
     for (index, section) in parsed.sections.iter().enumerate() {
         tx.execute(
@@ -939,6 +948,165 @@ pub(super) fn upsert_document_in_transaction(
     }
 
     Ok(())
+}
+
+/// Compare every consumer field, streaming ordered rows without duplicating a book in memory.
+fn same_search_projection(
+    tx: &rusqlite::Transaction<'_>,
+    id: &str,
+    url: &str,
+    parsed: &ParsedDocument,
+    source_kind: StoredSourceKind,
+    pdf_text_status: PdfTextStatus,
+) -> Result<bool, String> {
+    let metadata_matches: bool = tx
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM uploaded_documents
+         WHERE id=?1 AND url=?2 AND title=?3 AND format=?4 AND source_kind=?5
+           AND text_status=?6 AND sections=?7)",
+            params![
+                id,
+                url,
+                parsed.title,
+                parsed.format,
+                source_kind.as_str(),
+                document_text_status(source_kind, parsed, pdf_text_status),
+                parsed.sections.len() as i64
+            ],
+            |row| row.get(0),
+        )
+        .map_err(db_err)?;
+    if !metadata_matches {
+        return Ok(false);
+    }
+    let mut statement = tx
+        .prepare(
+            "SELECT ordinal,page_index,heading,text,body_ranges,id FROM uploaded_sections
+         WHERE document_id=?1 ORDER BY ordinal",
+        )
+        .map_err(db_err)?;
+    let mut rows = statement.query([id]).map_err(db_err)?;
+    let mut section_ids = Vec::with_capacity(parsed.sections.len());
+    for (ordinal, section) in parsed.sections.iter().enumerate() {
+        let Some(row) = rows.next().map_err(db_err)? else {
+            return Ok(false);
+        };
+        let ranges = section
+            .body_ranges
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|error| error.to_string())?;
+        if row.get::<_, i64>(0).map_err(db_err)? != ordinal as i64
+            || row.get::<_, Option<u32>>(1).map_err(db_err)? != section.page_index
+            || row.get::<_, Option<String>>(2).map_err(db_err)? != section.heading
+            || row.get::<_, String>(3).map_err(db_err)? != section.text
+            || row.get::<_, Option<String>>(4).map_err(db_err)? != ranges
+        {
+            return Ok(false);
+        }
+        section_ids.push(row.get::<_, i64>(5).map_err(db_err)?);
+    }
+    if rows.next().map_err(db_err)?.is_some() {
+        return Ok(false);
+    }
+    for (table, normalized) in [
+        ("uploaded_document_fts", false),
+        ("uploaded_document_search_fts", true),
+    ] {
+        if !same_fts_projection(tx, table, id, parsed, &section_ids, normalized)? {
+            return Ok(false);
+        }
+    }
+    let checkpoint: bool = tx
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM uploaded_spelling_indexed WHERE document_id=?1)",
+            [id],
+            |row| row.get(0),
+        )
+        .map_err(db_err)?;
+    if checkpoint != !parsed.sections.is_empty() {
+        return Ok(false);
+    }
+    let mut terms = std::collections::HashSet::new();
+    if !parsed.sections.is_empty() {
+        terms.extend(
+            spelling::words(&parsed.title)
+                .into_iter()
+                .map(|word| (word, 0i64)),
+        );
+        for section in &parsed.sections {
+            if let Some(heading) = &section.heading {
+                terms.extend(
+                    spelling::words(heading)
+                        .into_iter()
+                        .map(|word| (word, 1i64)),
+                );
+            }
+            terms.extend(
+                spelling::words(&section.text)
+                    .into_iter()
+                    .map(|word| (word, 1i64)),
+            );
+        }
+    }
+    let mut statement = tx
+        .prepare("SELECT term,source FROM uploaded_spelling_terms WHERE document_id=?1")
+        .map_err(db_err)?;
+    let mut rows = statement.query([id]).map_err(db_err)?;
+    while let Some(row) = rows.next().map_err(db_err)? {
+        if !terms.remove(&(
+            row.get::<_, String>(0).map_err(db_err)?,
+            row.get::<_, i64>(1).map_err(db_err)?,
+        )) {
+            return Ok(false);
+        }
+    }
+    Ok(terms.is_empty())
+}
+
+/// Reuse only complete current FTS projections; an identical import must still repair stale indexes.
+fn same_fts_projection(
+    tx: &rusqlite::Transaction<'_>,
+    table: &str,
+    id: &str,
+    parsed: &ParsedDocument,
+    section_ids: &[i64],
+    normalized: bool,
+) -> Result<bool, String> {
+    let mut statement = tx.prepare(&format!(
+        "SELECT rowid,section_id,title,heading,text FROM {table} WHERE document_id=?1 ORDER BY section_id"
+    )).map_err(db_err)?;
+    let mut rows = statement.query([id]).map_err(db_err)?;
+    let title = if normalized {
+        search_form::normalize(&parsed.title)
+    } else {
+        parsed.title.clone()
+    };
+    for (section, section_id) in parsed.sections.iter().zip(section_ids) {
+        let Some(row) = rows.next().map_err(db_err)? else {
+            return Ok(false);
+        };
+        let heading = if normalized {
+            section.heading.as_deref().map(search_form::normalize)
+        } else {
+            section.heading.clone()
+        };
+        let text = if normalized {
+            search_form::normalize(&section.text)
+        } else {
+            section.text.clone()
+        };
+        if (normalized && row.get::<_, i64>(0).map_err(db_err)? != *section_id)
+            || row.get::<_, i64>(1).map_err(db_err)? != *section_id
+            || row.get::<_, String>(2).map_err(db_err)? != title
+            || row.get::<_, Option<String>>(3).map_err(db_err)? != heading
+            || row.get::<_, String>(4).map_err(db_err)? != text
+        {
+            return Ok(false);
+        }
+    }
+    Ok(rows.next().map_err(db_err)?.is_none())
 }
 
 /// Store a canonical source whose derived sections are intentionally absent.
@@ -1321,6 +1489,310 @@ mod tests {
                 .as_deref(),
             Some("original.html")
         );
+    }
+
+    #[test]
+    fn emphasis_only_upsert_preserves_section_fts_and_spelling_identity_but_updates_metadata() {
+        let mut db = test_db();
+        let first = super::super::html::parsed_html_document(
+            "Saved title".into(),
+            "html",
+            "<h2>Chapter</h2><p>A red house.</p>".into(),
+        );
+        upsert_document(
+            &mut db,
+            "abc123",
+            "/uploads/abc123.html",
+            &first,
+            Some("original.html"),
+            StoredSourceKind::Html,
+            1,
+            100,
+            PdfTextStatus::Ready,
+        )
+        .unwrap();
+        let projection = |db: &Connection| {
+            [
+                "SELECT * FROM uploaded_sections ORDER BY id",
+                "SELECT rowid,* FROM uploaded_document_fts ORDER BY rowid",
+                "SELECT rowid,* FROM uploaded_document_search_fts ORDER BY rowid",
+                "SELECT * FROM uploaded_spelling_terms ORDER BY document_id,term,source",
+                "SELECT * FROM uploaded_spelling_indexed ORDER BY document_id",
+            ]
+            .map(|sql| {
+                let mut statement = db.prepare(sql).unwrap();
+                let columns = statement.column_count();
+                statement
+                    .query_map([], |row| {
+                        (0..columns)
+                            .map(|column| row.get::<_, rusqlite::types::Value>(column))
+                            .collect::<rusqlite::Result<Vec<_>>>()
+                    })
+                    .unwrap()
+                    .collect::<rusqlite::Result<Vec<_>>>()
+                    .unwrap()
+            })
+        };
+        let before = projection(&db);
+        // Fail loudly if an identical publication tries to rebuild an otherwise ready index.
+        db.execute_batch("CREATE TRIGGER unchanged_sections BEFORE DELETE ON uploaded_sections BEGIN SELECT RAISE(ABORT,'unnecessary section rebuild'); END;
+            CREATE TRIGGER unchanged_spelling BEFORE DELETE ON uploaded_spelling_terms BEGIN SELECT RAISE(ABORT,'unnecessary spelling rebuild'); END;").unwrap();
+        let mut styled = super::super::html::parsed_html_document(
+            "Saved title".into(),
+            "html",
+            "<h2>Chapter</h2><p>A <b>red <i>house</i></b>.</p>".into(),
+        );
+        styled.source_formatting = Some(super::super::parsed::SourceFormatting {
+            policy: "native-source-evidence".into(),
+            warnings: vec![],
+        });
+        upsert_document(
+            &mut db,
+            "abc123",
+            "/uploads/abc123.html",
+            &styled,
+            Some("updated.html"),
+            StoredSourceKind::Html,
+            2,
+            200,
+            PdfTextStatus::Ready,
+        )
+        .unwrap();
+        assert_eq!(projection(&db), before);
+        let stored = find_upload_by_id(&db, "abc123").unwrap().unwrap();
+        assert_eq!(stored.imported_at_ms, 2);
+        assert_eq!(stored.bytes, 200);
+        assert_eq!(stored.original_file_name.as_deref(), Some("updated.html"));
+        assert_eq!(
+            stored.source_formatting.unwrap().policy,
+            "native-source-evidence"
+        );
+        for table in ["uploaded_document_fts", "uploaded_document_search_fts"] {
+            assert_eq!(
+                db.query_row(
+                    &format!("SELECT count(*) FROM {table} WHERE {table} MATCH 'house'"),
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+                1
+            );
+        }
+    }
+
+    #[test]
+    fn any_changed_search_projection_rebuilds_sections_instead_of_reusing_stale_rows() {
+        for changed in [
+            "title", "text", "heading", "page", "ranges", "url", "format", "kind", "status",
+            "ordinal", "count",
+        ] {
+            let mut db = test_db();
+            let mut parsed = parsed_document("Old title", &["Previous English."]);
+            let initial_kind = if changed == "status" {
+                StoredSourceKind::Pdf
+            } else {
+                StoredSourceKind::Html
+            };
+            if changed == "status" {
+                parsed.format = "pdf".into();
+            }
+            upsert_document(
+                &mut db,
+                "abc123",
+                "/uploads/abc123.html",
+                &parsed,
+                None,
+                initial_kind,
+                1,
+                100,
+                PdfTextStatus::Ready,
+            )
+            .unwrap();
+            let old_id: i64 = db
+                .query_row("SELECT id FROM uploaded_sections", [], |row| row.get(0))
+                .unwrap();
+            let mut url = "/uploads/abc123.html";
+            let mut kind = initial_kind;
+            let mut status = PdfTextStatus::Ready;
+            match changed {
+                "title" => parsed.title = "New title".into(),
+                "text" => parsed.sections[0].text = "Replacement English.".into(),
+                "heading" => parsed.sections[0].heading = Some("Different chapter".into()),
+                "page" => parsed.sections[0].page_index = Some(1),
+                "ranges" => parsed.sections[0].body_ranges = Some(vec![0..8]),
+                "url" => url = "/uploads/abc123.pdf",
+                "format" => parsed.format = "epub".into(),
+                "kind" => kind = StoredSourceKind::Pdf,
+                "status" => status = PdfTextStatus::RecognitionAvailable,
+                "ordinal" => {
+                    db.execute("UPDATE uploaded_sections SET ordinal=7", [])
+                        .unwrap();
+                }
+                "count" => parsed.sections.push(ParsedSection {
+                    heading: None,
+                    text: "Another paragraph.".into(),
+                    page_index: None,
+                    body_ranges: Some(vec![0..18]),
+                }),
+                _ => unreachable!(),
+            }
+            upsert_document(&mut db, "abc123", url, &parsed, None, kind, 2, 200, status).unwrap();
+            let new_id: i64 = db
+                .query_row("SELECT min(id) FROM uploaded_sections", [], |row| {
+                    row.get(0)
+                })
+                .unwrap();
+            assert_ne!(new_id, old_id, "{changed}");
+            assert_eq!(
+                db.query_row("SELECT count(*) FROM uploaded_sections", [], |row| row
+                    .get::<_, usize>(0))
+                    .unwrap(),
+                parsed.sections.len(),
+                "{changed}"
+            );
+            assert_eq!(
+                db.query_row(
+                    "SELECT text FROM uploaded_sections WHERE ordinal=0",
+                    [],
+                    |row| row.get::<_, String>(0)
+                )
+                .unwrap(),
+                parsed.sections[0].text,
+                "{changed}"
+            );
+            assert_eq!(
+                db.query_row(
+                    "SELECT title FROM uploaded_document_fts ORDER BY section_id LIMIT 1",
+                    [],
+                    |row| row.get::<_, String>(0)
+                )
+                .unwrap(),
+                parsed.title,
+                "{changed}"
+            );
+            assert_eq!(
+                db.query_row(
+                    "SELECT count(*) FROM uploaded_document_search_fts",
+                    [],
+                    |row| row.get::<_, usize>(0)
+                )
+                .unwrap(),
+                parsed.sections.len(),
+                "{changed}"
+            );
+        }
+    }
+
+    #[test]
+    fn identical_upsert_repairs_missing_or_changed_indexes_instead_of_freezing_them() {
+        for damage in [
+            "DELETE FROM uploaded_document_fts",
+            "UPDATE uploaded_document_fts SET text='stale words'",
+            "INSERT INTO uploaded_document_fts SELECT * FROM uploaded_document_fts",
+            "DELETE FROM uploaded_document_search_fts",
+            "UPDATE uploaded_document_search_fts SET title='stale title'",
+            "DELETE FROM uploaded_spelling_indexed",
+            "DELETE FROM uploaded_spelling_terms",
+            "INSERT INTO uploaded_spelling_terms VALUES('abc123','staleextra',1)",
+        ] {
+            let mut db = test_db();
+            let parsed = parsed_document("Saved title", &["English house."]);
+            upsert_document(
+                &mut db,
+                "abc123",
+                "/uploads/abc123.html",
+                &parsed,
+                None,
+                StoredSourceKind::Html,
+                1,
+                100,
+                PdfTextStatus::Ready,
+            )
+            .unwrap();
+            let old_id: i64 = db
+                .query_row("SELECT id FROM uploaded_sections", [], |row| row.get(0))
+                .unwrap();
+            db.execute_batch(damage).unwrap();
+            upsert_document(
+                &mut db,
+                "abc123",
+                "/uploads/abc123.html",
+                &parsed,
+                None,
+                StoredSourceKind::Html,
+                2,
+                200,
+                PdfTextStatus::Ready,
+            )
+            .unwrap();
+            assert_ne!(
+                db.query_row("SELECT id FROM uploaded_sections", [], |row| row
+                    .get::<_, i64>(0))
+                    .unwrap(),
+                old_id,
+                "{damage}"
+            );
+            for table in ["uploaded_document_fts", "uploaded_document_search_fts"] {
+                assert_eq!(
+                    db.query_row(&format!("SELECT count(*) FROM {table}"), [], |row| row
+                        .get::<_, i64>(0))
+                        .unwrap(),
+                    1,
+                    "{damage}"
+                );
+                assert_eq!(
+                    db.query_row(
+                        &format!("SELECT count(*) FROM {table} WHERE {table} MATCH 'house'"),
+                        [],
+                        |row| row.get::<_, i64>(0)
+                    )
+                    .unwrap(),
+                    1,
+                    "{damage}"
+                );
+                assert_eq!(
+                    db.query_row(&format!("SELECT title FROM {table}"), [], |row| row
+                        .get::<_, String>(0))
+                        .unwrap(),
+                    if table == "uploaded_document_search_fts" {
+                        super::search_form::normalize("Saved title")
+                    } else {
+                        "Saved title".into()
+                    },
+                    "{damage}"
+                );
+            }
+            assert_eq!(
+                db.query_row(
+                    "SELECT count(*) FROM uploaded_spelling_indexed",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+                1,
+                "{damage}"
+            );
+            assert_eq!(
+                db.query_row(
+                    "SELECT count(*) FROM uploaded_spelling_terms WHERE term='house'",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+                1,
+                "{damage}"
+            );
+            assert_eq!(
+                db.query_row(
+                    "SELECT count(*) FROM uploaded_spelling_terms WHERE term='staleextra'",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+                0,
+                "{damage}"
+            );
+        }
     }
 
     #[test]

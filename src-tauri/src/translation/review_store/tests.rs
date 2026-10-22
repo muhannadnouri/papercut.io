@@ -300,7 +300,7 @@ fn failed_response_preparation_leaves_the_draft_retryable() {
     };
     let before = stored(&db);
     let request = edit(&initial, 0);
-    let error = apply_prepared_in(&mut db, &request, |snapshot| {
+    let error = apply_prepared_in(&mut db, &request, |_, snapshot| {
         assert_eq!(snapshot.document.expected().revision, 1);
         assert!(snapshot.reconstruct().unwrap().contains("<b>Hello</b>"));
         Err::<(), _>("Cannot prepare native review response".to_string())
@@ -336,6 +336,36 @@ fn immutable_document_corruption_rejects_even_when_the_saved_draft_is_valid() {
     db.execute(
         "UPDATE translation_review SET snapshot_json=?1",
         [&immutable],
+    )
+    .unwrap();
+    assert_eq!(load_in(&db, "a1b2").unwrap().unwrap(), initial);
+}
+
+#[test]
+fn malformed_or_future_publication_receipts_reject_without_rewriting_the_draft() {
+    let file = TestDb::new();
+    let mut db = file.open();
+    let initial = snapshot("a1b2", &"12".repeat(16));
+    insert(&mut db, &initial);
+    for (revision, hash) in [
+        (Some(-1), Some("a".repeat(64))),
+        (Some(1), Some("a".repeat(64))),
+        (Some(0), None),
+        (None, Some("a".repeat(64))),
+        (Some(0), Some("A".repeat(64))),
+        (Some(0), Some("a".repeat(1_000_000))),
+    ] {
+        db.execute(
+            "UPDATE translation_review SET published_revision=?1,published_hash=?2",
+            params![revision, hash],
+        )
+        .unwrap();
+        assert!(load_in(&db, "a1b2").is_err());
+        assert!(apply_in(&mut db, &edit(&initial, 0)).is_err());
+    }
+    db.execute(
+        "UPDATE translation_review SET published_revision=NULL,published_hash=NULL",
+        [],
     )
     .unwrap();
     assert_eq!(load_in(&db, "a1b2").unwrap().unwrap(), initial);

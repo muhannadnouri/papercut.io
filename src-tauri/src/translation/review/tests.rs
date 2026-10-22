@@ -646,3 +646,29 @@ fn stage_one_contract_does_not_admit_other_providers_or_legacy_identity_shapes()
         Err(Error::Identity)
     );
 }
+
+#[test]
+fn publication_command_accepts_only_bounded_native_generation_tokens() {
+    let expected = serde_json::to_value(document(vec![block(0, "English.")]).expected).unwrap();
+    assert!(decode_finish(expected.to_string().as_bytes()).is_ok());
+    for (key, value) in [
+        ("schemaVersion", json!(2)),
+        ("policy", json!("unknown")),
+        ("variantId", json!("../../source")),
+        ("generation", json!("unknown")),
+        ("revision", json!(MAX_REVISION + 1)),
+        ("html", json!("<p>untrusted</p>")),
+        ("approved", json!(true)),
+    ] {
+        let mut invalid = expected.clone();
+        invalid[key] = value;
+        assert!(
+            decode_finish(invalid.to_string().as_bytes()).is_err(),
+            "{key}"
+        );
+    }
+    assert_eq!(
+        decode_finish(&vec![b' '; MAX_REQUEST_BYTES + 1]),
+        Err(Error::Limit)
+    );
+}

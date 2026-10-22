@@ -80,3 +80,56 @@ describe('retained translation originals stay outside the narrated and indexed t
     expect(root.querySelector('strong')?.textContent).toBe('casa')
   })
 })
+
+
+describe('assisted formatting publication preserves existing audiobook coordinates', () => {
+  it.each([
+    ['paragraphs', reviewHtml, '<p>A <b>red</b> house.</p><p>I do <i>not</i> know.</p>'],
+    ['headings and list wrappers',
+      '<h2 id="chapter" data-papercut-translation-review="original">Original heading</h2>' + label + '<h2>English chapter</h2><ul><li><div data-papercut-translation-review="original">Una casa.</div>' + label + '<p>A house.</p></li></ul>',
+      '<h2 id="chapter">English <b>chapter</b></h2><ul><li><p>A <i>house</i>.</p></li></ul>'],
+    ['checked notes and literal structure',
+      reviewHtml + '<p id="ref">Keep <code>API_value</code><a role="doc-noteref" href="#note">[1]</a>.</p><p id="note" role="doc-footnote">Note body.<a role="doc-backlink" href="#ref">Back</a></p>',
+      '<p>A <b>red</b> house.</p><p>I do <i>not</i> know.</p><p id="ref"><b>Keep</b> <code>API_value</code><a role="doc-noteref" href="#note">[1]</a>.</p><p id="note" role="doc-footnote">Note body.<a role="doc-backlink" href="#ref">Back</a></p>'],
+  ])('keeps %s text, chunk identity, spans and word highlights unchanged', (_name, before, after) => {
+    const beforeChunks = chunkAudiobookSaveHtmlWithSpans(before).map((chunk, id) => ({ ...chunk, id: String(id) }))
+    const afterChunks = chunkAudiobookSaveHtmlWithSpans(after).map((chunk, id) => ({ ...chunk, id: String(id) }))
+    // Identical ordered IDs/text mean the existing native chunk text hashes and source signature stay valid.
+    expect(afterChunks).toEqual(beforeChunks)
+    expect(extractReadableTextFromHtml(after)).toBe(extractReadableTextFromHtml(before))
+    root.innerHTML = before
+    const prior = buildReadableDomTextLocatorIndex(buildReadableDomSegmentIndex(root)).text
+    root.innerHTML = after
+    expect(buildReadableDomTextLocatorIndex(buildReadableDomSegmentIndex(root)).text).toBe(prior)
+    const highlights = (html: string) => {
+      root.innerHTML = html
+      const segments = { current: null as SegmentIndexCache | null }
+      const alignment = { current: null as AlignmentCache | null }
+      return afterChunks.map((chunk, chunkIndex) => {
+        const range = highlightTtsChunk(root, chunkIndex, afterChunks, false, 0, segments, alignment)
+        const words = segmentWordTokens(chunk.text)
+        return {
+          chunk: range ? [...CSS.highlights.get('tts-current')!].map(part => part.toString()).join('') : null,
+          words: words.map((_token, index) => {
+            highlightTtsWord(root, chunkIndex, afterChunks, false, (index + 0.1) / words.length, 0, segments, alignment)
+            return [...(CSS.highlights.get('tts-current-word') ?? [])][0]?.toString() ?? null
+          }),
+        }
+      })
+    }
+    const beforeHighlights = highlights(before)
+    const afterHighlights = highlights(after)
+    expect(afterHighlights).toEqual(beforeHighlights)
+    if (_name !== 'checked notes and literal structure') {
+      afterHighlights.forEach((result, index) => {
+        expect(result.chunk).not.toBeNull()
+        expect(result.words).toEqual(segmentWordTokens(afterChunks[index].text).map(token =>
+          afterChunks[index].text.slice(token.startOffset, token.endOffset)))
+      })
+    }
+    // Existing note-marker highlight limitations must not change when emphasis is published.
+    for (const anchor of root.querySelectorAll<HTMLAnchorElement>('a[href^="#"]')) {
+      expect(root.querySelector(anchor.getAttribute('href')!)).not.toBeNull()
+    }
+  })
+})

@@ -390,8 +390,16 @@ fn write_and_index_document(
     Ok(())
 }
 
-/// Resolve an uploaded document URL to its stored source file and return its HTML.
+/// Resolve reader HTML only after any in-process replacement has committed or rolled back.
 pub(crate) fn get_source<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: UploadedDocumentSourceRequest,
+) -> Result<UploadedDocumentSource, String> {
+    crate::native_tts::with_audiobook_reference_lock(|| get_source_locked(app, request))
+}
+
+/// The source snapshot caller keeps this lock through its subsequent owned-asset reads.
+pub(super) fn get_source_locked<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedDocumentSourceRequest,
 ) -> Result<UploadedDocumentSource, String> {
@@ -400,6 +408,7 @@ pub(crate) fn get_source<R: Runtime>(
         return Err("PDF sources must be loaded through the PDF viewer".into());
     }
     let db = open_db(app)?;
+    super::derived::recover_derived_document_locked(app, &db, &id)?;
     let document = find_upload_by_id(&db, &id)?
         .ok_or_else(|| "Uploaded document metadata is missing".to_string())?;
     if StoredSourceKind::from_str(&document.source_kind)? != source_kind {

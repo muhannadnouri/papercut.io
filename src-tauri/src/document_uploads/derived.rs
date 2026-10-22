@@ -32,14 +32,17 @@ pub(crate) fn read_uploaded_document_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     document_url: &str,
 ) -> Result<(String, Vec<ParsedDocumentAsset>), String> {
-    let source = pipeline::get_source(
-        app,
-        UploadedDocumentSourceRequest {
-            document_url: document_url.into(),
-        },
-    )?;
-    let assets = snapshot_assets(&source.html, &source.asset_paths)?;
-    Ok((source.html, assets))
+    // Paths alone are not a snapshot: keep promotion blocked until asset bytes are copied too.
+    crate::native_tts::with_audiobook_reference_lock(|| {
+        let source = pipeline::get_source_locked(
+            app,
+            UploadedDocumentSourceRequest {
+                document_url: document_url.into(),
+            },
+        )?;
+        let assets = snapshot_assets(&source.html, &source.asset_paths)?;
+        Ok((source.html, assets))
+    })
 }
 
 /// Stage and index a generated HTML document without exposing parser internals.
@@ -100,12 +103,72 @@ where
     R: Runtime,
     F: FnOnce(&Transaction<'_>, &str) -> Result<(), String>,
 {
+    persist_guarded_derived_document_with_evidence(
+        app,
+        db,
+        id,
+        url,
+        title,
+        format,
+        view_html,
+        source_evidence,
+        assets,
+        imported_at_ms,
+        |_| Ok(()),
+        persist_metadata,
+    )
+}
+
+/// Check caller-owned revision/ownership evidence before creating any replacement files.
+/// The guard and metadata update share one immediate transaction under the reference lock.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn persist_guarded_derived_document_with_evidence<R, G, F>(
+    app: &tauri::AppHandle<R>,
+    db: &mut Connection,
+    id: &str,
+    url: &str,
+    title: &str,
+    format: &str,
+    view_html: String,
+    source_evidence: Option<&str>,
+    assets: &[ParsedDocumentAsset],
+    imported_at_ms: u128,
+    preflight: G,
+    persist_metadata: F,
+) -> Result<bool, String>
+where
+    R: Runtime,
+    G: FnOnce(&Transaction<'_>) -> Result<(), String>,
+    F: FnOnce(&Transaction<'_>, &str) -> Result<(), String>,
+{
+    validate_upload_id(id)?;
     let dir = upload_dir(app, id)?;
     let parsed = prepare_derived_document(title, format, &view_html, source_evidence, assets)?;
-    // Deleters use this same lock: protect promotion/recovery as well as SQL.
+    // Deleters use this same lock: protect admission/recovery/promotion as well as SQL.
     crate::native_tts::with_audiobook_reference_lock(|| {
-        persist_derived_document_at(&dir, db, id, url, parsed, imported_at_ms, persist_metadata)
+        persist_guarded_derived_document_at(
+            &dir,
+            db,
+            id,
+            url,
+            parsed,
+            imported_at_ms,
+            preflight,
+            persist_metadata,
+        )
     })
+}
+
+/// Recover the shared writer's interrupted replacement; caller owns the reference lock.
+pub(crate) fn recover_derived_document_locked<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    db: &Connection,
+    id: &str,
+) -> Result<(), String> {
+    validate_upload_id(id)?;
+    let dir = upload_dir(app, id)?;
+    let backup_dir = dir.with_file_name(format!(".{id}.replacing"));
+    recover_interrupted_replacement(db, id, &dir, &backup_dir)
 }
 
 fn prepare_derived_document(
@@ -128,6 +191,7 @@ fn prepare_derived_document(
     Ok(parsed)
 }
 
+#[cfg(test)]
 fn persist_derived_document_at<F>(
     dir: &Path,
     db: &mut Connection,
@@ -140,6 +204,34 @@ fn persist_derived_document_at<F>(
 where
     F: FnOnce(&Transaction<'_>, &str) -> Result<(), String>,
 {
+    persist_guarded_derived_document_at(
+        dir,
+        db,
+        id,
+        url,
+        parsed,
+        imported_at_ms,
+        |_| Ok(()),
+        persist_metadata,
+    )
+}
+
+/// Keep filesystem rollback and feature metadata inside the same guarded write boundary.
+#[allow(clippy::too_many_arguments)]
+fn persist_guarded_derived_document_at<G, F>(
+    dir: &Path,
+    db: &mut Connection,
+    id: &str,
+    url: &str,
+    parsed: ParsedDocument,
+    imported_at_ms: u128,
+    preflight: G,
+    persist_metadata: F,
+) -> Result<bool, String>
+where
+    G: FnOnce(&Transaction<'_>) -> Result<(), String>,
+    F: FnOnce(&Transaction<'_>, &str) -> Result<(), String>,
+{
     let bytes = parsed.view_html.len() as u64
         + parsed
             .assets
@@ -149,6 +241,10 @@ where
     let staging_dir = dir.with_file_name(format!(".{id}.staging"));
     let backup_dir = dir.with_file_name(format!(".{id}.replacing"));
     recover_interrupted_replacement(db, id, dir, &backup_dir)?;
+    let tx = db
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(db_err)?;
+    preflight(&tx)?;
     if staging_dir.exists() {
         fs::remove_dir_all(&staging_dir).map_err(|err| {
             format!(
@@ -206,7 +302,6 @@ where
     }
 
     let transaction_result = (|| {
-        let tx = db.transaction().map_err(db_err)?;
         upsert_document_in_transaction(
             &tx,
             id,
@@ -286,15 +381,6 @@ fn recover_interrupted_replacement(
     if !backup_dir.exists() {
         return Ok(());
     }
-    if !dir.exists() {
-        return fs::rename(backup_dir, dir).map_err(|err| {
-            format!(
-                "Failed to recover interrupted derived document replacement {}: {err}",
-                backup_dir.display()
-            )
-        });
-    }
-
     let stored_generation = db
         .query_row(
             "SELECT imported_at_ms, bytes FROM uploaded_documents WHERE id = ?1",
@@ -308,9 +394,26 @@ fn recover_interrupted_replacement(
             },
         )
         .optional()
-        .map_err(db_err)?;
+        .map_err(db_err)?
+        .ok_or("Interrupted derived document replacement has no current upload row")?;
+    let backup_generation = fs::read_to_string(backup_dir.join(DERIVED_GENERATION_FILE)).ok();
+    if !dir.exists() {
+        // Missing committed output is not proof that old backup files match newer metadata.
+        if backup_generation.as_deref() != Some(stored_generation.as_str()) {
+            return Err(
+                "Interrupted derived document replacement has no matching live generation".into(),
+            );
+        }
+        return fs::rename(backup_dir, dir).map_err(|err| {
+            format!(
+                "Failed to recover interrupted derived document replacement {}: {err}",
+                backup_dir.display()
+            )
+        });
+    }
+
     let live_generation = fs::read_to_string(dir.join(DERIVED_GENERATION_FILE)).ok();
-    if stored_generation.is_some() && live_generation == stored_generation {
+    if live_generation.as_deref() == Some(stored_generation.as_str()) {
         fs::remove_dir_all(backup_dir).map_err(|err| {
             format!(
                 "Failed to clear committed derived document backup {}: {err}",
@@ -318,6 +421,15 @@ fn recover_interrupted_replacement(
             )
         })
     } else {
+        if backup_generation
+            .as_deref()
+            .is_some_and(|generation| generation != stored_generation)
+        {
+            return Err(
+                "Interrupted derived document backup does not match the current upload generation"
+                    .into(),
+            );
+        }
         fs::remove_dir_all(dir).map_err(|err| {
             format!(
                 "Failed to discard interrupted derived document replacement {}: {err}",
@@ -788,6 +900,304 @@ mod tests {
         assert!(error("<script>alert(1)</script>", &[]).contains("sanitized"));
         assert!(error("<img data-papercut-asset='../private'>", &[]).contains("sanitized"));
         assert!(error(&"x".repeat(MAX_SOURCE_EVIDENCE_BYTES + 1), &[]).contains("size limit"));
+    }
+
+    #[test]
+    fn guarded_admission_reserves_sqlite_before_creating_any_replacement_files() {
+        use super::{persist_guarded_derived_document_at, prepare_derived_document};
+        use crate::document_uploads::store::open_db_in;
+        let root = test_root("guarded-admission");
+        let mut db = open_db_in(&root).unwrap();
+        let competing = Connection::open(root.join("search.sqlite3")).unwrap();
+        competing.busy_timeout(std::time::Duration::ZERO).unwrap();
+        let live = root.join("variant");
+        let parsed = prepare_derived_document("English", "html", "<p>New.</p>", None, &[]).unwrap();
+        let error = persist_guarded_derived_document_at(
+            &live,
+            &mut db,
+            "variant",
+            "/uploads/variant.html",
+            parsed,
+            2,
+            |tx| {
+                assert!(!tx.is_autocommit());
+                assert!(!live.exists());
+                assert!(!root.join(".variant.staging").exists());
+                assert!(!root.join(".variant.replacing").exists());
+                assert!(matches!(
+                    competing.execute("DELETE FROM uploaded_documents WHERE id='variant'", []),
+                    Err(rusqlite::Error::SqliteFailure(error, _))
+                        if error.code == rusqlite::ErrorCode::DatabaseBusy
+                ));
+                Err("stale or deleted variant".into())
+            },
+            |_, _| panic!("rejected admission must not persist metadata"),
+        )
+        .unwrap_err();
+        assert!(error.contains("stale or deleted variant"));
+        assert!(!live.exists());
+        assert!(!root.join(".variant.staging").exists());
+        assert!(!root.join(".variant.replacing").exists());
+        assert_eq!(
+            db.query_row("SELECT count(*) FROM uploaded_documents", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        // The failed guard releases its reservation rather than blocking the next edit/delete.
+        competing
+            .execute("DELETE FROM uploaded_documents WHERE id='variant'", [])
+            .unwrap();
+        drop(competing);
+        drop(db);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn guarded_index_and_metadata_failures_restore_every_previous_generation_owner() {
+        use super::{
+            persist_derived_document_at, persist_guarded_derived_document_at,
+            prepare_derived_document,
+        };
+        use crate::document_uploads::store::open_db_in;
+        let root = test_root("guarded-rollback");
+        let mut db = open_db_in(&root).unwrap();
+        db.execute_batch("CREATE TABLE feature_receipt (state TEXT NOT NULL); INSERT INTO feature_receipt VALUES ('old');").unwrap();
+        let live = root.join("variant");
+        let original =
+            prepare_derived_document("Original", "html", "<p>Previous English.</p>", None, &[])
+                .unwrap();
+        let old_html = original.view_html.clone();
+        persist_derived_document_at(
+            &live,
+            &mut db,
+            "variant",
+            "/uploads/variant.html",
+            original,
+            1,
+            |_, _| Ok(()),
+        )
+        .unwrap();
+        for fail_index in [true, false] {
+            if fail_index {
+                db.execute_batch("CREATE TRIGGER fail_derived_index BEFORE INSERT ON uploaded_sections BEGIN SELECT RAISE(ABORT, 'index failure'); END;").unwrap();
+            }
+            let replacement =
+                prepare_derived_document("New", "html", "<p>Replacement English.</p>", None, &[])
+                    .unwrap();
+            let error = persist_guarded_derived_document_at(
+                &live,
+                &mut db,
+                "variant",
+                "/uploads/variant.html",
+                replacement,
+                2,
+                |tx| {
+                    assert_eq!(
+                        tx.query_row("SELECT state FROM feature_receipt", [], |row| row
+                            .get::<_, String>(0))
+                            .unwrap(),
+                        "old"
+                    );
+                    assert_eq!(
+                        fs::read_to_string(live.join("source.html")).unwrap(),
+                        old_html
+                    );
+                    Ok(())
+                },
+                |tx, _| {
+                    assert!(
+                        !fail_index,
+                        "index failure must happen before feature mutation"
+                    );
+                    tx.execute("UPDATE feature_receipt SET state='new'", [])
+                        .unwrap();
+                    Err("metadata failure".into())
+                },
+            )
+            .unwrap_err();
+            assert!(error.contains(if fail_index {
+                "index failure"
+            } else {
+                "metadata failure"
+            }));
+            assert_eq!(
+                fs::read_to_string(live.join("source.html")).unwrap(),
+                old_html
+            );
+            assert_eq!(
+                db.query_row(
+                    "SELECT imported_at_ms FROM uploaded_documents WHERE id='variant'",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+                1
+            );
+            assert_eq!(
+                db.query_row(
+                    "SELECT text FROM uploaded_sections WHERE document_id='variant'",
+                    [],
+                    |row| row.get::<_, String>(0)
+                )
+                .unwrap(),
+                "Previous English."
+            );
+            assert_eq!(
+                db.query_row("SELECT state FROM feature_receipt", [], |row| row
+                    .get::<_, String>(0))
+                    .unwrap(),
+                "old"
+            );
+            assert!(!root.join(".variant.staging").exists());
+            assert!(!root.join(".variant.replacing").exists());
+            if fail_index {
+                db.execute_batch("DROP TRIGGER fail_derived_index").unwrap();
+            }
+        }
+        drop(db);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn recovery_never_restores_old_files_under_committed_or_deleted_metadata() {
+        let root = test_root("missing-live-recovery");
+        let live = root.join("variant");
+        let backup = root.join(".variant.replacing");
+        write_generation(&backup, "1:10", "old");
+        recover_interrupted_replacement(&database("1:10"), "variant", &live, &backup).unwrap();
+        assert_eq!(fs::read_to_string(live.join("source.html")).unwrap(), "old");
+        assert!(!backup.exists());
+        fs::rename(&live, &backup).unwrap();
+        assert!(
+            recover_interrupted_replacement(&database("2:20"), "variant", &live, &backup)
+                .unwrap_err()
+                .contains("no matching live generation")
+        );
+        assert!(!live.exists());
+        assert!(backup.exists());
+        let deleted = database("1:10");
+        deleted
+            .execute("DELETE FROM uploaded_documents", [])
+            .unwrap();
+        assert!(
+            recover_interrupted_replacement(&deleted, "variant", &live, &backup)
+                .unwrap_err()
+                .contains("no current upload row")
+        );
+        assert!(!live.exists());
+        assert_eq!(
+            fs::read_to_string(backup.join("source.html")).unwrap(),
+            "old"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reader_waits_for_failed_promotion_and_recovers_interrupted_output_before_serving() {
+        use super::{
+            persist_derived_document, persist_guarded_derived_document_with_evidence,
+            UploadedDocumentSourceRequest,
+        };
+        use crate::document_uploads::{pipeline, store::open_db_in};
+        use std::sync::mpsc;
+        use std::time::Duration;
+        let root = test_root("reader-publication");
+        fs::create_dir_all(&root).unwrap();
+        let mut context = tauri::test::mock_context(tauri::test::noop_assets());
+        context.config_mut().identifier = root.to_str().unwrap().into();
+        let app = tauri::test::mock_builder().build(context).unwrap();
+        let uploads = root.join("document_uploads");
+        let mut db = open_db_in(&uploads).unwrap();
+        let live = uploads.join("abc123");
+        persist_derived_document(
+            app.handle(),
+            &mut db,
+            "abc123",
+            "/uploads/abc123.html",
+            "Old",
+            "html",
+            "<p>Committed English.</p>".into(),
+            &[],
+            1,
+            |_| Ok(()),
+        )
+        .unwrap();
+        let original = fs::read_to_string(live.join("source.html")).unwrap();
+        let (started_tx, started_rx) = mpsc::channel();
+        let (finished_tx, finished_rx) = mpsc::channel();
+        let mut reader = None;
+        let error = persist_guarded_derived_document_with_evidence(
+            app.handle(),
+            &mut db,
+            "abc123",
+            "/uploads/abc123.html",
+            "New",
+            "html",
+            "<p>Uncommitted English.</p>".into(),
+            None,
+            &[],
+            2,
+            |_| Ok(()),
+            |_, _| {
+                assert!(fs::read_to_string(live.join("source.html"))
+                    .unwrap()
+                    .contains("Uncommitted English."));
+                let handle = app.handle().clone();
+                reader = Some(std::thread::spawn(move || {
+                    started_tx.send(()).unwrap();
+                    finished_tx
+                        .send(pipeline::get_source(
+                            &handle,
+                            UploadedDocumentSourceRequest {
+                                document_url: "/uploads/abc123.html".into(),
+                            },
+                        ))
+                        .unwrap();
+                }));
+                started_rx.recv().unwrap();
+                assert!(matches!(
+                    finished_rx.recv_timeout(Duration::from_millis(100)),
+                    Err(mpsc::RecvTimeoutError::Timeout)
+                ));
+                Err("publication failed".into())
+            },
+        )
+        .unwrap_err();
+        assert!(error.contains("publication failed"));
+        reader.unwrap().join().unwrap();
+        let served = finished_rx
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap()
+            .unwrap();
+        assert!(served.html.contains("Committed English."));
+        assert!(!served.html.contains("Uncommitted English."));
+        assert_eq!(
+            fs::read_to_string(live.join("source.html")).unwrap(),
+            original
+        );
+
+        // A previous process can die after promotion; the next ordinary read repairs from SQLite.
+        let backup = uploads.join(".abc123.replacing");
+        fs::rename(&live, &backup).unwrap();
+        write_generation(&live, "2:999", "<p>Interrupted English.</p>");
+        let served = pipeline::get_source(
+            app.handle(),
+            UploadedDocumentSourceRequest {
+                document_url: "/uploads/abc123.html".into(),
+            },
+        )
+        .unwrap();
+        assert!(served.html.contains("Committed English."));
+        assert!(!served.html.contains("Interrupted English."));
+        assert_eq!(
+            fs::read_to_string(live.join("source.html")).unwrap(),
+            original
+        );
+        assert!(!backup.exists());
+        drop(db);
+        drop(app);
+        fs::remove_dir_all(root).unwrap();
     }
 
     fn test_root(name: &str) -> std::path::PathBuf {

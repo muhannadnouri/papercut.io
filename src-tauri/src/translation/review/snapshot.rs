@@ -234,6 +234,103 @@ impl Snapshot {
         Ok((validated.source_preview()?, validated.reconstruct()?))
     }
 
+    /// Publication removes fallback prose only after native approval and consumer-equivalence checks.
+    pub(in crate::translation) fn publication(&self, expected: &Expected) -> Result<String, Error> {
+        let validated = self.validated()?;
+        super::finish(Some(&self.document), expected, self.evidence())?;
+        let before = consumer_signature(&validated.target.document);
+        let identifiers = document_identifiers(&validated.target.document);
+        validated.apply_marks()?;
+        for (mapping, block) in self.mappings.iter().zip(&validated.target.blocks) {
+            if !mapping.needs_review {
+                continue;
+            }
+            let label = block.node.previous_sibling().ok_or(Error::Evidence)?;
+            let original = label.previous_sibling().ok_or(Error::Evidence)?;
+            if review_marker(&label).as_deref() != Some("label")
+                || review_marker(&original).as_deref() != Some("original")
+            {
+                return Err(Error::Evidence);
+            }
+            // Source-only literals, attachments and nested anchors need their own mapping workflow.
+            if original.as_element().is_some_and(|element| {
+                element.name.local.as_ref() == "pre"
+                    || element
+                        .attributes
+                        .borrow()
+                        .get("translate")
+                        .is_some_and(|value| value.eq_ignore_ascii_case("no"))
+            }) {
+                return Err(Error::Pending);
+            }
+            for node in original.descendants() {
+                if node
+                    .inclusive_ancestors()
+                    .any(|ancestor| review_marker(&ancestor).as_deref() == Some("label"))
+                {
+                    continue;
+                }
+                if let Some(element) = node.as_element() {
+                    let attributes = element.attributes.borrow();
+                    if !matches!(
+                        element.name.local.as_ref(),
+                        "b" | "strong" | "i" | "em" | "span"
+                    ) || attributes.get("id").is_some()
+                        || attributes.get("name").is_some()
+                        || attributes
+                            .get("translate")
+                            .is_some_and(|v| v.eq_ignore_ascii_case("no"))
+                        || attributes.get("role").is_some()
+                        || attributes.get("epub:type").is_some()
+                    {
+                        return Err(Error::Pending);
+                    }
+                }
+            }
+            let original_element = original.as_element().ok_or(Error::Evidence)?;
+            let target_element = block.node.as_element().ok_or(Error::Evidence)?;
+            for name in ["id", "name"] {
+                if let Some(value) = original_element.attributes.borrow().get(name) {
+                    let mut target = target_element.attributes.borrow_mut();
+                    if target.get(name).is_some_and(|existing| existing != value) {
+                        return Err(Error::Evidence);
+                    }
+                    target.insert(name, value.to_owned());
+                }
+            }
+            label.detach();
+            original.detach();
+        }
+        if validated
+            .target
+            .document
+            .select("[data-papercut-translation-review]")
+            .map_err(|_| Error::Evidence)?
+            .next()
+            .is_some()
+            || consumer_signature(&validated.target.document) != before
+            || document_identifiers(&validated.target.document) != identifiers
+        {
+            return Err(Error::Evidence);
+        }
+        let output = serialize(&validated.target.document)?;
+        // Added wrappers must obey the same native snapshot bounds and reader sanitizer as the baseline.
+        checked_plan(&output)?;
+        let before = crate::document_uploads::parse_reader_html_document(&self.baseline_html);
+        let after = crate::document_uploads::parse_reader_html_document(&output);
+        if before.sections.len() != after.sections.len()
+            || before.sections.iter().zip(&after.sections).any(|(a, b)| {
+                a.heading != b.heading
+                    || a.text != b.text
+                    || a.body_ranges != b.body_ranges
+                    || a.page_index != b.page_index
+            })
+        {
+            return Err(Error::Evidence);
+        }
+        Ok(output)
+    }
+
     /// A separate namespace keeps full-source notes/backlinks usable beside the English preview.
     #[cfg(test)]
     pub(in crate::translation) fn source_preview(&self) -> Result<String, Error> {
@@ -261,6 +358,12 @@ impl ValidatedSnapshot<'_> {
         {
             return Ok(self.snapshot.baseline_html.clone());
         }
+        self.apply_marks()?;
+        serialize(&self.target.document)
+    }
+
+    /// B/I only split existing native text nodes; block owners and exact English never change.
+    fn apply_marks(&self) -> Result<(), Error> {
         for (target, block) in self
             .target
             .blocks
@@ -290,7 +393,7 @@ impl ValidatedSnapshot<'_> {
                 return Err(Error::Evidence);
             }
         }
-        serialize(&self.target.document)
+        Ok(())
     }
 
     /// Rewrite only the separate source tree, leaving English anchors and saved evidence untouched.
@@ -360,6 +463,87 @@ impl ValidatedSnapshot<'_> {
         }
         serialize(document)
     }
+}
+
+fn review_marker(node: &NodeRef) -> Option<String> {
+    node.as_element().and_then(|element| {
+        element
+            .attributes
+            .borrow()
+            .get("data-papercut-translation-review")
+            .map(str::to_owned)
+    })
+}
+
+/// Keep identity multiplicity: losing an anchor or introducing duplicate authored ids fails closed.
+fn document_identifiers(document: &NodeRef) -> BTreeMap<(String, String), usize> {
+    let mut identifiers = BTreeMap::new();
+    for node in document.inclusive_descendants() {
+        if let Some(element) = node.as_element() {
+            for name in ["id", "name"] {
+                if let Some(value) = element.attributes.borrow().get(name) {
+                    *identifiers
+                        .entry((name.to_owned(), value.to_owned()))
+                        .or_default() += 1;
+                }
+            }
+        }
+    }
+    identifiers
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum ConsumerPart {
+    Open(String, Vec<(String, String)>),
+    Close,
+    Text(String),
+}
+
+/// A stricter input than TTS chunking: exact text and all non-emphasis DOM boundaries stay identical.
+fn consumer_signature(document: &NodeRef) -> Vec<ConsumerPart> {
+    fn collect(node: &NodeRef, signature: &mut Vec<ConsumerPart>) {
+        if review_marker(node).is_some() {
+            return;
+        }
+        if let Some(text) = node.as_text() {
+            if let Some(ConsumerPart::Text(previous)) = signature.last_mut() {
+                previous.push_str(&text.borrow());
+            } else {
+                signature.push(ConsumerPart::Text(text.borrow().to_string()));
+            }
+            return;
+        }
+        let element = node.as_element();
+        let retained = element.is_some_and(|element| {
+            !matches!(element.name.local.as_ref(), "b" | "i" | "strong" | "em")
+        });
+        if retained {
+            let element = element.unwrap();
+            let attributes = element
+                .attributes
+                .borrow()
+                .map
+                .iter()
+                .filter(|(name, _)| {
+                    !matches!(name.local.as_ref(), "id" | "name" | "data-papercut-section")
+                })
+                .map(|(name, value)| (name.local.to_string(), value.value.clone()))
+                .collect();
+            signature.push(ConsumerPart::Open(
+                element.name.local.to_string(),
+                attributes,
+            ));
+        }
+        for child in node.children() {
+            collect(&child, signature);
+        }
+        if retained {
+            signature.push(ConsumerPart::Close);
+        }
+    }
+    let mut signature = Vec::new();
+    collect(document, &mut signature);
+    signature
 }
 
 /// Native persisted HTML must already satisfy the reader sanitizer, including all URL rules.
@@ -607,3 +791,6 @@ mod tests;
 
 #[cfg(test)]
 mod traversal_tests;
+
+#[cfg(test)]
+mod publication_tests;

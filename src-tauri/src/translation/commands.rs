@@ -242,6 +242,29 @@ pub async fn translation_review_save<R: tauri::Runtime>(
     .map_err(TranslationCommandError::from)
 }
 
+/// Publish native approved ranges only; the main WebView cannot supply replacement HTML or text.
+#[tauri::command]
+pub async fn translation_review_finish<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::WebviewWindow<R>,
+    request: String,
+) -> Result<TranslatedDocumentInfo, TranslationCommandError> {
+    if window.label() != "main" {
+        return Err(TranslationCommandError::new(
+            "Formatting review requires the main WebView".into(),
+        ));
+    }
+    let expected = super::review::decode_finish(request.as_bytes())
+        .map_err(super::review_store::review_error)
+        .map_err(TranslationCommandError::from)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        super::storage::finish_translation_review(&app, &expected)
+    })
+    .await
+    .map_err(|_| TranslationCommandError::new("Formatting review publication task failed".into()))?
+    .map_err(TranslationCommandError::from)
+}
+
 #[cfg(test)]
 #[path = "admission_tests.rs"]
 mod tests;

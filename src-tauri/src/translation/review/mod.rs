@@ -112,21 +112,37 @@ pub(super) fn decode_request(bytes: &[u8]) -> Result<EditRequest, Error> {
         return Err(Error::Limit);
     }
     let request: EditRequest = serde_json::from_slice(bytes).map_err(|_| Error::Request)?;
-    if request.expected.schema_version != SCHEMA_VERSION || request.expected.policy != POLICY {
-        return Err(Error::Version);
-    }
-    if !valid_document_ids(&request.expected.variant_id, &request.expected.generation)
-        || !valid_identity(&request.block.source_identity)
-    {
+    validate_expected(&request.expected)?;
+    if !valid_identity(&request.block.source_identity) {
         return Err(Error::Identity);
-    }
-    if request.expected.revision > MAX_REVISION {
-        return Err(Error::Revision);
     }
     if matches!(&request.edit, Edit::ReplaceMarks { marks } if marks.len() > MAX_MARKS) {
         return Err(Error::Limit);
     }
     Ok(request)
+}
+
+/// Finish accepts only the native generation/revision token, never client HTML or approval claims.
+pub(super) fn decode_finish(bytes: &[u8]) -> Result<Expected, Error> {
+    if bytes.len() > MAX_REQUEST_BYTES {
+        return Err(Error::Limit);
+    }
+    let expected: Expected = serde_json::from_slice(bytes).map_err(|_| Error::Request)?;
+    validate_expected(&expected)?;
+    Ok(expected)
+}
+
+fn validate_expected(expected: &Expected) -> Result<(), Error> {
+    if expected.schema_version != SCHEMA_VERSION || expected.policy != POLICY {
+        return Err(Error::Version);
+    }
+    if !valid_document_ids(&expected.variant_id, &expected.generation) {
+        return Err(Error::Identity);
+    }
+    if expected.revision > MAX_REVISION {
+        return Err(Error::Revision);
+    }
+    Ok(())
 }
 
 /// Native-owned read snapshots; callers must not substitute client-provided strings here.
@@ -501,7 +517,7 @@ fn validate_evidence_size(evidence: &Evidence<'_>) -> Result<(), Error> {
 }
 
 /// Cryptographic byte identity protects native review evidence; the MT cache's FNV keys serve a different purpose.
-fn fingerprint(text: &str) -> String {
+pub(super) fn fingerprint(text: &str) -> String {
     format!("{:x}", Sha256::digest(text.as_bytes()))
 }
 
