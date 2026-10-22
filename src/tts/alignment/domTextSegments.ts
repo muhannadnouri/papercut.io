@@ -32,6 +32,33 @@ export function buildReadableDomSegmentIndex(root: Element | Document): Readable
   return { segments: collectReadableHtmlSegments(element) }
 }
 
+/** Inverse of source-span Range creation; whitespace advances to narrated text. */
+export function normalizeDomTextPoint(
+  textNodes: readonly Text[],
+  node: Text,
+  offset: number,
+): { node: Text; offset: number; normalizedOffset: number } | null {
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset > node.length) return null
+  let normalizedOffset = 0
+  let pendingWhitespace = false
+  let reachedPoint = false
+  for (const textNode of textNodes) {
+    for (let index = 0; index < textNode.length; index++) {
+      if (textNode === node && index >= offset) reachedPoint = true
+      if (/\s/.test(textNode.data[index])) {
+        if (normalizedOffset > 0) pendingWhitespace = true
+        continue
+      }
+      if (pendingWhitespace) normalizedOffset += 1
+      pendingWhitespace = false
+      if (reachedPoint) return { node: textNode, offset: index, normalizedOffset }
+      normalizedOffset += 1
+    }
+    if (textNode === node && offset === textNode.length) reachedPoint = true
+  }
+  return null
+}
+
 // Convert chunker-owned normalized segment offsets back to live DOM points. Only
 // start/end segments are scanned, so one highlight does not scale with book size.
 export function createRangeForSourceSpan(

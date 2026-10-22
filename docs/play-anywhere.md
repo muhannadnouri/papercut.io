@@ -1,8 +1,9 @@
 # Play anywhere: integration plan
 
-Status: resolver foundation implemented in isolation; reader/player integration
-has not started. Stage 0 code audit and Stage 1 pure resolver checks are recorded
-below; baseline listening/device gates remain open.
+Status: resolver foundation and optional HTML viewport capture implemented.
+Stage 2 is partially complete: PDF/OCR capture and live legacy recovery remain
+pending. The App does not enable the capability yet; playback/controls are
+unchanged. Baseline listening/device gates remain open.
 Created 2026-10-21 against `main` at `8ebc9d0f`; working branch:
 `feature/play-anywhere`. Checked boxes record only the specific completed work.
 Feature, performance, accessibility, and device acceptance remain pending.
@@ -126,7 +127,7 @@ AudioControls: explicit user intent
 | Owner | Responsibility | Must not own |
 | --- | --- | --- |
 | HTML/PDF viewer adapter | Capture viewport/selection points, reader bounds, source order, live-view revision; reveal current passage. | Audio loading, saved-audiobook selection, synthesis, player state. |
-| Feature-owned code under `src/tts/playAnywhere/` | Pure lookup is implemented; capture-to-chunk orchestration, format mapping and identity checks follow in later stages. Keep only files that earn their existence. | Native audio session, new persistent settings, parsing/import pipelines. |
+| Feature-owned code under `src/tts/playAnywhere/` | Pure lookup and optional HTML capture are implemented; PDF mapping and audio/session coordination follow later. Keep only files that earn their existence. | Native audio session, new persistent settings, parsing/import pipelines. |
 | `useAudiobookDocument` / alignment helpers | Authoritative prepared chunks and validated/recovered source spans; common normalization primitives. | Control rendering and playback decisions. |
 | `useAudiobookManager` | Bind selected saved audiobook/options/prepared chunks to the feature and expose actions to controls. | DOM inspection or another seek queue. |
 | `useTtsPlayer` | Validate starting index, load/seek/play, cancellation, queue ordering, playback errors, desktop/native state. | Viewport, selection, PDF DOM, reading-order heuristics. |
@@ -141,12 +142,13 @@ bookmark API into an audio service or create a second playback controller.
 
 ### Boundary contracts
 
-Names below are proposed contracts, not claims that exports already exist.
+Contracts with implementation receipts below exist; the remaining player,
+selection, PDF and follow interfaces are still proposed.
 
 | Contract | Input/output and lifetime |
 | --- | --- |
-| Optional reader target API | Register/unregister through the existing `ViewerProps` callback pattern. Capture `viewport` or `selection` at action time; return an ephemeral snapshot or typed unavailable reason. No audio side effects. |
-| Target snapshot | Carries current document/view revision and format-specific point. Capture live DOM node/offset synchronously if conversion needs deferred indexing; validate node/root membership and revision before converting. Never serialize DOM references. |
+| Optional reader target API | `onTextTargetApiChange` registers/unregisters `ViewerTextTargetApi`. Its implemented `captureViewport()` returns a Promise of a captured HTML point or typed unavailable reason. Selection capture is deferred to Stage 5. No audio side effects. |
+| Target snapshot | HTML capture snapshots viewport geometry synchronously, then yields two animation frames for browser visibility delivery. Source/view mutations, scroll or reflow before completion return stale rather than retargeting. Captured output includes `segmentLengths` and `isCurrent()` for source revision/root lifetime validation. No DOM references are serialized. Selection will still snapshot its actual DOM point before focus loss. |
 | Normalized source point | HTML: readable segment index + normalized UTF-16 offset. PDF: page index + original text-item/block order + source offset. Do not conflate the two coordinate systems. |
 | Resolver result | `resolved` with canonical chunk index/id, or `unavailable` with `not-ready`, `unmapped`, `ambiguous`, `invalid-source` or `invalid-point`. Capture/coordinator additionally own `no-visible-text` and `stale`; the pure resolver does not inspect DOM or session identity. Unexpected errors remain errors rather than successful fallbacks. |
 | Player initial start | Add an optional start index, defaulting to zero for existing callers. It refers to the same canonical nonempty chunk sequence used by playback/native signatures. Pass the complete sequence, never a sliced tail. |
@@ -238,12 +240,12 @@ OCR capture/highlighting support until the actual overlay path is verified.
 
 | Integration surface | Planned change | Removal action |
 | --- | --- | --- |
-| `src/tts/playAnywhere/` | `sourceChunkResolver.ts` and its focused test exist; adapters/coordinator follow later. | Delete feature-owned implementation/tests after disconnecting callers. Currently tests are the resolver's only callers. |
-| `src/viewers/types.ts`, `HtmlViewer.tsx`, `PdfViewer.tsx` | Optional target capability registration; PDF follow input. Helpers stay out of large viewer components. | Remove optional capability props/registrations/type imports and feature-only helpers; retain normal viewer behavior. |
-| `src/components/DocumentViewer/DocumentViewer.tsx`, `src/App.tsx` | Wire capability refs, actions and session-local follow state; clean up on view replacement. | Remove feature wiring/state; ordinary controls/bookmarks/Find still work. |
+| `src/tts/playAnywhere/` | `sourceChunkResolver.ts`, `htmlTextTarget.ts` and their tests exist; PDF/coordinator follow later. | Disconnect HTML factory/viewport helper imports and delete feature-owned files. Resolver production wiring remains absent. |
+| `src/viewers/types.ts`, `HtmlViewer.tsx`, `PdfViewer.tsx` | HTML target result/API/viewport types and optional `onTextTargetApiChange` / `getTextTargetViewport` props exist. PDF capture/follow inputs remain pending. | Remove optional props, HTML registration/effect and type imports; retain normal viewer behavior. |
+| `src/components/DocumentViewer/DocumentViewer.tsx`, `src/App.tsx` | DocumentViewer forwards optional registration and supplies chrome-clipped bounds. App has no consumer yet; audio actions/follow state are pending. | Remove the optional callback/viewport wiring. Ordinary controls/bookmarks/Find still work. |
 | `src/tts/hooks/useAudiobookManager.ts`, `useAudiobookDocument.ts` | Supply prepared chunks even before playback; select correct audio identity; expose actions. | Disconnect coordinator/actions; retain original preparation and legacy highlight recovery. |
 | `src/tts/hooks/useTtsPlayer.ts` | Backward-compatible start index and narrowly scoped seek-and-play support. | Omit start index to recover zero-start behavior; remove unused additions after checking all callers. Retain original navigation guards. |
-| `src/tts/alignment/domTextSegments.ts` and imported-span helpers, only if needed | Reuse/export the smallest shared inverse mapping or validated span recovery. | Remove feature-only exports after a caller search. Preserve helpers still used by highlighting. |
+| `src/tts/alignment/domTextSegments.ts` and imported-span helpers | `normalizeDomTextPoint` supplies the inverse normalized offset for an existing segment's Text nodes. Runtime legacy recovery wiring remains pending. | Remove the inverse helper/test if unused after deleting the adapter; preserve forward highlight mapping and legacy recovery. |
 | `src/pdf/ocr/pdfOcrTextLayer.ts`, if needed in Stage 2 | Expose transient source-block offsets alongside existing selectable OCR lines. | Remove feature-only inverse mapping consumers/exports; retain line rendering and persisted OCR data. |
 | `src/tts/hooks/useTtsHighlight.ts`, PDF highlight/reveal path | Optional following control and pending-scroll cancellation. | Omit the optional policy to retain baseline automatic following; keep unrelated highlight fixes. |
 | `src/tts/components/AudioControls.tsx` and existing styles | Optional viewport/selection/beginning/return actions and accessible states. | Remove feature actions/styles and restore baseline idle play wiring. |
@@ -351,19 +353,60 @@ No production caller imports the resolver yet.
 
 ### Stage 2 — Viewer capture and PDF/OCR mapping
 
-- [ ] Implement optional HTML and PDF capture capability registration/cleanup.
+- [x] Implement optional HTML capture registration/cleanup through HtmlViewer and
+  DocumentViewer. With no callback consumer, no capture observers/index work run.
+- [ ] Implement the corresponding PDF capture capability.
+- [x] Map live HTML Text-node points back into normalized narration segments;
+  verify against existing forward Range mapping. Capture visible HTML in source
+  order beneath chrome, including columns, RTL, enlarged text and nested scrolling.
 - [ ] Resolve first visible narrated text beneath occluding controls and preserve
-  source order across columns. Support nested scroll containers, fullscreen,
-  zoom, rotation, images, reflow and enlarged text.
+  source order for PDF; verify nested PDF containers, fullscreen, zoom/rotation
+  and image/text boundaries. Physical mobile/WebView acceptance is still open.
 - [ ] Reverse-map PDF text items and recognized-text source runs; handle missing
   virtualized layers as not-ready. Validate fallback capability detection for
   `caretPositionFromPoint` / existing WebKit caret fallback.
-- [ ] Test DOM replacement, Find marks, reader close and stale captured nodes.
+- [x] Test HTML formatting/Find-style marks, immediate text mutation, URL
+  replacement/unmount, pending scroll/reflow, document hiding, detached root,
+  repeated capture and disposal. Test standard and fallback caret API branches
+  in Chromium; actual WebKit/device checks remain pending.
+- [ ] Connect prepared chunks and validate live chunk/span identity. Reuse the
+  existing ordered legacy reconstruction when durable spans are unavailable;
+  do not feed merely length-valid, stale spans to playback.
 
 Acceptance: rendered-browser fixture tests assert actual geometry/selection
 mapping rather than relying on jsdom layout. Supported visible passages resolve
 to expected chunks after reflow/Find/zoom; unsupported pages report unavailable.
 Absent capability props leave ordinary reading behavior unchanged.
+
+HTML implementation details: `createHtmlTextTargetApi(root, getViewport)` owns a
+lazy structural index and browser IntersectionObserver for readable owners.
+Only owners currently intersecting the viewport receive text geometry checks;
+no book-wide geometry walk runs on scroll or timeupdate. Fresh ancestor clipping
+is applied because cached intersection rectangles can move without a new observer
+notification. Caret hits from both ends of each visible fragment are compared in
+source order, avoiding an assumption that left-to-right screen order equals
+narration order. The existing WebKit caret fallback is feature-detected.
+
+`readerTextViewport` intersects the reading surface with the visual viewport and
+conservatively excludes header/Find/player rectangles across the reader width.
+This intentionally avoids selecting obscured content alongside floating controls.
+`normalizeDomTextPoint` replays existing segment whitespace normalization and
+advances a whitespace/boundary caret to the next narrated character in that same
+segment. It does not modify text, chunking, DOM or stored metadata.
+
+The asynchronous viewport contract refines the original synchronous-text-point
+proposal: browser visibility is delivered after layout, so viewport geometry is
+captured first and must remain stable through the two-frame wait. No click is
+silently redirected to a later scrolled position. New captures supersede pending
+ones; hiding, disposing or replacing the view cancels pending work. Unexpected
+capture errors reject the Promise. `isCurrent()` drains queued mutations before
+checking identity, so even an immediate DOM replacement invalidates old output.
+
+Known limits: one oversized Text node requires its complete line-rectangle list,
+and inverse normalization scans its containing segment. Those costs need the
+planned performance gate before release; no benchmark claim is made here.
+Selection UI, real EPUB/native WebView smoke, full PDF/OCR support and audio
+dispatch are not part of this HTML-only delivery.
 
 ### Stage 3 — Initial start and active navigation
 
@@ -509,6 +552,44 @@ device/performance acceptance is recorded yet.
 - Next implementation: Stage 2, starting with HTML viewport/selection point
   conversion and optional viewer capability, then PDF item/OCR inverse mapping.
   Keep player dispatch and visible controls deferred to Stages 3–5.
+
+### 2026-10-22 — Stage 2a optional HTML viewport capability
+
+- Previous resolver work committed first as `7790bf2`; this delivery remains a
+  separate, uncommitted patch on `feature/play-anywhere` until requested.
+- Added only the HTML adapter, shared inverse point helper, viewer types and
+  optional registration/bounds wiring. App does not register a consumer, and
+  existing reader/player behavior remains the baseline. No audio/cache/native
+  code, storage, dependency, localization, build configuration or CI change.
+- Added DOM round-trip/whitespace/reference tests and React lifecycle tests
+  proving no optional-capability setup without a consumer and disposal even when
+  the URL changes while body content stays identical. A viewport-provider failure
+  is verified to reject the capture Promise rather than throw synchronously.
+- Real Chromium tests bundle the actual helper modules with the installed Vite
+  API and use disposable local fixtures/profile. A DevTools pipe awaits real
+  asynchronous layout (dump-dom virtual time was insufficient for reliable RAF
+  completion). Geometry is compared with an independent per-glyph Range oracle;
+  captured source points also resolve through the production chunker and resolver.
+- Ten browser cases cover narrow/enlarged RTL, two columns, long paragraphs,
+  caret fallback, hidden/reference text, nested scroll/reflow, mutation, scroll,
+  replacement/disposal, hidden document/detached reader, missing caret APIs and
+  an image-only viewport. The fallback branch running in Chromium does not
+  establish actual WebKit support. Tests follow the existing local Chrome skip /
+  CI-required browser convention and add no package dependency.
+- Environment: Linux, Node `v24.21.0`, Chromium `155.0.8059.84` (Arch Linux).
+  Fixtures/profile remain disposable; no installed application or user library
+  was opened or modified.
+- Validation: focused capture/resolver tests passed 63 in four files. Final full
+  frontend suite passed 436 with one existing skip across 63 files, including
+  the additional Promise-error regression; focused/full counts overlap.
+  TypeScript, focused
+  ESLint, documentation link/whitespace checks and diff checks passed. Chromium
+  needed its usual sandbox exception for local process sockets. No native suite,
+  packaging, listening, device/AT or performance acceptance is claimed.
+- Next: finish Stage 2 with PDF.js item capture and transient OCR line-to-source
+  mappings, then verify live prepared-chunk/legacy identity integration. Audio
+  start/seek and visible controls remain Stages 3–5. Stage 0 physical baseline
+  and the full platform acceptance matrix are still open.
 
 ## 7. Standards and design rationale
 

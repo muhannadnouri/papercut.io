@@ -9,7 +9,7 @@ import {
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { resolveViewer } from '../../viewers/registry'
-import type { ViewerBookmarkApi, ViewerFindApi } from '../../viewers/types'
+import type { ViewerBookmarkApi, ViewerFindApi, ViewerTextTargetApi } from '../../viewers/types'
 import { FindBar } from '../FindBar/FindBar'
 import { ScrollTopButton } from '../ScrollTopButton/ScrollTopButton'
 import { ReaderSettings } from '../ReaderSettings/ReaderSettings'
@@ -20,6 +20,7 @@ import { getExternalLinkUrl, getInternalDocumentHash } from './linkUtils'
 import { useFindInPage } from '../../hooks/useFindInPage'
 import { useReaderBookmark } from '../../hooks/useReaderBookmark'
 import { useTtsHighlight } from '../../tts/hooks/useTtsHighlight'
+import { readerTextViewport } from '../../tts/playAnywhere/htmlTextTarget'
 import type { SearchOpenTarget } from '../../types/search'
 import type { TtsChunk } from '../../tts/types'
 import { openExternalUrl } from '../../utils/openExternalUrl'
@@ -68,6 +69,7 @@ interface DocumentViewerProps {
   loading?: boolean
   loadError?: string
   onClose: () => void
+  onTextTargetApiChange?: (api: ViewerTextTargetApi | null) => void
 }
 
 export function DocumentViewer({
@@ -84,6 +86,7 @@ export function DocumentViewer({
   loading = false,
   loadError,
   onClose,
+  onTextTargetApiChange,
 }: DocumentViewerProps) {
   const { t } = useTranslation()
   const readerShellRef = useRef<HTMLDivElement | null>(null)
@@ -92,6 +95,10 @@ export function DocumentViewer({
   const fullscreenPointerActivityRef = useRef(0)
   const fullscreenTouchStartRef = useRef<(PointerPosition & { id: number }) | null>(null)
   const plugin = resolveViewer(url, format)
+  const getTextTargetViewport = useCallback(() => {
+    const shell = readerShellRef.current
+    return shell ? readerTextViewport(shell) : null
+  }, [])
   const [viewerBookmarkApi, setViewerBookmarkApi] = useState<ViewerBookmarkApi | null>(null)
   const [viewerFindApi, setViewerFindApi] = useState<ViewerFindApi | null>(null)
   const [viewerToolbarTarget, setViewerToolbarTarget] = useState<HTMLDivElement | null>(null)
@@ -537,6 +544,8 @@ export function DocumentViewer({
             onBookmarkApiChange={setViewerBookmarkApi}
             onFindApiChange={setViewerFindApi}
             onFindResult={handleViewerFindResult}
+            onTextTargetApiChange={onTextTargetApiChange}
+            getTextTargetViewport={onTextTargetApiChange ? getTextTargetViewport : undefined}
             onFullscreenChange={togglePdfFullscreen}
           />
         )}

@@ -14,6 +14,27 @@ export interface ViewerFindApi {
   clear: () => void
 }
 
+export interface ViewerViewportBounds {
+  top: number
+  bottom: number
+  left: number
+  right: number
+}
+
+export type ViewerTextTargetResult = {
+  status: 'captured'
+  point: { format: 'html'; segmentIndex: number; offset: number }
+  segmentLengths: readonly number[]
+  isCurrent: () => boolean
+} | {
+  status: 'unavailable'
+  reason: 'not-ready' | 'no-visible-text' | 'unmapped' | 'stale'
+}
+
+export interface ViewerTextTargetApi {
+  captureViewport: () => Promise<ViewerTextTargetResult>
+}
+
 export interface PdfBookmarkLocation {
   pageNumber: number
   left: number
@@ -47,6 +68,8 @@ export interface ViewerProps {
   onBookmarkApiChange?: (api: ViewerBookmarkApi | null) => void
   onFindApiChange?: (api: ViewerFindApi | null) => void
   onFindResult?: (result: ViewerFindResult) => void
+  onTextTargetApiChange?: (api: ViewerTextTargetApi | null) => void
+  getTextTargetViewport?: () => ViewerViewportBounds | null
   onFullscreenChange?: () => void
 }
 
