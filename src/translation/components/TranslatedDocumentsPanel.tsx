@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AppDialog } from '../../components/AppDialog/AppDialog'
 import { Panel } from '../../components/Panel/Panel'
+import { TranslationReviewDialog } from './TranslationReviewDialog'
 import type { TranslatedDocumentInfo, TranslationDeleteResult } from '../api/nativeTranslation'
 import { formatLanguageLabel, formatStatusLabel } from '../utils/presentation'
 
@@ -11,6 +12,7 @@ interface TranslatedDocumentsPanelProps {
   deleteState: TranslationDeleteResult | null
   onDeleteTranslatedDocument: (id: string) => Promise<void>
   onOpenTranslatedDocument: (url: string) => void | Promise<void>
+  onReviewPublished: (document: TranslatedDocumentInfo) => Promise<void>
 }
 
 /** Own saved-list presentation only; native deletion and Library refresh stay in the manager. */
@@ -20,11 +22,14 @@ export function TranslatedDocumentsPanel({
   deleteState,
   onDeleteTranslatedDocument,
   onOpenTranslatedDocument,
+  onReviewPublished,
 }: TranslatedDocumentsPanelProps) {
   const { t, i18n } = useTranslation()
   const locale = i18n.resolvedLanguage ?? i18n.language
   const [docsOpen, setDocsOpen] = useState(true)
   const [confirmingDeleteId, setConfirmingDeleteId] = useState('')
+  // Keep the session open if a different window deletes the row; native Save reports that conflict.
+  const [reviewingDocument, setReviewingDocument] = useState<TranslatedDocumentInfo | null>(null)
   // Refresh can remove or rename a row while its dialog is open; never retain a stale document snapshot.
   const confirmingDocument = useMemo(
     () => translatedDocuments.find((doc) => doc.id === confirmingDeleteId) ?? null,
@@ -83,6 +88,14 @@ export function TranslatedDocumentsPanel({
                   <button
                     type="button"
                     className="translation-document-view-btn"
+                    aria-label={t('translation.review.openLabel', { title: doc.title })}
+                    onClick={() => setReviewingDocument(doc)}
+                  >
+                    {t('translation.review.title')}
+                  </button>
+                  <button
+                    type="button"
+                    className="translation-document-view-btn"
                     aria-label={t('translation.documents.viewLabel', { title: doc.title })}
                     onClick={() => { void onOpenTranslatedDocument(doc.documentUrl) }}
                   >
@@ -104,6 +117,14 @@ export function TranslatedDocumentsPanel({
           <p className="translation-section-empty">{t('translation.documents.empty')}</p>
         )}
       </Panel>
+      {reviewingDocument && (
+        <TranslationReviewDialog
+          key={reviewingDocument.id}
+          document={reviewingDocument}
+          onClose={() => setReviewingDocument(null)}
+          onPublished={onReviewPublished}
+        />
+      )}
       {confirmingDocument && (
         <AppDialog
           title={t('translation.confirmDelete.title')}

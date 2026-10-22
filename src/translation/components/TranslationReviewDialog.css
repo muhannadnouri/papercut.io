@@ -1,0 +1,37 @@
+.translation-review-dialog { width: min(100%, 58rem); }
+.translation-review-dialog .app-dialog-body { gap: 1rem; }
+.translation-review-dialog p { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.translation-review-dialog h3 { margin: 0 0 .5rem; font-size: 1rem; }
+.translation-review-dialog button, .translation-review-dialog select, .translation-review-dialog summary { min-height: 2.75rem; }
+.translation-review-dialog button, .translation-review-dialog select { border: 1px solid var(--border-strong); border-radius: var(--radius-control); padding: .5rem .75rem; background: var(--control-surface); color: var(--text-heading); font: inherit; cursor: pointer; }
+.translation-review-dialog button:disabled, .translation-review-dialog select:disabled { opacity: .55; cursor: not-allowed; }
+.translation-review-dialog .app-dialog-submit { background: var(--accent); color: var(--text-inverse); border-color: var(--accent); }
+.translation-review-dialog button:focus-visible, .translation-review-dialog select:focus-visible, .translation-review-dialog summary:focus-visible, .translation-review-english:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.translation-review-dialog button[aria-pressed="true"] { background: var(--accent); color: var(--text-inverse); }
+.translation-review-dialog button[aria-pressed="mixed"] { border: 2px dashed var(--accent); }
+.translation-review-content { display: grid; gap: 1rem; }
+.translation-review-buttons { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.translation-review-buttons label { display: flex; align-items: center; gap: .5rem; min-width: 0; }
+.translation-review-buttons select { max-width: 100%; }
+.translation-review-english { white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; padding: 1rem; border: 1px solid var(--border-strong); border-radius: var(--radius-control); background: var(--surface-muted); color: var(--text-body); line-height: 1.65; }
+.translation-review-source { border: 1px solid var(--border-strong); border-radius: var(--radius-control); padding: .5rem .75rem; }
+.translation-review-source summary { display: list-item; cursor: pointer; font-weight: 700; padding: .5rem 0; }
+.translation-review-source > div { overflow: auto; max-height: 18rem; line-height: 1.65; overflow-wrap: anywhere; }
+.translation-review-source pre { white-space: pre-wrap; }
+.translation-review-source table { border-collapse: collapse; }
+.translation-review-source td, .translation-review-source th { border: 1px solid var(--border-strong); padding: .25rem; }
+.translation-review-marks ul { display: grid; gap: .5rem; padding-inline-start: 1.25rem; }
+.translation-review-marks li { overflow-wrap: anywhere; }
+.translation-review-marks li button { margin-inline-start: .5rem; }
+.translation-review-confirm, .translation-review-blockers { padding: 1rem; background: var(--surface-muted); border: 1px solid var(--border-strong); border-radius: var(--radius-control); }
+.translation-review-error { color: var(--danger-strong); }
+.translation-review-error p { margin-bottom: .5rem; }
+@media (max-width: 600px) {
+  .translation-review-dialog { padding: .85rem; }
+  .translation-review-buttons label { width: 100%; flex-wrap: wrap; }
+  .translation-review-marks li button { display: block; margin-inline-start: 0; }
+}
+.translation-review-keyboard summary { cursor: pointer; padding: .5rem 0; }
+.translation-review-keyboard label { display: grid; gap: .5rem; }
+.translation-review-keyboard textarea { width: 100%; min-height: 8rem; box-sizing: border-box; resize: vertical; font: inherit; line-height: 1.6; padding: .75rem; background: var(--surface-muted); color: var(--text-body); border: 1px solid var(--border-strong); border-radius: var(--radius-control); }
+.translation-review-keyboard textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }

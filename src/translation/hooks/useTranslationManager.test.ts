@@ -122,6 +122,30 @@ describe('translation manager cancellation ownership', () => {
   })
 })
 
+describe('review publication refreshes existing consumers without inference', () => {
+  it('refreshes the same Library URL even when no generating model is available', async () => {
+    const published = { ...savedDocument, status: 'ready', updatedAtMs: 2 }
+    mock.capabilities.mockResolvedValue({ available: false, models: [] })
+    mock.list.mockResolvedValue([published])
+    await act(async () => { await manager.onReviewPublished(published) })
+    expect(manager.translatedDocuments).toEqual([published])
+    expect(mock.libraryChanged).toHaveBeenCalledExactlyOnceWith(published.documentUrl)
+    expect(mock.start).not.toHaveBeenCalled()
+    expect(mock.install).not.toHaveBeenCalled()
+    expect(mock.remove).not.toHaveBeenCalled()
+  })
+
+  it('reports a failed consumer refresh without reverting a successful native publication', async () => {
+    const published = { ...savedDocument, status: 'ready', updatedAtMs: 2 }
+    mock.list.mockResolvedValue([published])
+    mock.libraryChanged.mockRejectedValueOnce(new Error('Library refresh failed'))
+    await act(async () => { await manager.onReviewPublished(published) })
+    expect(manager.translatedDocuments).toEqual([published])
+    expect(manager.error).toContain('Library refresh failed')
+    expect(mock.start).not.toHaveBeenCalled()
+  })
+})
+
 const pack = 'alignment-awesome-align-int8'
 describe('auxiliary setup uses the shared installer lifecycle', () => {
   it('refreshes the separate auxiliary status without inserting it into engine choices or downloading', async () => {
@@ -195,7 +219,7 @@ async function workbench(modelToInstall = nativeModel.id) {
     await act(async () => { [...container.querySelectorAll('button')].find(b => b.textContent?.includes('translation.models.title'))!.click() })
   }
 }
-function installButton(_modelId = nativeModel.id) {
+function installButton() {
   return container.querySelector<HTMLButtonElement>('.translation-model-item .translation-model-install-btn')!
 }
 function installProgress(modelId: string, status = 'downloading'): TranslationModelInstallProgress {
@@ -208,24 +232,24 @@ describe('download failure recovery through the workbench', () => {
     await workbench(modelId)
     let fail!: (reason: Error) => void
     mock.install.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject }))
-    await act(async () => { installButton(modelId).click() })
+    await act(async () => { installButton().click() })
     await act(async () => { mock.installProgress!(installProgress(modelId, 'starting')); mock.installProgress!(installProgress(modelId)) })
     expect(manager.modelStatuses[modelId].installing).toBe(true)
-    expect(installButton(modelId).disabled).toBe(true)
+    expect(installButton().disabled).toBe(true)
     await act(async () => { fail(new Error('Download interrupted')) })
     expect(manager.modelInstallState).toMatchObject({ installingModelId: '', progress: null, result: null, message: 'Download interrupted' })
     expect(manager.modelStatuses[modelId]).toMatchObject({ installed: false, installing: false })
-    expect(installButton(modelId).disabled).toBe(false)
+    expect(installButton().disabled).toBe(false)
     // A queued event from the failed attempt cannot relock the retry control.
     await act(async () => { mock.installProgress!(installProgress(modelId)) })
-    expect(installButton(modelId).disabled).toBe(false)
+    expect(installButton().disabled).toBe(false)
     expect(manager.modelInstallState.message).toBe('Download interrupted')
     let succeed!: (value: { modelId: string; bytes: number }) => void
     mock.install.mockImplementationOnce(() => new Promise(resolve => { succeed = resolve }))
-    await act(async () => { installButton(modelId).click() })
+    await act(async () => { installButton().click() })
     await act(async () => { mock.installProgress!({ ...installProgress(modelId), percent: 54, downloadedBytes: 66 }) })
     expect(manager.modelInstallState.progress?.percent).toBe(54)
-    expect(installButton(modelId).disabled).toBe(true)
+    expect(installButton().disabled).toBe(true)
     mock.status.mockImplementation(async id => ({ ...absent, modelId: id, installed: true }))
     await act(async () => { succeed({ modelId, bytes: 123 }) })
     expect(mock.install).toHaveBeenCalledTimes(2)

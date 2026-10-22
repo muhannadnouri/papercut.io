@@ -38,6 +38,21 @@ pub(in crate::translation) struct Snapshot {
     mappings: Vec<Mapping>,
 }
 
+/// Comparison fragments contain native-sanitized evidence; the UI must still render an inert semantic clone.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(in crate::translation) struct BlockPreview {
+    source_html: String,
+    blockers: Vec<String>,
+}
+
+pub(in crate::translation) struct EditorPreview {
+    pub source_html: String,
+    pub target_html: String,
+    pub blocks: Vec<BlockPreview>,
+    pub publication_error: Option<String>,
+}
+
 /// Parsed evidence is borrowed for one operation; deserialized snapshots never carry admission flags.
 struct ValidatedSnapshot<'a> {
     snapshot: &'a Snapshot,
@@ -229,9 +244,61 @@ impl Snapshot {
     }
 
     /// Both response previews share one evidence validation and the same parsed source/English trees.
+    #[cfg(test)]
     pub(in crate::translation) fn previews(&self) -> Result<(String, String), Error> {
         let validated = self.validated()?;
         Ok((validated.source_preview()?, validated.reconstruct()?))
+    }
+
+    /// Present blockers from immutable evidence even before approval, using one validated parse and mark pass.
+    pub(in crate::translation) fn editor_preview(&self) -> Result<EditorPreview, Error> {
+        let validated = self.validated()?;
+        let source_html = validated.source_preview()?;
+        // Fragments share the full source preview's namespace, and never become reader HTML.
+        let blocks = validated.block_previews()?;
+        let publication_guard = self
+            .document
+            .blocks
+            .iter()
+            .all(|block| block.remaining().is_empty())
+            .then(|| {
+                (
+                    consumer_signature(&validated.target.document),
+                    document_identifiers(&validated.target.document),
+                )
+            });
+        validated.apply_marks()?;
+        let target_html = if self
+            .document
+            .blocks
+            .iter()
+            .all(|block| block.editable.is_empty())
+        {
+            self.baseline_html.clone()
+        } else {
+            serialize(&validated.target.document)?
+        };
+        let publication_error = if let Some((before, identifiers)) = publication_guard {
+            validated
+                .publication_marked(&self.document.expected, before, identifiers)
+                .err()
+                .map(|error| {
+                    match error {
+                        Error::Pending => "publication-blocked",
+                        Error::Limit => "publication-limit",
+                        _ => "publication-invalid",
+                    }
+                    .to_owned()
+                })
+        } else {
+            None
+        };
+        Ok(EditorPreview {
+            source_html,
+            target_html,
+            blocks,
+            publication_error,
+        })
     }
 
     /// Publication removes fallback prose only after native approval and consumer-equivalence checks.
@@ -241,94 +308,7 @@ impl Snapshot {
         let before = consumer_signature(&validated.target.document);
         let identifiers = document_identifiers(&validated.target.document);
         validated.apply_marks()?;
-        for (mapping, block) in self.mappings.iter().zip(&validated.target.blocks) {
-            if !mapping.needs_review {
-                continue;
-            }
-            let label = block.node.previous_sibling().ok_or(Error::Evidence)?;
-            let original = label.previous_sibling().ok_or(Error::Evidence)?;
-            if review_marker(&label).as_deref() != Some("label")
-                || review_marker(&original).as_deref() != Some("original")
-            {
-                return Err(Error::Evidence);
-            }
-            // Source-only literals, attachments and nested anchors need their own mapping workflow.
-            if original.as_element().is_some_and(|element| {
-                element.name.local.as_ref() == "pre"
-                    || element
-                        .attributes
-                        .borrow()
-                        .get("translate")
-                        .is_some_and(|value| value.eq_ignore_ascii_case("no"))
-            }) {
-                return Err(Error::Pending);
-            }
-            for node in original.descendants() {
-                if node
-                    .inclusive_ancestors()
-                    .any(|ancestor| review_marker(&ancestor).as_deref() == Some("label"))
-                {
-                    continue;
-                }
-                if let Some(element) = node.as_element() {
-                    let attributes = element.attributes.borrow();
-                    if !matches!(
-                        element.name.local.as_ref(),
-                        "b" | "strong" | "i" | "em" | "span"
-                    ) || attributes.get("id").is_some()
-                        || attributes.get("name").is_some()
-                        || attributes
-                            .get("translate")
-                            .is_some_and(|v| v.eq_ignore_ascii_case("no"))
-                        || attributes.get("role").is_some()
-                        || attributes.get("epub:type").is_some()
-                    {
-                        return Err(Error::Pending);
-                    }
-                }
-            }
-            let original_element = original.as_element().ok_or(Error::Evidence)?;
-            let target_element = block.node.as_element().ok_or(Error::Evidence)?;
-            for name in ["id", "name"] {
-                if let Some(value) = original_element.attributes.borrow().get(name) {
-                    let mut target = target_element.attributes.borrow_mut();
-                    if target.get(name).is_some_and(|existing| existing != value) {
-                        return Err(Error::Evidence);
-                    }
-                    target.insert(name, value.to_owned());
-                }
-            }
-            label.detach();
-            original.detach();
-        }
-        if validated
-            .target
-            .document
-            .select("[data-papercut-translation-review]")
-            .map_err(|_| Error::Evidence)?
-            .next()
-            .is_some()
-            || consumer_signature(&validated.target.document) != before
-            || document_identifiers(&validated.target.document) != identifiers
-        {
-            return Err(Error::Evidence);
-        }
-        let output = serialize(&validated.target.document)?;
-        // Added wrappers must obey the same native snapshot bounds and reader sanitizer as the baseline.
-        checked_plan(&output)?;
-        let before = crate::document_uploads::parse_reader_html_document(&self.baseline_html);
-        let after = crate::document_uploads::parse_reader_html_document(&output);
-        if before.sections.len() != after.sections.len()
-            || before.sections.iter().zip(&after.sections).any(|(a, b)| {
-                a.heading != b.heading
-                    || a.text != b.text
-                    || a.body_ranges != b.body_ranges
-                    || a.page_index != b.page_index
-            })
-        {
-            return Err(Error::Evidence);
-        }
-        Ok(output)
+        validated.publication_marked(expected, before, identifiers)
     }
 
     /// A separate namespace keeps full-source notes/backlinks usable beside the English preview.
@@ -347,7 +327,110 @@ impl Snapshot {
 }
 
 impl ValidatedSnapshot<'_> {
+    /// Mark application is shared with the editor; this gate still enforces approval and every publication invariant.
+    fn publication_marked(
+        self,
+        expected: &Expected,
+        before: Vec<ConsumerPart>,
+        identifiers: BTreeMap<(String, String), usize>,
+    ) -> Result<String, Error> {
+        super::finish(
+            Some(&self.snapshot.document),
+            expected,
+            self.snapshot.evidence(),
+        )?;
+        for (mapping, block) in self.snapshot.mappings.iter().zip(&self.target.blocks) {
+            if !mapping.needs_review {
+                continue;
+            }
+            let (label, original) = retained_original(&block.node)?;
+            if source_only_blocker(&original).is_some() {
+                return Err(Error::Pending);
+            }
+            let original_element = original.as_element().ok_or(Error::Evidence)?;
+            let target_element = block.node.as_element().ok_or(Error::Evidence)?;
+            for name in ["id", "name"] {
+                if let Some(value) = original_element.attributes.borrow().get(name) {
+                    let mut target = target_element.attributes.borrow_mut();
+                    if target.get(name).is_some_and(|existing| existing != value) {
+                        return Err(Error::Evidence);
+                    }
+                    target.insert(name, value.to_owned());
+                }
+            }
+            label.detach();
+            original.detach();
+        }
+        if self
+            .target
+            .document
+            .select("[data-papercut-translation-review]")
+            .map_err(|_| Error::Evidence)?
+            .next()
+            .is_some()
+            || consumer_signature(&self.target.document) != before
+            || document_identifiers(&self.target.document) != identifiers
+        {
+            return Err(Error::Evidence);
+        }
+        let output = serialize(&self.target.document)?;
+        // Added wrappers must obey the same native snapshot bounds and reader sanitizer as the baseline.
+        checked_plan(&output)?;
+        let before =
+            crate::document_uploads::parse_reader_html_document(&self.snapshot.baseline_html);
+        let after = crate::document_uploads::parse_reader_html_document(&output);
+        if before.sections.len() != after.sections.len()
+            || before.sections.iter().zip(&after.sections).any(|(a, b)| {
+                a.heading != b.heading
+                    || a.text != b.text
+                    || a.body_ranges != b.body_ranges
+                    || a.page_index != b.page_index
+            })
+        {
+            return Err(Error::Evidence);
+        }
+        Ok(output)
+    }
+
+    /// Derive display-only blockers rather than persisting new obligations into older snapshot generations.
+    fn block_previews(&self) -> Result<Vec<BlockPreview>, Error> {
+        self.snapshot
+            .document
+            .blocks
+            .iter()
+            .zip(&self.snapshot.mappings)
+            .zip(&self.target.blocks)
+            .zip(&self.source.blocks)
+            .map(|(((block, mapping), target), source)| {
+                let mut blockers = block
+                    .remaining()
+                    .into_iter()
+                    .filter_map(|obligation| match obligation {
+                        Obligation::Emphasis => None,
+                        Obligation::Typography => Some("typography"),
+                        Obligation::Link => Some("link"),
+                        Obligation::Note => Some("note"),
+                        Obligation::Attachment => Some("attachment"),
+                        Obligation::SourceFormatting => Some("sourceFormatting"),
+                    })
+                    .map(str::to_owned)
+                    .collect::<Vec<_>>();
+                if mapping.needs_review {
+                    let (_, original) = retained_original(&target.node)?;
+                    if let Some(code) = source_only_blocker(&original) {
+                        blockers.push(code.to_owned());
+                    }
+                }
+                Ok(BlockPreview {
+                    source_html: serialize(&source.node)?,
+                    blockers,
+                })
+            })
+            .collect()
+    }
+
     /// Consume this operation's fresh tree; another preview always starts from the immutable baseline.
+    #[cfg(test)]
     fn reconstruct(self) -> Result<String, Error> {
         if self
             .snapshot
@@ -463,6 +546,67 @@ impl ValidatedSnapshot<'_> {
         }
         serialize(document)
     }
+}
+
+/// The retained pair is renderer-owned; arbitrary preceding siblings cannot stand in for native evidence.
+fn retained_original(target: &NodeRef) -> Result<(NodeRef, NodeRef), Error> {
+    let label = target.previous_sibling().ok_or(Error::Evidence)?;
+    let original = label.previous_sibling().ok_or(Error::Evidence)?;
+    if review_marker(&label).as_deref() != Some("label")
+        || review_marker(&original).as_deref() != Some("original")
+    {
+        return Err(Error::Evidence);
+    }
+    Ok((label, original))
+}
+
+/// The editor can resolve emphasis only; source-only structure remains a blocker even for old drafts.
+fn source_only_blocker(original: &NodeRef) -> Option<&'static str> {
+    let literal = |node: &NodeRef| {
+        node.as_element().is_some_and(|element| {
+            matches!(element.name.local.as_ref(), "pre" | "code" | "kbd" | "samp")
+                || element
+                    .attributes
+                    .borrow()
+                    .get("translate")
+                    .is_some_and(|value| value.eq_ignore_ascii_case("no"))
+        })
+    };
+    if original.as_element().is_some_and(|element| {
+        element.name.local.as_ref() == "pre"
+            || element
+                .attributes
+                .borrow()
+                .get("translate")
+                .is_some_and(|value| value.eq_ignore_ascii_case("no"))
+    }) {
+        return Some("sourceOnlyLiteral");
+    }
+    for node in original.descendants() {
+        if node
+            .inclusive_ancestors()
+            .any(|ancestor| review_marker(&ancestor).as_deref() == Some("label"))
+        {
+            continue;
+        }
+        if literal(&node) {
+            return Some("sourceOnlyLiteral");
+        }
+        if let Some(element) = node.as_element() {
+            let attributes = element.attributes.borrow();
+            if !matches!(
+                element.name.local.as_ref(),
+                "b" | "strong" | "i" | "em" | "span"
+            ) || attributes.get("id").is_some()
+                || attributes.get("name").is_some()
+                || attributes.get("role").is_some()
+                || attributes.get("epub:type").is_some()
+            {
+                return Some("sourceOnlyStructure");
+            }
+        }
+    }
+    None
 }
 
 fn review_marker(node: &NodeRef) -> Option<String> {
@@ -794,3 +938,6 @@ mod traversal_tests;
 
 #[cfg(test)]
 mod publication_tests;
+
+#[cfg(test)]
+mod editor_tests;

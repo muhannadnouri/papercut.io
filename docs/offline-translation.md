@@ -77,11 +77,13 @@ labels; app setup/status explanations use the eight UI locales.
 
 New OPUS results also retain immutable, generation-owned source/English evidence
 and resumable B/I drafts. Stage 3 supplies native draft commands and a pure preview.
-Stage 4 adds guarded native publication; a user-facing review editor is still pending.
+Stage 4 adds guarded native publication; Stage 5 below connects the accessible
+**Review formatting** editor from saved translations, even without installed models.
 Saving a draft does not change
 the current bilingual fallback, Library status, search, narration or saved audio.
 Explicit Finish replaces the fallback only after the current draft passes its
-approval, structural and consumer checks. The review UI is the next stage.
+approval, structural and consumer checks. Human review usability and packaged
+language-quality acceptance remain separate release gates.
 
 Preservation concerns **sanitized reader HTML**, not arbitrary original CSS or
 scripts. Import sanitization can remove style-based bold before translation;
@@ -646,9 +648,8 @@ restore only supported whole-sentence/block or copied-literal scopes under the
 existing checks. The maintainer has authorized the assisted-workflow plan below;
 mixed inline formatting needs explicit review/correction, with the original
 available on demand rather than repeated throughout the reading output. English
-remains unchanged while formatting is edited. Stage 1's pure contracts and Stage
-2a's inline import normalization are implemented; the assisted editor is still
-pending. This is reduced
+remains unchanged while formatting is edited. The staged normalization, durable
+draft, guarded publication and assisted editor work below is implemented. This is reduced
 automation, not the original fully automatic requirement.
 
 If automatic preservation of arbitrary inline bold/italic remains required
@@ -661,7 +662,7 @@ version bump remain deferred; no further candidate evaluation is scheduled.
 
 ## OPUS assisted formatting plan — 2026-10-21
 
-**Stages 1–4 implemented; review UI pending.** Use existing OPUS-MT French/Spanish → English sentence
+**Stages 1–5 implemented; focused UI review and human/packaged acceptance pending.** Use existing OPUS-MT French/Spanish → English sentence
 translation, then let the user correct bold/italic scopes without changing the
 translated characters. Source formatting normalization and target formatting
 review are separate responsibilities. CSS normalization prevents additional
@@ -834,10 +835,10 @@ fixtures/references remain outside tracked files.
 | **2b. Bounded local stylesheet normalization — implemented with coverage corrections** | Add the declared embedded/EPUB-local selector subset and cascade. Test specificity/source order/important precedence, child overrides of inherited importance, multiple sheets/chapter isolation, source matching modes, SVG/XML stylesheet evidence, missing/unsupported rules, media/disabled/alternate-sheet activation, EPUB-relative paths/traversal, recursive imports and budget exhaustion. Zero network or unrelated filesystem reads. Verify duplicate imports preserve old sources and changed normalized identity invalidates incompatible checkpoints |
 | **3. Durable snapshots, drafts and pure reconstruction — implemented** | Version-aware schema v2, immutable evidence, model-independent native draft commands and pure preview. Regression gates cover file-backed save/reload/offline resume, source/model independence, repeated blocks, stale windows, new-generation conflicts, notes/backlinks and source-only assets, preview namespaces, exact target text/protected structure, hostile edits, legacy compatibility and atomic initial-save/draft failure preservation. Publication/UI remain separate |
 | **4. Atomic publication — implemented** | Shared derived-document writer with revision/file checks before promotion, durable publication receipts and on-access interruption recovery. Tests cover concurrent save/delete/regeneration/Finish, partial file/SQLite/index failures, rollback retaining prior variant and draft, repeated completion and recovery before serving HTML. Deleted-variant stale saves create no orphan or revived variant; unresolved obligations or edited/reset approvals block Finish |
-| **5. Accessible review UI and consumer integration** | Dedicated paragraph panel: source collapsed by default, read-only selection, B/I controls, mark list, undo/reset, explicit paragraph approval, progress save and completion. Test keyboard/touch selection, toolbar focus retention, selected/mixed states, navigation with dirty drafts, conflict/error/retry and non-emphasis blockers. Reuse `translationReview.test.ts` and current highlight invalidation to prove identical English extraction, search sections, TTS chunk IDs/text hashes/spans and read-along behavior across added text-node boundaries; existing audio/timings remain unchanged |
+| **5. Accessible review UI and consumer integration — implemented** | Dedicated paragraph panel: source collapsed by default, read-only selection, B/I controls, mark list, undo/reset, explicit paragraph approval, progress save and completion. Tests cover keyboard/touch selection, toolbar focus retention, selected/mixed states, navigation with dirty drafts, conflict/error/retry and non-emphasis blockers. Reuses `translationReview.test.ts` and current Library/cache invalidation; exact native consumer admission still guards English extraction, search sections, TTS chunk IDs/text hashes/spans and read-along behavior across added text-node boundaries. Existing audio/timings remain unchanged; physical-device/accessibility acceptance stays deferred |
 
 The Stage 2b review findings are addressed in the correction receipts below.
-Stages 3–4 are implemented as documented below; review publication before Stage 5 UI.
+Stages 3–5 are implemented as documented below; focused editor review is next.
 CSS import work and assisted review
 remain separate leaves even though they share normalized source identity. Do not
 revive retired alignment setup or split unrelated UI merely to shorten files.
@@ -1343,7 +1344,7 @@ do not require a translation model, engine or network:
 
 | Command | Input / result |
 | --- | --- |
-| `translation_review_load` | `{ id }` returns the current draft document, namespaced full-source preview, reconstructed draft HTML and variant-owned asset paths. `null` means no editable evidence, including legacy results; published reading remains available |
+| `translation_review_load` | `{ id }` returns the current draft document, namespaced full-source preview, reconstructed draft HTML and variant-owned asset paths. Stage 5 adds ordered `blockPreviews` (`sourceHtml`, blocker codes) and `publicationError`, derived from native evidence rather than persisted into old drafts. `null` means no editable evidence, including legacy results; published reading remains available |
 | `translation_review_save` | `{ request: JSON.stringify({ expected, block, edit }) }`, using the returned generation/revision and block key. Edits are `replaceMarks`, `reset` or `approve`; success returns the next draft revision. No input text, HTML, path, asset URL or caller-defined obligation is accepted |
 
 The edge bounds JSON before typed edit decoding (16 KiB; the Tauri transport
@@ -1379,8 +1380,8 @@ warnings. Rust formatting, diff checks and local documentation links passed;
 historical evaluation JSON remains byte-identical. No model inference, full CI
 or packaged acceptance is implied.
 
-This Stage 3 receipt predates the guarded publication implemented below.
-Stage 5 still adds accessible review UI and consumer acceptance. Until a review
+This Stage 3 receipt predates the guarded publication and editor implemented below.
+Until a review
 is explicitly finished, the reading stream keeps its retained-original fallback;
 no stage claims automatic semantic word placement. Other providers
 remain gated; strict alignment disabled; benchmarks, smoke and version bump
@@ -1441,7 +1442,7 @@ the exact schema/policy/variant/generation/revision token returned by Load or Sa
 The 16 KiB decoder rejects unknown fields, replacement HTML/text, caller approval,
 invalid identities, future versions and out-of-range revisions. Success returns
 the existing `TranslatedDocumentInfo` shape with the same document URL and
-published status `ready`. There is still no review editor or Finish UI button.
+published status `ready`. The editor and Finish button are connected in Stage 5 below.
 
 The pure [snapshot publisher](../src-tauri/src/translation/review/snapshot.rs)
 requires every paragraph's current explicit approval and zero remaining
@@ -1504,7 +1505,7 @@ Completion remains deliberately narrow. Unresolved link/note/attachment,
 typography or source-normalization obligations block Finish. Source-only literals,
 protected subtrees, authored line breaks and descendant anchors without an accepted English mapping
 also block removal of their original; explicit emphasis approval cannot erase
-them. Stage 5 must expose these publication preflight reasons alongside the saved
+them. Stage 5 exposes these publication preflight reasons alongside the saved
 obligations, including older drafts whose stored obligation list predates this
 structural guard. No text correction, non-emphasis editing, new aligner, model
 fork or provider admission change is included.
@@ -1575,9 +1576,91 @@ reports only the three existing gated HY-MT2 dead-code warnings. Historical
 evaluation JSON remains byte-identical. No fresh CI, model inference, packaged
 smoke or language-quality acceptance result is claimed.
 
-Next: focused review of these corrections, then Stage 5's accessible review
-editor and consumer integration. Providers stay gated and strict disabled;
+These corrections passed focused review before Stage 5's accessible review
+editor and consumer integration below. Providers stay gated and strict disabled;
 benchmarks, packaged/device smoke and the version bump remain deferred.
+
+### Stage 5 accessible assisted-formatting editor — 2026-10-21
+
+Saved translations now offer **Review formatting** through the existing
+[saved-document panel](../src/translation/components/TranslatedDocumentsPanel.tsx).
+The [editor](../src/translation/components/TranslationReviewDialog.tsx) reuses
+`AppDialog` for focus containment, Escape, backdrop/Close handling and focus
+restoration. No installed model, provider availability, source file or inference
+session is required. Legacy results without native review evidence show a clear
+read-only explanation; View and Delete retain their separate actions.
+
+Only one English paragraph is rendered at a time. The original is collapsed by
+default and reconstructed as inert semantic React elements: no source IDs, CSS,
+active links, forms or remote image/resource requests enter the editor. Source
+fragments are ordered and namespaced by the same validated native snapshot as
+the full comparison preview. The editor cannot change translated characters.
+
+The pure [selection helpers](../src/translation/review/selection.ts) map browser
+UTF-16 selections onto native scalar/grapheme boundaries, including reverse
+selections, combining marks and emoji. Pointer/touch selection works in the
+formatted English preview; a collapsed, read-only textarea provides native
+keyboard selection. Its CR/CRLF normalization is mapped back to the exact saved
+text rather than shifting mark offsets. Foreign/cross-paragraph selections and
+protected literal/attachment ranges reject. Toolbar focus retains the accepted
+logical range. Missing WebView grapheme support fails closed with an explanation.
+
+Bold/italic buttons expose pressed/mixed states. Users can remove an editable
+mark, undo bounded local edits, reset, save and explicitly mark each paragraph
+reviewed, including deliberately unstyled paragraphs. Source-validated baseline
+marks remain fixed. Controls have visible focus and touch-sized targets; source
+comparison and paragraph navigation are keyboard reachable. App chrome is
+localized in all eight supported UI languages.
+
+Unsaved navigation and Close offer Save/Discard/Keep editing in the same modal.
+Only explicit Save/approval sends revision-bound actions through the
+[native bridge](../src/translation/api/nativeTranslation.ts), with the existing
+16 KiB request bound. Busy guards reject repeated synchronous actions, and
+document changes/unmount invalidate late responses. A failed approval after a
+successful Save retains the returned revision. Conflicts keep local edits and
+disable obsolete writes until an explicitly confirmed reload succeeds; a failed
+reload does not unlock the stale draft. Locale/callback changes do not reset the
+editing session. Saved drafts resume on reopening; local unsaved edits do not
+rewrite the reader output.
+
+Load/Save now return display-only per-paragraph blocker codes plus a global
+publication preflight result. These are derived from native evidence, including
+old snapshots whose stored obligations omit source-only structure. B/I approval
+cannot dismiss links, notes, attachments, typography, protected originals or
+unsupported source structure. A summary links to the first blocked paragraph.
+The preflight shares validated trees and a mark pass with preview generation;
+it neither mutates evidence nor weakens the guarded Finish checks.
+
+**Finish review** sends only the current native generation/revision token. It
+is disabled for unsaved/pending/blocked or stale drafts, then repeats native
+publication admission and the existing atomic writer. Successful publication
+refreshes the Library and invalidates existing search/phrase caches for the same
+URL; opening the reader reloads native HTML. Original documents, saved audio,
+English text and timing coordinates remain
+unchanged. This does not introduce automatic word alignment or verify meaning.
+
+Validation: seven new Rust regressions and 38 new frontend cases. Complete
+offline Rust suites passed **746 base** and **748 native-translation** tests,
+with four existing ignores each. The full frontend suite passed **581 tests**
+with one existing skip, including the seven search/narration/read-along consumer
+tests. TypeScript, focused ESLint, eight-locale parity, non-test Rust checking,
+Rust formatting, diff checks and all 25 local documentation links passed.
+The non-test Rust check reports only the three existing gated HY-MT2 dead-code
+warnings; the historical evaluation JSON is byte-identical. Existing shell and
+headless-browser tests initially hit sandbox permission errors and passed when
+rerun with local execution permissions. No inference, fresh full CI, packaged
+smoke, physical-device or assistive-technology acceptance is claimed.
+
+When smoke resumes, check keyboard-only and touch selection, screen-reader
+language/focus announcements, RTL/large-text layout, dirty navigation and
+save/reopen on desktop/mobile. Check Finish on representative HTML/EPUB against
+the original meanings, emphasis scopes, search and existing audio/highlighting.
+These manual cases remain deferred; automated geometry and DOM tests do not
+certify those environments or translation meaning.
+
+Next: focused review of Stage 5 before the prepared human/packaged acceptance.
+Providers remain gated and strict disabled. Benchmarks, packaged/device smoke
+and the app version bump remain deferred.
 
 ## Architecture and ownership
 
@@ -1604,7 +1687,7 @@ All Rust paths below are under [src-tauri/src/translation](../src-tauri/src/tran
 | Rendering | `render.rs`: coverage/order, policy dispatch, protected/review rendering, escaping and serialization |
 | Legacy projection | `render/legacy.rs`: private best-effort text/probe fallback for the old provider path; cannot recover invalid sentence/protected claims |
 | Durable result | `quality.rs`, `storage.rs`: output sanity checks, upload-backed atomic variant write/list/delete |
-| Assisted review | `review/`: immutable native evidence, bounded edit contract and pure B/I preview/publication; `review_store.rs`: revision-bound drafts and publication receipts; `review_publication.rs`: guarded completion through the existing derived writer, no inference |
+| Assisted review | `review/`: immutable native evidence, bounded edit contract, presentation blockers and pure B/I preview/publication; `review_store.rs`: revision-bound drafts and publication receipts; `review_publication.rs`: guarded completion through the existing derived writer, no inference; frontend `review/selection.ts` owns only read-only selection/mark geometry and `TranslationReviewDialog` owns the editor session |
 
 The frontend lives under [src/translation](../src/translation):
 
@@ -2200,9 +2283,10 @@ Stage 1's pure contracts and Stage 2a's inline normalization are complete.
 Stage 2b's coverage and literal-preservation blockers passed focused review.
 Stage 3's durable snapshots, resumable drafts and pure reconstruction, including
 the reviewed whitespace/traversal corrections, are complete. Stage 4 now implements
-guarded atomic publication and recovery, including rename and interrupted-delete
-corrections. Review those corrections before Stage 5's accessible editor/consumer
-integration, which remains pending. This is
+guarded atomic publication and recovery, including reviewed rename and interrupted-delete
+corrections. Stage 5 now connects the accessible editor and existing consumer refresh
+path. Review that editor before resuming the prepared human/packaged acceptance.
+This is
 not another provider experiment or a claim of automatic target formatting.
 Additional passing examples cannot erase a known failure. Use Firefox's
 DOM ownership as an architectural reference, not evidence of solved completeness

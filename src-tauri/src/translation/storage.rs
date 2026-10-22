@@ -280,6 +280,8 @@ pub(crate) struct TranslationReviewDraft {
     document: super::review::Document,
     source_preview_html: String,
     preview_html: String,
+    block_previews: Vec<super::review::BlockPreview>,
+    publication_error: Option<String>,
     asset_paths: std::collections::HashMap<String, String>,
 }
 
@@ -374,13 +376,15 @@ fn review_draft(
     snapshot: super::review::Snapshot,
     asset_paths: std::collections::HashMap<String, String>,
 ) -> Result<TranslationReviewDraft, String> {
-    let (source_preview_html, preview_html) = snapshot
-        .previews()
+    let preview = snapshot
+        .editor_preview()
         .map_err(super::review_store::review_error)?;
     Ok(TranslationReviewDraft {
         document: snapshot.document,
-        source_preview_html,
-        preview_html,
+        source_preview_html: preview.source_html,
+        preview_html: preview.target_html,
+        block_previews: preview.blocks,
+        publication_error: preview.publication_error,
         asset_paths,
     })
 }

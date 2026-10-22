@@ -55,7 +55,7 @@ beforeEach(async () => {
     modelRemoveState: { removingModelId: '', result: null, message: '' }, modelStatuses: {},
     selectedDocument: { title: 'Book', url: '/uploads/book.html', format: 'html' },
     startState: { checking: false, cancelling: false, jobId: '', progress: null, result: null, message: '' }, translatedDocuments: [],
-    onCancelTranslation: vi.fn(), onDeleteTranslatedDocument: vi.fn(), onOpenTranslatedDocument: vi.fn(),
+    onCancelTranslation: vi.fn(), onDeleteTranslatedDocument: vi.fn(), onOpenTranslatedDocument: vi.fn(), onReviewPublished: vi.fn(),
     onInstallTranslationModel: vi.fn(), onRemoveTranslationModel: vi.fn(), onStartTranslationPreflight: vi.fn(), refresh: vi.fn(),
   }
   await render()

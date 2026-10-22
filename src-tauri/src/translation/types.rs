@@ -35,6 +35,16 @@ fn translation_error_code(message: &str) -> &'static str {
     if message.contains("cancelled") {
         return "operation-cancelled";
     }
+    // Only the native CAS conflict is reloadable; corrupt evidence must not become a retry instruction.
+    if message == "formatting review changed; reload this saved translation" {
+        return "review-conflict";
+    }
+    if message == "formatting review is unavailable for this saved translation" {
+        return "review-unavailable";
+    }
+    if message == "formatting review still has unresolved obligations" {
+        return "review-pending";
+    }
     // Public sentence/retired boundary failures do not imply an auxiliary alignment-pack problem.
     if message.contains("boundary translation failed:")
         || message.contains("sentence translation failed:")
@@ -328,6 +338,34 @@ pub(crate) struct TranslationDeleteResponse {
 #[cfg(test)]
 mod tests {
     use super::{translation_error_code, TranslationCommandError};
+
+    #[test]
+    fn review_errors_distinguish_reloadable_conflict_from_corrupt_evidence() {
+        for (message, code) in [
+            (
+                "Formatting review changed; reload this saved translation",
+                "review-conflict",
+            ),
+            (
+                "Formatting review is unavailable for this saved translation",
+                "review-unavailable",
+            ),
+            (
+                "Formatting review still has unresolved obligations",
+                "review-pending",
+            ),
+            (
+                "Saved formatting review evidence does not match",
+                "translation-failed",
+            ),
+            (
+                "Formatting review identity does not match this saved translation",
+                "translation-failed",
+            ),
+        ] {
+            assert_eq!(TranslationCommandError::new(message.into()).code, code);
+        }
+    }
 
     #[test]
     fn sentence_piece_errors_do_not_request_an_alignment_pack_and_cancel_still_wins() {

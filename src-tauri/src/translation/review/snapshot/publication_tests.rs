@@ -1,7 +1,7 @@
 use super::tests::{bold, edit, snapshot};
 use super::*;
 
-fn approve_all(snapshot: &mut Snapshot) {
+pub(super) fn approve_all(snapshot: &mut Snapshot) {
     for block in snapshot.document.blocks.clone() {
         snapshot
             .apply(&EditRequest {
@@ -14,7 +14,7 @@ fn approve_all(snapshot: &mut Snapshot) {
 }
 
 /// Build a source-owned rich mapping without invoking a provider or its retained-original fallback.
-fn mapped_snapshot(html: &str) -> Snapshot {
+pub(super) fn mapped_snapshot(html: &str) -> Snapshot {
     let html = crate::document_uploads::sanitize_html(html);
     let plan = checked_plan(&html).unwrap();
     let (paths, _) = block_paths(&plan).unwrap();

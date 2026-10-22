@@ -522,7 +522,7 @@ pub(super) fn fingerprint(text: &str) -> String {
 }
 
 mod snapshot;
-pub(super) use snapshot::Snapshot;
+pub(super) use snapshot::{BlockPreview, Snapshot};
 
 #[cfg(test)]
 mod tests;

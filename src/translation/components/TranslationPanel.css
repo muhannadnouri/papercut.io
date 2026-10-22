@@ -395,6 +395,7 @@
    space-between spread View and Delete apart from each other. */
 .translation-document-item .translation-document-actions {
   display: flex;
+  flex-wrap: wrap;
   flex: 0 0 auto;
   align-items: center;
   gap: 0.4rem;

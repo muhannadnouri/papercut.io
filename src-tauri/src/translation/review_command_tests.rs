@@ -567,3 +567,54 @@ fn asset_response_failure_preserves_revision_and_allows_the_same_edit_to_retry()
         1
     );
 }
+
+#[test]
+fn editor_presentation_survives_save_resume_and_finish_without_publishing_a_draft() {
+    let (dir, app, window) = fixture();
+    let source = source(app.handle());
+    let info = persist_translated_document(app.handle(), request(&source), || Ok(())).unwrap();
+    let before = published(app.handle(), &dir.0, &info.id);
+    let draft = load(&window, &info.id).unwrap();
+    assert_eq!(draft["blockPreviews"].as_array().unwrap().len(), 2);
+    assert!(draft["blockPreviews"][0]["sourceHtml"]
+        .as_str()
+        .unwrap()
+        .contains("<strong>maison</strong>"));
+    assert!(draft["blockPreviews"][1]["sourceHtml"]
+        .as_str()
+        .unwrap()
+        .contains("<em>maison</em>"));
+    assert_eq!(draft["blockPreviews"][0]["blockers"], json!([]));
+    assert!(draft["publicationError"].is_null());
+    let request = edit(
+        &draft,
+        0,
+        json!({"action":"replaceMarks","marks":[{"range":{"start":2,"end":7},"kind":"bold"}]}),
+    );
+    let changed = save(&window, &request).unwrap();
+    assert_eq!(changed["blockPreviews"], draft["blockPreviews"]);
+    assert_eq!(load(&window, &info.id).unwrap(), changed);
+    assert_eq!(published(app.handle(), &dir.0, &info.id), before);
+    assert_eq!(
+        save(&window, &request).unwrap_err()["code"],
+        "review-conflict"
+    );
+    let mut ready = changed;
+    for block in 0..2 {
+        ready = save(&window, &edit(&ready, block, json!({"action":"approve"}))).unwrap();
+    }
+    assert!(ready["publicationError"].is_null());
+    assert_eq!(published(app.handle(), &dir.0, &info.id), before);
+    invoke(
+        &window,
+        "translation_review_finish",
+        json!({"request":ready["document"]["expected"].to_string()}),
+    )
+    .unwrap();
+    assert_eq!(load(&window, &info.id).unwrap(), ready);
+    assert!(
+        String::from_utf8(published(app.handle(), &dir.0, &info.id).0)
+            .unwrap()
+            .contains("<b>house</b>")
+    );
+}

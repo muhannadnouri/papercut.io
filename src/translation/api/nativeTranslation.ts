@@ -1,3 +1,5 @@
+import type { ReviewDraft, ReviewEditRequest, ReviewExpected } from '../review/types'
+
 export interface TranslationCapabilities {
   available: boolean
   backend: string
@@ -249,6 +251,32 @@ export async function deleteTranslatedDocument(id: string): Promise<TranslationD
     }
   }
   return invokeTranslation<TranslationDeleteResult>('translation_delete_document', { request: { id } })
+}
+
+/** Saved native snapshots remain reviewable without loading an inference model. */
+export async function loadTranslationReview(id: string): Promise<ReviewDraft | null> {
+  if (!isNativeTranslationRuntime()) throw unavailableError()
+  return invokeTranslation<ReviewDraft | null>('translation_review_load', { id })
+}
+
+/** Only revision-bound marks/actions cross IPC; native storage owns the original and translated strings. */
+export async function saveTranslationReview(request: ReviewEditRequest): Promise<ReviewDraft> {
+  if (!isNativeTranslationRuntime()) throw unavailableError()
+  return invokeTranslation<ReviewDraft>('translation_review_save', { request: reviewRequest(request) })
+}
+
+/** Publication accepts the native receipt token, never editor HTML or client approval claims. */
+export async function finishTranslationReview(expected: ReviewExpected): Promise<TranslatedDocumentInfo> {
+  if (!isNativeTranslationRuntime()) throw unavailableError()
+  return invokeTranslation<TranslatedDocumentInfo>('translation_review_finish', { request: reviewRequest(expected) })
+}
+
+function reviewRequest(request: ReviewEditRequest | ReviewExpected): string {
+  const json = JSON.stringify(request)
+  if (new TextEncoder().encode(json).byteLength > 16 * 1024) {
+    throw new TranslationError('translation-review-limit', 'Formatting review exceeds a supported bound')
+  }
+  return json
 }
 
 async function loadTranslationCapabilities(): Promise<TranslationCapabilities> {

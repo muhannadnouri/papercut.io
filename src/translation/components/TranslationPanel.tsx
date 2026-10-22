@@ -56,6 +56,7 @@ interface TranslationPanelProps {
   translatedDocuments: TranslatedDocumentInfo[]
   onCancelTranslation: () => Promise<void>
   onDeleteTranslatedDocument: (id: string) => Promise<void>
+  onReviewPublished: (document: TranslatedDocumentInfo) => Promise<void>
   onOpenTranslatedDocument: (url: string) => void | Promise<void>
   onInstallTranslationModel: (modelId: string) => Promise<void>
   onRemoveTranslationModel: (modelId: string) => Promise<void>
@@ -76,6 +77,7 @@ export function TranslationPanel({
   translatedDocuments,
   onCancelTranslation,
   onDeleteTranslatedDocument,
+  onReviewPublished,
   onOpenTranslatedDocument,
   onInstallTranslationModel,
   onRemoveTranslationModel,
@@ -572,6 +574,7 @@ export function TranslationPanel({
         deleteState={deleteState}
         onDeleteTranslatedDocument={onDeleteTranslatedDocument}
         onOpenTranslatedDocument={onOpenTranslatedDocument}
+        onReviewPublished={onReviewPublished}
       />
       </div>
 

@@ -58,6 +58,7 @@ interface TranslationManagerState {
   startState: TranslationStartState
   translatedDocuments: TranslatedDocumentInfo[]
   onDeleteTranslatedDocument: (id: string) => Promise<void>
+  onReviewPublished: (document: TranslatedDocumentInfo) => Promise<void>
   onInstallTranslationModel: (modelId: string) => Promise<void>
   onRemoveTranslationModel: (modelId: string) => Promise<void>
   onCancelTranslation: () => Promise<void>
@@ -225,6 +226,11 @@ export function useTranslationManager({
     }
   }, [refreshGeneratedDocuments, translatedDocuments])
 
+  /** Publication keeps URL/audio identity; refresh Library metadata and invalidate existing search caches. */
+  const onReviewPublished = useCallback(async (document: TranslatedDocumentInfo) => {
+    await refreshGeneratedDocuments(document.documentUrl)
+  }, [refreshGeneratedDocuments])
+
   const onInstallTranslationModel = useCallback(async (modelId: string) => {
     finishedModelInstalls.current.delete(modelId)
     setModelInstallState({
@@ -378,6 +384,7 @@ export function useTranslationManager({
     startState,
     translatedDocuments,
     onDeleteTranslatedDocument,
+    onReviewPublished,
     onInstallTranslationModel,
     onRemoveTranslationModel,
     onCancelTranslation,
