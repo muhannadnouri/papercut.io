@@ -1,23 +1,32 @@
 import {
-  buildTextLocatorIndex, locatorRangeIsIgnorable, locatorTextIsIgnorable, locatorTextsMatch, recoverOrderedSourceSpans,
+  textLocatorIndexSteps, locatorRangeIsIgnorable, locatorTextIsIgnorable, locatorTextsMatch, orderedSourceSpanSteps,
   sourceSpanEndGlobalOffset, sourceSpanStartGlobalOffset,
 } from '../alignment/domTextSegments'
 import type { PdfReadableSegment } from '../../pdf/pdfTts'
 import { pdfSourceSpansForChunk } from '../../pdf/pdfTts'
 import { normalizeSegmentText } from '../alignment/readableSegments'
+import { finishNarrationWork } from '../alignment/narrationText'
 import type { TtsChunk } from '../types'
 import { createChunkSourceResolver } from './sourceChunkResolver'
 import { createPdfChunkSourceResolver } from './pdfChunkSourceResolver'
 
 /** Validate text, bounds, order and coverage once; recovered locators never rewrite saved chunks. */
-export function verifiedHtmlResolver(chunks: readonly TtsChunk[], texts: readonly string[], allowRecovery: boolean) {
-  const locator = buildTextLocatorIndex(texts)
+type HtmlResolver = ReturnType<typeof createChunkSourceResolver>
+type PdfResolver = ReturnType<typeof createPdfChunkSourceResolver>
+export function verifiedHtmlResolver(chunks: readonly TtsChunk[], texts: readonly string[], allowRecovery: boolean): HtmlResolver {
+  return finishNarrationWork(htmlResolverSteps(chunks, texts, allowRecovery))
+}
+
+export function* htmlResolverSteps(chunks: readonly TtsChunk[], texts: readonly string[], allowRecovery: boolean): Generator<void, HtmlResolver> {
+  const locator = yield* textLocatorIndexSteps(texts)
+  yield* locator.prepareMatchIndex()
   const lengths = texts.map(text => text.length)
-  const validate = (mapped: readonly TtsChunk[]) => {
+  function* validate(mapped: readonly TtsChunk[]): Generator<void, HtmlResolver> {
     const resolver = createChunkSourceResolver(mapped, lengths)
     if (resolver.status !== 'ready') return resolver
     let cursor = 0
     for (const chunk of mapped) {
+      yield
       if (!chunk.text.trim()) continue
       const span = chunk.sourceSpan!
       const start = sourceSpanStartGlobalOffset(locator, span)
@@ -31,19 +40,25 @@ export function verifiedHtmlResolver(chunks: readonly TtsChunk[], texts: readonl
     return locatorRangeIsIgnorable(locator, cursor, locator.text.length) ? resolver
       : { status: 'unavailable', reason: 'unmapped' } as const
   }
-  const durable = validate(chunks)
+  const durable = yield* validate(chunks)
   if (durable.status === 'ready' || !allowRecovery) return durable
-  const recovered = recoverOrderedSourceSpans(locator, chunks)
+  const recovered = yield* orderedSourceSpanSteps(locator, chunks)
   if (chunks.some((chunk, index) => chunk.text.trim() && !recovered.has(index))) return durable
-  return validate(chunks.map((chunk, index) => ({ ...chunk, sourceSpan: recovered.get(index) })))
+  return yield* validate(chunks.map((chunk, index) => ({ ...chunk, sourceSpan: recovered.get(index) })))
 }
 
 /** PDF spans must be the current projection of verified narration spans, not arbitrary runtime locators. */
-export function verifiedPdfResolver(chunks: readonly TtsChunk[], segments: PdfReadableSegment[]) {
+export function verifiedPdfResolver(chunks: readonly TtsChunk[], segments: PdfReadableSegment[]): PdfResolver {
+  return finishNarrationWork(pdfResolverSteps(chunks, segments))
+}
+
+export function* pdfResolverSteps(chunks: readonly TtsChunk[], segments: PdfReadableSegment[]): Generator<void, PdfResolver> {
   for (const segment of segments) {
+    yield
     if (normalizeSegmentText(segment.text) !== segment.text) return { status: 'unavailable', reason: 'invalid-source' } as const
     let cursor = 0
     for (const run of segment.sourceRuns) {
+      yield
       if (![run.pageIndex, run.blockOrder, run.startOffset, run.endOffset, run.sourceStartOffset, run.sourceEndOffset]
         .every(value => Number.isSafeInteger(value) && value >= 0) || run.startOffset < cursor ||
         run.endOffset <= run.startOffset || run.endOffset > segment.text.length || run.sourceEndOffset <= run.sourceStartOffset ||
@@ -54,9 +69,10 @@ export function verifiedPdfResolver(chunks: readonly TtsChunk[], segments: PdfRe
     }
     if (!locatorTextIsIgnorable(segment.text.slice(cursor))) return { status: 'unavailable', reason: 'invalid-source' } as const
   }
-  const narration = verifiedHtmlResolver(chunks, segments.map(segment => segment.text), false)
+  const narration = yield* htmlResolverSteps(chunks, segments.map(segment => segment.text), false)
   if (narration.status !== 'ready') return narration
   for (const chunk of chunks) {
+    yield
     if (!chunk.text.trim()) continue
     const projected = pdfSourceSpansForChunk(segments, chunk.sourceSpan)
     if (projected.length !== chunk.pdfSourceSpans?.length || projected.some((span, index) => {

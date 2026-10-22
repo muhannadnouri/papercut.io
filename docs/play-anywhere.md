@@ -248,13 +248,14 @@ Native WebView/device acceptance remains pending.
 
 | Integration surface | Planned change | Removal action |
 | --- | --- | --- |
-| `src/tts/playAnywhere/` | `sourceChunkResolver.ts`, `pdfChunkSourceResolver.ts`, HTML/PDF capture, shared geometry, `verifiedSource.ts`, `prepareTextTarget.ts`, `usePreparedTextTarget.ts` and tests exist; `usePlayAnywherePlayback.ts` coordinates playback; `usePlayAnywhereReader.ts` owns reader intent/feedback and `readerBrowse.ts` observes input; `selectionTarget.ts` validates selection/DOM boundaries and owns pre-focus intent listeners. | Disconnect App reader hook, viewer factories/viewport helpers and manager feature hooks/exports; delete feature-owned files. No stored state is owned here. |
+| `src/tts/playAnywhere/` | `sourceChunkResolver.ts`, `pdfChunkSourceResolver.ts`, HTML/PDF capture, shared geometry, `verifiedSource.ts`, `prepareTextTarget.ts`, `preparationWork.ts`, `usePreparedTextTarget.ts` and tests exist; `usePlayAnywherePlayback.ts` coordinates playback; `usePlayAnywhereReader.ts` owns reader intent/feedback and `readerBrowse.ts` observes input; `selectionTarget.ts` validates selection/DOM boundaries and owns pre-focus intent listeners. | Disconnect App reader hook, viewer factories/viewport helpers and manager feature hooks/exports; dispose preparation to abort its signal and clear its timer, then delete feature-owned files. No stored state is owned here. |
 | `src/viewers/types.ts`, `HtmlViewer.tsx`, `PdfViewer.tsx` | HTML/PDF viewport/selection result/API types and optional `onTextTargetApiChange` / `getTextTargetViewport` props exist. Both viewers register capture; optional `AudioFollowPolicy` and `onReaderBrowse` gate reveals/report explicit jumps. | Remove optional props, both registration effects and type imports; retain normal viewer behavior. |
 | `src/components/DocumentViewer/DocumentViewer.tsx`, `src/App.tsx` | DocumentViewer forwards optional registration and supplies chrome-clipped bounds. App owns the optional reader hook, passes capture/follow/browse capabilities and binds control actions. DocumentViewer reports Find/bookmark/hash/top jumps and binds optional `onSelectionIntent` pre-focus/invalidation callbacks. | Remove the App hook/action overrides and optional capture/follow/browse/selection-intent wiring. Restore manager onRead for idle play. Ordinary controls/bookmarks/Find still work. |
 | `src/tts/hooks/useAudiobookManager.ts`, `useAudiobookDocument.ts` | Expose `preparedChunks` / `resolveTextTarget` / `playFromHere` / `playFromBeginning` / `cancelTargetPlayback`; bind transport/options cancellation and stamp prepared state by document/content/model and exclude unverified import display fallback. Canonical getter retries manifest loading. | Disconnect the two feature hooks/exports and restore zero-start Read wiring. Remove canonical/getter exports only if unused; ordinary Read now uses canonical preparation too. Keep document/model ownership guards, ordinary preparation, and highlight recovery. |
 | `src/tts/hooks/useTtsPlayer.ts` | Optional start index, explicit seek-and-play, full sequence/option reuse, source/job/navigation guards and an optional guarded `onStarted` callback. | Restore zero-start calls and remove unused feature entry points/guard inputs; retain late-reply, pause/resume and teardown fixes used by ordinary playback. |
 | `src/tts/playback/nativeMobileAudio.ts`, `playbackState.ts` | Optional predicates run immediately before queued native mutations; pure timing/option checks use native manifest tolerance. | Remove feature-only predicate inputs if unused; retain lifecycle serialization, timing compatibility and general cancellation protections. |
 | `src/tts/alignment/domTextSegments.ts` and imported-span helpers | `normalizeDomTextPoint` supplies inverse offsets. `recoverOrderedSourceSpans` serves highlighting and target validation; normalized locator construction and sentence/clause compatibility are shared and its tolerant index is lazy. `locatorRangeIsIgnorable` proves context-dependent gaps for verified target preparation. | Remove inverse/snapshot-only helpers and `locatorRangeIsIgnorable` if unused after deleting feature validation; keep shared ordered recovery, punctuation compatibility and UTF-16 fixes used by highlighting. No shared alignment module imports play-anywhere. |
+| `src/tts/alignment/narrationText.ts`, `src/tts/utils/text.ts` | Pure sentence/clause grammar shared by canonical generation and matching; Unicode projection retains original UTF-16 offsets. Shared generators have synchronous baseline wrappers; no timers or feature imports. | Retain the common grammar and synchronous generation/highlighting APIs. Delete only unused feature prewarming entry points; baseline callers require no feature scheduler. |
 | `src/pdf/ocr/pdfOcrTextLayer.ts` | Render-time WeakMap and source runs invert selectable OCR lines to stored words. | Remove `sourceRuns`, `lineSources`, `pdfOcrSourcePoint` and its renderer assignment; restore direct line text concatenation and retain rendering/persisted OCR data. |
 | `src/pdf/pdfTtsHighlight.ts` | Export existing pinned PDF item-map types for the capture adapter; highlight behavior is unchanged. | Remove the type exports if unused after removing capture. |
 | `src/tts/hooks/useTtsHighlight.ts`, PDF highlight/reveal path | Optional following control and pending-scroll cancellation. | Omit the optional policy to retain baseline automatic following; keep unrelated highlight fixes. |
@@ -1259,7 +1260,7 @@ refactors, automatic manual app testing or changes to saved data.
 
 Recommended next checklist, after the owner retests this candidate:
 
-- [ ] Extract the shared pure narration compatibility contract without changing
+- [x] Extract the shared pure narration compatibility contract without changing
   generated chunk texts, IDs or hashes. Acceptance: existing golden cases plus
   sentence/clause/closer/Unicode cases produce identical canonical narration;
   generation, highlighting and targeting use the same rules; the shared helper
@@ -1268,8 +1269,8 @@ Recommended next checklist, after the owner retests this candidate:
   including first action, large imports and mobile. Acceptance: recorded samples
   separate capture, validation, audio preparation and audible start; no Node-only
   number is presented as device acceptance.
-- [ ] Make cold preparation yield in bounded batches if packaged timings confirm
-  the synchronous stall. Acceptance: loading can paint and Stop/close/newer intent
+- [x] Implement cooperative cold-preparation batches (owner authorized before
+  packaged timing acceptance); retain the separate device timing gate. Acceptance: loading can paint and Stop/close/newer intent
   can invalidate work between batches; original source/chunk identities and warm
   cache lookup stay intact. Keep any worker/batching lifecycle feature-owned.
 - [ ] Decide whether durable span verification may be local to the requested
@@ -1281,6 +1282,101 @@ Recommended next checklist, after the owner retests this candidate:
   ordinary beginning/resume/highlighting, Find and bookmarks still work after
   optional capture/target/follow/control wiring is disconnected; no user-data
   deletion, schema migration, cache regeneration or worker/process leak.
+
+### 2026-10-22 — Recommendations 1 and 2: shared rules and cooperative preparation
+
+The preceding sentence-closer and diagnostic fixes are committed as `af9f429`
+(`fix(reader): match saved sentence-closer punctuation`). This follow-up keeps
+complete ordered verification for both durable and recovered spans. Recommendation
+3 (partial durable validation) is a separate design decision, not implemented.
+
+Implementation checklist and acceptance:
+
+- [x] Move sentence/closer/clause vocabulary into the pure
+  `alignment/narrationText.ts` contract. Generation calls its sentence/clause
+  splitters; highlighting and target verification use its matching projection.
+  Projection walks the same raw sentence matches as generation, retaining an
+  output-unit-to-original-UTF-16-offset map. It does not independently reconstruct
+  which terminal the chunker omitted. Unicode compatibility and exact-first
+  ordered recovery remain. Independent final punctuation still requires proof;
+  an end-of-index regression prevents falsely treating the last period as a gap.
+- [x] Preserve all three shipped chunk profiles. A pre-refactor golden corpus
+  covers sentence/clause punctuation, twelve closers, emoji, Arabic/display marks,
+  decimals, abbreviations, long input and leading punctuation. Its canonical
+  chunk texts and source spans retain SHA-256
+  `479519f91412708ae305baea2a2393a26f36adf245fdb0823e2ebda1acd7f38a`.
+  Compatibility tests compare source and generated narration without conflating
+  ordinary word boundaries or decimal values. No saved IDs, hashes, audio or
+  manifests are rewritten.
+- [x] Keep baseline APIs synchronous. `finishNarrationWork` drains pure generator
+  steps for highlighting and existing callers; only play-anywhere schedules them.
+  Common alignment/generation imports no feature, timer, React hook or player.
+- [x] Own asynchronous work in `playAnywhere/preparationWork.ts`. Defer the first
+  pump; process at most 128 yielded steps or an 8 ms time budget per pump, then
+  schedule the next task. Index projection yields every 2,048 source units;
+  segment comparison, legacy recovery and validation yield between units/chunks.
+  This is a **cooperative scheduling budget, not an 8 ms maximum task guarantee**:
+  DOMParser/source extraction, a single string operation, resolver construction
+  and one validation step remain synchronous. A worker is deferred until actual
+  packaged measurements identify a remaining stall worth that complexity.
+- [x] Extend the optional resolution seam to
+  `resolve(documentUrl, capture, signal?: AbortSignal)`. The playback coordinator
+  aborts prior preparation for a newer action (including beginning), Stop and
+  scope disposal. Source/view guards are checked between steps and after awaits;
+  document/options changes dispose the existing hook scope. Native manifest/page
+  reads cannot be physically aborted here; late replies remain guarded.
+- [x] Coalesce compatible cold requests and publish only a complete validated
+  cache. An older job cannot clear/overwrite newer pending work. Abort/disposal
+  clears timers/listeners and closes the iterator; partial state stays private.
+  Warm requests reuse the existing resolver with no batching timer. Cache ownership
+  remains per document/content/chunks/view snapshot, with the existing bounded PDF
+  page cache. No persistent cache, new setting, schema, native command or dependency.
+- [x] Log only batch count, maximum observed batch time and preparation elapsed
+  time on completion through existing bounded diagnostics. Rejection phases keep
+  typed reasons/counts. No source/selection text or chunk IDs are logged.
+- [x] Cover cancellation/coalescing/retry/warm reuse and exceptions, including
+  disposal/view invalidation between batches and newer-action signal abortion.
+  An isolated Chromium fixture uses 1,200 synthetic paragraphs with legacy saved
+  chunks: a frame and another event run before completion; cancellation returns
+  stale; successful lookup retains canonical indices and saved object identity.
+- [x] Re-run the read-only imported-book regression: all **1,139 chunks / 4,556
+  durable and legacy boundary checks pass**, source/metadata bytes and chunks
+  unchanged. One Node/jsdom observation: durable cold 167.57 ms with 17 heartbeat
+  turns; legacy cold 143.74 ms with 26 turns; warm 0.095/0.006 ms. These single
+  observations include source parsing, exclude capture/audio/seek/audible output,
+  are not directly comparable with the prior resolver-only samples, and establish
+  no latency improvement or device acceptance. The largest observed batch was
+  105.89 ms (durable) / 68.96 ms (legacy), underscoring the synchronous parsing
+  limitation. Numeric local receipt: `diagnosis/responsive-preparation-results.json`.
+- [x] Frontend regression: **593 passed, 1 existing skip, 82 files**; lint,
+  TypeScript, locale parity and production Vite/Pagefind build pass. Existing
+  mixed-import/large-bundle warnings remain.
+- [x] Native release, Linux AppImage packaging and GStreamer media verification
+  pass. Owner candidate:
+  `src-tauri/target/play-anywhere-acceptance/Papercut-play-anywhere-responsive-preparation.AppImage`,
+  SHA-256 `8792b938d0da763e2aeda8e79502b4d3b0de667808c58af99c6cf490813239b4`.
+  Base `af9f429` plus this follow-up; adjacent `responsive-preparation-build.json`
+  records provenance. Older named artifacts are preserved. Close the old app,
+  launch this exact candidate normally with the same book/profile and existing
+  audio. No app UI/playback/output routing was controlled by the agent.
+- [ ] Owner packaged WebKit acceptance: fresh and warm selection/viewport starts
+  on the same imported bundle, correct canonical chunk beginning and continued
+  sequence, no opening blip, responsive pending/Stop/close/newer intent, no late
+  playback, ordinary beginning/resume/highlighting and no source/audio rewrite.
+  Record capture, source validation, audio loading/seek and audible timing
+  separately, including first action and larger books. Keyboard/screen-reader,
+  mobile and the Stage 7 disposable removal rehearsal remain pending.
+
+Removal/debugging recipe for this follow-up: abort/dispose the optional preparation
+scope, disconnect manager/App target wiring, delete `playAnywhere/` (including the
+scheduler and its browser fixture), and restore baseline zero-start/default-follow
+controls as already listed above. Keep the common narration grammar, synchronous
+wrappers and highlighting compatibility. Remove `prepareMatchIndex` and other
+feature-only exports if unused after deletion; generator internals may still serve
+synchronous wrappers. There is no worker/process, saved state or migration to undo.
+A failed target still reports source identity, chunk verification or point lookup;
+batch metrics distinguish cold preparation from cached lookup. One incompatible
+chunk still disables the full map; this conservative rule is unchanged.
 
 ## 7. Standards and design rationale
 

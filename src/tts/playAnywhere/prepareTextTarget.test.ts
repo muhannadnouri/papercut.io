@@ -37,7 +37,7 @@ function deferred<T>() {
 
 describe('source-only target preparation', () => {
   it('returns original prepared chunks before playback, caches per view/chunk revision and invalidates results on disposal', async () => {
-    const verify = vi.spyOn(verification, 'verifiedHtmlResolver')
+    const verify = vi.spyOn(verification, 'htmlResolverSteps')
     const config = options(), preparation = createTextTargetPreparation(config)
     const first = await preparation.resolve('/book.html', htmlCapture())
     expect(first).toMatchObject({ status: 'resolved', chunkIndex: 1, chunkId: 'b', documentUrl: '/book.html' })
@@ -52,6 +52,56 @@ describe('source-only target preparation', () => {
     preparation.dispose()
     expect(first.isCurrent()).toBe(false)
     expect(await preparation.resolve('/book.html', htmlCapture())).toMatchObject({ reason: 'stale' })
+  })
+
+  it('coalesces cold work, cancels replaced intent and uses the warm cache without timers', async () => {
+    vi.useFakeTimers()
+    const verify = vi.spyOn(verification, 'htmlResolverSteps')
+    const preparation = createTextTargetPreparation(options())
+    try {
+      const controller = new AbortController()
+      const old = preparation.resolve('/book.html', htmlCapture(), controller.signal)
+      expect(verify).not.toHaveBeenCalled()
+      controller.abort()
+      const current = preparation.resolve('/book.html', htmlCapture())
+      const shared = preparation.resolve('/book.html', htmlCapture())
+      await vi.runAllTimersAsync()
+      expect(await old).toMatchObject({ reason: 'stale' })
+      expect(await current).toMatchObject({ chunkIndex: 1 })
+      expect(await shared).toMatchObject({ chunkIndex: 1 })
+      expect(verify).toHaveBeenCalledOnce()
+      expect(vi.getTimerCount()).toBe(0)
+      expect(await preparation.resolve('/book.html', htmlCapture())).toMatchObject({ chunkIndex: 1 })
+      expect(vi.getTimerCount()).toBe(0)
+      expect(verify).toHaveBeenCalledOnce()
+    } finally { preparation.dispose(); vi.useRealTimers() }
+  })
+
+  it.each(['dispose', 'view-change'])('cancels between cold batches without publishing partial state: %s', async change => {
+    vi.useFakeTimers()
+    const source = Array.from({ length: 1000 }, (_, i) => `Paragraph ${i} has narrated words.`)
+    const saved = source.map((text, index) => ({ id: String(index), text,
+      sourceSpan: { startSegmentIndex: index, endSegmentIndex: index, startOffset: 0, endOffset: text.length } }))
+    const preparation = createTextTargetPreparation(options({ chunks: saved, docContent: source.map(text => `<p>${text}</p>`).join('') }))
+    let current = true
+    const capture = htmlCapture(source)
+    if (capture.status === 'captured') capture.isCurrent = () => current
+    try {
+      const pending = preparation.resolve('/book.html', capture)
+      await vi.advanceTimersToNextTimerAsync()
+      expect(vi.getTimerCount()).toBe(1)
+      if (change === 'dispose') preparation.dispose()
+      else current = false
+      await vi.runAllTimersAsync()
+      expect(await pending).toMatchObject({ reason: 'stale' })
+      expect(vi.getTimerCount()).toBe(0)
+      if (change === 'view-change') {
+        current = true
+        const retry = preparation.resolve('/book.html', capture)
+        await vi.runAllTimersAsync()
+        expect(await retry).toMatchObject({ chunkIndex: 1 })
+      }
+    } finally { preparation.dispose(); vi.useRealTimers() }
   })
 
   it('shares canonical chunk preparation while pending and permits retry after manifest failure', async () => {
@@ -128,7 +178,7 @@ describe('source-only target preparation', () => {
 
   it('verifies PDF original item text and native EOL while retaining nonlinear glyph mapping and bounded page cache', async () => {
     vi.mocked(getUploadedPdfPageText).mockResolvedValue(page)
-    const verify = vi.spyOn(verification, 'verifiedPdfResolver')
+    const verify = vi.spyOn(verification, 'pdfResolverSteps')
     const config = options({ documentUrl: '/uploads/ab.pdf', chunks: pdfChunks, getPdfSegments: vi.fn(async () => segments) })
     const preparation = createTextTargetPreparation(config)
     const results = await Promise.all([preparation.resolve('/uploads/ab.pdf', pdfCapture), preparation.resolve('/uploads/ab.pdf', pdfCapture)])

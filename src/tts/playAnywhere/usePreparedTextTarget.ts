@@ -12,6 +12,6 @@ export function usePreparedTextTarget(options: Omit<TextTargetPreparationOptions
     current.current = preparation
     return () => { preparation.dispose(); current.current = null }
   }, [documentUrl, docContent, chunks, getChunks, getPdfSegments, modelId])
-  return useCallback((url: string, capture: ViewerTextTargetResult): Promise<PreparedTextTargetResult> =>
-    current.current?.resolve(url, capture) ?? Promise.resolve({ status: 'unavailable', reason: 'not-ready' }), [])
+  return useCallback((url: string, capture: ViewerTextTargetResult, signal?: AbortSignal): Promise<PreparedTextTargetResult> =>
+    current.current?.resolve(url, capture, signal) ?? Promise.resolve({ status: 'unavailable', reason: 'not-ready' }), [])
 }

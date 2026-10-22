@@ -70,6 +70,21 @@ it.each(['capture', 'resolve'])('keeps only the newest action during %s and hono
   const other = scope.playFromHere({ captureViewport: async () => capture }); scope.cancel()
   expect(await other).toMatchObject({ reason: 'stale' })
 })
+it.each(['cancel', 'dispose', 'beginning'] as const)('aborts cold target work on %s and never dispatches its late result', async action => {
+  const config = setup(), scope = createPlayAnywherePlayback(config)
+  const pending = deferred<PreparedTextTargetResult>()
+  config.resolve.mockReturnValueOnce(pending.promise)
+  const old = scope.playFromHere({ captureViewport: async () => capture })
+  await Promise.resolve()
+  const signal = config.resolve.mock.calls[0]![2]!
+  expect(signal.aborted).toBe(false)
+  if (action === 'beginning') await scope.playFromBeginning()
+  else scope[action]()
+  expect(signal.aborted).toBe(true)
+  pending.resolve(target)
+  expect(await old).toMatchObject({ reason: 'stale' })
+  expect(config.play).toHaveBeenCalledTimes(action === 'beginning' ? 1 : 0)
+})
 it('contains errors and rejects stale or cross-document resolved targets', async () => {
   const config = setup(), scope = createPlayAnywherePlayback(config)
   expect(await scope.playFromHere({ captureViewport: async () => { throw new Error('capture error') } })).toMatchObject({ status: 'error' })

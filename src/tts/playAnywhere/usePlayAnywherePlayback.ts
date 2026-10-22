@@ -6,7 +6,7 @@ import type { PreparedTextTargetResult } from './prepareTextTarget'
 interface PlaybackTargetOptions {
   complete: boolean
   options: TtsOptions
-  resolve: (url: string, capture: ViewerTextTargetResult) => Promise<PreparedTextTargetResult>
+  resolve: (url: string, capture: ViewerTextTargetResult, signal?: AbortSignal) => Promise<PreparedTextTargetResult>
   getChunks: () => Promise<readonly TtsChunk[]>
   play: (chunks: readonly TtsChunk[], options: TtsOptions, index: number, isCurrent: () => boolean, onStarted?: () => void) => boolean
 }
@@ -18,9 +18,12 @@ export type PlaybackTargetResult = { status: 'dispatched' }
 /** Only this boundary owns target intent; the existing player still owns transport queues. */
 export function createPlayAnywherePlayback(scope: PlaybackTargetOptions) {
   let alive = true, intent = 0
+  let preparation: AbortController | undefined
   const unavailable = (reason: 'stale' | 'not-ready' | 'invalid-point') => ({ status: 'unavailable', reason }) as const
   const run = async (api?: ViewerTextTargetApi, onStarted?: () => void): Promise<PlaybackTargetResult> => {
+    preparation?.abort()
     const request = ++intent
+    const controller = new AbortController(); preparation = controller
     const current = () => alive && intent === request
     const url = scope.options.documentUrl
     if (!current() || !scope.complete || !url) return unavailable('not-ready')
@@ -31,7 +34,7 @@ export function createPlayAnywherePlayback(scope: PlaybackTargetOptions) {
         const capture = await api.captureViewport()
         if (!current()) return unavailable('stale')
         if (capture.status === 'unavailable') return capture
-        const target = await scope.resolve(url, capture)
+        const target = await scope.resolve(url, capture, controller.signal)
         if (!current()) return unavailable('stale')
         if (target.status !== 'resolved') return target
         if (target.documentUrl !== url) return unavailable('stale')
@@ -45,7 +48,7 @@ export function createPlayAnywherePlayback(scope: PlaybackTargetOptions) {
     } catch (error) { return current() ? { status: 'error', error } : unavailable('stale') }
   }
   return { playFromHere: (api: ViewerTextTargetApi, onStarted?: () => void) => run(api, onStarted), playFromBeginning: (onStarted?: () => void) => run(undefined, onStarted),
-    cancel() { intent++ }, dispose() { alive = false; intent++ } }
+    cancel() { intent++; preparation?.abort(); preparation = undefined }, dispose() { alive = false; intent++; preparation?.abort(); preparation = undefined } }
 }
 
 export function usePlayAnywherePlayback(options: PlaybackTargetOptions) {

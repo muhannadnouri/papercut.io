@@ -1,5 +1,6 @@
 import type { TtsChunk, TtsChunkSourceSpan } from '../types'
 import { collectReadableHtmlSegments, type ReadableHtmlSegment } from './htmlStructure'
+import { buildNarrationMatchIndex, finishNarrationWork, isSentencePunctuationOrSpace, narrationMatchIndexSteps } from './narrationText'
 
 export interface ReadableDomSegmentIndex {
   segments: ReadableHtmlSegment[]
@@ -11,6 +12,7 @@ export interface ReadableDomTextLocatorIndex {
   segmentStarts: number[]
   matchText: string
   matchTextOffsets: number[]
+  prepareMatchIndex: () => Generator<void, void>
 }
 
 interface NormalizedTextPoint {
@@ -103,11 +105,16 @@ export function buildReadableDomTextLocatorIndex(
 
 /** Reuse the DOM locator rules for an immutable normalized viewer snapshot. */
 export function buildTextLocatorIndex(texts: readonly string[]): ReadableDomTextLocatorIndex {
+  return finishNarrationWork(textLocatorIndexSteps(texts))
+}
+
+export function* textLocatorIndexSteps(texts: readonly string[]): Generator<void, ReadableDomTextLocatorIndex> {
   const segmentTexts: string[] = []
   const segmentStarts: number[] = []
   let text = ''
 
   for (const value of texts) {
+    yield
     const segmentText = normalizeLocatorText(value)
     segmentTexts.push(segmentText)
     const segmentStart = segmentText && text ? text.length + 1 : text.length
@@ -116,10 +123,11 @@ export function buildTextLocatorIndex(texts: readonly string[]): ReadableDomText
     text += (text ? ' ' : '') + segmentText
   }
 
-  let matchIndex: ReturnType<typeof buildLocatorMatchIndex> | undefined
+  let matchIndex: ReturnType<typeof buildNarrationMatchIndex> | undefined
   return { text, segmentTexts, segmentStarts,
-    get matchText() { return (matchIndex ??= buildLocatorMatchIndex(text)).matchText },
-    get matchTextOffsets() { return (matchIndex ??= buildLocatorMatchIndex(text)).matchTextOffsets },
+    *prepareMatchIndex() { if (!matchIndex) matchIndex = yield* narrationMatchIndexSteps(text) },
+    get matchText() { return (matchIndex ??= buildNarrationMatchIndex(text)).matchText },
+    get matchTextOffsets() { return (matchIndex ??= buildNarrationMatchIndex(text)).matchTextOffsets },
   }
 }
 
@@ -165,30 +173,38 @@ export function recoverOrderedSourceSpans(
   locator: ReadableDomTextLocatorIndex,
   chunks: readonly TtsChunk[],
 ): Map<number, TtsChunkSourceSpan> {
+  return finishNarrationWork(orderedSourceSpanSteps(locator, chunks))
+}
+
+export function* orderedSourceSpanSteps(locator: ReadableDomTextLocatorIndex, chunks: readonly TtsChunk[]): Generator<void, Map<number, TtsChunkSourceSpan>> {
   const spans = new Map<number, TtsChunkSourceSpan>()
   let cursor = 0
-  chunks.forEach((chunk, index) => {
-    if (!chunk.text) return
+  for (let index = 0; index < chunks.length; index++) {
+    yield
+    const chunk = chunks[index]
+    if (!chunk.text) continue
     const span = createSourceSpanFromTextMatch(locator, chunk.text, cursor)
-    if (!span) return
-    spans.set(index, span)
-    const end = sourceSpanEndGlobalOffset(locator, span)
-    if (end >= 0) cursor = end
-  })
+    if (span) {
+      spans.set(index, span)
+      const end = sourceSpanEndGlobalOffset(locator, span)
+      if (end >= 0) cursor = end
+    }
+  }
   return spans
 }
 
 /** Dropped Arabic display marks and whitespace cannot disambiguate narration. */
 export function locatorTextIsIgnorable(text: string): boolean {
-  return !buildLocatorMatchIndex(normalizeLocatorText(text)).matchText.trim()
+  return !buildNarrationMatchIndex(normalizeLocatorText(text)).matchText.trim()
 }
 
 /** A dropped trailing terminator needs its preceding sentence/closer context. */
 export function locatorRangeIsIgnorable(locator: ReadableDomTextLocatorIndex, start: number, end: number): boolean {
   const text = locator.text.slice(start, end)
   if (locatorTextIsIgnorable(text)) return true
-  if (/[^\s.!?؟。！？।॥]/u.test(text)) return false
-  return !locator.matchText.slice(matchOffsetAtOrAfterGlobalOffset(locator, start), matchOffsetAtOrAfterGlobalOffset(locator, end)).trim()
+  if (!isSentencePunctuationOrSpace(text)) return false
+  const from = matchOffsetAtOrAfterGlobalOffset(locator, start), to = matchOffsetAtOrAfterGlobalOffset(locator, end)
+  return from < 0 || !locator.matchText.slice(from, to < 0 ? undefined : to).trim()
 }
 
 export function locatorTextsMatch(rangeText: string, chunkText: string): boolean {
@@ -199,8 +215,8 @@ export function locatorTextsMatch(rangeText: string, chunkText: string): boolean
   // Validation uses the same tolerant view as fallback lookup. Without this, an
   // Arabic range found by folding tashkeel or Persian codepoints would be thrown
   // away by the final "does this Range match the chunk?" safety check.
-  const rangeMatchText = buildLocatorMatchIndex(normalizedRange).matchText
-  const chunkMatchText = buildLocatorMatchIndex(normalizedChunk).matchText
+  const rangeMatchText = buildNarrationMatchIndex(normalizedRange).matchText
+  const chunkMatchText = buildNarrationMatchIndex(normalizedChunk).matchText
   return Boolean(rangeMatchText && chunkMatchText && rangeMatchText === chunkMatchText)
 }
 
@@ -227,7 +243,7 @@ function findTolerantLocatorMatch(
   fromOffset: number,
   strictHint: boolean,
 ): { startGlobalOffset: number; endGlobalOffset: number } | null {
-  const needle = buildLocatorMatchIndex(text).matchText
+  const needle = buildNarrationMatchIndex(text).matchText
   if (!needle) return null
 
   // Numeric hints are the ordered fallback cursor, so they must never search
@@ -311,95 +327,6 @@ function normalizeLocatorText(text: string): string {
   return text.replace(/\s+/g, ' ').trim()
 }
 
-// Imported audiobook bundles may only have chunk text, not durable DOM locators.
-// The tolerant index keeps exact matching first, then removes Arabic-only visual
-// marks and folds common Arabic/Persian codepoint variants for compatibility.
-function buildLocatorMatchIndex(text: string): { matchText: string; matchTextOffsets: number[] } {
-  let matchText = ''
-  let afterChunkSeparator = false
-  let afterSentenceEnd = false
-  let afterSentenceCloser = false
-  const matchTextOffsets: number[] = []
-
-  // Map every output UTF-16 unit to its original codepoint start. NFKC
-  // can expand a codepoint, while Arabic mark stripping can remove one, and this
-  // map is what lets tolerant matching still return precise DOM offsets.
-  for (let offset = 0; offset < text.length;) {
-    const codePoint = text.codePointAt(offset)
-    if (codePoint === undefined) break
-    const char = String.fromCodePoint(codePoint)
-    const normalized = normalizeLocatorMatchChar(char)
-    // Ignoring a display mark must not invent raw adjacency for the sentence splitter.
-    if (!normalized) { afterSentenceEnd = false; afterSentenceCloser = false }
-    for (const outputChar of normalized) {
-      // Sentence/clause chunking inserts punctuation spacing; keep original source offsets.
-      if (outputChar === ' ' && afterChunkSeparator) {
-        afterSentenceEnd = false; afterSentenceCloser = false
-        continue
-      }
-      const sentenceEnd = /[.!?؟。！？।॥]/u.test(outputChar)
-      const closer = /["'”’»)\]）】」』》]/u.test(outputChar)
-      // The sentence splitter omits terminators immediately after a consumed closer.
-      if (sentenceEnd && afterSentenceCloser) continue
-      afterSentenceCloser = closer && (afterSentenceEnd || afterSentenceCloser)
-      afterSentenceEnd = sentenceEnd
-      afterChunkSeparator = /[.!?؟。！？।॥,;:،؛，；：、]/u.test(outputChar) || (afterChunkSeparator && closer)
-      matchText += outputChar
-      for (let unit = 0; unit < outputChar.length; unit++) matchTextOffsets.push(offset)
-    }
-    offset += char.length
-  }
-
-  return { matchText, matchTextOffsets }
-}
-
-function normalizeLocatorMatchChar(char: string): string {
-  const normalized = char.normalize('NFKC')
-  let output = ''
-  for (const normalizedChar of normalized) {
-    if (shouldDropArabicMatchChar(normalizedChar)) continue
-    output += foldArabicMatchChar(normalizedChar)
-  }
-  return output
-}
-
-function shouldDropArabicMatchChar(char: string): boolean {
-  const cp = char.codePointAt(0)
-  if (cp === undefined) return false
-
-  return (
-    cp === 0x0640 || // tatweel
-    cp === 0x0670 || // superscript alef
-    cp === 0x200c || // ZWNJ
-    cp === 0x200d || // ZWJ
-    cp === 0x200e || // LRM
-    cp === 0x200f || // RLM
-    (cp >= 0x0610 && cp <= 0x061a) ||
-    (cp >= 0x064b && cp <= 0x065f) ||
-    (cp >= 0x06d6 && cp <= 0x06ed) ||
-    (cp >= 0x202a && cp <= 0x202e) ||
-    (cp >= 0x2066 && cp <= 0x2069)
-  )
-}
-
-function foldArabicMatchChar(char: string): string {
-  switch (char) {
-    case '\u0622':
-    case '\u0623':
-    case '\u0625':
-    case '\u0671':
-      return '\u0627'
-    case '\u0649':
-    case '\u06CC':
-      return '\u064A'
-    case '\u06A9':
-      return '\u0643'
-    case '\u06C0':
-      return '\u0647'
-    default:
-      return char
-  }
-}
 
 function matchOffsetAtOrAfterGlobalOffset(
   locator: ReadableDomTextLocatorIndex,

@@ -13,6 +13,11 @@ Its isolated HTML/PDF chunk lookup and optional HTML/PDF/OCR viewport capabiliti
 feed verified prepared-chunk lookup and guarded player integration with ordered
 legacy recovery. Viewport play and independent follow/browse controls are wired;
 the audio menu also offers Play from selection through the same verified lookup.
+Canonical generation and matching share the pure `alignment/narrationText.ts`
+grammar. Cold target preparation yields cooperatively with feature-owned timers
+and cancellation; warm targets reuse the verified index. HTML parsing remains
+synchronous. Removing the feature removes its scheduler without changing the
+shared synchronous generation/highlighting contract or saved audio.
 Device/accessibility/performance acceptance remains pending.
 
 The frontend owns document parsing, HTML narration chunking, the platform-neutral playback state consumed by controls and highlighting, saved-audiobook state, downloads, and diagnostics. Native code owns synthesis, the fast audiobook-save path, persisted playback indexes, and mobile background playback.

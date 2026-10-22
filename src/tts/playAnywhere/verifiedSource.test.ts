@@ -130,3 +130,7 @@ describe('verified source lookup', () => {
     expect(verifiedPdfResolver(chunks, [{ ...segments[0], sourceRuns: [] }])).toMatchObject({ reason: 'invalid-source' })
   })
 })
+
+it('never treats the end-of-index sentinel as permission to discard independent final punctuation', () => {
+  expect(verifiedHtmlResolver([{ id: 'saved', text: 'First', sourceSpan: { startSegmentIndex: 0, endSegmentIndex: 0, startOffset: 0, endOffset: 5 } }], ['First.'], false).status).toBe('unavailable')
+})
