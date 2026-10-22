@@ -401,7 +401,8 @@ See [docs/kokoro-tts.md](docs/kokoro-tts.md) for architecture, model metadata, m
 
 The proposed **Play from here** feature is documented in
 [docs/play-anywhere.md](docs/play-anywhere.md), including staged implementation,
-UX, integration/removal boundaries, and acceptance criteria. It is not implemented yet.
+UX, integration/removal boundaries, and acceptance criteria. Its resolver foundation
+is implemented in isolation; reader/player integration remains pending.
 
 Narration chunks and generated WAV files remain native app user data. Desktop uses bounded chunk playback; Android and iOS prepare a reusable local `playback.wav` for background and lock-screen playback. Build helpers continue to orchestrate npm, Cargo, Tauri, mobile SDK tooling, checked downloads, and platform library staging; they do not replace those package managers.
 

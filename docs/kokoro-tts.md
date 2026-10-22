@@ -8,8 +8,8 @@ The design goal is still offline-first: model files live on the user's device, a
 
 The proposed viewport/selection-to-saved-chunk feature is specified in the
 [Play anywhere integration plan](play-anywhere.md). That checklist defines its
-UX, optional integration contracts, debugging/removal path, and acceptance gates;
-it does not describe implemented behavior.
+UX, optional integration contracts, debugging/removal path, and acceptance gates.
+Its isolated source-to-chunk resolver exists; reader/player integration is pending.
 
 The frontend owns document parsing, HTML narration chunking, the platform-neutral playback state consumed by controls and highlighting, saved-audiobook state, downloads, and diagnostics. Native code owns synthesis, the fast audiobook-save path, persisted playback indexes, and mobile background playback.
 

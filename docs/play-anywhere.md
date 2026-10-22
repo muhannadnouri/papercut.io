@@ -1,9 +1,11 @@
 # Play anywhere: integration plan
 
-Status: design and implementation checklist; implementation has not started.
+Status: resolver foundation implemented in isolation; reader/player integration
+has not started. Stage 0 code audit and Stage 1 pure resolver checks are recorded
+below; baseline listening/device gates remain open.
 Created 2026-10-21 against `main` at `8ebc9d0f`; working branch:
-`feature/play-anywhere`. Checked boxes below record planning facts only. All
-implementation, performance, accessibility, and device acceptance remain pending.
+`feature/play-anywhere`. Checked boxes record only the specific completed work.
+Feature, performance, accessibility, and device acceptance remain pending.
 
 ## 1. Decision and scope
 
@@ -124,7 +126,7 @@ AudioControls: explicit user intent
 | Owner | Responsibility | Must not own |
 | --- | --- | --- |
 | HTML/PDF viewer adapter | Capture viewport/selection points, reader bounds, source order, live-view revision; reveal current passage. | Audio loading, saved-audiobook selection, synthesis, player state. |
-| Feature-owned code under proposed `src/tts/playAnywhere/` | Capture-to-chunk orchestration, format mapping, pure lookup, typed unavailable reasons, request cancellation/identity checks. Keep only files that earn their existence. | Native audio session, new persistent settings, parsing/import pipelines. |
+| Feature-owned code under `src/tts/playAnywhere/` | Pure lookup is implemented; capture-to-chunk orchestration, format mapping and identity checks follow in later stages. Keep only files that earn their existence. | Native audio session, new persistent settings, parsing/import pipelines. |
 | `useAudiobookDocument` / alignment helpers | Authoritative prepared chunks and validated/recovered source spans; common normalization primitives. | Control rendering and playback decisions. |
 | `useAudiobookManager` | Bind selected saved audiobook/options/prepared chunks to the feature and expose actions to controls. | DOM inspection or another seek queue. |
 | `useTtsPlayer` | Validate starting index, load/seek/play, cancellation, queue ordering, playback errors, desktop/native state. | Viewport, selection, PDF DOM, reading-order heuristics. |
@@ -146,7 +148,7 @@ Names below are proposed contracts, not claims that exports already exist.
 | Optional reader target API | Register/unregister through the existing `ViewerProps` callback pattern. Capture `viewport` or `selection` at action time; return an ephemeral snapshot or typed unavailable reason. No audio side effects. |
 | Target snapshot | Carries current document/view revision and format-specific point. Capture live DOM node/offset synchronously if conversion needs deferred indexing; validate node/root membership and revision before converting. Never serialize DOM references. |
 | Normalized source point | HTML: readable segment index + normalized UTF-16 offset. PDF: page index + original text-item/block order + source offset. Do not conflate the two coordinate systems. |
-| Resolver result | `resolved` with canonical chunk index/id, or `unavailable` with a bounded reason (`not-ready`, `no-visible-text`, `unmapped`, `ambiguous`, `stale`). Unexpected errors remain errors rather than successful fallbacks. |
+| Resolver result | `resolved` with canonical chunk index/id, or `unavailable` with `not-ready`, `unmapped`, `ambiguous`, `invalid-source` or `invalid-point`. Capture/coordinator additionally own `no-visible-text` and `stale`; the pure resolver does not inspect DOM or session identity. Unexpected errors remain errors rather than successful fallbacks. |
 | Player initial start | Add an optional start index, defaulting to zero for existing callers. It refers to the same canonical nonempty chunk sequence used by playback/native signatures. Pass the complete sequence, never a sliced tail. |
 | Player active target | Reuse existing navigation serialization and newest-intent checks. Explicitly support seek-then-play for this action without changing other callers' paused-state behavior. |
 | Follow policy | Optional scroll/follow input with the current behavior as the default when omitted. Gate all automatic HTML/PDF reveals and cancel pending reveals. Keep highlight updates independent. |
@@ -200,6 +202,15 @@ fixture/device acceptance. A readable image-only page without verified text
 mapping remains unavailable. Do not silently treat it as the page's first audio
 chunk. A future page-start action would require separate copy and scope approval.
 
+Stage 0 audit found that OCR currently joins persisted word blocks into selectable
+line spans (`pdfOcrTextLines`), exposing line text/bounds but no inverse word-block
+offset map. Native PDF.js `_textHighlighter` mappings do not cover that overlay.
+Stage 2 must retain a transient line-offset -> original block/order/offset map
+through the same line-building code, including inserted spaces, removed newlines
+and trimmed line ends. Share that conversion instead of independently rebuilding
+OCR lines in this feature. No stored OCR schema change is needed; do not claim
+OCR capture/highlighting support until the actual overlay path is verified.
+
 ### Playback paths and compatibility
 
 - Desktop: enter existing navigation/loading at the chosen index, play its WAV
@@ -227,12 +238,13 @@ chunk. A future page-start action would require separate copy and scope approval
 
 | Integration surface | Planned change | Removal action |
 | --- | --- | --- |
-| `src/tts/playAnywhere/` (new, minimal) | Feature resolver/adapters/coordinator and focused tests. | Delete feature-owned implementation/tests after disconnecting callers. |
+| `src/tts/playAnywhere/` | `sourceChunkResolver.ts` and its focused test exist; adapters/coordinator follow later. | Delete feature-owned implementation/tests after disconnecting callers. Currently tests are the resolver's only callers. |
 | `src/viewers/types.ts`, `HtmlViewer.tsx`, `PdfViewer.tsx` | Optional target capability registration; PDF follow input. Helpers stay out of large viewer components. | Remove optional capability props/registrations/type imports and feature-only helpers; retain normal viewer behavior. |
 | `src/components/DocumentViewer/DocumentViewer.tsx`, `src/App.tsx` | Wire capability refs, actions and session-local follow state; clean up on view replacement. | Remove feature wiring/state; ordinary controls/bookmarks/Find still work. |
 | `src/tts/hooks/useAudiobookManager.ts`, `useAudiobookDocument.ts` | Supply prepared chunks even before playback; select correct audio identity; expose actions. | Disconnect coordinator/actions; retain original preparation and legacy highlight recovery. |
 | `src/tts/hooks/useTtsPlayer.ts` | Backward-compatible start index and narrowly scoped seek-and-play support. | Omit start index to recover zero-start behavior; remove unused additions after checking all callers. Retain original navigation guards. |
 | `src/tts/alignment/domTextSegments.ts` and imported-span helpers, only if needed | Reuse/export the smallest shared inverse mapping or validated span recovery. | Remove feature-only exports after a caller search. Preserve helpers still used by highlighting. |
+| `src/pdf/ocr/pdfOcrTextLayer.ts`, if needed in Stage 2 | Expose transient source-block offsets alongside existing selectable OCR lines. | Remove feature-only inverse mapping consumers/exports; retain line rendering and persisted OCR data. |
 | `src/tts/hooks/useTtsHighlight.ts`, PDF highlight/reveal path | Optional following control and pending-scroll cancellation. | Omit the optional policy to retain baseline automatic following; keep unrelated highlight fixes. |
 | `src/tts/components/AudioControls.tsx` and existing styles | Optional viewport/selection/beginning/return actions and accessible states. | Remove feature actions/styles and restore baseline idle play wiring. |
 | `src/i18n/locales/*.json`, `src/tts/diagnostics/TtsDiagnostics.ts` callers | Localized labels/reasons; bounded feature-prefixed diagnostic events. | Remove unused keys/event call sites; keep shared diagnostics infrastructure. |
@@ -291,11 +303,12 @@ boundary; passing a unit stage does not close packaged listening acceptance.
 
 ### Stage 0 — Baseline and contracts
 
-- [ ] Recheck branch, working tree, all player/capability callers and relevant
+- [x] Recheck branch, working tree, all player/capability callers and relevant
   current tests. Preserve unrelated/private files.
-- [ ] Confirm canonical chunk filtering, source revision ownership, PDF/OCR
+- [x] Confirm canonical chunk filtering, source revision ownership, PDF/OCR
   text-layer mapping, and existing context-menu/selection integration point.
-- [ ] Finalize the optional contracts above and implement the pure resolver first.
+- [x] Finalize the ownership/optional contract design above and implement the pure
+  resolver first; concrete viewer registration remains Stage 2.
 - [ ] Select generic fixtures/reference devices and capture current saved-audio
   identities/bytes and basic transport behavior as the compatibility baseline.
 
@@ -303,17 +316,38 @@ Acceptance: each integration has one owner and removal action; no format/schema
 change is needed; fixture identities are independent of personal imported books;
 the untouched baseline can play/pause/resume/skip/stop.
 
+Code audit/contract preparation is complete. The last checkbox and real transport
+baseline remain pending: helper tests do not exercise audible playback. Generic
+source fixtures are selected below; no personal library/audio files were read.
+There is no existing reader selection/context action API to extend; Stage 5 must
+add a small explicit accessible action rather than assume a ready-made menu.
+
 ### Stage 1 — Source-to-chunk resolution
 
-- [ ] Add typed resolved/unavailable outcomes and pure containment/index lookup.
-- [ ] Cover exact starts/ends, multiple chunks per segment, multi-segment chunks,
+- [x] Add typed resolved/unavailable outcomes and pure containment/index lookup.
+- [x] Cover exact starts/ends, multiple chunks per segment, multi-segment chunks,
   empty chunks, whitespace, invalid/non-finite offsets, unsorted/invalid spans,
   repeated phrases, Unicode surrogate pairs and Arabic diacritics/RTL.
-- [ ] Reuse validated legacy recovery without mutating canonical imported chunks.
+- [x] Test that the existing validated legacy span graft feeds the resolver
+  without changing imported ids/text/hashes. Runtime live-DOM recovery wiring is
+  part of Stage 2, not a second reconstruction algorithm in the resolver.
 
 Acceptance: known fixture points map to the expected canonical chunk id/index;
-ambiguous/unmapped/stale input cannot become chunk zero; resolver tests run
-without DOM/native/React. Prepared chunks are available while playback is idle.
+ambiguous/unmapped/invalid input cannot become chunk zero; resolver tests run
+without DOM/native/React. Prepared chunks already exist while playback is idle
+inside `useAudiobookDocument`; exposing them to the reader is Stage 2. Stale
+view/session validation belongs to the adapter/coordinator in Stages 2–3.
+
+Implemented contract: `createChunkSourceResolver(chunks, segmentLengths)` takes
+the complete source chunk list and normalized UTF-16 segment lengths. It returns
+`ready` with `resolve({segmentIndex, offset})` or typed `unavailable`. Construction
+snapshots bounds/id/index, filters blank chunks in playback order, and rejects
+missing, out-of-bounds, unsorted, overlapping or duplicate-id spans. Normal lookup
+uses binary search. It does not verify live text identity, normalize DOM points,
+skip whitespace or detect staleness: adapters must supply validated/recovered
+spans and normalized points, and rebuild on source/view revision changes.
+Partial span coverage intentionally remains unavailable until recovery succeeds.
+No production caller imports the resolver yet.
 
 ### Stage 2 — Viewer capture and PDF/OCR mapping
 
@@ -439,7 +473,42 @@ word timing, PDF mapping). That receipt predates this branch's implementation
 and does not validate the new feature. MemSearch recall/expansion confirmed the
 need to distinguish compilation from real listening/device acceptance; existing
 compatibility requirements are also documented in [native TTS](kokoro-tts.md).
-No implementation/device/performance acceptance is recorded yet.
+The initial planning documents were committed as `f138e02` on this branch before
+source work. The resolver receipt below is implementation evidence only; no
+device/performance acceptance is recorded yet.
+
+### 2026-10-22 — baseline audit and isolated resolver foundation
+
+- Baseline: planning commit `f138e02`, based on main `8ebc9d0f`; Linux local
+  Node/Vitest environment, no running player or physical-device test.
+- Callers inspected: the manager is the sole `useTtsPlayer` consumer and its
+  `speak` caller; controls consume its existing read/resume/jump props. Both
+  player and native source signature filter nonempty chunks in original order.
+  Existing viewer APIs cover Find/bookmarks, not selection actions.
+- New code is confined to `src/tts/playAnywhere/sourceChunkResolver.ts` and its
+  test. It imports existing chunk types only, runs without DOM/React/native
+  globals, and is not wired into reading/playback. Removing these two files
+  completely removes this stage's runtime code.
+- Fixtures are generic in-memory spans plus a 40-paragraph synthetic book built
+  with the production chunker (English repeated sentences and marked Arabic).
+  Binary lookup is compared with independent linear containment at every source
+  character; separate cases cover UTF-16 emoji and multi-segment spans.
+- Original imported chunk ids/text/hashes and chunker output are asserted
+  unchanged; legacy graft id/text mismatch still rejects. No saved WAV/source
+  bytes, manifests, cache/version, preferences, dependencies or native code change.
+- Validation: the original focused baseline passed 17 tests in seven files.
+  Final focused run passed 60 tests in eight files, including 43 resolver tests;
+  these counts overlap rather than sum. `npm run build:typecheck`, focused ESLint,
+  local Markdown link checks and `git diff --check` passed. New-file whitespace
+  was checked separately because the new module/test remain untracked until
+  committed. Full frontend/native suites, packaging and runtime smoke were not
+  rerun for this isolated module.
+- This stage does not establish rendered viewport targeting, audible transport,
+  performance budgets, OCR mapping, race handling or accessibility acceptance.
+  Stage 0's physical baseline remains open alongside those later gates.
+- Next implementation: Stage 2, starting with HTML viewport/selection point
+  conversion and optional viewer capability, then PDF item/OCR inverse mapping.
+  Keep player dispatch and visible controls deferred to Stages 3–5.
 
 ## 7. Standards and design rationale
 
