@@ -7,14 +7,35 @@ use tauri::Runtime;
 use super::*;
 use crate::translation::{review, review_store};
 
-/// Prepare from native evidence; recheck its revision/file under the writer's promotion lock.
+pub(in crate::translation) struct PreparedPublication {
+    db: Connection,
+    snapshot: review::Snapshot,
+    html: String,
+    assets: Vec<crate::document_uploads::ParsedDocumentAsset>,
+    info: TranslatedDocumentInfo,
+    imported: i64,
+    at: u128,
+}
+
+/// Prepare from native evidence; recheck its revision/file/title under the writer's promotion lock.
 pub(in crate::translation) fn finish_translation_review<R: Runtime>(
     app: &tauri::AppHandle<R>,
     expected: &review::Expected,
 ) -> Result<TranslatedDocumentInfo, String> {
+    match prepare_publication(app, expected)? {
+        Ok(prepared) => publish_prepared(app, expected, prepared),
+        Err(info) => Ok(info),
+    }
+}
+
+/// Keep expensive reconstruction outside promotion without treating captured Library metadata as current.
+pub(in crate::translation) fn prepare_publication<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    expected: &review::Expected,
+) -> Result<Result<PreparedPublication, TranslatedDocumentInfo>, String> {
     let id = &expected.variant_id;
     validate_review_id(id)?;
-    let prepared = crate::native_tts::with_audiobook_reference_lock(|| {
+    crate::native_tts::with_audiobook_reference_lock(|| {
         let db = open_translation_db(app)?;
         crate::document_uploads::recover_derived_document_locked(app, &db, id)?;
         let snapshot = checked_snapshot(&db, expected)?;
@@ -47,12 +68,34 @@ pub(in crate::translation) fn finish_translation_review<R: Runtime>(
         if at > i64::MAX as u128 || imported < 0 {
             return Err("Publication timestamp exceeds its storage bound".into());
         }
-        Ok(Ok((db, snapshot, html, assets, info, imported, at)))
-    })?;
-    let (mut db, snapshot, html, assets, mut info, imported, at) = match prepared {
-        Ok(prepared) => prepared,
-        Err(info) => return Ok(info),
-    };
+        Ok(Ok(PreparedPublication {
+            db,
+            snapshot,
+            html,
+            assets,
+            info,
+            imported,
+            at,
+        }))
+    })
+}
+
+/// The writer's Immediate transaction prevents a rename between this title check and promotion.
+pub(in crate::translation) fn publish_prepared<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    expected: &review::Expected,
+    prepared: PreparedPublication,
+) -> Result<TranslatedDocumentInfo, String> {
+    let id = &expected.variant_id;
+    let PreparedPublication {
+        mut db,
+        snapshot,
+        html,
+        assets,
+        mut info,
+        imported,
+        at,
+    } = prepared;
     let duplicate = Cell::new(false);
     let result = crate::document_uploads::persist_guarded_derived_document_with_evidence(
         app,
@@ -75,14 +118,14 @@ pub(in crate::translation) fn finish_translation_review<R: Runtime>(
                 duplicate.set(true);
                 return Err("Formatting review was already published".into());
             }
-            let current_imported: i64 = tx
+            let (current_imported, current_title): (i64, String) = tx
                 .query_row(
-                    "SELECT imported_at_ms FROM uploaded_documents WHERE id=?1",
+                    "SELECT imported_at_ms,title FROM uploaded_documents WHERE id=?1",
                     [id],
-                    |row| row.get(0),
+                    |row| Ok((row.get(0)?, row.get(1)?)),
                 )
                 .map_err(db_err)?;
-            if current_imported != imported {
+            if current_imported != imported || current_title != info.title {
                 return Err(review_store::review_error(review::Error::Stale));
             }
             Ok(())
@@ -139,10 +182,12 @@ fn already_published(db: &Connection, snapshot: &review::Snapshot) -> Result<boo
 }
 
 /// Read the response before mutation so returning success requires no fallible query after commit.
+/// The Library owns the editable display title; the translation title remains provenance.
 fn document_info(db: &Connection, id: &str) -> Result<TranslatedDocumentInfo, String> {
     db.query_row(
-        "SELECT id,source_path,source_document_url,title,source_language,target_language,
-         model_id,status,created_at_ms,updated_at_ms FROM translated_documents WHERE id=?1",
+        "SELECT t.id,t.source_path,t.source_document_url,u.title,t.source_language,t.target_language,
+         t.model_id,t.status,t.created_at_ms,t.updated_at_ms FROM translated_documents t
+         JOIN uploaded_documents u ON u.id=t.id AND u.url=t.source_path WHERE t.id=?1",
         [id],
         |row| {
             Ok(TranslatedDocumentInfo {

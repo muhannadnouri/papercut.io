@@ -1492,7 +1492,7 @@ The existing `.generation`/`.replacing` recovery follows the committed upload ro
 Publication timestamps strictly advance even for equal-size updates in one clock
 tick. A precommit interrupted promotion restores the matching previous files; a
 postcommit backup is cleaned after verifying the new generation. Recovery runs
-under the reference lock on the next writer, review access or reader source
+under the reference lock on the next writer, deletion, review access or reader source
 request after restart, before HTML is served; there is no eager startup sweep.
 Missing/deleted or ambiguous generations fail without resurrecting backup files.
 Ordinary source reads now share this lock through HTML/asset snapshotting, so they
@@ -1528,10 +1528,56 @@ changed locator/content controls still prove invalidation and vector reuse.
 Historical evaluation JSON remains byte-identical. No new full CI, native-model
 inference, packaged or language-quality acceptance result is claimed.
 
-Next: focused Stage 4 review, then Stage 5's accessible editor and consumer integration.
+The first focused review identified title preservation and interrupted-publication
+deletion gaps, corrected below before Stage 5's accessible editor and consumer integration.
 Providers remain gated, strict disabled; benchmarks, packaged/device smoke and
 the app version bump remain deferred. This does not qualify translation meaning
 or complete the user-facing assisted-formatting feature.
+
+### Stage 4 review corrections — 2026-10-21
+
+Finish now reads the editable display title from `uploaded_documents`, leaving
+the initial translation title as provenance. It compares that title and the
+upload generation again inside the writer's Immediate transaction, before any
+staging. A Library rename during preparation rejects without changing the file,
+draft, receipt or search projections; retrying the same draft uses the new title.
+Repeated Finish returns the current Library title without republishing. Later
+draft publication also preserves that label and unchanged search coverage.
+
+Deletion now settles interrupted publication while native ownership and the
+reference lock still hold. The shared deletion path restores `.deleting`, uses
+the existing committed-generation recovery for `.replacing`, and removes unused
+`.staging` before dropping ownership rows. Translation, single-document, batch and
+folder deletion all use this path; reclaimed byte totals include retired
+publication files and assets. SQL failure restores the committed canonical files
+and preserves the draft/metadata for retry. Obsolete or uncommitted scratch may
+already have been removed. Publication-scratch cleanup failure retains ownership
+rather than reporting successful deletion with orphaned publication files.
+
+All four storage names receive exact-case checks before file changes. Existing
+provenance and audiobook-reference guards remain in place. Metadata-free retries
+retain the previous `.deleting` cleanup behavior but cannot claim unowned
+`.staging` or `.replacing` directories. No schema, provider, cache or app-version
+change is needed.
+
+Nine new synthetic regressions cover real Library rename commands before/after
+Finish, repeated/later publication and a deterministic prepare/promotion race;
+all four native deletion routes across staging-only, missing-live,
+promoted-uncommitted and committed-backup interruptions; SQL rollback/retry,
+portable cleanup failure, exact byte totals, ownership/case controls and no
+resurrection. Source/sibling documents and their evidence remain unchanged.
+
+Validation: complete offline Rust library suites passed **739 base** and **741
+native-translation** tests, with four existing ignores in each. The seven frontend
+consumer tests, TypeScript build check, non-test Rust check, Rust formatting,
+diff checks and all 21 local documentation links passed. The non-test Rust check
+reports only the three existing gated HY-MT2 dead-code warnings. Historical
+evaluation JSON remains byte-identical. No fresh CI, model inference, packaged
+smoke or language-quality acceptance result is claimed.
+
+Next: focused review of these corrections, then Stage 5's accessible review
+editor and consumer integration. Providers stay gated and strict disabled;
+benchmarks, packaged/device smoke and the version bump remain deferred.
 
 ## Architecture and ownership
 
@@ -2133,7 +2179,8 @@ cross-platform CI were not checked. This review does not qualify language qualit
 
 ## Next bounded work
 
-Deletion safety has no remaining finding from its review. The
+The earlier deletion review is complete; the Stage 4 publication-related gaps
+are addressed in the [review corrections](#stage-4-review-corrections--2026-10-21). The
 [best-effort emphasis screen](#best-effort-emphasis-evaluation--2026-10-21) was
 rejected, and neither the [Firefox/HY screen](#firefox-dom-and-hy-mt2-18b-evaluation--2026-10-21)
 nor the [7B Q4 screen](#hy-mt2-7b-q4-quality-screen--2026-10-21) qualifies a new
@@ -2153,8 +2200,9 @@ Stage 1's pure contracts and Stage 2a's inline normalization are complete.
 Stage 2b's coverage and literal-preservation blockers passed focused review.
 Stage 3's durable snapshots, resumable drafts and pure reconstruction, including
 the reviewed whitespace/traversal corrections, are complete. Stage 4 now implements
-guarded atomic publication and recovery; review that change before Stage 5's
-accessible editor/consumer integration remains pending. This is
+guarded atomic publication and recovery, including rename and interrupted-delete
+corrections. Review those corrections before Stage 5's accessible editor/consumer
+integration, which remains pending. This is
 not another provider experiment or a claim of automatic target formatting.
 Additional passing examples cannot erase a known failure. Use Firefox's
 DOM ownership as an architectural reference, not evidence of solved completeness

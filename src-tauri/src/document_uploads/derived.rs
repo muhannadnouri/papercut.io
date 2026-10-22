@@ -10,7 +10,9 @@ use super::html::{parsed_html_document, sanitize_html};
 use super::parsed::{ParsedDocument, ParsedDocumentAsset};
 use super::pipeline;
 use super::reader_assets::{owned_assets, snapshot_assets};
-use super::storage::{upload_dir, upload_url, validate_upload_id, StoredSourceKind};
+use super::storage::{
+    directory_size, upload_dir, upload_url, validate_upload_id, StoredSourceKind,
+};
 use super::store::{
     delete_document_rows_in_transaction, open_db, upsert_document_in_transaction,
     validate_upload_deletion_id, PdfTextStatus,
@@ -360,12 +362,36 @@ where
             return Err("Delete the saved audio that uses this document before removing it from the Library".into());
         }
         let dir = upload_dir(app, id)?;
+        let retired_bytes = prepare_owned_document_deletion(&tx, id, &dir)?;
         pipeline::delete_stored_document(&dir, id, || {
             delete_document_rows_in_transaction(&tx, id)?;
             tx.commit().map_err(db_err)
         })
-        .map(Some)
+        .map(|bytes| Some(retired_bytes + bytes))
     })
+}
+
+/// Reconcile publication scratch while ownership and the reference lock still hold.
+/// Only uncommitted/obsolete files are retired before the compensating deletion.
+pub(super) fn prepare_owned_document_deletion(
+    db: &Connection,
+    id: &str,
+    dir: &Path,
+) -> Result<u64, String> {
+    pipeline::recover_stored_document_deletion(dir, id)?;
+    let staging = dir.with_file_name(format!(".{id}.staging"));
+    let backup = dir.with_file_name(format!(".{id}.replacing"));
+    let before = directory_size(dir)? + directory_size(&staging)? + directory_size(&backup)?;
+    recover_interrupted_replacement(db, id, dir, &backup)?;
+    if staging.exists() {
+        fs::remove_dir_all(&staging).map_err(|err| {
+            format!(
+                "Failed to clear uncommitted derived document staging {}: {err}",
+                staging.display()
+            )
+        })?;
+    }
+    Ok(before - directory_size(dir)?)
 }
 
 /// Recover a replacement interrupted before or after its SQLite commit.
@@ -1266,5 +1292,151 @@ mod tests {
         assert!(!backup.exists());
 
         fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn deletion_retires_every_interrupted_publication_phase_and_rolls_back_to_committed_files() {
+        use super::{directory_size, pipeline, prepare_owned_document_deletion};
+        for phase in ["staging", "backup", "promoted", "committed", "deleting"] {
+            for fail_delete in [false, true] {
+                let root = test_root(&format!("delete-publication-{phase}-{fail_delete}"));
+                let live = root.join("variant");
+                let staging = root.join(".variant.staging");
+                let backup = root.join(".variant.replacing");
+                let deleting = root.join(".variant.deleting");
+                let db = database(if phase == "committed" { "2:20" } else { "1:10" });
+                match phase {
+                    "staging" => {
+                        write_generation(&live, "1:10", "old");
+                        write_generation(&staging, "2:20", "new");
+                    }
+                    "backup" => {
+                        write_generation(&backup, "1:10", "old");
+                        write_generation(&staging, "2:20", "new");
+                    }
+                    "promoted" | "committed" => {
+                        write_generation(&backup, "1:10", "old");
+                        write_generation(&live, "2:20", "new");
+                    }
+                    "deleting" => {
+                        write_generation(&deleting, "1:10", "old");
+                        write_generation(&staging, "2:20", "new");
+                    }
+                    _ => unreachable!(),
+                }
+                let expected_bytes = [&live, &staging, &backup, &deleting]
+                    .iter()
+                    .map(|path| directory_size(path).unwrap())
+                    .sum::<u64>();
+                let retired = prepare_owned_document_deletion(&db, "variant", &live).unwrap();
+                let expected = if phase == "committed" { "new" } else { "old" };
+                assert_eq!(
+                    fs::read_to_string(live.join("source.html")).unwrap(),
+                    expected
+                );
+                assert!(!staging.exists());
+                assert!(!backup.exists());
+                let result = pipeline::delete_stored_document(&live, "variant", || {
+                    assert_eq!(
+                        fs::read_to_string(deleting.join("source.html")).unwrap(),
+                        expected
+                    );
+                    if fail_delete {
+                        Err("injected deletion failure".into())
+                    } else {
+                        db.execute("DELETE FROM uploaded_documents", []).unwrap();
+                        Ok(())
+                    }
+                });
+                if fail_delete {
+                    assert_eq!(result.unwrap_err(), "injected deletion failure");
+                    assert_eq!(
+                        fs::read_to_string(live.join("source.html")).unwrap(),
+                        expected
+                    );
+                    assert_eq!(
+                        db.query_row("SELECT count(*) FROM uploaded_documents", [], |row| row
+                            .get::<_, usize>(
+                            0
+                        ))
+                        .unwrap(),
+                        1
+                    );
+                    assert_eq!(
+                        prepare_owned_document_deletion(&db, "variant", &live).unwrap(),
+                        0
+                    );
+                    pipeline::delete_stored_document(&live, "variant", || {
+                        db.execute("DELETE FROM uploaded_documents", []).unwrap();
+                        Ok(())
+                    })
+                    .unwrap();
+                } else {
+                    assert_eq!(retired + result.unwrap(), expected_bytes);
+                }
+                for path in [&live, &staging, &backup, &deleting] {
+                    assert!(!path.exists(), "{phase}: {}", path.display());
+                }
+                // Reopening recovery after successful deletion cannot resurrect any generation.
+                recover_interrupted_replacement(&db, "variant", &live, &backup).unwrap();
+                assert!(!live.exists());
+                fs::remove_dir_all(root).unwrap();
+            }
+        }
+    }
+
+    #[test]
+    fn deletion_scratch_cleanup_failure_keeps_the_committed_document_retryable() {
+        use super::prepare_owned_document_deletion;
+        let root = test_root("delete-publication-cleanup-failure");
+        let live = root.join("variant");
+        let staging = root.join(".variant.staging");
+        let db = database("1:10");
+        write_generation(&live, "1:10", "old");
+        fs::write(&staging, "not a directory").unwrap();
+        assert!(prepare_owned_document_deletion(&db, "variant", &live)
+            .unwrap_err()
+            .contains("Failed to clear uncommitted"));
+        assert_eq!(fs::read_to_string(live.join("source.html")).unwrap(), "old");
+        assert_eq!(
+            db.query_row("SELECT count(*) FROM uploaded_documents", [], |row| row
+                .get::<_, usize>(
+                0
+            ))
+            .unwrap(),
+            1
+        );
+        fs::remove_file(&staging).unwrap();
+        write_generation(&staging, "2:20", "new");
+        assert!(prepare_owned_document_deletion(&db, "variant", &live).unwrap() > 0);
+        assert_eq!(fs::read_to_string(live.join("source.html")).unwrap(), "old");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn deletion_rejects_publication_case_aliases_before_recovering_or_removing_files() {
+        use super::prepare_owned_document_deletion;
+        for alias in [".Variant.staging", ".Variant.replacing"] {
+            let root = test_root("delete-publication-case-alias");
+            let live = root.join("variant");
+            let deleting = root.join(".variant.deleting");
+            let unowned = root.join(alias);
+            let db = database("1:10");
+            write_generation(&deleting, "1:10", "old");
+            write_generation(&unowned, "2:20", "sentinel");
+            assert!(prepare_owned_document_deletion(&db, "variant", &live)
+                .unwrap_err()
+                .contains("letter case"));
+            assert!(!live.exists());
+            assert_eq!(
+                fs::read_to_string(deleting.join("source.html")).unwrap(),
+                "old"
+            );
+            assert_eq!(
+                fs::read_to_string(unowned.join("source.html")).unwrap(),
+                "sentinel"
+            );
+            fs::remove_dir_all(root).unwrap();
+        }
     }
 }

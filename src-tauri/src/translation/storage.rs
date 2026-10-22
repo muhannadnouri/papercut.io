@@ -30,6 +30,8 @@ const TRANSLATION_SCHEMA_VERSION: &str = "3";
 #[path = "review_publication.rs"]
 mod publication;
 pub(super) use publication::finish_translation_review;
+#[cfg(test)]
+pub(super) use publication::{prepare_publication, publish_prepared};
 
 pub(super) fn list_translated_documents<R: Runtime>(
     app: &tauri::AppHandle<R>,

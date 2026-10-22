@@ -19,6 +19,9 @@ use std::{
 };
 use tauri::test::MockRuntime;
 
+#[path = "review_interrupted_delete_tests.rs"]
+mod review_interrupted_delete_tests;
+
 fn finish(window: &tauri::WebviewWindow<MockRuntime>, draft: &Value) -> Result<Value, Value> {
     invoke(
         window,

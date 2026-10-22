@@ -655,15 +655,15 @@ pub(crate) fn delete_upload<R: Runtime>(
     crate::native_tts::with_audiobook_reference_lock(|| {
         let mut db = open_db(app)?;
         validate_upload_deletion_id(&db, &id)?;
-        let document_url = match find_upload_by_id(&db, &id)? {
+        let (document_url, owned) = match find_upload_by_id(&db, &id)? {
             Some(document) => {
                 if StoredSourceKind::from_str(&document.source_kind)? != source_kind {
                     return Err("Uploaded document source metadata does not match its URL".into());
                 }
-                document.url
+                (document.url, true)
             }
             // Keep retries able to clean committed deletion staging without metadata.
-            None => upload_url(&id, source_kind),
+            None => (upload_url(&id, source_kind), false),
         };
         if crate::native_tts::document_has_audiobook_reference(app, &document_url)? {
             return Err(
@@ -673,10 +673,16 @@ pub(crate) fn delete_upload<R: Runtime>(
         }
 
         let dir = upload_dir(app, &id)?;
-        let bytes_freed = delete_stored_document(&dir, &id, || {
-            // Store deletion is transactional, keeping metadata, sections, and FTS in sync.
-            delete_document_rows(&mut db, &id)
-        })?;
+        let retired_bytes = if owned {
+            super::derived::prepare_owned_document_deletion(&db, &id, &dir)?
+        } else {
+            0
+        };
+        let bytes_freed = retired_bytes
+            + delete_stored_document(&dir, &id, || {
+                // Store deletion is transactional, keeping metadata, sections, and FTS in sync.
+                delete_document_rows(&mut db, &id)
+            })?;
 
         Ok(UploadedDocumentDeleteResult {
             id,
@@ -693,42 +699,8 @@ pub(super) fn delete_stored_document<F>(dir: &Path, id: &str, delete_rows: F) ->
 where
     F: FnOnce() -> Result<(), String>,
 {
-    let staged_name = format!(".{id}.deleting");
-    let staged = dir.with_file_name(&staged_name);
-    // SQLite may already be gone on retry. Compare actual names before Windows
-    // can resolve a differently cased path to another live/staged directory.
-    if let Some(parent) = dir.parent().filter(|parent| parent.exists()) {
-        for entry in fs::read_dir(parent)
-            .map_err(|err| format!("Failed to inspect document storage identity: {err}"))?
-        {
-            let name = entry
-                .map_err(|err| format!("Failed to inspect document storage identity: {err}"))?
-                .file_name();
-            if name.to_str().is_some_and(|name| {
-                [id, staged_name.as_str()]
-                    .iter()
-                    .any(|expected| name.eq_ignore_ascii_case(expected) && name != *expected)
-            }) {
-                return Err(
-                    "Uploaded document id does not match stored directory letter case".into(),
-                );
-            }
-        }
-    }
-    if staged.exists() {
-        if dir.exists() {
-            return Err(format!(
-                "Uploaded document has conflicting live and staged storage for {id}"
-            ));
-        }
-        fs::rename(&staged, dir).map_err(|err| {
-            format!(
-                "Failed to recover interrupted document deletion {}: {err}",
-                staged.display()
-            )
-        })?;
-    }
-
+    recover_stored_document_deletion(dir, id)?;
+    let staged = dir.with_file_name(format!(".{id}.deleting"));
     let bytes_freed = directory_size(dir)?;
     if !dir.exists() {
         delete_rows()?;
@@ -758,6 +730,55 @@ where
         )
     })?;
     Ok(bytes_freed)
+}
+
+/// Check every writer-owned name before restoring a prior interrupted deletion.
+/// Publication recovery runs afterward so it cannot conflict with `.deleting`.
+pub(super) fn recover_stored_document_deletion(dir: &Path, id: &str) -> Result<(), String> {
+    let staged_name = format!(".{id}.deleting");
+    let staged = dir.with_file_name(&staged_name);
+    let publication_staging = format!(".{id}.staging");
+    let publication_backup = format!(".{id}.replacing");
+    // SQLite may already be gone on retry. Compare actual names before Windows
+    // can resolve a differently cased path to another live/staged directory.
+    if let Some(parent) = dir.parent().filter(|parent| parent.exists()) {
+        for entry in fs::read_dir(parent)
+            .map_err(|err| format!("Failed to inspect document storage identity: {err}"))?
+        {
+            let name = entry
+                .map_err(|err| format!("Failed to inspect document storage identity: {err}"))?
+                .file_name();
+            if name.to_str().is_some_and(|name| {
+                [
+                    id,
+                    staged_name.as_str(),
+                    publication_staging.as_str(),
+                    publication_backup.as_str(),
+                ]
+                .iter()
+                .any(|expected| name.eq_ignore_ascii_case(expected) && name != *expected)
+            }) {
+                return Err(
+                    "Uploaded document id does not match stored directory letter case".into(),
+                );
+            }
+        }
+    }
+    if staged.exists() {
+        if dir.exists() {
+            return Err(format!(
+                "Uploaded document has conflicting live and staged storage for {id}"
+            ));
+        }
+        fs::rename(&staged, dir).map_err(|err| {
+            format!(
+                "Failed to recover interrupted document deletion {}: {err}",
+                staged.display()
+            )
+        })?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

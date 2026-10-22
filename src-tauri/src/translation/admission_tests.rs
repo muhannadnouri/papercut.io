@@ -9,6 +9,8 @@ mod deletion_tests;
 mod review_command_tests;
 #[path = "review_publication_tests.rs"]
 mod review_publication_tests;
+#[path = "review_rename_tests.rs"]
+mod review_rename_tests;
 
 struct Fixture(std::path::PathBuf);
 impl Drop for Fixture {
@@ -44,6 +46,7 @@ fn fixture() -> (
             translation_review_load,
             translation_review_save,
             translation_review_finish,
+            crate::document_uploads::commands::document_uploads_update_title,
             crate::document_uploads::commands::document_uploads_delete,
             crate::document_uploads::commands::document_uploads_delete_batch,
             crate::document_uploads::commands::document_uploads_delete_folder,
