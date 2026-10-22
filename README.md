@@ -404,8 +404,9 @@ The proposed **Play from here** feature is documented in
 UX, integration/removal boundaries, and acceptance criteria. Its HTML/PDF chunk lookup and
 optional HTML/PDF/OCR viewport capabilities now feed verified prepared-chunk
 lookup, including legacy recovery. Guarded player integration, viewport controls and independent follow/browse
-behavior are implemented. Selection and device/accessibility/performance acceptance
-remain pending.
+behavior are implemented. The audio menu also offers **Play from selection**,
+starting the selected passage’s saved segment. Device/accessibility/performance
+acceptance remains pending.
 
 Narration chunks and generated WAV files remain native app user data. Desktop uses bounded chunk playback; Android and iOS prepare a reusable local `playback.wav` for background and lock-screen playback. Build helpers continue to orchestrate npm, Cargo, Tauri, mobile SDK tooling, checked downloads, and platform library staging; they do not replace those package managers.
 

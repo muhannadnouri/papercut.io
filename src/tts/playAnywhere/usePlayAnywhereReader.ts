@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { AudioFollowPolicy, ViewerTextTargetApi } from '../../viewers/types'
+import type { AudioFollowPolicy, ViewerTextTargetApi, ViewerTextTargetResult } from '../../viewers/types'
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import type { PlaybackTargetResult } from './usePlayAnywherePlayback'
 
@@ -14,6 +14,8 @@ interface ReaderPlaybackOptions {
 // Reader intent owns following; transport remains in the existing player.
 export function usePlayAnywhereReader({ documentUrl, active, playFromHere, playFromBeginning, cancelTargetPlayback }: ReaderPlaybackOptions) {
   const api = useRef<ViewerTextTargetApi | null>(null)
+  const selectionEpoch = useRef(0)
+  const selection = useRef<{ api: ViewerTextTargetApi; read: () => ViewerTextTargetResult } | null>(null)
   const scope = useRef({ alive: true, intent: 0, browse: 0, following: true, active: false })
   const [view, setView] = useState({ documentUrl, active, following: true, revision: 0 })
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -35,7 +37,27 @@ export function usePlayAnywhereReader({ documentUrl, active, playFromHere, playF
       scope.current.following = true
     }
   }, [active, documentUrl])
-  const register = useCallback((value: ViewerTextTargetApi | null) => { api.current = value }, [])
+  const invalidateSelection = useCallback(() => { selectionEpoch.current++; selection.current = null }, [])
+  const register = useCallback((value: ViewerTextTargetApi | null) => {
+    invalidateSelection(); api.current = value
+  }, [invalidateSelection])
+  const clearSelection = useCallback(() => { selection.current = null }, [])
+  const snapshotSelection = useCallback(() => {
+    const targetApi = api.current, epoch = selectionEpoch.current
+    if (!targetApi) { selection.current = null; return }
+    let read: () => ViewerTextTargetResult
+    try {
+      const capture = targetApi.captureSelection?.() ?? { status: 'unavailable', reason: 'no-selection' } as const
+      if (capture.status === 'unavailable' && capture.reason === 'no-selection' && selection.current?.api === targetApi) {
+        const previous = selection.current.read()
+        if (previous.status === 'captured' && previous.isCurrent()) return
+      }
+      read = () => capture.status === 'captured' ? { ...capture,
+        isCurrent: () => api.current === targetApi && selectionEpoch.current === epoch && capture.isCurrent() } : capture
+    } catch (error) { read = () => { throw error } }
+    selection.current = { api: targetApi, read }
+  }, [])
+  const selectionActions = useMemo(() => ({ snapshot: snapshotSelection, invalidate: invalidateSelection }), [snapshotSelection, invalidateSelection])
   const browse = useCallback(() => {
     const current = scope.current
     current.browse++
@@ -51,22 +73,28 @@ export function usePlayAnywhereReader({ documentUrl, active, playFromHere, playF
   }, [])
   const cancel = useCallback(() => {
     scope.current.intent++
+    invalidateSelection()
     cancelTargetPlayback(); setPending(false); setCapturing(false); setFeedback(null)
-  }, [cancelTargetPlayback])
-  const run = useCallback(async (beginning = false) => {
+  }, [cancelTargetPlayback, invalidateSelection])
+  const run = useCallback(async (action: 'viewport' | 'beginning' | 'selection' = 'viewport') => {
     const current = scope.current, intent = ++current.intent, browseVersion = current.browse
     const valid = () => current.alive && current.intent === intent
-    setPending(true); setCapturing(!beginning); setFeedback(null)
-    logTtsDiagnostic('[play-anywhere] action requested', { requestId: intent, action: beginning ? 'beginning' : 'viewport' })
+    if (action === 'selection' && !selection.current) snapshotSelection()
+    const chosen = action === 'selection' ? selection.current : null
+    if (chosen) selection.current = null
+    setPending(true); setCapturing(action !== 'beginning'); setFeedback(null)
+    logTtsDiagnostic('[play-anywhere] action requested', { requestId: intent, action })
     const started = () => {
       if (!valid()) return
       setPending(false)
       if (current.browse === browseVersion) restore()
     }
     const targetApi = api.current
-    const result = beginning ? await playFromBeginning(started)
+    const result = action === 'beginning' ? await playFromBeginning(started)
       : targetApi ? await playFromHere({ captureViewport: async () => {
-        const capture = await targetApi.captureViewport()
+        const capture = action === 'selection'
+          ? chosen?.read() ?? { status: 'unavailable', reason: 'no-selection' } as const
+          : await targetApi.captureViewport()
         if (valid()) setCapturing(false)
         return capture
       } }, started)
@@ -77,12 +105,12 @@ export function usePlayAnywhereReader({ documentUrl, active, playFromHere, playF
     logTtsDiagnostic('[play-anywhere] action resolved', { requestId: intent, status: result.status, ...(result.status === 'unavailable' ? { reason: result.reason } : {}) })
     if (result.status === 'error') setFeedback('failed')
     else if (result.status === 'unavailable') setFeedback(result.reason)
-  }, [playFromBeginning, playFromHere, restore])
+  }, [playFromBeginning, playFromHere, restore, snapshotSelection])
   const followPolicy: AudioFollowPolicy = useMemo(() => ({
     active: active || pending,
     allowsReveal: () => scope.current.alive && (!scope.current.active || scope.current.following),
     revision: view.revision,
   }), [active, pending, view])
-  return { register, browse, followPolicy, browsing: active && !view.following, pending, capturing, feedback, cancel,
-    playFromHere: () => { void run() }, playFromBeginning: () => { void run(true) }, returnToAudio: restore }
+  return { register, browse, selectionActions, snapshotSelection, clearSelection, followPolicy, browsing: active && !view.following, pending, capturing, feedback, cancel,
+    playFromHere: () => { void run() }, playFromSelection: () => { void run('selection') }, playFromBeginning: () => { void run('beginning') }, returnToAudio: restore }
 }

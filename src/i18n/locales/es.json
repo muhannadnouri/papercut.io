@@ -989,7 +989,9 @@
       "noText": "No hay texto legible a la vista. Desplázate a un pasaje e inténtalo de nuevo.",
       "stale": "El pasaje cambió. Inténtalo de nuevo.",
       "unmapped": "No se pudo asociar el audio a este pasaje. Usa Reproducir desde el principio o el menú de audio.",
-      "failed": "No se pudo preparar la reproducción. Inténtalo de nuevo o reproduce desde el principio."
+      "failed": "No se pudo preparar la reproducción. Inténtalo de nuevo o reproduce desde el principio.",
+      "selection": "Reproducir desde la selección",
+      "noSelection": "Selecciona texto en este documento y usa Reproducir desde la selección."
     }
   },
   "imageIssues": {

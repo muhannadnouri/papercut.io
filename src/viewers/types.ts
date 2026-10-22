@@ -34,10 +34,11 @@ export type ViewerTextTargetResult = {
   isCurrent: () => boolean
 } | {
   status: 'unavailable'
-  reason: 'not-ready' | 'no-visible-text' | 'unmapped' | 'stale'
+  reason: 'not-ready' | 'no-visible-text' | 'no-selection' | 'unmapped' | 'stale'
 }
 
 export interface ViewerTextTargetApi {
+  captureSelection?: () => ViewerTextTargetResult
   captureViewport: () => Promise<ViewerTextTargetResult>
 }
 

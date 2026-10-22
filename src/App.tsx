@@ -494,6 +494,8 @@ function App() {
                     browsing: readerPlayback.browsing, pending: readerPlayback.pending, capturing: readerPlayback.capturing, feedback: readerPlayback.feedback,
                     onPlayFromHere: readerPlayback.playFromHere, onPlayFromBeginning: readerPlayback.playFromBeginning,
                     onReturnToAudio: readerPlayback.returnToAudio,
+                    onSnapshotSelection: readerPlayback.snapshotSelection, onPlayFromSelection: readerPlayback.playFromSelection,
+                    onSelectionMenuClose: readerPlayback.clearSelection,
                   }}
                   onPause={() => { readerPlayback.cancel(); audioControlsProps.onPause() }}
                   onResume={() => { readerPlayback.cancel(); audioControlsProps.onResume() }}
@@ -512,6 +514,7 @@ function App() {
             ttsHighlight={ttsHighlight}
             audioFollowPolicy={readerPlayback.followPolicy}
             onReaderBrowse={readerPlayback.browse}
+            onSelectionIntent={audioControlsProps.canPlayAudiobook ? readerPlayback.selectionActions : undefined}
             onTextTargetApiChange={readerPlayback.register}
             searchTarget={searchOpenTarget}
             restoreBookmark={restoreBookmark}

@@ -14,6 +14,9 @@ interface AudioControlsProps {
     capturing?: boolean
     pending: boolean
     feedback: string | null
+    onSnapshotSelection?: () => void
+    onPlayFromSelection?: () => void
+    onSelectionMenuClose?: () => void
     onPlayFromHere: () => void
     onPlayFromBeginning: () => void
     onReturnToAudio: () => void
@@ -129,6 +132,13 @@ export function AudioControls({
   const showPlaybackStatus = ttsState.status !== 'idle'
   const playbackRateLabel = formatSpeedLabel(playbackRate)
 
+  const toggleMenu = () => {
+    if (!chunkMenuOpen) playAnywhere?.onSnapshotSelection?.()
+    setChunkMenuOpen(value => !value)
+  }
+  const onSelectionMenuClose = playAnywhere?.onSelectionMenuClose
+  useEffect(() => { if (chunkMenuOpen) return () => onSelectionMenuClose?.() }, [chunkMenuOpen, onSelectionMenuClose])
+
   const handleChunkSelect = useCallback((index: number) => {
     setChunkMenuOpen(false)
     menuButtonRef.current?.focus()
@@ -177,7 +187,7 @@ export function AudioControls({
           </button>
         )}
         {!showFloatingPlayback && playAnywhere && canPlayAudiobook && (
-          <button ref={menuButtonRef} className="audio-icon-btn" onClick={() => setChunkMenuOpen(value => !value)}
+          <button ref={menuButtonRef} className="audio-icon-btn" onPointerDown={() => { if (!chunkMenuOpen) playAnywhere?.onSnapshotSelection?.() }} onClick={toggleMenu}
             aria-label={chunkMenuOpen ? t('tts.controls.hideMenu') : t('tts.controls.showMenu')}
             aria-expanded={chunkMenuOpen} title={t('tts.controls.menuTitle')}><AudioIcon name="menu" /></button>
         )}
@@ -188,6 +198,7 @@ export function AudioControls({
         <div ref={dockRef} className="audio-playback-dock" role="group" aria-label={t('tts.controls.playbackControls')}>
           {showPlaybackMenuButton && chunkMenuOpen && (
             <ChunkMenu
+              onPlayFromSelection={playAnywhere?.onPlayFromSelection && canPlayAudiobook ? () => { setChunkMenuOpen(false); menuButtonRef.current?.focus(); playAnywhere.onPlayFromSelection?.() } : undefined}
               onPlayFromBeginning={playAnywhere && canPlayAudiobook ? () => { setChunkMenuOpen(false); menuButtonRef.current?.focus(); playAnywhere.onPlayFromBeginning() } : undefined}
               chunks={showFloatingPlayback ? ttsState.chunkSummaries : []}
               currentChunkIndex={ttsState.currentChunkIndex}
@@ -210,6 +221,7 @@ export function AudioControls({
             {ttsState.status === 'error' ? ttsState.message : playAnywhere?.pending ? (ttsState.status === 'loading' ? ttsState.message : t('tts.playAnywhere.preparing'))
               : playAnywhere?.feedback ? t(playAnywhere.feedback === 'not-ready' ? 'tts.playAnywhere.notReady'
                 : playAnywhere.feedback === 'no-visible-text' ? 'tts.playAnywhere.noText'
+                : playAnywhere.feedback === 'no-selection' ? 'tts.playAnywhere.noSelection'
                 : playAnywhere.feedback === 'stale' ? 'tts.playAnywhere.stale'
                 : playAnywhere.feedback === 'failed' ? 'tts.playAnywhere.failed' : 'tts.playAnywhere.unmapped')
               : ''}
@@ -236,7 +248,8 @@ export function AudioControls({
                 <button
                   ref={menuButtonRef}
                   className={'audio-icon-btn audio-menu-btn' + (chunkMenuOpen ? ' audio-menu-btn-open' : '')}
-                  onClick={() => setChunkMenuOpen((value) => !value)}
+                  onPointerDown={() => { if (!chunkMenuOpen) playAnywhere?.onSnapshotSelection?.() }}
+                  onClick={toggleMenu}
                   aria-label={chunkMenuOpen ? t('tts.controls.hideMenu') : t('tts.controls.showMenu')}
                   aria-expanded={chunkMenuOpen}
                   title={t('tts.controls.menuTitle')}
@@ -333,6 +346,7 @@ function nextPlaybackRate(currentRate: number): number {
 }
 
 interface ChunkMenuProps {
+  onPlayFromSelection?: () => void
   onPlayFromBeginning?: () => void
   chunks: TtsChunkSummary[]
   currentChunkIndex: number | null
@@ -348,6 +362,7 @@ const CHUNK_MENU_VISIBLE_ROWS = 12
 const CHUNK_MENU_OVERSCAN = 6
 
 const ChunkMenu = memo(function ChunkMenu({
+  onPlayFromSelection,
   onPlayFromBeginning,
   chunks,
   currentChunkIndex,
@@ -383,6 +398,7 @@ const ChunkMenu = memo(function ChunkMenu({
 
   return (
     <div className="audio-chunk-menu" aria-label={t('tts.controls.menuTitle')}>
+      {onPlayFromSelection && <button className="audio-word-highlight-toggle" onClick={onPlayFromSelection}>{t('tts.playAnywhere.selection')}</button>}
       {onPlayFromBeginning && <button className="audio-word-highlight-toggle" onClick={onPlayFromBeginning}>{t('tts.playAnywhere.beginning')}</button>}
       <div className="audio-chunk-menu-header">
         <span>{t('tts.controls.playback')}</span>

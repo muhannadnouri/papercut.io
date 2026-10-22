@@ -989,7 +989,9 @@
       "noText": "Non c’è testo leggibile visibile. Scorri fino a un passaggio e riprova.",
       "stale": "Il passaggio è cambiato. Riprova.",
       "unmapped": "Impossibile associare l’audio a questo passaggio. Usa Riproduci dall’inizio o il menu audio.",
-      "failed": "Impossibile preparare la riproduzione. Riprova o riproduci dall’inizio."
+      "failed": "Impossibile preparare la riproduzione. Riprova o riproduci dall’inizio.",
+      "selection": "Riproduci dalla selezione",
+      "noSelection": "Seleziona del testo in questo documento, poi usa Riproduci dalla selezione."
     }
   },
   "imageIssues": {

@@ -90,6 +90,27 @@ async function run(action: string, native = false) {
 }
 
 describe.skipIf(!browser)('PDF/OCR viewport capture in Chromium', () => {
+  it('maps a backward native PDF selection through real Find nodes and the verified resolver', async () => {
+    const result = await run(`
+      const found=new Promise(resolve=>bus.on('updatetextlayermatches',resolve));
+      bus.dispatch('find',{query:'coastal ferries',type:'',caseSensitive:false,entireWord:false,highlightAll:true,findPrevious:false});await found;await tick();
+      const page=viewer.getPageView(0),mapping=page._textHighlighter;
+      const blockOrder=mapping.textContentItemsStr.findIndex(text=>text.length>15),item=mapping.textDivs[blockOrder];
+      function point(offset){const walker=document.createTreeWalker(item,NodeFilter.SHOW_TEXT);let node=item.nodeType===3?item:walker.nextNode();while(node){if(offset<node.length)return {node,offset};offset-=node.length;node=walker.nextNode()}throw new Error('Missing selected point')}
+      let offset=3;while(/\\s/u.test(mapping.textContentItemsStr[blockOrder][offset]))offset++;
+      const start=point(offset),end=point(offset+3);
+      document.getSelection().setBaseAndExtent(end.node,end.offset,start.node,start.offset);
+      const session=PdfTargets.createPdfTextTargetApi(viewer,container,bus,bounds);
+      const capture=session.api.captureSelection(),before=plain(capture),resolved=await sourcePreparation.resolve('/uploads/ab.pdf',capture);
+      const button=document.createElement('button');button.className='audio-controls';document.body.append(button);button.focus();document.getSelection().removeAllRanges();
+      const focusSafe=capture.status==='captured'&&capture.isCurrent();bus.dispatch('rotationchanging',{});
+      const stale=capture.status==='captured'&&!capture.isCurrent();session.dispose();
+      parent.postMessage({type:'capture-result',result:{before,expected:{format:'pdf',pageIndex:0,blockOrder,offset},resolved:resolved.status,focusSafe,stale}},'*');await task.destroy();
+    `, true)
+    expect(result.before.status).toBe('captured'); expect(result.before.point).toEqual(result.expected)
+    expect(result.resolved).toBe('resolved'); expect(result.focusSafe).toBe(true); expect(result.stale).toBe(true)
+  }, 30_000)
+
   it.each([{ mode: 'standard', rotation: 90 }, { mode: 'webkit-fallback', rotation: 180 }, { mode: 'ranges-only', rotation: 270 }])('uses real PDF.js offsets through Find, zoom, rotation, page navigation and fullscreen (%j)', async ({ mode, rotation }) => {
     const result = await run(`
       if(${JSON.stringify(mode)}!=='standard')Object.defineProperty(document,'caretPositionFromPoint',{value:undefined});
@@ -154,15 +175,20 @@ describe.skipIf(!browser)('PDF/OCR viewport capture in Chromium', () => {
       const line=overlay.querySelectorAll('span')[1];
       const before=plain(r);line.innerHTML='<mark>'+line.textContent+'</mark>';
       const afterFind=plain(await session.api.captureViewport());
+      const selectedNode=line.querySelector('mark').firstChild;
+      document.getSelection().setBaseAndExtent(selectedNode,8,selectedNode,6);
+      const selection=session.api.captureSelection(),selected=plain(selection),selectionTarget=await preparation.resolve('/uploads/ab.pdf',selection);
       const space=PdfTargets.pdfOcrSourcePoint(line,3),newline=PdfTargets.pdfOcrSourcePoint(line,14),trim=PdfTargets.pdfOcrSourcePoint(line,24);
       line.firstChild.firstChild.data=line.textContent.replace('recognized','misaligned');const stale=r.status==='captured'&&!r.isCurrent();
-      parent.postMessage({type:'capture-result',result:{before,afterFind,target,stale,changed:plain(await session.api.captureViewport()),space,newline,trim}},'*');session.dispose();
+      parent.postMessage({type:'capture-result',result:{before,afterFind,target,selected,selectionTarget:selectionTarget.status,stale,changed:plain(await session.api.captureViewport()),space,newline,trim}},'*');session.dispose();
     `)
     expect(result.before.status).toBe('captured')
     expect(result.before.point).toMatchObject({ format: 'pdf', pageIndex: 3, blockOrder: 11 })
     expect(result.before.point.offset).toBeGreaterThan(0)
     expect(result.before.sourceText).toBe('recognized\r\npassage.  ')
     expect(result.afterFind.point).toEqual(result.before.point)
+    expect(result.selected.point).toEqual({ format: 'pdf', pageIndex: 3, blockOrder: 11, offset: 2 })
+    expect(result.selectionTarget).toBe('resolved')
     expect(result.target.status).toBe('resolved')
     expect(result.target.chunkIndex).toBeGreaterThan(0)
     expect(result.stale).toBe(true)

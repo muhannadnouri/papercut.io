@@ -5,6 +5,7 @@ import {
 } from '../alignment/domTextSegments'
 import { normalizeSegmentText } from '../alignment/readableSegments'
 import { clippedBounds, firstVisibleTextOffset, intersect, validBounds, viewportStamp, visibleText } from './textTargetGeometry'
+import { readerSelection, selectedTextStart, selectionContainsPoint } from './selectionTarget'
 import type { ViewerTextTargetApi, ViewerTextTargetResult, ViewerViewportBounds } from '../../viewers/types'
 
 interface CaptureIndex {
@@ -14,6 +15,7 @@ interface CaptureIndex {
   visible: Set<Element>
   pendingVisibility: Set<Element>
   owners: Map<Element, number[]>
+  textSegments: Map<Text, number>
 }
 
 /** Optional, lazy reader capability. This module never loads or starts audio. */
@@ -64,16 +66,18 @@ export function createHtmlTextTargetApi(
       texts,
       lengths: Object.freeze(texts.map(text => text.length)),
       owners: new Map(),
+      textSegments: new Map(),
       visible: new Set(),
       pendingVisibility: new Set(),
     }
     dom.segments.forEach((segment, segmentIndex) => {
+      for (const node of segment.textNodes) built.textSegments.set(node, segmentIndex)
       const owners = built.owners.get(segment.owner) ?? []
       owners.push(segmentIndex)
       built.owners.set(segment.owner, owners)
     })
     index = built
-    visibility = new view.IntersectionObserver((entries) => {
+    if (view.IntersectionObserver) visibility = new view.IntersectionObserver((entries) => {
       if (index !== built) return
       for (const entry of entries) {
         built.pendingVisibility.delete(entry.target)
@@ -83,12 +87,29 @@ export function createHtmlTextTargetApi(
     })
     for (const owner of built.owners.keys()) {
       built.pendingVisibility.add(owner)
-      visibility.observe(owner)
+      visibility?.observe(owner)
     }
     return built
   }
 
   const api: ViewerTextTargetApi = {
+    captureSelection() {
+      if (mutations.takeRecords().length) invalidate()
+      if (disposed || !root.isConnected) return { status: 'unavailable', reason: 'stale' }
+      if (doc.visibilityState === 'hidden') return { status: 'unavailable', reason: 'not-ready' }
+      const snapshot = readerSelection(root)
+      if (!snapshot) return { status: 'unavailable', reason: 'no-selection' }
+      const start = selectedTextStart(snapshot.range)
+      if (!start || !visibleText(start.node, root)) return { status: 'unavailable', reason: 'unmapped' }
+      const built = getIndex(), version = revision
+      const segmentIndex = built.textSegments.get(start.node)
+      const segment = segmentIndex === undefined ? undefined : built.dom.segments[segmentIndex]
+      const point = segment && normalizeDomTextPoint(segment.textNodes, start.node, start.offset)
+      if (segmentIndex === undefined || !point || !selectionContainsPoint(snapshot.range, point.node, point.offset)) return { status: 'unavailable', reason: 'unmapped' }
+      return { status: 'captured', point: { format: 'html', segmentIndex, offset: point.normalizedOffset },
+        segmentLengths: built.lengths, segmentTexts: built.texts,
+        isCurrent: () => isCurrent(version) && snapshot.isCurrent() }
+    },
     async captureViewport() {
       cancelPending()
       if (mutations.takeRecords().length) invalidate()

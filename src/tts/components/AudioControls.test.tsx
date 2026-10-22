@@ -44,3 +44,21 @@ it('uses explicit viewport/beginning actions, keeps Resume while browsing, and r
     expect(config.onRead).toHaveBeenCalledOnce()
   } finally { await act(async () => app.unmount()) }
 })
+
+it('snapshots on menu pointerdown before focus and exposes a keyboard-focusable explicit selection action', async () => {
+  const config = props(), element = document.createElement('div'); document.body.append(element); const app = createRoot(element)
+  const snapshot = vi.fn(), play = vi.fn(), close = vi.fn()
+  try {
+    await act(async () => app.render(<AudioControls {...config} playAnywhere={{ ...config.playAnywhere!, onSnapshotSelection: snapshot, onPlayFromSelection: play, onSelectionMenuClose: close }} />))
+    const trigger = document.querySelector<HTMLButtonElement>('[aria-expanded="false"]')!
+    await act(async () => trigger.dispatchEvent(new Event('pointerdown', { bubbles: true })))
+    expect(snapshot).toHaveBeenCalledOnce()
+    trigger.focus(); await act(async () => trigger.click())
+    const action = [...document.querySelectorAll('button')].find(b => b.textContent === 'tts.playAnywhere.selection')!
+    expect(document.activeElement).toBe(action)
+    await act(async () => action.click()); expect(play).toHaveBeenCalledOnce(); expect(close).toHaveBeenCalledOnce()
+    expect(document.activeElement).toBe(trigger)
+    await act(async () => app.render(<AudioControls {...config} playAnywhere={{ ...config.playAnywhere!, feedback: 'no-selection' }} />))
+    expect(document.querySelector('[role="status"]')?.textContent).toBe('tts.playAnywhere.noSelection')
+  } finally { await act(async () => app.unmount()) }
+})

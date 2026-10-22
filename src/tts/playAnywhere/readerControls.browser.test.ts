@@ -16,6 +16,7 @@ beforeAll(async () => {
     import i18n from ${JSON.stringify(resolve('src/i18n/index.ts'))};
     import ${JSON.stringify(resolve('src/components/DocumentViewer/DocumentViewer.css'))};
     import {usePlayAnywhereReader} from ${JSON.stringify(resolve('src/tts/playAnywhere/usePlayAnywhereReader.ts'))};
+    import {bindSelectionIntent} from ${JSON.stringify(resolve('src/tts/playAnywhere/selectionTarget.ts'))};
     import {createHtmlTextTargetApi,readerTextViewport} from ${JSON.stringify(resolve('src/tts/playAnywhere/htmlTextTarget.ts'))};
     export async function mount(locale,captureMode=false) {
       await i18n.changeLanguage(locale);document.documentElement.dir=locale==='ar'?'rtl':'ltr';
@@ -31,8 +32,8 @@ beforeAll(async () => {
         React.useEffect(()=>{
           if(!captureMode)return;
           const root=document.querySelector('article'),shell=document.querySelector('.app-reader');
-          const session=createHtmlTextTargetApi(root,()=>readerTextViewport(shell));reader.register(session.api);window.captureReady=true;
-          return ()=>{reader.register(null);session.dispose()};
+          const session=createHtmlTextTargetApi(root,()=>readerTextViewport(shell));reader.register(session.api);const unbind=bindSelectionIntent(shell,reader.selectionActions);window.captureReady=true;
+          return ()=>{unbind();reader.register(null);session.dispose()};
         },[]);
         return <AudioControls
         audiobookState={{status:'saved',complete:true,cachedChunks:2,totalChunks:2}}
@@ -42,7 +43,7 @@ beforeAll(async () => {
         onSkipBackward={noop} onSkipForward={noop} onStop={noop} onWordHighlightEnabledChange={noop}
         playbackRate={1} savedAudiobooks={[]} selectedAudiobookId={null} wordHighlightEnabled
         ttsState={{status:captureMode?'idle':'paused',message:'',chunksTotal:2,chunksPlayed:0,currentChunkIndex:0,currentChunkProgress:0,currentChunkDuration:0,chunkSummaries:[]}}
-        playAnywhere={captureMode?{...reader,onPlayFromHere:reader.playFromHere,onPlayFromBeginning:reader.playFromBeginning,onReturnToAudio:reader.returnToAudio}:{browsing:true,pending:false,feedback:'unmapped',onPlayFromHere:noop,onPlayFromBeginning:noop,onReturnToAudio:noop}} />;
+        playAnywhere={captureMode?{...reader,onPlayFromHere:reader.playFromHere,onPlayFromBeginning:reader.playFromBeginning,onReturnToAudio:reader.returnToAudio,onSnapshotSelection:reader.snapshotSelection,onPlayFromSelection:reader.playFromSelection,onSelectionMenuClose:reader.clearSelection}:{browsing:true,pending:false,feedback:'unmapped',onPlayFromHere:noop,onPlayFromBeginning:noop,onReturnToAudio:noop}} />;
       }
       createRoot(document.getElementById('controls')).render(<Controls/>);
     }
@@ -86,6 +87,26 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     const result = await runBrowserFixture(directory, frame, 620)
     expect(result.status, JSON.stringify(result)).toBe('captured')
     expect(result.point.segmentIndex).toBeGreaterThan(0)
+  }, 30_000)
+
+  it.each(['pointer', 'keyboard'])('keeps the chosen passage through %s menu focus and native selection collapse', async method => {
+    const frame = join(directory, 'selection.html')
+    writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>${css}article{margin:80px 30px;font:20px/1.6 Arial}</style>
+      <div class="app-reader"><header class="doc-header"><div id="controls"></div></header><main class="document-view"><article><p>First paragraph.</p><p>Selected readable passage here.</p></article></main></div>
+      <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async()=>{await ReaderControls.mount('en',true);while(!window.captureReady)await new Promise(requestAnimationFrame);
+      const text=document.querySelectorAll('article p')[1].firstChild;document.getSelection().setBaseAndExtent(text,15,text,9);
+      const trigger=document.querySelector('[aria-expanded=false]');
+      if(${JSON.stringify(method)}==='keyboard')document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true}));
+      else trigger.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch'}));
+      if(${JSON.stringify(method)}==='keyboard'){const intermediate=document.createElement('button');document.body.append(intermediate);intermediate.focus();document.getSelection().removeAllRanges();intermediate.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true}));}
+      trigger.focus();document.getSelection().removeAllRanges();trigger.click();
+      while(!document.querySelector('.audio-chunk-menu'))await new Promise(requestAnimationFrame);
+      const action=[...document.querySelectorAll('.audio-chunk-menu button')].find(button=>button.textContent==='Play from selection');
+      if(!action)throw new Error('Missing explicit selection action');action.click();})();</script>`)
+    const result = await runBrowserFixture(directory, frame, 390)
+    expect(result.status, JSON.stringify(result)).toBe('captured')
+    expect(result.point).toEqual({ format: 'html', segmentIndex: 1, offset: 9 })
   }, 30_000)
 
 })

@@ -12,7 +12,8 @@ UX, optional integration contracts, debugging/removal path, and acceptance gates
 Its isolated HTML/PDF chunk lookup and optional HTML/PDF/OCR viewport capabilities
 feed verified prepared-chunk lookup and guarded player integration with ordered
 legacy recovery. Viewport play and independent follow/browse controls are wired;
-selection and device/accessibility/performance acceptance remain pending.
+the audio menu also offers Play from selection through the same verified lookup.
+Device/accessibility/performance acceptance remains pending.
 
 The frontend owns document parsing, HTML narration chunking, the platform-neutral playback state consumed by controls and highlighting, saved-audiobook state, downloads, and diagnostics. Native code owns synthesis, the fast audiobook-save path, persisted playback indexes, and mobile background playback.
 

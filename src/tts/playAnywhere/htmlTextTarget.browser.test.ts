@@ -86,6 +86,7 @@ describe.skipIf(!browser)('HTML viewport capture in a rendered browser', () => {
     const content = options.dir === 'rtl'
       ? paragraphs.replaceAll('First repeated sentence.', 'بِدايَةٌ واضحةٌ. نِهايَةٌ واضحةٌ.') : paragraphs
     const result = await run(content, `
+      const incidental=root.querySelector('p').firstChild;document.getSelection().setBaseAndExtent(incidental,0,incidental,6);
       scrollTo(0,720);
       const session=HtmlTargets.createHtmlTextTargetApi(root,bounds);
       const result=await session.api.captureViewport(), oracle=expected();

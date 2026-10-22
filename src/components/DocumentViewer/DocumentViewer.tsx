@@ -20,6 +20,7 @@ import { getExternalLinkUrl, getInternalDocumentHash } from './linkUtils'
 import { useFindInPage } from '../../hooks/useFindInPage'
 import { useReaderBookmark } from '../../hooks/useReaderBookmark'
 import { useTtsHighlight } from '../../tts/hooks/useTtsHighlight'
+import { bindSelectionIntent } from '../../tts/playAnywhere/selectionTarget'
 import { bindReaderBrowse } from '../../tts/playAnywhere/readerBrowse'
 import { readerTextViewport } from '../../tts/playAnywhere/htmlTextTarget'
 import type { SearchOpenTarget } from '../../types/search'
@@ -65,6 +66,7 @@ interface DocumentViewerProps {
   headerControls?: ReactNode
   beforeDocument?: ReactNode
   audioFollowPolicy?: AudioFollowPolicy
+  onSelectionIntent?: { snapshot: () => void; invalidate: () => void }
   onReaderBrowse?: () => void
   ttsHighlight?: TtsHighlightOptions
   searchTarget?: SearchOpenTarget | null
@@ -86,6 +88,7 @@ export function DocumentViewer({
   ttsHighlight,
   audioFollowPolicy,
   onReaderBrowse,
+  onSelectionIntent,
   searchTarget,
   restoreBookmark = false,
   loading = false,
@@ -150,6 +153,12 @@ export function DocumentViewer({
     const shell = readerShellRef.current
     if (shell && onReaderBrowse && audioFollowPolicy?.active !== false) return bindReaderBrowse(shell, onReaderBrowse)
   }, [audioFollowPolicy?.active, onReaderBrowse, url])
+
+  useEffect(() => {
+    const shell = readerShellRef.current
+    if (!shell || !onSelectionIntent) return
+    return bindSelectionIntent(shell, onSelectionIntent)
+  }, [onSelectionIntent, url])
 
   useTtsHighlight(readerRef, ttsHighlight
     ? { ...ttsHighlight, audioFollowPolicy, enabled: ttsHighlight.enabled && plugin.id !== 'pdf' }
