@@ -16,7 +16,7 @@ beforeAll(async () => {
   writeFileSync(entry, [
     ['src/tts/playAnywhere/pdfTextTarget.ts', 'createPdfTextTargetApi'],
     ['src/tts/playAnywhere/htmlTextTarget.ts', 'readerTextViewport'],
-    ['src/tts/playAnywhere/pdfChunkSourceResolver.ts', 'createPdfChunkSourceResolver'],
+    ['src/tts/playAnywhere/prepareTextTarget.ts', 'createTextTargetPreparation'],
     ['src/pdf/ocr/pdfOcrTextLayer.ts', 'renderPdfOcrTextLayer, pdfOcrSourcePoint'],
     ['src/pdf/pdfTts.ts', 'pdfNarrationToReadableSegments, pdfSourceSpansForChunk'],
     ['src/tts/utils/text.ts', 'chunkAudiobookSaveSegmentsWithSpans'],
@@ -71,6 +71,13 @@ async function run(action: string, native = false) {
   const rendered=new Promise(resolve=>bus.on('textlayerrendered',resolve));
   bus.on('pagesinit',()=>{viewer.currentScaleValue='1';});
   viewer.setDocument(pdf);links.setDocument(pdf);await rendered;await tick();
+  const sourcePages=await Promise.all(Array.from({length:pdf.numPages},async(_,pageIndex)=>{
+    const content=await(await pdf.getPage(pageIndex+1)).getTextContent({disableNormalization:true});
+    return {schemaVersion:1,pageIndex,width:612,height:792,blocks:content.items.filter(item=>'str'in item).map((item,order)=>({order,text:item.str+(item.hasEOL?'\\n':''),bounds:[0,0,1,1],confidence:null}))};
+  }));
+  const sourceSegments=PdfTargets.pdfNarrationToReadableSegments(sourcePages.flatMap(page=>page.blocks.filter(block=>block.text.trim()).map(block=>({text:block.text.trim(),sourceRuns:[{pageIndex:page.pageIndex,blockOrder:block.order,startOffset:0,endOffset:block.text.trim().length,sourceStartOffset:0,sourceEndOffset:block.text.trim().length}]}))));
+  const sourceChunks=PdfTargets.chunkAudiobookSaveSegmentsWithSpans(sourceSegments).map((chunk,i)=>({...chunk,id:'saved-'+i,pdfSourceSpans:PdfTargets.pdfSourceSpansForChunk(sourceSegments,chunk.sourceSpan)}));
+  const sourcePreparation=PdfTargets.createTextTargetPreparation({documentUrl:'/uploads/ab.pdf',docContent:'',chunks:sourceChunks,getChunks:async()=>sourceChunks,getPdfSegments:async()=>sourceSegments,getPdfPageText:async(_,index)=>sourcePages[index]});
   `
   writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css}
   body{margin:0}.doc-header{position:fixed;top:0;height:90px;width:100%;background:white;z-index:10}
@@ -88,7 +95,11 @@ describe.skipIf(!browser)('PDF/OCR viewport capture in Chromium', () => {
       if(${JSON.stringify(mode)}!=='standard')Object.defineProperty(document,'caretPositionFromPoint',{value:undefined});
       if(${JSON.stringify(mode)}==='ranges-only')Object.defineProperty(document,'caretRangeFromPoint',{value:undefined});
       const session=PdfTargets.createPdfTextTargetApi(viewer,container,bus,bounds);
-      async function capture(){await tick();const r=await session.api.captureViewport();return {capture:plain(r),oracle:oracle(viewer.currentPageNumber-1,viewer.getPageView(viewer.currentPageNumber-1)._textHighlighter)}}
+      async function capture(){
+        await tick();const r=await session.api.captureViewport(), resolved=await sourcePreparation.resolve('/uploads/ab.pdf',r);
+        return {capture:plain(r),oracle:oracle(viewer.currentPageNumber-1,viewer.getPageView(viewer.currentPageNumber-1)._textHighlighter),
+          target:resolved.status==='resolved'?{status:resolved.status,chunkIndex:resolved.chunkIndex,chunkId:resolved.chunkId}:resolved}
+      }
       const first=await capture();
       // The actual Find controller rewrites item children; source offsets must remain unchanged.
       const found=new Promise(resolve=>bus.on('updatetextlayermatches',resolve));
@@ -111,8 +122,10 @@ describe.skipIf(!browser)('PDF/OCR viewport capture in Chromium', () => {
       expect(result[key].capture.status, key).toBe('captured')
       expect(result[key].capture.point, key).toEqual(result[key].oracle)
       expect(result[key].capture.current, key).toBe(true)
+      expect(result[key].target.status, key).toBe('resolved')
     }
     expect(result.pageTwo.capture.point.pageIndex).toBe(1)
+    expect(result.pageTwo.target.chunkIndex).toBeGreaterThan(0)
     expect(result.stale).toBe(true)
     expect(result.disposed).toEqual({ status: 'unavailable', reason: 'stale' })
   }, 30_000)
@@ -133,9 +146,11 @@ describe.skipIf(!browser)('PDF/OCR viewport capture in Chromium', () => {
       const session=PdfTargets.createPdfTextTargetApi(viewer,container,bus,bounds);
       await tick();container.scrollTop=100;container.scrollLeft=210;
       const r=await session.api.captureViewport();
-      const segments=PdfTargets.pdfNarrationToReadableSegments(layer.blocks.map(b=>({text:b.text.trim(),sourceRuns:[{pageIndex:3,blockOrder:b.order,startOffset:0,endOffset:b.text.trim().length,sourceStartOffset:0,sourceEndOffset:b.text.trim().length}]})));
+      const segments=PdfTargets.pdfNarrationToReadableSegments(layer.blocks.map(b=>({text:b.text.replace(/[\\r\\n]+/gu,'').trim(),sourceRuns:[{pageIndex:3,blockOrder:b.order,startOffset:0,endOffset:b.text.replace(/[\\r\\n]+/gu,'').trim().length,sourceStartOffset:0,sourceEndOffset:b.text.trim().length}]})));
       const chunks=PdfTargets.chunkAudiobookSaveSegmentsWithSpans(segments).map((c,i)=>({...c,id:'saved-'+i,pdfSourceSpans:PdfTargets.pdfSourceSpansForChunk(segments,c.sourceSpan)}));
-      const lookup=PdfTargets.createPdfChunkSourceResolver(chunks), target=r.status==='captured'&&lookup.status==='ready'?lookup.resolve(r.point):lookup;
+      const preparation=PdfTargets.createTextTargetPreparation({documentUrl:'/uploads/ab.pdf',docContent:'',chunks,getChunks:async()=>chunks,getPdfSegments:async()=>segments,getPdfPageText:async()=>layer});
+      const resolved=await preparation.resolve('/uploads/ab.pdf',r);
+      const target=resolved.status==='resolved'?{status:resolved.status,chunkIndex:resolved.chunkIndex,chunkId:resolved.chunkId}:resolved;
       const line=overlay.querySelectorAll('span')[1];
       const before=plain(r);line.innerHTML='<mark>'+line.textContent+'</mark>';
       const afterFind=plain(await session.api.captureViewport());

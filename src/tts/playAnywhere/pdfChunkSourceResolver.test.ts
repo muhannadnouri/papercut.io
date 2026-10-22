@@ -18,6 +18,7 @@ describe('PDF source-to-chunk lookup', () => {
     expect(resolver.resolve({ pageIndex: 2, blockOrder: 4, offset: 0 })).toEqual({ status: 'resolved', chunkIndex: 0, chunkId: 'first' })
     expect(resolver.resolve({ pageIndex: 2, blockOrder: 4, offset: 1 })).toEqual({ status: 'resolved', chunkIndex: 1, chunkId: 'next' })
     expect(resolver.resolve({ pageIndex: 3, blockOrder: 0, offset: 2 })).toEqual({ status: 'resolved', chunkIndex: 1, chunkId: 'next' })
+    expect(resolver.resolve({ pageIndex: 2, blockOrder: 4, offset: 0 }, 2)).toMatchObject({ reason: 'invalid-source' })
     expect(resolver.resolve({ pageIndex: 2, blockOrder: 9, offset: 7 })).toEqual({ status: 'unavailable', reason: 'unmapped' })
     expect(resolver.resolve({ pageIndex: 1, blockOrder: 4, offset: 1 })).toEqual({ status: 'unavailable', reason: 'unmapped' })
     expect(resolver.resolve({ pageIndex: 2, blockOrder: 4, offset: -1 })).toEqual({ status: 'unavailable', reason: 'invalid-point' })

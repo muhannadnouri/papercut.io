@@ -1,4 +1,4 @@
-import type { TtsChunkSourceSpan } from '../types'
+import type { TtsChunk, TtsChunkSourceSpan } from '../types'
 import { collectReadableHtmlSegments, type ReadableHtmlSegment } from './htmlStructure'
 
 export interface ReadableDomSegmentIndex {
@@ -98,12 +98,17 @@ export function createRangeForSourceSpan(
 export function buildReadableDomTextLocatorIndex(
   index: ReadableDomSegmentIndex,
 ): ReadableDomTextLocatorIndex {
+  return buildTextLocatorIndex(index.segments.map(segment => segment.textNodes.map(node => node.data).join('')))
+}
+
+/** Reuse the DOM locator rules for an immutable normalized viewer snapshot. */
+export function buildTextLocatorIndex(texts: readonly string[]): ReadableDomTextLocatorIndex {
   const segmentTexts: string[] = []
   const segmentStarts: number[] = []
   let text = ''
 
-  for (const segment of index.segments) {
-    const segmentText = normalizeLocatorText(segment.textNodes.map((node) => node.data).join(''))
+  for (const value of texts) {
+    const segmentText = normalizeLocatorText(value)
     segmentTexts.push(segmentText)
     const segmentStart = segmentText && text ? text.length + 1 : text.length
     segmentStarts.push(segmentStart)
@@ -111,9 +116,11 @@ export function buildReadableDomTextLocatorIndex(
     text += (text ? ' ' : '') + segmentText
   }
 
-  const matchIndex = buildLocatorMatchIndex(text)
-
-  return { text, segmentTexts, segmentStarts, ...matchIndex }
+  let matchIndex: ReturnType<typeof buildLocatorMatchIndex> | undefined
+  return { text, segmentTexts, segmentStarts,
+    get matchText() { return (matchIndex ??= buildLocatorMatchIndex(text)).matchText },
+    get matchTextOffsets() { return (matchIndex ??= buildLocatorMatchIndex(text)).matchTextOffsets },
+  }
 }
 
 // Locate a chunk in the normalized live-reader text and return ordinary source
@@ -133,7 +140,7 @@ export function createSourceSpanFromTextMatch(
   const fromOffset = typeof hintOrFromOffset === 'number'
     ? hintOrFromOffset
     : hintOrFromOffset
-      ? globalOffsetForSpan(locator, hintOrFromOffset)
+      ? sourceSpanStartGlobalOffset(locator, hintOrFromOffset)
       : -1
   const strictHint = typeof hintOrFromOffset === 'number'
 
@@ -151,6 +158,29 @@ export function createSourceSpanFromTextMatch(
   if (!match) return null
 
   return sourceSpanFromGlobalMatch(locator, match.startGlobalOffset, match.endGlobalOffset)
+}
+
+/** Canonical forward recovery shared by highlighting and verified target preparation. */
+export function recoverOrderedSourceSpans(
+  locator: ReadableDomTextLocatorIndex,
+  chunks: readonly TtsChunk[],
+): Map<number, TtsChunkSourceSpan> {
+  const spans = new Map<number, TtsChunkSourceSpan>()
+  let cursor = 0
+  chunks.forEach((chunk, index) => {
+    if (!chunk.text) return
+    const span = createSourceSpanFromTextMatch(locator, chunk.text, cursor)
+    if (!span) return
+    spans.set(index, span)
+    const end = sourceSpanEndGlobalOffset(locator, span)
+    if (end >= 0) cursor = end
+  })
+  return spans
+}
+
+/** Dropped Arabic display marks and whitespace cannot disambiguate narration. */
+export function locatorTextIsIgnorable(text: string): boolean {
+  return !buildLocatorMatchIndex(normalizeLocatorText(text)).matchText.trim()
 }
 
 export function locatorTextsMatch(rangeText: string, chunkText: string): boolean {
@@ -205,8 +235,9 @@ function findTolerantLocatorMatch(
   // offsets must be mapped back through matchTextOffsets before creating a DOM
   // sourceSpan. Directly using matchText indexes would highlight the wrong text.
   const startGlobalOffset = locator.matchTextOffsets[at]
-  const endGlobalOffset = locator.matchTextOffsets[at + needle.length - 1]
+  let endGlobalOffset = locator.matchTextOffsets[at + needle.length - 1]
   if (startGlobalOffset === undefined || endGlobalOffset === undefined) return null
+  if ((locator.text.codePointAt(endGlobalOffset) ?? 0) > 0xffff) endGlobalOffset++
 
   return { startGlobalOffset, endGlobalOffset }
 }
@@ -277,9 +308,10 @@ function normalizeLocatorText(text: string): string {
 // marks and folds common Arabic/Persian codepoint variants for compatibility.
 function buildLocatorMatchIndex(text: string): { matchText: string; matchTextOffsets: number[] } {
   let matchText = ''
+  let afterSentenceEnd = false
   const matchTextOffsets: number[] = []
 
-  // Store one original normalized-text offset for every output character. NFKC
+  // Map every output UTF-16 unit to its original codepoint start. NFKC
   // can expand a codepoint, while Arabic mark stripping can remove one, and this
   // map is what lets tolerant matching still return precise DOM offsets.
   for (let offset = 0; offset < text.length;) {
@@ -288,8 +320,11 @@ function buildLocatorMatchIndex(text: string): { matchText: string; matchTextOff
     const char = String.fromCodePoint(codePoint)
     const normalized = normalizeLocatorMatchChar(char)
     for (const outputChar of normalized) {
+      // Sentence chunking can insert a space inside a decimal/initialism; keep original offset mapping.
+      if (outputChar === ' ' && afterSentenceEnd) continue
+      afterSentenceEnd = /[.!?؟。！？।॥]/u.test(outputChar) || (afterSentenceEnd && /["'”’»)\]）】」』》]/u.test(outputChar))
       matchText += outputChar
-      matchTextOffsets.push(offset)
+      for (let unit = 0; unit < outputChar.length; unit++) matchTextOffsets.push(offset)
     }
     offset += char.length
   }
@@ -366,7 +401,7 @@ function matchOffsetAtOrAfterGlobalOffset(
   return candidate < locator.matchTextOffsets.length ? candidate : -1
 }
 
-function globalOffsetForSpan(
+export function sourceSpanStartGlobalOffset(
   locator: ReadableDomTextLocatorIndex,
   span: TtsChunkSourceSpan,
 ): number {

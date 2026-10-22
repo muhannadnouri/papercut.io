@@ -36,6 +36,7 @@ import {
 import { isUserUploadUrl, type UserUploadDocument } from '../storage/UserUploads'
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import { useAudiobookCache } from './useAudiobookCache'
+import { usePreparedTextTarget } from '../playAnywhere/usePreparedTextTarget'
 import { useAudiobookDocument } from './useAudiobookDocument'
 import { useAudiobookDownloadQueue } from './useAudiobookDownloadQueue'
 import { useSavedAudiobookActions } from './useSavedAudiobookActions'
@@ -128,9 +129,12 @@ export function useAudiobookManager({
   }, [setTtsModelId])
   const {
     chunks: ttsSaveChunks,
+    canonicalChunks: preparedChunks,
+    getCanonicalChunks,
     getChunksForDocument: getAudiobookSaveChunksForDocument,
     getSelectedChunks: getSelectedAudiobookSaveChunks,
     importedHighlightStatus,
+    getPdfSegments,
     reset: resetAudiobookDocument,
   } = useAudiobookDocument({
     docContent,
@@ -138,6 +142,10 @@ export function useAudiobookManager({
     modelId: ttsModelId,
     selectedDoc,
     onImportedMetadata: restoreImportedAudiobookMetadata,
+  })
+  const resolveTextTarget = usePreparedTextTarget({
+    documentUrl: selectedDoc, docContent, modelId: ttsModelId, chunks: preparedChunks,
+    getChunks: getCanonicalChunks, getPdfSegments,
   })
   const selectedTtsModel = getTtsModel(ttsModels, ttsModelId)
   const {
@@ -558,6 +566,8 @@ export function useAudiobookManager({
   return {
     audiobookActionBusy,
     audiobookActionMessage,
+    preparedChunks,
+    resolveTextTarget,
     audioControlsProps: {
       audiobookState: audioControlsAudiobookState,
       canPlayAudiobook: audioControlsAudiobookState.complete,

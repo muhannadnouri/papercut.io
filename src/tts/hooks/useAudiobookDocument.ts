@@ -45,7 +45,15 @@ export function useAudiobookDocument({
   selectedDoc,
   onImportedMetadata,
 }: AudiobookDocumentOptions) {
-  const [chunks, setChunks] = useState<TtsChunk[] | null>(null)
+  const [prepared, setPrepared] = useState<{
+    documentUrl: string | null; docContent: string; modelId: string; chunks: TtsChunk[]; source: 'canonical' | 'unverified-import'
+  } | null>(null)
+  const chunks = prepared?.documentUrl === selectedDoc && prepared.docContent === docContent && prepared.modelId === modelId
+    ? prepared.chunks : null
+  const canonicalChunks = prepared?.source === 'canonical' ? chunks : null
+  const setChunks = useCallback((value: TtsChunk[] | null, source: 'canonical' | 'unverified-import' = 'canonical') => {
+    setPrepared(value ? { documentUrl: selectedDoc, docContent, modelId, chunks: value, source } : null)
+  }, [selectedDoc, docContent, modelId])
   const [importedHighlightStatus, setImportedHighlightStatus] = useState<ImportedHighlightStatus>('idle')
   const pdfSegmentsRef = useRef<{
     documentUrl: string
@@ -143,7 +151,7 @@ export function useAudiobookDocument({
         })
         .catch(() => {
           if (cancelled) return
-          setChunks(audiobookSaveChunksFromHtml(docContent, modelId))
+          setChunks(audiobookSaveChunksFromHtml(docContent, modelId), 'unverified-import')
           setImportedHighlightStatus('unavailable')
         })
       return () => {
@@ -154,7 +162,7 @@ export function useAudiobookDocument({
 
     setImportedHighlightStatus('ready')
     setChunks(audiobookSaveChunksFromHtml(docContent, modelId))
-  }, [docContent, getPdfSegments, modelId, onImportedMetadata, selectedDoc])
+  }, [docContent, getPdfSegments, modelId, onImportedMetadata, selectedDoc, setChunks])
 
   const getChunksForDocument = useCallback(async (
     documentUrl: string,
@@ -178,13 +186,20 @@ export function useAudiobookDocument({
     return chunks ?? getChunksForDocument(selectedDoc)
   }, [chunks, getChunksForDocument, selectedDoc])
 
+  const getCanonicalChunks = useCallback(async (): Promise<TtsChunk[]> => {
+    if (canonicalChunks) return canonicalChunks
+    // A failed import read may leave display fallback chunks; target preparation must retry the manifest.
+    if (selectedDoc && isUserUploadUrl(selectedDoc)) return getChunksForDocument(selectedDoc)
+    return getSelectedChunks()
+  }, [canonicalChunks, getChunksForDocument, getSelectedChunks, selectedDoc])
+
   const reset = useCallback(() => {
     pdfSegmentsRef.current = null
-    setChunks(null)
+    setPrepared(null)
     setImportedHighlightStatus('idle')
   }, [])
 
-  return { chunks, getChunksForDocument, getSelectedChunks, importedHighlightStatus, reset }
+  return { chunks, canonicalChunks, getCanonicalChunks, getChunksForDocument, getSelectedChunks, getPdfSegments, importedHighlightStatus, reset }
 }
 
 /** Defers legacy span reconstruction so manifest-backed playback becomes available first. */

@@ -24,6 +24,7 @@ export interface ViewerViewportBounds {
 export type ViewerTextTargetResult = {
   status: 'captured'
   point: { format: 'html'; segmentIndex: number; offset: number }
+  segmentTexts: readonly string[]
   segmentLengths: readonly number[]
   isCurrent: () => boolean
 } | {

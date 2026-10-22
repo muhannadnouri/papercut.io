@@ -7,7 +7,7 @@ export interface PdfSourceTextPoint {
   offset: number
 }
 
-type PdfChunkSourceResolver = { status: 'ready'; resolve: (point: PdfSourceTextPoint) => ChunkTargetResult }
+type PdfChunkSourceResolver = { status: 'ready'; resolve: (point: PdfSourceTextPoint, sourceLength?: number) => ChunkTargetResult }
   | Extract<ChunkTargetResult, { status: 'unavailable' }>
 
 /** Index runtime PDF spans without changing canonical playback order or durable chunk identity. */
@@ -33,13 +33,17 @@ export function createPdfChunkSourceResolver(chunks: readonly TtsChunk[]): PdfCh
   if (!chunkIndex) return { status: 'unavailable', reason: 'not-ready' }
   return {
     status: 'ready',
-    resolve(point) {
+    resolve(point, sourceLength) {
       if (![point.pageIndex, point.blockOrder, point.offset].every(validIndex)) {
         return { status: 'unavailable', reason: 'invalid-point' }
       }
+      const entries = blocks.get(`${point.pageIndex}:${point.blockOrder}`)
+      if (sourceLength !== undefined) {
+        if (!validIndex(sourceLength) || point.offset >= sourceLength) return { status: 'unavailable', reason: 'invalid-point' }
+        if (entries?.some(entry => entry.end > sourceLength)) return { status: 'unavailable', reason: 'invalid-source' }
+      }
       // Expanded ligatures can belong to adjacent chunks; the first canonical chunk owns the glyph.
-      const entry = blocks.get(`${point.pageIndex}:${point.blockOrder}`)
-        ?.find(entry => point.offset >= entry.start && point.offset < entry.end)
+      const entry = entries?.find(entry => point.offset >= entry.start && point.offset < entry.end)
       return entry ? { status: 'resolved', chunkIndex: entry.chunkIndex, chunkId: entry.chunkId }
         : { status: 'unavailable', reason: 'unmapped' }
     },

@@ -16,7 +16,7 @@ beforeAll(async () => {
     ['src/tts/alignment/domTextSegments.ts', 'buildReadableDomSegmentIndex, createRangeForSourceSpan'],
     ['src/tts/alignment/readableSegments.ts', 'normalizeSegmentText'],
     ['src/tts/utils/text.ts', 'chunkAudiobookSaveHtmlWithSpans'],
-    ['src/tts/playAnywhere/sourceChunkResolver.ts', 'createChunkSourceResolver'],
+    ['src/tts/playAnywhere/prepareTextTarget.ts', 'createTextTargetPreparation'],
   ].map(([path, exports]) => `export { ${exports} } from ${JSON.stringify(resolve(path))}`).join('\n'))
   const output = await build({ configFile: false, logLevel: 'silent', build: {
     write: false, minify: false, lib: { entry, name: 'HtmlTargets', formats: ['iife'] },
@@ -92,8 +92,9 @@ describe.skipIf(!browser)('HTML viewport capture in a rendered browser', () => {
       let target=null;
       if(result.status==='captured'){
         const chunks=HtmlTargets.chunkAudiobookSaveHtmlWithSpans(root.innerHTML).map((c,i)=>({...c,id:'saved-'+i}));
-        const resolver=HtmlTargets.createChunkSourceResolver(chunks,result.segmentLengths);
-        target=resolver.status==='ready'?resolver.resolve(result.point):resolver;
+        const preparation=HtmlTargets.createTextTargetPreparation({documentUrl:'/fixture.html',docContent:root.innerHTML,chunks,getChunks:async()=>chunks,getPdfSegments:async()=>[],getPdfPageText:async()=>{throw new Error('HTML must not load PDF')}});
+        const resolved=await preparation.resolve('/fixture.html',result);
+        target=resolved.status==='resolved'?{status:resolved.status,chunkIndex:resolved.chunkIndex,chunkId:resolved.chunkId}:resolved;
       }
       parent.postMessage({type:'capture-result',result:{capture:plain(result),oracle,target}},'*');session.dispose();
     `, options)

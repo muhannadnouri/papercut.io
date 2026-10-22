@@ -9,7 +9,8 @@ import type { ViewerTextTargetApi, ViewerTextTargetResult, ViewerViewportBounds 
 
 interface CaptureIndex {
   dom: ReadableDomSegmentIndex
-  lengths: number[]
+  texts: readonly string[]
+  lengths: readonly number[]
   visible: Set<Element>
   pendingVisibility: Set<Element>
   owners: Map<Element, number[]>
@@ -57,9 +58,11 @@ export function createHtmlTextTargetApi(
   function getIndex(): CaptureIndex {
     if (index) return index
     const dom = buildReadableDomSegmentIndex(root)
+    const texts = Object.freeze(dom.segments.map(segment => normalizeSegmentText(segment.textNodes.map(node => node.data).join(''))))
     const built: CaptureIndex = {
       dom,
-      lengths: dom.segments.map((segment) => normalizeSegmentText(segment.textNodes.map((node) => node.data).join('')).length),
+      texts,
+      lengths: Object.freeze(texts.map(text => text.length)),
       owners: new Map(),
       visible: new Set(),
       pendingVisibility: new Set(),
@@ -134,6 +137,7 @@ export function createHtmlTextTargetApi(
                 status: 'captured',
                 point: { format: 'html', segmentIndex, offset: point.normalizedOffset },
                 segmentLengths: built.lengths,
+                segmentTexts: built.texts,
                 isCurrent: () => isCurrent(version),
               })
               return

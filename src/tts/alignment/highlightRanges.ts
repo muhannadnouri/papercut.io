@@ -2,9 +2,8 @@ import {
   buildReadableDomTextLocatorIndex,
   buildReadableDomSegmentIndex,
   createRangeForSourceSpan,
-  createSourceSpanFromTextMatch,
+  recoverOrderedSourceSpans,
   locatorTextsMatch,
-  sourceSpanEndGlobalOffset,
   type ReadableDomSegmentIndex,
   type ReadableDomTextLocatorIndex,
 } from './domTextSegments'
@@ -435,18 +434,7 @@ function getOrBuildFallbackSourceSpan(cache: AlignmentCache, chunkIndex: number)
 function buildFallbackSourceSpans(cache: AlignmentCache): Map<number, TtsChunkSourceSpan> {
   const started = performance.now()
   const locator = getOrBuildTextLocatorIndex(cache)
-  const sourceSpans = new Map<number, TtsChunkSourceSpan>()
-  let cursor = 0
-
-  for (let index = 0; index < cache.chunks.length; index++) {
-    const chunk = cache.chunks[index]
-    if (!chunk?.text) continue
-    const sourceSpan = createSourceSpanFromTextMatch(locator, chunk.text, cursor)
-    if (!sourceSpan) continue
-    sourceSpans.set(index, sourceSpan)
-    const nextCursor = sourceSpanEndGlobalOffset(locator, sourceSpan)
-    if (nextCursor >= 0) cursor = nextCursor
-  }
+  const sourceSpans = recoverOrderedSourceSpans(locator, cache.chunks)
 
   logTtsDiagnostic('[tts-highlight] DOM fallback source spans built', {
     chunks: cache.chunks.length,
