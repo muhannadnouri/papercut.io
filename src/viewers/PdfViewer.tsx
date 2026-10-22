@@ -53,6 +53,7 @@ import {
   type PdfFitMode,
   type PdfSpreadMode,
 } from './PdfControls'
+import { createPdfTextTargetApi } from '../tts/playAnywhere/pdfTextTarget'
 import { syncPdfViewerLayout } from './pdfViewerLayout'
 import {
   bindPdfSearchTarget,
@@ -109,6 +110,8 @@ export function PdfViewer({
   onBookmarkApiChange,
   onFindApiChange,
   onFindResult,
+  onTextTargetApiChange,
+  getTextTargetViewport,
   onFullscreenChange = () => {},
 }: ViewerProps) {
   const { t } = useTranslation()
@@ -447,6 +450,18 @@ export function PdfViewer({
       void loadingTask?.destroy()
     }
   }, [onBookmarkApiChange, onFindApiChange, onFindResult, url])
+
+  useEffect(() => {
+    const viewer = pdfViewerRef.current
+    const container = containerRef.current
+    const eventBus = eventBusRef.current
+    if (!onTextTargetApiChange || status.state !== 'ready' || !viewer || !container || !eventBus) return
+    const target = createPdfTextTargetApi(viewer, container, eventBus, getTextTargetViewport ?? (() => ({
+      top: 0, left: 0, bottom: window.innerHeight, right: window.innerWidth,
+    })))
+    onTextTargetApiChange(target.api)
+    return () => { target.dispose(); onTextTargetApiChange(null) }
+  }, [getTextTargetViewport, onTextTargetApiChange, status, url])
 
   useEffect(() => {
     const pdfViewer = pdfViewerRef.current

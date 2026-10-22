@@ -4,17 +4,14 @@ import {
   type ReadableDomSegmentIndex,
 } from '../alignment/domTextSegments'
 import { normalizeSegmentText } from '../alignment/readableSegments'
+import { clippedBounds, firstVisibleTextOffset, intersect, validBounds, viewportStamp, visibleText } from './textTargetGeometry'
 import type { ViewerTextTargetApi, ViewerTextTargetResult, ViewerViewportBounds } from '../../viewers/types'
-
-type CaretDocument = Document & {
-  caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null
-  caretRangeFromPoint?: (x: number, y: number) => Range | null
-}
 
 interface CaptureIndex {
   dom: ReadableDomSegmentIndex
   lengths: number[]
   visible: Set<Element>
+  pendingVisibility: Set<Element>
   owners: Map<Element, number[]>
 }
 
@@ -23,7 +20,7 @@ export function createHtmlTextTargetApi(
   root: HTMLElement,
   getViewport: () => ViewerViewportBounds | null,
 ): { api: ViewerTextTargetApi; dispose: () => void } {
-  const doc = root.ownerDocument as CaretDocument
+  const doc = root.ownerDocument
   const view = doc.defaultView!
   let index: CaptureIndex | null = null
   let visibility: IntersectionObserver | null = null
@@ -65,6 +62,7 @@ export function createHtmlTextTargetApi(
       lengths: dom.segments.map((segment) => normalizeSegmentText(segment.textNodes.map((node) => node.data).join('')).length),
       owners: new Map(),
       visible: new Set(),
+      pendingVisibility: new Set(),
     }
     dom.segments.forEach((segment, segmentIndex) => {
       const owners = built.owners.get(segment.owner) ?? []
@@ -75,11 +73,15 @@ export function createHtmlTextTargetApi(
     visibility = new view.IntersectionObserver((entries) => {
       if (index !== built) return
       for (const entry of entries) {
+        built.pendingVisibility.delete(entry.target)
         if (entry.isIntersecting) built.visible.add(entry.target)
         else built.visible.delete(entry.target)
       }
     })
-    for (const owner of built.owners.keys()) visibility.observe(owner)
+    for (const owner of built.owners.keys()) {
+      built.pendingVisibility.add(owner)
+      visibility.observe(owner)
+    }
     return built
   }
 
@@ -95,16 +97,27 @@ export function createHtmlTextTargetApi(
       const stamp = viewportStamp(root, bounds)
       const built = getIndex()
       const version = revision
+      const visibilityDeadline = view.performance.now() + 500
 
       return new Promise<ViewerTextTargetResult>((resolve, reject) => {
         // Let the browser deliver visibility after layout; reject intervening scroll/reflow.
         const finish = () => {
-          pending = null
           const currentBounds = getViewport()
           if (!isCurrent(version) || !currentBounds || viewportStamp(root, currentBounds) !== stamp) {
+            pending = null
             resolve({ status: 'unavailable', reason: 'stale' })
             return
           }
+          if (built.pendingVisibility.size) {
+            if (view.performance.now() < visibilityDeadline && pending) {
+              pending.frame = view.requestAnimationFrame(runFinish)
+            } else {
+              pending = null
+              resolve({ status: 'unavailable', reason: 'not-ready' })
+            }
+            return
+          }
+          pending = null
           const candidates = [...built.visible.keys()]
             .flatMap((owner) => built.owners.get(owner) ?? [])
             .sort((a, b) => a - b)
@@ -114,7 +127,8 @@ export function createHtmlTextTargetApi(
             if (!clip) continue
             for (const node of segment.textNodes) {
               if (!visibleText(node, root)) continue
-              const point = firstVisiblePoint(doc, node, segment.textNodes, clip)
+              const offset = firstVisibleTextOffset(node, clip)
+              const point = offset === null ? null : normalizeDomTextPoint(segment.textNodes, node, offset)
               if (!point) continue
               resolve({
                 status: 'captured',
@@ -128,10 +142,11 @@ export function createHtmlTextTargetApi(
           const canHitTest = typeof doc.caretPositionFromPoint === 'function' || typeof doc.caretRangeFromPoint === 'function'
           resolve({ status: 'unavailable', reason: canHitTest ? 'no-visible-text' : 'unmapped' })
         }
+        const runFinish = () => {
+          try { finish() } catch (error) { pending = null; reject(error) }
+        }
         pending = { resolve, frame: view.requestAnimationFrame(() => {
-          if (pending) pending.frame = view.requestAnimationFrame(() => {
-            try { finish() } catch (error) { pending = null; reject(error) }
-          })
+          if (pending) pending.frame = view.requestAnimationFrame(runFinish)
         }) }
       })
     },
@@ -167,83 +182,4 @@ export function readerTextViewport(shell: HTMLElement): ViewerViewportBounds | n
     else if (rect.top > bounds.top && rect.top < bounds.bottom) bounds = { ...bounds, bottom: rect.top }
   }
   return validBounds(bounds) ? bounds : null
-}
-
-function clippedBounds(element: Element, viewport: ViewerViewportBounds): ViewerViewportBounds | null {
-  let bounds = intersect(viewport, element.getBoundingClientRect())
-  const view = element.ownerDocument.defaultView!
-  for (let parent = element.parentElement; parent && bounds; parent = parent.parentElement) {
-    const style = view.getComputedStyle(parent)
-    const rect = parent.getBoundingClientRect()
-    bounds = intersect(bounds, {
-      top: style.overflowY === 'visible' ? bounds.top : rect.top,
-      bottom: style.overflowY === 'visible' ? bounds.bottom : rect.bottom,
-      left: style.overflowX === 'visible' ? bounds.left : rect.left,
-      right: style.overflowX === 'visible' ? bounds.right : rect.right,
-    })
-  }
-  return bounds
-}
-
-function firstVisiblePoint(doc: CaretDocument, node: Text, nodes: Text[], bounds: ViewerViewportBounds) {
-  const range = doc.createRange()
-  range.selectNodeContents(node)
-  let first: ReturnType<typeof normalizeDomTextPoint> = null
-  // shortcut: one oversized text node yields all its line rects; optimize if measured paragraph cost exceeds the capture budget.
-  for (const rect of range.getClientRects()) {
-    const clip = intersect(bounds, rect)
-    if (!clip) continue
-    const y = (clip.top + clip.bottom) / 2
-    for (const x of [clip.left + Math.min(1, (clip.right - clip.left) / 2), clip.right - Math.min(1, (clip.right - clip.left) / 2)]) {
-      const caret = doc.caretPositionFromPoint?.(x, y)
-      const fallback = caret ? null : doc.caretRangeFromPoint?.(x, y)
-      const target = caret?.offsetNode ?? fallback?.startContainer
-      const offset = caret?.offset ?? fallback?.startOffset
-      if (target !== node || offset === undefined) continue
-      const point = normalizeDomTextPoint(nodes, node, offset)
-      if (!point) continue
-      const glyph = doc.createRange()
-      glyph.setStart(point.node, point.offset)
-      glyph.setEnd(point.node, Math.min(point.offset + 1, point.node.length))
-      if (![...glyph.getClientRects()].some((rect) => intersect(clip, rect))) continue
-      if (!first || point.normalizedOffset < first.normalizedOffset) first = point
-    }
-  }
-  return first
-}
-
-function visibleText(node: Text, root: HTMLElement): boolean {
-  const view = node.ownerDocument.defaultView!
-  if (!node.parentElement || view.getComputedStyle(node.parentElement).visibility !== 'visible') return false
-  for (let element: HTMLElement | null = node.parentElement; element; element = element.parentElement) {
-    const style = view.getComputedStyle(element)
-    if (style.display === 'none' || style.opacity === '0') return false
-    if (element === root) return true
-  }
-  return false
-}
-
-function validBounds(bounds: ViewerViewportBounds): boolean {
-  return [bounds.top, bounds.bottom, bounds.left, bounds.right].every(Number.isFinite) &&
-    bounds.bottom > bounds.top && bounds.right > bounds.left
-}
-
-function intersect(left: ViewerViewportBounds, right: ViewerViewportBounds): ViewerViewportBounds | null {
-  const result = { top: Math.max(left.top, right.top), bottom: Math.min(left.bottom, right.bottom),
-    left: Math.max(left.left, right.left), right: Math.min(left.right, right.right) }
-  return validBounds(result) ? result : null
-}
-
-function viewportStamp(root: HTMLElement, bounds: ViewerViewportBounds): string {
-  const rect = root.getBoundingClientRect()
-  const view = root.ownerDocument.defaultView!
-  const style = view.getComputedStyle(root)
-  const values: Array<number | string> = [bounds.top, bounds.bottom, bounds.left, bounds.right,
-    rect.top, rect.left, rect.width, rect.height, view.innerWidth, view.innerHeight,
-    style.fontSize, style.fontFamily, style.lineHeight, style.letterSpacing]
-  for (let element: HTMLElement | null = root; element; element = element.parentElement) {
-    values.push(element.scrollTop, element.scrollLeft)
-  }
-  values.push(view.scrollX, view.scrollY)
-  return JSON.stringify(values)
 }

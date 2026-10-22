@@ -1,20 +1,10 @@
 // @vitest-environment node
-import { execFileSync, spawn } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
-import type { Readable, Writable } from 'node:stream'
-import { StringDecoder } from 'node:string_decoder'
 import { build } from 'vite'
+import { browser, runBrowserFixture } from './browserCaptureFixture'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-
-const browser = [process.env.CHROME_BIN, 'chromium', 'chromium-browser', 'google-chrome', 'google-chrome-stable']
-  .find(candidate => {
-    if (!candidate) return false
-    try { execFileSync(candidate, ['--version'], { stdio: 'ignore', timeout: 5000 }); return true } catch { return false }
-  })
-if (process.env.CI && !browser) throw new Error('HTML capture tests require Chrome/Chromium; set CHROME_BIN.')
 
 let directory: string
 let bundle: string
@@ -83,61 +73,8 @@ async function run(content: string, action: string, options: { width?: number; f
     .audio-floating-playback{position:fixed;bottom:0;height:50px;width:100%;background:white;z-index:10}${options.css ?? ''}
     </style><div class="app-reader"><header class="doc-header">Toolbar</header><main class="document-view"><article>${content}</article></main><div class="audio-floating-playback">Audio</div></div>
     <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>${script}
-    (async()=>{try{${action}}catch(error){parent.postMessage({type:'capture-result',result:{error:String(error.stack||error)}},'*')}})();</script></html>`)
-  // A DevTools pipe waits for real asynchronous layout; dump-dom virtual time can stop between RAFs.
-  const child = spawn(browser!, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-background-networking',
-    '--disable-dev-shm-usage', '--no-first-run', '--remote-debugging-pipe',
-    `--user-data-dir=${join(directory, 'profile')}`, 'about:blank'],
-  { stdio: ['ignore', 'ignore', 'pipe', 'pipe', 'pipe'] })
-  const input = child.stdio[3] as Writable, output = child.stdio[4] as Readable
-  const closed = new Promise<void>((resolve) => child.once('close', () => resolve()))
-  const commands = new Map<number, { resolve: (value: Record<string, unknown>) => void; reject: (error: Error) => void }>()
-  let nextId = 0, buffer = '', errors = ''
-  const decoder = new StringDecoder('utf8')
-  child.stderr?.on('data', (data) => { errors = (errors + data).slice(-2000) })
-  const fail = (error: Error) => {
-    for (const command of commands.values()) command.reject(error)
-    commands.clear()
-  }
-  child.on('error', fail)
-  input.on('error', fail)
-  output.on('error', fail)
-  child.on('exit', () => fail(new Error(`Browser exited: ${errors}`)))
-  output.on('data', (data) => {
-    buffer += decoder.write(data)
-    let end: number
-    while ((end = buffer.indexOf('\0')) >= 0) {
-      const message = JSON.parse(buffer.slice(0, end))
-      buffer = buffer.slice(end + 1)
-      const command = commands.get(message.id)
-      if (!command) continue
-      commands.delete(message.id)
-      if (message.error) command.reject(new Error(JSON.stringify(message.error)))
-      else command.resolve(message.result)
-    }
-  })
-  const send = (method: string, params: Record<string, unknown> = {}, sessionId?: string) =>
-    new Promise<Record<string, unknown>>((resolve, reject) => {
-      const id = ++nextId
-      commands.set(id, { resolve, reject })
-      input.write(JSON.stringify({ id, method, params, sessionId }) + '\0')
-    })
-  const timer = setTimeout(() => { fail(new Error(`Browser fixture timed out: ${errors}`)); child.kill() }, 15_000)
-  try {
-    const target = await send('Target.createTarget', { url: 'about:blank' })
-    const session = await send('Target.attachToTarget', { targetId: target.targetId, flatten: true })
-    const sessionId = String(session.sessionId)
-    await send('Page.enable', {}, sessionId)
-    await send('Emulation.setDeviceMetricsOverride', { width: options.width ?? 620, height: 600, deviceScaleFactor: 1, mobile: false }, sessionId)
-    await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.captureResult=new Promise(resolve=>addEventListener('message',({data})=>{if(data?.type==='capture-result')resolve(JSON.stringify(data.result))}));` }, sessionId)
-    await send('Page.navigate', { url: pathToFileURL(frame).href }, sessionId)
-    const evaluated = await send('Runtime.evaluate', { expression: 'window.captureResult', awaitPromise: true, returnByValue: true }, sessionId)
-    const value = evaluated.result as { value?: string }
-    if (!value.value) throw new Error(`No capture result: ${JSON.stringify(evaluated)}`)
-    const result = JSON.parse(value.value)
-    expect(result.error).toBeUndefined()
-    return result
-  } finally { clearTimeout(timer); child.kill(); await closed }
+    (async()=>{try{await document.fonts.ready;${action}}catch(error){parent.postMessage({type:'capture-result',result:{error:String(error.stack||error)}},'*')}})();</script></html>`)
+  return runBrowserFixture(directory, frame, options.width)
 }
 
 describe.skipIf(!browser)('HTML viewport capture in a rendered browser', () => {
@@ -161,7 +98,7 @@ describe.skipIf(!browser)('HTML viewport capture in a rendered browser', () => {
       parent.postMessage({type:'capture-result',result:{capture:plain(result),oracle,target}},'*');session.dispose();
     `, options)
     expect(result.oracle).not.toBeNull()
-    expect(result.capture.status).toBe('captured')
+    expect(result.capture.status, JSON.stringify(result)).toBe('captured')
     expect(result.capture.point).toEqual(result.oracle)
     expect(result.capture.current).toBe(true)
     expect(result.target.status).toBe('resolved')
@@ -175,7 +112,7 @@ describe.skipIf(!browser)('HTML viewport capture in a rendered browser', () => {
       const result=await session.api.captureViewport();
       parent.postMessage({type:'capture-result',result:{capture:plain(result),oracle:expected()}},'*');session.dispose();
     `)
-    expect(result.capture.status).toBe('captured')
+    expect(result.capture.status, JSON.stringify(result)).toBe('captured')
     expect(result.capture.point).toEqual(result.oracle)
     expect(result.capture.point.offset).toBeGreaterThan(100)
   }, 30_000)
@@ -201,7 +138,7 @@ describe.skipIf(!browser)('HTML viewport capture in a rendered browser', () => {
       const result=await session.api.captureViewport();
       parent.postMessage({type:'capture-result',result:{capture:plain(result),oracle:expected()}},'*');session.dispose();
     `)
-    expect(result.capture.status).toBe('captured')
+    expect(result.capture.status, JSON.stringify(result)).toBe('captured')
     expect(result.capture.point).toEqual(result.oracle)
   }, 30_000)
 
@@ -251,6 +188,24 @@ describe.skipIf(!browser)('HTML viewport capture in a rendered browser', () => {
     expect(result.unavailable).toEqual({ status: 'unavailable', reason: 'not-ready' })
     expect(result.stale).toBe(true)
     expect(result.detached).toEqual({ status: 'unavailable', reason: 'stale' })
+  }, 30_000)
+
+  it.each([true, false])('waits for initial visibility and bounds a missing callback (delivers=%s)', async delivers => {
+    const result = await run('<p>Visible text.</p>', `
+      const Observer=window.IntersectionObserver;
+      window.IntersectionObserver=class extends Observer {
+        constructor(callback,options){super((entries,observer)=>{if(${delivers})setTimeout(()=>callback(entries,observer),120)},options)}
+      };
+      const session=HtmlTargets.createHtmlTextTargetApi(root,bounds);
+      const result=await session.api.captureViewport();
+      parent.postMessage({type:'capture-result',result:{capture:plain(result),oracle:expected()}},'*');session.dispose();
+    `)
+    if (delivers) {
+      expect(result.capture.status, JSON.stringify(result)).toBe('captured')
+      expect(result.capture.point).toEqual(result.oracle)
+    } else {
+      expect(result.capture).toEqual({ status: 'unavailable', reason: 'not-ready' })
+    }
   }, 30_000)
 
   it('reports unavailable when the browser provides neither caret API', async () => {

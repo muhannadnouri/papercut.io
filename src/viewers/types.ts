@@ -27,6 +27,11 @@ export type ViewerTextTargetResult = {
   segmentLengths: readonly number[]
   isCurrent: () => boolean
 } | {
+  status: 'captured'
+  point: { format: 'pdf'; pageIndex: number; blockOrder: number; offset: number }
+  sourceText: string
+  isCurrent: () => boolean
+} | {
   status: 'unavailable'
   reason: 'not-ready' | 'no-visible-text' | 'unmapped' | 'stale'
 }

@@ -3,12 +3,12 @@ import type { PdfTtsSourceSpan } from '../tts/types'
 
 const PDF_TTS_HIGHLIGHT_LAYER_CLASS = 'pdf-tts-highlight-layer'
 
-interface PdfTextHighlighterMapping {
+export interface PdfTextHighlighterMapping {
   textDivs: Node[] | null
   textContentItemsStr: string[] | null
 }
 
-interface PdfPageViewWithTextMapping {
+export interface PdfPageViewWithTextMapping {
   _textHighlighter?: PdfTextHighlighterMapping
 }
 
