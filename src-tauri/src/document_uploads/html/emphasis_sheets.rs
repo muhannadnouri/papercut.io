@@ -17,6 +17,7 @@ pub(super) struct Rule {
     selectors: Selectors,
     components: Vec<usize>,
     pub(super) selected: [Option<Declaration>; 2],
+    pub(super) html_type_folding: bool,
 }
 
 impl Rule {
@@ -139,7 +140,7 @@ struct Rules<'a> {
 }
 
 impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
-    type Prelude = (Selectors, Vec<usize>);
+    type Prelude = (Selectors, Vec<usize>, bool);
     type QualifiedRule = Rule;
     type Error = &'static str;
 
@@ -151,6 +152,7 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
         let mut components = Vec::new();
         let mut count = 0;
         let mut gap = false;
+        let mut html_type_folding = false;
         loop {
             // is_exhausted skips whitespace and would accidentally admit descendant combinators.
             let token = match input.next_including_whitespace() {
@@ -175,7 +177,9 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
                 return Err(input.new_custom_error("unsupported-selector"));
             }
             match token {
-                Token::Ident(_) if count == 0 => (),
+                Token::Ident(name) if count == 0 => {
+                    html_type_folding |= name.bytes().any(|byte| byte.is_ascii_uppercase());
+                }
                 Token::IDHash(_) => (),
                 Token::Delim('.') => {
                     // Whitespace after a dot is a combinator/syntax error, not a class identifier.
@@ -202,12 +206,12 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
         components.push(count);
         let selectors = Selectors::compile(input.slice_from(start))
             .map_err(|_| input.new_custom_error("unsupported-selector"))?;
-        Ok((selectors, components))
+        Ok((selectors, components, html_type_folding))
     }
 
     fn parse_block<'t>(
         &mut self,
-        (selectors, components): Self::Prelude,
+        (selectors, components, html_type_folding): Self::Prelude,
         _: &ParserState,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::QualifiedRule, ParseError<'i, Self::Error>> {
@@ -217,6 +221,7 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
             selectors,
             components,
             selected,
+            html_type_folding,
         })
     }
 }

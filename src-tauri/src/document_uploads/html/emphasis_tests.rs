@@ -15,7 +15,7 @@ fn resets_of_retained_default_emphasis_warn_instead_of_claiming_visual_equivalen
         assert_eq!(result.warning, Some("semantic-reset"), "{source}");
         assert_eq!(result.html, source);
     }
-    let source = "<body style='font-weight:normal;font-style:normal'><h1>Heading</h1><cite style='font-style:italic'>Citation</cite><table><tr><th>Header</th></tr></table></body>";
+    let source = "<!doctype html><body style='font-weight:normal;font-style:normal'><h1>Heading</h1><cite style='font-style:italic'>Citation</cite><table><tr><th>Header</th></tr></table></body>";
     let result = Normalizer::default().normalize(source);
     assert_eq!(result.warning, None);
     assert_eq!(result.html, source);
@@ -334,6 +334,7 @@ fn rejected_local_sheets_are_cached_and_counted_before_any_repeated_zip_work() {
     for _ in 0..2 {
         let result = normalizer.normalize_with(
             source,
+            SourceKind::Html,
             |href| Ok(href.into()),
             |_, limit| {
                 reads += 1;
@@ -355,6 +356,7 @@ fn rejected_local_sheets_are_cached_and_counted_before_any_repeated_zip_work() {
         let source = format!("<link rel='stylesheet' href='{index}.css'><p>Words</p>");
         let result = normalizer.normalize_with(
             &source,
+            SourceKind::Html,
             |href| Ok(href.into()),
             |_, _| {
                 reads += 1;
@@ -388,7 +390,7 @@ fn sheet_derived_wrappers_keep_literal_and_select_atomic_fallbacks() {
             "unsupported-context",
         ),
     ] {
-        let source = format!("<style>body{{font-style:italic}}</style>{body}");
+        let source = format!("<!doctype html><style>body{{font-style:italic}}</style>{body}");
         let result = Normalizer::default().normalize(&source);
         assert_eq!(result.warning, Some(warning));
         assert_eq!(result.html, source);
@@ -403,6 +405,7 @@ fn invalid_utf8_local_css_stays_unread_and_cannot_clear_the_cached_warning() {
     for _ in 0..2 {
         let result = normalizer.normalize_with(
             source,
+            SourceKind::Html,
             |href| Ok(href.into()),
             |_, _| {
                 reads += 1;
@@ -420,11 +423,12 @@ fn invalid_utf8_local_css_stays_unread_and_cannot_clear_the_cached_warning() {
 #[test]
 fn external_utf8_bom_is_decoded_without_spending_or_matching_its_bytes_twice() {
     for selector in ["p", ".word", "#word"] {
-        let source = "<link rel='stylesheet' href='style.css'><p id='word' class='word'>Words</p>";
+        let source = "<!doctype html><link rel='stylesheet' href='style.css'><p id='word' class='word'>Words</p>";
         let css = format!("\u{feff}{selector}{{font-weight:bold}}");
         let mut normalizer = Normalizer::default();
         let result = normalizer.normalize_with(
             source,
+            SourceKind::Html,
             |href| Ok(href.into()),
             |_, _| Ok(css.as_bytes().to_vec()),
         );
@@ -435,6 +439,7 @@ fn external_utf8_bom_is_decoded_without_spending_or_matching_its_bytes_twice() {
     let source = "<link rel='stylesheet' href='style.css' charset='windows-1252'><p>Words</p>";
     let result = Normalizer::default().normalize_with(
         source,
+        SourceKind::Html,
         |href| Ok(href.into()),
         |_, _| panic!("Unsupported encoding must not be read"),
     );

@@ -27,3 +27,6 @@ pub(crate) use sanitize::{
     decode_entities, normalize_text, sanitize_html, strip_tags, tag_separates_text, valid_translate,
 };
 pub(crate) use util::extract_body_inner;
+
+#[cfg(test)]
+mod source_mode_tests;

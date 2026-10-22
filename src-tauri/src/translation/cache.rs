@@ -697,7 +697,7 @@ mod tests {
         let mut job = plan();
         let source = |css: &str| {
             let parsed = prepare_html_document(&format!(
-                "<style>{css}</style><p class='word'>Hola mundo.</p>"
+                "<!doctype html><style>{css}</style><p class='word'>Hola mundo.</p>"
             ));
             TranslationSourceDocument {
                 document_id: "source".into(),
@@ -732,6 +732,54 @@ mod tests {
         let cache = new_segment_cache(&unresolved);
         bind_source_identity(&mut unresolved, &plain).unwrap();
         assert!(!cache_is_compatible(&cache, &unresolved));
+    }
+
+    /// A mode warning alone changes source coverage even when sanitized text/markup is identical.
+    #[test]
+    fn unsupported_document_mode_invalidates_resume_after_cache_reload() {
+        use crate::document_uploads::prepare_html_document;
+        use crate::translation::{job::bind_source_identity, source::TranslationSourceDocument};
+
+        let mut job = plan();
+        let raw = "<style>.word{font-weight:normal}</style><p class='word'>Hola mundo.</p>";
+        let source = |raw: &str| {
+            let parsed = prepare_html_document(raw);
+            TranslationSourceDocument {
+                document_id: "source".into(),
+                document_url: job.request.document_url.clone(),
+                title: "Example".into(),
+                format: "html".into(),
+                view_html: parsed.view_html,
+                source_formatting: parsed.source_formatting,
+                blocks: vec![],
+                assets: Default::default(),
+            }
+        };
+        let supported = source(&format!("<!doctype html>{raw}"));
+        let unsupported = source(raw);
+        assert_eq!(supported.view_html, unsupported.view_html);
+        assert!(supported
+            .source_formatting
+            .as_ref()
+            .unwrap()
+            .warnings
+            .is_empty());
+        assert_eq!(
+            unsupported.source_formatting.as_ref().unwrap().warnings,
+            ["unsupported-document-mode"]
+        );
+        for (before, after) in [(&supported, &unsupported), (&unsupported, &supported)] {
+            bind_source_identity(&mut job, before).unwrap();
+            let cache = new_segment_cache(&job);
+            let cache = serde_json::from_value(serde_json::to_value(cache).unwrap()).unwrap();
+            assert!(cache_is_compatible(&cache, &job));
+            let mut next = job.clone();
+            bind_source_identity(&mut next, after).unwrap();
+            assert_eq!(job.cache_key, next.cache_key);
+            assert!(!cache_is_compatible(&cache, &next));
+            bind_source_identity(&mut next, before).unwrap();
+            assert!(cache_is_compatible(&cache, &next));
+        }
     }
 
     #[test]

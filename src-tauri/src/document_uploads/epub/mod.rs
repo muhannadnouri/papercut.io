@@ -11,8 +11,8 @@ use roxmltree::Document;
 use zip::ZipArchive;
 
 use super::html::{
-    emphasis::Normalizer, extract_body_inner, normalize_text, parsed_html_document, strip_tags,
-    SOURCE_EMPHASIS_POLICY,
+    emphasis::{Normalizer, SourceKind},
+    extract_body_inner, normalize_text, parsed_html_document, strip_tags, SOURCE_EMPHASIS_POLICY,
 };
 use super::parsed::{ParsedDocument, ParsedDocumentCover, SourceFormatting};
 
@@ -85,6 +85,12 @@ pub(crate) fn parse_epub_document(
     // One budget spans the complete book; no chapter may reset exhausted CSS work.
     let mut normalizer = Normalizer::default();
     let manifest_css: HashSet<&str> = package.css_paths.iter().map(String::as_str).collect();
+    let html_chapters: HashSet<&str> = package
+        .manifest
+        .iter()
+        .filter(|item| item.media_type.eq_ignore_ascii_case("text/html"))
+        .map(|item| item.href.as_str())
+        .collect();
     let mut source_formatting = SourceFormatting {
         policy: SOURCE_EMPHASIS_POLICY.into(),
         warnings: Vec::new(),
@@ -97,8 +103,14 @@ pub(crate) fn parse_epub_document(
         if total_chapter_text_bytes > MAX_TOTAL_CHAPTER_TEXT_BYTES {
             return Err("EPUB chapter text is too large to import".into());
         }
+        let source_kind = if html_chapters.contains(chapter_path.as_str()) {
+            SourceKind::Html
+        } else {
+            SourceKind::Xhtml
+        };
         let externalized = inline_svg::externalize_inline_svgs(
             &raw,
+            source_kind,
             chapter_path,
             &mut archive,
             &package.manifest,
@@ -117,6 +129,7 @@ pub(crate) fn parse_epub_document(
         } else {
             normalizer.normalize_with(
                 &normalize_empty_xhtml_elements(&raw),
+                source_kind,
                 |href| stylesheets::resolve(chapter_path, href, &manifest_css),
                 |path, limit| stylesheets::read(&mut archive, path, limit),
             )

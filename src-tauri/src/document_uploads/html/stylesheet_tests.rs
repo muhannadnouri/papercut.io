@@ -4,7 +4,8 @@ use kuchikiki::{parse_html, traits::TendrilSink, NodeRef};
 
 /// Exercise fresh import and reader sanitization, not just the CSS parser's intermediate result.
 fn imported(html: &str) -> (ParsedDocument, NodeRef) {
-    let parsed = prepare_html_document(html);
+    // These cascade fixtures exercise standards CSS; source-mode fallbacks have their own tests.
+    let parsed = prepare_html_document(&format!("<!doctype html>{html}"));
     let safe = sanitize_html(&parsed.view_html);
     assert_eq!(sanitize_html(&safe), safe);
     let dom = parse_html().one(safe).document_node;

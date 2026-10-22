@@ -6,6 +6,7 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use roxmltree::{Document, Node};
 use zip::ZipArchive;
 
+use super::super::html::emphasis::SourceKind;
 use super::assets::{
     image_format, inline_raster_parts, read_zip_bytes_limited, LoadedImageAssets, ManifestItem,
     MAX_IMAGE_BYTES,
@@ -16,6 +17,7 @@ use crate::document_uploads::parsed::ParsedDocumentAsset;
 
 const SVG_NS: &str = "http://www.w3.org/2000/svg";
 const XLINK_NS: &str = "http://www.w3.org/1999/xlink";
+const HTML_NS: &str = "http://www.w3.org/1999/xhtml";
 
 pub(super) struct Externalized {
     pub(super) html: String,
@@ -28,6 +30,7 @@ pub(super) struct Externalized {
 /// Malformed XHTML keeps the existing forgiving HTML import path.
 pub(super) fn externalize_inline_svgs<R: Read + Seek>(
     raw: &str,
+    kind: SourceKind,
     chapter_path: &str,
     archive: &mut ZipArchive<R>,
     manifest: &[ManifestItem],
@@ -38,7 +41,7 @@ pub(super) fn externalize_inline_svgs<R: Read + Seek>(
     if raw.contains("<!ENTITY") {
         return Externalized {
             html: raw.to_string(),
-            stylesheet_warning: None,
+            stylesheet_warning: fallback_stylesheet_warning(raw),
         };
     }
     let Ok(document) = Document::parse_with_options(
@@ -50,7 +53,7 @@ pub(super) fn externalize_inline_svgs<R: Read + Seek>(
     ) else {
         return Externalized {
             html: raw.to_string(),
-            stylesheet_warning: None,
+            stylesheet_warning: fallback_stylesheet_warning(raw),
         };
     };
     let mut replacements = Vec::new();
@@ -68,17 +71,37 @@ pub(super) fn externalize_inline_svgs<R: Read + Seek>(
         let svg = node.has_tag_name((SVG_NS, "svg"));
         let next_svg = inside_svg || svg;
         let next_inert = inert
-            || (matches!(
-                node.tag_name().namespace(),
-                None | Some("http://www.w3.org/1999/xhtml")
-            ) && matches!(node.tag_name().name(), "template" | "noscript" | "script"));
+            || (node.tag_name().namespace() == Some(HTML_NS)
+                && matches!(node.tag_name().name(), "template" | "noscript" | "script"));
         if (next_svg, next_inert) != (inside_svg, inert) {
             scopes.push((node.range().end, next_svg, next_inert));
         }
+        // HTML folds names and re-enters HTML at foreignObject; XML namespaces cannot
+        // prove CSS inert there, so retain conservative evidence before extraction.
+        let stylesheet = match kind {
+            SourceKind::Html => {
+                node.tag_name().name().eq_ignore_ascii_case("style")
+                    || (node.tag_name().name().eq_ignore_ascii_case("link")
+                        && node.attributes().any(|attribute| {
+                            attribute.name().eq_ignore_ascii_case("rel")
+                                && attribute
+                                    .value()
+                                    .split_ascii_whitespace()
+                                    .any(|token| token.eq_ignore_ascii_case("stylesheet"))
+                        }))
+            }
+            SourceKind::Xhtml => {
+                !next_inert
+                    && (node.tag_name().name() == "style"
+                        || (node.has_tag_name((HTML_NS, "link"))
+                            && node.attribute("rel").is_some_and(|rel| {
+                                rel.split_ascii_whitespace()
+                                    .any(|token| token.eq_ignore_ascii_case("stylesheet"))
+                            })))
+            }
+        };
         // Do not lose global source CSS when extracting SVG, or XML-only stylesheet instructions.
-        if node.pi().is_some_and(|pi| pi.target == "xml-stylesheet")
-            || (node.tag_name().name() == "style" && next_svg && !next_inert)
-        {
+        if node.pi().is_some_and(|pi| pi.target == "xml-stylesheet") || (next_svg && stylesheet) {
             stylesheet_warning = Some("unsupported-stylesheet");
         }
         if !svg || inside_svg {
@@ -135,6 +158,21 @@ pub(super) fn externalize_inline_svgs<R: Read + Seek>(
         html: output,
         stylesheet_warning,
     }
+}
+
+/// Failed XML admission must not claim complete CSS coverage by erasing an instruction.
+fn fallback_stylesheet_warning(raw: &str) -> Option<&'static str> {
+    const TARGET: &str = "<?xml-stylesheet";
+    // shortcut: malformed/entity-bearing XML uses conservative literal evidence (even in a
+    // comment/CDATA); replace only if a bounded non-expanding XML tokenizer is needed.
+    raw.match_indices(TARGET)
+        .any(|(start, _)| {
+            matches!(
+                raw.as_bytes().get(start + TARGET.len()),
+                None | Some(b' ' | b'\t' | b'\r' | b'\n' | b'?' | b'>')
+            )
+        })
+        .then_some("unsupported-stylesheet")
 }
 
 /// Rebuild only the opening tag to carry inherited namespace declarations.
@@ -270,6 +308,7 @@ mod tests {
         let mut assets = LoadedImageAssets::default();
         let converted = externalize_inline_svgs(
             raw,
+            SourceKind::Xhtml,
             "OPS/text/chapter.xhtml",
             &mut archive(),
             &manifest,
@@ -313,6 +352,7 @@ mod tests {
         let mut assets = LoadedImageAssets::default();
         let converted = externalize_inline_svgs(
             raw,
+            SourceKind::Xhtml,
             "OPS/chapter.xhtml",
             &mut archive(),
             &manifest,
@@ -351,7 +391,15 @@ mod tests {
         let raw = format!(r#"<html xml:base="elsewhere/"><svg xmlns="{SVG_NS}"/></html>"#);
         let mut assets = LoadedImageAssets::default();
         assert_eq!(
-            externalize_inline_svgs(&raw, "OPS/ch.xhtml", &mut archive(), &[], &mut assets).html,
+            externalize_inline_svgs(
+                &raw,
+                SourceKind::Xhtml,
+                "OPS/ch.xhtml",
+                &mut archive(),
+                &[],
+                &mut assets
+            )
+            .html,
             raw
         );
         assert!(assets.files.is_empty());
@@ -360,9 +408,37 @@ mod tests {
             "<!DOCTYPE html [<!ENTITY x 'expanded'>]><html>&x;</html>",
         ] {
             assert_eq!(
-                externalize_inline_svgs(raw, "OPS/ch.xhtml", &mut archive(), &[], &mut assets).html,
+                externalize_inline_svgs(
+                    raw,
+                    SourceKind::Xhtml,
+                    "OPS/ch.xhtml",
+                    &mut archive(),
+                    &[],
+                    &mut assets
+                )
+                .html,
                 raw
             );
+            assert!(assets.files.is_empty());
+        }
+    }
+
+    #[test]
+    fn failed_xml_keeps_raw_source_and_conservative_stylesheet_instruction_evidence() {
+        for (raw, warning) in [
+            ("<?xml-stylesheet\thref='unread.css'?><broken", Some("unsupported-stylesheet")),
+            ("<?xml-stylesheet?><broken", Some("unsupported-stylesheet")),
+            ("<?xml-stylesheet", Some("unsupported-stylesheet")),
+            ("<!DOCTYPE html [<!ENTITY unused 'x'>]><!--<?xml-stylesheet href='unread.css'?>--><html/>", Some("unsupported-stylesheet")),
+            ("<?xml-stylesheet-other href='unread.css'?><broken", None),
+            ("<!DOCTYPE html [<!ENTITY unused 'x'>]><html/>", None),
+            ("<broken", None),
+            ("<!--<?xml-stylesheet href='unread.css'?>--><html/>", None),
+        ] {
+            let mut assets = LoadedImageAssets::default();
+            let converted = externalize_inline_svgs(raw, SourceKind::Xhtml, "OPS/ch.xhtml", &mut archive(), &[], &mut assets);
+            assert_eq!(converted.html, raw);
+            assert_eq!(converted.stylesheet_warning, warning, "{raw}");
             assert!(assets.files.is_empty());
         }
     }

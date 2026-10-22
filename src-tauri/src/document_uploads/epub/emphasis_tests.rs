@@ -34,7 +34,7 @@ fn book(chapters: &[&str]) -> Vec<u8> {
 fn full_chapter_ancestry_is_normalized_before_body_extraction_and_note_rewriting() {
     let parsed = parse_epub_document(&book(&[
         r#"<html style='font-style:italic'><head><title>Chapter</title></head><body style='font-weight:bold'><p id='p'>First <span style='font-weight:normal;font-style:normal'>plain</span><a id='r' role='doc-noteref' href='c1.xhtml#n'><sup>1</sup></a><code translate='no'>user_id</code></p></body></html>"#,
-        r#"<html><body><aside id='n' role='doc-footnote'><p>Note <a role='doc-backlink' href='c0.xhtml#r'>↩</a></p></aside><p>Second.</p></body></html>"#,
+        r#"<html><head/><body><aside id='n' role='doc-footnote'><p>Note <a role='doc-backlink' href='c0.xhtml#r'>↩</a></p></aside><p>Second.</p></body></html>"#,
     ]), "Fallback").unwrap();
     let safe = super::super::html::sanitize_html(&parsed.view_html);
     let dom = parse_html().one(safe.clone()).document_node;
@@ -111,7 +111,7 @@ fn xml_chapter_metadata_survives_html_serialization_of_void_elements() {
 
 #[test]
 fn xhtml_empty_nonvoid_elements_do_not_capture_following_formatted_text() {
-    let parsed = parse_epub_document(&book(&["<html><body><p><a id='point'/><span id='empty' style='font-weight:bold'/>Plain <span style='font-style:italic'>italic</span></p></body></html>"]), "Fallback").unwrap();
+    let parsed = parse_epub_document(&book(&["<html><head/><body><p><a id='point'/><span id='empty' style='font-weight:bold'/>Plain <span style='font-style:italic'>italic</span></p></body></html>"]), "Fallback").unwrap();
     let dom = parse_html().one(parsed.view_html).document_node;
     assert_eq!(dom.select_first("#ch0-point").unwrap().text_contents(), "");
     assert_eq!(dom.select_first("#ch0-empty").unwrap().text_contents(), "");
@@ -121,7 +121,8 @@ fn xhtml_empty_nonvoid_elements_do_not_capture_following_formatted_text() {
 
 #[test]
 fn literal_newlines_keep_the_existing_epub_import_roundtrip() {
-    let prefix = "<html><body><pre>\n\n\nA  B\n C</pre>";
+    // XML keeps the first literal LF; HTML consumes it, so source-context admission now rejects first.
+    let prefix = "<html><head/><body><pre>\n\n\nA  B\n C</pre>";
     let styled = format!("{prefix}<p style='font-weight:bold'>Words</p></body></html>");
     let plain = format!("{prefix}<p>Words</p></body></html>");
     let prepared = parse_epub_document(&book(&[&styled]), "Fallback").unwrap();
@@ -129,7 +130,7 @@ fn literal_newlines_keep_the_existing_epub_import_roundtrip() {
     assert_eq!(prepared.view_html, control.view_html);
     assert_eq!(
         prepared.source_formatting.unwrap().warnings,
-        ["literal-roundtrip"]
+        ["unsupported-document-mode"]
     );
     assert!(control.source_formatting.unwrap().warnings.is_empty());
 }
@@ -138,7 +139,7 @@ fn literal_newlines_keep_the_existing_epub_import_roundtrip() {
 fn declaration_budget_is_shared_across_chapters_and_exhaustion_keeps_import_readable() {
     let declarations = "color:red;".repeat(4095);
     let chapter = format!(
-        "<html><body><p style='{declarations}font-weight:bold'>Readable.</p></body></html>"
+        "<html><head/><body><p style='{declarations}font-weight:bold'>Readable.</p></body></html>"
     );
     let parsed = parse_epub_document(&book(&[&chapter, &chapter, &chapter]), "Fallback").unwrap();
     assert_eq!(
@@ -158,7 +159,8 @@ fn declaration_budget_is_shared_across_chapters_and_exhaustion_keeps_import_read
 
 #[test]
 fn plaintext_chapter_fallback_matches_the_existing_final_import_roundtrip() {
-    let styled = "<html><body><p id='before' style='font-weight:bold'>Before</p><plaintext>literal &lt;stuff&gt;</plaintext></body></html>";
+    // XML has a closing plaintext tag; HTML consumes it as text, so context mismatch rejects first.
+    let styled = "<html><head/><body><p id='before' style='font-weight:bold'>Before</p><plaintext>literal &lt;stuff&gt;</plaintext></body></html>";
     let plain = styled.replace(" style='font-weight:bold'", "");
     let prepared = parse_epub_document(&book(&[styled]), "Fallback").unwrap();
     let baseline = parse_epub_document(&book(&[&plain]), "Fallback").unwrap();
@@ -177,7 +179,7 @@ fn plaintext_chapter_fallback_matches_the_existing_final_import_roundtrip() {
     );
     assert_eq!(
         prepared.source_formatting.unwrap().warnings,
-        ["literal-roundtrip"]
+        ["unsupported-document-mode"]
     );
     assert!(baseline.source_formatting.unwrap().warnings.is_empty());
 }
@@ -185,8 +187,8 @@ fn plaintext_chapter_fallback_matches_the_existing_final_import_roundtrip() {
 #[test]
 fn address_italics_survive_chapter_sanitization_and_cross_chapter_note_rewriting() {
     let parsed = parse_epub_document(&book(&[
-        "<html><body><div id='outer'><address style='font-style:italic'><span id='own'>Été عربيّ</span><a id='r' role='doc-noteref' href='c1.xhtml#n'><sup>1</sup></a></address><div style='font-style:italic'><address><span id='inherited'>Inherited</span><span id='reset' style='font-style:normal'> Plain</span></address></div><address style='font-style:normal'><span id='normal'>Normal</span></address></div></body></html>",
-        "<html><body><aside id='n' role='doc-footnote'>Note <a role='doc-backlink' href='c0.xhtml#r'>↩</a></aside></body></html>",
+        "<html><head/><body><div id='outer'><address style='font-style:italic'><span id='own'>Été عربيّ</span><a id='r' role='doc-noteref' href='c1.xhtml#n'><sup>1</sup></a></address><div style='font-style:italic'><address><span id='inherited'>Inherited</span><span id='reset' style='font-style:normal'> Plain</span></address></div><address style='font-style:normal'><span id='normal'>Normal</span></address></div></body></html>",
+        "<html><head/><body><aside id='n' role='doc-footnote'>Note <a role='doc-backlink' href='c0.xhtml#r'>↩</a></aside></body></html>",
     ]), "Fallback").unwrap();
     let safe = super::super::html::sanitize_html(&parsed.view_html);
     let dom = parse_html().one(safe).document_node;
@@ -218,7 +220,7 @@ fn address_italics_survive_chapter_sanitization_and_cross_chapter_note_rewriting
 
 #[test]
 fn table_structure_and_whitespace_survive_the_complete_epub_import() {
-    let styled = "<html><body><div id='outer'>Before<table id='t' style='font-weight:bold'>\n \t<caption id='caption' style='font-style:italic'>Caption</caption>\n<colgroup id='cols'>\n<col/>\t</colgroup>\n<thead id='head'>\n<tr id='hr'>\n<th>Heading</th>\n</tr>\n</thead>\n<tbody id='body'>\n<tr id='br'>\n<td id='cell'>Cell</td>\n</tr>\n</tbody>\n<tfoot id='foot'>\n<tr id='fr'>\n<td>Footer</td>\n</tr>\n</tfoot>\n</table>After</div></body></html>";
+    let styled = "<html><head/><body><div id='outer'>Before<table id='t' style='font-weight:bold'>\n \t<caption id='caption' style='font-style:italic'>Caption</caption>\n<colgroup id='cols'>\n<col/>\t</colgroup>\n<thead id='head'>\n<tr id='hr'>\n<th>Heading</th>\n</tr>\n</thead>\n<tbody id='body'>\n<tr id='br'>\n<td id='cell'>Cell</td>\n</tr>\n</tbody>\n<tfoot id='foot'>\n<tr id='fr'>\n<td>Footer</td>\n</tr>\n</tfoot>\n</table>After</div></body></html>";
     let plain = styled
         .replace(" style='font-weight:bold'", "")
         .replace(" style='font-style:italic'", "");
@@ -284,7 +286,7 @@ fn select_chapter_fallback_preserves_readable_source_and_does_not_warn_for_plain
         "<select><option style='font-style:italic'>First</option></select>",
         "<div style='font-style:italic'><select><option>First</option></select></div>",
     ] {
-        let styled = format!("<html><body><p id='before' style='font-weight:bold'>Before</p>{selection}<p id='after'>After</p></body></html>");
+        let styled = format!("<html><head/><body><p id='before' style='font-weight:bold'>Before</p>{selection}<p id='after'>After</p></body></html>");
         let plain = styled.replace(" style='font-weight:bold'", "").replace(" style='font-style:italic'", "");
         let prepared = parse_epub_document(&book(&[&styled]), "Fallback").unwrap();
         let baseline = parse_epub_document(&book(&[&plain]), "Fallback").unwrap();
@@ -297,7 +299,7 @@ fn select_chapter_fallback_preserves_readable_source_and_does_not_warn_for_plain
         "<select><option>First</option></select>",
         "<div style='font-style:italic'><select style='font-style:normal'><option>First</option></select></div>",
     ] {
-        let raw = format!("<html><body><p id='before' style='font-weight:bold'>Before</p>{selection}</body></html>");
+        let raw = format!("<html><head/><body><p id='before' style='font-weight:bold'>Before</p>{selection}</body></html>");
         let prepared = parse_epub_document(&book(&[&raw]), "Fallback").unwrap();
         let dom = parse_html().one(prepared.view_html).document_node;
         assert_eq!(dom.select_first("#ch0-before > b").unwrap().text_contents(), "Before");

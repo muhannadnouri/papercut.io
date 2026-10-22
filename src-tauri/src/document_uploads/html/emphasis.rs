@@ -8,6 +8,13 @@ use kuchikiki::{iter::NodeEdge, parse_html, traits::TendrilSink, NodeRef, Specif
 use super::emphasis_policy::{self as policy, Budget, Declaration, FontState, Property, Work};
 use super::emphasis_sheets::{self as sheets, Sheet};
 
+/// The two importers have different matching rules even when both use the same safe HTML DOM.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SourceKind {
+    Html,
+    Xhtml,
+}
+
 pub(crate) struct Normalized {
     pub(crate) html: String,
     /// Stable bounded reason for persisted import metadata, never raw CSS or document text.
@@ -33,6 +40,7 @@ impl Normalizer {
     pub(crate) fn normalize(&mut self, html: &str) -> Normalized {
         self.normalize_with(
             html,
+            SourceKind::Html,
             |_| Err("unread-stylesheet"),
             |_, _| Err("unread-stylesheet"),
         )
@@ -42,13 +50,42 @@ impl Normalizer {
     pub(crate) fn normalize_with(
         &mut self,
         html: &str,
+        kind: SourceKind,
         mut resolve: impl FnMut(&str) -> Result<String, &'static str>,
         mut read: impl FnMut(&str, usize) -> Result<Vec<u8>, &'static str>,
     ) -> Normalized {
         let document = parse_html().one(html).document_node;
+        // Compare original XML with the reader DOM before trusting folded names or repaired trees.
+        let source_warning = if kind == SourceKind::Xhtml {
+            self.xhtml_context(html, &document).err()
+        } else {
+            None
+        };
+        if let Some(warning) =
+            source_warning.filter(|warning| *warning != "unsupported-document-mode")
+        {
+            return Normalized {
+                html: html.to_owned(),
+                warning: Some(warning),
+            };
+        }
+        let legacy_html = kind == SourceKind::Html
+            && document.as_document().expect("Document node").quirks_mode()
+                != kuchikiki::ParseOpts::default().tree_builder.quirks_mode;
         let planned = self
             .collect_sheets(&document, &mut resolve, &mut read)
-            .and_then(|sheets| self.plan(&document, &sheets));
+            .and_then(|sheets| {
+                for rule in sheets.iter().flat_map(|sheet| &sheet.rules) {
+                    if rule.selected.iter().any(Option::is_some)
+                        && (legacy_html
+                            || source_warning.is_some()
+                            || (kind == SourceKind::Xhtml && rule.html_type_folding))
+                    {
+                        return Err("unsupported-document-mode");
+                    }
+                }
+                self.plan(&document, &sheets, legacy_html, source_warning)
+            });
         let wrappers = match planned {
             Ok(wrappers) => wrappers,
             Err(warning) => {
@@ -87,15 +124,141 @@ impl Normalizer {
         }
     }
 
+    /// Admit only XML names/namespaces unchanged by the shared HTML parser; never expand entities.
+    fn xhtml_context(&mut self, html: &str, parsed: &NodeRef) -> Result<(), &'static str> {
+        if html.contains("<!ENTITY") {
+            return Err("unsupported-document-mode");
+        }
+        let document = roxmltree::Document::parse_with_options(
+            html,
+            roxmltree::ParsingOptions {
+                allow_dtd: true,
+                ..Default::default()
+            },
+        )
+        .map_err(|_| "unsupported-document-mode")?;
+        let namespace = document.root_element().tag_name().namespace();
+        if !matches!(namespace, None | Some("http://www.w3.org/1999/xhtml")) {
+            return Err("unsupported-document-mode");
+        }
+        // Match ordered elements/text and depth: HTML repair must not invent matching containers,
+        // reparent styled text, or interpret XML character data using different raw-text rules.
+        let mut parsed_nodes = parsed
+            .traverse_inclusive()
+            .scan(0usize, |depth, edge| {
+                let (node, start) = match edge {
+                    NodeEdge::Start(node) => (node, true),
+                    NodeEdge::End(node) => (node, false),
+                };
+                let parent = *depth;
+                if node.as_element().is_some() || node.as_document().is_some() {
+                    if start {
+                        *depth += 1;
+                    } else {
+                        *depth -= 1;
+                    }
+                }
+                Some(
+                    (start && (node.as_element().is_some() || node.as_text().is_some()))
+                        .then_some((node, parent)),
+                )
+            })
+            .flatten();
+        // Preorder plus parent links needs only a depth-bounded stack, never a wide child queue.
+        let mut ancestors = Vec::new();
+        for node in document.descendants() {
+            while ancestors
+                .last()
+                .is_some_and(|parent| Some(*parent) != node.parent())
+            {
+                ancestors.pop();
+            }
+            if ancestors.len() > policy::MAX_DOM_DEPTH {
+                return Err("dom-depth-limit");
+            }
+            self.charge(Work {
+                node_work: 1 + node.attributes().len(),
+                ..Work::default()
+            })?;
+            let parsed_node = if node.is_element() || node.is_text() {
+                let (parsed_node, depth) =
+                    parsed_nodes.next().ok_or("unsupported-document-mode")?;
+                if depth != ancestors.len() {
+                    return Err("unsupported-document-mode");
+                }
+                Some(parsed_node)
+            } else {
+                None
+            };
+            if node.is_element() {
+                // Extracted SVG is already an img; surviving foreign XML cannot use HTML matching.
+                let name = node.tag_name().name();
+                let lexical_name = html[node.range().start + 1..]
+                    .split(|c: char| c.is_ascii_whitespace() || matches!(c, '/' | '>'))
+                    .next();
+                if node.tag_name().namespace() != namespace
+                    || name.bytes().any(|byte| byte.is_ascii_uppercase())
+                    || lexical_name != Some(name)
+                {
+                    return Err("unsupported-document-mode");
+                }
+                let element = parsed_node
+                    .as_ref()
+                    .and_then(|node| node.as_element())
+                    .ok_or("unsupported-document-mode")?;
+                if element.name.ns.as_ref() != "http://www.w3.org/1999/xhtml"
+                    || element.name.local.as_ref() != name
+                {
+                    return Err("unsupported-document-mode");
+                }
+                let attributes = element.attributes.borrow();
+                for attribute in node.attributes() {
+                    if attribute
+                        .name()
+                        .bytes()
+                        .any(|byte| byte.is_ascii_uppercase())
+                        || attributes.get(&html[attribute.range_qname()]) != Some(attribute.value())
+                        || match attribute.namespace() {
+                            None => false,
+                            Some("http://www.w3.org/XML/1998/namespace") => {
+                                !matches!(attribute.name(), "lang" | "space")
+                            }
+                            Some("http://www.idpf.org/2007/ops") => attribute.name() != "type",
+                            _ => true,
+                        }
+                    {
+                        return Err("unsupported-document-mode");
+                    }
+                }
+            } else if node.is_text()
+                && parsed_node
+                    .as_ref()
+                    .and_then(|node| node.as_text())
+                    .is_none_or(|text| text.borrow().as_str() != node.text().unwrap_or_default())
+            {
+                return Err("unsupported-document-mode");
+            }
+            ancestors.push(node);
+        }
+        if parsed_nodes.next().is_some() {
+            return Err("unsupported-document-mode");
+        }
+        Ok(())
+    }
+
     /// Carry computed properties, not declaration importance, down an iterative DOM traversal.
     fn plan(
         &mut self,
         document: &NodeRef,
         sheets: &[Rc<Sheet>],
+        legacy_html: bool,
+        source_warning: Option<&'static str>,
     ) -> Result<Vec<(NodeRef, FontState)>, &'static str> {
         let mut stack = vec![Frame::default()];
         let mut wrappers = Vec::new();
         let mut literal_roundtrip = false;
+        let mut table = false;
+        let mut inline_fonts = false;
         for edge in document.traverse() {
             match edge {
                 NodeEdge::Start(node) => {
@@ -159,6 +322,7 @@ impl Normalizer {
                         state.authored.bold |= own_bold;
                         state.authored.italic |= own_italic;
                         if !state.inert {
+                            table |= tag == "table";
                             // Sheet occurrences retain document order; only winners carry importance.
                             let mut selected: [Option<(Declaration, Option<Specificity>)>; 2] =
                                 [None, None];
@@ -183,9 +347,14 @@ impl Normalizer {
                                 }
                             }
                             if let Some(style) = attrs.get("style") {
-                                for (index, declaration) in
-                                    self.declarations(style)?.into_iter().enumerate()
-                                {
+                                let declarations = self.declarations(style)?;
+                                if declarations.iter().any(Option::is_some) {
+                                    inline_fonts = true;
+                                    if let Some(warning) = source_warning {
+                                        return Err(warning);
+                                    }
+                                }
+                                for (index, declaration) in declarations.into_iter().enumerate() {
                                     if let Some(declaration) = declaration {
                                         cascade(&mut selected[index], declaration, None);
                                     }
@@ -235,6 +404,10 @@ impl Normalizer {
                     stack.pop();
                 }
             }
+        }
+        // Legacy table defaults reset inherited font styles; do not emulate them with text wrappers.
+        if legacy_html && table && inline_fonts {
+            return Err("unsupported-document-mode");
         }
         if literal_roundtrip && !wrappers.is_empty() {
             return Err("literal-roundtrip");

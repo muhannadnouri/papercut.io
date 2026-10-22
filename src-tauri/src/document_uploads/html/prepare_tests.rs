@@ -111,7 +111,7 @@ fn head_sheets_resolve_overrides_or_warn_without_guessing_inline_equivalence() {
             Some("unsupported-activation"),
         ),
     ] {
-        let parsed = prepare_html_document(&format!("<html><head>{sheet}</head><body><p class='x' style='font-weight:bold'>Readable</p></body></html>"));
+        let parsed = prepare_html_document(&format!("<!doctype html><html><head>{sheet}</head><body><p class='x' style='font-weight:bold'>Readable</p></body></html>"));
         assert_eq!(
             parsed.source_formatting.unwrap().warnings,
             warning.into_iter().map(str::to_owned).collect::<Vec<_>>()
@@ -233,7 +233,7 @@ fn removed_address_container_does_not_silently_remove_supported_italics() {
 
 #[test]
 fn table_whitespace_stays_in_place_through_the_final_sanitizer() {
-    let raw = "<div id='outer'>Before<table id='t' style='font-weight:bold'>\n \t<caption id='caption' style='font-style:italic'>Caption</caption>\n<colgroup id='cols'>\n<col>\t</colgroup>\n<thead id='head'>\n<tr id='hr'>\n<th>Heading</th>\n</tr>\n</thead>\n<tbody id='body'>\n<tr id='br'>\n<td id='cell'>Cell</td>\n</tr>\n</tbody>\n<tfoot id='foot'>\n<tr id='fr'>\n<td>Footer</td>\n</tr>\n</tfoot>\n</table>After</div>";
+    let raw = "<!doctype html><div id='outer'>Before<table id='t' style='font-weight:bold'>\n \t<caption id='caption' style='font-style:italic'>Caption</caption>\n<colgroup id='cols'>\n<col>\t</colgroup>\n<thead id='head'>\n<tr id='hr'>\n<th>Heading</th>\n</tr>\n</thead>\n<tbody id='body'>\n<tr id='br'>\n<td id='cell'>Cell</td>\n</tr>\n</tbody>\n<tfoot id='foot'>\n<tr id='fr'>\n<td>Footer</td>\n</tr>\n</tfoot>\n</table>After</div>";
     let prepared = prepare_html_document(raw);
     let dom = parse_html().one(prepared.view_html).document_node;
     let baseline = parse_html()
@@ -288,7 +288,7 @@ fn table_whitespace_stays_in_place_through_the_final_sanitizer() {
 
 #[test]
 fn non_ascii_table_text_is_not_mistaken_for_structural_whitespace() {
-    let raw = "<div id='outer' style='font-style:italic'>Before<table id='t'>\u{a0}<tbody><tr><td>Cell</td></tr></tbody></table>After</div>";
+    let raw = "<!doctype html><div id='outer' style='font-style:italic'>Before<table id='t'>\u{a0}<tbody><tr><td>Cell</td></tr></tbody></table>After</div>";
     let prepared = prepare_html_document(raw);
     let dom = parse_html().one(prepared.view_html).document_node;
     let baseline = parse_html()
