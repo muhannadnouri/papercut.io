@@ -35,7 +35,9 @@ The strict semantic-alignment experiment is **retired**, not an opt-in feature.
 Its runtime, token contracts, projection, receipts and Cargo features were removed.
 Legacy `preserveFormatting: true` requests reject; the internal `Strict` policy is
 only a rejection/cache-namespace sentinel. Normal OPUS jobs need no aligner.
-Existing translations, source documents, audio and highlighting are not migrated.
+Existing translations, source documents, audio and highlighting are not rewritten.
+The additive translation schema v2 stores review evidence for new assisted results;
+older results without that evidence remain readable and read-only for formatting.
 
 ## Formatting: what is preserved and what needs review
 
@@ -72,6 +74,12 @@ those nodes from backend search/section text, reader Find, narration, locators
 and read-along highlighting. Those consumers use translated content, including
 when a highlight chunk spans blocks. Saved English documents use English review
 labels; app setup/status explanations use the eight UI locales.
+
+New OPUS results also retain immutable, generation-owned source/English evidence
+and resumable B/I drafts. Stage 3 supplies native draft commands and a pure preview,
+not a user-facing review editor or publication. Saving a draft does not change
+the current bilingual fallback, Library status, search, narration or saved audio.
+Atomic formatting publication and the review UI are the next separate stages.
 
 Preservation concerns **sanitized reader HTML**, not arbitrary original CSS or
 scripts. Import sanitization can remove style-based bold before translation;
@@ -726,9 +734,9 @@ Canonicalize overlapping B/I marks into deterministic runs and escape prose
 before emitting app-owned tags. V1 rejects edits that cannot preserve protected
 structures; it must not flatten them to make a patch fit.
 
-Keep pending obligations separate from draft saving and published status. Adopt
-an additive schema migration through `translation/storage.rs`; its current
-unconditional schema-version-1 setup must be replaced with version-aware migration.
+Keep pending obligations separate from draft saving and published status. The
+additive version-aware schema v2 migration lives in `translation/storage.rs`;
+the review wire/evidence contract remains version 1, a separate version domain.
 Legacy variants/audio stay readable and untouched. Legacy results without the
 new evidence are initially read-only for formatting edits; do not reconstruct
 edit identities from a mutable original or guess a migration from old HTML.
@@ -822,13 +830,13 @@ fixtures/references remain outside tracked files.
 | **1. Pure review and normalization contracts — implemented** | Freeze eligibility/obligation states, schema/command bounds, CSS grammar/work caps and policy identities. Test repeated identical paragraphs, mixed obligation types, invalid/oversized ranges, stale generation/revision, Unicode scalar↔UTF-16 conversion, combining marks/emoji/Arabic diacritics and B/I overlap. A reviewed emphasis scope must not clear a note/link obligation; edit/reset must invalidate approval. No UI, inference or published-document writes |
 | **2a. Inline source normalization — implemented** | Pure normalizer plus HTML/full-EPUB-chapter import integration, followed by unchanged sanitization. Test bold/italic nesting, inheritance/local normal resets, semantic-tag conflicts, comments/escapes/invalid values, shorthands and limits. An unread embedded/linked `.x { font-weight: normal !important }` must make conflicting inline bold unresolved. Prove exact text, whitespace, IDs, links, note payloads, literals and chapter order; normalization and sanitization idempotence; scripts, CSS and unsafe URLs remain removed |
 | **2b. Bounded local stylesheet normalization — implemented with coverage corrections** | Add the declared embedded/EPUB-local selector subset and cascade. Test specificity/source order/important precedence, child overrides of inherited importance, multiple sheets/chapter isolation, source matching modes, SVG/XML stylesheet evidence, missing/unsupported rules, media/disabled/alternate-sheet activation, EPUB-relative paths/traversal, recursive imports and budget exhaustion. Zero network or unrelated filesystem reads. Verify duplicate imports preserve old sources and changed normalized identity invalidates incompatible checkpoints |
-| **3. Durable snapshots, drafts and pure reconstruction** | Add the real schema migration, saved immutable evidence and model-independent review commands. Test draft save/reload/offline resume, original/model removal, repeated blocks, stale windows and new-generation conflicts. Source deletion must preserve cross-block footnotes/backlinks and source-only assets; preview IDs must not collide with English. B/I patches preserve exact target characters and protected structure; reject text/HTML/path injection. Legacy variants remain readable/read-only and new generations preserve prior variants/audio. Draft failure never changes the published document |
+| **3. Durable snapshots, drafts and pure reconstruction — implemented** | Version-aware schema v2, immutable evidence, model-independent native draft commands and pure preview. Regression gates cover file-backed save/reload/offline resume, source/model independence, repeated blocks, stale windows, new-generation conflicts, notes/backlinks and source-only assets, preview namespaces, exact target text/protected structure, hostile edits, legacy compatibility and atomic initial-save/draft failure preservation. Publication/UI remain separate |
 | **4. Atomic publication** | Extend the existing derived-document writer and reference-lock preflight, with revision checks under lock. Test concurrent save/delete/regeneration, partial file/SQLite/index failures, rollback retaining prior variant and draft, repeated completion and startup recovery. Deleted-variant stale saves must create no orphan or revived variant. Published status cannot clear unresolved obligations or edited/reset approvals; neither draft nor stale input can overwrite newer output |
 | **5. Accessible review UI and consumer integration** | Dedicated paragraph panel: source collapsed by default, read-only selection, B/I controls, mark list, undo/reset, explicit paragraph approval, progress save and completion. Test keyboard/touch selection, toolbar focus retention, selected/mixed states, navigation with dirty drafts, conflict/error/retry and non-emphasis blockers. Reuse `translationReview.test.ts` and current highlight invalidation to prove identical English extraction, search sections, TTS chunk IDs/text hashes/spans and read-along behavior across added text-node boundaries; existing audio/timings remain unchanged |
 
 The Stage 2b review findings are addressed in the correction receipts below.
-The next task is a focused review of those corrections, then Stage 3 durable
-snapshots, drafts and pure reconstruction if that review is clear. CSS import work and assisted review
+Stage 3 is implemented as documented below; review it before Stage 4 publication.
+CSS import work and assisted review
 remain separate leaves even though they share normalized source identity. Do not
 revive retired alignment setup or split unrelated UI merely to shorten files.
 Implementation completion requires the above automated gates and a focused code
@@ -839,9 +847,10 @@ and version bump are still explicitly deferred, not recorded as passed.
 ### Stage 1 pure contracts — 2026-10-21
 
 The [review contract](../src-tauri/src/translation/review/mod.rs) compiles in base
-and native-translation builds, but has no registered IPC, persistence, runner or
-UI caller. It freezes `opus-assisted-emphasis-v1` and review schema version 1;
-this is not a database migration. Native-owned snapshots/normalization policy,
+and native-translation builds. Stage 1 originally added no IPC/persistence; Stage 3
+connects those contracts to storage and native draft commands, without a UI caller.
+It freezes `opus-assisted-emphasis-v1` and review schema version 1, separate from
+the database schema version. Native-owned snapshots/normalization policy,
 generation, source ordinal/identity and exact English are retained separately
 from client edits. Edits cannot provide English, HTML, paths, obligation states
 or an approval override. Explicit approval resolves emphasis only; editing/reset
@@ -1286,7 +1295,94 @@ No new parser, dependency, engine behavior, schema or provider admission was
 introduced. Existing uploads, saved translations, deduplication, audio and
 highlighting are untouched. Providers stay gated and strict alignment disabled;
 benchmarks, engine inference, packaged/device smoke and the version bump remain
-deferred. Review these corrections before Stage 3's durable snapshots and drafts.
+deferred. Their focused review found no remaining blocker to the Stage 3 work below.
+
+### Stage 3 durable snapshots, drafts and pure reconstruction — 2026-10-21
+
+Implemented through the existing translation/upload owners, without a model fork,
+new dependency, editor UI or second document writer:
+
+- [Storage](../src-tauri/src/translation/storage.rs) migrates translation schema
+  v1 to v2 in one SQLite transaction, preserving legacy rows and rejecting unknown
+  future versions. `translation_review` belongs to its variant through a cascading
+  foreign key. Review schema/policy version 1 is independent of database version 2.
+- Each new OPUS assisted result saves a full immutable sanitized source snapshot,
+  exact indexed English baseline, normalization-policy identity, hashes, native
+  node paths and source ordinals. Repeated identical paragraphs remain distinct.
+  Existing results without this evidence are read-only; no evidence is invented
+  from an original that may have changed or disappeared.
+- [Snapshot capture and reconstruction](../src-tauri/src/translation/review/snapshot.rs)
+  retain fixed source-validated marks and protected literal/link/note/attachment
+  boundaries. Edits add native B/I wrappers by splitting existing English text
+  nodes; characters, source-owned hierarchy, anchors and payloads never move.
+  Reconstruction returns a separate draft preview, not published HTML. Fixed
+  validated marks are not removed by editable-mark Reset.
+- The [draft store](../src-tauri/src/translation/review_store.rs) keeps immutable
+  snapshot JSON separate from mutable document JSON. Conditional generation/
+  revision updates serialize competing saves; stale windows, unknown/deleted
+  variants and invalid evidence reject without upsert or resurrection. Editing
+  and Reset invalidate approval; emphasis approval cannot clear independent
+  link/note/attachment/typography or source-normalization obligations.
+- Initial evidence and the English variant commit in the existing derived-document
+  transaction, with its filesystem rollback and reference lock. The same writer
+  now validates/deduplicates the union of English and source-only asset references.
+  Deleting the original leaves the variant's source evidence, cross-block notes,
+  backlinks and owned images available. Display-only source previews namespace
+  IDs, named anchors and local fragment links against the English baseline;
+  the saved source snapshot remains unchanged.
+- Assisted saves append a unique random generation token to the existing settings
+  identity. A completed rerun can reuse compatible inference checkpoints while
+  saving a distinct variant; it cannot overwrite older review ranges, annotations
+  or audio. Legacy provider identities remain unchanged. This deliberately adds
+  saved copies; no grouping, automatic pruning or backup/export policy is added.
+
+Native commands are registered for the main WebView in base/native builds and
+do not require a translation model, engine or network:
+
+| Command | Input / result |
+| --- | --- |
+| `translation_review_load` | `{ id }` returns the current draft document, namespaced full-source preview, reconstructed draft HTML and variant-owned asset paths. `null` means no editable evidence, including legacy results; published reading remains available |
+| `translation_review_save` | `{ request: JSON.stringify({ expected, block, edit }) }`, using the returned generation/revision and block key. Edits are `replaceMarks`, `reset` or `approve`; success returns the next draft revision. No input text, HTML, path, asset URL or caller-defined obligation is accepted |
+
+The edge bounds JSON before typed edit decoding (16 KiB; the Tauri transport
+still allocates its incoming buffer), validates identities and then checks the
+native published file under the existing reference lock. Response asset reads
+complete before revision commit so a failed response preparation permits the
+same edit to retry. Loading/rebuilding uses only saved native evidence. There
+is no Finish command yet: draft save cannot change Library status, published
+HTML/index rows, MT resume cache, source data, audio or highlight timings.
+
+Bounds are explicit failures, not permission to omit evidence or save partially:
+16,384 blocks; 32 KiB exact text per block; 25 MiB aggregate target text; 120 MiB
+per source/baseline HTML; 128 marks/locks per block; 262,144 DOM nodes and depth
+128. Serialized snapshot and draft records each have a separate 256 MiB cap,
+checked before copying stored JSON out of SQLite. JSON escaping can make an
+otherwise admissible document exceed that storage cap. Unicode scalar offsets
+must land on grapheme boundaries; the shared UTF-16 conversion rejects surrogate
+splits. These are admission limits, not measured mobile memory/latency guarantees.
+
+Regression coverage uses synthetic HTML/Unicode and temporary SQLite/filesystem
+fixtures: restart/offline draft reload, source/model independence, repeated
+paragraphs, revision/generation conflicts, deletion/cascade/no revival, failed
+draft and initial-save transactions, changed published evidence, hostile edits,
+legacy/future schemas, namespace collisions, notes/backlinks, source-only images,
+hierarchy/literals, exact text and existing audio/highlighting preservation.
+Private sources/repros are not tracked. Validation: 28 new synthetic regressions;
+the complete base Rust library suite passed (696 passed, four existing ignores),
+as did the complete `native-translation` suite (698 passed, four existing ignores).
+Three existing cache/resume regressions now prove fresh saved generations with
+unchanged prior evidence rather than deterministic result replacement. The
+non-test library check passed with only the existing gated HY-MT2 dead-code
+warnings. Rust formatting, diff checks and local documentation links passed;
+historical evaluation JSON remains byte-identical. No model inference, full CI
+or packaged acceptance is implied.
+
+Next: review Stage 3, then Stage 4's guarded atomic publication and rollback.
+Stage 5 adds accessible review UI and consumer acceptance. The reading stream
+still shows the existing retained-original fallback until that work is complete;
+this stage does not claim automatic semantic word placement. Other providers
+remain gated; strict alignment disabled; benchmarks, smoke and version bump
+remain deferred.
 
 ## Architecture and ownership
 
@@ -1313,6 +1409,7 @@ All Rust paths below are under [src-tauri/src/translation](../src-tauri/src/tran
 | Rendering | `render.rs`: coverage/order, policy dispatch, protected/review rendering, escaping and serialization |
 | Legacy projection | `render/legacy.rs`: private best-effort text/probe fallback for the old provider path; cannot recover invalid sentence/protected claims |
 | Durable result | `quality.rs`, `storage.rs`: output sanity checks, upload-backed atomic variant write/list/delete |
+| Assisted drafts | `review/`: immutable native evidence, bounded edit contract and pure B/I reconstruction; `review_store.rs`: revision-bound draft persistence, no inference or publication |
 
 The frontend lives under [src/translation](../src/translation):
 
@@ -1432,11 +1529,12 @@ outcomes. Old `aligned` records are ignored. The sentence/review policy tag is
 Native cache identity does not automatically fingerprint every engine binary;
 review compatibility deliberately when changing runtime/model semantics.
 
-Saved variant IDs bind source document ID, languages, model, quality, repair,
-glossary and the sentence/review policy. They exclude job ID, timestamps and
-hardware toggles. Identical settings atomically replace the same variant;
-changed supported settings create a separate variant. Source changes invalidate
-incompatible segments but do not themselves create a new variant ID.
+The stable variant settings prefix binds source document ID, languages, model,
+quality, repair, glossary and sentence/review policy, excluding job ID, timestamps
+and hardware toggles. New assisted results append a unique generation token so
+identical reruns retain older saved variants/drafts/audio. Legacy provider saves
+retain their deterministic replacement behavior. Cache identity is unchanged;
+source changes invalidate incompatible checkpoints independently of saved identity.
 
 Settings retain provenance, provider identity, source format, job information,
 policy and review counts. Existing saved HTML/metadata/audio are not retrofitted
@@ -1622,7 +1720,7 @@ separately from HTML fidelity and lifecycle success.
 | Progress | Model-loading versus inference states, batch/segment/cache counts; cancellation/failure remain terminal rather than false 100% success; late events cannot erase terminal/review state or relock retry |
 | Cancel/restart | During loading, inference, between batches, cached completion and immediately before save; retry after cancel/restart reuses only valid complete checkpoints; duplicate starts reject |
 | Resume integrity | Same-URL changed source/DOM, settings/provider/policy mismatch, invalid cache and retired alignment receipts; mixed cache/fresh source order; invalid later batch row cannot checkpoint earlier rows |
-| Save/delete | Disk/write/transaction failure and recovery; identical rerun replaces one variant, supported changed settings separate; delete variant leaves original intact; source deletion leaves saved variant readable but new source jobs reject |
+| Save/delete | Disk/write/transaction failure and recovery; assisted rerun reuses eligible cache but creates a separate generation without modifying earlier variants/drafts/audio; legacy replacement unchanged; delete variant leaves original intact; source deletion leaves saved variant readable but new source jobs reject |
 | Reader/search/audio | Open original/variant independently; search/Find/narration/read-along include translated text only, exclude review originals/labels across chunks; links remain usable; existing audiobooks/timings unchanged; new TTS uses variant text |
 | Presentation | Eight locales, disabled/build/acceptance reasons, narrow layout, light/dark theme, keyboard/focus/dialog labels; saved-result access independent of selection/runtime; job and delete status dismissal independent |
 | Resource/platform qualification | Sustained long-book memory/thermals and cancellation latency; packaged desktop and physical-device checks, foreground interruption/background limits; compile success alone is insufficient |
@@ -1682,7 +1780,8 @@ public translation jobs; mobile host compilation is a separate check.
    and timings must remain usable. Keep original and variant independently openable.
 6. On disposable copies, cancel before saving and retry with unchanged settings;
    valid cached work may resume, but no partial variant may appear. An identical
-   completed rerun replaces one variant rather than duplicating it. Delete a
+   completed assisted rerun saves a distinct generation while preserving the old
+   variant, review and audio, even when inference is entirely cached. Delete a
    variant and check the source survives; separately delete a source and reopen
    its saved variant/images. Pending/completed audiobook references must block
    variant deletion through saved-translation and Library controls, and original
@@ -1902,9 +2001,10 @@ separate fixable source/structure defects from unqualified linguistic placement.
 The maintainer has chosen planning for an explicitly assisted mixed-formatting
 workflow and safe import normalization. Follow the [staged implementation plan](#opus-assisted-formatting-plan--2026-10-21).
 Stage 1's pure contracts and Stage 2a's inline normalization are complete.
-Stage 2b's coverage and literal-preservation blockers are corrected; review those
-corrections before Stage 3's durable snapshots, drafts and pure reconstruction.
-Assisted review integration remains pending. This is
+Stage 2b's coverage and literal-preservation blockers passed focused review.
+Stage 3's durable snapshots, resumable drafts and pure reconstruction are now
+implemented; review them before Stage 4's guarded atomic publication. Stage 5's
+accessible editor/consumer integration remains pending. This is
 not another provider experiment or a claim of automatic target formatting.
 Additional passing examples cannot erase a known failure. Use Firefox's
 DOM ownership as an architectural reference, not evidence of solved completeness

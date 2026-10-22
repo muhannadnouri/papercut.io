@@ -47,8 +47,10 @@ mod text;
 mod types;
 
 pub(crate) use batch::import_scanner_source;
+#[cfg(test)]
+pub(crate) use derived::persist_derived_document;
 pub(crate) use derived::{
-    delete_derived_document, open_document_uploads_db, persist_derived_document,
+    delete_derived_document, open_document_uploads_db, persist_derived_document_with_evidence,
     read_uploaded_document_source,
 };
 pub(crate) use state::DocumentUploadState;

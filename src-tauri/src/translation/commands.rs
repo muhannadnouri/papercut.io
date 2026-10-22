@@ -201,6 +201,47 @@ pub async fn translation_delete_document<R: tauri::Runtime>(
     .map_err(TranslationCommandError::from)
 }
 
+/// Saved review evidence remains usable offline after the generating model or source is removed.
+#[tauri::command]
+pub async fn translation_review_load<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::WebviewWindow<R>,
+    id: String,
+) -> Result<Option<super::storage::TranslationReviewDraft>, TranslationCommandError> {
+    if window.label() != "main" {
+        return Err(TranslationCommandError::new(
+            "Formatting review requires the main WebView".into(),
+        ));
+    }
+    tauri::async_runtime::spawn_blocking(move || super::storage::load_translation_review(&app, &id))
+        .await
+        .map_err(|_| TranslationCommandError::new("Formatting review load task failed".into()))?
+        .map_err(TranslationCommandError::from)
+}
+
+/// Decode the bounded edit contract before opening storage; clients supply no HTML or replacement text.
+#[tauri::command]
+pub async fn translation_review_save<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::WebviewWindow<R>,
+    request: String,
+) -> Result<super::storage::TranslationReviewDraft, TranslationCommandError> {
+    if window.label() != "main" {
+        return Err(TranslationCommandError::new(
+            "Formatting review requires the main WebView".into(),
+        ));
+    }
+    let request = super::review::decode_request(request.as_bytes())
+        .map_err(super::review_store::review_error)
+        .map_err(TranslationCommandError::from)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        super::storage::save_translation_review(&app, &request)
+    })
+    .await
+    .map_err(|_| TranslationCommandError::new("Formatting review save task failed".into()))?
+    .map_err(TranslationCommandError::from)
+}
+
 #[cfg(test)]
 #[path = "admission_tests.rs"]
 mod tests;

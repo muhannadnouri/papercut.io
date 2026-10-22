@@ -5,6 +5,8 @@ use tauri::{test::MockRuntime, Manager};
 
 #[path = "deletion_tests.rs"]
 mod deletion_tests;
+#[path = "review_command_tests.rs"]
+mod review_command_tests;
 
 struct Fixture(std::path::PathBuf);
 impl Drop for Fixture {
@@ -37,6 +39,8 @@ fn fixture() -> (
             translation_remove_model,
             translation_delete_document,
             translation_list_documents,
+            translation_review_load,
+            translation_review_save,
             crate::document_uploads::commands::document_uploads_delete,
             crate::document_uploads::commands::document_uploads_delete_batch,
             crate::document_uploads::commands::document_uploads_delete_folder,

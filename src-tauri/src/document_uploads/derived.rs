@@ -18,6 +18,7 @@ use super::store::{
 use super::types::UploadedDocumentSourceRequest;
 
 const DERIVED_GENERATION_FILE: &str = ".generation";
+const MAX_SOURCE_EVIDENCE_BYTES: usize = 120 * 1024 * 1024;
 
 /// Open the shared upload database without exposing the store module.
 pub(crate) fn open_document_uploads_db<R: Runtime>(
@@ -47,6 +48,7 @@ pub(crate) fn read_uploaded_document_source<R: Runtime>(
 /// metadata commit together. A failed replacement therefore restores the
 /// previous usable variant instead of leaving a partial Library entry.
 #[allow(clippy::too_many_arguments)]
+#[cfg(test)]
 pub(crate) fn persist_derived_document<R, F>(
     app: &tauri::AppHandle<R>,
     db: &mut Connection,
@@ -63,8 +65,43 @@ where
     R: Runtime,
     F: FnOnce(&Transaction<'_>) -> Result<(), String>,
 {
+    persist_derived_document_with_evidence(
+        app,
+        db,
+        id,
+        url,
+        title,
+        format,
+        view_html,
+        None,
+        assets,
+        imported_at_ms,
+        |tx, _| persist_metadata(tx),
+    )
+}
+
+/// Keep source-only review assets in the same owned directory and transaction.
+/// The callback binds feature evidence to the exact sanitized, indexed HTML.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn persist_derived_document_with_evidence<R, F>(
+    app: &tauri::AppHandle<R>,
+    db: &mut Connection,
+    id: &str,
+    url: &str,
+    title: &str,
+    format: &str,
+    view_html: String,
+    source_evidence: Option<&str>,
+    assets: &[ParsedDocumentAsset],
+    imported_at_ms: u128,
+    persist_metadata: F,
+) -> Result<bool, String>
+where
+    R: Runtime,
+    F: FnOnce(&Transaction<'_>, &str) -> Result<(), String>,
+{
     let dir = upload_dir(app, id)?;
-    let parsed = prepare_derived_document(title, format, &view_html, assets)?;
+    let parsed = prepare_derived_document(title, format, &view_html, source_evidence, assets)?;
     // Deleters use this same lock: protect promotion/recovery as well as SQL.
     crate::native_tts::with_audiobook_reference_lock(|| {
         persist_derived_document_at(&dir, db, id, url, parsed, imported_at_ms, persist_metadata)
@@ -75,10 +112,19 @@ fn prepare_derived_document(
     title: &str,
     format: &str,
     html: &str,
+    source_evidence: Option<&str>,
     assets: &[ParsedDocumentAsset],
 ) -> Result<ParsedDocument, String> {
+    if let Some(source) = source_evidence {
+        if source.len() > MAX_SOURCE_EVIDENCE_BYTES {
+            return Err("Source review evidence exceeds the size limit".into());
+        }
+        if sanitize_html(source) != source {
+            return Err("Source review evidence must be sanitized reader HTML".into());
+        }
+    }
     let mut parsed = parsed_html_document(title.into(), format, sanitize_html(html));
-    parsed.assets = owned_assets(&parsed.view_html, assets)?;
+    parsed.assets = owned_assets(&parsed.view_html, source_evidence, assets)?;
     Ok(parsed)
 }
 
@@ -92,7 +138,7 @@ fn persist_derived_document_at<F>(
     persist_metadata: F,
 ) -> Result<bool, String>
 where
-    F: FnOnce(&Transaction<'_>) -> Result<(), String>,
+    F: FnOnce(&Transaction<'_>, &str) -> Result<(), String>,
 {
     let bytes = parsed.view_html.len() as u64
         + parsed
@@ -172,7 +218,7 @@ where
             bytes,
             PdfTextStatus::Ready,
         )?;
-        persist_metadata(&tx)?;
+        persist_metadata(&tx, &parsed.view_html)?;
         tx.commit().map_err(db_err)
     })();
     if let Err(error) = transaction_result {
@@ -336,7 +382,8 @@ mod tests {
         let asset =
             ParsedDocumentAsset::new("image/png", b"retained original image".to_vec()).unwrap();
         let html = format!("<article><h2 data-papercut-translation-review='original' id='heading'>Titre original</h2><h2 data-papercut-translation-review='label'>Translation — formatting needs review</h2><h2>English heading</h2><p id='ref' data-papercut-translation-review='original'><strong>Original <em>emphasis</em></strong><a href='#note' role='doc-noteref'>1</a><img data-papercut-asset='{}'></p><p data-papercut-translation-review='label'>Translation</p><p>Translated meaning.</p><p id='note' data-papercut-translation-review='original'>Original note<a href='#ref' role='doc-backlink'>Back</a></p><p>Translated note.</p></article>", asset.file_name);
-        let parsed = prepare_derived_document("English", "html", &html, &[asset.clone()]).unwrap();
+        let parsed =
+            prepare_derived_document("English", "html", &html, None, &[asset.clone()]).unwrap();
         assert_eq!(
             parsed
                 .sections
@@ -357,12 +404,12 @@ mod tests {
             "/uploads/variant.html",
             parsed,
             1,
-            |_| Ok(()),
+            |_, _| Ok(()),
         )
         .unwrap();
         let saved = fs::read_to_string(live.join("source.html")).unwrap();
         let reopened =
-            prepare_derived_document("English", "html", &saved, &[asset.clone()]).unwrap();
+            prepare_derived_document("English", "html", &saved, None, &[asset.clone()]).unwrap();
         assert_eq!(
             reopened
                 .sections
@@ -420,7 +467,7 @@ mod tests {
         let root = test_root("metadata");
         let mut db = open_db_in(&root).unwrap();
         let html = r#"<p translate="no">user_id</p><p id="r"><strong>Translated<a role="doc-noteref" href='#n'>1</a>.</strong></p><p id="n" role="doc-endnote">Note<a role="doc-backlink" href='#r'>Back</a></p>"#;
-        let parsed = prepare_derived_document("English", "html", html, &[]).unwrap();
+        let parsed = prepare_derived_document("English", "html", html, None, &[]).unwrap();
         let expected = parsed.view_html.clone();
         let live = root.join("variant");
         persist_derived_document_at(
@@ -430,7 +477,7 @@ mod tests {
             "/uploads/variant.html",
             parsed,
             1,
-            |_| Ok(()),
+            |_, _| Ok(()),
         )
         .unwrap();
         let saved = fs::read_to_string(live.join("source.html")).unwrap();
@@ -468,7 +515,7 @@ mod tests {
         let html = format!("<article><h1>Chapter</h1><div>Hello <a href='#note'>note</a><img data-papercut-asset='{}'></div><aside role=doc-endnotes><p id=note>Note body</p></aside></article>", asset.file_name);
         let paths = stored_reader_asset_paths(&source).unwrap();
         let assets = snapshot_assets(&html, &paths).unwrap();
-        let parsed = prepare_derived_document("English", "html", &html, &assets).unwrap();
+        let parsed = prepare_derived_document("English", "html", &html, None, &assets).unwrap();
         let expected_html = parsed.view_html.clone();
         let expected_bytes = expected_html.len() + asset.bytes.len();
         let live = root.join("variant");
@@ -479,7 +526,7 @@ mod tests {
             "/uploads/variant.html",
             parsed,
             1,
-            |_| Ok(())
+            |_, _| Ok(())
         )
         .unwrap());
         fs::remove_dir_all(source).unwrap();
@@ -518,7 +565,7 @@ mod tests {
             "/uploads/variant.html",
             replacement,
             2,
-            |_| Err("metadata failure".into())
+            |_, _| Err("metadata failure".into())
         )
         .is_err());
         assert_eq!(
@@ -551,7 +598,7 @@ mod tests {
             "/uploads/variant.html",
             replacement,
             3,
-            |_| Ok(())
+            |_, _| Ok(())
         )
         .unwrap());
         assert!(!live.join("assets").exists());
@@ -565,6 +612,182 @@ mod tests {
         assert_eq!(indexed, "New body");
         drop(db);
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn source_only_evidence_assets_are_owned_once_and_rollback_with_the_snapshot() {
+        use super::{persist_derived_document_at, prepare_derived_document, sanitize_html};
+        use crate::document_uploads::{
+            pipeline::stored_reader_asset_paths, reader_assets::snapshot_assets, store::open_db_in,
+            ParsedDocumentAsset,
+        };
+        let root = test_root("review-evidence-assets");
+        let mut db = open_db_in(&root).unwrap();
+        db.execute_batch(
+            "CREATE TABLE review_evidence (html TEXT NOT NULL, published TEXT NOT NULL)",
+        )
+        .unwrap();
+        let source_dir = root.join("original");
+        fs::create_dir_all(source_dir.join("assets")).unwrap();
+        let source_only = ParsedDocumentAsset::new("image/png", b"source only".to_vec()).unwrap();
+        let shared = ParsedDocumentAsset::new("image/png", b"shared".to_vec()).unwrap();
+        for asset in [&source_only, &shared] {
+            fs::write(
+                source_dir.join("assets").join(&asset.file_name),
+                &asset.bytes,
+            )
+            .unwrap();
+        }
+        let source = sanitize_html(&format!(
+            "<p id='ref'>Original<a role='doc-noteref' href='#note'>1</a><img data-papercut-asset='{}'><img data-papercut-asset='{}'></p><p id='note'>Original note<a role='doc-backlink' href='#ref'>Back</a></p>",
+            source_only.file_name, shared.file_name
+        ));
+        let assets =
+            snapshot_assets(&source, &stored_reader_asset_paths(&source_dir).unwrap()).unwrap();
+        let published = format!(
+            "<p>English meaning.<img data-papercut-asset='{}'></p>",
+            shared.file_name
+        );
+        let parsed =
+            prepare_derived_document("English", "html", &published, Some(&source), &assets)
+                .unwrap();
+        let expected = parsed.view_html.clone();
+        assert_eq!(parsed.assets.len(), 2);
+        let live = root.join("variant");
+        persist_derived_document_at(
+            &live,
+            &mut db,
+            "variant",
+            "/uploads/variant.html",
+            parsed,
+            1,
+            |tx, html| {
+                assert_eq!(html, expected);
+                tx.execute(
+                    "INSERT INTO review_evidence VALUES (?1, ?2)",
+                    [&source, html],
+                )
+                .unwrap();
+                Ok(())
+            },
+        )
+        .unwrap();
+        fs::remove_dir_all(source_dir).unwrap();
+        drop(db);
+        let mut db = open_db_in(&root).unwrap();
+        assert_eq!(
+            db.query_row("SELECT html, published FROM review_evidence", [], |row| Ok(
+                (row.get::<_, String>(0)?, row.get::<_, String>(1)?)
+            ))
+            .unwrap(),
+            (source.clone(), expected.clone())
+        );
+        assert_eq!(stored_reader_asset_paths(&live).unwrap().len(), 2);
+        for asset in [&source_only, &shared] {
+            assert_eq!(
+                fs::read(live.join("assets").join(&asset.file_name)).unwrap(),
+                asset.bytes
+            );
+        }
+        assert_eq!(
+            db.query_row(
+                "SELECT text FROM uploaded_sections WHERE document_id='variant'",
+                [],
+                |row| row.get::<_, String>(0)
+            )
+            .unwrap(),
+            "English meaning."
+        );
+        let bytes: i64 = db
+            .query_row(
+                "SELECT bytes FROM uploaded_documents WHERE id='variant'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            bytes as usize,
+            expected.len() + source_only.bytes.len() + shared.bytes.len()
+        );
+
+        let replacement_asset =
+            ParsedDocumentAsset::new("image/png", b"replacement".to_vec()).unwrap();
+        let replacement_source = sanitize_html(&format!(
+            "<img data-papercut-asset='{}'>",
+            replacement_asset.file_name
+        ));
+        let replacement = prepare_derived_document(
+            "Replacement",
+            "html",
+            "<p>Changed English.</p>",
+            Some(&replacement_source),
+            &[replacement_asset.clone()],
+        )
+        .unwrap();
+        assert!(persist_derived_document_at(
+            &live,
+            &mut db,
+            "variant",
+            "/uploads/variant.html",
+            replacement,
+            2,
+            |tx, html| {
+                tx.execute(
+                    "UPDATE review_evidence SET html=?1, published=?2",
+                    [&replacement_source, html],
+                )
+                .unwrap();
+                Err("review snapshot failure".into())
+            },
+        )
+        .unwrap_err()
+        .contains("review snapshot failure"));
+        assert_eq!(
+            fs::read_to_string(live.join("source.html")).unwrap(),
+            expected
+        );
+        assert_eq!(
+            db.query_row("SELECT html FROM review_evidence", [], |row| row
+                .get::<_, String>(0))
+                .unwrap(),
+            source
+        );
+        assert_eq!(stored_reader_asset_paths(&live).unwrap().len(), 2);
+        assert!(!live
+            .join("assets")
+            .join(replacement_asset.file_name)
+            .exists());
+        assert_eq!(
+            db.query_row(
+                "SELECT text FROM uploaded_sections WHERE document_id='variant'",
+                [],
+                |row| row.get::<_, String>(0)
+            )
+            .unwrap(),
+            "English meaning."
+        );
+        drop(db);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn review_source_assets_require_sanitized_bounded_evidence_and_verified_bytes() {
+        use super::{
+            prepare_derived_document, sanitize_html, ParsedDocumentAsset, MAX_SOURCE_EVIDENCE_BYTES,
+        };
+        let mut asset = ParsedDocumentAsset::new("image/png", b"original".to_vec()).unwrap();
+        let source = sanitize_html(&format!("<img data-papercut-asset='{}'>", asset.file_name));
+        let error = |source: &str, assets: &[ParsedDocumentAsset]| {
+            prepare_derived_document("English", "html", "<p>English.</p>", Some(source), assets)
+                .err()
+                .expect("invalid source evidence")
+        };
+        assert!(error(&source, &[]).contains("missing"));
+        asset.bytes = b"forged".to_vec();
+        assert!(error(&source, &[asset]).contains("hash"));
+        assert!(error("<script>alert(1)</script>", &[]).contains("sanitized"));
+        assert!(error("<img data-papercut-asset='../private'>", &[]).contains("sanitized"));
+        assert!(error(&"x".repeat(MAX_SOURCE_EVIDENCE_BYTES + 1), &[]).contains("size limit"));
     }
 
     fn test_root(name: &str) -> std::path::PathBuf {

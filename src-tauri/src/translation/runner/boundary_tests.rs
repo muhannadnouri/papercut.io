@@ -42,6 +42,7 @@ fn dense_boundary_markup_saves_after_partial_resume_then_reuses_the_complete_cac
     for format in ["html", "epub"] {
         for language in ["fr", "es"] {
             let (dir, app, mut source, old) = document_tests::fixture();
+            let original = document_tests::snapshot(&dir.0);
             let dense = (0..48)
                 .map(|i| format!("Before <strong id='s{i}'><em>term</em></strong> after. "))
                 .collect::<String>();
@@ -152,6 +153,26 @@ fn dense_boundary_markup_saves_after_partial_resume_then_reuses_the_complete_cac
                 );
             }
             let before = document_tests::snapshot(&dir.0);
+            let generation_rows = |id: &str| {
+                let db = crate::document_uploads::open_document_uploads_db(app.handle()).unwrap();
+                [
+                    ("translated_documents", "id"),
+                    ("translation_review", "variant_id"),
+                ]
+                .map(|(table, column)| {
+                    db.query_row(
+                        &format!("SELECT * FROM {table} WHERE {column}=?1"),
+                        [id],
+                        |row| {
+                            (0..row.as_ref().column_count())
+                                .map(|i| row.get::<_, rusqlite::types::Value>(i))
+                                .collect::<rusqlite::Result<Vec<_>>>()
+                        },
+                    )
+                    .unwrap()
+                })
+            };
+            let prior_rows = generation_rows(&variants[0].id);
             engine.seen.clear();
             finish_translation(
                 app.handle(),
@@ -164,7 +185,51 @@ fn dense_boundary_markup_saves_after_partial_resume_then_reuses_the_complete_cac
             )
             .unwrap();
             assert!(engine.seen.is_empty());
-            assert_eq!(before, document_tests::snapshot(&dir.0));
+            let regenerated =
+                super::super::storage::list_translated_documents(app.handle()).unwrap();
+            assert_eq!(regenerated.len(), 2);
+            assert!(regenerated
+                .iter()
+                .any(|variant| variant.id == variants[0].id));
+            let next = regenerated
+                .iter()
+                .find(|variant| variant.id != variants[0].id)
+                .unwrap();
+            let next_source =
+                load_translation_source_document(app.handle(), &next.document_url).unwrap();
+            assert_eq!(
+                next_source
+                    .blocks
+                    .iter()
+                    .map(|b| &b.text)
+                    .collect::<Vec<_>>(),
+                saved.blocks.iter().map(|b| &b.text).collect::<Vec<_>>(),
+                "cache reuse must preserve whole-sentence English in the new generation"
+            );
+            assert_eq!(generation_rows(&variants[0].id), prior_rows);
+            assert_ne!(
+                generation_rows(&next.id)[1][1],
+                prior_rows[1][1],
+                "each saved generation owns its own review identity"
+            );
+            let after = document_tests::snapshot(&dir.0);
+            for (path, bytes) in original.iter().chain(&before) {
+                assert_eq!(
+                    after.get(path),
+                    Some(bytes),
+                    "rerun changed an existing source or reader file"
+                );
+            }
+            let added = after
+                .keys()
+                .filter(|path| !before.contains_key(*path))
+                .collect::<Vec<_>>();
+            assert_eq!(
+                added,
+                vec![&dir
+                    .0
+                    .join(format!("document_uploads/{}/source.html", next.id))]
+            );
         }
     }
 }
@@ -424,7 +489,8 @@ fn sentence_cache_policy_retires_fragment_policies_and_resumes_review_batches() 
             ("fr", "ctranslate2-source-boundaries-v3"),
             ("es", "ctranslate2-source-boundaries-v3"),
         ] {
-            let (_dir, app, mut source, old) = document_tests::fixture();
+            let (dir, app, mut source, old) = document_tests::fixture();
+            let original = document_tests::snapshot(&dir.0);
             source.format = format.into();
             source.view_html = "<html><body><p>«<strong>Bonjour. Merci.</strong>» !</p><p><em>Encore. Demain.</em> ?</p></body></html>".into();
             let dom = DomPlan::new(&source.view_html);
@@ -555,7 +621,27 @@ fn sentence_cache_policy_retires_fragment_policies_and_resumes_review_batches() 
                 parsed.document.select_first("em").unwrap().text_contents(),
                 "Encore. Demain."
             );
-            let before = document_tests::snapshot(&_dir.0);
+            let before = document_tests::snapshot(&dir.0);
+            let generation_rows = |id: &str| {
+                let db = crate::document_uploads::open_document_uploads_db(app.handle()).unwrap();
+                [
+                    ("translated_documents", "id"),
+                    ("translation_review", "variant_id"),
+                ]
+                .map(|(table, column)| {
+                    db.query_row(
+                        &format!("SELECT * FROM {table} WHERE {column}=?1"),
+                        [id],
+                        |row| {
+                            (0..row.as_ref().column_count())
+                                .map(|i| row.get::<_, rusqlite::types::Value>(i))
+                                .collect::<rusqlite::Result<Vec<_>>>()
+                        },
+                    )
+                    .unwrap()
+                })
+            };
+            let prior_rows = generation_rows(&variants[0].id);
             engine.seen.clear();
             finish_translation(
                 app.handle(),
@@ -568,7 +654,51 @@ fn sentence_cache_policy_retires_fragment_policies_and_resumes_review_batches() 
             )
             .unwrap();
             assert!(engine.seen.is_empty());
-            assert_eq!(before, document_tests::snapshot(&_dir.0));
+            let regenerated =
+                super::super::storage::list_translated_documents(app.handle()).unwrap();
+            assert_eq!(regenerated.len(), 2);
+            assert!(regenerated
+                .iter()
+                .any(|variant| variant.id == variants[0].id));
+            let next = regenerated
+                .iter()
+                .find(|variant| variant.id != variants[0].id)
+                .unwrap();
+            let next_source =
+                load_translation_source_document(app.handle(), &next.document_url).unwrap();
+            assert_eq!(
+                next_source
+                    .blocks
+                    .iter()
+                    .map(|b| &b.text)
+                    .collect::<Vec<_>>(),
+                saved.blocks.iter().map(|b| &b.text).collect::<Vec<_>>(),
+                "a resumed cached job must not replace its previously saved English generation"
+            );
+            assert_eq!(generation_rows(&variants[0].id), prior_rows);
+            assert_ne!(
+                generation_rows(&next.id)[1][1],
+                prior_rows[1][1],
+                "review generations must remain independent of MT cache reuse"
+            );
+            let after = document_tests::snapshot(&dir.0);
+            for (path, bytes) in original.iter().chain(&before) {
+                assert_eq!(
+                    after.get(path),
+                    Some(bytes),
+                    "rerun changed an existing source or reader file"
+                );
+            }
+            let added = after
+                .keys()
+                .filter(|path| !before.contains_key(*path))
+                .collect::<Vec<_>>();
+            assert_eq!(
+                added,
+                vec![&dir
+                    .0
+                    .join(format!("document_uploads/{}/source.html", next.id))]
+            );
             assert_eq!(
                 load_segment_cache(app.handle(), &retired_plan)
                     .unwrap()
@@ -725,10 +855,31 @@ fn normalized_source_provenance_survives_save_and_invalidates_disk_resume() {
         .unwrap();
         assert!(engine.seen.is_empty());
         assert_eq!(
-            db.query_row("SELECT id FROM translated_documents", [], |r| r
-                .get::<_, String>(0))
+            db.query_row("SELECT count(*) FROM translated_documents", [], |r| r
+                .get::<_, usize>(0))
                 .unwrap(),
-            id
+            2,
+            "cached inference saves a new review generation rather than replacing old evidence"
+        );
+        assert_eq!(
+            db.query_row(
+                "SELECT settings_json FROM translated_documents WHERE id=?1",
+                [&id],
+                |r| r.get::<_, String>(0)
+            )
+            .map(|saved| serde_json::from_str::<serde_json::Value>(&saved).unwrap())
+            .unwrap(),
+            settings,
+            "normalization provenance of the prior result must remain unchanged"
+        );
+        assert_eq!(
+            db.query_row(
+                "SELECT count(DISTINCT generation) FROM translation_review",
+                [],
+                |r| r.get::<_, usize>(0)
+            )
+            .unwrap(),
+            2
         );
 
         for change in ["html", "policy", "warning"] {

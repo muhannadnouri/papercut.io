@@ -25,9 +25,9 @@ mod model_store;
 mod models;
 mod quality;
 mod render;
-// Stage 1 compiles pure contracts only; no production review entry point exists yet.
 #[allow(dead_code)]
 mod review;
+mod review_store;
 mod runner;
 mod segment;
 mod source;

@@ -91,10 +91,16 @@ pub(super) fn snapshot_assets(
 
 pub(super) fn owned_assets(
     html: &str,
+    source_evidence: Option<&str>,
     assets: &[ParsedDocumentAsset],
 ) -> Result<Vec<ParsedDocumentAsset>, String> {
     let mut total = 0;
-    referenced_assets(html)?
+    let mut names = referenced_assets(html)?;
+    if let Some(source) = source_evidence {
+        // Review evidence outlives the original upload, but shares asset ownership.
+        names.extend(referenced_assets(source)?);
+    }
+    names
         .into_iter()
         .map(|name| {
             let asset = assets
@@ -141,9 +147,9 @@ mod tests {
         assert!(snapshot_assets(&html, &paths).unwrap_err().contains("hash"));
         fs::remove_file(&path).unwrap();
         assert!(snapshot_assets(&html, &paths).is_err());
-        assert_eq!(owned_assets(&html, &snapshot).unwrap(), snapshot);
-        assert!(owned_assets(&html, &[]).is_err());
-        assert!(owned_assets("<p>No image</p>", &snapshot)
+        assert_eq!(owned_assets(&html, None, &snapshot).unwrap(), snapshot);
+        assert!(owned_assets(&html, None, &[]).is_err());
+        assert!(owned_assets("<p>No image</p>", None, &snapshot)
             .unwrap()
             .is_empty());
         fs::remove_dir_all(root).unwrap();

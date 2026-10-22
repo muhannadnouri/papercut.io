@@ -1,6 +1,5 @@
-//! Pure assisted-emphasis contract. No IPC registration, inference, storage or HTML reconstruction.
-//!
-//! Stage 3 must supply verified native snapshots and enforce these preconditions under the existing writer lock.
+//! Assisted-emphasis contracts and pure source-owned reconstruction. Storage owns durable
+//! identity and compare-and-swap; this module never performs inference or publishes a draft.
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
@@ -15,7 +14,7 @@ pub(super) const MAX_DOCUMENT_TEXT_BYTES: usize = 25 * 1024 * 1024;
 pub(super) const MAX_SNAPSHOT_BYTES: usize = 120 * 1024 * 1024;
 pub(super) const MAX_MARKS: usize = 128;
 pub(super) const MAX_REQUEST_BYTES: usize = 16 * 1024;
-// IPC revisions must remain exact in JavaScript and fit the future SQLite integer column.
+// IPC revisions must remain exact in JavaScript and fit the SQLite integer column.
 pub(super) const MAX_REVISION: u64 = (1 << 53) - 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,7 +61,8 @@ pub(super) struct Run {
     pub italic: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) enum Obligation {
     Emphasis,
     Typography,
@@ -136,7 +136,8 @@ pub(super) struct Evidence<'a> {
     pub published_html: &'a str,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct Block {
     key: BlockKey,
     structure_identity: String,
@@ -204,7 +205,8 @@ impl Block {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct Document {
     expected: Expected,
     normalization_policy: String,
@@ -214,6 +216,10 @@ pub(super) struct Document {
 }
 
 impl Document {
+    pub(super) fn expected(&self) -> &Expected {
+        &self.expected
+    }
+
     /// Build only from native OPUS evidence; legacy records must not acquire editable identities by guessing.
     pub(super) fn new(
         model: &str,
@@ -498,6 +504,9 @@ fn validate_evidence_size(evidence: &Evidence<'_>) -> Result<(), Error> {
 fn fingerprint(text: &str) -> String {
     format!("{:x}", Sha256::digest(text.as_bytes()))
 }
+
+mod snapshot;
+pub(super) use snapshot::Snapshot;
 
 #[cfg(test)]
 mod tests;

@@ -11,7 +11,8 @@ use rusqlite::{params, OptionalExtension};
 use tauri::Runtime;
 
 use crate::document_uploads::{
-    delete_derived_document, open_document_uploads_db, persist_derived_document, validate_upload_id,
+    delete_derived_document, open_document_uploads_db, persist_derived_document_with_evidence,
+    validate_upload_id,
 };
 
 use super::formatting::FormattingPolicy;
@@ -24,7 +25,7 @@ use super::types::{
     TranslationRepairMode,
 };
 
-const TRANSLATION_SCHEMA_VERSION: &str = "1";
+const TRANSLATION_SCHEMA_VERSION: &str = "2";
 
 pub(super) fn list_translated_documents<R: Runtime>(
     app: &tauri::AppHandle<R>,
@@ -114,7 +115,14 @@ pub(crate) fn persist_translated_document<R: Runtime>(
     }
 
     let now = now_ms()?;
-    let id = translated_document_id(&request);
+    let generation = (request.formatting == FormattingPolicy::SentenceReview)
+        .then(new_review_generation)
+        .transpose()?;
+    // A new assisted generation must never overwrite old review ranges, annotations or saved audio.
+    let id = generation.as_ref().map_or_else(
+        || translated_document_id(&request),
+        |generation| format!("{}{generation}", translated_document_id(&request)),
+    );
     let document_url = format!("/uploads/{id}.html");
     let title = format!(
         "{} ({})",
@@ -169,7 +177,10 @@ pub(crate) fn persist_translated_document<R: Runtime>(
     let settings_json = settings.to_string();
     let glossary_hash = translation_glossary_hash(&request.glossary);
     let mut db = open_translation_db(app)?;
-    let replaced = persist_derived_document(
+    let source_evidence = generation
+        .as_ref()
+        .map(|_| crate::document_uploads::sanitize_html(&request.source.view_html));
+    let replaced = persist_derived_document_with_evidence(
         app,
         &mut db,
         &id,
@@ -177,9 +188,10 @@ pub(crate) fn persist_translated_document<R: Runtime>(
         &title,
         "html",
         view_html,
+        source_evidence.as_deref(),
         &request.source.assets,
         now,
-        |tx| {
+        |tx, stored_html| {
             tx.execute(
             "INSERT INTO translated_documents \
              (id, source_document_id, source_document_url, title, source_language, target_language, \
@@ -218,6 +230,12 @@ pub(crate) fn persist_translated_document<R: Runtime>(
             ],
         )
         .map_err(db_err)?;
+            if let Some(generation) = generation {
+                let snapshot =
+                    super::review::Snapshot::capture(&request, id.clone(), generation, stored_html)
+                        .map_err(super::review_store::review_error)?;
+                super::review_store::insert_in_transaction(tx, &snapshot)?;
+            }
             Ok(())
         },
     )?;
@@ -238,6 +256,124 @@ pub(crate) fn persist_translated_document<R: Runtime>(
         status: status.into(),
         created_at_ms: now,
         updated_at_ms: now,
+    })
+}
+
+/// Generation tokens belong to the saved result, not the retryable inference job/cache identity.
+fn new_review_generation() -> Result<String, String> {
+    let mut bytes = [0; 16];
+    getrandom::fill(&mut bytes)
+        .map_err(|_| "Cannot create formatting review generation".to_string())?;
+    Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
+}
+
+/// Draft previews are separate artifacts; neither endpoint changes reader HTML, search rows or audio.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TranslationReviewDraft {
+    document: super::review::Document,
+    source_preview_html: String,
+    preview_html: String,
+    asset_paths: std::collections::HashMap<String, String>,
+}
+
+/// Legacy results without generation-owned evidence stay readable but cannot acquire guessed edit ranges.
+pub(super) fn load_translation_review<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    id: &str,
+) -> Result<Option<TranslationReviewDraft>, String> {
+    validate_review_id(id)?;
+    crate::native_tts::with_audiobook_reference_lock(|| {
+        let db = open_translation_db(app)?;
+        let Some(snapshot) = super::review_store::load_in(&db, id)? else {
+            return Ok(None);
+        };
+        verify_review_baseline(app, id, &snapshot)?;
+        review_draft(snapshot, review_assets(app, id)?).map(Some)
+    })
+}
+
+/// The shared writer/deletion lock protects the file precondition; SQLite protects the draft revision.
+pub(super) fn save_translation_review<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: &super::review::EditRequest,
+) -> Result<TranslationReviewDraft, String> {
+    let id = &request.expected.variant_id;
+    validate_review_id(id)?;
+    crate::native_tts::with_audiobook_reference_lock(|| {
+        let mut db = open_translation_db(app)?;
+        let snapshot = super::review_store::load_in(&db, id)?
+            .ok_or_else(|| super::review_store::review_error(super::review::Error::Missing))?;
+        verify_review_baseline(app, id, &snapshot)?;
+        // Finish fallible filesystem reads before committing the new revision, so retry is safe.
+        let assets = review_assets(app, id)?;
+        let snapshot = super::review_store::apply_in(&mut db, request)?;
+        review_draft(snapshot, assets)
+    })
+}
+
+fn validate_review_id(id: &str) -> Result<(), String> {
+    if id.len() > 128 {
+        return Err("Formatting review identity is invalid".into());
+    }
+    validate_upload_id(id)
+}
+
+/// Read only the native-owned canonical file, bounded before allocation; supplied paths never reach storage.
+fn verify_review_baseline<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    id: &str,
+    snapshot: &super::review::Snapshot,
+) -> Result<(), String> {
+    use std::io::Read;
+    let path = crate::document_uploads::upload_source_path(
+        app,
+        id,
+        crate::document_uploads::StoredSourceKind::Html,
+    )?;
+    let metadata = std::fs::symlink_metadata(&path)
+        .map_err(|_| "Formatting review published document is missing".to_string())?;
+    if !metadata.is_file() || metadata.len() > super::review::MAX_SNAPSHOT_BYTES as u64 {
+        return Err("Formatting review published document exceeds its bound".into());
+    }
+    let mut html = String::new();
+    std::fs::File::open(path)
+        .map_err(|_| "Cannot read formatting review published document".to_string())?
+        .take(super::review::MAX_SNAPSHOT_BYTES as u64 + 1)
+        .read_to_string(&mut html)
+        .map_err(|_| "Cannot read formatting review published document".to_string())?;
+    if html != snapshot.baseline_html {
+        return Err(super::review_store::review_error(
+            super::review::Error::Evidence,
+        ));
+    }
+    Ok(())
+}
+
+fn review_assets<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    id: &str,
+) -> Result<std::collections::HashMap<String, String>, String> {
+    crate::document_uploads::stored_reader_asset_paths(&crate::document_uploads::upload_dir(
+        app, id,
+    )?)
+}
+
+fn review_draft(
+    snapshot: super::review::Snapshot,
+    asset_paths: std::collections::HashMap<String, String>,
+) -> Result<TranslationReviewDraft, String> {
+    let source_preview_html = snapshot
+        .source_preview()
+        .map_err(super::review_store::review_error)?;
+    let preview_html = snapshot
+        .reconstruct()
+        .map_err(super::review_store::review_error)?;
+    Ok(TranslationReviewDraft {
+        document: snapshot.document,
+        source_preview_html,
+        preview_html,
+        asset_paths,
     })
 }
 
@@ -274,7 +410,7 @@ pub(super) fn delete_translated_document<R: Runtime>(
     })
 }
 
-fn open_translation_db<R: Runtime>(
+pub(super) fn open_translation_db<R: Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> Result<rusqlite::Connection, String> {
     let db = open_document_uploads_db(app)?;
@@ -289,12 +425,25 @@ fn open_translation_db<R: Runtime>(
 /// and later promote their generated HTML into the same reader/search contract.
 /// The schema is additive only; uploaded document rows and FTS rows are not
 /// changed by this bootstrap.
-fn ensure_translation_schema(db: &rusqlite::Connection) -> Result<(), String> {
-    db.execute_batch(
-        "PRAGMA foreign_keys = ON;
-         INSERT OR REPLACE INTO upload_schema_metadata (key, value)
-           VALUES ('translation_schema_version', '1');
-         CREATE TABLE IF NOT EXISTS translated_documents (
+pub(super) fn ensure_translation_schema(db: &rusqlite::Connection) -> Result<(), String> {
+    db.execute_batch("PRAGMA foreign_keys = ON;")
+        .map_err(db_err)?;
+    // Check and advance together; a newer schema must reject instead of being silently downgraded.
+    let tx = rusqlite::Transaction::new_unchecked(db, rusqlite::TransactionBehavior::Immediate)
+        .map_err(db_err)?;
+    let version: Option<String> = tx
+        .query_row(
+            "SELECT value FROM upload_schema_metadata WHERE key = 'translation_schema_version'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(db_err)?;
+    if !matches!(version.as_deref(), None | Some("1") | Some("2")) {
+        return Err("Unsupported translation schema version; a newer app may be required".into());
+    }
+    tx.execute_batch(
+        "CREATE TABLE IF NOT EXISTS translated_documents (
            id TEXT PRIMARY KEY,
            source_document_id TEXT,
            source_document_url TEXT NOT NULL,
@@ -315,31 +464,30 @@ fn ensure_translation_schema(db: &rusqlite::Connection) -> Result<(), String> {
          CREATE INDEX IF NOT EXISTS translated_documents_source_idx
            ON translated_documents(source_document_id, target_language, updated_at_ms);
          CREATE INDEX IF NOT EXISTS translated_documents_status_idx
-           ON translated_documents(status, updated_at_ms);",
+           ON translated_documents(status, updated_at_ms);
+         CREATE TABLE IF NOT EXISTS translation_review (
+           variant_id TEXT PRIMARY KEY NOT NULL,
+           generation TEXT NOT NULL UNIQUE,
+           revision INTEGER NOT NULL CHECK(revision >= 0 AND revision <= 9007199254740991),
+           snapshot_json TEXT NOT NULL,
+           document_json TEXT NOT NULL,
+           FOREIGN KEY(variant_id) REFERENCES translated_documents(id) ON DELETE CASCADE
+         );",
     )
     .map_err(db_err)?;
-
-    let version: Option<String> = db
-        .query_row(
-            "SELECT value FROM upload_schema_metadata WHERE key = 'translation_schema_version'",
-            [],
-            |row| row.get(0),
-        )
-        .optional()
-        .map_err(db_err)?;
-    if version.as_deref() != Some(TRANSLATION_SCHEMA_VERSION) {
-        return Err("Unexpected translation schema version".into());
-    }
-
-    Ok(())
+    tx.execute(
+        "INSERT INTO upload_schema_metadata(key, value) VALUES ('translation_schema_version', ?1)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        [TRANSLATION_SCHEMA_VERSION],
+    )
+    .map_err(db_err)?;
+    tx.commit().map_err(db_err)
 }
 
-/// Deterministic variant identity from source document plus translation settings.
+/// Stable settings prefix; legacy variants retain this ID, assisted generations append a unique token.
 ///
-/// Deliberately excludes job id and timestamps: re-running the same document
-/// with the same settings must produce the same id so the stored variant is
-/// replaced rather than duplicated. Changing any setting (languages, model,
-/// quality, repair mode, glossary) yields a separate variant.
+/// Job/cache identity is independent of review identity: a retry may reuse inference
+/// while saving a separate assisted result without destroying an earlier draft or audio.
 fn translated_document_id(request: &PersistTranslationRequest) -> String {
     let mut hasher = StableHasher::new();
     hasher.write_str(&request.source.document_id);
@@ -431,7 +579,96 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("version");
-        assert_eq!(version, "1");
+        assert_eq!(version, "2");
+    }
+
+    #[test]
+    fn schema_v1_migration_preserves_legacy_variant_and_audio_rows() {
+        let db = Connection::open_in_memory().unwrap();
+        db.execute_batch(
+            "CREATE TABLE upload_schema_metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+             CREATE TABLE uploaded_documents(id TEXT PRIMARY KEY);
+             CREATE TABLE audio(id TEXT PRIMARY KEY,document_url TEXT NOT NULL,payload BLOB NOT NULL);
+             INSERT INTO audio VALUES('old-audio','/uploads/a1b2.html',x'010203');",
+        ).unwrap();
+        ensure_translation_schema(&db).unwrap();
+        db.execute_batch(
+            "DROP TABLE translation_review;
+             UPDATE upload_schema_metadata SET value='1' WHERE key='translation_schema_version';
+             INSERT INTO translated_documents(id,source_document_url,title,source_language,target_language,
+               model_id,engine_id,quality_mode,settings_json,status,source_path,created_at_ms,updated_at_ms)
+             VALUES('a1b2','/uploads/source1.html','Legacy','fr','en','old-model','old-engine','balanced',
+               '{}','ready','/uploads/a1b2.html',1,2);",
+        ).unwrap();
+        ensure_translation_schema(&db).unwrap();
+        assert_eq!(
+            db.query_row(
+                "SELECT title,source_path,created_at_ms,updated_at_ms FROM translated_documents",
+                [],
+                |r| Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(2)?,
+                    r.get::<_, i64>(3)?
+                ))
+            )
+            .unwrap(),
+            ("Legacy".into(), "/uploads/a1b2.html".into(), 1, 2)
+        );
+        assert_eq!(
+            db.query_row("SELECT payload FROM audio", [], |r| r.get::<_, Vec<u8>>(0))
+                .unwrap(),
+            vec![1, 2, 3]
+        );
+        assert_eq!(
+            db.query_row("SELECT count(*) FROM translation_review", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            0,
+            "legacy variants must not invent evidence from a mutable original"
+        );
+    }
+
+    #[test]
+    fn future_or_invalid_schema_version_is_never_downgraded_or_partially_bootstrapped() {
+        for version in ["3", "broken", "0"] {
+            let db = Connection::open_in_memory().unwrap();
+            db.execute_batch("CREATE TABLE upload_schema_metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE uploaded_documents(id TEXT PRIMARY KEY);").unwrap();
+            db.execute(
+                "INSERT INTO upload_schema_metadata VALUES('translation_schema_version',?1)",
+                [version],
+            )
+            .unwrap();
+            assert!(ensure_translation_schema(&db).is_err());
+            assert_eq!(
+                db.query_row("SELECT value FROM upload_schema_metadata", [], |r| r
+                    .get::<_, String>(0))
+                    .unwrap(),
+                version
+            );
+            assert_eq!(db.query_row("SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('translated_documents','translation_review')", [], |r| r.get::<_,i64>(0)).unwrap(), 0);
+        }
+    }
+
+    #[test]
+    fn failed_migration_rolls_back_table_creation_and_keeps_the_prior_version() {
+        let db = Connection::open_in_memory().unwrap();
+        db.execute_batch(
+            "CREATE TABLE upload_schema_metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+             CREATE TABLE uploaded_documents(id TEXT PRIMARY KEY);
+             INSERT INTO upload_schema_metadata VALUES('translation_schema_version','1');
+             CREATE TRIGGER reject_version BEFORE UPDATE ON upload_schema_metadata
+               BEGIN SELECT RAISE(ABORT,'migration failure'); END;",
+        )
+        .unwrap();
+        assert!(ensure_translation_schema(&db).is_err());
+        assert_eq!(
+            db.query_row("SELECT value FROM upload_schema_metadata", [], |r| r
+                .get::<_, String>(0))
+                .unwrap(),
+            "1"
+        );
+        assert_eq!(db.query_row("SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('translated_documents','translation_review')", [], |r| r.get::<_,i64>(0)).unwrap(), 0);
     }
 
     #[test]
