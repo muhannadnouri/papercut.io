@@ -1,8 +1,9 @@
 # Play anywhere: integration plan
 
-Status: Stage 2 source capture and verified prepared-chunk lookup are implemented,
-including ordered legacy recovery. Player dispatch and controls remain pending. The App does not enable the capability yet; playback/controls are
-unchanged. Baseline listening/device gates remain open.
+Status: source capture, verified prepared-chunk lookup and guarded player
+integration are implemented through Stage 3. App still has no viewport capture
+consumer; new controls/follow behavior remain pending. Existing Read defaults to
+chunk zero. Baseline listening/device gates remain open.
 Created 2026-10-21 against `main` at `8ebc9d0f`; working branch:
 `feature/play-anywhere`. Checked boxes record only the specific completed work.
 Feature, performance, accessibility, and device acceptance remain pending.
@@ -126,7 +127,7 @@ AudioControls: explicit user intent
 | Owner | Responsibility | Must not own |
 | --- | --- | --- |
 | HTML/PDF viewer adapter | Capture viewport/selection points, reader bounds, source order, live-view revision; reveal current passage. | Audio loading, saved-audiobook selection, synthesis, player state. |
-| Feature-owned code under `src/tts/playAnywhere/` | HTML/PDF lookup, capture and verified source preparation are implemented; audio/session coordination follows later. Keep only files that earn their existence. | Native audio session, new persistent settings, parsing/import pipelines. |
+| Feature-owned code under `src/tts/playAnywhere/` | HTML/PDF lookup, capture and verified source preparation are implemented; source-to-player coordination is implemented; controls/follow wiring follows later. Keep only files that earn their existence. | Native audio session, new persistent settings, parsing/import pipelines. |
 | `useAudiobookDocument` / alignment helpers | Authoritative prepared chunks and validated/recovered source spans; common normalization primitives. | Control rendering and playback decisions. |
 | `useAudiobookManager` | Bind selected saved audiobook/options/prepared chunks to the feature and expose actions to controls. | DOM inspection or another seek queue. |
 | `useTtsPlayer` | Validate starting index, load/seek/play, cancellation, queue ordering, playback errors, desktop/native state. | Viewport, selection, PDF DOM, reading-order heuristics. |
@@ -141,8 +142,8 @@ bookmark API into an audio service or create a second playback controller.
 
 ### Boundary contracts
 
-Contracts with implementation receipts below exist; the remaining player,
-selection and follow interfaces are still proposed.
+Contracts with implementation receipts below exist; selection, follow policy and
+visible viewport controls remain pending.
 
 | Contract | Input/output and lifetime |
 | --- | --- |
@@ -150,9 +151,10 @@ selection and follow interfaces are still proposed.
 | Target snapshot | HTML capture snapshots viewport geometry synchronously, then yields at least two animation frames for browser visibility delivery (up to 500 ms for initial observations). Source/view mutations, scroll or reflow before completion return stale rather than retargeting. HTML output includes frozen normalized `segmentTexts` and `segmentLengths` arrays reused for the lifetime of its source index; PDF includes the original item/word `sourceText`. Both provide `isCurrent()` for source/view lifetime validation. PDF captures already-rendered geometry synchronously inside the Promise method, with no animation-frame wait or page rendering. No DOM references are serialized. Selection will still snapshot its actual DOM point before focus loss. |
 | Normalized source point | HTML: readable segment index + normalized UTF-16 offset. PDF: page index + original text-item/block order + source offset. Do not conflate the two coordinate systems. |
 | Resolver result | `resolved` with canonical chunk index/id, or `unavailable` with `not-ready`, `unmapped`, `ambiguous`, `invalid-source` or `invalid-point`. Capture/coordinator additionally own `no-visible-text` and `stale`; the pure resolver does not inspect DOM or session identity. Unexpected errors remain errors rather than successful fallbacks. |
-| Prepared target boundary | `useAudiobookManager.preparedChunks` exposes canonical chunks without active playback. `resolveTextTarget(documentUrl, capture)` returns a Promise of a verified canonical index/ID plus original full chunks, document URL and `isCurrent()`, or typed unavailable. It never starts audio. Commit-time document/content/model/chunk changes and unmount dispose preparation caches. Stage 3 must additionally guard action/options changes and stop before dispatch. |
-| Player initial start | Add an optional start index, defaulting to zero for existing callers. It refers to the same canonical nonempty chunk sequence used by playback/native signatures. Pass the complete sequence, never a sliced tail. |
-| Player active target | Reuse existing navigation serialization and newest-intent checks. Explicitly support seek-then-play for this action without changing other callers' paused-state behavior. |
+| Prepared target boundary | `useAudiobookManager.preparedChunks` exposes canonical chunks without active playback. `resolveTextTarget(documentUrl, capture)` returns a Promise of a verified canonical index/ID plus original full chunks, document URL and `isCurrent()`, or typed unavailable. It never starts audio. Commit-time document/content/model/chunk changes and unmount dispose preparation caches. The Stage 3 coordinator additionally guards action/options changes and synchronous cancellation before dispatch. |
+| Player initial start | `speak(chunks, options, startIndex = 0, guard?)` validates a safe integer in the canonical nonempty sequence before changing audio. Pass the complete sequence, never a sliced tail. It returns whether dispatch was accepted, not whether sound was heard. |
+| Player active target | `playFromChunk(fullChunks, options, index, guard?)` reuses an active session only for matching canonical IDs/text/hashes and options. It uses `jumpToChunk(index, true, guard)` for explicit seek-and-play, otherwise starts the existing player at that index. Ordinary mobile jump keeps paused state; Resume keeps time on both platforms. Desktop ordinary jump retains its prior play behavior. |
+| Target playback action | `usePlayAnywherePlayback` owns newest action identity and immutable audio-option/document scope. Manager exposes `playFromHere(viewerApi)`; existing Read uses its guarded `playFromBeginning()`. Results are `dispatched`, typed `unavailable`, or `error` with the original error. Stage 4 must present loading/failure results when enabling viewport actions. |
 | Follow policy | Optional scroll/follow input with the current behavior as the default when omitted. Gate all automatic HTML/PDF reveals and cancel pending reveals. Keep highlight updates independent. |
 
 At the coordinator boundary bind each request to selected document, current view
@@ -242,11 +244,12 @@ highlighting and native WebView/device acceptance are still separate pending wor
 
 | Integration surface | Planned change | Removal action |
 | --- | --- | --- |
-| `src/tts/playAnywhere/` | `sourceChunkResolver.ts`, `pdfChunkSourceResolver.ts`, HTML/PDF capture, shared geometry, `verifiedSource.ts`, `prepareTextTarget.ts`, `usePreparedTextTarget.ts` and tests exist; player coordination follows later. | Disconnect viewer factories/viewport helpers and the manager preparation hook; delete feature-owned files. No player action uses these yet. |
+| `src/tts/playAnywhere/` | `sourceChunkResolver.ts`, `pdfChunkSourceResolver.ts`, HTML/PDF capture, shared geometry, `verifiedSource.ts`, `prepareTextTarget.ts`, `usePreparedTextTarget.ts` and tests exist; `usePlayAnywherePlayback.ts` coordinates playback through the existing player. | Disconnect viewer factories/viewport helpers and the manager preparation hook; delete feature-owned files. Only manager transport entry points use them; App has no viewport consumer yet. |
 | `src/viewers/types.ts`, `HtmlViewer.tsx`, `PdfViewer.tsx` | HTML/PDF target result/API/viewport types and optional `onTextTargetApiChange` / `getTextTargetViewport` props exist. Both viewers register capture; follow inputs remain pending. | Remove optional props, both registration effects and type imports; retain normal viewer behavior. |
 | `src/components/DocumentViewer/DocumentViewer.tsx`, `src/App.tsx` | DocumentViewer forwards optional registration and supplies chrome-clipped bounds. App has no consumer yet; audio actions/follow state are pending. | Remove the optional callback/viewport wiring. Ordinary controls/bookmarks/Find still work. |
-| `src/tts/hooks/useAudiobookManager.ts`, `useAudiobookDocument.ts` | Expose `preparedChunks` / `resolveTextTarget`; stamp prepared state by document/content/model and exclude unverified import display fallback. Canonical getter retries manifest loading. | Remove the feature hook/call and returned capability, plus `canonicalChunks`, `getCanonicalChunks`, public `getPdfSegments` if unused. Keep document/model ownership guards, ordinary preparation, and highlight recovery. |
-| `src/tts/hooks/useTtsPlayer.ts` | Backward-compatible start index and narrowly scoped seek-and-play support. | Omit start index to recover zero-start behavior; remove unused additions after checking all callers. Retain original navigation guards. |
+| `src/tts/hooks/useAudiobookManager.ts`, `useAudiobookDocument.ts` | Expose `preparedChunks` / `resolveTextTarget` / `playFromHere`; bind transport/options cancellation and stamp prepared state by document/content/model and exclude unverified import display fallback. Canonical getter retries manifest loading. | Disconnect the two feature hooks/exports and restore zero-start Read wiring. Remove canonical/getter exports only if unused; ordinary Read now uses canonical preparation too. Keep document/model ownership guards, ordinary preparation, and highlight recovery. |
+| `src/tts/hooks/useTtsPlayer.ts` | Optional start index, explicit seek-and-play, full sequence/option reuse, and source/job/navigation guards. | Restore zero-start calls and remove unused feature entry points/guard inputs; retain late-reply, pause/resume and teardown fixes used by ordinary playback. |
+| `src/tts/playback/nativeMobileAudio.ts`, `playbackState.ts` | Optional predicates run immediately before queued native mutations; pure timing/option checks use native manifest tolerance. | Remove feature-only predicate inputs if unused; retain lifecycle serialization, timing compatibility and general cancellation protections. |
 | `src/tts/alignment/domTextSegments.ts` and imported-span helpers | `normalizeDomTextPoint` supplies inverse offsets. `recoverOrderedSourceSpans` now serves both highlighting and target validation; normalized locator construction is shared and its tolerant index is lazy. | Remove inverse/snapshot-only helpers if unused after removing capture; keep shared ordered recovery, punctuation-spacing compatibility and UTF-16 fixes used by highlighting. |
 | `src/pdf/ocr/pdfOcrTextLayer.ts` | Render-time WeakMap and source runs invert selectable OCR lines to stored words. | Remove `sourceRuns`, `lineSources`, `pdfOcrSourcePoint` and its renderer assignment; restore direct line text concatenation and retain rendering/persisted OCR data. |
 | `src/pdf/pdfTtsHighlight.ts` | Export existing pinned PDF item-map types for the capture adapter; highlight behavior is unchanged. | Remove the type exports if unused after removing capture. |
@@ -414,7 +417,8 @@ checking identity, so even an immediate DOM replacement invalidates old output.
 Known limits: one oversized Text node requires its complete line-rectangle list,
 and inverse normalization scans its containing segment. Those costs need the
 planned performance gate before release; no benchmark claim is made here.
-Selection UI, real EPUB/native WebView smoke and audio dispatch remain pending.
+Selection UI and real EPUB/native WebView smoke remain pending. Stage 3 now
+dispatches verified targets through the existing player as described below.
 PDF/OCR capture is implemented separately as described below.
 
 PDF implementation details: `createPdfTextTargetApi(viewer, container, eventBus,
@@ -446,9 +450,9 @@ the canonical nonempty playback sequence, checks integer/ID/span validity, appli
 half-open containment and chooses the earliest canonical chunk for a shared source
 glyph. It visits only that item's candidate spans on lookup. Like the HTML resolver,
 it requires validated source metadata from its future caller: structural checks
-alone do not prove live text identity. Both resolvers now serve the source-only preparation boundary; no player call uses them yet.
+alone do not prove live text identity. Both resolvers serve source-only preparation; the separate Stage 3 coordinator dispatches their verified output through the player.
 
-Stage 2c — verified preparation (implemented; player dispatch remains Stage 3):
+Stage 2c — verified preparation (implemented):
 
 - [x] Expose the prepared canonical chunk sequence independently of active playback,
   retaining runtime PDF source spans and imported authoritative IDs/text/order.
@@ -514,26 +518,79 @@ Implementation details for Stage 2c:
 
 These guards verify source-to-canonical-chunk mapping. They do not establish that
 selected audio is complete or that playback options/action intent are unchanged.
-Stage 3 must bind the target to saved-audio options and its canonical sequence,
-invalidate stop/newer actions synchronously, recheck `isCurrent()` after audio
-preparation, and dispatch through the existing player serialization. Controls and
+Stage 3 now binds the target to saved-audio options and its canonical sequence,
+invalidates stop/newer actions synchronously, rechecks `isCurrent()` after audio
+preparation, and dispatches through the existing player serialization. Controls and
 follow behavior remain Stage 4; selection remains Stage 5.
 
 ### Stage 3 — Initial start and active navigation
 
-- [ ] Add backward-compatible starting index to the existing player entry point.
-- [ ] Desktop loads/plays the target chunk first and keeps current prefetch bounds.
-- [ ] Mobile awaits source/rate/target seek before play; explicit active
+- [x] Add backward-compatible starting index to the existing player entry point.
+- [x] Desktop loads/plays the target chunk first and keeps current prefetch bounds.
+- [x] Mobile awaits source/rate/target seek before play; explicit active
   seek-and-play works while paused and after foreground synchronization.
-- [ ] Coordinate capture/resolve/dispatch with document/audio identity and newest
+- [x] Coordinate capture/resolve/dispatch with document/audio identity and newest
   request guards. Preserve full canonical sequence and native signature.
-- [ ] Test rapid A->B->C targets, stop/close/model change during each await, late
+- [x] Test rapid A->B->C targets, stop/close/model change during each await, late
   native replies, missing/corrupt chunk, preparation and seek/play rejection.
 
 Acceptance: first audible content is the requested chunk's beginning; no chunk
 zero blip. Paused Play from here actually plays, Resume retains exact position,
 newest intent wins, and failed resolution leaves current playback intact.
 Existing callers without a start index preserve their behavior.
+
+- [ ] Complete physical desktop/Android/iOS listening acceptance for actual
+  first audible content, native seek accuracy, foreground/lock-screen behavior
+  and latency. Automated command/state tests do not close this gate.
+
+Implementation details for Stage 3:
+
+- `usePlayAnywherePlayback` captures before its first await and checks saved-audio
+  completion/document URL, newest intent and verified target after capture and
+  source preparation. It passes full canonical chunks/options/index and an
+  `isCurrent` predicate into `playFromChunk`. Failed capture/resolution invokes
+  no transport mutation. Errors before dispatch are returned to the caller;
+  transport errors remain in `ttsState`. A dispatched result is not audible-start
+  confirmation; Stage 4 must consume the result and existing loading/error state.
+- `useAudiobookManager` exposes `playFromHere` without wiring App/viewer controls.
+  Existing Read routes through guarded `playFromBeginning`; Stop, close, preview,
+  model/saved-audiobook selection and transport controls synchronously invalidate
+  pending target actions. Voice, preprocessing, quality/thread changes cancel
+  pending requests before updating settings. Committed option/source changes
+  and unmount dispose the scope. No second audio queue or feature setting exists.
+- `useTtsPlayer.speak` filters the full sequence as before, rejects invalid target
+  indices before pausing/replacing audio, and defaults to zero. Desktop begins
+  through its existing loader at the requested index with local time zero, then
+  continues normally; its two-chunk speculative prefetch and bounded Blob cache
+  remain unchanged. Superseded load failures, old ended events and capability
+  preloads cannot overwrite a newer job. Pause cancels queued navigation;
+  Resume retains the active audio's local time.
+- Native initial start prepares the existing full seekable track, validates its
+  complete chunk ID/index/timing map, initializes the existing session, sets
+  source and rate, awaits seek to the selected chunk's actual `startSec`, then
+  plays. No zero-start state is published before that seek, and no opening audio
+  is played as a route to the target. Pending source guards are checked after
+  every await and at actual queued mutation execution. Guard release at the first
+  accepted play command lets later browsing leave ongoing audio intact.
+- Native timing validation uses the existing **0.05-second manifest tolerance**
+  from `native_tts/engine/manifest.rs`; stitched track totals pass through f32.
+  This is metadata compatibility, not an estimated seek offset. The seek always
+  uses the actual stored `startSec`. Finite positive durations, canonical IDs/
+  indices, nonnegative ordered boundaries and full track length remain required.
+- Active `playFromChunk` uses source-array identity as the common fast path,
+  otherwise compares canonical nonempty IDs/text/hashes once for the changed
+  array, plus audio options. Matching sessions use existing navigation without
+  preparing or setting the native source again. A changed identity/options starts
+  a new job. Mobile explicit seek-and-play resumes a paused session after seek;
+  ordinary mobile jump retains paused behavior. Relative skips accumulate through
+  shared foreground synchronization instead of dropping rapid taps.
+- `nativeMobileAudio` retains its single lifecycle queue. Optional predicates for
+  source/rate/seek/play/pause run after plugin loading immediately before the
+  mutation, so stale commands waiting behind another operation abort without
+  reaching the plugin. An aborted operation does not poison later queue work.
+  Hook job/navigation fences also reject late replies; an old seek worker cannot
+  clear a replacement job's state. Teardown invalidates generations before
+  releasing audio/cache/session resources, including initialization in flight.
 
 ### Stage 4 — Controls and follow/browse behavior
 
@@ -735,7 +792,7 @@ device/performance acceptance is recorded yet.
 ### 2026-10-22 — Stage 2c verified canonical target preparation
 
 - Committed Stage 2b first as `771c940` on `feature/play-anywhere`; this source
-  validation delivery remains an uncommitted review patch.
+  validation delivery was subsequently committed as `ad5f055` before Stage 3.
 - Added the manager's independent canonical chunk exposure and source-only
   preparation action. Player entry points, native commands, controls and following
   are unchanged; App still registers no capture consumer.
@@ -761,6 +818,35 @@ device/performance acceptance is recorded yet.
   load, real native track start offsets, seek-and-play, and newest-action/stop guards.
   Physical baseline, native WebView/audio/device/AT and measured latency gates remain
   open. No availability, listening quality or performance claim is made here.
+
+### 2026-10-22 — Stage 3 guarded player integration
+
+- Committed Stage 2c first as `ad5f055` on `feature/play-anywhere`; this transport
+  integration remains an uncommitted review patch.
+- Added optional initial index and explicit active seek-and-play through the
+  existing player. Kept canonical full sequences/signatures, imported chunk
+  identity, desktop prefetch/cache bounds and ordinary Resume behavior.
+- Added the feature-owned newest-intent coordinator and manager entry point,
+  synchronous transport/settings cancellation and source/job/navigation guards.
+  Native mutations check guards inside the existing lifecycle queue; timing
+  validation matches native manifest rounding tolerance. No native command,
+  persistent format, dependency, new control or capture consumer was added.
+- New tests use mocked native/audio transport plus the actual lifecycle queue
+  around a mocked plugin. They verify command order and guards, not acoustic or
+  physical-device behavior. Coverage includes default/invalid indices, canonical
+  session reuse/replacement, paused seek-and-play versus Resume, rapid absolute/
+  relative navigation, stop at each startup phase, foreground sync, stale views,
+  old chunk/seek/play/capability replies, missing/corrupt chunks, errors and
+  duration-rounding compatibility. Existing Chromium capture/validation coverage
+  remains in the full suite.
+- Validation: full frontend suite **510 passed, 1 existing skip across 73 files**;
+  TypeScript build check, focused ESLint, Markdown fence/local-link checks and
+  `git diff --check` passed. No Rust/native build or physical listening run was
+  needed to validate this frontend patch; those acceptance gates remain open.
+- Next: Stage 4 controls and follow/browse behavior, all eight locale strings,
+  loading/unavailable messages and accessible viewport/beginning/return actions.
+  Actual first-audible-content, native seek accuracy and device/lock-screen/AT/
+  performance acceptance remain open before availability/release.
 
 ## 7. Standards and design rationale
 
