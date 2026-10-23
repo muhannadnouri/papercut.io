@@ -848,6 +848,8 @@
       "currentSetup": "Configurazione attuale",
       "savedVersionsMismatch": "Nessun audiolibro salvato corrisponde alla configurazione attuale.",
       "savedVersionsAction": "Scegline uno per ripristinarne le impostazioni e riprodurlo.",
+      "chunkView": "Segmenti",
+      "optionsView": "Opzioni",
       "playback": "Riproduzione",
       "wordHighlight": "Evidenziazione di parole",
       "experimental": "BETA",

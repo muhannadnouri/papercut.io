@@ -15,6 +15,7 @@ beforeAll(async () => {
     import React from ${JSON.stringify(resolve('node_modules/react/index.js'))};
     import {createRoot} from ${JSON.stringify(resolve('node_modules/react-dom/client.js'))};
     import {createPortal} from ${JSON.stringify(resolve('node_modules/react-dom/index.js'))};
+    import {ReaderPassageAction} from ${JSON.stringify(resolve('src/tts/playAnywhere/ReaderPassageAction.tsx'))};
     import {AudioControls} from ${JSON.stringify(resolve('src/tts/components/AudioControls.tsx'))};
     import {HtmlViewer} from ${JSON.stringify(resolve('src/viewers/HtmlViewer.tsx'))};
     import i18n from ${JSON.stringify(resolve('src/i18n/index.ts'))};
@@ -49,7 +50,7 @@ beforeAll(async () => {
           const unbind=bindSelectionIntent(shell,reader.selectionActions);if(playbackStatus!=='idle')reader.browse();
           return unbind;
         },[]);
-        return <>{captureMode&&createPortal(<HtmlViewer url="fixture" content={content} contentRef={contentRef} onTextTargetApiChange={register} getTextTargetViewport={viewport} audioFollowPolicy={reader.followPolicy}/>,surface)}<AudioControls
+        return <>{captureMode&&playbackStatus==='idle'&&createPortal(<div className="reader-floating-actions"><ReaderPassageAction pending={reader.pending} onSnapshotSelection={reader.snapshotSelection} onPlayFromHere={reader.playFromHere} onPlayFromSelection={reader.playFromSelection}/><button className="reader-bookmark-btn">Bookmark</button><button className="scroll-top-btn">Top</button></div>,shell)}{captureMode&&createPortal(<HtmlViewer url="fixture" content={content} contentRef={contentRef} onTextTargetApiChange={register} getTextTargetViewport={viewport} audioFollowPolicy={reader.followPolicy}/>,surface)}<AudioControls
         audiobookState={{status:'saved',complete:true,cachedChunks:2,totalChunks:2}}
         canPlayAudiobook canSaveAudiobook={false} canSkipBackward canSkipForward modelSetupLabel={null} saveInProgress={false}
         onManageSave={noop} onPause={noop} onRead={noop} onResume={noop} onSelectSavedAudiobook={noop}
@@ -99,13 +100,17 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       <main class="document-view"><article>${'<p>A reader should remain easy to read while audio continues. Browsing pauses following, and Return reveals the spoken passage.</p>'.repeat(12)}</article></main></div>
       <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
       (async()=>{await ReaderControls.mount(${JSON.stringify(locale)});while(!document.querySelector('.audio-menu-btn'))await new Promise(requestAnimationFrame);
-      const trigger=document.querySelector('.audio-menu-btn');trigger.click();while(!document.querySelector('.audio-passage-actions'))await new Promise(requestAnimationFrame);
+      const trigger=document.querySelector('.audio-menu-btn');trigger.click();while(!document.querySelector('.audio-chunk-list'))await new Promise(requestAnimationFrame);
+      const listBounds=document.querySelector('.audio-chunk-list').getBoundingClientRect();
+      const chunkMenuBounds=document.querySelector('.audio-chunk-menu').getBoundingClientRect();
+      const defaultChunks=!document.querySelector('.audio-passage-actions')&&!document.querySelector('.audio-word-highlight-toggle');
+      document.querySelectorAll('.audio-menu-views button')[1].click();while(!document.querySelector('.audio-passage-actions'))await new Promise(requestAnimationFrame);
       await document.fonts.ready;await new Promise(requestAnimationFrame);
       const menu=document.querySelector('.audio-chunk-menu'),actions=[...menu.querySelectorAll('.audio-passage-command')];
       const rect=e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,height:r.height,width:r.width}};
       const initial=actions.map(rect),bounds=rect(menu);
       let reachable=true;
-      for(const button of [...actions,menu.querySelector('.audio-word-highlight-toggle'),menu.querySelector('.audio-chunk-item')]){
+      for(const button of [...actions,menu.querySelector('.audio-word-highlight-toggle')]){
         button.scrollIntoView({block:'nearest'});const r=rect(button),m=rect(menu);
         reachable&&=r.top>=m.top&&r.bottom<=m.bottom&&r.left>=m.left&&r.right<=m.right;
       }
@@ -114,7 +119,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await new Promise(requestAnimationFrame);
       const escaped=!document.querySelector('.audio-chunk-menu')&&document.activeElement===trigger;
       trigger.click();await new Promise(requestAnimationFrame);
-      parent.postMessage({type:'capture-result',result:{bounds,initial,reachable,escaped,focusVisible,
+      parent.postMessage({type:'capture-result',result:{bounds,initial,reachable,escaped,focusVisible,defaultChunks,listHeight:listBounds.height,menuHeight:chunkMenuBounds.height,
         disabled:actions[1].disabled,icons:actions.every(b=>b.querySelector('svg')),inlineReturn:Boolean(document.querySelector('.audio-floating-playback>.audio-return-control'))}},'*');})();</script>`)
     const result = await runBrowserFixture(directory, frame, width,
       resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `popover-${width}-${locale}-${theme}.png`))
@@ -123,7 +128,8 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     expect(result.bounds.right).toBeLessThanOrEqual(width)
     expect(result.bounds.bottom).toBeLessThanOrEqual(600)
     expect(result.reachable, JSON.stringify(result)).toBe(true)
-    expect(result).toMatchObject({ disabled: true, icons: true, escaped: true, focusVisible: true, inlineReturn: true })
+    expect(result).toMatchObject({ disabled: true, icons: true, escaped: true, focusVisible: true, inlineReturn: true, defaultChunks: true })
+    expect(result.listHeight / result.menuHeight).toBeGreaterThan(font === 16 ? 0.75 : 0.5)
     for (const button of result.initial) expect(button.height).toBeGreaterThanOrEqual(44)
     if (width === 620) expect(Math.abs(result.initial[1].top-result.initial[2].top)).toBeLessThan(1)
     if (font === 32 && width === 390) expect(result.initial[2].top).toBeGreaterThan(result.initial[1].top)
@@ -136,7 +142,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       </style><div class="app-reader"><header class="doc-header"><div id="controls"></div></header>
       <main class="document-view"><article>${Array.from({length:40},(_,i)=>`<p>Passage ${i}. A saved book has a readable sentence with several words.</p>`).join('')}</article></main></div>
       <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
-      (async()=>{await ReaderControls.mount('en',true,${JSON.stringify(status)},false,${JSON.stringify('unmapped')});while(!window.captureReady)await new Promise(requestAnimationFrame);scrollTo(0,700);await new Promise(requestAnimationFrame);${status === 'idle' ? "document.querySelector('.audio-primary-btn').click()" : "document.querySelector('.audio-menu-btn').click();while(!document.querySelector('.audio-passage-here'))await new Promise(requestAnimationFrame);document.querySelector('.audio-passage-here').click()"}})();</script>`)
+      (async()=>{await ReaderControls.mount('en',true,${JSON.stringify(status)},false,${JSON.stringify('unmapped')});while(!window.captureReady)await new Promise(requestAnimationFrame);scrollTo(0,700);await new Promise(requestAnimationFrame);${status === 'idle' ? "document.querySelector('.reader-passage-action').click()" : "document.querySelector('.audio-menu-btn').click();while(!document.querySelector('.audio-passage-here'))await new Promise(requestAnimationFrame);document.querySelector('.audio-passage-here').click()"}})();</script>`)
     const result = await runBrowserFixture(directory, frame, 620)
     expect(result.status, JSON.stringify(result)).toBe('captured')
     expect(result.current).toBe(true)
@@ -164,6 +170,48 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     expect(result.current).toBe(true)
     expect(result.target.status, JSON.stringify(result)).toBe('resolved')
     expect(result.point).toEqual({ format: 'html', segmentIndex: 1, offset: 9 })
+  }, 30_000)
+
+  it.each([{width:320,font:16,locale:'en'}, {width:390,font:32,locale:'ar'}])('keeps idle shortcut and bookmark feedback separate: %j', async ({width,font,locale}) => {
+    const frame = join(directory, 'reader-feedback.html')
+    writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>${css}html{font-size:${font}px}article{margin:80px 30px;font-size:1rem}</style>
+      <div class="app-reader"><header class="doc-header"><div id="controls"></div></header><main class="document-view"><article>${'<p>A synthetic saved book passage for reading.</p>'.repeat(30)}</article></main><div class="reader-bookmark-notice">Bookmark saved</div></div>
+      <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async()=>{await ReaderControls.mount(${JSON.stringify(locale)},true);while(!window.captureReady||!document.querySelector('.reader-passage-action'))await new Promise(requestAnimationFrame);
+      scrollTo(0,600);const text=document.querySelectorAll('article p')[10].firstChild;document.getSelection().setBaseAndExtent(text,25,text,5);document.dispatchEvent(new Event('selectionchange'));
+      await document.fonts.ready;await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
+      const button=document.querySelector('.reader-passage-action'),r=button.getBoundingClientRect(),rail=document.querySelector('.reader-floating-actions').getBoundingClientRect(),notice=document.querySelector('.reader-bookmark-notice').getBoundingClientRect();
+      parent.postMessage({type:'capture-result',result:{left:r.left,right:r.right,height:r.height,railTop:rail.top,noticeBottom:notice.bottom}},'*');})();</script>`)
+    const result = await runBrowserFixture(directory, frame, width,
+      resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `reader-shortcut-${width}-${locale}.png`))
+    expect(result.left).toBeGreaterThanOrEqual(0)
+    expect(result.right).toBeLessThanOrEqual(width)
+    expect(result.height).toBeGreaterThanOrEqual(44)
+    expect(result.noticeBottom).toBeLessThanOrEqual(result.railTop)
+  }, 30_000)
+
+  it.each(['pointer', 'keyboard'])('plays a scrolled selection from the idle reader shortcut (%s)', async method => {
+    const frame = join(directory, 'reader-shortcut.html')
+    writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>${css}article{margin:80px 30px;font:20px/1.6 Arial}</style>
+      <div class="app-reader"><header class="doc-header"><div id="controls"></div></header><main class="document-view"><article>${Array.from({length:30},(_,i)=>`<p>Passage ${i}. Selected readable words from the middle of this book.</p>`).join('')}</article></main></div>
+      <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async()=>{await ReaderControls.mount('en',true);while(!window.captureReady||!document.querySelector('.reader-passage-action'))await new Promise(requestAnimationFrame);
+      const p=document.querySelectorAll('article p')[12];p.scrollIntoView({block:'center'});await new Promise(requestAnimationFrame);
+      const text=p.firstChild;document.getSelection().setBaseAndExtent(text,30,text,12);
+      document.dispatchEvent(new Event('selectionchange'));await new Promise(requestAnimationFrame);
+      const action=document.querySelector('.reader-passage-action');
+      if(action.textContent!=='Play from selection')throw new Error('Selection shortcut did not update');
+      if(${JSON.stringify(method)}==='keyboard')document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true}));
+      else action.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'mouse'}));
+      action.focus();document.getSelection().removeAllRanges();document.dispatchEvent(new Event('selectionchange'));await new Promise(requestAnimationFrame);
+      if(action.textContent!=='Play from selection')throw new Error('Focus changed the advertised action');
+      action.click();})();</script>`)
+    const result = await runBrowserFixture(directory, frame, 390)
+    expect(result.status, JSON.stringify(result)).toBe('captured')
+    expect(result.current).toBe(true)
+    expect(result.target.status, JSON.stringify(result)).toBe('resolved')
+    expect(result.point).toEqual({ format: 'html', segmentIndex: 12, offset: 12 })
+    expect(result.target.chunkIndex).toBeGreaterThan(0)
   }, 30_000)
 
   it.each([false, true])('resolves imported chunker punctuation from the top control and passage popover (legacy=%s)', async legacy => {

@@ -38,6 +38,7 @@ import { TtsDiagnosticsPanel } from './tts/components/TtsDiagnosticsPanel'
 import { getImportedAudiobookSource } from './tts/api/nativeTts'
 import { getUserUploads, isUserUploadUrl, type UserUploadDocument } from './tts/storage/UserUploads'
 import { usePlayAnywhereReader } from './tts/playAnywhere/usePlayAnywhereReader'
+import { ReaderPassageAction } from './tts/playAnywhere/ReaderPassageAction'
 import { useAudiobookManager } from './tts/hooks/useAudiobookManager'
 import {
   getUploadedDocumentSource,
@@ -508,6 +509,14 @@ function App() {
                 />
               </>
             )}
+            floatingControls={audioControlsProps.canPlayAudiobook && !hasFloatingAudioControls ? (
+              <ReaderPassageAction
+                pending={readerPlayback.pending}
+                onSnapshotSelection={readerPlayback.snapshotSelection}
+                onPlayFromHere={readerPlayback.playFromHere}
+                onPlayFromSelection={readerPlayback.playFromSelection}
+              />
+            ) : undefined}
             beforeDocument={(
               <TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />
             )}

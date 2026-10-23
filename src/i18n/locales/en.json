@@ -840,6 +840,8 @@
       "currentSetup": "Current Setup",
       "savedVersionsMismatch": "No saved audiobook matches the current setup.",
       "savedVersionsAction": "Choose one to restore its settings and play it.",
+      "chunkView": "Chunks",
+      "optionsView": "Options",
       "playback": "Playback",
       "wordHighlight": "Word Highlight",
       "experimental": "BETA",

@@ -86,3 +86,42 @@ it('keeps passage commands in the popover, reports missing selection and closes 
     expect(document.activeElement).toBe(trigger)
   } finally { await act(async () => app.unmount()) }
 })
+
+it('opens a loaded audiobook on chunks, separates options, and resets the view on reopening', async () => {
+  const config = props()
+  const element = document.createElement('div')
+  document.body.append(element)
+  const app = createRoot(element)
+  const jump = vi.fn()
+  const chunks = Array.from({ length: 175 }, (_, index) => ({
+    index,
+    chunkId: 'saved-' + index,
+    textPreview: 'Saved passage ' + index,
+  }))
+  try {
+    await act(async () => app.render(<AudioControls {...config} onJumpToChunk={jump}
+      ttsState={{ ...config.ttsState, status: 'playing', currentChunkIndex: 2, chunkSummaries: chunks }} />))
+    const trigger = document.querySelector<HTMLButtonElement>('[aria-expanded="false"]')!
+    await act(async () => trigger.click())
+    expect(document.querySelector('.audio-chunk-list')).not.toBeNull()
+    expect(document.querySelector('.audio-passage-actions')).toBeNull()
+    expect(document.querySelector('.audio-word-highlight-toggle')).toBeNull()
+    const views = document.querySelectorAll<HTMLButtonElement>('.audio-menu-views button')
+    expect(document.activeElement).toBe(views[0])
+    expect(views[0].getAttribute('aria-pressed')).toBe('true')
+    await act(async () => views[1].click())
+    expect(document.querySelector('.audio-chunk-list')).toBeNull()
+    expect(document.querySelector('.audio-passage-actions')).not.toBeNull()
+    expect(document.querySelector('.audio-word-highlight-toggle')).not.toBeNull()
+    await act(async () => views[0].click())
+    const chunk = document.querySelector<HTMLButtonElement>('.audio-chunk-item')!
+    await act(async () => chunk.click())
+    expect(jump).toHaveBeenCalledOnce()
+    expect(document.activeElement).toBe(trigger)
+    await act(async () => trigger.click())
+    expect(document.querySelector('.audio-chunk-list')).not.toBeNull()
+    expect(document.querySelector('.audio-passage-actions')).toBeNull()
+  } finally {
+    await act(async () => app.unmount())
+  }
+})

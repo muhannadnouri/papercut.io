@@ -65,6 +65,7 @@ interface DocumentViewerProps {
   appControls?: ReactNode
   headerControls?: ReactNode
   beforeDocument?: ReactNode
+  floatingControls?: ReactNode
   audioFollowPolicy?: AudioFollowPolicy
   onSelectionIntent?: { snapshot: () => void; invalidate: () => void }
   onReaderBrowse?: () => void
@@ -85,6 +86,7 @@ export function DocumentViewer({
   appControls,
   headerControls,
   beforeDocument,
+  floatingControls,
   ttsHighlight,
   audioFollowPolicy,
   onReaderBrowse,
@@ -577,6 +579,7 @@ export function DocumentViewer({
 
       {showScrollTop && (
         <div className="reader-floating-actions">
+          {floatingControls}
           <ReaderBookmarkButton
             hasBookmark={hasBookmark}
             isAtBookmark={isAtBookmark}

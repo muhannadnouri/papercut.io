@@ -1463,6 +1463,86 @@ when unused; restore ordinary idle play/default follow. The general popover fit,
 focus and virtual-row layout fixes may remain with the baseline audio menu. There
 is no native/player/matching change or user-data rollback in this UI follow-up.
 
+### 2026-10-22 — Reader shortcut and chunk-first popover
+
+This supersedes the preceding popover layout after owner testing showed that
+passage commands and highlighting left too little room for the chunk list.
+Only the two severity-3 recommendations are implemented in this pass.
+
+Integration and acceptance checklist:
+
+- [x] Add an optional `floatingControls?: ReactNode` presentation slot to
+  `DocumentViewer`, rendered beside Bookmark/Top using the existing scroll
+  threshold (including the PDF bookmark API). The viewer does not import the
+  new audio shortcut or decide which playback action to run.
+- [x] App supplies feature-owned `ReaderPassageAction` only when the selected
+  document has playable saved audio and the floating player is absent. The
+  paused player counts as present, so Resume keeps its exact-time behavior.
+  Scrolling while stopped exposes **Play from here** without returning to the
+  header. A nonempty reader selection changes this to **Play from selection**.
+  A visible label is retained; no permanent second playback strip is introduced.
+- [x] The shortcut listens to selection changes only while mounted. Availability
+  checks inspect the current range, not a book-sized audio map. Pointer input
+  snapshots before control focus; keyboard Tab reuses the existing selection
+  intent binder. Focus-induced native selection collapse preserves the advertised
+  action. Stale selection reports the existing failure rather than silently
+  playing a different viewport. Action-time source/chunk checks remain authoritative.
+  A scoped ResizeObserver reserves the shortcut's actual height above the rail
+  for bookmark feedback, including wrapped translations; unmount disconnects it
+  and removes its CSS variable. Unmount removes listeners; starting playback
+  transfers focused shortcut control to the resulting player when possible. The binder recognizes the new control
+  as audio input rather than invalidating its snapshot.
+- [x] A loaded chunk menu opens on **Chunks**, showing count and the virtualized
+  list. One compact Chunks/Options view selector replaces the permanently stacked
+  commands, Playback header and Jump To subheader. **Options** contains the three
+  labeled passage commands and Word Highlight. With no loaded summaries, the
+  menu opens directly on Options. Reopening a loaded menu defaults to Chunks.
+  View buttons use normal Tab/Enter/Space operation and `aria-pressed`; they do
+  not claim tab semantics requiring a different keyboard model.
+- [x] Let the list fill the available panel height rather than retain its old
+  three-row flex basis. Preserve 44px virtual rows and existing viewport fit.
+  Synthetic 320px/620px English fixtures allocate over 75% of the popover to the
+  list; 32px-root Arabic/French fixtures retain over 50%, with reachable content.
+  These are fixture acceptance checks, not a claim of universal row counts.
+- [x] Preserve menu pre-focus selection snapshots across view switching, synchronous
+  closure before viewport capture, Escape/trigger focus, Return/follow, canonical
+  chunk-start/full-book playback and existing Stop/cancellation guards. No source
+  matching, native player, cache identity, persistence or generation changes.
+- [x] Add localized Chunks/Options labels in all eight locales. No dependencies,
+  flags, settings or global event bus. Add regressions for view reset/dispatch,
+  missing selection, backward selection and pointer/keyboard collapse in the
+  scrolled idle reader. Isolated browser fixtures use synthetic documents only.
+- [x] Frozen-source regression suite: **605 passed, 1 existing skip, 83 files**.
+  Lint, TypeScript, eight-locale validation and production frontend build pass.
+  Focused browser/unit checks also cover shortcut-to-player focus and bookmark
+  feedback spacing. Synthetic chunk-list and shortcut screenshots were inspected.
+- [x] Native release and AppImage packaging pass. Named candidate:
+  `src-tauri/target/play-anywhere-acceptance/Papercut-play-anywhere-chunks-first.AppImage`;
+  SHA-256 `aeefca480d5c397c347632738ab3e34ce772a0012d183d2e970b132d9bb63ce6`. Adjacent `chunks-first-build.json` records
+  base commit, all runtime source hashes, validation and manual acceptance limits.
+  The package copy matches the final build byte for byte; older named candidates
+  remain available. GStreamer media-bundle verification passes.
+- [ ] Owner acceptance on the new Linux AppImage: stopped + scroll exposes
+  Bookmark/Top and the contextual play action; select text in either direction
+  and use that action without scrolling up; verify containing-chunk start/full
+  continuation; playing/paused menu opens on the larger list; Options exposes
+  all commands and highlighting; Escape returns focus; recheck large text/RTL.
+
+Removal: remove App's `ReaderPassageAction` import and `floatingControls` value,
+then delete `ReaderPassageAction.tsx`, its CSS/test and binder selector additions.
+The unused generic slot can be deleted or retained. All target preparation and
+selection coordination stay behind the existing feature seam. The Chunks/Options
+presentation can remain as a baseline audio-menu improvement; feature passage
+commands still disappear when the optional `playAnywhere` prop is omitted. No
+schema migration or user-data rollback is required.
+
+Next, separately: stop list recentering after deliberate user scrolling, compact
+Return styling, and integrate themed pending/error feedback with the existing
+spinner. The very large-text narrow player can still wrap and reduce list height;
+Return sizing is deliberately deferred. Estimated timestamps and Stage 6/7
+platform, listening, assistive-technology, performance and removal gates remain
+open. Do not conflate these follow-ups with the two severity-3 fixes.
+
 ## 7. Standards and design rationale
 
 This plan applies separation of concerns, explicit capability contracts,

@@ -343,3 +343,21 @@ The next valuable work is native execution depth, not more browser fallback tuni
 - sherpa-onnx Rust crate docs: https://docs.rs/sherpa-onnx
 - Tauri command IPC: https://v2.tauri.app/develop/calling-rust/
 - native audio plugin: https://github.com/uvarov-frontend/tauri-plugin-native-audio
+
+### Reader access and chunk navigation (2026-10-22 follow-up)
+
+When saved audio is playable but playback is stopped, scrolling exposes one
+labeled audio action beside the reader's Bookmark/Top controls: Play from here,
+or Play from selection when reader text is selected. It uses the same guarded
+selection snapshot and canonical containing-chunk start; it never reads only the
+selected text. The floating player replaces this shortcut during playing/paused
+playback, retaining Resume's exact position.
+
+The loaded audio popover now defaults to Chunks and uses most of its available
+height for the virtualized list. Options contains passage commands and Word
+Highlight; stopped playback without loaded summaries opens directly on Options.
+Both view buttons remain keyboard accessible. App composes the removable shortcut
+through DocumentViewer's optional floatingControls slot. See
+[the integration checklist](play-anywhere.md#2026-10-22--reader-shortcut-and-chunk-first-popover)
+for acceptance and removal boundaries. Return compaction, list recenter behavior
+and status styling remain separate follow-ups.

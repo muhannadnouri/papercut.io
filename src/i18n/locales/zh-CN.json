@@ -832,6 +832,8 @@
       "currentSetup": "当前设置",
       "savedVersionsMismatch": "没有已保存的有声读物与当前设置匹配。",
       "savedVersionsAction": "请选择一个以恢复其设置并播放。",
+      "chunkView": "片段",
+      "optionsView": "选项",
       "playback": "回放",
       "wordHighlight": "单词高亮",
       "experimental": "BETA",

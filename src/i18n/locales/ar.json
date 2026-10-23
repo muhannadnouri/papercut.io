@@ -872,6 +872,8 @@
       "currentSetup": "الإعداد الحالي",
       "savedVersionsMismatch": "لا يوجد كتاب صوتي محفوظ يطابق الإعداد الحالي.",
       "savedVersionsAction": "اختر واحدًا لاستعادة إعداداته وتشغيله.",
+      "chunkView": "المقاطع",
+      "optionsView": "الخيارات",
       "playback": "التشغيل",
       "wordHighlight": "تمييز الكلمات",
       "experimental": "تجريبي",

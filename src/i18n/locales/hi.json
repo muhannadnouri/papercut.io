@@ -840,6 +840,8 @@
       "currentSetup": "मौजूदा सेटअप",
       "savedVersionsMismatch": "कोई भी सहेजी गई ऑडियोबुक मौजूदा सेटअप से मेल नहीं खाती।",
       "savedVersionsAction": "उसकी सेटिंग बहाल करके चलाने के लिए एक चुनें।",
+      "chunkView": "खंड",
+      "optionsView": "विकल्प",
       "playback": "प्लेबैक",
       "wordHighlight": "शब्द हाइलाइट",
       "experimental": "BETA",

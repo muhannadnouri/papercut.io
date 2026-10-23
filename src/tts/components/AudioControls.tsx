@@ -432,6 +432,10 @@ const ChunkMenu = memo(function ChunkMenu({
 }: ChunkMenuProps) {
   const { t } = useTranslation()
   const selectionHintId = useId()
+  const viewId = useId()
+  // Opening during playback prioritizes navigation; idle audio has no loaded list yet.
+  const [view, setView] = useState<'chunks' | 'options'>(() => chunks.length ? 'chunks' : 'options')
+  const showChunks = chunks.length > 0 && view === 'chunks'
   const listRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const firstVisibleIndex = Math.max(
@@ -453,11 +457,23 @@ const ChunkMenu = memo(function ChunkMenu({
     )
     list.scrollTop = nextScrollTop
     setScrollTop(nextScrollTop)
-  }, [currentChunkIndex])
+  }, [currentChunkIndex, showChunks])
 
   return (
     <div className="audio-chunk-menu" aria-label={t('tts.controls.menuTitle')}>
-      {onPlayFromHere && (
+      {chunks.length > 0 && (
+        <div className="audio-menu-views" role="group" aria-label={t('tts.controls.menuTitle')}>
+          <button id={viewId + '-chunks'} type="button" aria-pressed={showChunks}
+            onClick={() => setView('chunks')}>
+            {t('tts.controls.chunkView')} · {chunks.length.toLocaleString()}
+          </button>
+          <button id={viewId + '-options'} type="button" aria-pressed={!showChunks}
+            onClick={() => setView('options')}>
+            {t('tts.controls.optionsView')}
+          </button>
+        </div>
+      )}
+      {!showChunks && onPlayFromHere && (
         <div className="audio-passage-actions">
           <button
             type="button"
@@ -492,7 +508,7 @@ const ChunkMenu = memo(function ChunkMenu({
           )}
         </div>
       )}
-      <div className="audio-chunk-menu-header">
+      {!showChunks && <div className="audio-chunk-menu-header">
         <span>{t('tts.controls.playback')}</span>
         <button
           type="button"
@@ -505,15 +521,11 @@ const ChunkMenu = memo(function ChunkMenu({
         >
           {t('tts.controls.wordHighlight')} <span className="audio-beta-tag">{t('tts.controls.experimental')}</span>: {wordHighlightEnabled ? t('tts.setup.on') : t('tts.setup.off')}
         </button>
-      </div>
-      {chunks.length > 1 && (
-        <>
-          <div className="audio-chunk-menu-subheader">
-            <span>{t('tts.controls.jumpTo')}</span>
-            <span>{t('tts.controls.chunkCount', { count: chunks.length })}</span>
-          </div>
+      </div>}
+      {showChunks && (
           <div
             ref={listRef}
+            aria-labelledby={viewId + '-chunks'}
             className="audio-chunk-list"
             onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
           >
@@ -542,7 +554,6 @@ const ChunkMenu = memo(function ChunkMenu({
               </div>
             </div>
           </div>
-        </>
       )}
     </div>
   )

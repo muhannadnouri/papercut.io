@@ -848,6 +848,8 @@
       "currentSetup": "Configuration actuelle",
       "savedVersionsMismatch": "Aucun livre audio enregistré ne correspond à la configuration actuelle.",
       "savedVersionsAction": "Choisissez-en un pour restaurer ses réglages et le lire.",
+      "chunkView": "Segments",
+      "optionsView": "Options",
       "playback": "Lecture",
       "wordHighlight": "Mot surligné",
       "experimental": "BETA",

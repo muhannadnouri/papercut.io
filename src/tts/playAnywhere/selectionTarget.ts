@@ -51,10 +51,10 @@ export function selectionContainsPoint(range: Range, node: Text, offset: number)
 export function bindSelectionIntent(shell: HTMLElement, actions: { snapshot: () => void; invalidate: () => void }): () => void {
   const doc = shell.ownerDocument
   const pointer = (event: PointerEvent) => {
-    if (!(event.target instanceof Element) || !event.target.closest('.audio-controls, .audio-playback-dock')) actions.invalidate()
+    if (!(event.target instanceof Element) || !event.target.closest('.audio-controls, .audio-playback-dock, .reader-passage-action')) actions.invalidate()
   }
   const key = (event: KeyboardEvent) => {
-    if (event.target instanceof Element && event.target.closest('.audio-controls, .audio-playback-dock')) return
+    if (event.target instanceof Element && event.target.closest('.audio-controls, .audio-playback-dock, .reader-passage-action')) return
     if (event.key === 'Tab') actions.snapshot()
     else actions.invalidate()
   }

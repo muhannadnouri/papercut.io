@@ -456,7 +456,7 @@ html[dir="rtl"] .audio-chunk-item-current {
 }
 
 .audio-chunk-menu-header, .audio-chunk-menu-subheader, .audio-passage-actions { flex-shrink: 0; }
-.audio-chunk-list { flex: 1 0 132px; }
+.audio-chunk-list { flex: 1 1 24rem; }
 
 /* Capture snapshots geometry before awaiting browser layout; keep feedback out of its bounds. */
 .audio-target-notice.audio-target-capturing {
@@ -516,3 +516,35 @@ html[dir="rtl"] .audio-chunk-item-current {
   }
 }
 .audio-selection-hint { margin: 0; color: var(--text-muted); font-size: 0.74rem; line-height: 1.4; }
+
+/* The chunk browser pays for one compact view selector, not every secondary command. */
+.audio-menu-views {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border-bottom: 1px solid var(--row-divider);
+}
+.audio-menu-views button {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.6rem;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--control-surface);
+  color: var(--text-body);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.audio-menu-views button[aria-pressed="true"] {
+  background: var(--surface-accent);
+  color: var(--accent-ink);
+}
+.audio-menu-views button:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: -3px;
+}
