@@ -7,7 +7,7 @@ import type { PdfReadableSegment } from '../../pdf/pdfTts'
 import type { ChunkTargetResult } from './sourceChunkResolver'
 import { htmlResolverSteps, pdfResolverSteps, type verifiedHtmlResolver, type verifiedPdfResolver } from './verifiedSource'
 import { runPreparationWork } from './preparationWork'
-import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
+import { logTtsDiagnostic, logTtsTiming } from '../diagnostics/TtsDiagnostics'
 
 export interface TextTargetPreparationOptions {
   documentUrl: string | null
@@ -46,7 +46,11 @@ export function createTextTargetPreparation(options: TextTargetPreparationOption
   let pdfPending: { chunks: TtsChunk[]; work: ReturnType<typeof start<PdfCache>> } | undefined
   function* prepareHtml(chunks: TtsChunk[], texts: readonly string[]): Generator<void, HtmlCache> {
     // shortcut: HTML extraction is atomic; revisit if packaged cold timings still stall input.
-    expectedHtml ??= extractReadableSegmentsFromHtml(options.docContent).map(segment => segment.text)
+    if (!expectedHtml) {
+      const started = performance.now()
+      expectedHtml = extractReadableSegmentsFromHtml(options.docContent).map(segment => segment.text)
+      logTtsTiming('[play-anywhere] HTML source extraction', started, { sourceUnits: options.docContent.length, segments: expectedHtml.length })
+    }
     yield
     let matches = expectedHtml.length === texts.length
     for (let index = 0; matches && index < expectedHtml.length; index++) {

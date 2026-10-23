@@ -814,7 +814,7 @@
       "pauseTitle": "暂停",
       "stop": "停止有声读物",
       "stopTitle": "停止",
-      "morePlaybackOptions": "更多播放选项",
+      "playbackOptions": "播放选项",
       "savedAudioSetupHint": "已保存的音频仍可播放。只有生成新音频时才需要设置。",
       "showMenu": "显示播放菜单",
       "hideMenu": "隐藏播放菜单",

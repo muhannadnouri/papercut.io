@@ -1,3 +1,4 @@
+import { logTtsTiming } from '../diagnostics/TtsDiagnostics'
 import {
   buildReadableDomSegmentIndex,
   normalizeDomTextPoint,
@@ -59,6 +60,7 @@ export function createHtmlTextTargetApi(
 
   function getIndex(): CaptureIndex {
     if (index) return index
+    const started = performance.now()
     const dom = buildReadableDomSegmentIndex(root)
     const texts = Object.freeze(dom.segments.map(segment => normalizeSegmentText(segment.textNodes.map(node => node.data).join(''))))
     const built: CaptureIndex = {
@@ -89,6 +91,7 @@ export function createHtmlTextTargetApi(
       built.pendingVisibility.add(owner)
       visibility?.observe(owner)
     }
+    logTtsTiming('[play-anywhere] reader index built', started, { segments: built.texts.length })
     return built
   }
 

@@ -822,7 +822,7 @@
       "pauseTitle": "Pause",
       "stop": "Stop audiobook",
       "stopTitle": "Stop",
-      "morePlaybackOptions": "More playback options",
+      "playbackOptions": "Playback options",
       "savedAudioSetupHint": "Saved audio can still play. Setup is only needed to generate new audio.",
       "showMenu": "Show playback menu",
       "hideMenu": "Hide playback menu",

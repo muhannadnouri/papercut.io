@@ -70,9 +70,6 @@ type AudioIconName =
   | 'back'
   | 'forward'
   | 'save'
-  | 'saved'
-  | 'setup'
-  | 'more'
   | 'menu'
   | 'options'
   | 'passage'
@@ -316,11 +313,11 @@ export function AudioControls({
             className={'audio-icon-btn audio-menu-btn' + (chunkMenuOpen ? ' audio-menu-btn-open' : '')}
             onPointerDown={() => { if (!chunkMenuOpen) snapshotSelection() }}
             onClick={toggleMenu}
-            aria-label={t('tts.controls.morePlaybackOptions')}
+            aria-label={t('tts.controls.playbackOptions')}
             aria-expanded={chunkMenuOpen}
-            title={t('tts.controls.morePlaybackOptions')}
+            title={t('tts.controls.playbackOptions')}
           >
-            <AudioIcon name="more" />
+            <AudioIcon name="options" />
           </button>
         )}
         {renderSaveButton()}
@@ -395,11 +392,11 @@ export function AudioControls({
                     className={'audio-icon-btn audio-menu-btn' + (chunkMenuOpen ? ' audio-menu-btn-open' : '')}
                     onPointerDown={() => { if (!chunkMenuOpen) snapshotSelection() }}
                     onClick={toggleMenu}
-                    aria-label={t('tts.controls.morePlaybackOptions')}
+                    aria-label={t('tts.controls.playbackOptions')}
                     aria-expanded={chunkMenuOpen}
-                    title={t('tts.controls.morePlaybackOptions')}
+                    title={t('tts.controls.playbackOptions')}
                   >
-                    <AudioIcon name="more" />
+                    <AudioIcon name="options" />
                   </button>
                 )}
                 <button
@@ -490,7 +487,7 @@ export function AudioControls({
         aria-label={actionLabel}
         title={actionLabel}
       >
-        <AudioIcon name={modelSetupRequired ? 'setup' : audiobookState.complete ? 'saved' : 'save'} />
+        <AudioIcon name="save" />
       </button>
     )
   }
@@ -759,12 +756,6 @@ function renderIconPath(name: AudioIconName) {
       )
     case 'save':
       return <path d="M5 3h12l2 2v16H5zM8 3v6h8V3M8 18h8v-5H8z" fill="none" stroke="currentcolor" strokeWidth="2" strokeLinejoin="round" />
-    case 'saved':
-      return <path d="M8 12l3 3 5-6M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0" fill="none" stroke="currentcolor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    case 'setup':
-      return <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" fill="none" stroke="currentcolor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    case 'more':
-      return <><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></>
     case 'menu':
       return <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentcolor" strokeWidth="2" strokeLinecap="round" />
     case 'options':

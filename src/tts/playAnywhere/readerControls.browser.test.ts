@@ -119,7 +119,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     { width: 620, locale: 'en', setup: true },
     { width: 620, locale: 'en', setup: false },
     { width: 320, locale: 'ar', setup: true },
-  ])('uses tonal Save status with setup precedence without blocking imported playback: %j', async ({ width, locale, setup }) => {
+  ])('uses green/warning floppy Save states with setup precedence without blocking imported playback: %j', async ({ width, locale, setup }) => {
     const frame = join(directory, 'save-states.html')
     writeFileSync(frame, `<!doctype html><html data-theme="${locale === 'ar' ? 'dark' : 'light'}"><meta charset="utf-8"><style>${css}body{margin:0}</style>
       <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
@@ -128,9 +128,16 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
         while(!document.querySelector('.audio-menu-btn'))await new Promise(requestAnimationFrame);
         const save=document.querySelector('.audio-compact-row > button:last-child');
         const more=document.querySelector('.audio-menu-btn');
+        const probe=document.createElement('span');
+        probe.style.backgroundColor=${setup}?'var(--surface-warning)':'var(--surface-success)';
+        document.body.append(probe);
+        const expectedBackground=getComputedStyle(probe).backgroundColor;
+        probe.remove();
         const result={
           setup:save.classList.contains('audio-setup-required'),saved:save.classList.contains('audio-save-complete'),
-          tonal:getComputedStyle(save).backgroundColor===getComputedStyle(more).backgroundColor,
+          tonal:getComputedStyle(save).backgroundColor===expectedBackground,
+          floppy:save.querySelector('svg path')?.getAttribute('d')?.startsWith('M5 3h12'),
+          warning:getComputedStyle(save,'::after').content===(${setup}?'"!"':'none'),
           label:save.getAttribute('aria-label'),title:save.title,disabled:save.disabled,
           iconOnly:more.textContent.trim()==='' && Boolean(more.querySelector('svg[aria-hidden="true"]')),
           named:Boolean(more.getAttribute('aria-label')) && more.title===more.getAttribute('aria-label'),
@@ -143,7 +150,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       })();</script>`)
     const result = await runBrowserFixture(directory, frame, width,
       resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `save-${width}-${locale}-${setup}.png`))
-    expect(result).toMatchObject({ setup, saved: !setup, tonal: true, disabled: !setup, setupRequested: setup, playRequested: true, iconOnly: true, named: true })
+    expect(result).toMatchObject({ setup, saved: !setup, tonal: true, disabled: !setup, setupRequested: setup, playRequested: true, iconOnly: true, named: true, floppy: true, warning: true })
     expect(result.label).toBe(result.title)
     if (locale === 'en' && setup) expect(result.label).toContain('Saved audio can still play.')
   }, 30_000)
@@ -208,6 +215,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
         while (!document.querySelector('.audio-menu-views')) await new Promise(requestAnimationFrame);
         const views = [...document.querySelectorAll('.audio-menu-views button')];
         const icons = views.every(button => button.querySelector('svg[aria-hidden="true"]') && button.textContent.trim());
+        const sameOptionsIcon=document.querySelector('.audio-menu-btn svg').innerHTML===views[1].querySelector('svg').innerHTML;
         views[1].click();
         while (!document.querySelector('.audio-menu-rate')) await new Promise(requestAnimationFrame);
         await document.fonts.ready;
@@ -226,12 +234,12 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
         const focused = document.activeElement === input;
         toggle.click();
         while (!input.checked) await new Promise(requestAnimationFrame);
-        parent.postMessage({type:'capture-result',result:{icons, changed, focused, name, rate:speed.textContent, rateName:speed.getAttribute('aria-label'), sameRow:Math.abs(a.top-b.top)<1, heights:[a.height,b.height], bounds:[a.left,a.right,b.left,b.right], checked:input.checked, terminalBorder:getComputedStyle(toggle.closest('.audio-chunk-menu-header')).borderBottomWidth, moreName:document.querySelector('.audio-menu-btn').getAttribute('aria-label'), iconOnly:document.querySelector('.audio-menu-btn').textContent.trim() === ''}}, '*');
+        parent.postMessage({type:'capture-result',result:{icons, sameOptionsIcon, changed, focused, name, rate:speed.textContent, rateName:speed.getAttribute('aria-label'), sameRow:Math.abs(a.top-b.top)<1, heights:[a.height,b.height], bounds:[a.left,a.right,b.left,b.right], checked:input.checked, terminalBorder:getComputedStyle(toggle.closest('.audio-chunk-menu-header')).borderBottomWidth, moreName:document.querySelector('.audio-menu-btn').getAttribute('aria-label'), iconOnly:document.querySelector('.audio-menu-btn').textContent.trim() === ''}}, '*');
       })();</script>`)
     const axPath = resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `options-${width}-${font}-${locale}-ax.json`)
     const result = await runBrowserFixture(directory, frame, width,
       resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `options-${width}-${font}-${locale}.png`), axPath)
-    expect(result).toMatchObject({ icons: true, changed: true, focused: true, rate: '1x', sameRow: true, checked: true })
+    expect(result).toMatchObject({ icons: true, sameOptionsIcon: true, changed: true, focused: true, rate: '1x', sameRow: true, checked: true })
     expect(result.rateName).toBeTruthy()
     expect(result.terminalBorder).toBe('0px')
     expect(result.moreName).toBeTruthy()

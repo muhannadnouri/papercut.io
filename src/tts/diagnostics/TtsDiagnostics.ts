@@ -1,3 +1,5 @@
+import { isDebugEnabled } from '../../utils/debugFlags'
+
 export type TtsDiagnosticLevel = 'info' | 'warn' | 'error'
 
 export interface TtsDiagnosticEvent {
@@ -55,6 +57,12 @@ export function logTtsDiagnostic(
   } else {
     console.info(label, data)
   }
+}
+
+/** Detailed startup timings are opt-in so ordinary playback avoids extra storage writes. */
+export function logTtsTiming(label: string, started: number, data: Record<string, number | string | boolean> = {}): void {
+  if (!isDebugEnabled()) return
+  logTtsDiagnostic(label, { ...data, elapsedMs: Math.round((performance.now() - started) * 10) / 10 })
 }
 
 export function summarizeTtsCapabilities(capabilities: {

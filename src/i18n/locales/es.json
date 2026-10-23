@@ -830,7 +830,7 @@
       "pauseTitle": "Pausa",
       "stop": "Detener audiolibro",
       "stopTitle": "Detener",
-      "morePlaybackOptions": "Más opciones de reproducción",
+      "playbackOptions": "Opciones de reproducción",
       "savedAudioSetupHint": "El audio guardado se puede seguir reproduciendo. La configuración solo es necesaria para generar audio nuevo.",
       "showMenu": "Mostrar menú de reproducción",
       "hideMenu": "Ocultar menú de reproducción",

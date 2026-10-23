@@ -2,12 +2,16 @@
 import { act, useLayoutEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
+import { logTtsTiming } from '../diagnostics/TtsDiagnostics'
+import { setDebugEnabled } from '../../utils/debugFlags'
 import { createPlayAnywherePlayback, usePlayAnywherePlayback } from './usePlayAnywherePlayback'
 import type { PreparedTextTargetResult } from './prepareTextTarget'
 import type { ViewerTextTargetApi, ViewerTextTargetResult } from '../../viewers/types'
 import type { TtsOptions } from '../types'
 import { createTextTargetPreparation } from './prepareTextTarget'
 import { chunkAudiobookSaveHtmlWithSpans } from '../utils/text'
+
+vi.mock('../diagnostics/TtsDiagnostics', () => ({ logTtsTiming: vi.fn(), logTtsDiagnostic: vi.fn() }))
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 afterEach(() => document.body.replaceChildren())
@@ -111,4 +115,32 @@ it('disposes action scopes on document/options/source changes and unmount before
   } finally { await act(async () => app.unmount()) }
   expect(await controls.playFromBeginning()).toMatchObject({ reason: 'not-ready' })
   expect(config.play).not.toHaveBeenCalled()
+})
+
+
+it('times capture, verification and acknowledged playback without changing stale callback guards', async () => {
+  setDebugEnabled(true)
+  vi.mocked(logTtsTiming).mockClear()
+  const config = setup()
+  const scope = createPlayAnywherePlayback(config)
+  const started = vi.fn()
+  try {
+    expect(await scope.playFromHere({ captureViewport: async () => capture }, started)).toEqual({ status: 'dispatched' })
+    expect(vi.mocked(logTtsTiming).mock.calls.map(call => call[0])).toEqual([
+      '[play-anywhere] passage capture', '[play-anywhere] source verification', '[play-anywhere] target dispatched',
+    ])
+    const acknowledge = config.play.mock.calls[0][4]!
+    acknowledge()
+    expect(started).toHaveBeenCalledOnce()
+    expect(logTtsTiming).toHaveBeenLastCalledWith('[play-anywhere] playback start acknowledged', expect.any(Number), {
+      request: 1, action: 'passage', chunks: 2,
+    })
+    scope.cancel()
+    acknowledge()
+    expect(started).toHaveBeenCalledOnce()
+    expect(JSON.stringify(vi.mocked(logTtsTiming).mock.calls)).not.toContain('/book.html')
+  } finally {
+    scope.dispose()
+    setDebugEnabled(false)
+  }
 })

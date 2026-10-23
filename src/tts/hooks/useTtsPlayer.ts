@@ -7,7 +7,7 @@ import {
   type NativeAudiobookPlayback,
   resetNativeTtsCapabilities,
 } from '../api/nativeTts'
-import { logTtsDiagnostic, summarizeTtsCapabilities } from '../diagnostics/TtsDiagnostics'
+import { logTtsDiagnostic, logTtsTiming, summarizeTtsCapabilities } from '../diagnostics/TtsDiagnostics'
 import {
   disposeNativeAudio,
   getNativeAudioState,
@@ -374,6 +374,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     nextPlayIndexRef.current = index + 1
     currentPlayingIndexRef.current = index
     playingRef.current = true
+    const sourceAt = performance.now()
     audio.src = item.url
     audio.currentTime = 0
     audio.playbackRate = playbackRateRef.current
@@ -398,7 +399,10 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     targetStartedRef.current = undefined
     audio.play().then(() => {
       if (jobIdRef.current === playJobId && navigationIntentRef.current === playNavigationIntent && playbackAttemptRef.current === playAttemptId &&
-        currentPlayingIndexRef.current === index && !pausedRef.current) onStarted?.()
+        currentPlayingIndexRef.current === index && !pausedRef.current) {
+        logTtsTiming('[tts-playback] browser play acknowledged', sourceAt, { job: playJobId, intent: playNavigationIntent })
+        onStarted?.()
+      }
     }).catch((err: unknown) => {
       // Rapid skip/jump actions intentionally replace the audio source. Browsers
       // reject the superseded play() promise; ignore it unless it is still the
@@ -468,7 +472,9 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     }
     if (browserAudioCacheRef.current.has(index)) return true
 
+    const blobAt = performance.now()
     browserAudioCacheRef.current.enqueue(loaded)
+    logTtsTiming('[tts-playback] WAV blob queued', blobAt, { bytes: loaded.wav.byteLength })
     setState((prev) => ({
       ...prev,
       chunksGenerated: browserAudioCacheRef.current.generatedCount,

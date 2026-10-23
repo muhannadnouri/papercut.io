@@ -436,3 +436,22 @@ playable imports additionally explain that generation setup does not block saved
 playback. Preparing/saving behavior is unchanged. These baseline UI changes have
 no dependency on passage matching or storage and can remain after feature removal.
 See [refinement acceptance and owner smoke checklist](play-anywhere.md#2026-10-23--aligned-tools-clearer-disclosure-and-truthful-save-states).
+
+
+### Saved-audio startup and icon follow-up (2026-10-23)
+
+Prior UI passes are committed as `e66ad5c`. The next follow-up moves the five
+saved-audio/source/metadata read commands to the existing native blocking pool.
+Numeric queue/work logging stays at that command boundary; errors and IPC payloads
+retain their existing semantics. New opt-in timings reuse the existing Diagnostics
+setting and bounded event store, covering capture/verification, native round trip,
+WAV conversion/Blob queueing, play acknowledgement and legacy span reconstruction.
+They do not establish audible latency or frame responsiveness by themselves.
+
+This supersedes the neutral check and ellipsis variants: Save retains the floppy
+disk with green success for the saved ready setup or soft yellow plus warning
+marker for generation setup, with truthful saved-playback availability. External
+playback disclosure uses the existing Options sliders, icon-only with a localized
+Playback options name/tooltip. The headphones badge is unchanged.
+
+See [timing interpretation, removal boundaries and owner checklist](play-anywhere.md#2026-10-23--startup-timing-background-native-reads-and-savesliders).

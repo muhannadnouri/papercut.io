@@ -1,3 +1,5 @@
+import { logTtsTiming } from '../diagnostics/TtsDiagnostics'
+import { isDebugEnabled } from '../../utils/debugFlags'
 import { useCallback, useLayoutEffect, useRef } from 'react'
 import type { ViewerTextTargetApi, ViewerTextTargetResult } from '../../viewers/types'
 import type { TtsChunk, TtsOptions } from '../types'
@@ -27,24 +29,40 @@ export function createPlayAnywherePlayback(scope: PlaybackTargetOptions) {
     const current = () => alive && intent === request
     const url = scope.options.documentUrl
     if (!current() || !scope.complete || !url) return unavailable('not-ready')
+    const started = performance.now()
+    const action = api ? 'passage' : 'beginning'
+    const timingEnabled = isDebugEnabled()
     try {
       let chunks: readonly TtsChunk[], index = 0
       let accepts = current
       if (api) {
+        const captureAt = performance.now()
         const capture = await api.captureViewport()
+        logTtsTiming('[play-anywhere] passage capture', captureAt, { request, status: capture.status })
         if (!current()) return unavailable('stale')
         if (capture.status === 'unavailable') return capture
+        const resolveAt = performance.now()
         const target = await scope.resolve(url, capture, controller.signal)
+        logTtsTiming('[play-anywhere] source verification', resolveAt, { request, status: target.status })
         if (!current()) return unavailable('stale')
         if (target.status !== 'resolved') return target
         if (target.documentUrl !== url) return unavailable('stale')
         chunks = target.chunks; index = target.chunkIndex
         accepts = () => current() && target.isCurrent()
       } else {
+        const chunksAt = performance.now()
         chunks = await scope.getChunks()
+        logTtsTiming('[play-anywhere] beginning chunks', chunksAt, { request, chunks: chunks.length })
       }
       if (!accepts()) return unavailable('stale')
-      return scope.play(chunks, scope.options, index, accepts, onStarted ? () => { if (current()) onStarted() } : undefined) ? { status: 'dispatched' } : unavailable('invalid-point')
+      const playbackStarted = onStarted || timingEnabled ? () => {
+        if (!current()) return
+        logTtsTiming('[play-anywhere] playback start acknowledged', started, { request, action, chunks: chunks.length })
+        onStarted?.()
+      } : undefined
+      const accepted = scope.play(chunks, scope.options, index, accepts, playbackStarted)
+      logTtsTiming('[play-anywhere] target dispatched', started, { request, action, accepted })
+      return accepted ? { status: 'dispatched' } : unavailable('invalid-point')
     } catch (error) { return current() ? { status: 'error', error } : unavailable('stale') }
   }
   return { playFromHere: (api: ViewerTextTargetApi, onStarted?: () => void) => run(api, onStarted), playFromBeginning: (onStarted?: () => void) => run(undefined, onStarted),

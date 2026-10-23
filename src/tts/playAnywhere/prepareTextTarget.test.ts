@@ -8,7 +8,7 @@ import { pdfNarrationToReadableSegments } from '../../pdf/pdfTts'
 import * as verification from './verifiedSource'
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 
-vi.mock('../diagnostics/TtsDiagnostics', () => ({ logTtsDiagnostic: vi.fn() }))
+vi.mock('../diagnostics/TtsDiagnostics', () => ({ logTtsDiagnostic: vi.fn(), logTtsTiming: vi.fn() }))
 
 vi.mock('../../uploads/DocumentUploads', async importOriginal => ({
   ...await importOriginal<typeof import('../../uploads/DocumentUploads')>(), getUploadedPdfPageText: vi.fn(),

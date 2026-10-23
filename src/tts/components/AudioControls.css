@@ -67,29 +67,33 @@
 }
 
 .audio-icon-btn.audio-save-complete {
-  color: var(--text-body);
-  background: var(--control-surface);
+  border-color: var(--success-border);
+  color: var(--success);
+  background: var(--surface-success);
 }
 
-.audio-setup-required {
+.audio-icon-btn.audio-setup-required {
   position: relative;
+  color: var(--warning-strong);
+  background: var(--surface-warning);
 }
 
 .audio-setup-required::after {
   position: absolute;
-  top: 0.18rem;
-  right: 0.18rem;
-  width: 0.48rem;
-  height: 0.48rem;
-  border: 1px solid var(--control-surface);
+  inset-block-start: 0.1rem;
+  inset-inline-end: 0.1rem;
+  display: grid;
+  place-items: center;
+  width: 0.65rem;
+  height: 0.65rem;
+  border: 1px solid var(--surface-warning);
   border-radius: 50%;
-  background: var(--warning-accent);
-  content: '';
-}
-
-[dir='rtl'] .audio-setup-required::after {
-  right: auto;
-  left: 0.18rem;
+  background: var(--warning-strong);
+  color: var(--surface-warning);
+  font-size: 0.55rem;
+  font-weight: 800;
+  line-height: 1;
+  content: '!';
 }
 
 .audio-icon {
