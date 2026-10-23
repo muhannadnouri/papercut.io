@@ -66,10 +66,9 @@
   height: 1rem;
 }
 
-.audio-save-complete {
-  border-color: var(--success-border);
-  color: var(--success);
-  background: var(--surface-success);
+.audio-icon-btn.audio-save-complete {
+  color: var(--text-body);
+  background: var(--control-surface);
 }
 
 .audio-setup-required {
@@ -106,7 +105,7 @@
   z-index: 2147483647;
   display: flex;
   flex-direction: column;
-  width: min(28rem, calc(100vw - 2rem));
+  width: min(28rem, calc(100vw - var(--audio-dock-inset, 1rem) - 1rem));
   max-height: min(60vh, 26rem, var(--audio-menu-available-height, 100dvh));
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -121,8 +120,7 @@
   display: grid;
   gap: 0.5rem;
   padding: 0.7rem 0.85rem;
-  border-bottom: 1px solid var(--row-divider);
-  background: var(--control-surface);
+  background: transparent;
   color: var(--text-body);
   font-size: 0.8rem;
   font-weight: 700;
@@ -149,9 +147,9 @@
   min-width: 0;
   min-height: 2.75rem;
   padding: 0.45rem 0.6rem;
-  border: 1px solid var(--row-divider);
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
-  background: var(--surface-muted);
+  background: transparent;
   color: var(--text-body);
   font: inherit;
   font-size: 0.8rem;
@@ -172,17 +170,13 @@
   overflow-wrap: anywhere;
 }
 
-.audio-word-highlight-toggle[aria-pressed="true"] {
-  border-color: transparent;
-  background: var(--surface-accent);
-  color: var(--accent-ink);
+.audio-word-highlight-toggle .app-switch {
+  flex: 0 0 auto;
 }
 
-.audio-word-highlight-toggle:focus-visible {
-  border-color: transparent;
-  color: var(--accent-text);
-  outline: none;
-  box-shadow: 0 0 0 3px var(--shadow-focus);
+.audio-word-highlight-toggle:has(input:focus-visible) {
+  outline: 2px solid var(--accent-text);
+  outline-offset: -3px;
 }
 
 .audio-beta-tag {
@@ -439,14 +433,15 @@ html[dir="rtl"] .audio-chunk-item-current {
 
 /* Feedback belongs to the same surface as transport; the popover remains separately positioned. */
 .audio-playback-dock {
+  --audio-dock-inset: max(4rem, calc((100vw - 2000px) / 2 + 4rem));
   position: fixed;
-  inset-inline-end: max(4rem, calc((100vw - 2000px) / 2 + 4rem));
+  inset-inline-end: var(--audio-dock-inset);
   bottom: calc(2rem + env(safe-area-inset-bottom));
   z-index: 2147483647;
   display: grid;
   gap: 0.4rem;
   width: max-content;
-  max-width: calc(100vw - 2rem);
+  max-width: calc(100vw - var(--audio-dock-inset) - 1rem);
 }
 .audio-target-notice:not(:empty) {
   display: flex;
@@ -472,7 +467,7 @@ html[dir="rtl"] .audio-chunk-item-current {
 .audio-target-notice:empty { display: none; }
 @media (max-width: 767px) {
   .audio-playback-dock {
-    inset-inline-end: 1rem;
+    --audio-dock-inset: 1rem;
     bottom: calc(1rem + env(safe-area-inset-bottom));
   }
 }
@@ -498,7 +493,7 @@ html[dir="rtl"] .audio-chunk-item-current {
   padding: 0.6rem;
   border-bottom: 1px solid var(--row-divider);
 }
-.audio-passage-here, .audio-selection-hint { grid-column: 1 / -1; }
+.audio-selection-hint { grid-column: 1 / -1; }
 .audio-passage-command, .audio-menu-rate {
   display: inline-flex;
   align-items: center;
@@ -506,7 +501,7 @@ html[dir="rtl"] .audio-chunk-item-current {
   min-width: 0;
   min-height: 2.75rem;
   padding: 0.45rem 0.6rem;
-  border: 1px solid var(--row-divider);
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
   background: var(--control-surface);
   color: var(--text-body);

@@ -11,7 +11,7 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 afterEach(() => document.body.replaceChildren())
 async function setup() {
   let reader!: ReturnType<typeof usePlayAnywhereReader>, started: (() => void) | undefined
-  const config = { documentUrl: 'one' as string | null, active: true, playing: false,
+  const config = { documentUrl: 'one', active: true,
     playFromHere: vi.fn(async (_api: ViewerTextTargetApi, callback?: () => void): Promise<PlaybackTargetResult> => { started = callback; return { status: 'dispatched' } }),
     playFromBeginning: vi.fn(async (callback?: () => void): Promise<PlaybackTargetResult> => { started = callback; return { status: 'dispatched' } }), cancelTargetPlayback: vi.fn() }
   function Harness(props: typeof config) { const result = usePlayAnywhereReader(props); useLayoutEffect(() => { reader = result }); return null }
@@ -21,32 +21,6 @@ async function setup() {
   reader.register({ captureViewport: async () => ({ status: 'unavailable', reason: 'not-ready' }) })
   return { config, render, get reader() { return reader }, started: () => started?.(), unmount: () => act(async () => app.unmount()) }
 }
-it('keeps visual playback history through Stop, resets on close, and ignores failed starts', async () => {
-  const app = await setup()
-  try {
-    expect(app.reader.hasPlayed).toBe(false)
-    app.config.playFromHere.mockResolvedValueOnce({ status: 'unavailable', reason: 'unmapped' })
-    await act(async () => app.reader.playFromHere())
-    expect(app.reader.hasPlayed).toBe(false)
-    await act(async () => app.reader.playFromBeginning())
-    expect(app.reader.hasPlayed).toBe(false)
-    await act(async () => app.started())
-    expect(app.reader.hasPlayed).toBe(true)
-    await app.render({ active: false })
-    expect(app.reader.hasPlayed).toBe(true)
-    await app.render({ documentUrl: null, active: false })
-    await app.render({ active: false })
-    expect(app.reader.hasPlayed).toBe(false)
-    // Starts from chunk navigation or the normal player do not go through the passage callback.
-    await app.render({ playing: true })
-    await app.render({ playing: false })
-    expect(app.reader.hasPlayed).toBe(true)
-    await app.render({ documentUrl: 'two', active: false })
-    expect(app.reader.hasPlayed).toBe(false)
-  } finally {
-    await app.unmount()
-  }
-})
 it('keeps browsing independent of playback and Return reveals without dispatching audio', async () => {
   const app = await setup()
   try {

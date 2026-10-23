@@ -830,6 +830,8 @@
       "pauseTitle": "Pausa",
       "stop": "Interrompi l'audiolibro",
       "stopTitle": "Fermare",
+      "morePlaybackOptions": "Altro: opzioni di riproduzione",
+      "savedAudioSetupHint": "L’audio salvato può ancora essere riprodotto. La configurazione serve solo per generare nuovo audio.",
       "showMenu": "Mostra il menu di riproduzione",
       "hideMenu": "Nascondi il menu di riproduzione",
       "menuTitle": "Menù di riproduzione",
@@ -994,7 +996,8 @@
       "unmapped": "Impossibile associare l’audio a questo passaggio. Usa Riproduci dall’inizio o il menu audio.",
       "failed": "Impossibile preparare la riproduzione. Riprova o riproduci dall’inizio.",
       "selection": "Riproduci dalla selezione",
-      "noSelection": "Seleziona del testo in questo documento, poi usa Riproduci dalla selezione."
+      "noSelection": "Seleziona del testo in questo documento, poi usa Riproduci dalla selezione.",
+      "selectionHint": "Seleziona prima del testo."
     }
   },
   "imageIssues": {

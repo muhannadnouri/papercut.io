@@ -57,13 +57,17 @@ No storage migration, cache epoch change, or model download is planned.
 
 Use the existing button, menu, icon, focus, and responsive styling patterns.
 The primary play button needs an accessible name and tooltip. The idle floating
-shortcut is icon-only until successful playback in this document-open session;
-its accessible name still identifies the viewport/selection action. After a
-successful start, the idle shortcut and contextual popover commands retain visible
-passage labels. “Chunk” is unnecessary
+shortcut stays icon-only inside the compact reader-tools capsule, including after
+Stop; its accessible name still identifies the viewport/selection action. Labeled
+passage commands remain in Options. “Chunk” is unnecessary
 in primary UI copy. Supporting description: “Starts at the beginning of the audio
 segment containing this passage.” Keep selection, hyperlinks, and current
 fullscreen toolbar gestures working normally. No new global shortcut is needed.
+The external playback disclosure uses an icon-only ellipsis; its full accessible name is
+More playback options. Reader tools and player share a bottom edge when measured
+widths fit; otherwise the capsule stacks above the player at the same end edge.
+Existing saved audio remains playable when setup for new generation is missing;
+Save presents that setup action on a neutral tonal surface.
 
 ### Which passage counts as “here”
 
@@ -1730,6 +1734,9 @@ not an automatic merge or release. Estimated chunk-list timestamps remain separa
 
 ### 2026-10-23 — Header reflow and session-aware reader presentation
 
+The later capsule follow-up supersedes the session-dependent label and removes
+its now-unused state. This section records the preceding candidate's decisions.
+
 Owner clarification: the initial reader shortcut shows only Play for each new
 document-open session. This is presentation only: availability, viewport/selection
 targeting, canonical chunk start, Resume and Return semantics stay unchanged.
@@ -1826,6 +1833,219 @@ span validation should permit individually verified regions of a partially
 mismatched book (recommendation 3), and address the chunk list's estimated time
 labels. The conservative full-map proof and original canonical chunk indices
 remain unchanged. The DX linting branch also remains separate from this feature.
+
+### 2026-10-23 — Reader capsule and cohesive Options
+
+Owner authorized the screenshot-review recommendations: compact reader tools,
+equal passage commands, a Word Highlight switch and ordinary tonal popover
+styling. This supersedes the preceding session-dependent label expansion.
+
+Implementation and acceptance checklist:
+
+- [x] Replace the three separately elevated reader buttons with one restrained,
+  rounded horizontal capsule. Play, Bookmark and Top retain individual >=44px
+  targets at ordinary text size, names, focus and existing actions. Keep the
+  active-bookmark shape/state feedback; Top no longer has primary-action fill
+  inside this capsule. Other uses of ScrollTopButton retain their existing style.
+  Allow wrapping when enlarged text cannot fit all targets; never shrink them to
+  force a row. Saved audio still enables the idle shortcut without starting it.
+- [x] Keep Play icon-only throughout the open session and after Stop, with the
+  current viewport/selection accessible name and title. Delete `hasPlayed`, its
+  observational `playing` input, App wiring and obsolete state-specific tests.
+  Selection snapshots, stale-selection rejection, pending spinner, focus transfer
+  and active/paused shortcut availability stay unchanged. No new mode or setting.
+- [x] Give Here/Selection and Return/Beginning equal grid cells where labels fit.
+  Retain one-column reflow at narrow widths/enlarged text, full labels, icons,
+  pending/selection disabled state and existing dispatch callbacks. Return remains
+  conditional. Add a short selection hint in all eight locales; retain the more
+  detailed action-time no-selection error rather than conflating copy contracts.
+- [x] Replace Word Highlight's pressed button with a labeled native checkbox
+  exposed as a switch. Stable accessible label, checked state, Beta description,
+  whole-label pointer activation, focus and the existing immediate callback stay
+  together; no switch is nested in a button. Speed still displays its current rate
+  and reuses the existing callback; large text may wrap settings into two rows.
+- [x] Extract the existing Settings switch visuals into baseline
+  `components/AppSwitch/AppSwitch.css` and reuse them in Settings, semantic-search
+  setup and audio Options. The extraction changes no existing setting behavior.
+  Keep RTL, checked/thumb movement, focus and reduced-motion styling. Remove the
+  outlined command tiles and nested filled Playback panel; preserve ordinary
+  control fills and the Chunks/Options selector's actual selected-state styling.
+  Dock and popover share `--audio-dock-inset` so their available width accounts
+  for the actual desktop/mobile edge offset; the 900px/32px-root regression no
+  longer puts Options controls outside the viewport.
+- [x] Keep geometry ownership explicit. AudioControls publishes shell-local
+  `--reader-playback-height`, including pending/error feedback, from a layout
+  effect before capture and from a ResizeObserver for later size changes.
+  The alignment refinement below replaces unconditional clearance with a measured
+  `--reader-playback-offset` and explicit beside/stacked layout. DocumentViewer
+  measures only its own capsule for `--reader-actions-height`; it does not inspect
+  audio internals. Geometry observers/listeners are scoped and cleaned up; no
+  polling or book-text observation.
+  Long bookmark feedback is height-bounded and scrollable so enlarged text plus
+  a tall player cannot push the notice above the viewport.
+- [x] Exclude reader tools and bookmark notices from the feature adapter's
+  unobscured capture bounds. A regression caught the initial asynchronous-geometry
+  version falsely reporting stale capture; synchronously publishing committed
+  geometry restores the existing idle viewport/error-retry captures. Matching,
+  chunk identity/index, queueing, storage and native audio remain unchanged.
+- [x] Browser/unit coverage exercises real DocumentViewer tools with saved audio
+  idle/paused/loading/error and without saved audio; bookmark saving, feedback
+  clearance, measured heights, normal one-row layout, enlarged wrapping, RTL,
+  hit targets, Stop returning to an icon, and unobscured viewport bounds. Switch
+  label activation/state/focus, stable AX name/checked state and rate remain
+  covered, together with prior pointer/keyboard selection and capture regressions.
+- [x] Final validation: **633 passed, 1 existing skip, 83 files**; lint, TypeScript,
+  eight-locale validation, production frontend/native build, AppImage packaging
+  and bundled GStreamer WAV verification pass. Candidate for that pass (superseded
+  by the toolbar refinement candidate below):
+  `src-tauri/target/play-anywhere-acceptance/Papercut-play-anywhere-capsule-controls.AppImage`.
+  SHA-256 `c4f856e1701e32266d35a219d02260b905f941888caf625fba29b475ecd03481`.
+  Executable copy and frozen runtime/style/locale/test hashes match the tested
+  source; `capsule-controls-build.json` records base `438a6989` plus this uncommitted
+  pass. Prior named builds remain available; no user app or audio routing touched.
+- [ ] Owner consolidated smoke: scroll with saved audio before and after playback,
+  use Play/selection/Bookmark/Top, open existing bookmark actions, pause/browse/
+  Return, test beginning and canonical continuation, toggle Word Highlight and
+  speed, and retry after an unavailable passage. Check the capsule at the previous
+  screenshot width, light/dark, large text/RTL, actual keyboard/Space/screen reader
+  and selection handles. Owner performs all native/manual listening; automated
+  AX snapshots are not screen-reader acceptance.
+
+Removal boundary: the feature-owned shortcut/reader/capture adapters still attach
+through the existing optional App/DocumentViewer/audio props. There is less
+feature state after removing the session flag. Capsule layout and the geometry
+properties are generic reader/player presentation, and the shared switch is a
+baseline style with no feature import. They can remain after feature deletion.
+Remove the optional shortcut and passage commands through the documented seams;
+no user-data, schema, cache or native rollback is introduced.
+
+Next: consolidated owner Linux smoke, then any reported fixes and the remaining
+Stage 6/7 device/accessibility, packaged latency, baseline-removal listening and
+release-decision gates. Partial durable-span validation and estimated timestamps
+remain separate follow-ups. No automatic commit, push, merge or release.
+
+### 2026-10-23 — Aligned tools, clearer disclosure and truthful Save states
+
+Owner authorized all four refinements from the capsule screenshot review. This
+is a presentation-only follow-up; matching, source coordinates, chunk boundaries,
+resume behavior, queueing, cache records and model/runtime availability rules
+stay at their existing boundaries. Source changes remain uncommitted alongside
+the preceding capsule pass.
+
+Implementation checklist and acceptance criteria:
+
+- [x] Align the capsule and player on a common bottom edge when their actual widths
+  fit at opposite logical edges, with a 0.65em gap. If they collide, stack the
+  capsule above the measured player and align their logical end edges. Preserve
+  >=44px targets, RTL, large text, safe-area clearance and viewport bounds; no
+  fixed device-width assumption decides collision. A live resize can return from
+  stacked to beside without reopening the book.
+- [x] Keep the coordinator in baseline AudioControls: measure only the generic
+  `.reader-floating-actions` box and dock; publish shell-local
+  `data-reader-tools-layout` (`beside`/`stacked`), raw
+  `--reader-playback-height` and conditional `--reader-playback-offset`.
+  DocumentViewer owns capsule CSS and its own height measurement. It never reads
+  player internals. A layout effect publishes committed geometry before capture;
+  ResizeObserver handles dock/capsule size changes, a shallow child-list observer
+  discovers the capsule mounting after scroll, and scoped window/visual-viewport
+  resize/scroll listeners handle positioning changes. All disconnect/unsubscribe
+  and remove published state on cleanup. No polling or book-subtree observation.
+- [x] Compute the candidate opposite-edge position independently of the current
+  stacked placement to avoid a latched layout. Use measured outer-edge clearance:
+  CSSOM can resolve an `auto` fixed inset to a pixel position, so testing for the
+  string `auto` does not identify which edge the CSS anchored. Browser regression
+  covers both directions and a wide/narrow/wide transition.
+- [x] Keep bookmark feedback above the taller occupied surface even in beside
+  mode, since a notice may be wider than the capsule. Bound/scroll long notices
+  within the viewport. Stop returns the capsule to its idle edge without stale
+  player offset; pending/error-only docks still reserve their measured height.
+- [x] Remove the terminal Playback divider; keep the meaningful separator between
+  passage commands and settings. No decorative bottom rule under the switch/rate.
+- [x] Replace the external hamburger triggers with icon-only horizontal ellipsis
+  at all widths (owner follow-up removes the desktop More text). Retain full
+  localized More playback options name/title and `aria-expanded` in eight locales.
+  Use the ordinary icon-button sizing; remove label-only CSS and translation keys.
+  Keep the separate Play action, Chunks list icon, Options sliders, selection
+  snapshot, keyboard opening, Escape/focus return and panel contents. Do not add
+  ARIA menu semantics to this mixed commands/settings/chunk browser.
+- [x] Show saved-ready status as an ordinary tonal check, with the existing saved
+  accessible label and disabled/no-duplicate-save behavior. Missing model/runtime
+  takes presentation precedence: neutral tonal setup/download action plus warning
+  cue and the existing setup action label. A playable import additionally explains
+  in the title/name that saved audio can play and setup is for new generation.
+  Never combine saved-success and setup-required presentation. Preparing and
+  saving/progress retain their earlier precedence and existing callbacks.
+- [x] Keep optional passage props/shortcut seams unchanged. No new feature flag,
+  service, dependency, persistence, native code or migration. The baseline dock,
+  capsule, switch and Save improvements can remain if Play Anywhere is removed.
+- [x] Final validation: **647 passed, 1 existing skip, 83 files**, including 47
+  isolated Chromium cases; lint, TypeScript, eight locales, production frontend,
+  native release, AppImage packaging and bundled GStreamer WAV verification pass.
+  New executable candidate:
+  `src-tauri/target/play-anywhere-acceptance/Papercut-play-anywhere-toolbar-refinements.AppImage`.
+  SHA-256 `d68d86106e5595d28410300e00fca3c385d62abbb909aeb4ba58c7cae636d6e3`.
+  `toolbar-refinements-build.json` records base `438a6989`, the uncommitted
+  source/test hashes, validation and pending manual gates. Frozen hashes match
+  the verified source and copied package; earlier named candidates are preserved.
+
+Owner smoke checklist for the new candidate (all manual/native checks pending):
+
+- [ ] Open the same imported HTML audiobook without a synthesis model/runtime.
+  Play saved audio successfully; Save should be neutral with a setup/download
+  glyph and warning cue. Its tooltip should explain setup is for generation.
+  Check a saved/current setup with a model too: neutral check, truthful label,
+  no duplicate save. Verify Save progress/cancel still opens the existing flow.
+- [ ] Scroll while playing/paused at the original wide screenshot width. Bookmark
+  and Top should share the player's bottom edge when they fit. Resize down to
+  320px and enlarge text: stack at the same end edge, without overlap/clipping or
+  smaller targets. Widen again and check alignment returns; repeat in RTL/dark.
+- [ ] Open More from both the idle header and active player using pointer and
+  keyboard. Verify icon-only ellipsis, descriptive tooltip, expanded state, Escape/focus return,
+  default Chunks browsing and reachable Options. The Playback section should end
+  without a divider; Word Highlight switch and current speed still work.
+- [ ] Exercise viewport, selection, beginning, pause/resume, browse/Return and Stop
+  on the imported book. Starts remain at canonical chunk beginnings; Resume stays
+  at elapsed audio time. Retry after an unavailable passage and check bookmark
+  notices/capsule never obscure one another or invalidate a fresh capture.
+- [ ] Finish the earlier consolidated smoke plus actual screen-reader/Space,
+  selection handles, listening, packaged latency and baseline-removal checks.
+
+Proposed commit message: `fix(reader): align playback tools and clarify menu and save states`
+
+Proposed description: Group reader shortcuts into a compact capsule and align it
+with the player when measured widths permit, with a safe stack for narrow or
+large-text layouts. Use icon-only ellipsis disclosure with localized accessible names, compact passage
+commands, a shared Word Highlight switch and a clean Options surface. Give
+saved-ready status a neutral check and prioritize generation setup without
+blocking imported-audio playback. Preserve optional feature seams, capture
+and selection timing, baseline playback and save/progress callbacks. Update
+regression coverage, removal notes and the owner acceptance checklist.
+
+Next: owner consolidated Linux AppImage smoke, then reported fixes and remaining
+Stage 6/7 acceptance gates. No automatic commit, push, merge or release.
+
+### 2026-10-23 — Icon-only playback disclosure follow-up
+
+Owner prefers the ellipsis without visible More text at every width, in both
+idle header and floating player. Remove both label spans, their special sizing
+CSS and eight unused short-label translations. Keep the full More playback
+options accessible name/tooltip, expanded state, selection/focus behavior and
+existing icon-button dimensions. This supersedes the desktop text-label variant.
+The measured dock/capsule layout automatically adapts to the narrower button.
+
+- [x] Update existing header/Options browser checks to require an icon-only,
+  named disclosure across narrow/desktop, light/dark and RTL cases.
+- [x] 64 focused unit/browser checks pass, together with lint, eight locales,
+  TypeScript, frontend/native release build, AppImage packaging and bundled WAV
+  verification. Earlier full-suite result is 647 passed/1 existing skip; this
+  follow-up reran the affected component/browser suites.
+- [x] Latest candidate:
+  `src-tauri/target/play-anywhere-acceptance/Papercut-play-anywhere-icon-menu.AppImage`.
+  SHA-256 `b9a3483110c1c9f752ef7f2642bd38e259d6c8bad2e772935392ad4a4828f530`.
+  `icon-menu-build.json` records frozen source/test hashes and targeted validation.
+- [ ] Owner smoke: verify icon-only disclosure from idle header and floating player
+  at desktop/narrow widths, descriptive tooltip, keyboard opening/Escape and the
+  existing consolidated checklist. Manual native/device/listening remains pending.
 
 ## 7. Standards and design rationale
 

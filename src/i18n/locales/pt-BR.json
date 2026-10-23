@@ -830,6 +830,8 @@
       "pauseTitle": "Pausa",
       "stop": "Parar audiolivro",
       "stopTitle": "Parar",
+      "morePlaybackOptions": "Mais opções de reprodução",
+      "savedAudioSetupHint": "O áudio salvo ainda pode ser reproduzido. A configuração só é necessária para gerar novo áudio.",
       "showMenu": "Mostrar menu de reprodução",
       "hideMenu": "Ocultar menu de reprodução",
       "menuTitle": "Menu de reprodução",
@@ -994,7 +996,8 @@
       "unmapped": "Não foi possível associar o áudio a este trecho. Use Reproduzir do início ou o menu de áudio.",
       "failed": "Não foi possível preparar a reprodução. Tente novamente ou reproduza do início.",
       "selection": "Reproduzir a partir da seleção",
-      "noSelection": "Selecione um texto neste documento e use Reproduzir a partir da seleção."
+      "noSelection": "Selecione um texto neste documento e use Reproduzir a partir da seleção.",
+      "selectionHint": "Selecione um texto primeiro."
     }
   },
   "imageIssues": {

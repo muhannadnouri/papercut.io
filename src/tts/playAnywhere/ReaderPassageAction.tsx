@@ -11,7 +11,6 @@ import {
 import './ReaderPassageAction.css'
 
 interface ReaderPassageActionProps {
-  hasPlayed: boolean
   pending: boolean
   onSnapshotSelection: () => boolean
   onPlayFromHere: () => void
@@ -19,11 +18,10 @@ interface ReaderPassageActionProps {
 }
 
 /**
- * Idle-only shortcut: session history changes its label, never its target or availability.
+ * Idle-only icon shortcut; its accessible name follows the intended viewport/selection action.
  * Selection availability is presentation only; action-time source/audio validation remains authoritative.
  */
 export function ReaderPassageAction({
-  hasPlayed,
   pending,
   onSnapshotSelection,
   onPlayFromHere,
@@ -39,12 +37,6 @@ export function ReaderPassageAction({
     const root = button?.closest('.app-reader')?.querySelector<HTMLElement>('.document-view')
     if (!button || !root) return
     const doc = button.ownerDocument
-    const shell = button.closest<HTMLElement>('.app-reader')!
-    // Bookmark feedback sits above this rail; account for translated labels wrapping at large text.
-    const fitNotice = () => shell.style.setProperty('--reader-passage-action-height', button.getBoundingClientRect().height + 'px')
-    fitNotice()
-    const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(fitNotice) : undefined
-    resize?.observe(button)
     const update = () => {
       // Control focus may collapse native selection; preserve its advertised action until focus leaves.
       if (doc.activeElement === button) return
@@ -59,8 +51,6 @@ export function ReaderPassageAction({
     return () => {
       doc.removeEventListener('selectionchange', update)
       button.removeEventListener('blur', update)
-      resize?.disconnect()
-      shell.style.removeProperty('--reader-passage-action-height')
       // Starting audio removes this idle shortcut; transfer keyboard focus to the resulting player.
       if (doc.activeElement === button) queueMicrotask(() => {
         if (root.isConnected && doc.activeElement === doc.body) {
@@ -84,7 +74,7 @@ export function ReaderPassageAction({
 
   return (
     <button ref={buttonRef} type="button"
-      className={'reader-passage-action' + (hasPlayed ? '' : ' reader-passage-action-initial')}
+      className="reader-passage-action"
       aria-label={label} title={label}
       disabled={pending} aria-busy={pending} onPointerDown={snapshot} onClick={play}>
       {pending ? <span className="spinner" aria-hidden="true" /> : (
@@ -92,7 +82,6 @@ export function ReaderPassageAction({
           <path d="M8 5v14l11-7z" />
         </svg>
       )}
-      {hasPlayed && <span>{label}</span>}
     </button>
   )
 }

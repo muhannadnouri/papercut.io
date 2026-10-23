@@ -115,6 +115,20 @@ export function DocumentViewer({
   const [pdfFullscreen, setPdfFullscreen] = useState(false)
   const [pdfToolbarVisible, setPdfToolbarVisible] = useState(true)
   const [showScrollTop, setShowScrollTop] = useState(false)
+  useEffect(() => {
+    const shell = readerShellRef.current
+    const actions = shell?.querySelector<HTMLElement>('.reader-floating-actions')
+    if (!shell || !actions) return
+    // Enlarged text can wrap the capsule; keep bookmark feedback above its measured height.
+    const fit = () => shell.style.setProperty('--reader-actions-height', actions.getBoundingClientRect().height + 'px')
+    fit()
+    const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null
+    resize?.observe(actions)
+    return () => {
+      resize?.disconnect()
+      shell.style.removeProperty('--reader-actions-height')
+    }
+  }, [showScrollTop])
   const [pendingExternalUrl, setPendingExternalUrl] = useState<string | null>(null)
   const [externalLinkError, setExternalLinkError] = useState('')
   const { applyingFontFamily, readerSettingsStyle, readerSettingsProps } = useReaderSettings()

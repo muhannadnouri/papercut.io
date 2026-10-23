@@ -822,6 +822,8 @@
       "pauseTitle": "Pause",
       "stop": "Stop audiobook",
       "stopTitle": "Stop",
+      "morePlaybackOptions": "More playback options",
+      "savedAudioSetupHint": "Saved audio can still play. Setup is only needed to generate new audio.",
       "showMenu": "Show playback menu",
       "hideMenu": "Hide playback menu",
       "menuTitle": "Playback menu",
@@ -983,7 +985,8 @@
       "unmapped": "Audio could not be matched to this passage. Use Play from beginning or the audio menu.",
       "failed": "Unable to prepare playback. Try again, or play from beginning.",
       "selection": "Play from selection",
-      "noSelection": "Select text in this document, then use Play from selection."
+      "noSelection": "Select text in this document, then use Play from selection.",
+      "selectionHint": "Select text first."
     }
   },
   "imageIssues": {

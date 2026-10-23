@@ -1,20 +1,15 @@
-.reader-floating-actions:has(.reader-passage-action) {
-  align-items: flex-end;
-}
-.app-reader:has(.reader-passage-action) .reader-bookmark-notice {
-  bottom: calc(9.1rem + var(--reader-passage-action-height, 2.85rem) + 0.65rem + env(safe-area-inset-bottom));
-}
 .reader-passage-action {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  min-height: 2.85rem;
-  max-width: min(14rem, calc(100vw - 2rem));
-  padding: 0.55rem 0.7rem;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  padding: 0;
   border: 1px solid transparent;
-  border-radius: var(--radius-control);
-  background: var(--control-surface);
-  color: var(--text-body);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--accent-text);
   font: inherit;
   font-size: 0.8rem;
   font-weight: 600;
@@ -29,14 +24,6 @@
   height: 1.28rem;
   flex-shrink: 0;
   fill: currentcolor;
-}
-.reader-passage-action-initial {
-  justify-content: center;
-  width: 2.85rem;
-  height: 2.85rem;
-  padding: 0;
-  border-radius: var(--radius-surface);
-  color: var(--accent-text);
 }
 .reader-passage-action:focus-visible {
   outline: 2px solid var(--accent-text);

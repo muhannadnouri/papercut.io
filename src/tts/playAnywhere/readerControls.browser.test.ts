@@ -32,25 +32,38 @@ beforeAll(async () => {
     import {readerTextViewport} from ${JSON.stringify(resolve('src/tts/playAnywhere/htmlTextTarget.ts'))};
     import {createTextTargetPreparation} from ${JSON.stringify(resolve('src/tts/playAnywhere/prepareTextTarget.ts'))};
     import {chunkAudiobookSaveHtmlWithSpans} from ${JSON.stringify(resolve('src/tts/utils/text.ts'))};
-    export async function mountHeader(locale) {
+    export const viewport = readerTextViewport;
+    export async function mountHeader(locale, tools=false, playbackStatus='idle', savedAudio=true, missingSetup=false) {
       await i18n.changeLanguage(locale);
       document.documentElement.dir=locale==='ar'?'rtl':'ltr';
       const noop=()=>{};
       const saved={id:'saved',documentUrl:'fixture.html',title:'Fixture',voice:'af_heart',speed:1,modelId:'kokoro',textPreprocessor:'none',dtype:'int8',savedAt:0,chunks:2};
-      createRoot(document.getElementById('header-fixture')).render(<DocumentViewer
-        url="fixture.html" content="<p>Synthetic header layout.</p>" onClose={()=>{window.backRequested=true}}
+      function Reader() {
+        const [status, setStatus] = React.useState(playbackStatus);
+        React.useEffect(() => {
+          window.setReaderStatus = setStatus;
+          return () => { delete window.setReaderStatus; };
+        }, []);
+        const active = ['playing','paused','loading'].includes(status);
+        return <DocumentViewer
+        url="fixture.html" content={tools?'<p>Synthetic reader text remains readable while its tools stay compact.</p>'.repeat(60):'<p>Synthetic header layout.</p>'}
+        className={active?'app-audio-floating':''}
+        floatingControls={tools && savedAudio && !active ? <ReaderPassageAction pending={false} onSnapshotSelection={()=>false} onPlayFromHere={noop} onPlayFromSelection={noop}/> : undefined}
+        onClose={()=>{window.backRequested=true}}
         appControls={<button className="app-settings-btn" aria-label="Settings">⚙</button>}
         headerControls={<AudioControls
           audiobookState={{status:'saved',complete:true,cachedChunks:2,totalChunks:2}}
-          canPlayAudiobook canSaveAudiobook={false} canSkipBackward={false} canSkipForward
-          modelSetupLabel={null} saveInProgress={false}
+          canPlayAudiobook={savedAudio} canSaveAudiobook={false} canSkipBackward={false} canSkipForward
+          modelSetupLabel={missingSetup?i18n.t('tts.controls.modelRequired'):null} saveInProgress={false}
           onManageSave={noop} onPause={noop} onRead={noop} onResume={noop} onSelectSavedAudiobook={noop}
-          onJumpToChunk={noop} onPlaybackRateChange={noop} onOpenAudioSetup={noop} onSave={noop}
+          onJumpToChunk={noop} onPlaybackRateChange={noop} onOpenAudioSetup={()=>{window.setupRequested=true}} onSave={noop}
           onSkipBackward={noop} onSkipForward={noop} onStop={noop} onWordHighlightEnabledChange={noop}
-          playbackRate={1} savedAudiobooks={[saved]} selectedAudiobookId="saved" wordHighlightEnabled
-          ttsState={{status:'idle',message:'',chunksTotal:2,chunksPlayed:0,currentChunkIndex:null,currentChunkProgress:0,currentChunkDuration:0,chunkSummaries:[]}}
-          playAnywhere={{browsing:false,pending:false,feedback:null,onPlayFromHere:noop,onPlayFromBeginning:noop,onReturnToAudio:noop}} />}
-      />);
+          playbackRate={1} savedAudiobooks={savedAudio?[saved]:[]} selectedAudiobookId="saved" wordHighlightEnabled
+          ttsState={{status,message:status==='error'?'Synthetic audio failure that remains visible for recovery.':'',chunksTotal:2,chunksPlayed:0,currentChunkIndex:null,currentChunkProgress:0,currentChunkDuration:0,chunkSummaries:[]}}
+          playAnywhere={{browsing:false,pending:false,feedback:null,onPlayFromHere:()=>{window.playRequested=true},onPlayFromBeginning:noop,onReturnToAudio:noop}} />}
+      />;
+      }
+      createRoot(document.getElementById('header-fixture')).render(<Reader/>);
     }
     export async function mount(locale,captureMode=false,playbackStatus='idle',legacy=false,priorFeedback=null) {
       await i18n.changeLanguage(locale);document.documentElement.dir=locale==='ar'?'rtl':'ltr';
@@ -68,9 +81,9 @@ beforeAll(async () => {
         return target.status==='resolved'?{status:'dispatched'}:target;
       };
       function Controls(){
-        const [sample,setSample]=React.useState({index:18,status:'paused',pending:false,feedback:'unmapped',message:''});
+        const [sample,setSample]=React.useState({index:18,status:'paused',pending:false,feedback:'unmapped',message:'',highlight:true,rate:1});
         React.useEffect(()=>{window.updateControls=patch=>setSample(value=>({...value,...patch}));return()=>{delete window.updateControls}},[]);
-        const reader=usePlayAnywhereReader({documentUrl:'fixture',active:!captureMode||playbackStatus!=='idle',playing:captureMode?playbackStatus==='playing':sample.status==='playing',playFromHere,playFromBeginning:async()=>({status:'dispatched'}),cancelTargetPlayback:noop});
+        const reader=usePlayAnywhereReader({documentUrl:'fixture',active:!captureMode||playbackStatus!=='idle',playFromHere,playFromBeginning:async()=>({status:'dispatched'}),cancelTargetPlayback:noop});
         const contentRef=React.useRef(null);
         const viewport=React.useCallback(()=>readerTextViewport(shell),[]);
         const register=React.useCallback(api=>{reader.register(api);if(api)window.captureReady=true},[reader.register]);
@@ -79,13 +92,13 @@ beforeAll(async () => {
           const unbind=bindSelectionIntent(shell,reader.selectionActions);if(playbackStatus!=='idle')reader.browse();
           return unbind;
         },[]);
-        return <>{captureMode&&playbackStatus==='idle'&&createPortal(<div className="reader-floating-actions"><ReaderPassageAction hasPlayed={reader.hasPlayed} pending={reader.pending} onSnapshotSelection={reader.snapshotSelection} onPlayFromHere={reader.playFromHere} onPlayFromSelection={reader.playFromSelection}/><button className="reader-bookmark-btn">Bookmark</button><button className="scroll-top-btn">Top</button></div>,shell)}{captureMode&&createPortal(<HtmlViewer url="fixture" content={content} contentRef={contentRef} onTextTargetApiChange={register} getTextTargetViewport={viewport} audioFollowPolicy={reader.followPolicy}/>,surface)}<AudioControls
+        return <>{captureMode&&playbackStatus==='idle'&&createPortal(<div className="reader-floating-actions"><ReaderPassageAction pending={reader.pending} onSnapshotSelection={reader.snapshotSelection} onPlayFromHere={reader.playFromHere} onPlayFromSelection={reader.playFromSelection}/><button className="reader-bookmark-btn">Bookmark</button><button className="scroll-top-btn">Top</button></div>,shell)}{captureMode&&createPortal(<HtmlViewer url="fixture" content={content} contentRef={contentRef} onTextTargetApiChange={register} getTextTargetViewport={viewport} audioFollowPolicy={reader.followPolicy}/>,surface)}<AudioControls
         audiobookState={{status:'saved',complete:true,cachedChunks:2,totalChunks:2}}
         canPlayAudiobook canSaveAudiobook={false} canSkipBackward canSkipForward modelSetupLabel={null} saveInProgress={false}
         onManageSave={noop} onPause={noop} onRead={noop} onResume={noop} onSelectSavedAudiobook={noop}
-        onJumpToChunk={noop} onPlaybackRateChange={rate=>{window.rateRequested=rate}} onOpenAudioSetup={noop} onSave={noop}
-        onSkipBackward={noop} onSkipForward={noop} onStop={noop} onWordHighlightEnabledChange={noop}
-        playbackRate={1} savedAudiobooks={[]} selectedAudiobookId={null} wordHighlightEnabled
+        onJumpToChunk={noop} onPlaybackRateChange={rate=>{window.rateRequested=rate;setSample(value=>({...value,rate}))}} onOpenAudioSetup={noop} onSave={noop}
+        onSkipBackward={noop} onSkipForward={noop} onStop={noop} onWordHighlightEnabledChange={highlight=>{window.highlightRequested=highlight;setSample(value=>({...value,highlight}))}}
+        playbackRate={sample.rate} savedAudiobooks={[]} selectedAudiobookId={null} wordHighlightEnabled={sample.highlight}
         ttsState={{status:captureMode?playbackStatus:sample.status,message:sample.message,chunksTotal:captureMode?2:184,chunksPlayed:0,currentChunkIndex:captureMode?0:sample.index,currentChunkProgress:0,currentChunkDuration:0,chunkSummaries:captureMode?[]:Array.from({length:184},(_,index)=>({index,chunkId:'fixture-'+index,textPreview:'Synthetic narrated passage '+(index+1)+' with several readable words.'}))}}
         playAnywhere={captureMode?{...reader,feedback:reader.feedback??priorFeedback,onPlayFromHere:reader.playFromHere,onPlayFromBeginning:reader.playFromBeginning,onReturnToAudio:reader.returnToAudio,onSnapshotSelection:reader.snapshotSelection,onPlayFromSelection:reader.playFromSelection,onSelectionMenuClose:reader.clearSelection}:{browsing:true,pending:sample.pending,feedback:sample.feedback,onPlayFromHere:noop,onPlayFromBeginning:noop,onReturnToAudio:noop,onPlayFromSelection:noop,onSnapshotSelection:()=>false}} /></>;
       }
@@ -102,6 +115,39 @@ beforeAll(async () => {
 }, 30_000)
 afterAll(() => { if (directory) rmSync(directory, { recursive: true, force: true }) })
 describe.skipIf(!browser)('Reader controls in Chromium', () => {
+  it.each([
+    { width: 620, locale: 'en', setup: true },
+    { width: 620, locale: 'en', setup: false },
+    { width: 320, locale: 'ar', setup: true },
+  ])('uses tonal Save status with setup precedence without blocking imported playback: %j', async ({ width, locale, setup }) => {
+    const frame = join(directory, 'save-states.html')
+    writeFileSync(frame, `<!doctype html><html data-theme="${locale === 'ar' ? 'dark' : 'light'}"><meta charset="utf-8"><style>${css}body{margin:0}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async()=>{
+        await ReaderControls.mountHeader(${JSON.stringify(locale)},false,'idle',true,${setup});
+        while(!document.querySelector('.audio-menu-btn'))await new Promise(requestAnimationFrame);
+        const save=document.querySelector('.audio-compact-row > button:last-child');
+        const more=document.querySelector('.audio-menu-btn');
+        const result={
+          setup:save.classList.contains('audio-setup-required'),saved:save.classList.contains('audio-save-complete'),
+          tonal:getComputedStyle(save).backgroundColor===getComputedStyle(more).backgroundColor,
+          label:save.getAttribute('aria-label'),title:save.title,disabled:save.disabled,
+          iconOnly:more.textContent.trim()==='' && Boolean(more.querySelector('svg[aria-hidden="true"]')),
+          named:Boolean(more.getAttribute('aria-label')) && more.title===more.getAttribute('aria-label'),
+        };
+        save.click();
+        document.querySelector('.audio-primary-btn').click();
+        result.setupRequested=Boolean(window.setupRequested);
+        result.playRequested=Boolean(window.playRequested);
+        parent.postMessage({type:'capture-result',result},'*');
+      })();</script>`)
+    const result = await runBrowserFixture(directory, frame, width,
+      resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `save-${width}-${locale}-${setup}.png`))
+    expect(result).toMatchObject({ setup, saved: !setup, tonal: true, disabled: !setup, setupRequested: setup, playRequested: true, iconOnly: true, named: true })
+    expect(result.label).toBe(result.title)
+    if (locale === 'en' && setup) expect(result.label).toContain('Saved audio can still play.')
+  }, 30_000)
+
   it.each([
     { width: 320, font: 16, locale: 'en' },
     { width: 453, font: 16, locale: 'en' },
@@ -145,9 +191,14 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     }
   }, 30_000)
 
-  it.each(['en', 'ar'])('groups labeled settings with a compact rate and view icons at 320px (%s)', async locale => {
+  it.each([
+    { width: 320, font: 16, locale: 'en' },
+    { width: 320, font: 16, locale: 'ar' },
+    { width: 620, font: 16, locale: 'en' },
+    { width: 900, font: 32, locale: 'en' },
+  ])('groups the switch and compact rate with consistent Options styling: %j', async ({ width, font, locale }) => {
     const frame = join(directory, 'compact-options.html')
-    writeFileSync(frame, `<!doctype html><html data-theme="${locale === 'ar' ? 'dark' : 'light'}"><meta charset="utf-8"><style>${css}body{margin:0}</style>
+    writeFileSync(frame, `<!doctype html><html data-theme="${locale === 'ar' ? 'dark' : 'light'}"><meta charset="utf-8"><style>${css}html{font-size:${font}px}body{margin:0}</style>
       <div class="app-reader"><header class="doc-header"><div id="controls"></div></header><main class="document-view"><p>Fixture text.</p></main></div>
       <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
       (async () => {
@@ -166,15 +217,166 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
         menu.scrollTop = menu.scrollHeight;
         await new Promise(requestAnimationFrame);
         const a = toggle.getBoundingClientRect(), b = speed.getBoundingClientRect();
-        parent.postMessage({type:'capture-result',result:{icons, rate:speed.textContent, rateName:speed.getAttribute('aria-label'), sameRow:Math.abs(a.top-b.top)<1, heights:[a.height,b.height], bounds:[a.left,a.right,b.left,b.right], pressed:toggle.getAttribute('aria-pressed')}}, '*');
+        const input = toggle.querySelector('input');
+        const name = input.getAttribute('aria-label');
+        toggle.click();
+        while (input.checked) await new Promise(requestAnimationFrame);
+        const changed = window.highlightRequested === false && input.getAttribute('aria-label') === name;
+        input.focus();
+        const focused = document.activeElement === input;
+        toggle.click();
+        while (!input.checked) await new Promise(requestAnimationFrame);
+        parent.postMessage({type:'capture-result',result:{icons, changed, focused, name, rate:speed.textContent, rateName:speed.getAttribute('aria-label'), sameRow:Math.abs(a.top-b.top)<1, heights:[a.height,b.height], bounds:[a.left,a.right,b.left,b.right], checked:input.checked, terminalBorder:getComputedStyle(toggle.closest('.audio-chunk-menu-header')).borderBottomWidth, moreName:document.querySelector('.audio-menu-btn').getAttribute('aria-label'), iconOnly:document.querySelector('.audio-menu-btn').textContent.trim() === ''}}, '*');
       })();</script>`)
-    const result = await runBrowserFixture(directory, frame, 320,
-      resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `compact-options-320-${locale}.png`))
-    expect(result).toMatchObject({ icons: true, rate: '1x', sameRow: true, pressed: 'true' })
+    const axPath = resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `options-${width}-${font}-${locale}-ax.json`)
+    const result = await runBrowserFixture(directory, frame, width,
+      resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `options-${width}-${font}-${locale}.png`), axPath)
+    expect(result).toMatchObject({ icons: true, changed: true, focused: true, rate: '1x', sameRow: true, checked: true })
     expect(result.rateName).toBeTruthy()
+    expect(result.terminalBorder).toBe('0px')
+    expect(result.moreName).toBeTruthy()
+    expect(result.iconOnly).toBe(true)
     expect(Math.min(...result.heights)).toBeGreaterThanOrEqual(44)
     expect(Math.min(...result.bounds)).toBeGreaterThanOrEqual(0)
-    expect(Math.max(...result.bounds)).toBeLessThanOrEqual(320)
+    expect(Math.max(...result.bounds)).toBeLessThanOrEqual(width)
+    const tree = JSON.parse(readFileSync(axPath, 'utf8'))
+    const control = tree.nodes.find((node: { ignored: boolean; role?: { value: string } }) => !node.ignored && node.role?.value === 'switch')
+    expect(control?.name?.value).toBe(result.name)
+    expect(control?.properties?.find((property: { name: string }) => property.name === 'checked')?.value?.value).toBe('true')
+  }, 30_000)
+
+  it.each([
+    { width: 320, font: 16, locale: 'en', status: 'idle', saved: true },
+    { width: 320, font: 32, locale: 'en', status: 'idle', saved: true },
+    { width: 320, font: 16, locale: 'en', status: 'paused', saved: true },
+    { width: 1600, font: 16, locale: 'en', status: 'paused', saved: true },
+    { width: 1600, font: 16, locale: 'ar', status: 'paused', saved: true },
+    { width: 900, font: 32, locale: 'en', status: 'paused', saved: true },
+    { width: 390, font: 32, locale: 'ar', status: 'loading', saved: true },
+    { width: 320, font: 32, locale: 'en', status: 'error', saved: true },
+    { width: 390, font: 16, locale: 'ar', status: 'idle', saved: false },
+  ])('keeps real reader tools and bookmark feedback clear of playback: %j', async ({ width, font, locale, status, saved }) => {
+    const frame = join(directory, 'reader-capsule.html')
+    writeFileSync(frame, `<!doctype html><html data-theme="${locale === 'ar' ? 'dark' : 'light'}"><meta charset="utf-8"><style>${css}html{font-size:${font}px}body{margin:0}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async () => {
+        // Each case uses the same synthetic file origin; an earlier saved bookmark must not change this action into a menu.
+        localStorage.clear();
+        await ReaderControls.mountHeader(${JSON.stringify(locale)}, true, ${JSON.stringify(status)}, ${saved});
+        while (!window.setReaderStatus || !document.querySelector('.document-html-content p')) await new Promise(requestAnimationFrame);
+        await document.fonts.ready;
+        await new Promise(requestAnimationFrame);
+        scrollTo(0, 600);
+        while (!document.querySelector('.reader-floating-actions')) await new Promise(requestAnimationFrame);
+        document.querySelector('.reader-bookmark-btn').click();
+        while (!document.querySelector('.reader-bookmark-notice')) await new Promise(requestAnimationFrame);
+        await new Promise(requestAnimationFrame);
+        await new Promise(requestAnimationFrame);
+        const shell = document.querySelector('.app-reader');
+        const rail = document.querySelector('.reader-floating-actions');
+        const rect = element => {
+          const r = element.getBoundingClientRect();
+          return {left:r.left, right:r.right, top:r.top, bottom:r.bottom, width:r.width, height:r.height};
+        };
+        const tools = [...rail.querySelectorAll('button')];
+        const boxes = tools.map(rect);
+        const dock = document.querySelector('.audio-playback-dock');
+        const result = {
+          rail:rect(rail), boxes, notice:rect(document.querySelector('.reader-bookmark-notice')),
+          dock:rect(dock), layout:shell.dataset.readerToolsLayout, count:tools.length, named:tools.every(button => button.getAttribute('aria-label')),
+          reachable:tools.every(button => {
+            const r = button.getBoundingClientRect();
+            return document.elementFromPoint(r.x+r.width/2, r.y+r.height/2)?.closest('button') === button;
+          }),
+          mutedTop:getComputedStyle(rail.querySelector('.scroll-top-btn')).backgroundColor === 'rgba(0, 0, 0, 0)',
+          measured:parseFloat(shell.style.getPropertyValue('--reader-actions-height')),
+          viewport:ReaderControls.viewport(shell),
+        };
+        if (${saved} && ${JSON.stringify(status)} !== 'idle') {
+          window.setReaderStatus('idle');
+          while (!document.querySelector('.reader-passage-action')) await new Promise(requestAnimationFrame);
+          await new Promise(requestAnimationFrame);
+          await new Promise(requestAnimationFrame);
+          result.stoppedIconOnly = document.querySelector('.reader-passage-action').textContent === '';
+          window.setReaderStatus(${JSON.stringify(status)});
+          while (document.querySelector('.audio-floating-playback') === null && ${JSON.stringify(status)} !== 'error') await new Promise(requestAnimationFrame);
+          await new Promise(requestAnimationFrame);
+          await new Promise(requestAnimationFrame);
+        }
+        parent.postMessage({type:'capture-result', result}, '*');
+      })();</script>`)
+    const result = await runBrowserFixture(directory, frame, width,
+      resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `capsule-${width}-${font}-${locale}-${status}-${saved}.png`))
+    expect(result).toMatchObject({ named: true, reachable: true, mutedTop: true })
+    expect(result.count).toBe(saved && ['idle', 'error'].includes(status) ? 3 : 2)
+    expect(result.rail.left).toBeGreaterThanOrEqual(0)
+    expect(result.rail.right).toBeLessThanOrEqual(width)
+    expect(result.rail.top).toBeGreaterThanOrEqual(0)
+    expect(result.notice.top).toBeGreaterThanOrEqual(0)
+    expect(result.notice.bottom).toBeLessThanOrEqual(result.rail.top)
+    expect(result.measured).toBeCloseTo(result.rail.height, 1)
+    if (font === 16) expect(result.viewport).not.toBeNull()
+    if (result.viewport) {
+      for (const control of [result.rail, result.notice, result.dock]) {
+        if (control.height > 0) expect(result.viewport.bottom <= control.top || result.viewport.top >= control.bottom).toBe(true)
+      }
+    }
+    if (result.dock.height > 0) {
+      if (result.layout === 'beside') {
+        expect(result.rail.bottom).toBeCloseTo(result.dock.bottom, 1)
+        expect(result.rail.right <= result.dock.left || result.rail.left >= result.dock.right).toBe(true)
+      } else {
+        expect(result.layout).toBe('stacked')
+        expect(result.rail.bottom).toBeLessThanOrEqual(result.dock.top)
+        expect(locale === 'ar' ? result.rail.left : result.rail.right).toBeCloseTo(locale === 'ar' ? result.dock.left : result.dock.right, 1)
+      }
+    }
+    if (width === 1600 && font === 16) expect(result.layout).toBe('beside')
+    if (saved && status !== 'idle') expect(result.stoppedIconOnly).toBe(true)
+    for (const box of result.boxes) {
+      expect(box.width).toBeGreaterThanOrEqual(44)
+      expect(box.height).toBeGreaterThanOrEqual(44)
+    }
+    if (font === 16) expect(Math.max(...result.boxes.map((box: { top: number }) => box.top)) - result.boxes[0].top).toBeLessThan(1)
+  }, 30_000)
+
+  it.each(['en', 'ar'])('recalculates shared-edge layout after live resize and cleans up on Stop: %s', async locale => {
+    const child = join(directory, 'live-layout-child.html')
+    writeFileSync(child, `<!doctype html><html><meta charset="utf-8"><style>${css}body{margin:0}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script>
+      <script>localStorage.clear();ReaderControls.mountHeader(${JSON.stringify(locale)},true,'paused');</script>`)
+    const frame = join(directory, 'live-layout.html')
+    writeFileSync(frame, `<!doctype html><html><style>body{margin:0}iframe{border:0;height:600px}</style>
+      <iframe src="live-layout-child.html" width="1280"></iframe><script>
+      (async()=>{
+        const frame=document.querySelector('iframe');
+        while(!frame.contentWindow?.setReaderStatus)await new Promise(requestAnimationFrame);
+        const view=frame.contentWindow, doc=view.document;
+        view.scrollTo(0,600);
+        while(!doc.querySelector('.reader-floating-actions'))await new Promise(requestAnimationFrame);
+        const layouts=[];
+        for(const width of [1280,320,1280]){
+          frame.width=width;
+          for(let i=0;i<5;i++)await new Promise(requestAnimationFrame);
+          const shell=doc.querySelector('.app-reader'), rail=doc.querySelector('.reader-floating-actions').getBoundingClientRect(), dock=doc.querySelector('.audio-playback-dock').getBoundingClientRect();
+          layouts.push({width,mode:shell.dataset.readerToolsLayout,bottom:rail.bottom,playerBottom:dock.bottom,top:dock.top,left:rail.left,right:rail.right});
+        }
+        view.setReaderStatus('idle');
+        while(!doc.querySelector('.reader-passage-action'))await new Promise(requestAnimationFrame);
+        for(let i=0;i<3;i++)await new Promise(requestAnimationFrame);
+        const shell=doc.querySelector('.app-reader');
+        parent.postMessage({type:'capture-result',result:{layouts,modeAfterStop:shell.dataset.readerToolsLayout??null,offsetAfterStop:shell.style.getPropertyValue('--reader-playback-offset')}},'*');
+      })();</script>`)
+    const result = await runBrowserFixture(directory, frame, 1280)
+    expect(result.layouts.map((layout: { mode: string }) => layout.mode)).toEqual(['beside', 'stacked', 'beside'])
+    for (const layout of result.layouts) {
+      expect(layout.left).toBeGreaterThanOrEqual(0)
+      expect(layout.right).toBeLessThanOrEqual(layout.width)
+      if (layout.mode === 'beside') expect(layout.bottom).toBeCloseTo(layout.playerBottom, 1)
+      else expect(layout.bottom).toBeLessThanOrEqual(layout.top)
+    }
+    expect(result.modeAfterStop).toBeNull()
+    expect(result.offsetAfterStop).toBe('0px')
   }, 30_000)
 
   it.each([{width:320,font:16,locale:'en'}, {width:390,font:32,locale:'ar'}, {width:1280,font:32,locale:'fr'}])('keeps browse/return controls usable outside the hidden fullscreen header: %j', async ({width,font,locale}) => {
@@ -214,7 +416,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       const rect=e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,height:r.height,width:r.width}};
       const initial=actions.map(rect),bounds=rect(menu);
       let reachable=true;
-      for(const button of [...actions,menu.querySelector('.audio-word-highlight-toggle')]){
+      for(const button of [...actions,menu.querySelector('.audio-word-highlight-toggle input')]){
         button.scrollIntoView({block:'nearest'});const r=rect(button),m=rect(menu);
         reachable&&=r.top>=m.top&&r.bottom<=m.bottom&&r.left>=m.left&&r.right<=m.right;
       }
@@ -235,7 +437,11 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     expect(result).toMatchObject({ disabled: true, icons: true, escaped: true, focusVisible: true, inlineReturn: true, defaultChunks: true })
     expect(result.listHeight / result.menuHeight).toBeGreaterThan(font === 16 ? 0.75 : 0.5)
     for (const button of result.initial) expect(button.height).toBeGreaterThanOrEqual(44)
-    if (width === 620) expect(Math.abs(result.initial[1].top-result.initial[2].top)).toBeLessThan(1)
+    if (width === 620) {
+      expect(Math.abs(result.initial[0].top-result.initial[1].top)).toBeLessThan(1)
+      expect(Math.abs(result.initial[2].top-result.initial[3].top)).toBeLessThan(1)
+      expect(result.initial[2].top).toBeGreaterThan(result.initial[0].top)
+    }
     if (font === 32 && width === 390) expect(result.initial[2].top).toBeGreaterThan(result.initial[1].top)
   }, 30_000)
   it.each(['en', 'ar'])('keeps six usable transport targets together at 320px (%s)', async locale => {
@@ -441,14 +647,14 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       scrollTo(0,600);const text=document.querySelectorAll('article p')[10].firstChild;document.getSelection().setBaseAndExtent(text,25,text,5);document.dispatchEvent(new Event('selectionchange'));
       await document.fonts.ready;await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
       const button=document.querySelector('.reader-passage-action'),r=button.getBoundingClientRect(),rail=document.querySelector('.reader-floating-actions').getBoundingClientRect(),notice=document.querySelector('.reader-bookmark-notice').getBoundingClientRect();
-      parent.postMessage({type:'capture-result',result:{left:r.left,right:r.right,width:r.width,height:r.height,initial:button.classList.contains('reader-passage-action-initial'),name:button.getAttribute('aria-label'),label:button.textContent,railTop:rail.top,noticeBottom:notice.bottom}},'*');})();</script>`)
+      parent.postMessage({type:'capture-result',result:{left:r.left,right:r.right,width:r.width,height:r.height,name:button.getAttribute('aria-label'),label:button.textContent,railTop:rail.top,noticeBottom:notice.bottom}},'*');})();</script>`)
     const result = await runBrowserFixture(directory, frame, width,
       resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `reader-shortcut-${width}-${locale}.png`))
     expect(result.left).toBeGreaterThanOrEqual(0)
     expect(result.right).toBeLessThanOrEqual(width)
     expect(result.height).toBeGreaterThanOrEqual(44)
     expect(result.width).toBeCloseTo(result.height, 1)
-    expect(result).toMatchObject({ initial: true, label: '' })
+    expect(result).toMatchObject({ label: '' })
     expect(result.name).toBeTruthy()
     expect(result.noticeBottom).toBeLessThanOrEqual(result.railTop)
   }, 30_000)

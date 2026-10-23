@@ -172,7 +172,6 @@ function App() {
   const readerPlayback = usePlayAnywhereReader({
     documentUrl: selectedDoc,
     active: hasFloatingAudioControls || audioControlsProps.ttsState.currentChunkIndex !== null,
-    playing: audioControlsProps.ttsState.status === 'playing',
     playFromHere: audiobook.playFromHere,
     playFromBeginning: audiobook.playFromBeginning,
     cancelTargetPlayback: audiobook.cancelTargetPlayback,
@@ -512,7 +511,6 @@ function App() {
             )}
             floatingControls={audioControlsProps.canPlayAudiobook && !hasFloatingAudioControls ? (
               <ReaderPassageAction
-                hasPlayed={readerPlayback.hasPlayed}
                 pending={readerPlayback.pending}
                 onSnapshotSelection={readerPlayback.snapshotSelection}
                 onPlayFromHere={readerPlayback.playFromHere}

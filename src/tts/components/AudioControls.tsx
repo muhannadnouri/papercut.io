@@ -18,6 +18,7 @@ import type { SavedAudiobookRecord } from '../storage/AudiobookLibrary'
 import { formatSpeedLabel } from '../utils/format'
 import { SavedAudiobooksMenu } from './SavedAudiobooksMenu'
 import './AudioControls.css'
+import '../../components/AppSwitch/AppSwitch.css'
 
 interface AudioControlsProps {
   playAnywhere?: {
@@ -61,7 +62,23 @@ interface AudioControlsProps {
   wordHighlightEnabled: boolean
 }
 
-type AudioIconName = 'play' | 'pause' | 'resume' | 'stop' | 'back' | 'forward' | 'save' | 'menu' | 'options' | 'passage' | 'selection' | 'beginning' | 'return'
+type AudioIconName =
+  | 'play'
+  | 'pause'
+  | 'resume'
+  | 'stop'
+  | 'back'
+  | 'forward'
+  | 'save'
+  | 'saved'
+  | 'setup'
+  | 'more'
+  | 'menu'
+  | 'options'
+  | 'passage'
+  | 'selection'
+  | 'beginning'
+  | 'return'
 const PLAYBACK_RATE_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3]
 
 export function AudioControls({
@@ -181,6 +198,58 @@ export function AudioControls({
             : playAnywhere.feedback === 'failed' ? 'tts.playAnywhere.failed' : 'tts.playAnywhere.unmapped')
   }
 
+  useLayoutEffect(() => {
+    const dock = dockRef.current
+    const shell = controlsRef.current?.closest<HTMLElement>('.app-reader')
+    const view = dock?.ownerDocument.defaultView
+    if (!dock || !shell || !view) return
+    let actions: HTMLElement | null = null
+    const resize = typeof view.ResizeObserver === 'function' ? new view.ResizeObserver(() => fit()) : null
+    /** Compare the opposite-edge candidate, not the stacked position, so resizing can restore a shared bottom edge. */
+    const fit = () => {
+      const nextActions = shell.querySelector<HTMLElement>('.reader-floating-actions')
+      if (actions !== nextActions) {
+        if (actions) resize?.unobserve(actions)
+        actions = nextActions
+        if (actions) resize?.observe(actions)
+      }
+      const bounds = dock.getBoundingClientRect()
+      const style = view.getComputedStyle(shell)
+      const gap = parseFloat(style.fontSize) * 0.65
+      let beside = false
+      if (showFloatingPlayback && actions) {
+        const actionBounds = actions.getBoundingClientRect()
+        const inset = Math.min(actionBounds.left, view.innerWidth - actionBounds.right)
+        const width = actionBounds.width
+        const left = style.direction === 'rtl' ? view.innerWidth - inset - width : inset
+        beside = left + width + gap <= bounds.left || left >= bounds.right + gap
+      }
+      shell.style.setProperty('--reader-playback-height', bounds.height + 'px')
+      shell.style.setProperty('--reader-playback-offset', !beside && bounds.height > 0 ? bounds.height + gap + 'px' : '0px')
+      if (bounds.height > 0) shell.dataset.readerToolsLayout = beside ? 'beside' : 'stacked'
+      else delete shell.dataset.readerToolsLayout
+    }
+    // Publish before passage capture stamps the layout; ResizeObserver alone runs too late.
+    fit()
+    resize?.observe(dock)
+    // The capsule mounts after scrolling. Watch only the reader's direct children, never its book text.
+    const children = new view.MutationObserver(fit)
+    children.observe(shell, { childList: true })
+    view.addEventListener('resize', fit)
+    view.visualViewport?.addEventListener('resize', fit)
+    view.visualViewport?.addEventListener('scroll', fit)
+    return () => {
+      resize?.disconnect()
+      children.disconnect()
+      view.removeEventListener('resize', fit)
+      view.visualViewport?.removeEventListener('resize', fit)
+      view.visualViewport?.removeEventListener('scroll', fit)
+      shell.style.removeProperty('--reader-playback-height')
+      shell.style.removeProperty('--reader-playback-offset')
+      delete shell.dataset.readerToolsLayout
+    }
+  }, [portalTarget, notice, showFloatingPlayback, chunkMenuOpen, playAnywhere?.capturing])
+
   const snapshotSelection = () => setSelectionAvailable(playAnywhere?.onSnapshotSelection?.() ?? false)
   /** Viewport capture must see the closed layout; selection instead consumes its snapshot before menu cleanup. */
   const closeMenu = () => {
@@ -206,7 +275,7 @@ export function AudioControls({
 
   useEffect(() => {
     if (!chunkMenuOpen) return
-    dockRef.current?.querySelector<HTMLButtonElement>('.audio-chunk-menu button:not(:disabled)')?.focus()
+    dockRef.current?.querySelector<HTMLElement>('.audio-chunk-menu button:not(:disabled), .audio-chunk-menu input:not(:disabled)')?.focus()
 
     function handlePointerDown(event: PointerEvent) {
       const root = controlsRef.current
@@ -242,9 +311,17 @@ export function AudioControls({
           </button>
         )}
         {!showFloatingPlayback && playAnywhere && canPlayAudiobook && (
-          <button ref={menuButtonRef} className="audio-icon-btn" onPointerDown={() => { if (!chunkMenuOpen) snapshotSelection() }} onClick={toggleMenu}
-            aria-label={chunkMenuOpen ? t('tts.controls.hideMenu') : t('tts.controls.showMenu')}
-            aria-expanded={chunkMenuOpen} title={t('tts.controls.menuTitle')}><AudioIcon name="menu" /></button>
+          <button
+            ref={menuButtonRef}
+            className={'audio-icon-btn audio-menu-btn' + (chunkMenuOpen ? ' audio-menu-btn-open' : '')}
+            onPointerDown={() => { if (!chunkMenuOpen) snapshotSelection() }}
+            onClick={toggleMenu}
+            aria-label={t('tts.controls.morePlaybackOptions')}
+            aria-expanded={chunkMenuOpen}
+            title={t('tts.controls.morePlaybackOptions')}
+          >
+            <AudioIcon name="more" />
+          </button>
         )}
         {renderSaveButton()}
       </div>
@@ -318,11 +395,11 @@ export function AudioControls({
                     className={'audio-icon-btn audio-menu-btn' + (chunkMenuOpen ? ' audio-menu-btn-open' : '')}
                     onPointerDown={() => { if (!chunkMenuOpen) snapshotSelection() }}
                     onClick={toggleMenu}
-                    aria-label={chunkMenuOpen ? t('tts.controls.hideMenu') : t('tts.controls.showMenu')}
+                    aria-label={t('tts.controls.morePlaybackOptions')}
                     aria-expanded={chunkMenuOpen}
-                    title={t('tts.controls.menuTitle')}
+                    title={t('tts.controls.morePlaybackOptions')}
                   >
-                    <AudioIcon name="menu" />
+                    <AudioIcon name="more" />
                   </button>
                 )}
                 <button
@@ -398,18 +475,22 @@ export function AudioControls({
       : t('tts.controls.save')
     const buttonLabel = audiobookState.complete ? t('tts.controls.savedForCurrentSetup') : saveLabel
     const modelSetupRequired = modelSetupLabel !== null
+    // Generation setup must not imply that an imported, playable audiobook is unavailable.
+    const actionLabel = modelSetupRequired
+      ? modelSetupLabel + (canPlayAudiobook ? ' ' + t('tts.controls.savedAudioSetupHint') : '')
+      : buttonLabel
 
     return (
       <button
         className={'audio-icon-btn' +
-          (audiobookState.complete ? ' audio-save-complete' : '') +
+          (audiobookState.complete && !modelSetupRequired ? ' audio-save-complete' : '') +
           (modelSetupRequired ? ' audio-setup-required' : '')}
         onClick={modelSetupRequired ? onOpenAudioSetup : onSave}
         disabled={!modelSetupRequired && (!canSaveAudiobook || audiobookState.complete)}
-        aria-label={modelSetupLabel ?? buttonLabel}
-        title={modelSetupLabel ?? buttonLabel}
+        aria-label={actionLabel}
+        title={actionLabel}
       >
-        <AudioIcon name="save" />
+        <AudioIcon name={modelSetupRequired ? 'setup' : audiobookState.complete ? 'saved' : 'save'} />
       </button>
     )
   }
@@ -463,6 +544,7 @@ const ChunkMenu = memo(function ChunkMenu({
 }: ChunkMenuProps) {
   const { t } = useTranslation()
   const selectionHintId = useId()
+  const wordHighlightHintId = useId()
   const viewId = useId()
   // Opening during playback prioritizes navigation; idle audio has no loaded list yet.
   const [view, setView] = useState<'chunks' | 'options'>(() => chunks.length ? 'chunks' : 'options')
@@ -554,25 +636,27 @@ const ChunkMenu = memo(function ChunkMenu({
             </button>
           )}
           {onPlayFromSelection && !selectionAvailable && (
-            <p id={selectionHintId} className="audio-selection-hint">{t('tts.playAnywhere.noSelection')}</p>
+            <p id={selectionHintId} className="audio-selection-hint">{t('tts.playAnywhere.selectionHint')}</p>
           )}
         </div>
       )}
       {!showChunks && <div className="audio-chunk-menu-header">
         <span>{t('tts.controls.playback')}</span>
         <div className="audio-playback-settings" role="group" aria-label={t('tts.controls.playback')}>
-          <button
-            type="button"
-            className="audio-word-highlight-toggle"
-            onClick={() => onWordHighlightEnabledChange(!wordHighlightEnabled)}
-            aria-pressed={wordHighlightEnabled}
-            aria-label={t('tts.controls.wordHighlightState', {
-              state: wordHighlightEnabled ? t('tts.setup.on') : t('tts.setup.off'),
-            })}
-          >
-            <span>{t('tts.controls.wordHighlight')} <span className="audio-beta-tag">{t('tts.controls.experimental')}</span></span>
-            <span>{wordHighlightEnabled ? t('tts.setup.on') : t('tts.setup.off')}</span>
-          </button>
+          <label className="audio-word-highlight-toggle">
+            <span>{t('tts.controls.wordHighlight')} <span id={wordHighlightHintId} className="audio-beta-tag">{t('tts.controls.experimental')}</span></span>
+            <span className="app-switch">
+              <input
+                type="checkbox"
+                role="switch"
+                checked={wordHighlightEnabled}
+                aria-label={t('tts.controls.wordHighlight')}
+                aria-describedby={wordHighlightHintId}
+                onChange={(event) => onWordHighlightEnabledChange(event.target.checked)}
+              />
+              <span aria-hidden="true" />
+            </span>
+          </label>
           <button type="button" className="audio-menu-rate"
             onClick={onPlaybackRateChange}
             title={t('tts.controls.playbackSpeedTitle')}
@@ -675,6 +759,12 @@ function renderIconPath(name: AudioIconName) {
       )
     case 'save':
       return <path d="M5 3h12l2 2v16H5zM8 3v6h8V3M8 18h8v-5H8z" fill="none" stroke="currentcolor" strokeWidth="2" strokeLinejoin="round" />
+    case 'saved':
+      return <path d="M8 12l3 3 5-6M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0" fill="none" stroke="currentcolor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    case 'setup':
+      return <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" fill="none" stroke="currentcolor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    case 'more':
+      return <><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></>
     case 'menu':
       return <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentcolor" strokeWidth="2" strokeLinecap="round" />
     case 'options':

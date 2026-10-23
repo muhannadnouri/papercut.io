@@ -16,6 +16,10 @@
 
 .app-reader {
   width: min(100%, 2000px);
+  --reader-tools-inset: max(4rem, calc((100vw - 2000px) / 2 + 4rem));
+  --reader-tools-bottom-inset: 2rem;
+  --reader-actions-bottom: calc(var(--reader-tools-bottom-inset) + var(--reader-playback-offset, 0px));
+  --reader-notice-bottom: calc(var(--reader-tools-bottom-inset) + max(calc(var(--reader-playback-offset, 0px) + var(--reader-actions-height, 3.4rem)), var(--reader-playback-height, 0px)) + 0.65rem);
 }
 
 .app-reader-pdf {
@@ -443,15 +447,53 @@ html[dir="rtl"] .back-icon {
 .reader-floating-actions,
 .reader-bookmark-notice {
   position: fixed;
-  right: max(4rem, calc((100vw - 2000px) / 2 + 4rem));
+  inset-inline-end: var(--reader-tools-inset);
+  inset-inline-start: auto;
   z-index: 11;
 }
 
 .reader-floating-actions {
-  bottom: calc(2rem + env(safe-area-inset-bottom));
+  bottom: calc(var(--reader-actions-bottom, 2rem) + env(safe-area-inset-bottom));
   display: inline-flex;
-  flex-direction: column;
-  gap: 0.65rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.125rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.25rem;
+  border: 1px solid transparent;
+  border-radius: 1.75rem;
+  background: var(--control-surface);
+  box-shadow: 0 2px 10px var(--shadow-panel);
+}
+
+.reader-floating-actions :is(.reader-bookmark-btn, .scroll-top-btn) {
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--accent-text);
+  box-shadow: none;
+}
+
+.reader-floating-actions > span { display: inline-flex; }
+
+.reader-floating-actions .reader-bookmark-btn-active {
+  background: var(--surface-accent);
+}
+
+.reader-floating-actions :is(.reader-bookmark-btn, .scroll-top-btn):focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: -3px;
+  box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .reader-floating-actions :is(.reader-bookmark-btn, .scroll-top-btn):hover {
+    background: var(--surface-accent);
+    color: var(--accent-ink);
+  }
 }
 
 .reader-bookmark-btn {
@@ -565,11 +607,13 @@ html[dir="rtl"] .back-icon {
 }
 
 .reader-bookmark-notice {
-  bottom: calc(9.1rem + env(safe-area-inset-bottom));
+  bottom: calc(var(--reader-notice-bottom) + env(safe-area-inset-bottom));
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   max-width: min(24rem, calc(100vw - 2rem));
+  max-height: max(0px, calc(100dvh - var(--reader-notice-bottom) - 1rem - env(safe-area-inset-bottom)));
+  overflow-y: auto;
   border: 1px solid transparent;
   border-radius: var(--radius-surface);
   background: var(--control-surface);
@@ -580,10 +624,10 @@ html[dir="rtl"] .back-icon {
   font-weight: 600;
 }
 
-.app-audio-floating .reader-floating-actions,
-.app-audio-floating .reader-bookmark-notice {
-  right: auto;
-  left: max(4rem, calc((100vw - 2000px) / 2 + 4rem));
+.app-reader[data-reader-tools-layout="beside"] .reader-floating-actions,
+.app-reader[data-reader-tools-layout="beside"] .reader-bookmark-notice {
+  inset-inline-end: auto;
+  inset-inline-start: var(--reader-tools-inset);
 }
 
 .reader-bookmark-notice button {
@@ -748,6 +792,8 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   .app-reader {
     padding-inline: 0.35rem;
     background: var(--reader-surface);
+    --reader-tools-inset: 1rem;
+    --reader-tools-bottom-inset: 1rem;
   }
 
   .app-reader-pdf {
@@ -772,22 +818,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
     padding-inline: 0.75rem;
   }
 
-  .reader-floating-actions,
   .reader-bookmark-notice {
-    right: 1rem;
-  }
-
-  .app-audio-floating .reader-floating-actions {
-    left: 1rem;
-    bottom: calc(1rem + env(safe-area-inset-bottom));
-  }
-
-  .app-audio-floating .reader-bookmark-notice {
-    bottom: calc(8.1rem + env(safe-area-inset-bottom));
-  }
-
-  .reader-bookmark-notice {
-    bottom: calc(9.1rem + env(safe-area-inset-bottom));
     max-width: calc(100vw - 2rem);
   }
 

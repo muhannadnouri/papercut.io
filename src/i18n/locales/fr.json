@@ -830,6 +830,8 @@
       "pauseTitle": "Pause",
       "stop": "Arrêter le livre audio",
       "stopTitle": "Arrêt",
+      "morePlaybackOptions": "Plus d’options de lecture",
+      "savedAudioSetupHint": "L’audio enregistré reste disponible à la lecture. La configuration est nécessaire uniquement pour générer de nouveaux fichiers audio.",
       "showMenu": "Afficher le menu de lecture",
       "hideMenu": "Masquer le menu de lecture",
       "menuTitle": "Menu de lecture",
@@ -994,7 +996,8 @@
       "unmapped": "Impossible d’associer l’audio à ce passage. Utilisez Lire depuis le début ou le menu audio.",
       "failed": "Impossible de préparer la lecture. Réessayez ou lancez la lecture depuis le début.",
       "selection": "Lire à partir de la sélection",
-      "noSelection": "Sélectionnez du texte dans ce document, puis utilisez Lire à partir de la sélection."
+      "noSelection": "Sélectionnez du texte dans ce document, puis utilisez Lire à partir de la sélection.",
+      "selectionHint": "Sélectionnez d’abord du texte."
     }
   },
   "imageIssues": {

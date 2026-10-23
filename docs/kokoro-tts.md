@@ -403,3 +403,36 @@ decorative icons. Options groups Word Highlight and the current rate, e.g. `1x`,
 using consistent controls and allowing large-text wrapping. Callbacks, matching,
 storage and native playback do not change. See the
 [session/layout acceptance checklist](play-anywhere.md#2026-10-23--header-reflow-and-session-aware-reader-presentation).
+
+### Compact reader tools and Options (2026-10-23)
+
+The latest follow-up replaces the session-dependent label above: stopped Play is
+always an icon in one rounded reader-tools capsule with Bookmark and Top. The
+unused session-history flag is removed. Existing actions, source-order selection
+and canonical chunk-start playback remain unchanged. Generic measured geometry
+keeps tools/feedback clear of the playback surface; committed geometry is published
+before capture to avoid false stale-passage rejection.
+
+Options gives passage commands equal cells where labels fit, uses a concise
+localized selection hint, and groups a native Word Highlight switch with the
+current speed. The switch reuses baseline Settings visuals; no nested filled
+Playback panel or prominent command borders. Narrow/large-text layouts reflow.
+See [the capsule checklist and removal boundaries](play-anywhere.md#2026-10-23--reader-capsule-and-cohesive-options).
+
+
+### Reader/player refinement follow-up (2026-10-23)
+
+Reader tools share the player bottom edge when their measured widths fit; otherwise
+both align at the same logical end edge with the tools above the player. The
+baseline coordinator responds to capsule mounting, size/viewport changes and RTL,
+cleans up its geometry state, and publishes layout before passage capture. The
+Playback section ends without a divider. Header/player disclosure uses an icon-only ellipsis
+at all widths with a full accessible name and tooltip; Chunks/Options retain their
+own icons and the existing keyboard/selection behavior.
+
+Save uses neutral tonal saved/check status. Missing model/runtime takes visual
+precedence as a setup/download action with the existing warning and setup label;
+playable imports additionally explain that generation setup does not block saved
+playback. Preparing/saving behavior is unchanged. These baseline UI changes have
+no dependency on passage matching or storage and can remain after feature removal.
+See [refinement acceptance and owner smoke checklist](play-anywhere.md#2026-10-23--aligned-tools-clearer-disclosure-and-truthful-save-states).

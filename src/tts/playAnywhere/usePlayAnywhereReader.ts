@@ -13,7 +13,6 @@ import type { PlaybackTargetResult } from './usePlayAnywherePlayback'
 interface ReaderPlaybackOptions {
   documentUrl: string | null
   active: boolean
-  playing: boolean
   playFromHere: (api: ViewerTextTargetApi, onStarted?: () => void) => Promise<PlaybackTargetResult>
   playFromBeginning: (onStarted?: () => void) => Promise<PlaybackTargetResult>
   cancelTargetPlayback: () => void
@@ -26,7 +25,6 @@ interface ReaderPlaybackOptions {
 export function usePlayAnywhereReader({
   documentUrl,
   active,
-  playing,
   playFromHere,
   playFromBeginning,
   cancelTargetPlayback,
@@ -35,19 +33,17 @@ export function usePlayAnywhereReader({
   const selectionEpoch = useRef(0)
   const selection = useRef<{ api: ViewerTextTargetApi; read: () => ViewerTextTargetResult } | null>(null)
   const scope = useRef({ alive: true, intent: 0, browse: 0, following: true, active: false })
-  const [view, setView] = useState({ documentUrl, active, following: true, revision: 0, hasPlayed: playing })
+  const [view, setView] = useState({ documentUrl, active, following: true, revision: 0 })
   const [feedback, setFeedback] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [capturing, setCapturing] = useState(false)
-  if (view.documentUrl !== documentUrl || view.active !== active || (playing && !view.hasPlayed)) {
+  if (view.documentUrl !== documentUrl || view.active !== active) {
     const reset = view.documentUrl !== documentUrl || !active
-    // Stop resets following, but only closing/changing the document resets its visual playback history.
     setView({
       documentUrl,
       active,
       following: reset ? true : view.following,
       revision: view.revision + 1,
-      hasPlayed: playing || (view.documentUrl === documentUrl && view.hasPlayed),
     })
     if (reset) { setFeedback(view.documentUrl === documentUrl && pending ? 'stale' : null); setPending(false); setCapturing(false) }
   }
@@ -130,7 +126,6 @@ export function usePlayAnywhereReader({
     logTtsDiagnostic('[play-anywhere] action requested', { requestId: intent, action })
     const started = () => {
       if (!valid()) return
-      setView(previous => ({ ...previous, hasPlayed: true }))
       setPending(false)
       if (current.browse === browseVersion) restore()
     }
@@ -164,7 +159,6 @@ export function usePlayAnywhereReader({
     snapshotSelection,
     clearSelection,
     followPolicy,
-    hasPlayed: view.hasPlayed,
     browsing: active && !view.following,
     pending,
     capturing,

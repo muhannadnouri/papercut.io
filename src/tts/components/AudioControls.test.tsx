@@ -17,7 +17,7 @@ it('keeps playback speed reachable through Options without the optional feature'
     await act(async () => app.render(<AudioControls {...config} playAnywhere={undefined}
       onPlaybackRateChange={rate} ttsState={{ ...config.ttsState, status: 'paused' }} />))
     await act(async () => document.querySelector<HTMLButtonElement>('.audio-menu-btn')!.click())
-    expect(document.activeElement).toBe(document.querySelector('.audio-word-highlight-toggle'))
+    expect(document.activeElement).toBe(document.querySelector('[role="switch"]'))
     const speed = document.querySelector<HTMLButtonElement>('.audio-menu-rate')!
     expect(speed.textContent).toBe('1x')
     expect(speed.getAttribute('aria-label')).toBe('tts.controls.playbackSpeed')
@@ -25,6 +25,36 @@ it('keeps playback speed reachable through Options without the optional feature'
     expect(rate).toHaveBeenCalledWith(1.25)
     expect(document.querySelector('.audio-chunk-menu')).not.toBeNull()
     expect(document.querySelector('.audio-passage-actions')).toBeNull()
+  } finally {
+    await act(async () => app.unmount())
+  }
+})
+it('exposes Word Highlight as a stable named switch with the existing immediate callback', async () => {
+  const config = props()
+  const element = document.createElement('div')
+  document.body.append(element)
+  const app = createRoot(element)
+  const change = vi.fn()
+  try {
+    const render = (enabled: boolean) => app.render(<AudioControls {...config}
+      wordHighlightEnabled={enabled} onWordHighlightEnabledChange={change} />)
+    await act(async () => render(true))
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-expanded="false"]')!.click())
+    const input = document.querySelector<HTMLInputElement>('[role="switch"]')!
+    expect(input.type).toBe('checkbox')
+    expect(input.checked).toBe(true)
+    expect(input.getAttribute('aria-label')).toBe('tts.controls.wordHighlight')
+    await act(async () => input.closest('label')!.click())
+    expect(change).toHaveBeenLastCalledWith(false)
+    await act(async () => render(false))
+    expect(input.checked).toBe(false)
+    expect(input.getAttribute('aria-label')).toBe('tts.controls.wordHighlight')
+    input.focus()
+    expect(document.activeElement).toBe(input)
+    await act(async () => input.click())
+    expect(change).toHaveBeenLastCalledWith(true)
+    expect(document.querySelector('.audio-chunk-menu')).not.toBeNull()
+    expect(input.closest('button')).toBeNull()
   } finally {
     await act(async () => app.unmount())
   }
@@ -45,12 +75,12 @@ it('uses explicit viewport/beginning actions, keeps Resume while browsing, and r
   try {
     await act(async () => app.render(<AudioControls {...config} />))
     await act(async () => button('tts.playAnywhere.here').click()); expect(config.playAnywhere!.onPlayFromHere).toHaveBeenCalledOnce(); expect(config.onRead).not.toHaveBeenCalled()
-    await act(async () => button('tts.controls.showMenu').click())
+    await act(async () => button('tts.controls.morePlaybackOptions').click())
     expect(document.activeElement).toBe(document.querySelector('.audio-passage-here'))
     expect(header.contains(document.querySelector('.audio-playback-dock'))).toBe(false)
     await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
-    expect(document.activeElement).toBe(button('tts.controls.showMenu'))
-    await act(async () => button('tts.controls.showMenu').click()); await act(async () => button('tts.playAnywhere.beginning').click()); expect(config.playAnywhere!.onPlayFromBeginning).toHaveBeenCalledOnce()
+    expect(document.activeElement).toBe(button('tts.controls.morePlaybackOptions'))
+    await act(async () => button('tts.controls.morePlaybackOptions').click()); await act(async () => button('tts.playAnywhere.beginning').click()); expect(config.playAnywhere!.onPlayFromBeginning).toHaveBeenCalledOnce()
     await act(async () => app.render(<AudioControls {...config} ttsState={{ ...config.ttsState, status: 'paused', currentChunkIndex: 1 }} playAnywhere={{ ...config.playAnywhere!, browsing: true }} />))
     await act(async () => button('tts.controls.resume').click()); expect(config.onResume).toHaveBeenCalledOnce()
     await act(async () => button('tts.playAnywhere.return').click()); expect(config.playAnywhere!.onReturnToAudio).toHaveBeenCalledOnce()
@@ -197,7 +227,7 @@ it('keeps passage commands in the popover, reports missing selection and closes 
     expect(commands.map(b => b.textContent)).toEqual(['tts.playAnywhere.here', 'tts.playAnywhere.selection', 'tts.playAnywhere.beginning'])
     expect(commands.every(b => b.querySelector('svg')?.getAttribute('aria-hidden') === 'true')).toBe(true)
     expect(commands[1].disabled).toBe(true)
-    expect(document.getElementById(commands[1].getAttribute('aria-describedby')!)?.textContent).toBe('tts.playAnywhere.noSelection')
+    expect(document.getElementById(commands[1].getAttribute('aria-describedby')!)?.textContent).toBe('tts.playAnywhere.selectionHint')
     await act(async () => commands[1].click()); expect(play).not.toHaveBeenCalled()
     await act(async () => commands[0].click()); expect(here).toHaveBeenCalledOnce()
     expect(document.activeElement).toBe(trigger)
@@ -238,6 +268,69 @@ it('opens a loaded audiobook on chunks, separates options, and resets the view o
     await act(async () => trigger.click())
     expect(document.querySelector('.audio-chunk-list')).not.toBeNull()
     expect(document.querySelector('.audio-passage-actions')).toBeNull()
+  } finally {
+    await act(async () => app.unmount())
+  }
+})
+
+
+it.each([
+  { complete: true, setup: false, playable: true },
+  { complete: true, setup: true, playable: true },
+  { complete: false, setup: true, playable: true },
+  { complete: false, setup: true, playable: false },
+  { complete: false, setup: false, playable: true },
+])('keeps Save presentation and generation setup separate from playable audio: %j', async ({ complete, setup, playable }) => {
+  const config = props()
+  const host = document.createElement('div')
+  document.body.append(host)
+  const app = createRoot(host)
+  const openSetup = vi.fn()
+  const save = vi.fn()
+  try {
+    await act(async () => app.render(<AudioControls {...config}
+      audiobookState={{ ...config.audiobookState, complete }}
+      canPlayAudiobook={playable} canSaveAudiobook={!setup}
+      modelSetupLabel={setup ? 'Download model' : null}
+      onOpenAudioSetup={openSetup} onSave={save} />))
+    const button = host.querySelector<HTMLButtonElement>('.audio-compact-row > button:last-child')!
+    expect(button.classList.contains('audio-save-complete')).toBe(complete && !setup)
+    expect(button.classList.contains('audio-setup-required')).toBe(setup)
+    expect(button.disabled).toBe(complete && !setup)
+    expect(button.title).toBe(setup
+      ? 'Download model' + (playable ? ' tts.controls.savedAudioSetupHint' : '')
+      : complete ? 'tts.controls.savedForCurrentSetup' : 'tts.controls.save')
+    expect(button.getAttribute('aria-label')).toBe(button.title)
+    await act(async () => button.click())
+    expect(openSetup).toHaveBeenCalledTimes(setup ? 1 : 0)
+    expect(save).toHaveBeenCalledTimes(!setup && !complete ? 1 : 0)
+    if (playable) {
+      await act(async () => host.querySelector<HTMLButtonElement>('.audio-primary-btn')!.click())
+      expect(config.playAnywhere!.onPlayFromHere).toHaveBeenCalledOnce()
+    }
+  } finally {
+    await act(async () => app.unmount())
+  }
+})
+
+it('keeps Save preparation and progress ahead of setup-required presentation', async () => {
+  const config = props()
+  const host = document.createElement('div')
+  document.body.append(host)
+  const app = createRoot(host)
+  const manage = vi.fn()
+  try {
+    for (const status of ['checking', 'saving'] as const) {
+      await act(async () => app.render(<AudioControls {...config} saveInProgress modelSetupLabel="Download model"
+        audiobookState={{ ...config.audiobookState, status }} onManageSave={manage} />))
+      const button = host.querySelector<HTMLButtonElement>('.audio-compact-row > button:last-child')!
+      expect(button.classList.contains('audio-setup-required')).toBe(false)
+      expect(button.classList.contains('audio-save-complete')).toBe(false)
+      expect(button.disabled).toBe(status === 'checking')
+      expect(Boolean(button.querySelector('.spinner'))).toBe(status === 'saving')
+      await act(async () => button.click())
+    }
+    expect(manage).toHaveBeenCalledOnce()
   } finally {
     await act(async () => app.unmount())
   }
