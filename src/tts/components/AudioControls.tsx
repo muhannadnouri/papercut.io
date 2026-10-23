@@ -164,6 +164,22 @@ export function AudioControls({
   const showPlaybackMenuButton = showFloatingPlayback || Boolean(playAnywhere && canPlayAudiobook)
   const showPlaybackStatus = ttsState.status !== 'idle'
   const playbackRateLabel = formatSpeedLabel(playbackRate)
+  const noticePending = ttsState.status !== 'error' && Boolean(playAnywhere?.pending || ttsState.status === 'loading')
+  const noticeError = ttsState.status === 'error' || Boolean(playAnywhere?.feedback)
+  let notice = ''
+  if (ttsState.status === 'error') {
+    notice = ttsState.message
+  } else if (noticePending) {
+    notice = ttsState.status === 'loading'
+      ? ttsState.message || t('tts.status.preparingPlayback')
+      : t('tts.playAnywhere.preparing')
+  } else if (playAnywhere?.feedback) {
+    notice = t(playAnywhere.feedback === 'not-ready' ? 'tts.playAnywhere.notReady'
+      : playAnywhere.feedback === 'no-visible-text' ? 'tts.playAnywhere.noText'
+        : playAnywhere.feedback === 'no-selection' ? 'tts.playAnywhere.noSelection'
+          : playAnywhere.feedback === 'stale' ? 'tts.playAnywhere.stale'
+            : playAnywhere.feedback === 'failed' ? 'tts.playAnywhere.failed' : 'tts.playAnywhere.unmapped')
+  }
 
   const snapshotSelection = () => setSelectionAvailable(playAnywhere?.onSnapshotSelection?.() ?? false)
   /** Viewport capture must see the closed layout; selection instead consumes its snapshot before menu cleanup. */
@@ -241,6 +257,10 @@ export function AudioControls({
                 closeMenu()
                 playAnywhere.onPlayFromHere()
               } : undefined}
+              onReturnToAudio={playAnywhere && canPlayAudiobook && playAnywhere.browsing ? () => {
+                closeMenu()
+                playAnywhere.onReturnToAudio()
+              } : undefined}
               targetPending={Boolean(playAnywhere?.pending && ttsState.status !== 'error')}
               selectionAvailable={selectionAvailable}
               // Consume the saved selection before the menu's cleanup releases it.
@@ -263,84 +283,87 @@ export function AudioControls({
             />
           )}
 
-          <div className={'audio-target-notice' + (playAnywhere?.capturing || chunkMenuOpen ? ' audio-target-capturing' : '')} role="status" aria-live="polite" aria-atomic="true" dir="auto">
-            {ttsState.status === 'error' ? ttsState.message : playAnywhere?.pending ? (ttsState.status === 'loading' ? ttsState.message : t('tts.playAnywhere.preparing'))
-              : playAnywhere?.feedback ? t(playAnywhere.feedback === 'not-ready' ? 'tts.playAnywhere.notReady'
-                : playAnywhere.feedback === 'no-visible-text' ? 'tts.playAnywhere.noText'
-                : playAnywhere.feedback === 'no-selection' ? 'tts.playAnywhere.noSelection'
-                : playAnywhere.feedback === 'stale' ? 'tts.playAnywhere.stale'
-                : playAnywhere.feedback === 'failed' ? 'tts.playAnywhere.failed' : 'tts.playAnywhere.unmapped')
-              : ''}
-          </div>
-
-          {showFloatingPlayback && (
-            <div className="audio-floating-playback" dir="ltr" aria-label={t('tts.controls.playbackControls')}>
-              <button className="audio-icon-btn" onClick={onSkipBackward} disabled={!canSkipBackward} aria-label={t('tts.controls.previousChunk')} title={t('tts.controls.previousChunkTitle')}>
-                <AudioIcon name="back" />
-              </button>
-              {isPaused ? (
-                <button className="audio-icon-btn audio-primary-btn" onClick={onResume} aria-label={t('tts.controls.resume')} title={t('tts.controls.resumeTitle')}>
-                  <AudioIcon name="resume" />
-                </button>
-              ) : (
-                <button className="audio-icon-btn audio-primary-btn" onClick={onPause} disabled={ttsState.status === 'loading'} aria-label={t('tts.controls.pause')} title={t('tts.controls.pauseTitle')}>
-                  <AudioIcon name="pause" />
-                </button>
-              )}
-              <button className="audio-icon-btn" onClick={onSkipForward} disabled={!canSkipForward} aria-label={t('tts.controls.nextChunk')} title={t('tts.controls.nextChunkTitle')}>
-                <AudioIcon name="forward" />
-              </button>
-              {showPlaybackMenuButton && (
-                <button
-                  ref={menuButtonRef}
-                  className={'audio-icon-btn audio-menu-btn' + (chunkMenuOpen ? ' audio-menu-btn-open' : '')}
-                  onPointerDown={() => { if (!chunkMenuOpen) snapshotSelection() }}
-                  onClick={toggleMenu}
-                  aria-label={chunkMenuOpen ? t('tts.controls.hideMenu') : t('tts.controls.showMenu')}
-                  aria-expanded={chunkMenuOpen}
-                  title={t('tts.controls.menuTitle')}
-                >
-                  <AudioIcon name="menu" />
-                </button>
-              )}
-              <button
-                type="button"
-                className="audio-rate-control"
-                onClick={handlePlaybackRateChange}
-                aria-label={t('tts.controls.playbackSpeed', { speed: playbackRateLabel })}
-                title={t('tts.controls.playbackSpeedTitle')}
-              >
-                {playbackRateLabel}
-              </button>
-              <button className="audio-icon-btn" onClick={onStop} aria-label={t('tts.controls.stop')} title={t('tts.controls.stopTitle')}>
-                <AudioIcon name="stop" />
-              </button>
-              {playAnywhere && canPlayAudiobook && playAnywhere.browsing && (
-                <button ref={registerReturn} type="button" className="audio-return-control" dir="auto" onClick={playAnywhere.onReturnToAudio}>
-                  <AudioIcon name="return" />
-                  <span>{t('tts.playAnywhere.return')}</span>
-                </button>
-              )}
-              {showPlaybackStatus && (
-                <div className={'audio-floating-status tts-status-' + ttsState.status} dir="auto">
-                  <span>{ttsState.status === 'error'
-                    ? ttsState.message
-                    : t('tts.controls.chunkProgress', { current: currentChunkNumber || 0, total: chunkTotal })}</span>
-                  {ttsState.status !== 'error' && playbackNotice && (
-                    <span>{playbackNotice}</span>
-                  )}
-                  {ttsState.status !== 'error' && ttsState.currentChunkDuration > 0 && (
-                    <span>{formatTtsTime(ttsState.currentChunkTime)} / {formatTtsTime(ttsState.currentChunkDuration)}</span>
-                  )}
-                  {ttsState.status !== 'error' && (
-                    <div className="tts-meter" aria-label={t('tts.controls.currentChunkPercent', { percent: chunkPercent })}>
-                      <span style={{ width: chunkPercent + '%' }} />
-                    </div>
-                  )}
-                </div>
-              )}
+          <div className="audio-playback-surface">
+            <div className={'audio-target-notice' + (noticePending ? ' audio-target-pending' : noticeError ? ' audio-target-error' : '')
+              + (playAnywhere?.capturing || chunkMenuOpen ? ' audio-target-capturing' : '')}
+              role="status" aria-live="polite" aria-atomic="true" dir="auto">
+              {notice && <>
+                {noticePending && <span className="spinner" aria-hidden="true" />}
+                <span>{notice}</span>
+              </>}
             </div>
-          )}
+
+            {showFloatingPlayback && (
+              <div className="audio-floating-playback" dir="ltr" aria-label={t('tts.controls.playbackControls')}>
+                <button className="audio-icon-btn" onClick={onSkipBackward} disabled={!canSkipBackward} aria-label={t('tts.controls.previousChunk')} title={t('tts.controls.previousChunkTitle')}>
+                  <AudioIcon name="back" />
+                </button>
+                {isPaused ? (
+                  <button className="audio-icon-btn audio-primary-btn" onClick={onResume} aria-label={t('tts.controls.resume')} title={t('tts.controls.resumeTitle')}>
+                    <AudioIcon name="resume" />
+                  </button>
+                ) : (
+                  <button className="audio-icon-btn audio-primary-btn" onClick={onPause} disabled={ttsState.status === 'loading'} aria-label={t('tts.controls.pause')} title={t('tts.controls.pauseTitle')}>
+                    <AudioIcon name="pause" />
+                  </button>
+                )}
+                <button className="audio-icon-btn" onClick={onSkipForward} disabled={!canSkipForward} aria-label={t('tts.controls.nextChunk')} title={t('tts.controls.nextChunkTitle')}>
+                  <AudioIcon name="forward" />
+                </button>
+                {showPlaybackMenuButton && (
+                  <button
+                    ref={menuButtonRef}
+                    className={'audio-icon-btn audio-menu-btn' + (chunkMenuOpen ? ' audio-menu-btn-open' : '')}
+                    onPointerDown={() => { if (!chunkMenuOpen) snapshotSelection() }}
+                    onClick={toggleMenu}
+                    aria-label={chunkMenuOpen ? t('tts.controls.hideMenu') : t('tts.controls.showMenu')}
+                    aria-expanded={chunkMenuOpen}
+                    title={t('tts.controls.menuTitle')}
+                  >
+                    <AudioIcon name="menu" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="audio-rate-control"
+                  onClick={handlePlaybackRateChange}
+                  aria-label={t('tts.controls.playbackSpeed', { speed: playbackRateLabel })}
+                  title={t('tts.controls.playbackSpeedTitle')}
+                >
+                  {playbackRateLabel}
+                </button>
+                <button className="audio-icon-btn" onClick={onStop} aria-label={t('tts.controls.stop')} title={t('tts.controls.stopTitle')}>
+                  <AudioIcon name="stop" />
+                </button>
+                {playAnywhere && canPlayAudiobook && playAnywhere.browsing && (
+                  <button ref={registerReturn} type="button" className="audio-icon-btn audio-return-control" dir="auto"
+                    aria-label={t('tts.playAnywhere.return')} title={t('tts.playAnywhere.return')}
+                    onClick={playAnywhere.onReturnToAudio}>
+                    <AudioIcon name="return" />
+                    <span className="audio-return-label">{t('tts.playAnywhere.returnShort')}</span>
+                  </button>
+                )}
+                {showPlaybackStatus && (
+                  <div className={'audio-floating-status tts-status-' + ttsState.status} dir="auto">
+                    <span>{ttsState.status === 'error'
+                      ? ttsState.message
+                      : t('tts.controls.chunkProgress', { current: currentChunkNumber || 0, total: chunkTotal })}</span>
+                    {ttsState.status !== 'error' && playbackNotice && (
+                      <span>{playbackNotice}</span>
+                    )}
+                    {ttsState.status !== 'error' && ttsState.currentChunkDuration > 0 && (
+                      <span>{formatTtsTime(ttsState.currentChunkTime)} / {formatTtsTime(ttsState.currentChunkDuration)}</span>
+                    )}
+                    {ttsState.status !== 'error' && (
+                      <div className="tts-meter" aria-label={t('tts.controls.currentChunkPercent', { percent: chunkPercent })}>
+                        <span style={{ width: chunkPercent + '%' }} />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>, portalTarget,
       )}
     </section>
@@ -403,6 +426,7 @@ interface ChunkMenuProps {
   selectionAvailable: boolean
   onPlayFromSelection?: () => void
   onPlayFromBeginning?: () => void
+  onReturnToAudio?: () => void
   chunks: TtsChunkSummary[]
   currentChunkIndex: number | null
   chunksTotal: number
@@ -422,6 +446,7 @@ const ChunkMenu = memo(function ChunkMenu({
   selectionAvailable,
   onPlayFromSelection,
   onPlayFromBeginning,
+  onReturnToAudio,
   chunks,
   currentChunkIndex,
   chunksTotal,
@@ -437,6 +462,12 @@ const ChunkMenu = memo(function ChunkMenu({
   const [view, setView] = useState<'chunks' | 'options'>(() => chunks.length ? 'chunks' : 'options')
   const showChunks = chunks.length > 0 && view === 'chunks'
   const listRef = useRef<HTMLDivElement | null>(null)
+  const listBrowsing = useRef(false)
+  const listPosition = useRef(0)
+  /** Programmatic scroll events also fire; only reader gestures/focus suspend automatic centering. */
+  const browseList = () => {
+    listBrowsing.current = true
+  }
   const [scrollTop, setScrollTop] = useState(0)
   const firstVisibleIndex = Math.max(
     0,
@@ -451,11 +482,16 @@ const ChunkMenu = memo(function ChunkMenu({
   useEffect(() => {
     if (currentChunkIndex === null || !listRef.current) return
     const list = listRef.current
+    if (listBrowsing.current) {
+      list.scrollTop = listPosition.current
+      return
+    }
     const nextScrollTop = Math.max(
       0,
       currentChunkIndex * CHUNK_ROW_HEIGHT - (list.clientHeight - CHUNK_ROW_HEIGHT) / 2,
     )
     list.scrollTop = nextScrollTop
+    listPosition.current = nextScrollTop
     setScrollTop(nextScrollTop)
   }, [currentChunkIndex, showChunks])
 
@@ -497,6 +533,12 @@ const ChunkMenu = memo(function ChunkMenu({
               <span>{t('tts.playAnywhere.selection')}</span>
             </button>
           )}
+          {onReturnToAudio && (
+            <button type="button" className="audio-passage-command" onClick={onReturnToAudio}>
+              <AudioIcon name="return" />
+              <span>{t('tts.playAnywhere.return')}</span>
+            </button>
+          )}
           {onPlayFromBeginning && (
             <button type="button" className="audio-passage-command" onClick={onPlayFromBeginning}>
               <AudioIcon name="beginning" />
@@ -527,7 +569,13 @@ const ChunkMenu = memo(function ChunkMenu({
             ref={listRef}
             aria-labelledby={viewId + '-chunks'}
             className="audio-chunk-list"
-            onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+            onPointerDown={browseList}
+            onWheel={browseList}
+            onFocusCapture={browseList}
+            onScroll={(event) => {
+              listPosition.current = event.currentTarget.scrollTop
+              setScrollTop(event.currentTarget.scrollTop)
+            }}
           >
             <div className="audio-chunk-virtual-space" style={{ height: chunks.length * CHUNK_ROW_HEIGHT }}>
               <div

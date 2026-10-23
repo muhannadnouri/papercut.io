@@ -1543,6 +1543,78 @@ Return sizing is deliberately deferred. Estimated timestamps and Stage 6/7
 platform, listening, assistive-technology, performance and removal gates remain
 open. Do not conflate these follow-ups with the two severity-3 fixes.
 
+### 2026-10-22 — Stable browsing, compact Return and integrated feedback
+
+The prior reader shortcut/chunk-first pass is committed as `a7dacd1`
+(`feat(reader): expose passage playback and prioritize chunk browsing`). The owner
+explicitly deferred smoke tests until this next pass. That earlier acceptance
+checklist remains open; automated checks do not substitute for audible/device
+acceptance. This pass implements the next three severity-2 UI recommendations.
+
+Implementation and acceptance checklist:
+
+- [x] Keep automatic list centering until the reader deliberately browses. Wheel,
+  pointer (including scrollbar/touch input) and focus entering chunk rows mark
+  this popover session as browsing. Programmatic `scroll` events update virtual
+  rows and saved position but do not themselves suspend following. Playback
+  updates thereafter preserve the reader's list position. Options -> Chunks
+  restores that position; closing/reopening creates a fresh centering session.
+  No timers, document-level listeners or persistent preferences are added.
+- [x] Give Return the ordinary tonal transport styling. Wider windows retain a
+  short localized **Return** label; <=480px windows show its icon at a 44px target
+  for the ordinary 16px root. Both forms retain the full localized accessible
+  name and title **Return to audio**. The fully labeled command also appears in
+  Options while browsing. Existing optional capability guards apply to both;
+  Return only reveals/restores following and does not seek, resume or restart.
+  Wrapping remains allowed at narrow widths/large text.
+- [x] Group transport and transient status under `.audio-playback-surface`, using
+  existing surface/control/warning tokens. Remove the separate notice shadow/card
+  treatment. Native loading and passage preparation show the existing decorative
+  spinner beside explanatory text, with the existing reduced-motion behavior.
+  Fallback loading text uses the existing translated background-playback label.
+- [x] Retain one mounted polite atomic status region; loading is not communicated
+  through animation alone, and status updates do not take focus. Errors/failures
+  retain their explanatory/recovery copy and replace the spinner. Empty status
+  leaves no visible notice. Preserve the existing visually clipped notice during
+  source capture/open popover, so asynchronous feedback cannot destabilize the
+  viewport capture stamp or crowd the Options panel. Feedback reappears when
+  commands close the popover, including action failures.
+- [x] Preserve synchronous chrome-before-capture commits and pre-focus selection
+  snapshots. Existing pointer/keyboard, old-error retry and imported punctuation
+  browser regressions continue to cover viewport and selection playback.
+- [x] New component checks cover wheel/pointer/keyboard browsing, automatic center
+  before browsing, Options round-trip/restored position, recenter on reopening,
+  compact/full Return dispatch, one live region and spinner/error transitions.
+  Browser fixtures cover actual scroll stability, narrow icon-only and wider
+  labeled Return, light/dark tonal styling, and visible recovery feedback.
+- [x] Frozen-source suite: **613 passed, 1 existing skip, 83 files**. Lint,
+  TypeScript and eight-locale validation pass. The full suite includes real
+  Chromium scroll and feedback regressions; screenshots were visually inspected.
+- [x] Production frontend, native release, AppImage packaging and GStreamer
+  media checks pass. Candidate:
+  `src-tauri/target/play-anywhere-acceptance/Papercut-play-anywhere-control-refinements.AppImage`;
+  SHA-256 `2f1cb15c72feebb722f77f55359ed5570187640ce2756532017317c938f288af`. Adjacent
+  `control-refinements-build.json` records base `a7dacd18`, ten runtime source
+  hashes, validation and pending manual acceptance. The named copy matches the
+  packaged artifact byte for byte; previous named candidates are preserved.
+  Final 21 browser checks also pass after readability-only fixture cleanup.
+- [ ] Owner combined smoke acceptance on the new candidate: all previous stopped
+  scroll/selection/chunk-start checks, then browse the list while chunks advance,
+  round-trip through Options and reopen; use both Return forms; check loading
+  text/spinner, recovery after errors, large text/narrow layouts and keyboard focus.
+  Actual Linux WebKit/listening/AT/mobile and Stage 6/7 gates remain pending.
+
+Integration/removal: all new behavior is within `AudioControls.tsx`/CSS plus eight
+short-label translations and focused tests. Return and its Options command remain
+behind optional `playAnywhere` callbacks; remove those controls/styles/translations
+with the feature. The generic list-browsing and shared status surface can remain
+with the baseline player. No matching, queue, source API, saved-audio identity,
+reader persistence, native code, migrations or dependencies change in this pass.
+
+Next: owner smoke results, then a documented feature-removal rehearsal and remaining
+performance/accessibility/platform acceptance. Estimated chunk timestamps remain
+a separate correctness follow-up; they are still estimates, not measured offsets.
+
 ## 7. Standards and design rationale
 
 This plan applies separation of concerns, explicit capability contracts,

@@ -255,6 +255,13 @@
   unicode-bidi: isolate;
 }
 
+.audio-playback-surface {
+  border-radius: var(--radius-surface);
+  background: var(--surface-raised);
+  box-shadow: 0 2px 10px var(--shadow-panel);
+  backdrop-filter: blur(8px);
+}
+
 .audio-floating-playback {
   position: static;
   display: flex;
@@ -265,9 +272,6 @@
   padding: 0.35rem;
   border: 1px solid transparent;
   border-radius: var(--radius-surface);
-  background: var(--surface-raised);
-  box-shadow: 0 2px 10px var(--shadow-panel);
-  backdrop-filter: blur(8px);
 }
 
 .audio-rate-control {
@@ -397,7 +401,14 @@ html[dir="rtl"] .audio-chunk-item-current {
 }
 
 @media (max-width: 420px) {
-  .audio-floating-playback {
+  .audio-playback-surface {
+  border-radius: var(--radius-surface);
+  background: var(--surface-raised);
+  box-shadow: 0 2px 10px var(--shadow-panel);
+  backdrop-filter: blur(8px);
+}
+
+.audio-floating-playback {
     gap: 0.25rem;
     padding: 0.3rem;
   }
@@ -420,7 +431,7 @@ html[dir="rtl"] .audio-chunk-item-current {
   }
 }
 
-/* Only transient feedback sits above transport; passage commands live in its popover. */
+/* Feedback belongs to the same surface as transport; the popover remains separately positioned. */
 .audio-playback-dock {
   position: fixed;
   inset-inline-end: max(4rem, calc((100vw - 2000px) / 2 + 4rem));
@@ -433,19 +444,24 @@ html[dir="rtl"] .audio-chunk-item-current {
 }
 .audio-target-notice:not(:empty) {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  padding: 0.4rem;
-  border-radius: var(--radius-surface);
-  background: var(--surface-raised);
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-control);
+  background: var(--control-surface);
   color: var(--text-body);
-  box-shadow: 0 2px 10px var(--shadow-panel);
 }
 .audio-target-notice {
   white-space: normal;
   overflow-wrap: anywhere;
   max-width: min(28rem, calc(100vw - 2rem));
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+.audio-target-notice .spinner { margin-top: 0.15em; }
+.audio-target-notice.audio-target-error {
+  background: var(--surface-warning);
+  color: var(--warning-strong);
 }
 .audio-target-notice:empty { display: none; }
 @media (max-width: 767px) {
@@ -477,7 +493,7 @@ html[dir="rtl"] .audio-chunk-item-current {
   border-bottom: 1px solid var(--row-divider);
 }
 .audio-passage-here, .audio-selection-hint { grid-column: 1 / -1; }
-.audio-passage-command, .audio-return-control {
+.audio-passage-command {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
@@ -499,9 +515,24 @@ html[dir="rtl"] .audio-chunk-item-current {
 .audio-passage-command .audio-icon, .audio-return-control .audio-icon { flex: 0 0 auto; }
 .audio-passage-command span, .audio-return-control span { overflow-wrap: anywhere; }
 .audio-return-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: auto;
   max-width: 100%;
-  background: var(--surface-accent);
-  color: var(--accent-ink);
+  padding-inline: 0.6rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+@media (max-width: 480px) {
+  .audio-return-control {
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+  }
+  .audio-return-label { display: none; }
 }
 .audio-passage-command:disabled { color: var(--text-soft); background: var(--surface-muted); cursor: not-allowed; }
 .audio-passage-command:focus-visible, .audio-return-control:focus-visible {

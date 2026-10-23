@@ -48,6 +48,100 @@ it('uses explicit viewport/beginning actions, keeps Resume while browsing, and r
   } finally { await act(async () => app.unmount()) }
 })
 
+it.each(['wheel', 'pointer', 'keyboard'])('keeps the list position after %s browsing until the popover is reopened', async method => {
+  const config = props()
+  const element = document.createElement('div')
+  document.body.append(element)
+  const app = createRoot(element)
+  const chunks = Array.from({ length: 175 }, (_, index) => ({
+    index,
+    chunkId: 'saved-' + index,
+    textPreview: 'Saved passage ' + index,
+  }))
+  const render = (index: number) => app.render(<AudioControls {...config}
+    ttsState={{ ...config.ttsState, status: 'playing', currentChunkIndex: index, chunkSummaries: chunks }} />)
+  try {
+    await act(async () => render(20))
+    const trigger = document.querySelector<HTMLButtonElement>('[aria-expanded="false"]')!
+    await act(async () => trigger.click())
+    let list = document.querySelector<HTMLDivElement>('.audio-chunk-list')!
+    const initial = list.scrollTop
+    await act(async () => render(21))
+    expect(list.scrollTop).toBeGreaterThan(initial)
+    await act(async () => {
+      if (method === 'keyboard') list.querySelector('button')!.focus()
+      else list.dispatchEvent(new Event(method === 'wheel' ? 'wheel' : 'pointerdown', { bubbles: true }))
+      list.scrollTop = 400
+      list.dispatchEvent(new Event('scroll', { bubbles: true }))
+    })
+    await act(async () => render(22))
+    expect(list.scrollTop).toBe(400)
+    const views = document.querySelectorAll<HTMLButtonElement>('.audio-menu-views button')
+    await act(async () => views[1].click())
+    await act(async () => views[0].click())
+    list = document.querySelector<HTMLDivElement>('.audio-chunk-list')!
+    expect(list.scrollTop).toBe(400)
+    await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
+    await act(async () => trigger.click())
+    expect(document.querySelector<HTMLDivElement>('.audio-chunk-list')!.scrollTop).not.toBe(400)
+  } finally {
+    await act(async () => app.unmount())
+  }
+})
+
+it('keeps one live status with a decorative pending spinner and visible recovery feedback', async () => {
+  const config = props()
+  const element = document.createElement('div')
+  document.body.append(element)
+  const app = createRoot(element)
+  try {
+    await act(async () => app.render(<AudioControls {...config}
+      ttsState={{ ...config.ttsState, status: 'loading', message: 'Checking saved audio...' }} />))
+    const status = document.querySelector<HTMLElement>('[role="status"]')!
+    expect(status.textContent).toBe('Checking saved audio...')
+    expect(status.getAttribute('aria-live')).toBe('polite')
+    expect(status.querySelector('.spinner')?.getAttribute('aria-hidden')).toBe('true')
+    expect(status.closest('.audio-playback-surface')).toBe(document.querySelector('.audio-floating-playback')?.parentElement)
+    expect(document.querySelectorAll('[role="status"]')).toHaveLength(1)
+    await act(async () => app.render(<AudioControls {...config}
+      playAnywhere={{ ...config.playAnywhere!, feedback: 'unmapped' }} />))
+    expect(status.textContent).toBe('tts.playAnywhere.unmapped')
+    expect(status.classList.contains('audio-target-error')).toBe(true)
+    expect(status.querySelector('.spinner')).toBeNull()
+    await act(async () => app.render(<AudioControls {...config} />))
+    expect(status.textContent).toBe('')
+    expect(status.children).toHaveLength(0)
+  } finally {
+    await act(async () => app.unmount())
+  }
+})
+
+it('offers compact Return with its full accessible name and a labeled Options action', async () => {
+  const config = props()
+  const element = document.createElement('div')
+  document.body.append(element)
+  const app = createRoot(element)
+  try {
+    await act(async () => app.render(<AudioControls {...config}
+      ttsState={{ ...config.ttsState, status: 'paused' }}
+      playAnywhere={{ ...config.playAnywhere!, browsing: true }} />))
+    const compact = document.querySelector<HTMLButtonElement>('.audio-return-control')!
+    expect(compact.getAttribute('aria-label')).toBe('tts.playAnywhere.return')
+    expect(compact.textContent).toBe('tts.playAnywhere.returnShort')
+    const trigger = document.querySelector<HTMLButtonElement>('[aria-expanded="false"]')!
+    await act(async () => trigger.click())
+    const labeled = [...document.querySelectorAll<HTMLButtonElement>('.audio-passage-command')]
+      .find(button => button.textContent === 'tts.playAnywhere.return')!
+    await act(async () => labeled.click())
+    expect(config.playAnywhere!.onReturnToAudio).toHaveBeenCalledOnce()
+    expect(config.onResume).not.toHaveBeenCalled()
+    expect(config.playAnywhere!.onPlayFromHere).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(trigger)
+  } finally {
+    await act(async () => app.unmount())
+  }
+})
+
 it('snapshots on menu pointerdown before focus and exposes a keyboard-focusable explicit selection action', async () => {
   const config = props(), element = document.createElement('div'); document.body.append(element); const app = createRoot(element)
   const snapshot = vi.fn(() => true), play = vi.fn(), close = vi.fn()

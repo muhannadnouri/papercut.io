@@ -974,6 +974,7 @@
       "here": "Play from here",
       "beginning": "Play from beginning",
       "return": "Return to audio",
+      "returnShort": "Return",
       "description": "Starts at the beginning of the audio segment containing this passage.",
       "preparing": "Finding audio for this passage…",
       "notReady": "This passage is still preparing. Try again, or play from beginning.",

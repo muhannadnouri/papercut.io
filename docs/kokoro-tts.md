@@ -361,3 +361,18 @@ through DocumentViewer's optional floatingControls slot. See
 [the integration checklist](play-anywhere.md#2026-10-22--reader-shortcut-and-chunk-first-popover)
 for acceptance and removal boundaries. Return compaction, list recenter behavior
 and status styling remain separate follow-ups.
+
+### Playback control refinements (2026-10-22)
+
+The chunk list follows playback until wheel, pointer or focus input indicates the
+reader is browsing it. It then preserves that position across playback advances
+and Options/Chunks switching; closing and reopening restores current-chunk
+centering. Return uses the ordinary tonal transport style, a short label on wider
+windows and its icon at <=480px, retaining the full accessible name and a labeled
+Options command. Both only restore reader following.
+
+Loading/recovery feedback shares the transport surface and existing theme tokens.
+Native loading and target preparation reuse the reduced-motion-aware spinner with
+text in one polite live region. Existing capture/menu clipping and recovery copy
+remain. Owner smoke tests are explicitly deferred until this combined candidate;
+see the [acceptance checklist](play-anywhere.md#2026-10-22--stable-browsing-compact-return-and-integrated-feedback).

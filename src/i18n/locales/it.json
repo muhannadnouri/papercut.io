@@ -985,6 +985,7 @@
       "here": "Riproduci da qui",
       "beginning": "Riproduci dall’inizio",
       "return": "Torna all’audio",
+      "returnShort": "Torna",
       "description": "Inizia dall’inizio del segmento audio che contiene questo passaggio.",
       "preparing": "Ricerca dell’audio di questo passaggio…",
       "notReady": "Questo passaggio è ancora in preparazione. Riprova o riproduci dall’inizio.",

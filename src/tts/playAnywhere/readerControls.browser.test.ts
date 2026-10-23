@@ -41,6 +41,8 @@ beforeAll(async () => {
         return target.status==='resolved'?{status:'dispatched'}:target;
       };
       function Controls(){
+        const [sample,setSample]=React.useState({index:18,status:'paused',pending:false,feedback:'unmapped',message:''});
+        React.useEffect(()=>{window.updateControls=patch=>setSample(value=>({...value,...patch}));return()=>{delete window.updateControls}},[]);
         const reader=usePlayAnywhereReader({documentUrl:'fixture',active:!captureMode||playbackStatus!=='idle',playFromHere,playFromBeginning:async()=>({status:'dispatched'}),cancelTargetPlayback:noop});
         const contentRef=React.useRef(null);
         const viewport=React.useCallback(()=>readerTextViewport(shell),[]);
@@ -57,8 +59,8 @@ beforeAll(async () => {
         onJumpToChunk={noop} onPlaybackRateChange={noop} onOpenAudioSetup={noop} onSave={noop}
         onSkipBackward={noop} onSkipForward={noop} onStop={noop} onWordHighlightEnabledChange={noop}
         playbackRate={1} savedAudiobooks={[]} selectedAudiobookId={null} wordHighlightEnabled
-        ttsState={{status:captureMode?playbackStatus:'paused',message:'',chunksTotal:captureMode?2:184,chunksPlayed:0,currentChunkIndex:captureMode?0:18,currentChunkProgress:0,currentChunkDuration:0,chunkSummaries:captureMode?[]:Array.from({length:184},(_,index)=>({index,chunkId:'fixture-'+index,textPreview:'Synthetic narrated passage '+(index+1)+' with several readable words.'}))}}
-        playAnywhere={captureMode?{...reader,feedback:reader.feedback??priorFeedback,onPlayFromHere:reader.playFromHere,onPlayFromBeginning:reader.playFromBeginning,onReturnToAudio:reader.returnToAudio,onSnapshotSelection:reader.snapshotSelection,onPlayFromSelection:reader.playFromSelection,onSelectionMenuClose:reader.clearSelection}:{browsing:true,pending:false,feedback:'unmapped',onPlayFromHere:noop,onPlayFromBeginning:noop,onReturnToAudio:noop,onPlayFromSelection:noop,onSnapshotSelection:()=>false}} /></>;
+        ttsState={{status:captureMode?playbackStatus:sample.status,message:sample.message,chunksTotal:captureMode?2:184,chunksPlayed:0,currentChunkIndex:captureMode?0:sample.index,currentChunkProgress:0,currentChunkDuration:0,chunkSummaries:captureMode?[]:Array.from({length:184},(_,index)=>({index,chunkId:'fixture-'+index,textPreview:'Synthetic narrated passage '+(index+1)+' with several readable words.'}))}}
+        playAnywhere={captureMode?{...reader,feedback:reader.feedback??priorFeedback,onPlayFromHere:reader.playFromHere,onPlayFromBeginning:reader.playFromBeginning,onReturnToAudio:reader.returnToAudio,onSnapshotSelection:reader.snapshotSelection,onPlayFromSelection:reader.playFromSelection,onSelectionMenuClose:reader.clearSelection}:{browsing:true,pending:sample.pending,feedback:sample.feedback,onPlayFromHere:noop,onPlayFromBeginning:noop,onReturnToAudio:noop,onPlayFromSelection:noop,onSnapshotSelection:()=>false}} /></>;
       }
       createRoot(document.getElementById('controls')).render(<Controls/>);
     }
@@ -134,6 +136,100 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     if (width === 620) expect(Math.abs(result.initial[1].top-result.initial[2].top)).toBeLessThan(1)
     if (font === 32 && width === 390) expect(result.initial[2].top).toBeGreaterThan(result.initial[1].top)
   }, 30_000)
+  it('keeps a reader-browsed chunk stable while playback advances and restores centering after reopening', async () => {
+    const frame = join(directory, 'stable-list.html')
+    writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>${css}body{margin:0}</style>
+      <div class="app-reader"><header class="doc-header"><div id="controls"></div></header><main class="document-view"><article><p>Synthetic book.</p></article></main></div>
+      <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async()=>{const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+
+      await ReaderControls.mount('en');
+      while(!window.updateControls||!document.querySelector('.audio-menu-btn'))await settle();
+
+      const trigger=document.querySelector('.audio-menu-btn');
+      trigger.click();
+      while(!document.querySelector('.audio-chunk-list'))await settle();
+
+      await settle();
+      const initial=document.querySelector('.audio-chunk-list').scrollTop;
+
+      window.updateControls({index:19});
+      await settle();
+
+      const list=document.querySelector('.audio-chunk-list'),followed=list.scrollTop!==initial;
+
+      list.dispatchEvent(new WheelEvent('wheel',{bubbles:true,deltaY:400}));
+      list.scrollTop=2200;
+      await settle();
+      await settle();
+
+      const before=list.scrollTop;
+      window.updateControls({index:20});
+      await settle();
+
+      const stable=list.scrollTop===before;
+
+      const views=document.querySelectorAll('.audio-menu-views button');
+      views[1].click();
+      await settle();
+      views[0].click();
+      await settle();
+
+      const restored=document.querySelector('.audio-chunk-list').scrollTop===before;
+
+      document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+      await settle();
+      trigger.click();
+      await settle();
+
+      parent.postMessage({type:'capture-result',result:{followed,stable,restored,recentered:document.querySelector('.audio-chunk-list').scrollTop!==before}},'*');
+      })();
+      </script>`)
+    expect(await runBrowserFixture(directory, frame)).toEqual({ followed: true, stable: true, restored: true, recentered: true })
+  }, 30_000)
+
+  it.each([{width:320,locale:'en',theme:'light'}, {width:620,locale:'ar',theme:'dark'}])('shows compact Return and integrated pending/recovery feedback: %j', async ({width,locale,theme}) => {
+    const frame = join(directory, 'feedback.html')
+    writeFileSync(frame, `<!doctype html><html data-theme="${theme}"><meta charset="utf-8"><style>${css}body{margin:0}</style>
+      <div class="app-reader"><header class="doc-header"><div id="controls"></div></header><main class="document-view"><article>${'<p>A synthetic book continues while checking audio.</p>'.repeat(30)}</article></main></div>
+      <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async()=>{const until=async check=>{while(!check())await new Promise(requestAnimationFrame)};
+      await ReaderControls.mount(${JSON.stringify(locale)});
+      while(!window.updateControls||!document.querySelector('.audio-return-control'))await new Promise(requestAnimationFrame);
+
+      const control=document.querySelector('.audio-return-control'),label=control.querySelector('.audio-return-label'),labelHidden=getComputedStyle(label).display==='none',name=control.getAttribute('aria-label');
+
+      const ordinary=document.querySelector('.audio-rate-control');
+      const tonal=getComputedStyle(ordinary).backgroundColor===getComputedStyle(control).backgroundColor;
+
+      window.updateControls({status:'loading',pending:true,feedback:null,message:'Checking saved audio...'});
+      await until(()=>document.querySelector('.audio-target-notice')?.textContent==='Checking saved audio...');
+
+      const notice=document.querySelector('.audio-target-notice');
+      const sameSurface=notice.parentElement===document.querySelector('.audio-floating-playback').parentElement;
+
+      const spinner=Boolean(notice.querySelector('.spinner[aria-hidden=true]'));
+      const status=notice.getAttribute('role');
+
+      const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      window.updateControls({status:'error',pending:false,message:'Seek failed. Try again.'});
+      await until(()=>notice.textContent==='Seek failed. Try again.');
+
+      const recoveryVisible=notice.textContent==='Seek failed. Try again.'&&!notice.querySelector('.spinner')&&getComputedStyle(notice).position!=='absolute';
+
+      window.updateControls({status:'loading',pending:true,message:'Checking saved audio...'});
+      await until(()=>notice.textContent==='Checking saved audio...');
+
+      parent.postMessage({type:'capture-result',result:{labelHidden,name,tonal,sameSurface,spinner,status,recoveryVisible,reduced}},'*');
+      })();
+      </script>`)
+    const result = await runBrowserFixture(directory, frame, width,
+      resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `playback-feedback-${width}-${locale}-${theme}.png`))
+    expect(result).toMatchObject({ labelHidden: width <= 480, tonal: true, sameSurface: true, spinner: true, status: 'status', recoveryVisible: true })
+    expect(result.name.length).toBeGreaterThan(0)
+  }, 30_000)
+
   it.each(['idle', 'playing', 'paused'])('captures the %s viewport without loading feedback invalidating its layout snapshot', async status => {
     const frame = join(directory, 'capture.html')
     writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>body{margin:0}${css}

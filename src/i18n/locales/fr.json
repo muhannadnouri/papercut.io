@@ -985,6 +985,7 @@
       "here": "Lire à partir d’ici",
       "beginning": "Lire depuis le début",
       "return": "Revenir à l’audio",
+      "returnShort": "Revenir",
       "description": "Commence au début du segment audio contenant ce passage.",
       "preparing": "Recherche de l’audio de ce passage…",
       "notReady": "Ce passage est en cours de préparation. Réessayez ou lancez la lecture depuis le début.",
