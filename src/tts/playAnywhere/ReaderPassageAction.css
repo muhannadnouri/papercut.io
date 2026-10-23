@@ -30,6 +30,14 @@
   flex-shrink: 0;
   fill: currentcolor;
 }
+.reader-passage-action-initial {
+  justify-content: center;
+  width: 2.85rem;
+  height: 2.85rem;
+  padding: 0;
+  border-radius: var(--radius-surface);
+  color: var(--accent-text);
+}
 .reader-passage-action:focus-visible {
   outline: 2px solid var(--accent-text);
   outline-offset: -3px;

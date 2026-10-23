@@ -13,6 +13,7 @@ import type { PlaybackTargetResult } from './usePlayAnywherePlayback'
 interface ReaderPlaybackOptions {
   documentUrl: string | null
   active: boolean
+  playing: boolean
   playFromHere: (api: ViewerTextTargetApi, onStarted?: () => void) => Promise<PlaybackTargetResult>
   playFromBeginning: (onStarted?: () => void) => Promise<PlaybackTargetResult>
   cancelTargetPlayback: () => void
@@ -22,18 +23,32 @@ interface ReaderPlaybackOptions {
  * Browsing suspends reveals without pausing audio; Return restores reveals without seeking.
  * Explicit starts restore following after audio acknowledgement only if newer browsing has not won.
  */
-export function usePlayAnywhereReader({ documentUrl, active, playFromHere, playFromBeginning, cancelTargetPlayback }: ReaderPlaybackOptions) {
+export function usePlayAnywhereReader({
+  documentUrl,
+  active,
+  playing,
+  playFromHere,
+  playFromBeginning,
+  cancelTargetPlayback,
+}: ReaderPlaybackOptions) {
   const api = useRef<ViewerTextTargetApi | null>(null)
   const selectionEpoch = useRef(0)
   const selection = useRef<{ api: ViewerTextTargetApi; read: () => ViewerTextTargetResult } | null>(null)
   const scope = useRef({ alive: true, intent: 0, browse: 0, following: true, active: false })
-  const [view, setView] = useState({ documentUrl, active, following: true, revision: 0 })
+  const [view, setView] = useState({ documentUrl, active, following: true, revision: 0, hasPlayed: playing })
   const [feedback, setFeedback] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [capturing, setCapturing] = useState(false)
-  if (view.documentUrl !== documentUrl || view.active !== active) {
+  if (view.documentUrl !== documentUrl || view.active !== active || (playing && !view.hasPlayed)) {
     const reset = view.documentUrl !== documentUrl || !active
-    setView({ documentUrl, active, following: reset ? true : view.following, revision: view.revision + 1 })
+    // Stop resets following, but only closing/changing the document resets its visual playback history.
+    setView({
+      documentUrl,
+      active,
+      following: reset ? true : view.following,
+      revision: view.revision + 1,
+      hasPlayed: playing || (view.documentUrl === documentUrl && view.hasPlayed),
+    })
     if (reset) { setFeedback(view.documentUrl === documentUrl && pending ? 'stale' : null); setPending(false); setCapturing(false) }
   }
   useLayoutEffect(() => {
@@ -115,6 +130,7 @@ export function usePlayAnywhereReader({ documentUrl, active, playFromHere, playF
     logTtsDiagnostic('[play-anywhere] action requested', { requestId: intent, action })
     const started = () => {
       if (!valid()) return
+      setView(previous => ({ ...previous, hasPlayed: true }))
       setPending(false)
       if (current.browse === browseVersion) restore()
     }
@@ -141,6 +157,22 @@ export function usePlayAnywhereReader({ documentUrl, active, playFromHere, playF
     allowsReveal: () => scope.current.alive && (!scope.current.active || scope.current.following),
     revision: view.revision,
   }), [active, pending, view])
-  return { register, browse, selectionActions, snapshotSelection, clearSelection, followPolicy, browsing: active && !view.following, pending, capturing, feedback, cancel,
-    playFromHere: () => { void run() }, playFromSelection: () => { void run('selection') }, playFromBeginning: () => { void run('beginning') }, returnToAudio: restore }
+  return {
+    register,
+    browse,
+    selectionActions,
+    snapshotSelection,
+    clearSelection,
+    followPolicy,
+    hasPlayed: view.hasPlayed,
+    browsing: active && !view.following,
+    pending,
+    capturing,
+    feedback,
+    cancel,
+    playFromHere: () => { void run() },
+    playFromSelection: () => { void run('selection') },
+    playFromBeginning: () => { void run('beginning') },
+    returnToAudio: restore,
+  }
 }

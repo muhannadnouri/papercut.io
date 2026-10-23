@@ -61,7 +61,7 @@ interface AudioControlsProps {
   wordHighlightEnabled: boolean
 }
 
-type AudioIconName = 'play' | 'pause' | 'resume' | 'stop' | 'back' | 'forward' | 'save' | 'menu' | 'passage' | 'selection' | 'beginning' | 'return'
+type AudioIconName = 'play' | 'pause' | 'resume' | 'stop' | 'back' | 'forward' | 'save' | 'menu' | 'options' | 'passage' | 'selection' | 'beginning' | 'return'
 const PLAYBACK_RATE_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3]
 
 export function AudioControls({
@@ -277,6 +277,8 @@ export function AudioControls({
               currentChunkIndex={ttsState.currentChunkIndex}
               chunksTotal={ttsState.chunksTotal}
               playbackDurationSec={playbackDurationSec}
+              playbackRateLabel={playbackRateLabel}
+              onPlaybackRateChange={handlePlaybackRateChange}
               wordHighlightEnabled={wordHighlightEnabled}
               onSelect={handleChunkSelect}
               onWordHighlightEnabledChange={onWordHighlightEnabledChange}
@@ -431,6 +433,8 @@ interface ChunkMenuProps {
   currentChunkIndex: number | null
   chunksTotal: number
   playbackDurationSec?: number
+  playbackRateLabel: string
+  onPlaybackRateChange: () => void
   wordHighlightEnabled: boolean
   onSelect: (index: number) => void
   onWordHighlightEnabledChange: (enabled: boolean) => void
@@ -451,6 +455,8 @@ const ChunkMenu = memo(function ChunkMenu({
   currentChunkIndex,
   chunksTotal,
   playbackDurationSec,
+  playbackRateLabel,
+  onPlaybackRateChange,
   wordHighlightEnabled,
   onSelect,
   onWordHighlightEnabledChange,
@@ -501,11 +507,13 @@ const ChunkMenu = memo(function ChunkMenu({
         <div className="audio-menu-views" role="group" aria-label={t('tts.controls.menuTitle')}>
           <button id={viewId + '-chunks'} type="button" aria-pressed={showChunks}
             onClick={() => setView('chunks')}>
-            {t('tts.controls.chunkView')} · {chunks.length.toLocaleString()}
+            <AudioIcon name="menu" />
+            <span>{t('tts.controls.chunkView')} · {chunks.length.toLocaleString()}</span>
           </button>
           <button id={viewId + '-options'} type="button" aria-pressed={!showChunks}
             onClick={() => setView('options')}>
-            {t('tts.controls.optionsView')}
+            <AudioIcon name="options" />
+            <span>{t('tts.controls.optionsView')}</span>
           </button>
         </div>
       )}
@@ -552,17 +560,26 @@ const ChunkMenu = memo(function ChunkMenu({
       )}
       {!showChunks && <div className="audio-chunk-menu-header">
         <span>{t('tts.controls.playback')}</span>
-        <button
-          type="button"
-          className="audio-word-highlight-toggle"
-          onClick={() => onWordHighlightEnabledChange(!wordHighlightEnabled)}
-          aria-pressed={wordHighlightEnabled}
-          aria-label={t('tts.controls.wordHighlightState', {
-            state: wordHighlightEnabled ? t('tts.setup.on') : t('tts.setup.off'),
-          })}
-        >
-          {t('tts.controls.wordHighlight')} <span className="audio-beta-tag">{t('tts.controls.experimental')}</span>: {wordHighlightEnabled ? t('tts.setup.on') : t('tts.setup.off')}
-        </button>
+        <div className="audio-playback-settings" role="group" aria-label={t('tts.controls.playback')}>
+          <button
+            type="button"
+            className="audio-word-highlight-toggle"
+            onClick={() => onWordHighlightEnabledChange(!wordHighlightEnabled)}
+            aria-pressed={wordHighlightEnabled}
+            aria-label={t('tts.controls.wordHighlightState', {
+              state: wordHighlightEnabled ? t('tts.setup.on') : t('tts.setup.off'),
+            })}
+          >
+            <span>{t('tts.controls.wordHighlight')} <span className="audio-beta-tag">{t('tts.controls.experimental')}</span></span>
+            <span>{wordHighlightEnabled ? t('tts.setup.on') : t('tts.setup.off')}</span>
+          </button>
+          <button type="button" className="audio-menu-rate"
+            onClick={onPlaybackRateChange}
+            title={t('tts.controls.playbackSpeedTitle')}
+            aria-label={t('tts.controls.playbackSpeed', { speed: playbackRateLabel })}>
+            {playbackRateLabel}
+          </button>
+        </div>
       </div>}
       {showChunks && (
           <div
@@ -660,6 +677,8 @@ function renderIconPath(name: AudioIconName) {
       return <path d="M5 3h12l2 2v16H5zM8 3v6h8V3M8 18h8v-5H8z" fill="none" stroke="currentcolor" strokeWidth="2" strokeLinejoin="round" />
     case 'menu':
       return <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentcolor" strokeWidth="2" strokeLinecap="round" />
+    case 'options':
+      return <path d="M4 6h3m4 0h9M4 12h9m4 0h3M4 18h3m4 0h9M7 3v6m6 0v6m-6 0v6" fill="none" stroke="currentcolor" strokeWidth="2" strokeLinecap="round" />
   }
 }
 

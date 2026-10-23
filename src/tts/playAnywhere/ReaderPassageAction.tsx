@@ -11,14 +11,19 @@ import {
 import './ReaderPassageAction.css'
 
 interface ReaderPassageActionProps {
+  hasPlayed: boolean
   pending: boolean
   onSnapshotSelection: () => boolean
   onPlayFromHere: () => void
   onPlayFromSelection: () => void
 }
 
-/** Idle-only reader shortcut. Selection availability never implies a verified audio match. */
+/**
+ * Idle-only shortcut: session history changes its label, never its target or availability.
+ * Selection availability is presentation only; action-time source/audio validation remains authoritative.
+ */
 export function ReaderPassageAction({
+  hasPlayed,
   pending,
   onSnapshotSelection,
   onPlayFromHere,
@@ -78,14 +83,16 @@ export function ReaderPassageAction({
   const label = t(hasSelection ? 'tts.playAnywhere.selection' : 'tts.playAnywhere.here')
 
   return (
-    <button ref={buttonRef} type="button" className="reader-passage-action"
+    <button ref={buttonRef} type="button"
+      className={'reader-passage-action' + (hasPlayed ? '' : ' reader-passage-action-initial')}
+      aria-label={label} title={label}
       disabled={pending} aria-busy={pending} onPointerDown={snapshot} onClick={play}>
       {pending ? <span className="spinner" aria-hidden="true" /> : (
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M8 5v14l11-7z" />
         </svg>
       )}
-      <span>{label}</span>
+      {hasPlayed && <span>{label}</span>}
     </button>
   )
 }

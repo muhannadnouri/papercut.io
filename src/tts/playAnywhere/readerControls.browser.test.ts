@@ -1,5 +1,10 @@
 // @vitest-environment node
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { build } from 'vite'
@@ -17,6 +22,8 @@ beforeAll(async () => {
     import {createPortal} from ${JSON.stringify(resolve('node_modules/react-dom/index.js'))};
     import {ReaderPassageAction} from ${JSON.stringify(resolve('src/tts/playAnywhere/ReaderPassageAction.tsx'))};
     import {AudioControls} from ${JSON.stringify(resolve('src/tts/components/AudioControls.tsx'))};
+    import {DocumentViewer} from ${JSON.stringify(resolve('src/components/DocumentViewer/DocumentViewer.tsx'))};
+    import ${JSON.stringify(resolve('src/components/AppSettings/AppSettings.css'))};
     import {HtmlViewer} from ${JSON.stringify(resolve('src/viewers/HtmlViewer.tsx'))};
     import i18n from ${JSON.stringify(resolve('src/i18n/index.ts'))};
     import ${JSON.stringify(resolve('src/components/DocumentViewer/DocumentViewer.css'))};
@@ -25,6 +32,26 @@ beforeAll(async () => {
     import {readerTextViewport} from ${JSON.stringify(resolve('src/tts/playAnywhere/htmlTextTarget.ts'))};
     import {createTextTargetPreparation} from ${JSON.stringify(resolve('src/tts/playAnywhere/prepareTextTarget.ts'))};
     import {chunkAudiobookSaveHtmlWithSpans} from ${JSON.stringify(resolve('src/tts/utils/text.ts'))};
+    export async function mountHeader(locale) {
+      await i18n.changeLanguage(locale);
+      document.documentElement.dir=locale==='ar'?'rtl':'ltr';
+      const noop=()=>{};
+      const saved={id:'saved',documentUrl:'fixture.html',title:'Fixture',voice:'af_heart',speed:1,modelId:'kokoro',textPreprocessor:'none',dtype:'int8',savedAt:0,chunks:2};
+      createRoot(document.getElementById('header-fixture')).render(<DocumentViewer
+        url="fixture.html" content="<p>Synthetic header layout.</p>" onClose={()=>{window.backRequested=true}}
+        appControls={<button className="app-settings-btn" aria-label="Settings">⚙</button>}
+        headerControls={<AudioControls
+          audiobookState={{status:'saved',complete:true,cachedChunks:2,totalChunks:2}}
+          canPlayAudiobook canSaveAudiobook={false} canSkipBackward={false} canSkipForward
+          modelSetupLabel={null} saveInProgress={false}
+          onManageSave={noop} onPause={noop} onRead={noop} onResume={noop} onSelectSavedAudiobook={noop}
+          onJumpToChunk={noop} onPlaybackRateChange={noop} onOpenAudioSetup={noop} onSave={noop}
+          onSkipBackward={noop} onSkipForward={noop} onStop={noop} onWordHighlightEnabledChange={noop}
+          playbackRate={1} savedAudiobooks={[saved]} selectedAudiobookId="saved" wordHighlightEnabled
+          ttsState={{status:'idle',message:'',chunksTotal:2,chunksPlayed:0,currentChunkIndex:null,currentChunkProgress:0,currentChunkDuration:0,chunkSummaries:[]}}
+          playAnywhere={{browsing:false,pending:false,feedback:null,onPlayFromHere:noop,onPlayFromBeginning:noop,onReturnToAudio:noop}} />}
+      />);
+    }
     export async function mount(locale,captureMode=false,playbackStatus='idle',legacy=false,priorFeedback=null) {
       await i18n.changeLanguage(locale);document.documentElement.dir=locale==='ar'?'rtl':'ltr';
       const noop=()=>{};
@@ -43,7 +70,7 @@ beforeAll(async () => {
       function Controls(){
         const [sample,setSample]=React.useState({index:18,status:'paused',pending:false,feedback:'unmapped',message:''});
         React.useEffect(()=>{window.updateControls=patch=>setSample(value=>({...value,...patch}));return()=>{delete window.updateControls}},[]);
-        const reader=usePlayAnywhereReader({documentUrl:'fixture',active:!captureMode||playbackStatus!=='idle',playFromHere,playFromBeginning:async()=>({status:'dispatched'}),cancelTargetPlayback:noop});
+        const reader=usePlayAnywhereReader({documentUrl:'fixture',active:!captureMode||playbackStatus!=='idle',playing:captureMode?playbackStatus==='playing':sample.status==='playing',playFromHere,playFromBeginning:async()=>({status:'dispatched'}),cancelTargetPlayback:noop});
         const contentRef=React.useRef(null);
         const viewport=React.useCallback(()=>readerTextViewport(shell),[]);
         const register=React.useCallback(api=>{reader.register(api);if(api)window.captureReady=true},[reader.register]);
@@ -52,11 +79,11 @@ beforeAll(async () => {
           const unbind=bindSelectionIntent(shell,reader.selectionActions);if(playbackStatus!=='idle')reader.browse();
           return unbind;
         },[]);
-        return <>{captureMode&&playbackStatus==='idle'&&createPortal(<div className="reader-floating-actions"><ReaderPassageAction pending={reader.pending} onSnapshotSelection={reader.snapshotSelection} onPlayFromHere={reader.playFromHere} onPlayFromSelection={reader.playFromSelection}/><button className="reader-bookmark-btn">Bookmark</button><button className="scroll-top-btn">Top</button></div>,shell)}{captureMode&&createPortal(<HtmlViewer url="fixture" content={content} contentRef={contentRef} onTextTargetApiChange={register} getTextTargetViewport={viewport} audioFollowPolicy={reader.followPolicy}/>,surface)}<AudioControls
+        return <>{captureMode&&playbackStatus==='idle'&&createPortal(<div className="reader-floating-actions"><ReaderPassageAction hasPlayed={reader.hasPlayed} pending={reader.pending} onSnapshotSelection={reader.snapshotSelection} onPlayFromHere={reader.playFromHere} onPlayFromSelection={reader.playFromSelection}/><button className="reader-bookmark-btn">Bookmark</button><button className="scroll-top-btn">Top</button></div>,shell)}{captureMode&&createPortal(<HtmlViewer url="fixture" content={content} contentRef={contentRef} onTextTargetApiChange={register} getTextTargetViewport={viewport} audioFollowPolicy={reader.followPolicy}/>,surface)}<AudioControls
         audiobookState={{status:'saved',complete:true,cachedChunks:2,totalChunks:2}}
         canPlayAudiobook canSaveAudiobook={false} canSkipBackward canSkipForward modelSetupLabel={null} saveInProgress={false}
         onManageSave={noop} onPause={noop} onRead={noop} onResume={noop} onSelectSavedAudiobook={noop}
-        onJumpToChunk={noop} onPlaybackRateChange={noop} onOpenAudioSetup={noop} onSave={noop}
+        onJumpToChunk={noop} onPlaybackRateChange={rate=>{window.rateRequested=rate}} onOpenAudioSetup={noop} onSave={noop}
         onSkipBackward={noop} onSkipForward={noop} onStop={noop} onWordHighlightEnabledChange={noop}
         playbackRate={1} savedAudiobooks={[]} selectedAudiobookId={null} wordHighlightEnabled
         ttsState={{status:captureMode?playbackStatus:sample.status,message:sample.message,chunksTotal:captureMode?2:184,chunksPlayed:0,currentChunkIndex:captureMode?0:sample.index,currentChunkProgress:0,currentChunkDuration:0,chunkSummaries:captureMode?[]:Array.from({length:184},(_,index)=>({index,chunkId:'fixture-'+index,textPreview:'Synthetic narrated passage '+(index+1)+' with several readable words.'}))}}
@@ -75,6 +102,81 @@ beforeAll(async () => {
 }, 30_000)
 afterAll(() => { if (directory) rmSync(directory, { recursive: true, force: true }) })
 describe.skipIf(!browser)('Reader controls in Chromium', () => {
+  it.each([
+    { width: 320, font: 16, locale: 'en' },
+    { width: 453, font: 16, locale: 'en' },
+    { width: 620, font: 16, locale: 'ar' },
+    { width: 900, font: 32, locale: 'en' },
+    { width: 453, font: 32, locale: 'ar' },
+    { width: 320, font: 32, locale: 'en' },
+  ])('keeps Back and saved-audio controls distinct in the complete reader header: %j', async ({ width, font, locale }) => {
+    const frame = join(directory, 'full-header.html')
+    writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>${css}html{font-size:${font}px}body{margin:0}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async () => {
+        await ReaderControls.mountHeader(${JSON.stringify(locale)});
+        while (!document.querySelector('.audio-saved-versions-btn')) await new Promise(requestAnimationFrame);
+        await document.fonts.ready;
+        await new Promise(requestAnimationFrame);
+        const header = document.querySelector('.doc-header');
+        const buttons = [...header.querySelectorAll('button')];
+        const box = element => {
+          const r = element.getBoundingClientRect();
+          return {left:r.left, right:r.right, top:r.top, bottom:r.bottom};
+        };
+        const boxes = buttons.map(box);
+        const overlaps = (a, b) => a.left < b.right - .5 && a.right > b.left + .5 && a.top < b.bottom - .5 && a.bottom > b.top + .5;
+        const visible = buttons.every(button => {
+          const r = button.getBoundingClientRect();
+          return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest('button') === button;
+        });
+        const overlap = boxes.some((a, index) => boxes.slice(index + 1).some(b => overlaps(a, b)));
+        const badgeOverlap = overlaps(box(document.querySelector('.audio-saved-count')), box(document.querySelector('.back-button')));
+        document.querySelector('.back-button').click();
+        parent.postMessage({type:'capture-result', result:{boxes, visible, overlap, badgeOverlap, back:window.backRequested, scrollWidth:document.documentElement.scrollWidth}}, '*');
+      })();</script>`)
+    const result = await runBrowserFixture(directory, frame, width,
+      resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `header-${width}-${font}-${locale}.png`))
+    expect(result).toMatchObject({ visible: true, overlap: false, badgeOverlap: false, back: true })
+    expect(result.scrollWidth).toBeLessThanOrEqual(width)
+    for (const box of result.boxes) {
+      expect(box.left).toBeGreaterThanOrEqual(-0.5)
+      expect(box.right).toBeLessThanOrEqual(width + 0.5)
+    }
+  }, 30_000)
+
+  it.each(['en', 'ar'])('groups labeled settings with a compact rate and view icons at 320px (%s)', async locale => {
+    const frame = join(directory, 'compact-options.html')
+    writeFileSync(frame, `<!doctype html><html data-theme="${locale === 'ar' ? 'dark' : 'light'}"><meta charset="utf-8"><style>${css}body{margin:0}</style>
+      <div class="app-reader"><header class="doc-header"><div id="controls"></div></header><main class="document-view"><p>Fixture text.</p></main></div>
+      <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async () => {
+        await ReaderControls.mount(${JSON.stringify(locale)});
+        while (!document.querySelector('.audio-menu-btn')) await new Promise(requestAnimationFrame);
+        document.querySelector('.audio-menu-btn').click();
+        while (!document.querySelector('.audio-menu-views')) await new Promise(requestAnimationFrame);
+        const views = [...document.querySelectorAll('.audio-menu-views button')];
+        const icons = views.every(button => button.querySelector('svg[aria-hidden="true"]') && button.textContent.trim());
+        views[1].click();
+        while (!document.querySelector('.audio-menu-rate')) await new Promise(requestAnimationFrame);
+        await document.fonts.ready;
+        const toggle = document.querySelector('.audio-word-highlight-toggle');
+        const speed = document.querySelector('.audio-menu-rate');
+        const menu = document.querySelector('.audio-chunk-menu');
+        menu.scrollTop = menu.scrollHeight;
+        await new Promise(requestAnimationFrame);
+        const a = toggle.getBoundingClientRect(), b = speed.getBoundingClientRect();
+        parent.postMessage({type:'capture-result',result:{icons, rate:speed.textContent, rateName:speed.getAttribute('aria-label'), sameRow:Math.abs(a.top-b.top)<1, heights:[a.height,b.height], bounds:[a.left,a.right,b.left,b.right], pressed:toggle.getAttribute('aria-pressed')}}, '*');
+      })();</script>`)
+    const result = await runBrowserFixture(directory, frame, 320,
+      resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `compact-options-320-${locale}.png`))
+    expect(result).toMatchObject({ icons: true, rate: '1x', sameRow: true, pressed: 'true' })
+    expect(result.rateName).toBeTruthy()
+    expect(Math.min(...result.heights)).toBeGreaterThanOrEqual(44)
+    expect(Math.min(...result.bounds)).toBeGreaterThanOrEqual(0)
+    expect(Math.max(...result.bounds)).toBeLessThanOrEqual(320)
+  }, 30_000)
+
   it.each([{width:320,font:16,locale:'en'}, {width:390,font:32,locale:'ar'}, {width:1280,font:32,locale:'fr'}])('keeps browse/return controls usable outside the hidden fullscreen header: %j', async ({width,font,locale}) => {
     const frame = join(directory, 'frame.html')
     writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>html{font-size:${font}px}body{margin:0}${css}</style>
@@ -82,7 +184,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
       (async()=>{try{await ReaderControls.mount(${JSON.stringify(locale)});while(!document.querySelector('.audio-playback-dock'))await new Promise(requestAnimationFrame);await document.fonts.ready;
       const dock=document.querySelector('.audio-playback-dock');const rect=e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}};
-      const buttons=[...dock.querySelectorAll('button')];const visible=buttons.every(b=>{const r=b.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&getComputedStyle(b).visibility==='visible'&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('button')===b});
+      const buttons=[...dock.querySelectorAll('button')].filter(button=>getComputedStyle(button).display!=='none');const visible=buttons.every(b=>{const r=b.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&getComputedStyle(b).visibility==='visible'&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('button')===b});
       const browse=[...dock.querySelectorAll('.audio-return-control')].map(rect);const inlineReturn=Boolean(dock.querySelector('.audio-floating-playback > .audio-return-control'));
       parent.postMessage({type:'capture-result',result:{visible,browse,inlineReturn,extraStrip:Boolean(dock.querySelector('.audio-browse-actions')),dock:rect(dock),outsideHeader:!dock.closest('header'),feedback:dock.querySelector('[role=status]').textContent}},'*');
       }catch(e){parent.postMessage({type:'capture-result',result:{error:String(e.stack||e)}},'*')}})();</script>`)
@@ -136,6 +238,68 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     if (width === 620) expect(Math.abs(result.initial[1].top-result.initial[2].top)).toBeLessThan(1)
     if (font === 32 && width === 390) expect(result.initial[2].top).toBeGreaterThan(result.initial[1].top)
   }, 30_000)
+  it.each(['en', 'ar'])('keeps six usable transport targets together at 320px (%s)', async locale => {
+    const frame = join(directory, 'compact-player.html')
+    const theme = locale === 'ar' ? 'dark' : 'light'
+    const axPath = resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `compact-320-${locale}-ax.json`)
+    writeFileSync(frame, `<!doctype html><html data-theme="${theme}"><meta charset="utf-8"><style>${css}body{margin:0}</style>
+      <div class="app-reader"><header class="doc-header"><div id="controls"></div></header><main class="document-view"><article>${'<p>A synthetic book retains its current passage.</p>'.repeat(40)}</article></main></div>
+      <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async () => {
+        await ReaderControls.mount(${JSON.stringify(locale)});
+        while (!document.querySelector('.audio-return-control')) await new Promise(requestAnimationFrame);
+        await document.fonts.ready;
+        const toolbar = document.querySelector('.audio-floating-playback');
+        const buttons = [...toolbar.querySelectorAll('button')].filter(button => getComputedStyle(button).display !== 'none');
+        const boxes = buttons.map(button => {
+          const box = button.getBoundingClientRect();
+          return { top: box.top, left: box.left, right: box.right, width: box.width, height: box.height };
+        });
+        const luminance = color => {
+          const rgb = color.match(/[0-9.]+/g).slice(0, 3).map(Number).map(value => {
+            const n = value / 255;
+            return n <= 0.04045 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4);
+          });
+          return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+        };
+        const contrasts = buttons.filter(button => !button.disabled).map(button => {
+          const style = getComputedStyle(button);
+          const a = luminance(style.color), b = luminance(style.backgroundColor);
+          return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+        });
+        const trigger = document.querySelector('.audio-menu-btn');
+        trigger.click();
+        while (!document.querySelector('.audio-menu-views')) await new Promise(requestAnimationFrame);
+        document.querySelectorAll('.audio-menu-views button')[1].click();
+        while (!document.querySelector('.audio-menu-rate')) await new Promise(requestAnimationFrame);
+        const speed = document.querySelector('.audio-menu-rate');
+        const speedVisible = getComputedStyle(speed).display !== 'none';
+        speed.click();
+        document.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+        while (document.querySelector('.audio-chunk-menu')) await new Promise(requestAnimationFrame);
+        window.updateControls({feedback:null});
+        while (document.querySelector('.audio-target-notice').textContent) await new Promise(requestAnimationFrame);
+        parent.postMessage({type:'capture-result', result:{boxes, contrasts, speedVisible, rate:window.rateRequested}}, '*');
+      })();
+      </script>`)
+    const result = await runBrowserFixture(directory, frame, 320,
+      resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `compact-320-${locale}.png`), axPath)
+    expect(result.boxes).toHaveLength(6)
+    for (const box of result.boxes) {
+      expect(Math.abs(box.top - result.boxes[0].top)).toBeLessThan(1)
+      expect(box.width).toBeGreaterThanOrEqual(44)
+      expect(box.height).toBeGreaterThanOrEqual(44)
+      expect(box.left).toBeGreaterThanOrEqual(0)
+      expect(box.right).toBeLessThanOrEqual(320)
+    }
+    expect(Math.min(...result.contrasts)).toBeGreaterThanOrEqual(3)
+    expect(result).toMatchObject({ speedVisible: true, rate: 1.25 })
+    const tree = JSON.parse(readFileSync(axPath, 'utf8'))
+    const buttons = tree.nodes.filter((node: { ignored: boolean; role?: { value: string } }) => !node.ignored && node.role?.value === 'button')
+    expect(buttons.every((node: { name?: { value: string } }) => Boolean(node.name?.value))).toBe(true)
+    expect(buttons.some((node: { name?: { value: string } }) => node.name?.value === (locale === 'en' ? 'Return to audio' : 'العودة إلى موضع الصوت'))).toBe(true)
+  }, 30_000)
+
   it('keeps a reader-browsed chunk stable while playback advances and restores centering after reopening', async () => {
     const frame = join(directory, 'stable-list.html')
     writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>${css}body{margin:0}</style>
@@ -277,12 +441,15 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       scrollTo(0,600);const text=document.querySelectorAll('article p')[10].firstChild;document.getSelection().setBaseAndExtent(text,25,text,5);document.dispatchEvent(new Event('selectionchange'));
       await document.fonts.ready;await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
       const button=document.querySelector('.reader-passage-action'),r=button.getBoundingClientRect(),rail=document.querySelector('.reader-floating-actions').getBoundingClientRect(),notice=document.querySelector('.reader-bookmark-notice').getBoundingClientRect();
-      parent.postMessage({type:'capture-result',result:{left:r.left,right:r.right,height:r.height,railTop:rail.top,noticeBottom:notice.bottom}},'*');})();</script>`)
+      parent.postMessage({type:'capture-result',result:{left:r.left,right:r.right,width:r.width,height:r.height,initial:button.classList.contains('reader-passage-action-initial'),name:button.getAttribute('aria-label'),label:button.textContent,railTop:rail.top,noticeBottom:notice.bottom}},'*');})();</script>`)
     const result = await runBrowserFixture(directory, frame, width,
       resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `reader-shortcut-${width}-${locale}.png`))
     expect(result.left).toBeGreaterThanOrEqual(0)
     expect(result.right).toBeLessThanOrEqual(width)
     expect(result.height).toBeGreaterThanOrEqual(44)
+    expect(result.width).toBeCloseTo(result.height, 1)
+    expect(result).toMatchObject({ initial: true, label: '' })
+    expect(result.name).toBeTruthy()
     expect(result.noticeBottom).toBeLessThanOrEqual(result.railTop)
   }, 30_000)
 
@@ -296,11 +463,11 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       const text=p.firstChild;document.getSelection().setBaseAndExtent(text,30,text,12);
       document.dispatchEvent(new Event('selectionchange'));await new Promise(requestAnimationFrame);
       const action=document.querySelector('.reader-passage-action');
-      if(action.textContent!=='Play from selection')throw new Error('Selection shortcut did not update');
+      if(action.getAttribute('aria-label')!=='Play from selection')throw new Error('Selection shortcut did not update');
       if(${JSON.stringify(method)}==='keyboard')document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true}));
       else action.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'mouse'}));
       action.focus();document.getSelection().removeAllRanges();document.dispatchEvent(new Event('selectionchange'));await new Promise(requestAnimationFrame);
-      if(action.textContent!=='Play from selection')throw new Error('Focus changed the advertised action');
+      if(action.getAttribute('aria-label')!=='Play from selection')throw new Error('Focus changed the advertised action');
       action.click();})();</script>`)
     const result = await runBrowserFixture(directory, frame, 390)
     expect(result.status, JSON.stringify(result)).toBe('captured')

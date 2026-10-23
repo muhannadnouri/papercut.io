@@ -145,6 +145,10 @@
   min-width: 0;
 }
 
+.header-control-group-audio .audio-compact-row {
+  flex-wrap: wrap;
+}
+
 .header-controls-slot-disabled {
   pointer-events: none;
   opacity: 0.5;
@@ -730,7 +734,8 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
 @media (max-width: 900px) {
   .doc-header {
-    grid-template-columns: minmax(0, 1fr) auto;
+    /* Reserve Back's intrinsic width; secondary groups wrap inside the remaining column. */
+    grid-template-columns: auto minmax(0, 1fr);
     gap: 0.7rem 0.75rem;
   }
 

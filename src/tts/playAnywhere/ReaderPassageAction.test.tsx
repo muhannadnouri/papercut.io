@@ -28,15 +28,21 @@ it('uses the source-order selection through control focus, then returns to viewp
   const invalidate = vi.fn()
   const dispose = bindSelectionIntent(shell, { snapshot, invalidate })
   try {
-    await act(async () => app.render(<ReaderPassageAction pending={false}
+    await act(async () => app.render(<ReaderPassageAction hasPlayed={false} pending={false}
       onSnapshotSelection={snapshot} onPlayFromHere={here} onPlayFromSelection={selected} />))
     const button = shell.querySelector('button')!
-    expect(button.textContent).toBe('tts.playAnywhere.here')
+    expect(button.textContent).toBe('')
+    expect(button.getAttribute('aria-label')).toBe('tts.playAnywhere.here')
+    expect(button.classList.contains('reader-passage-action-initial')).toBe(true)
     const text = shell.querySelector('p')!.firstChild!
     const selection = document.getSelection()!
     // Backward drag still advertises the document-order range start.
     selection.setBaseAndExtent(text, 19, text, 8)
     await act(async () => document.dispatchEvent(new Event('selectionchange')))
+    expect(button.textContent).toBe('')
+    expect(button.getAttribute('aria-label')).toBe('tts.playAnywhere.selection')
+    await act(async () => app.render(<ReaderPassageAction hasPlayed pending={false}
+      onSnapshotSelection={snapshot} onPlayFromHere={here} onPlayFromSelection={selected} />))
     expect(button.textContent).toBe('tts.playAnywhere.selection')
     snapshot.mockReturnValue(true)
     await act(async () => button.dispatchEvent(new Event('pointerdown', { bubbles: true })))
@@ -53,7 +59,7 @@ it('uses the source-order selection through control focus, then returns to viewp
     await act(async () => document.dispatchEvent(new Event('selectionchange')))
     await act(async () => button.click())
     expect(here).toHaveBeenCalledOnce()
-    await act(async () => app.render(<ReaderPassageAction pending
+    await act(async () => app.render(<ReaderPassageAction hasPlayed pending
       onSnapshotSelection={snapshot} onPlayFromHere={here} onPlayFromSelection={selected} />))
     expect(button.disabled).toBe(true)
     expect(button.getAttribute('aria-busy')).toBe('true')
@@ -72,7 +78,7 @@ it('moves focused idle shortcut to the surviving player when playback starts', a
   const app = createRoot(shell.querySelector('aside')!)
   const noop = () => {}
   try {
-    await act(async () => app.render(<ReaderPassageAction pending={false}
+    await act(async () => app.render(<ReaderPassageAction hasPlayed pending={false}
       onSnapshotSelection={() => false} onPlayFromHere={noop} onPlayFromSelection={noop} />))
     shell.querySelector('button')!.focus()
     await act(async () => app.render(<div className="audio-floating-playback">

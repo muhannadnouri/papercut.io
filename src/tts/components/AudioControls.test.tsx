@@ -6,6 +6,29 @@ import { AudioControls } from './AudioControls'
 vi.mock('react-i18next', async importOriginal => ({ ...await importOriginal<typeof import('react-i18next')>(), useTranslation: () => ({ t: (key: string) => key }) }))
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 afterEach(() => document.body.replaceChildren())
+
+it('keeps playback speed reachable through Options without the optional feature', async () => {
+  const config = props()
+  const element = document.createElement('div')
+  document.body.append(element)
+  const app = createRoot(element)
+  const rate = vi.fn()
+  try {
+    await act(async () => app.render(<AudioControls {...config} playAnywhere={undefined}
+      onPlaybackRateChange={rate} ttsState={{ ...config.ttsState, status: 'paused' }} />))
+    await act(async () => document.querySelector<HTMLButtonElement>('.audio-menu-btn')!.click())
+    expect(document.activeElement).toBe(document.querySelector('.audio-word-highlight-toggle'))
+    const speed = document.querySelector<HTMLButtonElement>('.audio-menu-rate')!
+    expect(speed.textContent).toBe('1x')
+    expect(speed.getAttribute('aria-label')).toBe('tts.controls.playbackSpeed')
+    await act(async () => speed.click())
+    expect(rate).toHaveBeenCalledWith(1.25)
+    expect(document.querySelector('.audio-chunk-menu')).not.toBeNull()
+    expect(document.querySelector('.audio-passage-actions')).toBeNull()
+  } finally {
+    await act(async () => app.unmount())
+  }
+})
 function props(): ComponentProps<typeof AudioControls> {
   const noop = () => {}
   return { audiobookState: { status: 'idle', complete: true, cachedChunks: 2, totalChunks: 2, message: '', audioDurationSec: 0, wavBytes: 0, appliedThreadCount: null },

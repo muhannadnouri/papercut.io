@@ -56,8 +56,11 @@ No storage migration, cache epoch change, or model download is planned.
 | Missing/incomplete saved audio | Preserve current save/setup affordances. This feature does not generate missing audio. |
 
 Use the existing button, menu, icon, focus, and responsive styling patterns.
-The primary play button needs an accessible name and tooltip; any extra viewport
-action shown while browsing should have a visible label. “Chunk” is unnecessary
+The primary play button needs an accessible name and tooltip. The idle floating
+shortcut is icon-only until successful playback in this document-open session;
+its accessible name still identifies the viewport/selection action. After a
+successful start, the idle shortcut and contextual popover commands retain visible
+passage labels. “Chunk” is unnecessary
 in primary UI copy. Supporting description: “Starts at the beginning of the audio
 segment containing this passage.” Keep selection, hyperlinks, and current
 fullscreen toolbar gestures working normally. No new global shortcut is needed.
@@ -742,16 +745,16 @@ Implementation details:
 
 ### Stage 6 — Regression, accessibility and performance gates
 
-- [ ] Add focused resolver, adapter, coordinator and player lifecycle regressions
+- [x] Add focused resolver, adapter, coordinator and player lifecycle regressions
   for new behavior, including baseline behavior with optional capabilities absent.
-- [ ] Run relevant focused tests, then `npm test`, `npm run build:typecheck`,
+- [x] Run relevant focused tests, then `npm test`, `npm run build:typecheck`,
   `npm run check:i18n`, `npm run lint`, and `npm run build` before integration.
   Run native tests/checks only if native code changes; retain existing CI matrix.
 - [ ] Complete the device/format matrix below and performance budgets above.
 - [ ] Verify unchanged saved source/audio/chunk identity fixtures and existing
   bundle import/export, transfer, Find, bookmarks, model settings and lock-screen
   controls. No private corpus excerpts enter tracked fixtures or diagnostics.
-- [ ] Review dependency direction, cleanup, error boundaries and removal scope;
+- [x] Review dependency direction, cleanup, error boundaries and removal scope;
   record any added/changed integration surfaces here.
 
 Acceptance: no failing required check, no unexplained regression, no unmeasured
@@ -761,14 +764,16 @@ does not establish audible, accessibility or performance acceptance.
 
 ### Stage 7 — Removal rehearsal and release decision
 
-- [ ] In a disposable patch/worktree, disconnect the optional feature coordinator,
+- [x] In a disposable patch/worktree, disconnect the optional feature coordinator,
   restore the original idle-play action and omit follow-policy/start-index inputs.
   Do not reset/delete user work to rehearse removal.
 - [ ] Verify baseline playback/reading still works without any feature-owned
   runtime module; check compile, focused baseline tests and a playback smoke.
 - [ ] Confirm removal needs no user-data deletion, schema downgrade, cache
   regeneration or changes to import/search/bookmarks/transfer.
-- [ ] Restore the intended feature patch and rerun checks affected by restoration.
+- [x] Restore the intended feature patch and rerun checks affected by restoration.
+  The 2026-10-22 rehearsal used disposable copies, so no live restoration was
+  needed; the intact feature checkout was checked independently.
 - [ ] Update this checklist, current TTS behavior documentation and README with
   actual results/limits. Record exact accepted commit, devices and owner listening
   result; leave untested configurations explicitly pending.
@@ -790,7 +795,7 @@ saved chunk beginning. Do not merge/release while required gates remain open.
 | Windows + macOS native WebViews | Viewport/selection capture, transport, cleanup and unavailable fallback. | Pending |
 | Android + iOS physical devices | Touch/selection, paused seek-and-play, background/foreground, lock-screen controls and interruption. | Pending |
 | Keyboard/screen reader/reduced motion | Accessible names/status, focus order/return, menus, target sizes, no forced focus/scroll. | Pending |
-| Repeated lifecycle + removal rehearsal | Stop/close/switch/cancel races; released resources; baseline with feature disconnected. | Pending |
+| Repeated lifecycle + removal rehearsal | Stop/close/switch/cancel races; released resources; baseline with feature disconnected. | Structural removal passes; packaged/device smoke pending |
 
 For every completed gate append: commit/build; environment/device; fixture and
 size; exact checks/sample count; result; evidence location; known limitation.
@@ -1480,7 +1485,8 @@ Integration and acceptance checklist:
   paused player counts as present, so Resume keeps its exact-time behavior.
   Scrolling while stopped exposes **Play from here** without returning to the
   header. A nonempty reader selection changes this to **Play from selection**.
-  A visible label is retained; no permanent second playback strip is introduced.
+  The initial label is superseded by the 2026-10-23 session presentation below;
+  no permanent second playback strip is introduced.
 - [x] The shortcut listens to selection changes only while mounted. Availability
   checks inspect the current range, not a book-sized audio map. Pointer input
   snapshots before control focus; keyboard Tab reuses the existing selection
@@ -1614,6 +1620,212 @@ reader persistence, native code, migrations or dependencies change in this pass.
 Next: owner smoke results, then a documented feature-removal rehearsal and remaining
 performance/accessibility/platform acceptance. Estimated chunk timestamps remain
 a separate correctness follow-up; they are still estimates, not measured offsets.
+
+### 2026-10-22 — Narrow toolbar and automated removal/acceptance rehearsal
+
+The preceding refinements are committed as `9e099e89`
+(`fix(reader): keep audio navigation steady and compact`). The owner again deferred
+smoke testing and requested a next pass, including review of the isolated Return
+row in the 320px capture. All owner/device/listening acceptance remains open.
+
+UX decision and implementation:
+
+- [x] Treat the orphan Return row as a minor usability/layout problem: it consumes
+  reading height and separates a contextual navigation action from its transport
+  group. Do not solve it by shrinking controls or changing Previous/Next meanings.
+- [x] At <=480px, move playback speed from the transport into the existing Options
+  view; reuse its existing cycling callback and translated speed labels. Keep
+  Previous, Play/Pause, Next, Menu, Stop and contextual Return directly available.
+  Six 44px targets with 3px gaps/padding fit the tested 320px/16px-root toolbar.
+  Speed stays in its normal location above 480px. Stop stays directly reachable.
+  When Return is absent, five targets remain; no automatic button-role swaps.
+- [x] Preserve wrapping at enlarged root text; a one-row rule at every zoom level
+  would risk clipping or undersized targets. Fixing a lone action at ordinary
+  320px does not justify suppressing reflow. Remove a duplicate narrow-surface
+  CSS block encountered in the existing media rule; no global style migration.
+- [x] English/light and Arabic/dark browser checks prove six aligned targets,
+  >=44px dimensions and on-screen bounds at 320px; speed remains reachable and
+  dispatches the same1.25x callback from Options. The Chromium accessibility tree
+  exposes named buttons and the full Return name. Enabled transport icon contrast
+  meets 3:1 in these fixtures. Existing large-text/RTL, focus, feedback, capture and
+  selection regressions remain. This is targeted automation, not WCAG certification.
+
+Rationale: [NN/g contextual-menu guidance](https://www.nngroup.com/articles/contextual-menus-guidelines/)
+places secondary actions in clearly labeled menus while warning about discovery
+cost. [Apple Books](https://support.apple.com/en-ca/guide/iphone/iphac1971248/ios)
+uses compact and expanded playback surfaces. We apply that hierarchy to Papercut's
+speed control; this is our design choice, not a claim that Apple uses this exact
+320px layout. [WCAG reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow.html)
+requires retained functionality at 320 CSS pixels, not a mandatory single row;
+[WCAG target size](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html)
+sets a24px AA minimum with exceptions. 44px is our touch design target here.
+
+Automated removal rehearsal (partial Stage 7):
+
+- [x] Create a disposable `/tmp/papercut-removal-*` source copy; do not reset,
+  stash, modify or delete the owner's checkout, Git history, preferences or data.
+  Dependencies are symlinked for checks; TypeScript build caches are redirected
+  to the copy. Copy the three public notice Markdown imports explicitly.
+- [x] Delete `src/tts/playAnywhere/` from that copy. Disconnect five runtime files:
+  App (reader hook/shortcut/optional UI inputs), useAudiobookManager (prepared-target
+  hooks; restore the existing saved-chunk speak action), DocumentViewer (feature
+  binders/viewport provider), HtmlViewer and PdfViewer (capture setup imports/effects).
+  Clear the coordinator's cancel wrappers/dependencies; keep the player's own
+  transport cancellation. Keep shared narration/alignment, highlighting and data
+  modules. Adjust two viewer test files to remove feature-only capability tests.
+- [x] Reproduce that procedure in a fresh copy. Baseline TypeScript passes;
+  **61 tests across 10 files** pass for controls, player, viewers, bookmarks,
+  highlighting, narration identity/normalization and saved-audiobook storage.
+  A production Vite bundle with static public assets excluded contains **zero
+  feature-owned modules** across 566 module entries. This structural bundle is
+  not a packaged baseline application or listening acceptance result.
+- [x] Save the disconnect patch, exact seams, scripts and manifest under ignored
+  `src-tauri/target/play-anywhere-acceptance/removal-rehearsal/`. After applying
+  `disconnect.patch` in a disposable source copy, remove the feature directory;
+  never apply this rehearsal to the owner checkout. Generic optional types and
+  baseline audio presentation can remain. No migrations, source/audio regeneration
+  or user-data deletion are needed by this source-only disconnection.
+- [x] Verify the normal feature checkout remains intact and rerun its regression
+  checks. There was no live patch to restore. Native/user-profile files are not
+  copied or accessed by the rehearsal.
+- [ ] Packaged baseline playback, actual screen-reader/native/mobile checks and
+  release decision remain pending. Stage 7 is not fully accepted by this rehearsal.
+
+Performance evidence:
+
+The existing synthetic preparation fixture now records 30 warm resolver-only samples,
+post-yield browser long-task entries, cooperative batch metrics and cold completion.
+A task boundary separates fixture generation from the observed interval. It covers
+1,200 legacy chunks/360,090 source bytes, unchanged canonical identity, a rendered
+frame and another event before completion, and cancellation. Results are recorded
+in `diagnosis/preparation-30-sample.json` beside the acceptance artifacts. These
+measurements exclude DOM capture, file reads, track stitching, native seeks and
+audible playback; a zero rounded timer reading is not an instantaneous operation.
+No wall-clock assertion or whole-product performance pass is inferred from them.
+
+- [x] Normal feature suite: **616 passed, 1 existing skip, 83 files**. Lint,
+  TypeScript, eight-locale validation, production frontend/native release and
+  AppImage packaging pass. Final focus-order checks are included. Fixed synthetic
+  evidence in `diagnosis/narrow-preparation-measurement.json`: cold **453.2ms**,
+  **30 warm samples/p95 0.1ms**, maximum cooperative batch **8.3ms** and no
+  long-task entries observed in that interval. Browser: HeadlessChrome 155 on
+  Linux x86_64, reporting 8 logical processors; host metadata is in the rehearsal
+  manifest. These are observations, not reference-device acceptance.
+- [x] New named package:
+  `src-tauri/target/play-anywhere-acceptance/Papercut-play-anywhere-narrow-controls.AppImage`;
+  SHA-256 `f0664863400d272185d34632c960603883083c6f7fcb4f3ee6cf3b85ea772dcd`. The copy is executable and
+  byte-identical to the final bundle. Adjacent `narrow-controls-build.json` records
+  base `9e099e89`, runtime/test hashes, automated evidence and open gates. Earlier
+  named candidates are preserved. GStreamer media-bundle verification passes.
+- [ ] Owner combined smoke: stopped scroll/selection, canonical chunk start,
+  six-action320px toolbar, speed in Options, Return, list browsing, pending/error
+  feedback, large text, keyboard and Stop/cancellation. Prior device matrices and
+  request-to-audible budgets remain pending while smoke tests are deferred.
+
+Removal scope for this pass: no new production coordinator, setting, data schema,
+dependency or native code. Narrow speed placement and layout can remain in the
+baseline player; deleting Return still follows the existing optional UI seam.
+Next is owner smoke/device calibration and the remaining Stage 6/7 acceptance,
+not an automatic merge or release. Estimated chunk-list timestamps remain separate.
+
+### 2026-10-23 — Header reflow and session-aware reader presentation
+
+Owner clarification: the initial reader shortcut shows only Play for each new
+document-open session. This is presentation only: availability, viewport/selection
+targeting, canonical chunk start, Resume and Return semantics stay unchanged.
+
+Implementation and acceptance checklist:
+
+- [x] Protect Back's intrinsic width at intermediate widths by constraining the
+  controls column instead. Allow the header's audio row to wrap at enlarged text;
+  do not hide saved versions or use z-index to mask overlapping targets.
+- [x] Extend the feature-owned reader hook with observational `playing` input and
+  transient `hasPlayed` output. Successful passage acknowledgement or the existing
+  player's playing state records a start. Pending/failed preparation does not.
+  Stop/paused state retains this flag; changing/closing the document clears it,
+  including closing and reopening the same URL. Nothing is persisted.
+- [x] App passes only this presentation flag to `ReaderPassageAction`. Before the
+  first start, match Bookmark's square size and tonal icon styling; keep the full
+  target-specific accessible name/title, pre-focus selection snapshot and spinner.
+  After starting, the next idle/stopped shortcut has its passage label. During
+  playing/paused playback, existing transport and labeled Options commands remain
+  the access path; no new active-playback floating strip or dialog is introduced.
+- [x] Add decorative list/sliders icons before the existing Chunks/Options labels.
+  Preserve the view-selector button semantics, count, focus and virtualized list.
+- [x] Group Word Highlight and speed in a wrapping settings row with matching
+  control heights/radii. Speed shows only its current rate, e.g. `1x`; the existing
+  translated instruction stays in its title and full accessible name. Rate is
+  available in Options at all widths; narrow transport still hides its duplicate.
+  Keep the Beta disclosure, pressed state and unchanged cycling/toggle callbacks.
+- [x] Regression coverage: complete DocumentViewer header with saved-audio/play/
+  menu/save and reader controls at 320/453/620/900px, including 32px-root text and
+  Arabic RTL. Check pairwise nonoverlap, hit targets, viewport bounds and Back
+  dispatch. App Settings is a size-matched presentation stub, not a native test.
+  Compact Options checks cover icons, rate label, >=44px settings and side-by-side
+  English/light and Arabic/dark at 320px; enlarged translations may wrap. Existing
+  browser selection/focus/chunk-start and baseline menu coverage remains in place.
+- [x] Final automated validation: **625 passed, 1 existing skip, 83 files**; lint,
+  TypeScript, eight-locale validation, production frontend/native release,
+  AppImage packaging and bundled media verification pass. New candidate:
+  `src-tauri/target/play-anywhere-acceptance/Papercut-play-anywhere-session-controls.AppImage`.
+  SHA-256 `4ccc77dd65ecfb7273f100954d46d3301a98a5a64dee1f5548f6aa5baedebd0d`.
+  The executable copy matches the finished bundle; frozen runtime/test hashes
+  match the source. Adjacent `session-controls-build.json` records provenance
+  against base `9e099e89` with this and the previous pass still uncommitted.
+- [ ] Owner smoke: fresh open -> scroll -> square Play; select text -> same icon
+  with selection action; successful start -> pause/browse/Options -> labeled Here;
+  Stop -> labeled idle shortcut; close/reopen -> square Play again. Test Back and
+  saved versions at the previously overlapping width, rate/highlight callbacks,
+  large text/RTL, keyboard focus and preparation errors. Manual acceptance remains
+  deferred to the owner; no user app, playback or audio routing was controlled.
+
+Removal/debug boundary: `hasPlayed` belongs only to `usePlayAnywhereReader`, with
+one observational App input and one shortcut prop. Removing the existing feature
+hook/shortcut seams removes this state as well; no player, matching, storage,
+schema or native change is needed. Header reflow, menu icons and ordinary playback
+settings can remain with the baseline reader. Diagnose presentation in the hook
+and shortcut; source/audio failures remain in the existing preparation/coordinator.
+
+Rationale: [Readwise Reader's documented Play and jump/return behavior](https://docs.readwise.io/reader/docs/faqs/text-to-speech)
+supports distinguishing initial playback from relocating active playback. We do
+not copy its transport-button replacement. [Apple Books](https://support.apple.com/en-ca/guide/iphone/iphac1971248/ios)
+uses a current-rate speed control. Keep unfamiliar passage commands labeled per
+[NN/g icon guidance](https://www.nngroup.com/articles/icon-usability/); initial Play
+remains named for assistive technology. Severity estimates from screenshot/code
+review were 3 for header overlap, 2 for shortcut/settings crowding and 1 for missing
+view icons, not user-study measurements or a standards certification.
+
+#### Remaining work after the combined UI/acceptance-evidence commit
+
+The implemented UI and automated checks are ready for consolidated owner testing;
+there is no additional mandatory UI implementation step before that smoke pass.
+The owner has deferred manual testing until the end. Do not infer acceptance from
+completed tests or from the structural removal rehearsal.
+
+- [ ] Owner Linux AppImage smoke: use the combined checklist above, including
+  imported HTML bundles, selection, canonical chunk start/continuation, exact-time
+  Resume, Return without seeking, Stop/cancellation, narrow header and settings.
+  Consolidate earlier candidate retests into this latest candidate, not one smoke
+  run per historical AppImage.
+- [ ] Finish the device/format and accessibility matrix: PDF/OCR, supported mobile
+  and desktop WebViews, real keyboard/screen reader, touch selection/fullscreen,
+  RTL/enlarged text and applicable background/lock-screen controls. Record which
+  configurations were tested, failed or remain untested.
+- [ ] Measure packaged cold/warm action-to-dispatch and audible start on reference
+  devices, including large imports. Existing synthetic resolver measurements do
+  not include source capture, disk, native playback or audible output.
+- [ ] Complete packaged baseline playback after feature disconnection, including
+  existing reading/highlighting/Find/bookmarks and unchanged saved data. The
+  disposable frontend compile, 61 baseline tests and zero-feature-module bundle
+  are completed structural evidence, not listening acceptance.
+- [ ] Resolve any findings, then record the accepted commit/build, device results
+  and release/removal decision for Stages 6/7. No automatic merge or release.
+
+Separate follow-ups, not prerequisites for this smoke pass: decide whether durable
+span validation should permit individually verified regions of a partially
+mismatched book (recommendation 3), and address the chunk list's estimated time
+labels. The conservative full-map proof and original canonical chunk indices
+remain unchanged. The DX linting branch also remains separate from this feature.
 
 ## 7. Standards and design rationale
 

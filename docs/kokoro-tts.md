@@ -376,3 +376,30 @@ Native loading and target preparation reuse the reduced-motion-aware spinner wit
 text in one polite live region. Existing capture/menu clipping and recovery copy
 remain. Owner smoke tests are explicitly deferred until this combined candidate;
 see the [acceptance checklist](play-anywhere.md#2026-10-22--stable-browsing-compact-return-and-integrated-feedback).
+
+### Narrow playback and removal evidence (2026-10-22)
+
+At <=480px, playback speed moves into Options so Previous, Play/Pause, Next,
+Menu, Stop and contextual Return can stay together with 44px targets at 320px and
+ordinary text size. Enlarged text may still wrap. Speed uses the same existing
+callback; transport meanings do not change.
+
+A disposable source copy compiles and bundles with the feature folder deleted
+and five runtime seams disconnected; 61 baseline tests pass. This is structural
+removal evidence only. Actual packaged playback, screen-reader/device checks and
+end-to-end latency remain pending while owner smoke tests are deferred. See
+[the acceptance evidence](play-anywhere.md#2026-10-22--narrow-toolbar-and-automated-removalacceptance-rehearsal).
+
+### Reader presentation follow-up (2026-10-23)
+
+The initial scrolled reader shortcut is a square tonal Play icon per document-open
+session. Successful playback records only transient feature-owned presentation
+state; Stop retains it, and closing/changing the document resets it. Selection
+still changes its accessible action and targets the same saved chunk. Existing
+playing/paused transport and Options availability is unchanged.
+
+Header groups wrap while reserving Back's space. Chunks/Options retain labels with
+decorative icons. Options groups Word Highlight and the current rate, e.g. `1x`,
+using consistent controls and allowing large-text wrapping. Callbacks, matching,
+storage and native playback do not change. See the
+[session/layout acceptance checklist](play-anywhere.md#2026-10-23--header-reflow-and-session-aware-reader-presentation).
