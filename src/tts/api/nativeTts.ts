@@ -1,4 +1,3 @@
-import { logTtsTiming } from '../diagnostics/TtsDiagnostics'
 import { createAudiobookId, type SavedAudiobookRecord } from '../storage/AudiobookLibrary'
 import { resolveSilmaNfeStep, resolveTextPreprocessor, type TtsModelInfo, type TtsOptions, type TtsChunk } from '../types'
 import { FALLBACK_TTS_MODELS } from '../models'
@@ -364,10 +363,7 @@ export async function getNativeSavedAudiobookChunk(
         index,
       },
     })
-    const started = performance.now()
-    const result = responseToChunkResult(chunk, response)
-    logTtsTiming('[tts-playback] WAV base64 conversion', started, { bytes: result.wav.byteLength })
-    return result
+    return responseToChunkResult(chunk, response)
   } catch {
     return null
   }
@@ -519,30 +515,16 @@ async function loadTauriInvoke() {
   return mod.invoke
 }
 
-const TIMED_AUDIOBOOK_READS = new Set([
-  'tts_native_audiobook_status',
-  'tts_list_saved_audiobooks',
-  'tts_get_native_audiobook_chunk',
-  'tts_get_imported_audiobook_source',
-  'tts_get_imported_audiobook_metadata',
-])
-
 // Normalize Tauri's object rejection into an Error while retaining its stable code.
 async function invokeNative<T>(
   command: string,
   args?: Record<string, unknown>,
 ): Promise<T> {
-  const started = performance.now()
-  let ok = false
   try {
     const invoke = await loadTauriInvoke()
-    const result = await invoke<T>(command, args)
-    ok = true
-    return result
+    return await invoke<T>(command, args)
   } catch (error) {
     throw toNativeTtsError(error)
-  } finally {
-    if (TIMED_AUDIOBOOK_READS.has(command)) logTtsTiming('[tts-native] read round trip', started, { command, ok })
   }
 }
 

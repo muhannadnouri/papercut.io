@@ -17,7 +17,7 @@ import {
   countChunkSourceSpans,
   graftImportedSourceSpans,
 } from '../alignment/importedSourceSpans'
-import { logTtsDiagnostic, logTtsTiming } from '../diagnostics/TtsDiagnostics'
+import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import { isUserUploadUrl } from '../storage/UserUploads'
 import { SILMA_MODEL_ID, type TtsChunk } from '../types'
 import {
@@ -134,15 +134,11 @@ export function useAudiobookDocument({
           }
           cancelHighlightBuild = scheduleImportedHighlightBuild(() => {
             if (cancelled) return
-            const started = performance.now()
             const rebuiltChunks = audiobookSaveChunksFromHtml(docContent, metadata.modelId)
             const graftedChunks = graftImportedSourceSpans(metadata.chunks, rebuiltChunks, {
               documentUrl: selectedDoc,
               modelId: metadata.modelId,
               textPreprocessor: metadata.textPreprocessor,
-            })
-            logTtsTiming('[tts-highlight] legacy span reconstruction', started, {
-              sourceUnits: docContent.length, chunks: metadata.chunks.length, matched: Boolean(graftedChunks),
             })
             if (cancelled) return
             if (graftedChunks) {

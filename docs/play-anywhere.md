@@ -2048,114 +2048,65 @@ The measured dock/capsule layout automatically adapts to the narrower button.
   at desktop/narrow widths, descriptive tooltip, keyboard opening/Escape and the
   existing consolidated checklist. Manual native/device/listening remains pending.
 
-### 2026-10-23 — Startup timing, background native reads and Save/sliders
+### 2026-10-24 — Feature scope and platform acceptance
 
-The preceding capsule/alignment/icon-only UI passes are committed together as
-`e66ad5c` (`fix(reader): unify reader tools and clarify playback options`).
-Owner then authorized timing and native read isolation first, followed by the
-Save/sliders changes. This follow-up remains uncommitted for review/testing.
-The icon and Save decisions here supersede the earlier ellipsis/check variants.
+The owner deferred the first-playback performance investigation until Android,
+iOS and other desktop tests show whether a broader change is warranted. This
+supersedes the startup-timing, profiling and scanner-packaging follow-ups; earlier
+named AppImages/build manifests are historical artifacts, not builds of this tree.
 
-Implementation and acceptance checklist:
+Retained product behavior and removal boundaries:
 
-- [x] Move saved-audio status, registry, WAV-chunk, imported-source and imported-
-  metadata commands to async command wrappers using the existing blocking pool.
-  Their private `run_audiobook_read` helper owns scheduling/error conversion and
-  numeric queue/work timings; backends, validation, command names and request/
-  response payloads stay unchanged. No filesystem I/O or WAV encoding executes
-  on the command/UI or async executor thread for these five reads.
-- [x] Preserve backend error details/classification; map worker panics/join failures
-  to the established structured command error. Rust regressions prove a distinct
-  worker thread, preserved backend errors and surfaced worker failures without a
-  WebView, installed model or personal app data. Existing manifest recovery still
-  uses its unique staged-file/commit path; canonical metadata/audio is unchanged.
-  Dropping a request does not stop an already running blocking read. Existing
-  frontend document/job/navigation guards still reject late results.
-- [x] Add `logTtsTiming` to existing bounded TTS diagnostics, gated by the existing
-  Diagnostics/debug setting. Timings record elapsed milliseconds, phase names,
-  local request/job numbers, counts, sizes and success/status only; never request
-  arguments, selected prose, book paths or audio/base64 contents. No new setting,
-  persistent cache, telemetry service, worker framework or dependency. With
-  Diagnostics disabled, additional timing events do not write to storage.
-- [x] Measure visible/selected target capture, reader-index construction, atomic
-  source extraction, verification, beginning-chunk retrieval, dispatch and
-  playback acknowledgement through feature-owned seams. Measure native read
-  round trips, WAV base64 conversion, Blob queueing and browser play acknowledgement
-  in the baseline bridge/player, plus legacy imported-span reconstruction in the
-  baseline document hook. Existing preparation batches and highlight-index/range
-  diagnostics remain available. All new events reuse the 100-event limit.
-- [x] Keep timing interpretation honest. Native round trip includes bridge work;
-  WAV conversion is separate. Async phase elapsed time can include yielding or
-  waiting and is not CPU-blocking time. Browser/native play acknowledgement is
-  not first audible sound. Rust queue/work log lines use the existing native
-  logger (enabled in debug builds); release AppImage diagnostics expose frontend
-  round-trip/phase timings, not those native log lines. No packaged latency or
-  root-cause improvement is claimed before owner measurements. Timings nest:
-  reader indexing is inside capture, extraction is inside verification, and
-  acknowledgement includes earlier phases; do not add nested durations together.
-- [x] Restore the floppy disk for every Save state. A completed current setup with
-  generation available uses existing success/green tokens and the saved label.
-  Missing model/runtime takes precedence as a soft yellow tonal floppy with a
-  small exclamation marker, the existing setup callback and explanatory tooltip
-  that saved audio remains playable. Unsaved ready setup stays neutral; save
-  preparation/progress and duplicate-save prevention retain their callbacks.
-- [x] Use the existing Options sliders SVG for both external playback triggers,
-  without visible text. Localize the Playback options name/title in eight locales;
-  keep expanded state, keyboard/Escape/focus, snapshots and Chunks/Options tabs.
-  Remove unused check/download/ellipsis glyph cases. Headphones badge untouched:
-  its thin separator and grid centering predate this work.
-- [x] Keep removal boundaries explicit. Native read isolation, bridge/player timing,
-  shared diagnostics and Save styling are baseline improvements and import no
-  Play Anywhere code. Capture/verification timers remain in feature modules and
-  disappear with the existing optional capability/props. No source-matching
-  relaxation, global DOM index, schema/cache epoch change or audio regeneration.
-- [x] Final validation: **652 frontend passed, 1 existing skip, 85 files**;
-  **3 Rust worker/error tests passed** with no default features; lint, TypeScript,
-  eight locales, Rust formatting, frontend/native release build, AppImage
-  packaging and bundled GStreamer WAV verification pass. New executable candidate:
-  `src-tauri/target/play-anywhere-acceptance/Papercut-play-anywhere-startup-timing.AppImage`.
-  SHA-256 `8c93b2932c5cb61a9557f43a01c76407ec8680cadfca311ae1736cfd4b4ab478`.
-  `startup-timing-build.json` records committed base `e66ad5c`, frozen hashes for
-  28 runtime/native and 9 test files, validation and pending owner gates. Frozen
-  sources and copied artifact match; previous named candidates remain available.
+- [x] Keep the green floppy for a completed current setup with generation ready;
+  use the yellow tonal floppy and warning marker when generation setup is missing.
+  Imported saved audio remains playable without downloading its generation model.
+  Keep icon-only sliders for Playback options in header/player, matching Options.
+- [x] Keep browser playback loading until the current `audio.play()` promise
+  succeeds. Only then commit the chunk/text/progress and invoke the start callback.
+  Stop, seek, document change, Pause and unmount invalidate stale acknowledgements.
+  Resume preserves the existing source and exact playback time, including a start
+  callback interrupted by Pause. Meaningful player regressions remain.
+- [x] Keep the existing immediate, bounded two-chunk desktop lookahead and cache.
+  Remove the prefetch comparison checkbox, storage-key access and alternate branch.
+- [x] Remove the silent first-playback probe and its UI/tests; startup frame/timer,
+  microtask, loading-commit and Long Tasks observers; added phase/read timings,
+  read-correlation arguments and optional native timing channel. Keep the original
+  bounded TTS diagnostics and existing feature failure/highlight diagnostics.
+- [x] Restore native saved-audio read commands to their pre-investigation path.
+  Remove the experimental blocking-pool helper and its timing/worker-only tests.
+  Command names, source validation, saved-audio payloads and error handling remain.
+- [x] Restore existing desktop packaging, AppImage verifier, CI dependencies and
+  README launch guidance. Remove scanner-staging changes and their new fixture
+  tests; retain the pre-existing required-media verifier. No scanner workaround,
+  warmup, audio-transport replacement or new dependency is part of this feature.
+- [x] Preserve feature-owned capture/verification/follow adapters and optional
+  integration props. Baseline player, native bridge and Save/disclosure styling
+  import no Play Anywhere implementation and can remain after feature removal.
 
-Owner performance and smoke checklist (Linux AppImage first):
+Owner smoke checklist (build and manual tests handled by the owner):
 
-- [ ] Enable **Audio Setup → Diagnostics** before opening the imported HTML book.
-  Clear old events; use a short run so the 100-event buffer retains startup.
-  Note AppImage filename, chunk count, whether this is first open/play, and the
-  approximate visible freeze duration. Copy the relevant timing events afterward.
-- [ ] Cold run: open, scroll and Play from here; record spinner responsiveness and
-  first audible sound. Repeat another passage while playing/paused, then Stop and
-  repeat, followed by Play from beginning. Repeat after reopening the document;
-  distinguish resolver cache reuse from OS/disk warmth.
-- [ ] Compare capture/index/extraction/verification, native read round trip, WAV
-  conversion/queueing, browser acknowledgement and legacy highlight timings.
-  Repeat with Word Highlight off to help isolate rendering work; this does not
-  bypass the independent legacy span preparation on open. New timing events are
-  metadata-only; existing diagnostic events retain their existing contents.
-- [ ] Verify green floppy only for the saved current setup with model/runtime
-  available; yellow floppy when generation setup is missing. Saved imported audio
-  must still play; setup action and progress management must remain correct.
-- [ ] Verify icon-only sliders in idle header/player, matching Options; check
-  keyboard/Escape, selection, canonical chunk starts, exact-time Resume, Return,
-  rapid requests/Stop/document change, narrow/large-text/RTL and prior smoke gates.
+- [ ] Test Android, iOS and desktop platforms with a newly built artifact. Record
+  platform/OS, artifact/version and whether playback is first use in that process.
+  Avoid treating an older timing/profiling AppImage as the current implementation.
+- [ ] Open an imported HTML audiobook without its generation model. From a scrolled
+  passage and a mouse/touch selection, start at the beginning of the matching saved
+  chunk; verify Play from beginning, chunk navigation and natural continuation.
+- [ ] Check loading feedback until playback starts, then Pause/Resume at the same
+  time. During loading, try Stop, another passage and another book; late results
+  must not restore the old passage, highlight or playing state.
+- [ ] Check the reader capsule, Return, sliders, compact Chunks/Options, Word
+  Highlight switch, speed and green/yellow Save states at narrow/desktop widths,
+  large text, light/dark, RTL and with keyboard/screen-reader navigation.
+- [ ] Note a repeatable first-start pause or loader warning, if present, and whether
+  Stop/replay or another book behaves differently. Platform investigation remains
+  deferred; no startup-performance improvement is claimed by this cleanup.
 
-Recommended next step: inspect owner packaged timing evidence before changing
-more frontend work. If extraction/indexing/legacy reconstruction dominates or
-stalls frames, slice that specific work while reusing shared normalization and
-source validation. Consider workers or binary/asset audio transport only if
-measurements justify their contracts and complexity. Do not weaken matching to
-hide startup cost. Native/device/listening/accessibility/performance acceptance
-remains open.
-
-Proposed next commit message: `fix(audio): isolate saved reads and measure playback startup`
-
-Description: Move blocking saved-audiobook reads and WAV encoding onto the native
-blocking pool, preserving payloads and errors. Add opt-in phase timings through
-existing bounded diagnostics, restore green/yellow floppy Save states and use
-consistent sliders disclosure. Preserve removable passage adapters and existing
-playback/cancellation semantics; update regression and owner acceptance coverage.
+Validation: **654 tests passed, 1 existing skip, 83 files**; ESLint, TypeScript,
+eight locale resources and `cargo check --lib --no-default-features` pass. Removed
+symbols have no remaining runtime/test references. Packaging/panel files match the
+pre-investigation versions, and the staged index and user editor settings are
+unchanged. This pass produces no AppImage and leaves existing local artifacts and
+user data untouched. Device/listening/accessibility acceptance remains pending.
 
 ## 7. Standards and design rationale
 

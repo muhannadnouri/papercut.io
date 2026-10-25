@@ -68,37 +68,28 @@ pub async fn tts_install_model(
 
 /// How many of a document's chunks are already saved (for the "Saved" UI).
 #[tauri::command]
-pub async fn tts_native_audiobook_status(
+pub fn tts_native_audiobook_status(
     app: tauri::AppHandle,
     request: NativeAudiobookStatusRequest,
 ) -> Result<NativeAudiobookStatusResponse, NativeTtsCommandError> {
-    run_audiobook_read("tts_native_audiobook_status", move || {
-        native_audiobook_status(app, request)
-    })
-    .await
+    native_audiobook_status(app, request).map_err(Into::into)
 }
 
 /// Return the completed-audiobook registry derived from native manifests.
 #[tauri::command]
-pub async fn tts_list_saved_audiobooks(
+pub fn tts_list_saved_audiobooks(
     app: tauri::AppHandle,
 ) -> Result<Vec<NativeSavedAudiobookRecord>, NativeTtsCommandError> {
-    run_audiobook_read("tts_list_saved_audiobooks", move || {
-        list_saved_audiobooks(app)
-    })
-    .await
+    list_saved_audiobooks(app).map_err(Into::into)
 }
 
 /// Read one already-saved chunk WAV from the cache (returns a base64 WAV).
 #[tauri::command]
-pub async fn tts_get_native_audiobook_chunk(
+pub fn tts_get_native_audiobook_chunk(
     app: tauri::AppHandle,
     request: NativeAudiobookChunkRequest,
 ) -> Result<NativeTtsChunkResponse, NativeTtsCommandError> {
-    run_audiobook_read("tts_get_native_audiobook_chunk", move || {
-        get_native_audiobook_chunk(app, request)
-    })
-    .await
+    get_native_audiobook_chunk(app, request).map_err(Into::into)
 }
 
 /// Generate a short disposable preview with the selected model and voice.
@@ -184,26 +175,20 @@ pub async fn tts_import_audiobook_native(
 
 /// Read the stored source HTML of an imported audiobook document.
 #[tauri::command]
-pub async fn tts_get_imported_audiobook_source(
+pub fn tts_get_imported_audiobook_source(
     app: tauri::AppHandle,
     request: NativeImportedAudiobookSourceRequest,
 ) -> Result<String, NativeTtsCommandError> {
-    run_audiobook_read("tts_get_imported_audiobook_source", move || {
-        get_imported_audiobook_source(app, request)
-    })
-    .await
+    get_imported_audiobook_source(app, request).map_err(Into::into)
 }
 
 /// Read the original bundle chunks/options for an imported audiobook document.
 #[tauri::command]
-pub async fn tts_get_imported_audiobook_metadata(
+pub fn tts_get_imported_audiobook_metadata(
     app: tauri::AppHandle,
     request: NativeImportedAudiobookSourceRequest,
 ) -> Result<NativeImportedAudiobookMetadataResponse, NativeTtsCommandError> {
-    run_audiobook_read("tts_get_imported_audiobook_metadata", move || {
-        get_imported_audiobook_metadata(app, request)
-    })
-    .await
+    get_imported_audiobook_metadata(app, request).map_err(Into::into)
 }
 
 /// Delete a saved audiobook's audio (and optionally its imported source).
@@ -232,62 +217,4 @@ pub async fn tts_probe_silma_sidecar(
             NativeTtsCommandError::new(format!("SILMA sidecar probe task failed: {err}"))
         })?;
     result.map_err(Into::into)
-}
-
-/// Disk reads and WAV encoding must not run on either the UI or async executor thread.
-/// Keep timing numeric: never log book paths, request contents or audio payloads.
-async fn run_audiobook_read<T: Send + 'static>(
-    operation: &'static str,
-    read: impl FnOnce() -> Result<T, String> + Send + 'static,
-) -> Result<T, NativeTtsCommandError> {
-    let queued = std::time::Instant::now();
-    tauri::async_runtime::spawn_blocking(move || {
-        let started = std::time::Instant::now();
-        let result = read();
-        log::info!(
-            "[tts-native-read] operation={operation} queue_ms={} work_ms={} ok={}",
-            started.duration_since(queued).as_millis(),
-            started.elapsed().as_millis(),
-            result.is_ok(),
-        );
-        result.map_err(Into::into)
-    })
-    .await
-    .map_err(|err| {
-        NativeTtsCommandError::new(format!("Native audiobook read task failed: {err}"))
-    })?
-}
-
-#[cfg(test)]
-mod read_tests {
-    use super::run_audiobook_read;
-
-    #[test]
-    fn disk_work_runs_off_the_calling_thread() {
-        let caller = std::thread::current().id();
-        let worker = tauri::async_runtime::block_on(run_audiobook_read("test", || {
-            Ok(std::thread::current().id())
-        }))
-        .unwrap();
-        assert_ne!(caller, worker);
-    }
-
-    #[test]
-    fn backend_errors_keep_their_original_message() {
-        let error = tauri::async_runtime::block_on(run_audiobook_read::<()>("test", || {
-            Err("missing saved chunk".into())
-        }))
-        .unwrap_err();
-        assert_eq!(error.message, "missing saved chunk");
-        assert_eq!(error.code, "native-tts-failed");
-    }
-
-    #[test]
-    fn worker_panics_become_command_errors() {
-        let error = tauri::async_runtime::block_on(run_audiobook_read::<()>("test", || {
-            panic!("test worker failure")
-        }))
-        .unwrap_err();
-        assert!(error.message.contains("Native audiobook read task failed:"));
-    }
 }

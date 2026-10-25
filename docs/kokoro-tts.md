@@ -438,20 +438,25 @@ no dependency on passage matching or storage and can remain after feature remova
 See [refinement acceptance and owner smoke checklist](play-anywhere.md#2026-10-23--aligned-tools-clearer-disclosure-and-truthful-save-states).
 
 
-### Saved-audio startup and icon follow-up (2026-10-23)
+### Feature scope and platform acceptance (2026-10-24)
 
-Prior UI passes are committed as `e66ad5c`. The next follow-up moves the five
-saved-audio/source/metadata read commands to the existing native blocking pool.
-Numeric queue/work logging stays at that command boundary; errors and IPC payloads
-retain their existing semantics. New opt-in timings reuse the existing Diagnostics
-setting and bounded event store, covering capture/verification, native round trip,
-WAV conversion/Blob queueing, play acknowledgement and legacy span reconstruction.
-They do not establish audible latency or frame responsiveness by themselves.
+The current UI supersedes the check/ellipsis variants above: Save uses a green
+floppy for a saved ready setup, or a soft yellow floppy with a warning marker when
+generation setup is missing. Saved imports remain playable. Playback disclosure
+uses the existing Options sliders with a localized accessible name and tooltip.
 
-This supersedes the neutral check and ellipsis variants: Save retains the floppy
-disk with green success for the saved ready setup or soft yellow plus warning
-marker for generation setup, with truthful saved-playback availability. External
-playback disclosure uses the existing Options sliders, icon-only with a localized
-Playback options name/tooltip. The headphones badge is unchanged.
+Browser playback stays loading until its current play request succeeds; stale
+acknowledgements cannot restore stopped/replaced playback. Resume keeps its source
+and exact time. These baseline behaviors and their player regressions remain
+independent of removable Play Anywhere adapters.
 
-See [timing interpretation, removal boundaries and owner checklist](play-anywhere.md#2026-10-23--startup-timing-background-native-reads-and-savesliders).
+The owner deferred startup/platform remediation pending Android, iOS and other
+desktop tests. Added startup timings/observers, native timing channels, silent
+probe, prefetch comparison and diagnostic-only tests are removed. Native read
+wrappers, scanner packaging, CI dependencies, verifier and README guidance return
+to their pre-investigation behavior. Original TTS diagnostics and normal bounded
+prefetch remain. No warmup or platform workaround is included.
+
+See the [current scope and owner checklist](play-anywhere.md#2026-10-24--feature-scope-and-platform-acceptance).
+The owner builds artifacts and handles device/listening tests; the reported
+first-start pause is unresolved.
