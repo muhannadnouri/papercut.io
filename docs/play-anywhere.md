@@ -2154,6 +2154,31 @@ no AppImage was built or device/audio test run by the agent. The owner subsequen
 rebuilt AppImage and APK artifacts and reports initial testing works as intended;
 this is not acceptance of all remaining platform/accessibility gates.
 
+### 2026-10-24 — Known Android first-play permission interruption
+
+Owner testing reports that the first Play on a saved audiobook can open Android's
+notification-permission dialog, followed by “The passage changed. Try again” after
+either Allow or Block. Pressing Play again works; pre-granted permission avoids
+the dialog. This remains an accepted known limitation, not a completed fix.
+
+The pinned upstream native-audio 1.0.5 plugin requests notification permission
+inside initialization and resolves without waiting for the user's response.
+Passage capture currently precedes initialization; the dialog's lifecycle
+interruption can invalidate that capture. This explanation follows the code and
+reported behavior; the precise device lifecycle events were not traced here.
+
+- Keep the official upstream Rust/npm dependencies unchanged. The proposed local
+  vendor override, plugin patch, test dependencies and CI changes were withdrawn
+  at the owner's request; no permission-timing workaround is introduced.
+- Keep all hidden/stale/document/options/newest-intent guards. If the first start
+  reports a changed passage, dismiss the prompt and press Play again. Enabling
+  notifications is not required as a workaround.
+- Playback controls may remain visible after denial because Android
+  [exempts media-session notifications](https://developer.android.com/develop/ui/compose/notifications/notification-permission#media-sessions).
+  This does not grant permission to send ordinary notifications.
+- Defer a fix until an acceptable upstream change or supported configuration is
+  available. No change to the saved-audio, source-matching or PDF fixes above.
+
 ## 7. Standards and design rationale
 
 This plan applies separation of concerns, explicit capability contracts,

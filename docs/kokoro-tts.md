@@ -468,3 +468,10 @@ response, rather than the last WAV count. Cancellation cannot advertise an
 unfinalized manifest as complete. Passage verification reuses sentence grammar
 per source paragraph before comparing merged chunks, preserving strict source
 checks and saved audio identity. See the [regressions and owner checklist](play-anywhere.md#2026-10-24--completed-save-registry-and-pdf-paragraph-verification).
+
+### Known Android first-play permission interruption (2026-10-24)
+
+The official native-audio 1.0.5 dependency remains unchanged. Its first-use
+notification dialog can invalidate passage capture; a second Play works after
+the prompt closes. The owner deferred the proposed plugin patch. See the
+[known limitation and retry guidance](play-anywhere.md#2026-10-24--known-android-first-play-permission-interruption).
