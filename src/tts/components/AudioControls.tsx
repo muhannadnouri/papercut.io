@@ -164,6 +164,8 @@ export function AudioControls({
     ttsState.status === 'loading'
   const isPaused = ttsState.status === 'paused'
   const showFloatingPlayback = isActive || isPaused
+  // Navigation cancels passage intent; wait for the first acknowledged chunk to release its startup guard.
+  const canNavigate = ttsState.currentChunkIndex !== null
   const isPreparingSave = saveInProgress && audiobookState.status === 'checking'
   const isSaving = saveInProgress && audiobookState.status === 'saving'
   const audiobookPercent = audiobookState.totalChunks > 0
@@ -371,7 +373,7 @@ export function AudioControls({
 
             {showFloatingPlayback && (
               <div className="audio-floating-playback" dir="ltr" aria-label={t('tts.controls.playbackControls')}>
-                <button className="audio-icon-btn" onClick={onSkipBackward} disabled={!canSkipBackward} aria-label={t('tts.controls.previousChunk')} title={t('tts.controls.previousChunkTitle')}>
+                <button className="audio-icon-btn" onClick={onSkipBackward} disabled={!canNavigate || !canSkipBackward} aria-label={t('tts.controls.previousChunk')} title={t('tts.controls.previousChunkTitle')}>
                   <AudioIcon name="back" />
                 </button>
                 {isPaused ? (
@@ -383,7 +385,7 @@ export function AudioControls({
                     <AudioIcon name="pause" />
                   </button>
                 )}
-                <button className="audio-icon-btn" onClick={onSkipForward} disabled={!canSkipForward} aria-label={t('tts.controls.nextChunk')} title={t('tts.controls.nextChunkTitle')}>
+                <button className="audio-icon-btn" onClick={onSkipForward} disabled={!canNavigate || !canSkipForward} aria-label={t('tts.controls.nextChunk')} title={t('tts.controls.nextChunkTitle')}>
                   <AudioIcon name="forward" />
                 </button>
                 {showPlaybackMenuButton && (
@@ -688,6 +690,7 @@ const ChunkMenu = memo(function ChunkMenu({
                       key={chunk.chunkId}
                       className={'audio-chunk-item' + (isCurrent ? ' audio-chunk-item-current' : '')}
                       style={{ height: CHUNK_ROW_HEIGHT }}
+                      disabled={currentChunkIndex === null}
                       onClick={() => onSelect(chunk.index)}
                       title={chunk.textPreview}
                     >

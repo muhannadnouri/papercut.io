@@ -44,6 +44,11 @@
   cursor: not-allowed;
 }
 
+.audio-chunk-item:disabled {
+  color: var(--text-soft);
+  cursor: not-allowed;
+}
+
 .audio-primary-btn {
   border-color: transparent;
   background: var(--accent);
@@ -336,13 +341,13 @@
     background: var(--surface-accent);
   }
 
-  .audio-chunk-item:hover {
+  .audio-chunk-item:hover:not(:disabled) {
     background: var(--surface-accent);
     color: var(--accent-ink);
     box-shadow: inset 3px 0 0 var(--accent-text);
   }
 
-  html[dir="rtl"] .audio-chunk-item:hover {
+  html[dir="rtl"] .audio-chunk-item:hover:not(:disabled) {
     box-shadow: inset -3px 0 0 var(--accent-text);
   }
 }

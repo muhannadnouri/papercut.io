@@ -238,7 +238,7 @@ The document header exposes one consolidated audio control surface:
 - Play starts reading the current document.
 - Pause and Resume control the active desktop audio element or native mobile media session.
 - Stop cancels playback, clears temporary desktop object URLs, and pauses/resets the reusable native mobile session. Full native disposal is reserved for app teardown.
-- Backward and Forward jump by narration chunk.
+- Backward and Forward jump by narration chunk. They and chunk-list jumps are disabled until the first chunk starts; Stop and playback options remain available. Later chunk loading keeps navigation available.
 - The burger/list button opens a mobile-friendly chunk list for long audiobooks. Rows show an estimated start timestamp when total saved duration is known and jump directly to that chunk.
 - Playback speed in the active player changes how fast the saved WAV plays. It is a listener preference and is persisted separately from generated-audio settings.
 - Save generates and persists the full audiobook for the current supported document. HTML and EPUB save from sanitized reader HTML; PDF saves from persisted page-text layers and page-aware locators.

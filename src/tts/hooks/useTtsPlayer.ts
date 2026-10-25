@@ -826,8 +826,13 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     if (!current()) return
     const wasPaused = pausedRef.current
     startingRef.current = false
-    updateNativePlaybackState(target)
-    if (wasPaused) { requestGuardRef.current = () => true; await syncMobileForegroundState(); return }
+    // A seek reply is not a playing acknowledgement; keep startup loading until Play completes.
+    if (wasPaused) {
+      requestGuardRef.current = () => true
+      updateNativePlaybackState(target)
+      await syncMobileForegroundState()
+      return
+    }
     pausedRef.current = false
     const played = await playNativeAudio(() => {
       if (!current() || pausedRef.current) return false

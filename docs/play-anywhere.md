@@ -239,6 +239,12 @@ Native WebView/device acceptance remains pending.
 - Mobile active session: serialize seek and play with existing lifecycle helpers;
   rapid target changes must not play a superseded location. Preserve source/session
   reuse and background/lock-screen ownership. Do not add a parallel command queue.
+- Initial navigation gate: Previous/Next and chunk-list rows stay disabled while
+  `currentChunkIndex` is null. Native startup must not publish its provisional seek
+  reply as a paused/current chunk before Play acknowledgement. Stop and Options
+  remain available; subsequent seeks keep the acknowledged index and navigation.
+  This is a general control-state rule, independent of optional passage wiring;
+  retain it if removing the feature. Passage/source/job guards remain unchanged.
 - Never use the chunk menu's estimated timestamps for seeking. Chunk boundary
   metadata and the native source signature remain authoritative.
 - Validate a supplied start index as a finite integer within the canonical
@@ -2178,6 +2184,32 @@ reported behavior; the precise device lifecycle events were not traced here.
   This does not grant permission to send ordinary notifications.
 - Defer a fix until an acceptable upstream change or supported configuration is
   available. No change to the saved-audio, source-matching or PDF fixes above.
+
+### 2026-10-24 — Initial navigation race regression
+
+The review reproduced Next cancelling initial playback while the first WAV read
+or native track preparation was pending: transport cancellation invalidated the
+passage guard still owned by startup. Gate navigation until first acknowledgement
+instead of weakening that guard or adding another ownership API. The connected
+coordinator/player/controls test covers desktop and Android paths with delayed
+source preparation and delayed Play acknowledgement, disabled navigation attempts,
+then successful Next and chunk-list takeover after startup. The native mock now
+honors the same pre-command predicate as the maintained playback adapter.
+Removal also drops this connected test and its coordinator/control imports from
+`useTtsPlayer.test.tsx`; ordinary player tests and the UI gate remain independent.
+
+Validation: full frontend suite **663 passed, one existing skip**; the final
+player/reader-control checks **90 passed**, with TypeScript and ESLint checks.
+No native/plugin, dependency or packaging changes; no device smoke performed.
+
+Owner smoke checklist (pending):
+
+- [ ] Cold Play from here/selection/beginning: Previous/Next and chunk-list rows
+  are disabled until playback starts; Options opens and Stop remains available.
+- [ ] After start, Next and a chunk-list jump work; subsequent loading still
+  permits rapid navigation. Stop during initial loading prevents late playback.
+- [ ] Switching/closing the book or invalidating the passage during initial
+  loading cannot start stale audio. The known Android permission retry remains.
 
 ## 7. Standards and design rationale
 

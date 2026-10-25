@@ -1,11 +1,18 @@
 // @vitest-environment jsdom
-import { act, useLayoutEffect } from 'react'
+import {
+  act,
+  useLayoutEffect,
+  type ReactNode,
+} from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useTtsPlayer } from './useTtsPlayer'
 import * as api from '../api/nativeTts'
 import * as native from '../playback/nativeMobileAudio'
 import type { TtsChunk, TtsOptions } from '../types'
+import i18n from '../../i18n'
+import { AudioControls } from '../components/AudioControls'
+import { createPlayAnywherePlayback } from '../playAnywhere/usePlayAnywherePlayback'
 
 vi.mock('../api/nativeTts', async importOriginal => ({ ...await importOriginal<typeof import('../api/nativeTts')>(), getNativeTtsCapabilities: vi.fn(), getNativeSavedAudiobookChunk: vi.fn(), prepareNativeAudiobookPlayback: vi.fn(), resetNativeTtsCapabilities: vi.fn() }))
 vi.mock('../playback/nativeMobileAudio', () => ({ initializeNativeAudio: vi.fn(), setNativeAudioSource: vi.fn(), setNativeAudioRate: vi.fn(), seekNativeAudio: vi.fn(), playNativeAudio: vi.fn(), pauseNativeAudio: vi.fn(), getNativeAudioState: vi.fn(), stopNativeAudio: vi.fn(), disposeNativeAudio: vi.fn() }))
@@ -33,9 +40,13 @@ function deferred<T>() {
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no })
   return { promise, resolve, reject }
 }
-async function mount(platform = 'linux') {
+async function mount(platform = 'linux', controls?: (result: ReturnType<typeof useTtsPlayer>) => ReactNode) {
   vi.mocked(api.getNativeTtsCapabilities).mockResolvedValue({ platform } as api.NativeTtsCapabilities)
-  function Harness() { const result = useTtsPlayer(); useLayoutEffect(() => { player = result }, [result]); return null }
+  function Harness() {
+    const result = useTtsPlayer()
+    useLayoutEffect(() => { player = result }, [result])
+    return controls?.(result) ?? null
+  }
   const element = document.createElement('div'); document.body.append(element)
   const root = createRoot(element)
   await act(async () => root.render(<Harness />))
@@ -58,13 +69,143 @@ beforeEach(() => {
   vi.mocked(native.setNativeAudioSource).mockImplementation(async () => { position = 0; playing = false; return nativeState() })
   vi.mocked(native.setNativeAudioRate).mockImplementation(async () => nativeState())
   vi.mocked(native.seekNativeAudio).mockImplementation(async target => { position = target; return nativeState() })
-  vi.mocked(native.playNativeAudio).mockImplementation(async () => { playing = true; return nativeState() })
+  vi.mocked(native.playNativeAudio).mockImplementation(async isCurrent => {
+    if (isCurrent && !isCurrent()) throw new DOMException('Superseded playback request', 'AbortError')
+    playing = true
+    return nativeState()
+  })
   vi.mocked(native.pauseNativeAudio).mockImplementation(async () => { playing = false; return nativeState() })
   vi.mocked(native.getNativeAudioState).mockImplementation(async () => nativeState())
   vi.mocked(native.stopNativeAudio).mockResolvedValue()
   vi.mocked(native.disposeNativeAudio).mockResolvedValue()
 })
 afterEach(async () => { await unmount?.(); vi.restoreAllMocks(); vi.unstubAllGlobals(); document.body.replaceChildren() })
+
+it.each([
+  ['linux', 'source'],
+  ['linux', 'play'],
+  ['android', 'source'],
+  ['android', 'play'],
+])('gates startup navigation without cancelling the passage, then permits transport takeover on %s during %s', async (platform, phase) => {
+  const coordinator = createPlayAnywherePlayback({
+    complete: true,
+    options,
+    getChunks: async () => chunks,
+    resolve: async () => ({
+      status: 'resolved',
+      documentUrl: options.documentUrl!,
+      chunks,
+      chunkIndex: 4,
+      chunkId: chunks[4].id,
+      isCurrent: () => true,
+    }),
+    play: (...args) => player.playFromChunk(...args),
+  })
+  const cancel = vi.spyOn(coordinator, 'cancel')
+  const noop = () => {}
+  await mount(platform, current => (
+    <AudioControls
+      ttsState={current.state}
+      audiobookState={{
+        status: 'saved',
+        complete: true,
+        cachedChunks: 8,
+        totalChunks: 8,
+        message: '',
+        audioDurationSec: 36,
+        wavBytes: 100,
+        appliedThreadCount: null,
+      }}
+      canPlayAudiobook canSkipBackward canSkipForward
+      canSaveAudiobook={false} saveInProgress={false} modelSetupLabel={null}
+      playbackRate={1} savedAudiobooks={[]} selectedAudiobookId={null} wordHighlightEnabled={false}
+      onSkipBackward={() => {
+        coordinator.cancel()
+        current.skipBackward()
+      }}
+      onSkipForward={() => {
+        coordinator.cancel()
+        current.skipForward()
+      }}
+      onJumpToChunk={index => {
+        coordinator.cancel()
+        current.jumpToChunk(index)
+      }}
+      onStop={() => {
+        coordinator.cancel()
+        current.stop()
+      }}
+      onPause={current.pause} onResume={current.resume}
+      onManageSave={noop} onRead={noop} onSelectSavedAudiobook={noop}
+      onPlaybackRateChange={noop} onOpenAudioSetup={noop} onSave={noop}
+      onWordHighlightEnabledChange={noop}
+    />
+  ))
+  const demand = deferred<SavedChunk | null>()
+  const prepared = deferred<api.NativeAudiobookPlayback>()
+  const browserPlay = deferred<void>()
+  const nativePlay = deferred<native.NativeAudioState>()
+  if (phase === 'source') {
+    if (platform === 'linux') vi.mocked(api.getNativeSavedAudiobookChunk).mockReturnValueOnce(demand.promise)
+    else vi.mocked(api.prepareNativeAudiobookPlayback).mockReturnValueOnce(prepared.promise)
+  } else if (platform === 'linux') audio.play.mockReturnValueOnce(browserPlay.promise)
+  else vi.mocked(native.playNativeAudio).mockImplementationOnce(async isCurrent => {
+    if (isCurrent && !isCurrent()) throw new DOMException('Superseded playback request', 'AbortError')
+    return nativePlay.promise
+  })
+
+  await act(async () => coordinator.playFromHere({
+    captureViewport: async () => ({
+      status: 'captured',
+      point: { format: 'html', segmentIndex: 0, offset: 0 },
+      segmentTexts: ['Chunk 4'],
+      segmentLengths: [7],
+      isCurrent: () => true,
+    }),
+  }))
+  await frame()
+  type ControlLabel = 'tts.controls.previousChunk'
+    | 'tts.controls.nextChunk'
+    | 'tts.controls.stop'
+    | 'tts.controls.playbackOptions'
+  const button = (key: ControlLabel) => [...document.querySelectorAll('button')]
+    .find(element => element.getAttribute('aria-label') === i18n.t(key))!
+  expect(player.state.status).toBe('loading')
+  expect(player.state.currentChunkIndex).toBeNull()
+  for (const key of ['tts.controls.previousChunk', 'tts.controls.nextChunk'] as const) {
+    expect(button(key).disabled).toBe(true)
+    await act(async () => button(key).click())
+  }
+  expect(button('tts.controls.stop').disabled).toBe(false)
+  await act(async () => button('tts.controls.playbackOptions').click())
+  const row = document.querySelector<HTMLButtonElement>('.audio-chunk-item')!
+  expect(row.disabled).toBe(true)
+  await act(async () => row.click())
+  expect(cancel).not.toHaveBeenCalled()
+
+  await act(async () => {
+    demand.resolve({ wav: new ArrayBuffer(64) } as SavedChunk)
+    prepared.resolve(playback)
+    browserPlay.resolve()
+    playing = true
+    nativePlay.resolve(nativeState())
+  })
+  await frame()
+  expect(player.state.status).toBe('playing')
+  expect(player.state.currentChunkIndex).toBe(4)
+  expect(button('tts.controls.nextChunk').disabled).toBe(false)
+  expect(document.querySelector<HTMLButtonElement>('.audio-chunk-item')!.disabled).toBe(false)
+  await act(async () => button('tts.controls.nextChunk').click())
+  await frame()
+  expect(cancel).toHaveBeenCalledOnce()
+  expect(player.state.currentChunkIndex).toBe(5)
+  expect(player.state.status).toBe('playing')
+  await act(async () => document.querySelector<HTMLButtonElement>('.audio-chunk-item')!.click())
+  await frame()
+  expect(cancel).toHaveBeenCalledTimes(2)
+  expect(player.state.currentChunkIndex).toBe(0)
+  expect(player.state.status).toBe('playing')
+})
 
 describe('desktop target playback', () => {
   it('starts the canonical target first, keeps the complete sequence and prefetches only the next two chunks', async () => {
