@@ -235,7 +235,7 @@ Bundle imports stage their source, chunks, playback track, and manifest under on
 
 The document header exposes one consolidated audio control surface:
 
-- Play starts reading the current document.
+- Play starts reading the current document. Its availability and playback admission use the same finalized saved-audio state for the current document/setup, including a save that just completed without reopening the document.
 - Pause and Resume control the active desktop audio element or native mobile media session.
 - Stop cancels playback, clears temporary desktop object URLs, and pauses/resets the reusable native mobile session. Full native disposal is reserved for app teardown.
 - Backward and Forward jump by narration chunk. They and chunk-list jumps are disabled until the first chunk starts; Stop and playback options remain available. Later chunk loading keeps navigation available.

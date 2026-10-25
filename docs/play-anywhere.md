@@ -2211,6 +2211,45 @@ Owner smoke checklist (pending):
 - [ ] Switching/closing the book or invalidating the passage during initial
   loading cannot start stale audio. The known Android permission retry remains.
 
+### 2026-10-24 — PR review readiness and fixture corrections
+
+The controls and coordinator now share `audioControlsAudiobookState.complete`.
+It accepts the active save only when its document/settings identity matches the
+open audiobook, and only after confirmed finalization. A stale independent cache
+check cannot reject Play immediately after Save. Source, options, newest-request
+and player guards remain unchanged; no readiness logic moves into the feature
+resolver. Removing the feature retains the manager's normal readiness derivation.
+
+Four manager/coordinator regressions cover beginning and passage starts after a
+matching save, plus rejection of completed saves for another document or voice.
+Both successful-start cases reproduce `not-ready` against the pre-fix manager.
+Remove their feature-specific action assertions with the optional coordinator;
+the existing queue/cache finalization tests remain baseline coverage.
+
+Reader-control CSS imports resolve from the checkout root. The PDF browser
+fixture writes its bundle and case code into external JavaScript files instead
+of interpolating executable code into HTML. A literal closing-script payload
+round-trips as data; no production sanitizer, dependency or CodeQL exclusion is
+introduced. These fixture changes disappear with the feature's browser tests.
+
+Validation: **668 passed, one existing skip, 85 files** with `CI=true` and two
+CPUs; TypeScript, ESLint and the production frontend/Pagefind build pass.
+Six header cases also pass from a relocated checkout. The closing-script case
+fails against the original helper and passes against the external-script fixture.
+
+The reported CI PDF timeout remains unconfirmed: the original eight PDF cases
+pass in isolation, and the updated nine pass both focused and in the two-CPU
+suite. The shared 15-second fixture deadline is unchanged. No test is disabled,
+and the D-Bus stderr is not established as a cause. Remote CI/CodeQL confirmation
+and platform smoke remain pending; this is not a claimed timeout repair.
+
+Owner smoke checklist (pending):
+
+- [ ] Save a new audiobook while its document stays open, then immediately use
+  Play, Play from selection and Play from beginning without reopening it.
+- [ ] An incomplete save or a completed save for another document/setup must not
+  enable playback. Stop/close/switch during preparation still rejects late work.
+
 ## 7. Standards and design rationale
 
 This plan applies separation of concerns, explicit capability contracts,

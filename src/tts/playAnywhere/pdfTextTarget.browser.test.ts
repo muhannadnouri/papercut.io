@@ -8,7 +8,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { browser, runBrowserFixture } from './browserCaptureFixture'
 
 let directory: string
-let bundle: string
 beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), 'papercut-pdf-target-'))
   copyFileSync('node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs', join(directory, 'pdf.worker.mjs'))
@@ -28,7 +27,7 @@ beforeAll(async () => {
   } })
   const result = Array.isArray(output) ? output[0] : output
   if (!('output' in result)) throw new Error('Expected browser bundle')
-  bundle = result.output.filter(item => item.type === 'chunk').map(item => item.code).join('\n')
+  writeFileSync(join(directory, 'bundle.js'), result.output.filter(item => item.type === 'chunk').map(item => item.code).join('\n'))
 }, 30_000)
 afterAll(() => { if (directory) rmSync(directory, { recursive: true, force: true }) })
 
@@ -79,17 +78,24 @@ async function run(action: string, native = false) {
   const sourceChunks=PdfTargets.chunkAudiobookSaveSegmentsWithSpans(sourceSegments).map((chunk,i)=>({...chunk,id:'saved-'+i,pdfSourceSpans:PdfTargets.pdfSourceSpansForChunk(sourceSegments,chunk.sourceSpan)}));
   const sourcePreparation=PdfTargets.createTextTargetPreparation({documentUrl:'/uploads/ab.pdf',docContent:'',chunks:sourceChunks,getChunks:async()=>sourceChunks,getPdfSegments:async()=>sourceSegments,getPdfPageText:async(_,index)=>sourcePages[index]});
   `
+  // Keep generated JavaScript out of HTML parsing; fixture strings need no script-tag sanitizer.
+  writeFileSync(join(directory, 'case.js'), `(async()=>{try{${setup}${native ? nativeSetup : ''}${action}}
+  catch(error){parent.postMessage({type:'capture-result',result:{error:String(error.stack||error)}},'*')}})()`)
   writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css}
   body{margin:0}.doc-header{position:fixed;top:0;height:90px;width:100%;background:white;z-index:10}
   .document-view{height:600px}.pdf-viewer-container{top:40px;bottom:60px;left:0;right:0}
   .audio-floating-playback{position:fixed;bottom:0;height:60px;width:100%;background:white;z-index:10}
   </style><div class="app-reader"><header class="doc-header">Toolbar</header><main class="document-view"><div class="pdf-viewer-container"><div class="pdfViewer"></div></div></main><div class="audio-floating-playback">Audio</div></div>
-  <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>(async()=>{try{${setup}${native ? nativeSetup : ''}${action}}
-  catch(error){parent.postMessage({type:'capture-result',result:{error:String(error.stack||error)}},'*')}})()</script>`)
+  <script src="bundle.js"></script><script src="case.js"></script>`)
   return runBrowserFixture(directory, frame)
 }
 
 describe.skipIf(!browser)('PDF/OCR viewport capture in Chromium', () => {
+  it('preserves script-like test data without turning it into HTML', async () => {
+    const value = '</script><script>throw new Error("injected")</script><!--'
+    const result = await run(`parent.postMessage({type:'capture-result',result:{value:${JSON.stringify(value)}}},'*')`)
+    expect(result.value).toBe(value)
+  })
   it('maps a backward native PDF selection through real Find nodes and the verified resolver', async () => {
     const result = await run(`
       const found=new Promise(resolve=>bus.on('updatetextlayermatches',resolve));

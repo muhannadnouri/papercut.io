@@ -15,8 +15,8 @@ beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), 'papercut-reader-controls-'))
   const entry = join(directory, 'entry.tsx')
   writeFileSync(entry, `
-    import "/home/catfish/Documents/GitHub/papercut.io/src/index.css";
-    import "/home/catfish/Documents/GitHub/papercut.io/src/App.css";
+    import ${JSON.stringify(resolve('src/index.css'))};
+    import ${JSON.stringify(resolve('src/App.css'))};
     import React from ${JSON.stringify(resolve('node_modules/react/index.js'))};
     import {createRoot} from ${JSON.stringify(resolve('node_modules/react-dom/client.js'))};
     import {createPortal} from ${JSON.stringify(resolve('node_modules/react-dom/index.js'))};

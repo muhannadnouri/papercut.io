@@ -172,12 +172,6 @@ export function useAudiobookManager({
     modelId: ttsModelId, textPreprocessor: ttsTextPreprocessor, voice: ttsVoice, speed: ttsSpeed,
     dtype: ttsDtype, threadCount: ttsThreadCount, silmaNfeStep, documentUrl: selectedDoc ?? undefined, title: playbackTitle,
   }), [ttsModelId, ttsTextPreprocessor, ttsVoice, ttsSpeed, ttsDtype, ttsThreadCount, silmaNfeStep, selectedDoc, playbackTitle])
-  const { cancel: cancelTargetPlayback, playFromHere, playFromBeginning: handleReadDocument } = usePlayAnywherePlayback({
-    complete: selectedAudiobookState.complete, options: playbackOptions, resolve: resolveTextTarget,
-    getChunks: getCanonicalChunks, play: playTtsFromChunk,
-  })
-  const stopDocumentPlayback = useCallback(() => { cancelTargetPlayback(); stopTts() }, [cancelTargetPlayback, stopTts])
-
   const refreshSavedAudiobooks = useCallback(async () => {
     try {
       setSavedAudiobooks(await listNativeSavedAudiobooks())
@@ -216,6 +210,43 @@ export function useAudiobookManager({
     threadCount: ttsThreadCount,
     onCompleted: refreshSavedAudiobooks,
   })
+
+  const selectedAudiobookId = selectedDoc
+    ? createAudiobookDownloadId(selectedDoc, {
+      modelId: ttsModelId,
+      textPreprocessor: ttsTextPreprocessor,
+      voice: ttsVoice,
+      speed: ttsSpeed,
+      dtype: ttsDtype,
+      silmaNfeStep,
+    })
+    : null
+  const selectedDocumentSavedAudiobooks = selectedDoc
+    ? getSavedAudiobooksForDocument(savedAudiobooks, selectedDoc).sort((a, b) => b.savedAt - a.savedAt)
+    : []
+  const activeDownloadId = audiobookDownload
+    ? createAudiobookDownloadId(audiobookDownload.url, {
+      modelId: audiobookDownload.modelId,
+      textPreprocessor: audiobookDownload.textPreprocessor,
+      voice: audiobookDownload.voice,
+      speed: audiobookDownload.speed,
+      dtype: audiobookDownload.dtype,
+      silmaNfeStep: audiobookDownload.silmaNfeStep,
+    })
+    : null
+  const downloadIsForSelectedDoc = Boolean(selectedAudiobookId && activeDownloadId === selectedAudiobookId)
+  const activeDownloadIsRunning = downloadAudiobookState.status === 'checking' ||
+    downloadAudiobookState.status === 'saving'
+  // A finished save can precede the independent cache recheck; UI and dispatch must agree on readiness.
+  const audioControlsAudiobookState = downloadIsForSelectedDoc && downloadAudiobookState.status !== 'idle'
+    ? downloadAudiobookState
+    : selectedAudiobookState
+
+  const { cancel: cancelTargetPlayback, playFromHere, playFromBeginning: handleReadDocument } = usePlayAnywherePlayback({
+    complete: audioControlsAudiobookState.complete, options: playbackOptions, resolve: resolveTextTarget,
+    getChunks: getCanonicalChunks, play: playTtsFromChunk,
+  })
+  const stopDocumentPlayback = useCallback(() => { cancelTargetPlayback(); stopTts() }, [cancelTargetPlayback, stopTts])
 
   useEffect(() => {
     // Native manifests are the completed-audio registry; WebView storage is not durable enough.
@@ -499,35 +530,6 @@ export function useAudiobookManager({
   const ttsCanSkipForward = ttsIsNavigable &&
     ttsState.chunksTotal > 0 &&
     ttsCurrentChunkIndex < ttsState.chunksTotal - 1
-  const selectedAudiobookId = selectedDoc
-    ? createAudiobookDownloadId(selectedDoc, {
-      modelId: ttsModelId,
-      textPreprocessor: ttsTextPreprocessor,
-      voice: ttsVoice,
-      speed: ttsSpeed,
-      dtype: ttsDtype,
-      silmaNfeStep,
-    })
-    : null
-  const selectedDocumentSavedAudiobooks = selectedDoc
-    ? getSavedAudiobooksForDocument(savedAudiobooks, selectedDoc).sort((a, b) => b.savedAt - a.savedAt)
-    : []
-  const activeDownloadId = audiobookDownload
-    ? createAudiobookDownloadId(audiobookDownload.url, {
-      modelId: audiobookDownload.modelId,
-      textPreprocessor: audiobookDownload.textPreprocessor,
-      voice: audiobookDownload.voice,
-      speed: audiobookDownload.speed,
-      dtype: audiobookDownload.dtype,
-      silmaNfeStep: audiobookDownload.silmaNfeStep,
-    })
-    : null
-  const downloadIsForSelectedDoc = Boolean(selectedAudiobookId && activeDownloadId === selectedAudiobookId)
-  const activeDownloadIsRunning = downloadAudiobookState.status === 'checking' ||
-    downloadAudiobookState.status === 'saving'
-  const audioControlsAudiobookState = downloadIsForSelectedDoc && downloadAudiobookState.status !== 'idle'
-    ? downloadAudiobookState
-    : selectedAudiobookState
   const isDifferentAudiobookSaving = Boolean(
     activeDownloadId &&
     activeDownloadId !== selectedAudiobookId &&
