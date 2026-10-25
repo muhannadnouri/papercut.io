@@ -460,3 +460,11 @@ prefetch remain. No warmup or platform workaround is included.
 See the [current scope and owner checklist](play-anywhere.md#2026-10-24--feature-scope-and-platform-acceptance).
 The owner builds artifacts and handles device/listening tests; the reported
 first-start pause is unresolved.
+
+### Save finalization and PDF passage verification (2026-10-24)
+
+Completed registry refresh now waits for the native saved event or final command
+response, rather than the last WAV count. Cancellation cannot advertise an
+unfinalized manifest as complete. Passage verification reuses sentence grammar
+per source paragraph before comparing merged chunks, preserving strict source
+checks and saved audio identity. See the [regressions and owner checklist](play-anywhere.md#2026-10-24--completed-save-registry-and-pdf-paragraph-verification).

@@ -2108,6 +2108,52 @@ pre-investigation versions, and the staged index and user editor settings are
 unchanged. This pass produces no AppImage and leaves existing local artifacts and
 user data untouched. Device/listening/accessibility acceptance remains pending.
 
+### 2026-10-24 — Completed-save registry and PDF paragraph verification
+
+Two independent defects were reproduced after the cleanup:
+
+- The save hook inferred completion from `cachedChunks === totalChunks` on the
+  last **saving** event. The native save commits its final manifest afterward.
+  The queue refreshed the completed registry too early; the later saved event
+  left the completion boolean unchanged, so the refresh never ran again. Only
+  the native **saved** event or completed command response now confirms readiness.
+  Cancel preserves confirmed completion instead of inferring it from chunk count.
+- Generation splits sentences within each source paragraph before merging short
+  chunks. Verification instead joined the source first, treating a leading
+  punctuation glyph in a later paragraph as narrated text. The feature verifier
+  now applies the shared sentence grammar to each bounded source fragment before
+  comparing a merged chunk. Word changes, independent punctuation, invalid spans,
+  source projection and complete coverage still reject. No fuzzy matching, saved
+  text/hash/span rewrite, regeneration or native API/schema change is introduced.
+
+The registry fix is baseline save-lifecycle correctness and imports no feature
+code. The paragraph-comparison helper stays private to `playAnywhere/verifiedSource.ts`
+and disappears with the existing feature verifier. No startup diagnostics or
+packaging changes return.
+
+- [x] Reproduce the early completion/finalization failure/cancellation defects
+  through the real queue/cache hooks with deferred native results, then verify
+  refresh occurs only after finalization, once for event plus command response.
+- [x] Reproduce merged-paragraph rejection with a synthetic PDF source; verify
+  source points across all merged blocks and retain changed-word/punctuation guards.
+- [x] Read-only owner-profile check: all 80 chunks reproduce saved identity; the
+  original resolver rejected the book, and the corrected resolver accepts all
+  80 canonical chunk starts across 101 narration segments. No private PDF text,
+  profile path, manifest or audio is added to fixtures, and app data is untouched.
+- [ ] Owner: rebuild; reuse the existing smoke profile and verify its completed
+  PDF audiobook appears after reopening the app. Existing audio needs no regeneration.
+- [ ] Owner: generate a small new audiobook and confirm it appears immediately
+  after completion; test PDF Play/selection on opening and later pages, beginning,
+  Pause/Resume and Stop. Repeat relevant platform gates from the checklist above.
+
+Validation: **659 tests passed, 1 existing skip, 84 files**; full ESLint and
+TypeScript pass. After preserving the original exact-match path ahead of the
+paragraph compatibility check, all **58 affected checks** and scoped ESLint pass.
+The synthetic regressions failed before the fixes. No native/package code changed;
+no AppImage was built or device/audio test run by the agent. The owner subsequently
+rebuilt AppImage and APK artifacts and reports initial testing works as intended;
+this is not acceptance of all remaining platform/accessibility gates.
+
 ## 7. Standards and design rationale
 
 This plan applies separation of concerns, explicit capability contracts,
