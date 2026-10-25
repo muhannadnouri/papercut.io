@@ -2250,6 +2250,44 @@ Owner smoke checklist (pending):
 - [ ] An incomplete save or a completed save for another document/setup must not
   enable playback. Stop/close/switch during preparation still rejects late work.
 
+### 2026-10-24 — deletion readiness and CI timeout follow-up
+
+Successful saved-audiobook deletion now calls the save queue's
+`invalidateCompleted(record.id)` before resetting the open-document cache.
+The queue clears only the captured finalized save with that settings identity;
+object identity also protects a newer save with identical settings. Starting
+another save invalidates the old completion token. Cache reset rejects any late
+response from the forgotten save command. Cancelled/failed deletion and unrelated
+or in-progress saves keep their state. This is baseline save/delete ownership,
+retained if Play Anywhere is removed; passage and player guards are unchanged.
+
+The manager regressions now exercise the real queue, cache and saved-action hooks
+with mocked native I/O. Added cases cover deletion success/failure/cancellation
+and a replacement save completing before an older deletion returns. Queue cases
+also cover unrelated identities, a newer save with identical settings, an active
+save, and a late final command response after invalidation.
+
+The latest CI failure has a confirmed timeout-ordering defect: the script-data
+regression used Vitest's default 5 seconds, shorter than the browser driver's
+15-second deadline. Its still-running browser held the shared profile lock and
+subsequent launches failed. That test now uses the suite's existing 30-second
+budget, leaving the driver time to clean up. The driver deadline is unchanged;
+no browser test is skipped. The earlier independent 15-second PDF timeout remains
+unreproduced. CodeQL alerts 7/8 and their fixture construction are unchanged.
+
+Validation: **677 passed, one existing skip, 85 files** with `CI=true` and two
+CPUs, including all nine PDF browser cases. The 17 connected manager/queue checks
+pass; the deletion-success regression fails without the manager invalidation call.
+ESLint, TypeScript, eight-locale validation and the production frontend/Pagefind
+build pass. Remote CI and platform acceptance remain pending.
+
+Owner smoke checklist (pending):
+
+- [ ] Save, then delete the matching audiobook while its document stays open:
+  Play becomes unavailable without reopening the document.
+- [ ] Cancel deletion, or observe a failed deletion: the existing saved audio
+  remains playable. Deleting another saved setup does not clear its completion.
+
 ## 7. Standards and design rationale
 
 This plan applies separation of concerns, explicit capability contracts,

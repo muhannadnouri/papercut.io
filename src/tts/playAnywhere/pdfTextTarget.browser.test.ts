@@ -95,7 +95,7 @@ describe.skipIf(!browser)('PDF/OCR viewport capture in Chromium', () => {
     const value = '</script><script>throw new Error("injected")</script><!--'
     const result = await run(`parent.postMessage({type:'capture-result',result:{value:${JSON.stringify(value)}}},'*')`)
     expect(result.value).toBe(value)
-  })
+  }, 30_000)
   it('maps a backward native PDF selection through real Find nodes and the verified resolver', async () => {
     const result = await run(`
       const found=new Promise(resolve=>bus.on('updatetextlayermatches',resolve));

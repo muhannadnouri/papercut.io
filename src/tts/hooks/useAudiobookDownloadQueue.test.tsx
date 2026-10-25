@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import * as api from '../api/nativeTts'
 import { useAudiobookDownloadQueue } from './useAudiobookDownloadQueue'
 import { DEFAULT_TTS_MODEL_ID } from '../types'
+import { createAudiobookDownloadId } from '../storage/AudiobookDownloadQueue'
 
 vi.mock('../api/nativeTts', async importOriginal => ({
   ...await importOriginal<typeof import('../api/nativeTts')>(),
@@ -93,4 +94,48 @@ it('does not infer completion from the chunk count when cancelling before finali
   expect(queue.state.complete).toBe(false)
   expect(onCompleted).not.toHaveBeenCalled()
   expect(api.cancelNativeAudiobookSave).toHaveBeenCalledWith(jobId)
+})
+
+it('forgets deleted completion and ignores the save command response still in flight', async () => {
+  await act(async () => emit('saved'))
+  expect(queue.state.complete).toBe(true)
+  await act(async () => queue.invalidateCompleted(createAudiobookDownloadId(input.documentUrl, input)))
+  expect(queue.activeDownload).toBeNull()
+  expect(queue.state).toMatchObject({ status: 'idle', complete: false, cachedChunks: 0 })
+  await act(async () => finish(result()))
+  document.dispatchEvent(new Event('visibilitychange'))
+  expect(queue.state.complete).toBe(false)
+  expect(queue.downloads).toEqual([])
+  expect(onCompleted).toHaveBeenCalledOnce()
+  expect(api.cancelNativeAudiobookSave).not.toHaveBeenCalled()
+})
+
+it('keeps completed readiness when a different saved record is deleted', async () => {
+  await act(async () => finish(result()))
+  const other = createAudiobookDownloadId(input.documentUrl, { ...input, voice: 'af_bella' })
+  await act(async () => queue.invalidateCompleted(other))
+  expect(queue.activeDownload?.voice).toBe(input.voice)
+  expect(queue.state.complete).toBe(true)
+})
+
+it.each(['same', 'different'])('does not let a late deletion invalidate a newer %s-identity save', async identity => {
+  await act(async () => finish(result()))
+  const invalidateDeletedSave = queue.invalidateCompleted
+  const deletedId = createAudiobookDownloadId(input.documentUrl, input)
+  const next = { ...input, documentUrl: identity === 'same' ? input.documentUrl : '/other.pdf' }
+  await act(async () => queue.start(next))
+  await act(async () => finish(result()))
+  await act(async () => invalidateDeletedSave(deletedId))
+  expect(queue.activeDownload?.url).toBe(next.documentUrl)
+  expect(queue.state.complete).toBe(true)
+  expect(onCompleted).toHaveBeenCalledTimes(2)
+})
+
+it('does not reset an in-progress save when deletion of its older saved record finishes', async () => {
+  const invalidateDeletedSave = queue.invalidateCompleted
+  await act(async () => invalidateDeletedSave(createAudiobookDownloadId(input.documentUrl, input)))
+  expect(queue.activeDownload?.url).toBe(input.documentUrl)
+  expect(queue.state.status).toBe('checking')
+  await act(async () => finish(result()))
+  expect(queue.state.complete).toBe(true)
 })

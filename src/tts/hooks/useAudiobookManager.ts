@@ -206,6 +206,7 @@ export function useAudiobookManager({
     start: startAudiobookSave,
     cancel: handleCancelAudiobookSave,
     remove: removeQueuedAudiobookDownload,
+    invalidateCompleted: invalidateCompletedAudiobookDownload,
   } = useAudiobookDownloadQueue({
     threadCount: ttsThreadCount,
     onCompleted: refreshSavedAudiobooks,
@@ -478,6 +479,7 @@ export function useAudiobookManager({
     if (!confirmed) return
 
     await deleteSavedAudiobook(record, (deletedUserUpload) => {
+      invalidateCompletedAudiobookDownload(record.id)
       if (selectedDoc === record.documentUrl) {
         stopDocumentPlayback()
         resetSelectedAudiobookState()
@@ -487,7 +489,7 @@ export function useAudiobookManager({
         }
       }
     })
-  }, [confirmAudiobookAction, deleteSavedAudiobook, onClearDocument, resetAudiobookDocument, resetSelectedAudiobookState, selectedDoc, stopDocumentPlayback])
+  }, [confirmAudiobookAction, deleteSavedAudiobook, invalidateCompletedAudiobookDownload, onClearDocument, resetAudiobookDocument, resetSelectedAudiobookState, selectedDoc, stopDocumentPlayback])
 
   const importAudiobook = useCallback(async (openDocument: (url: string) => Promise<void>) => {
     await importSavedAudiobook(openDocument, (result) => {
