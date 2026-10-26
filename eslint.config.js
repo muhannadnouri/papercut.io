@@ -77,6 +77,12 @@ export default defineConfig([
       '@stylistic/object-property-newline': 'warn',
       '@stylistic/indent': ['warn', 2],
       '@stylistic/no-trailing-spaces': 'warn',
+      '@stylistic/eol-last': ['warn', 'always'],
+      '@stylistic/no-multiple-empty-lines': ['warn', {
+        max: 1,
+        maxEOF: 0,
+        maxBOF: 0,
+      }],
       '@stylistic/comma-dangle': ['warn', 'always-multiline'],
       'import-newlines/enforce': ['warn', {
         items: 1,
