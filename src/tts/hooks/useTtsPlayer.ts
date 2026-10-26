@@ -27,12 +27,17 @@ import {
   isNativeMobilePlatform,
   isTransientPlaybackInterruption,
   normalizePlaybackRate,
+  playbackMatchesChunks,
+  samePlaybackOptions,
   textPreview,
 } from '../playback/playbackState'
 import type { TtsOptions, TtsChunk } from '../types'
 import { nativeTtsErrorDetail, nativeTtsErrorMessage } from '../utils/errors'
 
 type TtsStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'error'
+
+/** How a dispatched start ended: acknowledged by Play, replaced by a later command, or failed. */
+export type PlaybackStart = 'started' | 'superseded' | 'failed'
 
 interface PreloadTarget {
   anchorIndex: number
@@ -99,6 +104,10 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const browserAudioCacheRef = useRef(new BrowserAudioCache())
   const chunksRef = useRef<TtsChunk[]>([])
+  const sourceChunksRef = useRef<readonly TtsChunk[]>([])
+  const startingRef = useRef(false)
+  const mobileSkipDeltaRef = useRef(0)
+  const mobileQueuedPlayRef = useRef(false)
   const optionsRef = useRef<TtsOptions | null>(null)
   const jobIdRef = useRef(0)
   const nextPlayIndexRef = useRef(0)
@@ -127,6 +136,19 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
   const mobileForegroundSyncRef = useRef<Promise<void> | null>(null)
   const nativeAudioInitializedRef = useRef(false)
   const playbackRateRef = useRef(playbackRate)
+  // Command epoch: replaced by every public command, so callers can observe supersession without wrappers.
+  const commandRef = useRef(new AbortController())
+  const startRef = useRef<{ signal: AbortSignal; settle: (start: PlaybackStart) => void } | null>(null)
+
+  const beginCommand = useCallback(() => {
+    commandRef.current.abort()
+    commandRef.current = new AbortController()
+  }, [])
+  const commandSignal = useCallback(() => commandRef.current.signal, [])
+  /** Settle the pending start only if it belongs to the epoch that produced this outcome. */
+  const settleStart = useCallback((start: PlaybackStart, epoch = commandRef.current.signal) => {
+    if (startRef.current?.signal === epoch) startRef.current.settle(start)
+  }, [])
 
   // Increment generation whenever polling stops. Late async responses then fail
   // their generation fence and cannot overwrite newer playback/navigation state.
@@ -148,7 +170,25 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     browserAudioCacheRef.current.clear()
   }, [])
 
+  const cancelNavigation = useCallback(() => {
+    navigationIntentRef.current += 1
+    mobileSkipDeltaRef.current = 0
+    queuedTargetIndexRef.current = null
+    pendingTargetIndexRef.current = null
+    preloadTargetRef.current = null
+    mobileQueuedIndexRef.current = null
+    mobilePendingIndexRef.current = null
+    if (navigationFrameRef.current !== null) window.cancelAnimationFrame(navigationFrameRef.current)
+    if (mobileNavigationFrameRef.current !== null) window.cancelAnimationFrame(mobileNavigationFrameRef.current)
+    navigationFrameRef.current = null
+    mobileNavigationFrameRef.current = null
+  }, [])
+
   const finishPlayback = useCallback(() => {
+    resetMobileForegroundSync()
+    startingRef.current = false
+    mobileModeRef.current = false
+    mobilePlaybackRef.current = null
     playingRef.current = false
     currentPlayingIndexRef.current = null
     navigationInFlightRef.current = false
@@ -163,7 +203,9 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
       message: '',
       ...EMPTY_PLAYBACK_STATE,
     }))
-  }, [])
+  }, [resetMobileForegroundSync])
+
+  const isCurrentJob = useCallback((jobId: number) => jobIdRef.current === jobId, [])
 
   // Native global timeline is source of truth on mobile. Convert it back into
   // existing chunk-local UI/highlight fields through binary-searched boundaries.
@@ -272,7 +314,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
   // After lock/background, read native state once before any UI command. Concurrent
   // callers share one promise so several taps cannot launch duplicate bridge calls.
   const syncMobileForegroundState = useCallback((): Promise<void> => {
-    if (!mobileModeRef.current || document.visibilityState !== 'visible') {
+    if (startingRef.current || !mobileModeRef.current || document.visibilityState !== 'visible') {
       return Promise.resolve()
     }
     if (mobileForegroundReadyRef.current) {
@@ -305,86 +347,70 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     return task
   }, [startMobilePolling, stopMobilePolling, updateNativePlaybackState])
 
-  const playIndex = useCallback((index: number) => {
+  /** Commit playing only after the browser acknowledges it.
+   * Resume reuses the source/currentTime and the same attempt fences as a new target. */
+  const playIndex = useCallback((index: number, resumeCurrent = false) => {
     const audio = audioRef.current
     if (!audio || pausedRef.current) return false
-
     if (index >= totalChunksRef.current) {
       nextPlayIndexRef.current = totalChunksRef.current
       finishPlayback()
       return true
     }
-
     const item = browserAudioCacheRef.current.get(index)
-    if (!item) {
-      nextPlayIndexRef.current = index
-      playingRef.current = false
-      setState((prev) => ({
-        ...prev,
-        status: 'loading',
-        message: i18n.t('tts.status.loadingChunk', {
-          current: index + 1,
-          total: totalChunksRef.current,
-        }),
-      }))
-      return false
-    }
+    if (!item) return false
 
     const playJobId = jobIdRef.current
-    const playAttemptId = playbackAttemptRef.current + 1
-    playbackAttemptRef.current = playAttemptId
+    const playNavigationIntent = navigationIntentRef.current
+    const playAttemptId = ++playbackAttemptRef.current
+    const currentAttempt = () => jobIdRef.current === playJobId &&
+      navigationIntentRef.current === playNavigationIntent && playbackAttemptRef.current === playAttemptId &&
+      currentPlayingIndexRef.current === index && !pausedRef.current
+    const fail = (err: unknown) => {
+      if (!currentAttempt()) return
+      playingRef.current = false
+      if (isTransientPlaybackInterruption(err)) {
+        setState(prev => ({ ...prev, status: 'loading', message: i18n.t('tts.status.switchingChunk') }))
+        return
+      }
+      pausedRef.current = true
+      pendingTargetIndexRef.current = null
+      setState(prev => ({ ...prev, status: 'error', pendingChunkIndex: null, message: nativeTtsErrorMessage(err) }))
+    }
 
     nextPlayIndexRef.current = index + 1
     currentPlayingIndexRef.current = index
-    playingRef.current = true
-    audio.src = item.url
-    audio.currentTime = 0
-    audio.playbackRate = playbackRateRef.current
-
-    setState((prev) => ({
-      ...prev,
-      status: 'playing',
-      message: '',
-      chunksPlayed: index,
-      currentText: item.text,
-      currentChunkIndex: item.index,
-      pendingChunkIndex: null,
-      currentChunkId: item.chunkId,
-      currentChunkProgress: 0,
-      currentChunkTime: 0,
-      currentChunkDuration: Number.isFinite(audio.duration) ? audio.duration : 0,
-    }))
-
-    audio.play().catch((err: unknown) => {
-      // Rapid skip/jump actions intentionally replace the audio source. Browsers
-      // reject the superseded play() promise; ignore it unless it is still the
-      // newest playback attempt for the current job and chunk.
-      if (jobIdRef.current !== playJobId) return
-      if (playbackAttemptRef.current !== playAttemptId) return
-      if (currentPlayingIndexRef.current !== index) return
-      if (pausedRef.current) return
-
-      if (isTransientPlaybackInterruption(err)) {
-        playingRef.current = false
-        setState((prev) => ({
-          ...prev,
-          status: 'loading',
-          message: i18n.t('tts.status.switchingChunk'),
-        }))
-        return
+    pendingTargetIndexRef.current = index
+    playingRef.current = false
+    try {
+      if (!resumeCurrent) {
+        audio.src = item.url
+        audio.currentTime = 0
       }
-
-      pausedRef.current = true
-      playingRef.current = false
-      setState((prev) => ({
-        ...prev,
-        status: 'error',
-        message: nativeTtsErrorMessage(err),
+      audio.playbackRate = playbackRateRef.current
+      setState(prev => ({
+        ...prev, status: 'loading', message: i18n.t('tts.status.preparingPlayback'), pendingChunkIndex: index,
       }))
-    })
-
-    return true
-  }, [finishPlayback])
+      audio.play().then(() => {
+        if (!currentAttempt()) return
+        playingRef.current = true
+        pendingTargetIndexRef.current = null
+        const duration = Number.isFinite(audio.duration) ? audio.duration : 0
+        const time = Number.isFinite(audio.currentTime) ? audio.currentTime : 0
+        setState(prev => ({
+          ...prev, status: 'playing', message: '', chunksPlayed: index, currentText: item.text,
+          currentChunkIndex: index, pendingChunkIndex: null, currentChunkId: item.chunkId,
+          currentChunkTime: time, currentChunkDuration: duration,
+          currentChunkProgress: duration > 0 ? Math.min(time / duration, 1) : 0,
+        }))
+        settleStart('started')
+      }).catch(fail)
+      return true
+    } catch (err) {
+      fail(err)
+      return false
+    }
+  }, [finishPlayback, settleStart])
 
   const loadChunk = useCallback(async (
     index: number,
@@ -413,7 +439,11 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
       browserAudioCacheRef.current.trackLoading(index, promise)
     }
 
-    const loaded = await promise
+    let loaded
+    try { loaded = await promise } catch (error) {
+      if (jobIdRef.current !== jobId || !shouldAccept()) return false
+      throw error
+    }
     if (jobIdRef.current !== jobId || !shouldAccept()) return false
     if (!loaded) {
       throw new Error(i18n.t('tts.status.missingSavedChunk'))
@@ -476,52 +506,61 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
   // are replaced before commit, keeping rapid skips bounded to one bridge command.
   const runMobileNavigationWorker = useCallback(async () => {
     if (mobileNavigationInFlightRef.current) return
+    const jobId = jobIdRef.current
     mobileNavigationInFlightRef.current = true
     try {
-      while (mobileQueuedIndexRef.current !== null && mobileModeRef.current) {
+      while (mobileQueuedIndexRef.current !== null && mobileModeRef.current && jobIdRef.current === jobId) {
         const targetIndex = mobileQueuedIndexRef.current
+        const playAfterSeek = mobileQueuedPlayRef.current
+        const intent = navigationIntentRef.current
+        const epoch = commandRef.current.signal
         mobileQueuedIndexRef.current = null
         const timing = mobilePlaybackRef.current?.chunks[targetIndex]
-        if (!timing) {
-          mobilePendingIndexRef.current = null
-          continue
-        }
-
+        if (!timing) continue
+        const current = () => isCurrentJob(jobId) && mobileModeRef.current && navigationIntentRef.current === intent
+        if (!current()) continue
         mobilePendingIndexRef.current = targetIndex
-        setState((prev) => ({
-          ...prev,
-          status: 'loading',
-          message: i18n.t('tts.status.seekingChunk', {
-            current: targetIndex + 1,
-            total: totalChunksRef.current,
-          }),
-          pendingChunkIndex: targetIndex,
-        }))
-        const nativeState = await seekNativeAudio(timing.startSec)
-        if (!mobileModeRef.current) return
-        if (mobileQueuedIndexRef.current !== null) continue
-        updateNativePlaybackState(nativeState)
-        mobilePendingIndexRef.current = null
+        setState(prev => ({ ...prev, status: 'loading',
+          message: i18n.t('tts.status.seekingChunk', { current: targetIndex + 1, total: totalChunksRef.current }),
+          pendingChunkIndex: targetIndex }))
+        try {
+          const nativeState = await seekNativeAudio(timing.startSec, current)
+          if (!current()) continue
+          updateNativePlaybackState(nativeState)
+          if (playAfterSeek) {
+            pausedRef.current = false
+            const played = await playNativeAudio(() => current() && !pausedRef.current)
+            if (!current() || pausedRef.current) continue
+            updateNativePlaybackState(played)
+            settleStart('started', epoch)
+          }
+        } catch (error) {
+          if (!current()) continue
+          pausedRef.current = true
+          playingRef.current = false
+          setState(prev => ({ ...prev, status: 'error', message: nativeTtsErrorMessage(error), pendingChunkIndex: null }))
+        }
       }
     } finally {
-      mobilePendingIndexRef.current = null
-      mobileNavigationInFlightRef.current = false
-      if (mobileModeRef.current) {
-        setState((prev) => prev.pendingChunkIndex === null
-          ? prev
-          : { ...prev, pendingChunkIndex: null })
+      if (jobIdRef.current === jobId) {
+        mobilePendingIndexRef.current = null
+        mobileNavigationInFlightRef.current = false
+        if (mobileModeRef.current) setState(prev => ({ ...prev, pendingChunkIndex: null }))
       }
     }
-  }, [updateNativePlaybackState])
+  }, [isCurrentJob, settleStart, updateNativePlaybackState])
 
   // Coalesce taps within one animation frame before starting serialized seek worker.
-  const seekMobileToChunk = useCallback((index: number) => {
+  const seekMobileToChunk = useCallback((index: number, playAfterSeek = false) => {
     if (!mobileModeRef.current || totalChunksRef.current === 0) return
     mobileQueuedIndexRef.current = clampChunkIndex(index)
+    mobileQueuedPlayRef.current = playAfterSeek
     if (mobileNavigationInFlightRef.current || mobileNavigationFrameRef.current !== null) return
     mobileNavigationFrameRef.current = window.requestAnimationFrame(() => {
       mobileNavigationFrameRef.current = null
+      const jobId = jobIdRef.current
       void runMobileNavigationWorker().catch((err: unknown) => {
+        if (jobIdRef.current !== jobId || !mobileModeRef.current) return
         pausedRef.current = true
         playingRef.current = false
         mobileQueuedIndexRef.current = null
@@ -575,11 +614,17 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
         }))
 
         const isCurrentTarget = () => (
-          jobIdRef.current === jobId &&
-          navigationIntentRef.current === navigationIntent &&
-          !pausedRef.current
+          isCurrentJob(jobId) &&
+          navigationIntentRef.current === navigationIntent && !pausedRef.current
         )
-        const loaded = await loadChunk(targetIndex, jobId, isCurrentTarget)
+        let loaded = false
+        try { loaded = await loadChunk(targetIndex, jobId, isCurrentTarget) } catch (error) {
+          if (isCurrentTarget()) {
+            pausedRef.current = true
+            pendingTargetIndexRef.current = null
+            setState(prev => ({ ...prev, status: 'error', message: nativeTtsErrorMessage(error), pendingChunkIndex: null }))
+          }
+        }
         if (!loaded || !isCurrentTarget()) continue
 
         browserAudioCacheRef.current.prune(
@@ -587,16 +632,14 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
           currentPlayingIndexRef.current,
           totalChunksRef.current,
         )
-        const didStart = playIndex(targetIndex)
-        if (navigationIntentRef.current === navigationIntent) {
-          pendingTargetIndexRef.current = didStart ? null : targetIndex
+        if (playIndex(targetIndex) && navigationIntentRef.current === navigationIntent) {
+          preloadAround(targetIndex, jobId, navigationIntent)
         }
-        if (didStart) preloadAround(targetIndex, jobId, navigationIntent)
       }
     } finally {
       navigationInFlightRef.current = false
     }
-  }, [loadChunk, playIndex, preloadAround])
+  }, [isCurrentJob, loadChunk, playIndex, preloadAround])
 
   const startPlaybackAt = useCallback((index: number) => {
     if (totalChunksRef.current === 0) return
@@ -607,7 +650,9 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     if (navigationInFlightRef.current || navigationFrameRef.current !== null) return
     navigationFrameRef.current = window.requestAnimationFrame(() => {
       navigationFrameRef.current = null
+      const jobId = jobIdRef.current
       void runNavigationWorker().catch((err: unknown) => {
+        if (jobIdRef.current !== jobId) return
         pausedRef.current = false
         playingRef.current = false
         setState((prev) => ({
@@ -638,6 +683,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     audioRef.current = audio
 
     const updateProgress = () => {
+      if (pendingTargetIndexRef.current !== null) return
       const duration = Number.isFinite(audio.duration) ? audio.duration : 0
       const currentTime = Number.isFinite(audio.currentTime) ? audio.currentTime : 0
       setState((prev) => ({
@@ -649,6 +695,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     }
 
     const handleEnded = () => {
+      if (!playingRef.current || pausedRef.current) return
       const finishedIndex = currentPlayingIndexRef.current
       setState((prev) => ({
         ...prev,
@@ -670,6 +717,9 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     audio.addEventListener('loadedmetadata', updateProgress)
     audio.addEventListener('ended', handleEnded)
     return () => {
+      jobIdRef.current += 1
+      navigationIntentRef.current += 1
+      mobileModeRef.current = false
       audio.pause()
       audio.removeEventListener('timeupdate', updateProgress)
       audio.removeEventListener('durationchange', updateProgress)
@@ -712,6 +762,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
   }, [resetMobileForegroundSync, syncMobileForegroundState])
 
   const preload = useCallback(() => {
+    const jobId = jobIdRef.current
     setState((prev) => (prev.status === 'idle'
       ? {
         ...prev,
@@ -722,6 +773,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
       : prev))
 
     void getNativeTtsCapabilities().then((capabilities) => {
+      if (jobIdRef.current !== jobId) return
       logTtsDiagnostic('[tts-native] capabilities', summarizeTtsCapabilities(capabilities))
       nativeMobilePlatformRef.current = isNativeMobilePlatform(capabilities.platform)
       setState((prev) => ({
@@ -735,74 +787,62 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
   // Prepare/reuse native single track, load it once, then let platform session own
   // playback while React polls and maps global time back to chunks.
   const startNativePlayback = useCallback(async (
-    chunks: TtsChunk[],
-    options: TtsOptions,
-    jobId: number,
+    chunks: TtsChunk[], options: TtsOptions, jobId: number, startIndex: number, epoch: AbortSignal,
   ) => {
-    if (!options.documentUrl) {
-      throw new Error(i18n.t('tts.status.playbackNeedsDocument'))
-    }
+    if (!options.documentUrl) throw new Error(i18n.t('tts.status.playbackNeedsDocument'))
+    const current = () => isCurrentJob(jobId) && mobileModeRef.current
     mobileModeRef.current = true
-    setState((prev) => ({
-      ...prev,
-      status: 'loading',
-      message: i18n.t('tts.status.preparingPlayback'),
-    }))
-    const prepareStarted = performance.now()
+    setState(prev => ({ ...prev, status: 'loading', message: i18n.t('tts.status.preparingPlayback') }))
+    const preparedAt = performance.now()
     const playback = await prepareNativeAudiobookPlayback(options.documentUrl, chunks, options)
-    logTtsDiagnostic('[tts-playback] native preparation completed', {
-      chunks: playback.chunks.length,
-      elapsedMs: Math.round(performance.now() - prepareStarted),
-    })
-    if (jobIdRef.current !== jobId || !mobileModeRef.current) return
-
+    logTtsDiagnostic('[tts-playback] native preparation completed', { chunks: playback.chunks.length, elapsedMs: Math.round(performance.now() - preparedAt) })
+    if (!current()) return
+    if (!playbackMatchesChunks(playback, chunks)) throw new Error(i18n.t('tts.status.nativePlaybackFailed'))
     mobilePlaybackRef.current = playback
-    await initializeNativeAudio()
     nativeAudioInitializedRef.current = true
-    if (jobIdRef.current !== jobId || !mobileModeRef.current) return
-
-    const sourceStarted = performance.now()
-    const sourceState = await setNativeAudioSource({
-      src: playback.audioUrl,
-      title: playback.title || options.title || 'Papercut Audiobook',
-      artist: 'Papercut',
-    })
-    logTtsDiagnostic('[tts-playback] native source loaded', {
-      elapsedMs: Math.round(performance.now() - sourceStarted),
-    })
-    if (jobIdRef.current !== jobId || !mobileModeRef.current) return
+    await initializeNativeAudio()
+    if (!current()) return
+    const sourceAt = performance.now()
+    await setNativeAudioSource({ src: playback.audioUrl, title: playback.title || options.title || 'Papercut Audiobook', artist: 'Papercut' }, current)
+    logTtsDiagnostic('[tts-playback] native source loaded', { elapsedMs: Math.round(performance.now() - sourceAt) })
+    if (!current()) return
+    await setNativeAudioRate(playbackRateRef.current, current)
+    if (!current()) return
+    const target = await seekNativeAudio(playback.chunks[startIndex].startSec, current)
+    if (!current()) return
+    const wasPaused = pausedRef.current
+    startingRef.current = false
+    // A seek reply is not a playing acknowledgement; keep startup loading until Play completes.
+    if (wasPaused) {
+      updateNativePlaybackState(target)
+      await syncMobileForegroundState()
+      return
+    }
     pausedRef.current = false
-    updateNativePlaybackState(sourceState)
-    await setNativeAudioRate(playbackRateRef.current)
-    if (jobIdRef.current !== jobId || !mobileModeRef.current) return
-    updateNativePlaybackState(await playNativeAudio())
+    const played = await playNativeAudio(() => current() && !pausedRef.current)
+    if (!current() || pausedRef.current) return
+    updateNativePlaybackState(played)
+    settleStart('started', epoch)
     await syncMobileForegroundState()
-  }, [syncMobileForegroundState, updateNativePlaybackState])
+  }, [isCurrentJob, settleStart, syncMobileForegroundState, updateNativePlaybackState])
 
-  const speak = useCallback((chunks: TtsChunk[], options: TtsOptions) => {
+  const speak = useCallback((chunks: readonly TtsChunk[], options: TtsOptions, startIndex = 0) => {
     const speakableChunks = chunks.filter((chunk) => chunk.text.trim())
-    if (speakableChunks.length === 0) return
+    if (!Number.isSafeInteger(startIndex) || startIndex < 0 || startIndex >= speakableChunks.length) return false
 
+    beginCommand()
+    const epoch = commandRef.current.signal
     const nextJobId = jobIdRef.current + 1
     jobIdRef.current = nextJobId
-    nextPlayIndexRef.current = 0
+    sourceChunksRef.current = chunks
+    startingRef.current = true
+    nextPlayIndexRef.current = startIndex
     currentPlayingIndexRef.current = null
     totalChunksRef.current = speakableChunks.length
     pausedRef.current = false
     playingRef.current = false
     playbackAttemptRef.current += 1
-    navigationIntentRef.current += 1
-    if (navigationFrameRef.current !== null) {
-      window.cancelAnimationFrame(navigationFrameRef.current)
-      navigationFrameRef.current = null
-    }
-    if (mobileNavigationFrameRef.current !== null) {
-      window.cancelAnimationFrame(mobileNavigationFrameRef.current)
-      mobileNavigationFrameRef.current = null
-    }
-    queuedTargetIndexRef.current = null
-    pendingTargetIndexRef.current = null
-    preloadTargetRef.current = null
+    cancelNavigation()
     chunksRef.current = speakableChunks
     optionsRef.current = options
     audioRef.current?.pause()
@@ -823,7 +863,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
       message: i18n.t('tts.status.checkingSaved'),
       progress: undefined,
       chunksGenerated: 0,
-      chunksPlayed: 0,
+      chunksPlayed: startIndex,
       chunksTotal: speakableChunks.length,
       chunkSummaries: speakableChunks.map((chunk, index) => ({
         index,
@@ -837,88 +877,80 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     void nativeCleanup
       .then(() => getNativeTtsCapabilities())
       .then((capabilities) => {
-        if (jobIdRef.current !== nextJobId) return
+        if (!isCurrentJob(nextJobId)) return
         nativeMobilePlatformRef.current = isNativeMobilePlatform(capabilities.platform)
         if (nativeMobilePlatformRef.current) {
-          return startNativePlayback(speakableChunks, options, nextJobId)
+          return startNativePlayback(speakableChunks, options, nextJobId, startIndex, epoch)
         }
-        startPlaybackAt(0)
+        startingRef.current = false
+        if (!pausedRef.current) startPlaybackAt(startIndex)
       })
       .catch((err: unknown) => {
-        if (jobIdRef.current !== nextJobId) return
+        if (!isCurrentJob(nextJobId)) return
         setState((prev) => ({
           ...prev,
           status: 'error',
           message: nativeTtsErrorMessage(err),
         }))
       })
-  }, [clearBrowserAudioCache, resetMobileForegroundSync, startNativePlayback, startPlaybackAt])
+      .finally(() => { if (jobIdRef.current === nextJobId) startingRef.current = false })
+    return true
+  }, [beginCommand, cancelNavigation, clearBrowserAudioCache, isCurrentJob, resetMobileForegroundSync, startNativePlayback, startPlaybackAt])
 
   const pause = useCallback(() => {
+    beginCommand()
     pausedRef.current = true
     playingRef.current = false
     playbackAttemptRef.current += 1
+    cancelNavigation()
+    const jobId = jobIdRef.current, intent = navigationIntentRef.current
+    const current = () => jobIdRef.current === jobId && navigationIntentRef.current === intent
     if (mobileModeRef.current) {
       void syncMobileForegroundState()
-        .then(() => pauseNativeAudio())
-        .then(updateNativePlaybackState)
+        .then(() => { if (current()) pausedRef.current = true; return pauseNativeAudio(current) })
+        .then(nativeState => { if (current()) updateNativePlaybackState(nativeState) })
         .catch((err: unknown) => {
-          setState((prev) => ({
-            ...prev,
-            status: 'error',
-            message: nativeTtsErrorMessage(err),
-          }))
+          if (current()) setState(prev => ({ ...prev, status: 'error', message: nativeTtsErrorMessage(err) }))
         })
-      setState((prev) => ({ ...prev, status: 'paused' }))
-      return
-    }
-    audioRef.current?.pause()
-    setState((prev) => ({ ...prev, status: 'paused' }))
-  }, [syncMobileForegroundState, updateNativePlaybackState])
+    } else audioRef.current?.pause()
+    setState(prev => ({ ...prev, status: 'paused', pendingChunkIndex: null }))
+  }, [beginCommand, cancelNavigation, syncMobileForegroundState, updateNativePlaybackState])
 
   const resume = useCallback(() => {
+    beginCommand()
     pausedRef.current = false
+    cancelNavigation()
+    if (startingRef.current) return
+    const jobId = jobIdRef.current, intent = navigationIntentRef.current
+    const current = () => jobIdRef.current === jobId && navigationIntentRef.current === intent
     if (mobileModeRef.current) {
       void syncMobileForegroundState()
-        .then(() => playNativeAudio())
-        .then(updateNativePlaybackState)
+        .then(() => { if (current()) pausedRef.current = false; return playNativeAudio(current) })
+        .then(nativeState => { if (current()) updateNativePlaybackState(nativeState) })
         .catch((err: unknown) => {
-          setState((prev) => ({
-            ...prev,
-            status: 'error',
-            message: nativeTtsErrorMessage(err),
-          }))
+          if (current()) setState(prev => ({ ...prev, status: 'error', message: nativeTtsErrorMessage(err) }))
         })
       return
     }
     const audio = audioRef.current
-    if (audio?.src && !audio.ended) {
-      audio.play()
-        .then(() => {
-          playingRef.current = true
-          setState((prev) => ({ ...prev, status: 'playing' }))
-        })
-        .catch((err: unknown) => {
-          setState((prev) => ({
-            ...prev,
-            status: 'error',
-            message: nativeTtsErrorMessage(err),
-          }))
-        })
-      return
-    }
-    void startPlaybackAt(nextPlayIndexRef.current)
-  }, [startPlaybackAt, syncMobileForegroundState, updateNativePlaybackState])
+    if (audio?.src && !audio.ended && currentPlayingIndexRef.current !== null) {
+      const index = currentPlayingIndexRef.current
+      if (playIndex(index, true) && current()) preloadAround(index, jobId, intent)
+    } else startPlaybackAt(nextPlayIndexRef.current)
+  }, [beginCommand, cancelNavigation, playIndex, preloadAround, startPlaybackAt, syncMobileForegroundState, updateNativePlaybackState])
 
   // Mobile first synchronizes after backgrounding, then bases relative skip on
   // newest queued/pending/native index. Desktop uses its separate loader state.
   const skipByChunks = useCallback((delta: number) => {
     if (totalChunksRef.current === 0) return
+    beginCommand()
 
     if (mobileModeRef.current) {
+      mobileSkipDeltaRef.current += delta
+      const jobId = jobIdRef.current, intent = ++navigationIntentRef.current
       void syncMobileForegroundState()
         .then(() => {
-          if (!mobileModeRef.current || totalChunksRef.current === 0) return
+          if (jobIdRef.current !== jobId || navigationIntentRef.current !== intent || !mobileModeRef.current || totalChunksRef.current === 0) return
           const activePendingIndex = mobileNavigationInFlightRef.current
             ? mobilePendingIndexRef.current
             : null
@@ -926,9 +958,13 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
             activePendingIndex ??
             currentPlayingIndexRef.current ??
             Math.max(nextPlayIndexRef.current - 1, 0)
-          seekMobileToChunk(currentIndex + delta)
+          const relative = mobileSkipDeltaRef.current
+          mobileSkipDeltaRef.current = 0
+          seekMobileToChunk(currentIndex + relative)
         })
         .catch((err: unknown) => {
+          if (jobIdRef.current !== jobId || navigationIntentRef.current !== intent) return
+          mobileSkipDeltaRef.current = 0
           setState((prev) => ({
             ...prev,
             status: 'error',
@@ -944,50 +980,69 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
       Math.max(nextPlayIndexRef.current - 1, 0)
     pausedRef.current = false
     startPlaybackAt(currentIndex + delta)
-  }, [seekMobileToChunk, startPlaybackAt, syncMobileForegroundState])
+  }, [beginCommand, seekMobileToChunk, startPlaybackAt, syncMobileForegroundState])
 
-  const jumpToChunk = useCallback((index: number) => {
+  const jumpToChunk = useCallback((index: number, playAfterSeek = false) => {
     if (totalChunksRef.current === 0) return
+    beginCommand()
+    mobileSkipDeltaRef.current = 0
     if (mobileModeRef.current) {
-      void syncMobileForegroundState()
-        .then(() => {
-          if (!mobileModeRef.current) return
-          seekMobileToChunk(index)
-        })
-        .catch((err: unknown) => {
-          setState((prev) => ({
-            ...prev,
-            status: 'error',
-            message: nativeTtsErrorMessage(err),
-          }))
-        })
-      return
-    }
-    startPlaybackAt(index)
-  }, [seekMobileToChunk, startPlaybackAt, syncMobileForegroundState])
+      const jobId = jobIdRef.current, intent = ++navigationIntentRef.current
+      void syncMobileForegroundState().then(() => {
+        if (!isCurrentJob(jobId) || navigationIntentRef.current !== intent || !mobileModeRef.current) return
+        seekMobileToChunk(index, playAfterSeek)
+      }).catch((err: unknown) => {
+        if (jobIdRef.current === jobId && navigationIntentRef.current === intent) {
+          setState(prev => ({ ...prev, status: 'error', message: nativeTtsErrorMessage(err) }))
+        }
+      })
+    } else startPlaybackAt(index)
+  }, [beginCommand, isCurrentJob, seekMobileToChunk, startPlaybackAt, syncMobileForegroundState])
+
+  /** Start at a canonical index; the returned promise reports that start once, or null if rejected before any change. */
+  const playFromChunk = useCallback((chunks: readonly TtsChunk[], options: TtsOptions, index: number): Promise<PlaybackStart> | null => {
+    if (!Number.isSafeInteger(index) || index < 0) return null
+    const canonical = sourceChunksRef.current === chunks ? chunksRef.current : chunks.filter(chunk => chunk.text.trim())
+    if (index >= canonical.length) return null
+    if (currentPlayingIndexRef.current !== null && optionsRef.current && samePlaybackOptions(optionsRef.current, options) &&
+      (sourceChunksRef.current === chunks || canonical.length === chunksRef.current.length &&
+        canonical.every((chunk, position) => chunk.id === chunksRef.current[position].id && chunk.text === chunksRef.current[position].text && chunk.textHash === chunksRef.current[position].textHash))) {
+      jumpToChunk(index, true)
+    } else if (!speak(chunks, options, index)) return null
+    // The dispatch began this epoch; any later command aborts it and supersedes the start.
+    const signal = commandRef.current.signal
+    return new Promise(resolve => {
+      const settle = (start: PlaybackStart) => {
+        if (startRef.current?.settle !== settle) return
+        startRef.current = null
+        signal.removeEventListener('abort', supersede)
+        resolve(start)
+      }
+      const supersede = () => settle('superseded')
+      startRef.current = { signal, settle }
+      signal.addEventListener('abort', supersede, { once: true })
+    })
+  }, [jumpToChunk, speak])
+
+  // Failures surface through player state on every path; settle the current start from that one place.
+  useEffect(() => {
+    if (state.status === 'error') settleStart('failed')
+  }, [settleStart, state.status])
 
   // Invalidate every async generation/queue before resetting UI. Native Stop is
   // non-destructive pause+seek(0); desktop also revokes bounded Blob URLs.
   const stop = useCallback(() => {
+    beginCommand()
     jobIdRef.current += 1
+    startingRef.current = false
+    sourceChunksRef.current = []
     nextPlayIndexRef.current = 0
     currentPlayingIndexRef.current = null
     totalChunksRef.current = 0
     pausedRef.current = false
     playingRef.current = false
     playbackAttemptRef.current += 1
-    navigationIntentRef.current += 1
-    if (navigationFrameRef.current !== null) {
-      window.cancelAnimationFrame(navigationFrameRef.current)
-      navigationFrameRef.current = null
-    }
-    if (mobileNavigationFrameRef.current !== null) {
-      window.cancelAnimationFrame(mobileNavigationFrameRef.current)
-      mobileNavigationFrameRef.current = null
-    }
-    queuedTargetIndexRef.current = null
-    pendingTargetIndexRef.current = null
-    preloadTargetRef.current = null
+    cancelNavigation()
     mobileQueuedIndexRef.current = null
     mobilePendingIndexRef.current = null
     mobileNavigationInFlightRef.current = false
@@ -1016,12 +1071,17 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
       chunks: [],
       ...EMPTY_PLAYBACK_STATE,
     }))
-  }, [clearBrowserAudioCache, resetMobileForegroundSync])
+  }, [beginCommand, cancelNavigation, clearBrowserAudioCache, resetMobileForegroundSync])
+
+  // Unmount supersedes any pending start; replacing (not just aborting) keeps StrictMode's remount usable.
+  useEffect(() => beginCommand, [beginCommand])
 
   return {
     state,
     preload,
     speak,
+    playFromChunk,
+    commandSignal,
     pause,
     resume,
     jumpToChunk,

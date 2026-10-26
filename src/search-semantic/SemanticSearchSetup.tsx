@@ -38,7 +38,7 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
       <h3 id={`${id}-semantic-title`}>{t('settings.semantic.controlsTitle')}</h3>
       <label className="app-setting app-setting-toggle">
         <span id={`${id}-status`} role="status" aria-live="polite">{t(`settings.semantic.summary.${status}`)}</span>
-        <span className="app-settings-switch"><input type="checkbox" role="switch" checked={enabled}
+        <span className="app-switch"><input type="checkbox" role="switch" checked={enabled}
           aria-labelledby={`${id}-semantic-title`}
           aria-describedby={description}
           disabled={operation === 'disable' || (!enabled && (busy || !!statusError || !cachePresent || !provider?.compiled))}

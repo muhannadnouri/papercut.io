@@ -37,6 +37,8 @@ import { AudioSetupDialog } from './tts/components/AudioSetupDialog'
 import { TtsDiagnosticsPanel } from './tts/components/TtsDiagnosticsPanel'
 import { getImportedAudiobookSource } from './tts/api/nativeTts'
 import { getUserUploads, isUserUploadUrl, type UserUploadDocument } from './tts/storage/UserUploads'
+import { usePlayAnywhereReader } from './tts/playAnywhere/usePlayAnywhereReader'
+import { ReaderPassageAction } from './tts/playAnywhere/ReaderPassageAction'
 import { useAudiobookManager } from './tts/hooks/useAudiobookManager'
 import {
   getUploadedDocumentSource,
@@ -166,6 +168,14 @@ function App() {
     setAudioSavedOnly,
     ttsHighlight,
   } = audiobook
+
+  const readerPlayback = usePlayAnywhereReader({
+    documentUrl: selectedDoc,
+    active: hasFloatingAudioControls || audioControlsProps.ttsState.currentChunkIndex !== null,
+    playFromHere: audiobook.playFromHere,
+    playFromBeginning: audiobook.playFromBeginning,
+    commandSignal: audiobook.commandSignal,
+  })
 
   const libraryDocuments = useMemo<DocumentInfo[]>(() => [
     ...allDocuments.map((doc) => ({ ...doc, format: 'html', source: 'bundled' as const })),
@@ -481,15 +491,34 @@ function App() {
                 )}
                 <AudioControls
                   {...audioControlsProps}
+                  playAnywhere={{
+                    browsing: readerPlayback.browsing, pending: readerPlayback.pending, capturing: readerPlayback.capturing, feedback: readerPlayback.feedback,
+                    onPlayFromHere: readerPlayback.playFromHere, onPlayFromBeginning: readerPlayback.playFromBeginning,
+                    onReturnToAudio: readerPlayback.returnToAudio,
+                    onSnapshotSelection: readerPlayback.snapshotSelection, onPlayFromSelection: readerPlayback.playFromSelection,
+                    onSelectionMenuClose: readerPlayback.clearSelection,
+                  }}
                   onManageSave={handleManageAudiobookSave}
                   onOpenAudioSetup={() => setReaderAudioSetupOpen(true)}
                 />
               </>
             )}
+            floatingControls={audioControlsProps.canPlayAudiobook && !hasFloatingAudioControls ? (
+              <ReaderPassageAction
+                pending={readerPlayback.pending}
+                onSnapshotSelection={readerPlayback.snapshotSelection}
+                onPlayFromHere={readerPlayback.playFromHere}
+                onPlayFromSelection={readerPlayback.playFromSelection}
+              />
+            ) : undefined}
             beforeDocument={(
               <TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />
             )}
             ttsHighlight={ttsHighlight}
+            audioFollowPolicy={readerPlayback.followPolicy}
+            onReaderBrowse={readerPlayback.browse}
+            onSelectionIntent={audioControlsProps.canPlayAudiobook ? readerPlayback.selectionActions : undefined}
+            onTextTargetApiChange={readerPlayback.register}
             searchTarget={searchOpenTarget}
             restoreBookmark={restoreBookmark}
             loading={documentLoad.status === 'loading' && documentLoad.url === selectedDoc}

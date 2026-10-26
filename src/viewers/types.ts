@@ -14,6 +14,34 @@ export interface ViewerFindApi {
   clear: () => void
 }
 
+export interface ViewerViewportBounds {
+  top: number
+  bottom: number
+  left: number
+  right: number
+}
+
+export type ViewerTextTargetResult = {
+  status: 'captured'
+  point: { format: 'html'; segmentIndex: number; offset: number }
+  segmentTexts: readonly string[]
+  segmentLengths: readonly number[]
+  isCurrent: () => boolean
+} | {
+  status: 'captured'
+  point: { format: 'pdf'; pageIndex: number; blockOrder: number; offset: number }
+  sourceText: string
+  isCurrent: () => boolean
+} | {
+  status: 'unavailable'
+  reason: 'not-ready' | 'no-visible-text' | 'no-selection' | 'unmapped' | 'stale'
+}
+
+export interface ViewerTextTargetApi {
+  captureSelection?: () => ViewerTextTargetResult
+  captureViewport: () => Promise<ViewerTextTargetResult>
+}
+
 export interface PdfBookmarkLocation {
   pageNumber: number
   left: number
@@ -35,6 +63,12 @@ export interface ViewerBookmarkApi {
   subscribe: (listener: () => void) => () => void
 }
 
+export interface AudioFollowPolicy {
+  active?: boolean
+  allowsReveal: () => boolean
+  revision: number
+}
+
 export interface ViewerProps {
   url: string
   format?: string
@@ -42,11 +76,15 @@ export interface ViewerProps {
   contentRef?: React.RefObject<HTMLElement | null>
   toolbarTarget?: HTMLElement | null
   searchTarget?: SearchOpenTarget | null
+  audioFollowPolicy?: AudioFollowPolicy
+  onReaderBrowse?: () => void
   pdfTtsHighlightSpans?: PdfTtsSourceSpan[]
   fullscreen?: boolean
   onBookmarkApiChange?: (api: ViewerBookmarkApi | null) => void
   onFindApiChange?: (api: ViewerFindApi | null) => void
   onFindResult?: (result: ViewerFindResult) => void
+  onTextTargetApiChange?: (api: ViewerTextTargetApi | null) => void
+  getTextTargetViewport?: () => ViewerViewportBounds | null
   onFullscreenChange?: () => void
 }
 

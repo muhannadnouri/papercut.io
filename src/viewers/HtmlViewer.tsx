@@ -2,12 +2,16 @@ import { memo, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { observeImageIssues } from './imageIssues'
 import { createHtmlBookmarkApi } from './htmlBookmark'
+import { createHtmlTextTargetApi } from '../tts/playAnywhere/htmlTextTarget'
 import type { ViewerProps } from './types'
 
 export const HtmlViewer = memo(function HtmlViewer({
+  url,
   content,
   contentRef,
   onBookmarkApiChange,
+  onTextTargetApiChange,
+  getTextTargetViewport,
 }: ViewerProps) {
   const { t } = useTranslation()
   useEffect(() => {
@@ -16,6 +20,8 @@ export const HtmlViewer = memo(function HtmlViewer({
   }, [content, contentRef, t])
 
   const document = useMemo(() => parseHtmlDocument(content ?? ''), [content])
+  // Keep audio UI updates from replacing source nodes and invalidating reader ranges.
+  const body = useMemo(() => ({ __html: document.bodyHtml }), [document.bodyHtml])
 
   useEffect(() => {
     const root = contentRef?.current
@@ -24,6 +30,20 @@ export const HtmlViewer = memo(function HtmlViewer({
     return () => onBookmarkApiChange?.(null)
   }, [content, contentRef, onBookmarkApiChange])
 
+  useEffect(() => {
+    const root = contentRef?.current
+    if (!root || !onTextTargetApiChange) return
+    const capture = createHtmlTextTargetApi(root, getTextTargetViewport ?? (() => {
+      const view = root.ownerDocument.defaultView
+      return view ? { top: 0, left: 0, bottom: view.innerHeight, right: view.innerWidth } : null
+    }))
+    onTextTargetApiChange(capture.api)
+    return () => {
+      capture.dispose()
+      onTextTargetApiChange(null)
+    }
+  }, [content, contentRef, getTextTargetViewport, onTextTargetApiChange, url])
+
   return (
     <article
       ref={contentRef}
@@ -31,7 +51,7 @@ export const HtmlViewer = memo(function HtmlViewer({
       lang={document.language}
       dir={document.direction}
     >
-      <div className="document-html-content" dangerouslySetInnerHTML={{ __html: document.bodyHtml }} />
+      <div className="document-html-content" dangerouslySetInnerHTML={body} />
     </article>
   )
 })

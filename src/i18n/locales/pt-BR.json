@@ -830,6 +830,8 @@
       "pauseTitle": "Pausa",
       "stop": "Parar audiolivro",
       "stopTitle": "Parar",
+      "playbackOptions": "Opções de reprodução",
+      "savedAudioSetupHint": "O áudio salvo ainda pode ser reproduzido. A configuração só é necessária para gerar novo áudio.",
       "showMenu": "Mostrar menu de reprodução",
       "hideMenu": "Ocultar menu de reprodução",
       "menuTitle": "Menu de reprodução",
@@ -848,6 +850,8 @@
       "currentSetup": "Configuração atual",
       "savedVersionsMismatch": "Nenhum audiolivro salvo corresponde à configuração atual.",
       "savedVersionsAction": "Escolha um para restaurar suas configurações e reproduzi-lo.",
+      "chunkView": "Trechos",
+      "optionsView": "Opções",
       "playback": "Reprodução",
       "wordHighlight": "Destaque de palavra",
       "experimental": "BETA",
@@ -978,6 +982,22 @@
       "deleteDescription": "Isso remove o áudio gerado deste dispositivo.",
       "deleteImportDescription": "Isso remove o áudio gerado e o documento de audiolivro importado deste dispositivo.",
       "deleteAudiobook": "Excluir audiolivro"
+    },
+    "playAnywhere": {
+      "here": "Reproduzir daqui",
+      "beginning": "Reproduzir do início",
+      "return": "Voltar ao áudio",
+      "returnShort": "Voltar",
+      "description": "Começa no início do segmento de áudio que contém este trecho.",
+      "preparing": "Buscando o áudio deste trecho…",
+      "notReady": "Este trecho ainda está sendo preparado. Tente novamente ou reproduza do início.",
+      "noText": "Não há texto legível à vista. Role até um trecho e tente novamente.",
+      "stale": "O trecho mudou. Tente novamente.",
+      "unmapped": "Não foi possível associar o áudio a este trecho. Use Reproduzir do início ou o menu de áudio.",
+      "failed": "Não foi possível preparar a reprodução. Tente novamente ou reproduza do início.",
+      "selection": "Reproduzir a partir da seleção",
+      "noSelection": "Selecione um texto neste documento e use Reproduzir a partir da seleção.",
+      "selectionHint": "Selecione um texto primeiro."
     }
   },
   "imageIssues": {

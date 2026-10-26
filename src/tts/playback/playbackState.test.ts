@@ -5,6 +5,8 @@ import {
   isNativeMobilePlatform,
   isTransientPlaybackInterruption,
   normalizePlaybackRate,
+  playbackMatchesChunks,
+  samePlaybackOptions,
   textPreview,
 } from './playbackState'
 
@@ -55,4 +57,24 @@ describe('playback state helpers', () => {
     expect(textPreview('x'.repeat(120))).toHaveLength(98)
     expect(textPreview('x'.repeat(120)).endsWith('...')).toBe(true)
   })
+})
+
+it('validates full native timing identity, contiguous finite boundaries and positive durations', () => {
+  const chunks = playback.chunks.map(chunk => ({ id: chunk.chunkId, text: chunk.chunkId }))
+  expect(playbackMatchesChunks(playback, chunks)).toBe(true)
+  for (const change of [{ index: 5 }, { chunkId: 'wrong' }, { startSec: 0.5 }, { durationSec: NaN }, { durationSec: 0 }]) {
+    expect(playbackMatchesChunks({ ...playback, chunks: [{ ...playback.chunks[0], ...change }, ...playback.chunks.slice(1)] }, chunks)).toBe(false)
+  }
+  expect(playbackMatchesChunks({ ...playback, audioDurationSec: Infinity }, chunks)).toBe(false)
+  expect(playbackMatchesChunks({ ...playback, chunks: playback.chunks.slice(1) }, chunks)).toBe(false)
+  const options = { modelId: 'kokoro', voice: 'af_heart' as const, speed: 1, documentUrl: '/a.html' }
+  expect(samePlaybackOptions(options, { ...options })).toBe(true)
+  expect(samePlaybackOptions(options, { ...options, voice: 'af_bella' })).toBe(false)
+})
+
+it('accepts the native stitched-track f32 duration rounding without changing seek boundaries', () => {
+  const duration = 36_000.1234
+  const track = { ...playback, audioDurationSec: Math.fround(duration), chunks: [{ index: 0, chunkId: 'one', startSec: 0, durationSec: duration }] }
+  expect(playbackMatchesChunks(track, [{ id: 'one', text: 'Book' }])).toBe(true)
+  expect(playbackMatchesChunks({ ...track, audioDurationSec: duration + 0.1 }, [{ id: 'one', text: 'Book' }])).toBe(false)
 })

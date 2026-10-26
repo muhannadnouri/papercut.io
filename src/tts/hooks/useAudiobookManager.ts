@@ -36,6 +36,8 @@ import {
 import { isUserUploadUrl, type UserUploadDocument } from '../storage/UserUploads'
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import { useAudiobookCache } from './useAudiobookCache'
+import { usePlayAnywherePlayback } from '../playAnywhere/usePlayAnywherePlayback'
+import { usePreparedTextTarget } from '../playAnywhere/usePreparedTextTarget'
 import { useAudiobookDocument } from './useAudiobookDocument'
 import { useAudiobookDownloadQueue } from './useAudiobookDownloadQueue'
 import { useSavedAudiobookActions } from './useSavedAudiobookActions'
@@ -94,13 +96,14 @@ export function useAudiobookManager({
   const {
     state: ttsState,
     preload: preloadTts,
-    speak: speakTts,
+    playFromChunk: playTtsFromChunk,
     pause: pauseTts,
     resume: resumeTts,
     jumpToChunk: jumpTtsToChunk,
     skipBackward: skipTtsBackward,
     skipForward: skipTtsForward,
     stop: stopTts,
+    commandSignal: ttsCommandSignal,
   } = useTtsPlayer(ttsPlaybackRate)
   const {
     defaultThreadCount: ttsDefaultThreadCount,
@@ -128,9 +131,12 @@ export function useAudiobookManager({
   }, [setTtsModelId])
   const {
     chunks: ttsSaveChunks,
+    canonicalChunks: preparedChunks,
+    getCanonicalChunks,
     getChunksForDocument: getAudiobookSaveChunksForDocument,
     getSelectedChunks: getSelectedAudiobookSaveChunks,
     importedHighlightStatus,
+    getPdfSegments,
     reset: resetAudiobookDocument,
   } = useAudiobookDocument({
     docContent,
@@ -138,6 +144,10 @@ export function useAudiobookManager({
     modelId: ttsModelId,
     selectedDoc,
     onImportedMetadata: restoreImportedAudiobookMetadata,
+  })
+  const resolveTextTarget = usePreparedTextTarget({
+    documentUrl: selectedDoc, docContent, modelId: ttsModelId, chunks: preparedChunks,
+    getChunks: getCanonicalChunks, getPdfSegments,
   })
   const selectedTtsModel = getTtsModel(ttsModels, ttsModelId)
   const {
@@ -158,6 +168,11 @@ export function useAudiobookManager({
       ?? decodeURIComponent(url.split('/').pop() ?? url)
   }, [allDocuments, uploadedDocuments, userUploads])
 
+  const playbackTitle = selectedDoc ? getDocumentTitle(selectedDoc) : undefined
+  const playbackOptions = useMemo(() => ({
+    modelId: ttsModelId, textPreprocessor: ttsTextPreprocessor, voice: ttsVoice, speed: ttsSpeed,
+    dtype: ttsDtype, threadCount: ttsThreadCount, silmaNfeStep, documentUrl: selectedDoc ?? undefined, title: playbackTitle,
+  }), [ttsModelId, ttsTextPreprocessor, ttsVoice, ttsSpeed, ttsDtype, ttsThreadCount, silmaNfeStep, selectedDoc, playbackTitle])
   const refreshSavedAudiobooks = useCallback(async () => {
     try {
       setSavedAudiobooks(await listNativeSavedAudiobooks())
@@ -192,9 +207,47 @@ export function useAudiobookManager({
     start: startAudiobookSave,
     cancel: handleCancelAudiobookSave,
     remove: removeQueuedAudiobookDownload,
+    invalidateCompleted: invalidateCompletedAudiobookDownload,
   } = useAudiobookDownloadQueue({
     threadCount: ttsThreadCount,
     onCompleted: refreshSavedAudiobooks,
+  })
+
+  const selectedAudiobookId = selectedDoc
+    ? createAudiobookDownloadId(selectedDoc, {
+      modelId: ttsModelId,
+      textPreprocessor: ttsTextPreprocessor,
+      voice: ttsVoice,
+      speed: ttsSpeed,
+      dtype: ttsDtype,
+      silmaNfeStep,
+    })
+    : null
+  const selectedDocumentSavedAudiobooks = selectedDoc
+    ? getSavedAudiobooksForDocument(savedAudiobooks, selectedDoc).sort((a, b) => b.savedAt - a.savedAt)
+    : []
+  const activeDownloadId = audiobookDownload
+    ? createAudiobookDownloadId(audiobookDownload.url, {
+      modelId: audiobookDownload.modelId,
+      textPreprocessor: audiobookDownload.textPreprocessor,
+      voice: audiobookDownload.voice,
+      speed: audiobookDownload.speed,
+      dtype: audiobookDownload.dtype,
+      silmaNfeStep: audiobookDownload.silmaNfeStep,
+    })
+    : null
+  const downloadIsForSelectedDoc = Boolean(selectedAudiobookId && activeDownloadId === selectedAudiobookId)
+  const activeDownloadIsRunning = downloadAudiobookState.status === 'checking' ||
+    downloadAudiobookState.status === 'saving'
+  // A finished save can precede the independent cache recheck; UI and dispatch must agree on readiness.
+  const audioControlsAudiobookState = downloadIsForSelectedDoc && downloadAudiobookState.status !== 'idle'
+    ? downloadAudiobookState
+    : selectedAudiobookState
+
+  // Player commands supersede pending targets; option/document/readiness changes dispose the scope.
+  const { playFromHere, playFromBeginning: handleReadDocument } = usePlayAnywherePlayback({
+    complete: audioControlsAudiobookState.complete, options: playbackOptions, resolve: resolveTextTarget,
+    getChunks: getCanonicalChunks, play: playTtsFromChunk, commandSignal: ttsCommandSignal,
   })
 
   useEffect(() => {
@@ -279,23 +332,6 @@ export function useAudiobookManager({
     stopTts()
     resetAudiobookDocument()
   }, [resetAudiobookDocument, stopTts])
-
-  const handleReadDocument = useCallback(async () => {
-    if (!selectedAudiobookState.complete) return
-
-    const chunks = await getSelectedAudiobookSaveChunks()
-    speakTts(chunks, {
-      modelId: ttsModelId,
-      textPreprocessor: ttsTextPreprocessor,
-      voice: ttsVoice,
-      speed: ttsSpeed,
-      dtype: ttsDtype,
-      threadCount: ttsThreadCount,
-      silmaNfeStep,
-      documentUrl: selectedDoc ?? undefined,
-      title: selectedDoc ? getDocumentTitle(selectedDoc) : undefined,
-    })
-  }, [getDocumentTitle, getSelectedAudiobookSaveChunks, selectedAudiobookState.complete, selectedDoc, silmaNfeStep, speakTts, ttsDtype, ttsModelId, ttsSpeed, ttsTextPreprocessor, ttsThreadCount, ttsVoice])
 
   const handleModelChange = useCallback((modelId: string) => {
     const model = getTtsModel(ttsModels, modelId)
@@ -443,6 +479,7 @@ export function useAudiobookManager({
     if (!confirmed) return
 
     await deleteSavedAudiobook(record, (deletedUserUpload) => {
+      invalidateCompletedAudiobookDownload(record.id)
       if (selectedDoc === record.documentUrl) {
         stopTts()
         resetSelectedAudiobookState()
@@ -452,7 +489,7 @@ export function useAudiobookManager({
         }
       }
     })
-  }, [confirmAudiobookAction, deleteSavedAudiobook, onClearDocument, resetAudiobookDocument, resetSelectedAudiobookState, selectedDoc, stopTts])
+  }, [confirmAudiobookAction, deleteSavedAudiobook, invalidateCompletedAudiobookDownload, onClearDocument, resetAudiobookDocument, resetSelectedAudiobookState, selectedDoc, stopTts])
 
   const importAudiobook = useCallback(async (openDocument: (url: string) => Promise<void>) => {
     await importSavedAudiobook(openDocument, (result) => {
@@ -495,35 +532,6 @@ export function useAudiobookManager({
   const ttsCanSkipForward = ttsIsNavigable &&
     ttsState.chunksTotal > 0 &&
     ttsCurrentChunkIndex < ttsState.chunksTotal - 1
-  const selectedAudiobookId = selectedDoc
-    ? createAudiobookDownloadId(selectedDoc, {
-      modelId: ttsModelId,
-      textPreprocessor: ttsTextPreprocessor,
-      voice: ttsVoice,
-      speed: ttsSpeed,
-      dtype: ttsDtype,
-      silmaNfeStep,
-    })
-    : null
-  const selectedDocumentSavedAudiobooks = selectedDoc
-    ? getSavedAudiobooksForDocument(savedAudiobooks, selectedDoc).sort((a, b) => b.savedAt - a.savedAt)
-    : []
-  const activeDownloadId = audiobookDownload
-    ? createAudiobookDownloadId(audiobookDownload.url, {
-      modelId: audiobookDownload.modelId,
-      textPreprocessor: audiobookDownload.textPreprocessor,
-      voice: audiobookDownload.voice,
-      speed: audiobookDownload.speed,
-      dtype: audiobookDownload.dtype,
-      silmaNfeStep: audiobookDownload.silmaNfeStep,
-    })
-    : null
-  const downloadIsForSelectedDoc = Boolean(selectedAudiobookId && activeDownloadId === selectedAudiobookId)
-  const activeDownloadIsRunning = downloadAudiobookState.status === 'checking' ||
-    downloadAudiobookState.status === 'saving'
-  const audioControlsAudiobookState = downloadIsForSelectedDoc && downloadAudiobookState.status !== 'idle'
-    ? downloadAudiobookState
-    : selectedAudiobookState
   const isDifferentAudiobookSaving = Boolean(
     activeDownloadId &&
     activeDownloadId !== selectedAudiobookId &&
@@ -558,6 +566,11 @@ export function useAudiobookManager({
   return {
     audiobookActionBusy,
     audiobookActionMessage,
+    preparedChunks,
+    resolveTextTarget,
+    playFromHere,
+    commandSignal: ttsCommandSignal,
+    playFromBeginning: handleReadDocument,
     audioControlsProps: {
       audiobookState: audioControlsAudiobookState,
       canPlayAudiobook: audioControlsAudiobookState.complete,
@@ -568,10 +581,10 @@ export function useAudiobookManager({
       saveInProgress: downloadIsForSelectedDoc && activeDownloadIsRunning,
       onCancelSave: handleCancelAudiobookSave,
       onPause: pauseTts,
-      onRead: handleReadDocument,
+      onRead: () => { void handleReadDocument() },
       onResume: resumeTts,
       onSelectSavedAudiobook: selectSavedAudiobook,
-      onJumpToChunk: jumpTtsToChunk,
+      onJumpToChunk: (index: number) => jumpTtsToChunk(index),
       onSave: handleSaveAudiobook,
       onSkipBackward: skipTtsBackward,
       onSkipForward: skipTtsForward,

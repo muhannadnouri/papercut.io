@@ -1,0 +1,59 @@
+.app-switch {
+  position: relative;
+  grid-column: 2;
+  justify-self: end;
+  width: 2.35rem;
+  height: 1.35rem;
+  cursor: pointer;
+}
+
+.app-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app-switch span {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-muted);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.app-switch span::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 0.17rem;
+  inset-inline-start: 0.18rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: translate 0.15s, background 0.15s;
+}
+
+.app-switch input:checked + span {
+  border-color: var(--accent-text);
+  background: var(--accent-text);
+}
+
+.app-switch input:checked + span::after {
+  background: var(--text-inverse);
+  translate: 1rem 0;
+}
+
+[dir='rtl'] .app-switch input:checked + span::after {
+  translate: -1rem 0;
+}
+
+.app-switch input:focus-visible + span {
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-switch span,
+  .app-switch span::after { transition: none; }
+}
+

@@ -1,3 +1,4 @@
+import type { TtsChunk, TtsOptions } from '../types'
 import type { NativeAudiobookPlayback } from '../api/nativeTts'
 
 export const DEFAULT_PLAYBACK_RATE = 1
@@ -52,4 +53,26 @@ export function textPreview(text: string): string {
   const normalized = text.replace(/\s+/g, ' ').trim()
   if (normalized.length <= 96) return normalized
   return normalized.slice(0, 95).trimEnd() + '...'
+}
+
+// Match native_tts/engine/manifest.rs: stitched totals include f32 rounding.
+const PLAYBACK_TIMING_TOLERANCE_SEC = 0.05
+
+/** The native track must describe this full canonical sequence before seeking. */
+export function playbackMatchesChunks(playback: NativeAudiobookPlayback, chunks: readonly TtsChunk[]): boolean {
+  if (!playback.audioUrl || !Number.isFinite(playback.audioDurationSec) || playback.audioDurationSec <= 0 ||
+    playback.chunks.length !== chunks.length) return false
+  let end = 0
+  return playback.chunks.every((timing, index) => {
+    if (timing.index !== index || timing.chunkId !== chunks[index].id ||
+      !Number.isFinite(timing.startSec) || !Number.isFinite(timing.durationSec) ||
+      timing.startSec < 0 || timing.durationSec <= 0 || Math.abs(timing.startSec - end) > PLAYBACK_TIMING_TOLERANCE_SEC) return false
+    end += timing.durationSec
+    return Number.isFinite(end) && end <= playback.audioDurationSec + PLAYBACK_TIMING_TOLERANCE_SEC
+  }) && Math.abs(end - playback.audioDurationSec) <= PLAYBACK_TIMING_TOLERANCE_SEC
+}
+
+export function samePlaybackOptions(a: TtsOptions, b: TtsOptions): boolean {
+  return (['documentUrl', 'modelId', 'voice', 'speed', 'textPreprocessor', 'dtype', 'silmaNfeStep', 'threadCount', 'title'] as const)
+    .every(key => a[key] === b[key])
 }

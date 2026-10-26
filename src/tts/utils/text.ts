@@ -7,6 +7,7 @@ import {
   type ReadableSegmentKind,
 } from '../alignment/readableSegments'
 import type { TtsChunkSourceSpan } from '../types'
+import { splitNarrationClauses, splitNarrationSentences } from '../alignment/narrationText'
 
 export interface SpeechChunkProfile {
   maxChunkLength: number
@@ -176,10 +177,7 @@ function appendSegmentChunks(
     flushChunk(chunks, normalized, segment.kind, sourceSpan)
   }
 
-  const sentences = paragraph
-    .match(/[^.!?؟。！？।॥]+[.!?؟。！？।॥]+["'”’»)\]）】」』》]*|[^.!?؟。！？।॥]+$/g)
-    ?.map((sentence) => sentence.trim())
-    .filter(Boolean) ?? [paragraph]
+  const sentences = splitNarrationSentences(paragraph)
 
   let current = ''
   for (const sentence of sentences) {
@@ -205,16 +203,7 @@ function appendSegmentChunks(
 function splitLongSentence(sentence: string, profile: SpeechChunkProfile): string[] {
   // Fall back to common Latin, Arabic, CJK, and Devanagari clause boundaries,
   // then hard-wrap long clauses.
-  const parts = sentence
-    .split(/([,;:،؛，；：、]\s*)/)
-    .reduce<string[]>((acc, part, idx, source) => {
-      if (idx % 2 === 0) {
-        acc.push(part + (source[idx + 1] ?? ''))
-      }
-      return acc
-    }, [])
-    .map((part) => part.trim())
-    .filter(Boolean)
+  const parts = splitNarrationClauses(sentence)
 
   const boundedParts = parts.flatMap((part) => splitAtWordBoundaries(part, profile.maxChunkLength))
   const chunks: string[] = []

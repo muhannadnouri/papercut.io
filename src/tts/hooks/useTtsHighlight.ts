@@ -10,6 +10,7 @@ import {
   type AlignmentCache,
   type SegmentIndexCache,
 } from '../alignment/highlightRanges'
+import type { AudioFollowPolicy } from '../../viewers/types'
 import type { TtsChunk } from '../types'
 
 const SCROLL_SETTLE_MS = 120
@@ -20,6 +21,7 @@ const SCROLL_SETTLE_MS = 120
 const WORD_HIGHLIGHT_LEAD_SECONDS = 0.25
 
 interface UseTtsHighlightOptions {
+  audioFollowPolicy?: AudioFollowPolicy
   enabled: boolean
   currentChunkIndex: number | null
   chunks: TtsChunk[]
@@ -34,6 +36,7 @@ interface UseTtsHighlightOptions {
 export function useTtsHighlight(
   rootRef: RefObject<HTMLElement | null>,
   {
+    audioFollowPolicy,
     enabled,
     currentChunkIndex,
     chunks,
@@ -166,9 +169,10 @@ export function useTtsHighlight(
           )
           if (!result) return
 
+          if (audioFollowPolicy && !audioFollowPolicy.allowsReveal()) return
           scrollTimer = window.setTimeout(() => {
             scrollTimer = null
-            scrollRangeIntoView(result.range)
+            if (!audioFollowPolicy || audioFollowPolicy.allowsReveal()) scrollRangeIntoView(result.range)
           }, SCROLL_SETTLE_MS)
         } catch (err) {
           console.warn('Unable to highlight current TTS chunk:', err)
@@ -182,7 +186,7 @@ export function useTtsHighlight(
       if (frame !== null) window.cancelAnimationFrame(frame)
       if (scrollTimer !== null) window.clearTimeout(scrollTimer)
     }
-  }, [allowDomFallback, chunks, currentChunkIndex, enabled, rootRef])
+  }, [allowDomFallback, audioFollowPolicy, chunks, currentChunkIndex, enabled, rootRef])
 
   // Word highlighting is an intentionally cheap approximation: saved manifests
   // only know chunk timings, so the active word is inferred from chunk progress.

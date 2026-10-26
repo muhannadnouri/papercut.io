@@ -6,6 +6,22 @@ The design goal is still offline-first: model files live on the user's device, a
 
 ## Runtime Architecture
 
+The proposed viewport/selection-to-saved-chunk feature is specified in the
+[Play anywhere integration plan](play-anywhere.md). That checklist defines its
+UX, optional integration contracts, debugging/removal path, and acceptance gates.
+Its isolated HTML/PDF chunk lookup and optional HTML/PDF/OCR viewport capabilities
+feed verified prepared-chunk lookup and guarded player integration with ordered
+legacy recovery. Viewport play and independent follow/browse controls are wired;
+the player shows contextual Return to audio inside transport, while the popover
+groups icon-and-label viewport, selection and beginning commands. Selection
+availability is captured before focus changes; matching still runs at activation.
+Canonical generation and matching share the pure `alignment/narrationText.ts`
+grammar. Cold target preparation yields cooperatively with feature-owned timers
+and cancellation; warm targets reuse the verified index. HTML parsing remains
+synchronous. Removing the feature removes its scheduler without changing the
+shared synchronous generation/highlighting contract or saved audio.
+Device/accessibility/performance acceptance remains pending.
+
 The frontend owns document parsing, HTML narration chunking, the platform-neutral playback state consumed by controls and highlighting, saved-audiobook state, downloads, and diagnostics. Native code owns synthesis, the fast audiobook-save path, persisted playback indexes, and mobile background playback.
 
 The boundary is intentionally small:
@@ -18,7 +34,7 @@ The boundary is intentionally small:
 - `src/tts/hooks/useTtsModelRuntime.ts` owns model selection, native capability discovery, thread limits, install status/progress, and SILMA sidecar probing.
 - `src/tts/hooks/useAudiobookDocument.ts` owns document save-chunk preparation, imported bundle metadata restoration, and legacy source-span reconstruction for highlighting.
 - `src/tts/hooks/useAudiobookCache.ts` checks native audiobook files and starts long-running native save jobs.
-- `src/tts/hooks/useAudiobookDownloadQueue.ts` owns the active native save, resumable queue records, throttled progress persistence, cancellation, and completed-job cleanup.
+- `src/tts/hooks/useAudiobookDownloadQueue.ts` owns the active native save, resumable queue records, throttled progress persistence, cancellation, and completed-job cleanup. Successful deletion invalidates the matching completed save instance; delayed deletion cannot clear a replacement's readiness, and cache reset rejects late save responses.
 - `src/tts/hooks/useSavedAudiobookActions.ts` owns native saved-audiobook import, export, and delete execution plus their busy states and transient notices.
 - `src/tts/hooks/useAudiobookManager.ts` coordinates playback actions, model suggestions, confirmations, reader updates after saved-audiobook actions, and the prop bundles consumed by the audio UI components. Saved audiobooks can export either a re-importable `.papercut-audiobook` bundle or a plain stitched `.wav` file for use outside Papercut.
 - `src/components/DocumentViewer/DocumentViewer.tsx` hosts the reader shell and exposes slots for TTS controls/diagnostics while owning Find, scroll-to-top, same-document link scrolling, and current-chunk highlighting.
@@ -219,10 +235,10 @@ Bundle imports stage their source, chunks, playback track, and manifest under on
 
 The document header exposes one consolidated audio control surface:
 
-- Play starts reading the current document.
+- Play starts reading the current document. Its availability and playback admission use the same finalized saved-audio state for the current document/setup, including a save that just completed without reopening the document.
 - Pause and Resume control the active desktop audio element or native mobile media session.
 - Stop cancels playback, clears temporary desktop object URLs, and pauses/resets the reusable native mobile session. Full native disposal is reserved for app teardown.
-- Backward and Forward jump by narration chunk.
+- Backward and Forward jump by narration chunk. They and chunk-list jumps are disabled until the first chunk starts; Stop and playback options remain available. Later chunk loading keeps navigation available.
 - The burger/list button opens a mobile-friendly chunk list for long audiobooks. Rows show an estimated start timestamp when total saved duration is known and jump directly to that chunk.
 - Playback speed in the active player changes how fast the saved WAV plays. It is a listener preference and is persisted separately from generated-audio settings.
 - Save generates and persists the full audiobook for the current supported document. HTML and EPUB save from sanitized reader HTML; PDF saves from persisted page-text layers and page-aware locators.
@@ -327,3 +343,135 @@ The next valuable work is native execution depth, not more browser fallback tuni
 - sherpa-onnx Rust crate docs: https://docs.rs/sherpa-onnx
 - Tauri command IPC: https://v2.tauri.app/develop/calling-rust/
 - native audio plugin: https://github.com/uvarov-frontend/tauri-plugin-native-audio
+
+### Reader access and chunk navigation (2026-10-22 follow-up)
+
+When saved audio is playable but playback is stopped, scrolling exposes one
+labeled audio action beside the reader's Bookmark/Top controls: Play from here,
+or Play from selection when reader text is selected. It uses the same guarded
+selection snapshot and canonical containing-chunk start; it never reads only the
+selected text. The floating player replaces this shortcut during playing/paused
+playback, retaining Resume's exact position.
+
+The loaded audio popover now defaults to Chunks and uses most of its available
+height for the virtualized list. Options contains passage commands and Word
+Highlight; stopped playback without loaded summaries opens directly on Options.
+Both view buttons remain keyboard accessible. App composes the removable shortcut
+through DocumentViewer's optional floatingControls slot. See
+[the integration checklist](play-anywhere.md#2026-10-22--reader-shortcut-and-chunk-first-popover)
+for acceptance and removal boundaries. Return compaction, list recenter behavior
+and status styling remain separate follow-ups.
+
+### Playback control refinements (2026-10-22)
+
+The chunk list follows playback until wheel, pointer or focus input indicates the
+reader is browsing it. It then preserves that position across playback advances
+and Options/Chunks switching; closing and reopening restores current-chunk
+centering. Return uses the ordinary tonal transport style, a short label on wider
+windows and its icon at <=480px, retaining the full accessible name and a labeled
+Options command. Both only restore reader following.
+
+Loading/recovery feedback shares the transport surface and existing theme tokens.
+Native loading and target preparation reuse the reduced-motion-aware spinner with
+text in one polite live region. Existing capture/menu clipping and recovery copy
+remain. Owner smoke tests are explicitly deferred until this combined candidate;
+see the [acceptance checklist](play-anywhere.md#2026-10-22--stable-browsing-compact-return-and-integrated-feedback).
+
+### Narrow playback and removal evidence (2026-10-22)
+
+At <=480px, playback speed moves into Options so Previous, Play/Pause, Next,
+Menu, Stop and contextual Return can stay together with 44px targets at 320px and
+ordinary text size. Enlarged text may still wrap. Speed uses the same existing
+callback; transport meanings do not change.
+
+A disposable source copy compiles and bundles with the feature folder deleted
+and five runtime seams disconnected; 61 baseline tests pass. This is structural
+removal evidence only. Actual packaged playback, screen-reader/device checks and
+end-to-end latency remain pending while owner smoke tests are deferred. See
+[the acceptance evidence](play-anywhere.md#2026-10-22--narrow-toolbar-and-automated-removalacceptance-rehearsal).
+
+### Reader presentation follow-up (2026-10-23)
+
+The initial scrolled reader shortcut is a square tonal Play icon per document-open
+session. Successful playback records only transient feature-owned presentation
+state; Stop retains it, and closing/changing the document resets it. Selection
+still changes its accessible action and targets the same saved chunk. Existing
+playing/paused transport and Options availability is unchanged.
+
+Header groups wrap while reserving Back's space. Chunks/Options retain labels with
+decorative icons. Options groups Word Highlight and the current rate, e.g. `1x`,
+using consistent controls and allowing large-text wrapping. Callbacks, matching,
+storage and native playback do not change. See the
+[session/layout acceptance checklist](play-anywhere.md#2026-10-23--header-reflow-and-session-aware-reader-presentation).
+
+### Compact reader tools and Options (2026-10-23)
+
+The latest follow-up replaces the session-dependent label above: stopped Play is
+always an icon in one rounded reader-tools capsule with Bookmark and Top. The
+unused session-history flag is removed. Existing actions, source-order selection
+and canonical chunk-start playback remain unchanged. Generic measured geometry
+keeps tools/feedback clear of the playback surface; committed geometry is published
+before capture to avoid false stale-passage rejection.
+
+Options gives passage commands equal cells where labels fit, uses a concise
+localized selection hint, and groups a native Word Highlight switch with the
+current speed. The switch reuses baseline Settings visuals; no nested filled
+Playback panel or prominent command borders. Narrow/large-text layouts reflow.
+See [the capsule checklist and removal boundaries](play-anywhere.md#2026-10-23--reader-capsule-and-cohesive-options).
+
+
+### Reader/player refinement follow-up (2026-10-23)
+
+Reader tools share the player bottom edge when their measured widths fit; otherwise
+both align at the same logical end edge with the tools above the player. The
+baseline coordinator responds to capsule mounting, size/viewport changes and RTL,
+cleans up its geometry state, and publishes layout before passage capture. The
+Playback section ends without a divider. Header/player disclosure uses an icon-only ellipsis
+at all widths with a full accessible name and tooltip; Chunks/Options retain their
+own icons and the existing keyboard/selection behavior.
+
+Save uses neutral tonal saved/check status. Missing model/runtime takes visual
+precedence as a setup/download action with the existing warning and setup label;
+playable imports additionally explain that generation setup does not block saved
+playback. Preparing/saving behavior is unchanged. These baseline UI changes have
+no dependency on passage matching or storage and can remain after feature removal.
+See [refinement acceptance and owner smoke checklist](play-anywhere.md#2026-10-23--aligned-tools-clearer-disclosure-and-truthful-save-states).
+
+
+### Feature scope and platform acceptance (2026-10-24)
+
+The current UI supersedes the check/ellipsis variants above: Save uses a green
+floppy for a saved ready setup, or a soft yellow floppy with a warning marker when
+generation setup is missing. Saved imports remain playable. Playback disclosure
+uses the existing Options sliders with a localized accessible name and tooltip.
+
+Browser playback stays loading until its current play request succeeds; stale
+acknowledgements cannot restore stopped/replaced playback. Resume keeps its source
+and exact time. These baseline behaviors and their player regressions remain
+independent of removable Play Anywhere adapters.
+
+The owner deferred startup/platform remediation pending Android, iOS and other
+desktop tests. Added startup timings/observers, native timing channels, silent
+probe, prefetch comparison and diagnostic-only tests are removed. Native read
+wrappers, scanner packaging, CI dependencies, verifier and README guidance return
+to their pre-investigation behavior. Original TTS diagnostics and normal bounded
+prefetch remain. No warmup or platform workaround is included.
+
+See the [current scope and owner checklist](play-anywhere.md#2026-10-24--feature-scope-and-platform-acceptance).
+The owner builds artifacts and handles device/listening tests; the reported
+first-start pause is unresolved.
+
+### Save finalization and PDF passage verification (2026-10-24)
+
+Completed registry refresh now waits for the native saved event or final command
+response, rather than the last WAV count. Cancellation cannot advertise an
+unfinalized manifest as complete. Passage verification reuses sentence grammar
+per source paragraph before comparing merged chunks, preserving strict source
+checks and saved audio identity. See the [regressions and owner checklist](play-anywhere.md#2026-10-24--completed-save-registry-and-pdf-paragraph-verification).
+
+### Known Android first-play permission interruption (2026-10-24)
+
+The official native-audio 1.0.5 dependency remains unchanged. Its first-use
+notification dialog can invalidate passage capture; a second Play works after
+the prompt closes. The owner deferred the proposed plugin patch. See the
+[known limitation and retry guidance](play-anywhere.md#2026-10-24--known-android-first-play-permission-interruption).

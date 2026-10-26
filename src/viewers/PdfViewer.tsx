@@ -53,6 +53,7 @@ import {
   type PdfFitMode,
   type PdfSpreadMode,
 } from './PdfControls'
+import { createPdfTextTargetApi } from '../tts/playAnywhere/pdfTextTarget'
 import { syncPdfViewerLayout } from './pdfViewerLayout'
 import {
   bindPdfSearchTarget,
@@ -105,10 +106,14 @@ export function PdfViewer({
   toolbarTarget,
   searchTarget,
   pdfTtsHighlightSpans,
+  audioFollowPolicy,
+  onReaderBrowse,
   fullscreen = false,
   onBookmarkApiChange,
   onFindApiChange,
   onFindResult,
+  onTextTargetApiChange,
+  getTextTargetViewport,
   onFullscreenChange = () => {},
 }: ViewerProps) {
   const { t } = useTranslation()
@@ -245,7 +250,7 @@ export function PdfViewer({
             searchTargetRef.current,
             pdfViewer.pagesCount,
           )
-          if (targetPage !== null) pdfViewer.currentPageNumber = targetPage
+          if (targetPage !== null) { onReaderBrowse?.(); pdfViewer.currentPageNumber = targetPage }
         }
       }
       const handlePageChange = ({ pageNumber }: { pageNumber: number }) => {
@@ -295,7 +300,7 @@ export function PdfViewer({
       }
       const navigateOcrFind = (match: PdfOcrFindMatch, query: string) => {
         activeOcrFind = { match, query, scroll: true }
-        if (pdfViewer) pdfViewer.currentPageNumber = match.pageIndex + 1
+        if (pdfViewer) { onReaderBrowse?.(); pdfViewer.currentPageNumber = match.pageIndex + 1 }
         requestAnimationFrame(highlightPendingOcrFind)
       }
       const activateOcrFind = () => {
@@ -446,7 +451,19 @@ export function PdfViewer({
       spreadModesRef.current = null
       void loadingTask?.destroy()
     }
-  }, [onBookmarkApiChange, onFindApiChange, onFindResult, url])
+  }, [onBookmarkApiChange, onFindApiChange, onFindResult, onReaderBrowse, url])
+
+  useEffect(() => {
+    const viewer = pdfViewerRef.current
+    const container = containerRef.current
+    const eventBus = eventBusRef.current
+    if (!onTextTargetApiChange || status.state !== 'ready' || !viewer || !container || !eventBus) return
+    const target = createPdfTextTargetApi(viewer, container, eventBus, getTextTargetViewport ?? (() => ({
+      top: 0, left: 0, bottom: window.innerHeight, right: window.innerWidth,
+    })))
+    onTextTargetApiChange(target.api)
+    return () => { target.dispose(); onTextTargetApiChange(null) }
+  }, [getTextTargetViewport, onTextTargetApiChange, status, url])
 
   useEffect(() => {
     const pdfViewer = pdfViewerRef.current
@@ -460,29 +477,31 @@ export function PdfViewer({
     let scrolled = false
     const renderHighlight = () => {
       const firstRange = applyPdfTtsHighlight(pdfViewer, pdfTtsHighlightSpans, doc)
-      if (!firstRange || scrolled) return
+      if (!firstRange || scrolled || (audioFollowPolicy && !audioFollowPolicy.allowsReveal())) return
       scrolled = true
       firstRange.startContainer.parentElement?.scrollIntoView({
         block: 'center',
-        behavior: 'smooth',
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
       })
     }
     const firstPage = Math.min(
       Math.max(pdfTtsHighlightSpans[0].pageIndex + 1, 1),
       status.pages,
     )
-    pdfViewer.currentPageNumber = firstPage
+    if (!audioFollowPolicy || audioFollowPolicy.allowsReveal()) pdfViewer.currentPageNumber = firstPage
     eventBus.on('textlayerrendered', renderHighlight)
     eventBus.on('updatetextlayermatches', renderHighlight)
+    eventBus.on('pdfocrtextlayerrendered', renderHighlight)
     const frame = requestAnimationFrame(renderHighlight)
 
     return () => {
       cancelAnimationFrame(frame)
       eventBus.off('textlayerrendered', renderHighlight)
       eventBus.off('updatetextlayermatches', renderHighlight)
+      eventBus.off('pdfocrtextlayerrendered', renderHighlight)
       clearPdfTtsHighlight(doc)
     }
-  }, [pdfTtsHighlightSpans, status])
+  }, [audioFollowPolicy, pdfTtsHighlightSpans, status])
 
   useEffect(() => {
     setSearchProgress(null)
@@ -492,6 +511,7 @@ export function PdfViewer({
     const viewer = viewerRef.current
     if (!pdfViewer || !eventBus || !viewer) return
 
+    onReaderBrowse?.()
     return bindPdfSearchTarget({
       eventBus,
       getFindApi: () => findApiRef.current,
@@ -501,7 +521,7 @@ export function PdfViewer({
       target: searchTarget,
       viewer,
     })
-  }, [searchTarget, status])
+  }, [onReaderBrowse, searchTarget, status])
 
   useEffect(() => {
     if (!outlineOpen) return
@@ -521,6 +541,7 @@ export function PdfViewer({
   )
 
   const selectOutlineItem = (destination: PdfDestination) => {
+    onReaderBrowse?.()
     setOutlineOpen(false)
     void linkServiceRef.current?.goToDestination(destination)
   }
@@ -543,10 +564,11 @@ export function PdfViewer({
       onFullscreenChange={onFullscreenChange}
       onOutlineChange={setOutlineOpen}
       onPageChange={(page) => {
+        onReaderBrowse?.()
         if (pdfViewerRef.current) pdfViewerRef.current.currentPageNumber = page
       }}
-      onPageNext={() => pdfViewerRef.current?.nextPage()}
-      onPagePrevious={() => pdfViewerRef.current?.previousPage()}
+      onPageNext={() => { onReaderBrowse?.(); pdfViewerRef.current?.nextPage() }}
+      onPagePrevious={() => { onReaderBrowse?.(); pdfViewerRef.current?.previousPage() }}
       onSpreadChange={applySpreadMode}
       onZoomChange={(percentage) => {
         if (pdfViewerRef.current) {

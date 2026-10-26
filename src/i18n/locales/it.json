@@ -830,6 +830,8 @@
       "pauseTitle": "Pausa",
       "stop": "Interrompi l'audiolibro",
       "stopTitle": "Fermare",
+      "playbackOptions": "Opzioni di riproduzione",
+      "savedAudioSetupHint": "L’audio salvato può ancora essere riprodotto. La configurazione serve solo per generare nuovo audio.",
       "showMenu": "Mostra il menu di riproduzione",
       "hideMenu": "Nascondi il menu di riproduzione",
       "menuTitle": "Menù di riproduzione",
@@ -848,6 +850,8 @@
       "currentSetup": "Configurazione attuale",
       "savedVersionsMismatch": "Nessun audiolibro salvato corrisponde alla configurazione attuale.",
       "savedVersionsAction": "Scegline uno per ripristinarne le impostazioni e riprodurlo.",
+      "chunkView": "Segmenti",
+      "optionsView": "Opzioni",
       "playback": "Riproduzione",
       "wordHighlight": "Evidenziazione di parole",
       "experimental": "BETA",
@@ -978,6 +982,22 @@
       "deleteDescription": "L'audio generato verrà rimosso da questo dispositivo.",
       "deleteImportDescription": "Questa operazione rimuove l'audio generato e il documento audiolibro importato da questo dispositivo.",
       "deleteAudiobook": "Elimina l'audiolibro"
+    },
+    "playAnywhere": {
+      "here": "Riproduci da qui",
+      "beginning": "Riproduci dall’inizio",
+      "return": "Torna all’audio",
+      "returnShort": "Torna",
+      "description": "Inizia dall’inizio del segmento audio che contiene questo passaggio.",
+      "preparing": "Ricerca dell’audio di questo passaggio…",
+      "notReady": "Questo passaggio è ancora in preparazione. Riprova o riproduci dall’inizio.",
+      "noText": "Non c’è testo leggibile visibile. Scorri fino a un passaggio e riprova.",
+      "stale": "Il passaggio è cambiato. Riprova.",
+      "unmapped": "Impossibile associare l’audio a questo passaggio. Usa Riproduci dall’inizio o il menu audio.",
+      "failed": "Impossibile preparare la riproduzione. Riprova o riproduci dall’inizio.",
+      "selection": "Riproduci dalla selezione",
+      "noSelection": "Seleziona del testo in questo documento, poi usa Riproduci dalla selezione.",
+      "selectionHint": "Seleziona prima del testo."
     }
   },
   "imageIssues": {

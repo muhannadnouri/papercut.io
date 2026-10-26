@@ -37,38 +37,43 @@ export function initializeNativeAudio(): Promise<NativeAudioState> {
   return attempt
 }
 
-export async function setNativeAudioSource(payload: NativeAudioSetSourcePayload): Promise<NativeAudioState> {
+export async function setNativeAudioSource(payload: NativeAudioSetSourcePayload, isCurrent?: () => boolean): Promise<NativeAudioState> {
   await initializeNativeAudio()
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
+    if (isCurrent && !isCurrent()) throw new DOMException('Superseded playback request', 'AbortError')
     return plugin.setSource(payload)
   })
 }
 
-export function playNativeAudio(): Promise<NativeAudioState> {
+export function playNativeAudio(isCurrent?: () => boolean): Promise<NativeAudioState> {
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
+    if (isCurrent && !isCurrent()) throw new DOMException('Superseded playback request', 'AbortError')
     return plugin.play()
   })
 }
 
-export function pauseNativeAudio(): Promise<NativeAudioState> {
+export function pauseNativeAudio(isCurrent?: () => boolean): Promise<NativeAudioState> {
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
+    if (isCurrent && !isCurrent()) throw new DOMException('Superseded playback request', 'AbortError')
     return plugin.pause()
   })
 }
 
-export function seekNativeAudio(position: number): Promise<NativeAudioState> {
+export function seekNativeAudio(position: number, isCurrent?: () => boolean): Promise<NativeAudioState> {
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
+    if (isCurrent && !isCurrent()) throw new DOMException('Superseded playback request', 'AbortError')
     return plugin.seekTo(position)
   })
 }
 
-export function setNativeAudioRate(rate: number): Promise<NativeAudioState> {
+export function setNativeAudioRate(rate: number, isCurrent?: () => boolean): Promise<NativeAudioState> {
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
+    if (isCurrent && !isCurrent()) throw new DOMException('Superseded playback request', 'AbortError')
     return plugin.setRate(rate)
   })
 }
