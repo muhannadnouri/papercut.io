@@ -18,7 +18,8 @@ import { DEFAULT_AUDIO_PREFERENCES } from '../storage/audioPreferences'
 const mocks = vi.hoisted(() => ({
   confirm: vi.fn(async () => true),
   finishSave: () => {},
-  play: vi.fn(() => true),
+  play: vi.fn(() => Promise.resolve('started')),
+  commandSignal: () => new AbortController().signal,
   resolve: vi.fn(),
   getChunks: vi.fn(),
   noop: () => {},
@@ -32,7 +33,7 @@ vi.mock('./useTtsPlayer', () => ({
   useTtsPlayer: () => ({
     state: mocks.player, preload: mocks.noop, playFromChunk: mocks.play,
     pause: mocks.noop, resume: mocks.noop, jumpToChunk: mocks.noop,
-    skipBackward: mocks.noop, skipForward: mocks.noop, stop: mocks.noop,
+    skipBackward: mocks.noop, skipForward: mocks.noop, stop: mocks.noop, commandSignal: mocks.commandSignal,
   }),
 }))
 vi.mock('./useTtsModelRuntime', async () => {
@@ -132,10 +133,9 @@ it.each(['beginning', 'passage'])('admits %s after the matching save finalizes w
         status: 'captured', point: { format: 'html', segmentIndex: 0, offset: 0 },
         segmentTexts: ['Hello world.'], segmentLengths: [12], isCurrent: () => true,
       }) })
-    expect(result).toEqual({ status: 'dispatched' })
+    expect(result).toMatchObject({ status: 'dispatched' })
     expect(mocks.play).toHaveBeenCalledWith(mocks.chunks,
-      expect.objectContaining({ documentUrl: '/book.html', voice: 'af_heart' }), 0,
-      expect.any(Function), undefined)
+      expect.objectContaining({ documentUrl: '/book.html', voice: 'af_heart' }), 0)
   } finally { await harness.dispose() }
 })
 
@@ -181,7 +181,7 @@ it.each(['success', 'failure', 'cancel'])('updates playback readiness only after
       expect(mocks.play).not.toHaveBeenCalled()
     } else {
       expect(harness.current.audioControlsProps.canPlayAudiobook).toBe(true)
-      expect(await harness.current.playFromBeginning()).toEqual({ status: 'dispatched' })
+      expect(await harness.current.playFromBeginning()).toMatchObject({ status: 'dispatched' })
     }
     expect(api.deleteNativeAudiobook).toHaveBeenCalledTimes(outcome === 'cancel' ? 0 : 1)
   } finally { await harness.dispose() }

@@ -7,7 +7,9 @@ Play from selection. Resume retains its exact position and Play from beginning
 is explicit. Stage 6 Linux AppImage acceptance is in progress; owner-reported
 false passage-change, imported punctuation-spacing and sentence-closer rejections
 have automated regressions and pending manual retests. Baseline listening, device,
-assistive-technology and performance gates remain open.
+assistive-technology and performance gates remain open. Stage 8 (cancellation
+consolidation, see §3 “Cancellation model”) is implemented, unit-verified and
+smoke-tested on desktop and Android; iOS waits for TestFlight.
 Created 2026-10-21 against `main` at `8ebc9d0f`; working branch:
 `feature/play-anywhere`. Checked boxes record only the specific completed work.
 Feature, performance, accessibility, and device acceptance remain pending.
@@ -164,19 +166,87 @@ and performance acceptance remains pending.
 | Normalized source point | HTML: readable segment index + normalized UTF-16 offset. PDF: page index + original text-item/block order + source offset. Do not conflate the two coordinate systems. |
 | Resolver result | `resolved` with canonical chunk index/id, or `unavailable` with `not-ready`, `unmapped`, `ambiguous`, `invalid-source` or `invalid-point`. Capture/coordinator additionally own `no-visible-text`, `no-selection` and `stale`; the pure resolver does not inspect DOM or session identity. Unexpected errors remain errors rather than successful fallbacks. |
 | Prepared target boundary | `useAudiobookManager.preparedChunks` exposes canonical chunks without active playback. `resolveTextTarget(documentUrl, capture, signal?)` returns a Promise of a verified canonical index/ID plus original full chunks, document URL and `isCurrent()`, or typed unavailable. It never starts audio. Commit-time document/content/model/chunk changes and unmount dispose preparation caches. The Stage 3 coordinator additionally guards action/options changes and synchronous cancellation before dispatch. |
-| Player initial start | `speak(chunks, options, startIndex = 0, guard?, onStarted?)` validates a safe integer in the canonical nonempty sequence before changing audio. Pass the complete sequence, never a sliced tail. It returns whether dispatch was accepted, not whether sound was heard. |
-| Player active target | `playFromChunk(fullChunks, options, index, guard?, onStarted?)` reuses an active session only for matching canonical IDs/text/hashes and options. It uses `jumpToChunk(index, true, guard)` for explicit seek-and-play, otherwise starts the existing player at that index. Ordinary mobile jump keeps paused state; Resume keeps time on both platforms. Desktop ordinary jump retains its prior play behavior. |
-| Target playback action | `usePlayAnywherePlayback` owns newest action identity and immutable audio-option/document scope. Manager exposes `playFromHere(viewerApi)`; existing Read uses its guarded `playFromBeginning()`. Results are `dispatched`, typed `unavailable`, or `error` with the original error. The reader hook presents loading/failure results. Optional `onStarted` runs only after the existing transport play Promise succeeds, under request/job/navigation guards; it is not acoustic confirmation. |
+| Player initial start | `speak(chunks, options, startIndex = 0)` validates a safe integer in the canonical nonempty sequence before changing audio. Pass the complete sequence, never a sliced tail. It returns whether dispatch was accepted, not whether sound was heard. |
+| Player active target | `playFromChunk(fullChunks, options, index)` returns `Promise<PlaybackStart> \| null`: `null` rejects before any audio change; the Promise settles once with `started` (Play acknowledged), `superseded` (a later command) or `failed` (player error). It reuses an active session only for matching canonical IDs/text/hashes and options. It uses `jumpToChunk(index, true)` for explicit seek-and-play, otherwise starts the existing player at that index. Ordinary mobile jump keeps paused state; Resume keeps time on both platforms. Desktop ordinary jump retains its prior play behavior. |
+| Target playback action | `usePlayAnywherePlayback` owns newest action identity until dispatch, within an immutable audio-option/document scope, and follows the player's `commandSignal()`. Manager exposes `playFromHere(viewerApi)`; existing Read uses `playFromBeginning()`. Results are `dispatched { started }`, `cancelled { superseded \| disposed }`, typed `unavailable`, or `error` with the original error. The reader hook presents loading/failure results and never reports `cancelled`. `started` follows the transport Play Promise; it is not acoustic confirmation. |
 | Follow policy | Optional `AudioFollowPolicy { allowsReveal(), revision, active? }` preserves automatic following when omitted. `allowsReveal()` reads synchronous reader intent at actual reveal execution; revision makes Return reveal even the same paused chunk; active scopes input listener lifetime. HTML timers and PDF page/range reveals use it; highlighting remains independent. |
 
 At the coordinator boundary bind each request to selected document, current view
 revision, selected audiobook identity/options, chunk sequence revision, and a
 monotonic action id. Reuse existing identities/references where sufficient; do
 not hash the entire book per click. Recheck after each await and immediately
-before the player side effect. Stop, model/voice/audiobook change, document close,
-and unmount invalidate requests. A late completion cannot restart stopped audio,
-play a different book, update a replacement view, or override a newer target.
-Existing player generation guards remain authoritative after dispatch.
+before the player side effect. Any player command (Stop, Pause, skip, jump, a
+newer start) and any scope change (model/voice/options, audiobook readiness,
+document) or unmount cancel pending requests without wrappers. A late completion
+cannot restart stopped audio, play a different book, update a replacement view, or
+override a newer target. Player generation guards alone are authoritative after
+dispatch.
+
+### Cancellation model
+
+Three concerns, each with one owner. Why the model changed, and what changed in
+behavior, is recorded in the 2026-10-26 review and Stage 8 implementation
+entries in §6.
+
+| Concern | Question | Single owner | Valid until |
+| --- | --- | --- | --- |
+| Intent | Is this still the newest playback command? | `useTtsPlayer` command epoch | The next public player command |
+| Validity | Does the resolved chunk still describe the passage the user pointed at? | Viewer capture `isCurrent()` and preparation's document/content/model/chunk revision | Dispatch |
+| Lifetime | Does the owning scope still exist? | Each hook's `dispose()` (reader, playback scope, preparation) | Unmount or dependency change |
+
+1. **One intent source.** `useTtsPlayer` replaces an `AbortController` (the
+   command epoch) at the top of each public command: `speak`, `playFromChunk`,
+   `pause`, `resume`, `skipByChunks`, `jumpToChunk` and `stop`. Automatic
+   advance, preload, cache pruning and native state sync keep the epoch.
+   `commandSignal()` returns the current signal. Nothing outside the player
+   cancels targets for transport or settings. Unmount replaces the epoch rather
+   than only aborting it, so React StrictMode's effect replay leaves a live one.
+2. **The target scope follows the epoch.** `createPlayAnywherePlayback` aborts
+   its previous run and forwards the epoch's abort into the new run's
+   `AbortController` with a once-listener, removed when the run settles. It
+   does not use `AbortSignal.any` or `signal.reason` (iOS minimum 15.0). That
+   signal feeds capture, `resolve(url, capture, signal)` and preparation.
+   Option, document, readiness and source changes recreate the scope, and
+   `dispose()` cancels it.
+3. **Validity ends at dispatch.** It is checked after every await and once
+   immediately before the player call, never afterwards. After dispatch, only
+   the player's job, epoch and attempt ids fence the start. Capture-time
+   hidden/stale/input-epoch checks still apply before dispatch.
+4. **Start ticket.** `playFromChunk(fullChunks, options, index)` returns
+   `Promise<PlaybackStart> | null`. `null` rejects before any audio changes.
+   The Promise settles once:
+   - `started` on the Play acknowledgement;
+   - `superseded` when its epoch aborts;
+   - `failed` from the single `status === 'error'` transition.
+
+   The player takes no external guards. `isCurrentJob(jobId)` is a pure
+   comparison that the native pre-mutation predicates use.
+5. **Typed outcomes.** `PlaybackTargetResult` is one of:
+   - `dispatched { started }`;
+   - `cancelled { reason: 'superseded' | 'disposed' }`;
+   - `unavailable { reason }`;
+   - `error { error }`.
+
+   `stale` means only that validity failed. `cancelled` never produces
+   feedback.
+6. **The reader only presents.** `usePlayAnywhereReader`:
+   - keeps a local run counter only to ignore its own older runs;
+   - clears `pending` when the result or ticket settles, and restores following
+     on `started` if no newer browse happened;
+   - clears feedback through a once-listener on the next epoch.
+
+   Selection snapshots belong to the selection/input epoch, so transport
+   commands do not discard them.
+7. **Other owners.** These own their own state:
+   - the preparation scheduler and request coalescing;
+   - viewer capture epochs;
+   - native lifecycle serialization;
+   - readiness/save/delete.
+
+   The startup navigation UI gate is control-state only, because a relative
+   skip needs a known index. A skip that reaches a starting target navigates.
+   A dispatched start continues across a document switch, as ordinary playback
+   does. Stopping audio on switch would be a product change for all playback.
 
 ### HTML and converted EPUB mapping
 
@@ -244,7 +314,8 @@ Native WebView/device acceptance remains pending.
   reply as a paused/current chunk before Play acknowledgement. Stop and Options
   remain available; subsequent seeks keep the acknowledged index and navigation.
   This is a general control-state rule, independent of optional passage wiring;
-  retain it if removing the feature. Passage/source/job guards remain unchanged.
+  retain it if removing the feature. Since Stage 8 the gate is UI semantics only:
+  a startup that a skip reaches navigates instead of idling.
 - Never use the chunk menu's estimated timestamps for seeking. Chunk boundary
   metadata and the native source signature remain authoritative.
 - Validate a supplied start index as a finite integer within the canonical
@@ -264,9 +335,9 @@ Native WebView/device acceptance remains pending.
 | --- | --- | --- |
 | `src/tts/playAnywhere/` | `sourceChunkResolver.ts`, `pdfChunkSourceResolver.ts`, HTML/PDF capture, shared geometry, `verifiedSource.ts`, `prepareTextTarget.ts`, `preparationWork.ts`, `usePreparedTextTarget.ts` and tests exist; `usePlayAnywherePlayback.ts` coordinates playback; `usePlayAnywhereReader.ts` owns reader intent/feedback and `readerBrowse.ts` observes input; `selectionTarget.ts` validates selection/DOM boundaries and owns pre-focus intent listeners. | Disconnect App reader hook, viewer factories/viewport helpers and manager feature hooks/exports; dispose preparation to abort its signal and clear its timer, then delete feature-owned files. No stored state is owned here. |
 | `src/viewers/types.ts`, `HtmlViewer.tsx`, `PdfViewer.tsx` | HTML/PDF viewport/selection result/API types and optional `onTextTargetApiChange` / `getTextTargetViewport` props exist. Both viewers register capture; optional `AudioFollowPolicy` and `onReaderBrowse` gate reveals/report explicit jumps. | Remove optional props, both registration effects and type imports; retain normal viewer behavior. |
-| `src/components/DocumentViewer/DocumentViewer.tsx`, `src/App.tsx` | DocumentViewer forwards optional registration and supplies chrome-clipped bounds. App owns the optional reader hook, passes capture/follow/browse capabilities and binds control actions. DocumentViewer reports Find/bookmark/hash/top jumps and binds optional `onSelectionIntent` pre-focus/invalidation callbacks. | Remove the App hook/action overrides and optional capture/follow/browse/selection-intent wiring. Restore manager onRead for idle play. Ordinary controls/bookmarks/Find still work. |
-| `src/tts/hooks/useAudiobookManager.ts`, `useAudiobookDocument.ts` | Expose `preparedChunks` / `resolveTextTarget` / `playFromHere` / `playFromBeginning` / `cancelTargetPlayback`; bind transport/options cancellation and stamp prepared state by document/content/model and exclude unverified import display fallback. Canonical getter retries manifest loading. | Disconnect the two feature hooks/exports and restore zero-start Read wiring. Remove canonical/getter exports only if unused; ordinary Read now uses canonical preparation too. Keep document/model ownership guards, ordinary preparation, and highlight recovery. |
-| `src/tts/hooks/useTtsPlayer.ts` | Optional start index, explicit seek-and-play, full sequence/option reuse, source/job/navigation guards and an optional guarded `onStarted` callback. | Restore zero-start calls and remove unused feature entry points/guard inputs; retain late-reply, pause/resume and teardown fixes used by ordinary playback. |
+| `src/components/DocumentViewer/DocumentViewer.tsx`, `src/App.tsx` | DocumentViewer forwards optional registration and supplies chrome-clipped bounds. App owns the optional reader hook, passes capture/follow/browse capabilities and binds control actions. DocumentViewer reports Find/bookmark/hash/top jumps and binds optional `onSelectionIntent` pre-focus/invalidation callbacks. | Remove the App hook and optional capture/follow/browse/selection-intent wiring; App no longer overrides transport actions. Restore manager onRead for idle play. Ordinary controls/bookmarks/Find still work. |
+| `src/tts/hooks/useAudiobookManager.ts`, `useAudiobookDocument.ts` | Expose `preparedChunks` / `resolveTextTarget` / `playFromHere` / `playFromBeginning` / `commandSignal`; pass the player's epoch to the playback scope (no transport/options wrappers) and stamp prepared state by document/content/model and exclude unverified import display fallback. Canonical getter retries manifest loading. | Disconnect the two feature hooks/exports and restore zero-start Read wiring. Remove canonical/getter exports only if unused; ordinary Read now uses canonical preparation too. Keep document/model ownership guards, ordinary preparation, and highlight recovery. |
+| `src/tts/hooks/useTtsPlayer.ts` | Optional start index, explicit seek-and-play, full sequence/option reuse, and a general command epoch (`commandSignal()`) with `PlaybackStart` tickets. No external guard inputs. | Restore zero-start calls and remove unused feature entry points; the epoch/ticket are general player API and may stay. Retain late-reply, pause/resume and teardown fixes used by ordinary playback. |
 | `src/tts/playback/nativeMobileAudio.ts`, `playbackState.ts` | Optional predicates run immediately before queued native mutations; pure timing/option checks use native manifest tolerance. | Remove feature-only predicate inputs if unused; retain lifecycle serialization, timing compatibility and general cancellation protections. |
 | `src/tts/alignment/domTextSegments.ts` and imported-span helpers | `normalizeDomTextPoint` supplies inverse offsets. `recoverOrderedSourceSpans` serves highlighting and target validation; normalized locator construction and sentence/clause compatibility are shared and its tolerant index is lazy. `locatorRangeIsIgnorable` proves context-dependent gaps for verified target preparation. | Remove inverse/snapshot-only helpers and `locatorRangeIsIgnorable` if unused after deleting feature validation; keep shared ordered recovery, punctuation compatibility and UTF-16 fixes used by highlighting. No shared alignment module imports play-anywhere. |
 | `src/tts/alignment/narrationText.ts`, `src/tts/utils/text.ts` | Pure sentence/clause grammar shared by canonical generation and matching; Unicode projection retains original UTF-16 offsets. Shared generators have synchronous baseline wrappers; no timers or feature imports. | Retain the common grammar and synchronous generation/highlighting APIs. Delete only unused feature prewarming entry points; baseline callers require no feature scheduler. |
@@ -2184,6 +2255,11 @@ reported behavior; the precise device lifecycle events were not traced here.
   This does not grant permission to send ordinary notifications.
 - Defer a fix until an acceptable upstream change or supported configuration is
   available. No change to the saved-audio, source-matching or PDF fixes above.
+- 2026-10-26: Stage 8 no longer polls passage validity after dispatch, and the
+  dialog appears during native initialization, which is after dispatch. A
+  connected regression covers a capture invalidated after dispatch on both
+  mocks. This limitation is expected to be gone; it stays open until confirmed
+  on a device.
 
 ### 2026-10-24 — Initial navigation race regression
 
@@ -2288,6 +2364,202 @@ Owner smoke checklist (pending):
 - [ ] Cancel deletion, or observe a failed deletion: the existing saved audio
   remains playable. Deleting another saved setup does not clear its completion.
 
+### 2026-10-26 — Cancellation architecture review (Stage 8 spec)
+
+This was a read-only merge review; no source changed. The owner reports
+desktop/Android normal-playback smoke and playback of `main`-generated imported
+audiobooks working. iOS waits for a post-merge TestFlight build.
+
+- **Probe.** A temporary reader test (deleted afterwards) used the real playback
+  scope with delayed preparation:
+  - it called `playback.cancel()`, which is what the manager's voice/model
+    handlers call, while `pending` was true;
+  - then it resolved the target.
+  - Result: `{ feedback: 'stale', pending: false }`, and nothing was dispatched.
+    The UI shows `tts.playAnywhere.stale` (“The passage changed. Try again.”)
+    after a deliberate settings change.
+- **Code reading.**
+  - One mechanism answered three questions (intent, validity and lifetime). The
+    mechanism was `isCurrent`/guard closures that every layer polled and mapped
+    to `stale`.
+  - Cancellation lived in five places:
+    - the reader's intent counter;
+    - the playback scope's intent counter and AbortController;
+    - the preparation controllers;
+    - the viewer capture epochs;
+    - the player's job, navigation and attempt ids, plus
+      `requestGuardRef`/`navigationGuardRef`/`targetStartedRef`.
+  - **Opt-in wrappers.** App wrapped 6 transport handlers with
+    `readerPlayback.cancel()`. The manager wrapped the same 5 transport
+    handlers plus 4 settings handlers with `cancelTargetPlayback()`. Any new
+    control that forgot a wrapper could let a stale target start late.
+  - **Guards polled after dispatch.** `isCurrentJob()` bumped the job and called
+    `finishPlayback()` whenever an external guard turned false. As a result:
+    - Next during startup idled playback. The 2026-10-24 race was contained by
+      the UI gate, not fixed.
+    - The Android permission dialog cancelled a start that had already been
+      dispatched (the 2026-10-24 limitation).
+    - `prepareDocumentOpen` killed a still-starting target but not a playing
+      one; on `main` it never stopped audio.
+  - **Dead bookkeeping.** The `targetStartedRef` that pause/resume preserved
+    did nothing after App's reader cancel.
+- **Decision.** Adopt §3 “Cancellation model” and implement it as Stage 8 before
+  merge. Comment-only and wrapper-helper options were rejected (see §8).
+
+### Stage 8 — Cancellation consolidation (merge blocker)
+
+Order: tests first, additive player change, then switch consumers, then delete.
+Every step keeps the full suite green except the tests intentionally added red in
+step 1.
+
+- [x] **1. Characterization tests.** Add the red cases next to the existing
+  connected coordinator/player/controls tests:
+  - (a) A settings change, delete, Pause or Stop during preparation leaves no
+    feedback and nothing plays. Red today.
+  - (b) A newer target supersedes an older one; stale capture before dispatch
+    still rejects; dispose before dispatch never plays. These pin today's
+    behavior.
+  - (c) A transport command issued only through the player cancels a pending
+    target, without any wrapper. Red today.
+  - (d) Skip/jump during a dispatched startup navigates on the desktop and
+    native mocks, instead of idling. Red today.
+  - (e) Capture validity flipping after dispatch (the native mock delays init)
+    does not cancel startup. Red today.
+  - (f) Ticket semantics: `started`; `superseded` by Pause or a newer target;
+    `failed` on a Play rejection.
+- [x] **2. Player epoch and ticket (additive).**
+  - Add the command-epoch controller, `commandSignal()` and the start ticket
+    (`Promise<PlaybackStart>`) alongside the existing guards.
+  - Resolve the ticket at the existing desktop and native acknowledgement
+    points, and in `fail()`.
+  - Existing tests stay green.
+- [x] **3. Target scope.**
+  - `createPlayAnywherePlayback` forwards the epoch into its run controller,
+    returns `cancelled` for aborts (`disposed` when it is no longer alive), and
+    returns the ticket in `dispatched`.
+  - It stops passing guard/`onStarted` to the player.
+  - (a), (c) and (f) go green.
+- [x] **4. Reader.**
+  - Consume the ticket and stop showing feedback for `cancelled`.
+  - Clear feedback through the once-listener on the epoch. As built, the
+    selection snapshot is left to the input epoch; see §3 rule 6.
+  - Remove `cancel()` and the `cancelTargetPlayback` option.
+- [x] **5. Remove wrappers.**
+  - In App, delete the six `readerPlayback.cancel()` handler overrides.
+  - In the manager, delete:
+    - the `cancelTargetPlayback()` calls in pause/resume/jump/skip and the four
+      settings handlers;
+    - the `cancelTargetPlayback` export;
+    - `stopDocumentPlayback` (callers use `stopTts`);
+    - the cancel in `prepareDocumentOpen`, since scope disposal covers it.
+- [x] **6. Remove player guards.**
+  - Delete `requestGuardRef`, `navigationGuardRef`, `targetStartedRef`, the
+    guard/`onStarted` parameters and the pending-start carryover.
+  - Make `isCurrentJob` pure.
+  - (d) and (e) go green.
+  - `rg 'cancelTargetPlayback|requestGuardRef|navigationGuardRef|targetStartedRef' src`
+    returns nothing.
+- [x] **7. Docs.**
+  - Rewrite the §3 contract rows (player initial start, player active target,
+    target playback action) and the coordinator paragraph to match.
+  - Update the removal-map rows for App, the manager and `useTtsPlayer`.
+  - Mark the Android limitation entry as superseded or confirmed after the
+    device check.
+  - Drop the “not implemented” status line from §3 “Cancellation model”.
+- [ ] **8. Verify.** Automated checks done; device smoke and browser tests
+  pending (see the 2026-10-26 implementation entry).
+  - Run the full frontend suite with `CI=true`, plus TypeScript, ESLint and the
+    build.
+  - Desktop and Android smoke, all exercised during preparation and during
+    startup: play from here, play from selection, play from beginning,
+    pause/resume, skip, chunk jump, Stop, voice/model change, delete, document
+    switch/close, and the Android first-play permission dialog.
+  - iOS remains the post-merge TestFlight check.
+
+Acceptance:
+
+- A new transport or settings control needs no play-anywhere code to cancel
+  pending targets.
+- `cancelled` never produces user feedback.
+- No guard is evaluated after dispatch.
+- The diff to `useTtsPlayer.ts`, `useAudiobookManager.ts` and `App.tsx` removes
+  more lines than it adds.
+- Removal of the feature still only needs the seams in the removal map: the
+  epoch and ticket are general player API.
+
+### 2026-10-26 — Stage 8 implementation
+
+Steps 1–7 are implemented. The step order was followed: red tests, an additive
+player epoch/ticket, then the scope, the reader, wrapper removal, and finally
+guard deletion.
+
+- **Removed APIs:**
+  - `requestGuardRef`, `navigationGuardRef` and `targetStartedRef`;
+  - the `guard`/`onStarted` parameters of `speak`, `jumpToChunk`,
+    `startPlaybackAt` and `playFromChunk`;
+  - the pending-start carryover in pause/resume;
+  - `reader.cancel()`, `cancelTargetPlayback` and `stopDocumentPlayback`;
+  - every App and manager cancellation wrapper.
+- **Behavior changes:**
+  - A settings change, delete, preview, Pause or Stop during preparation no
+    longer shows “The passage changed”; nothing plays.
+  - A starting target continues across a document switch, as ordinary playback
+    does. Before, the outcome depended on timing.
+  - The Android permission dialog after dispatch no longer cancels startup.
+    This narrows the 2026-10-24 entry's “keep all guards” to “guards up to
+    dispatch”.
+  - A skip that reaches startup navigates instead of idling.
+  - Pausing with the passage menu open keeps the selection snapshot.
+- **Review fix.** The first draft only aborted the epoch on unmount. Under
+  StrictMode (`src/main.tsx`), effect replay would then have left an aborted
+  epoch and cancelled every dev-build target. Unmount now replaces the epoch,
+  and a regression test fails against the first draft.
+
+- **New tests:**
+  - player: an epoch per public command but not auto-advance; StrictMode epoch
+    replay; `started` on Linux/Android; `superseded` by
+    pause/stop/skip/jump/target/unmount; `failed` on Linux/Android;
+  - connected: a command cancels preparation without a wrapper; validity is
+    not re-checked after dispatch; skip during startup keeps playing (all on
+    both mocks);
+  - scope: command/dispose/newer → `cancelled`; a validity check before
+    dispatch returns the ticket;
+  - reader: command/settings during preparation → no feedback; feedback
+    cleared by the next command; a superseded ticket clears `pending` without
+    restoring follow.
+- **Removed tests:** the tests that asserted post-dispatch passage rejection
+  were removed on purpose. This covers the player's “stale during native
+  preparation” and “late chunk after stale” cases, and the guard and
+  `onStarted` assertions. The new tests assert the opposite. The Pause/Resume
+  test now expects `superseded`.
+- **Size:** `useTtsPlayer.ts`, `useAudiobookManager.ts` and `App.tsx` remove
+  more lines than they add (110 added, 116 removed). The playback scope grew by
+  21 lines to carry the explicit `cancelled` outcome and the epoch forwarding.
+- **Validation:**
+  - `CI=true` non-browser suite: **613 passed, one existing skip**;
+  - TypeScript (`tsc -b`), `eslint .`, i18n validation and `vite build` pass;
+  - `rg 'cancelTargetPlayback|requestGuardRef|navigationGuardRef|targetStartedRef|stopDocumentPlayback' src`
+    returns nothing.
+- **Not run here:** the agent sandbox cannot launch Chromium. All
+  `*.browser.test.ts` files and `LibraryTransferDialog.layout.test.tsx` fail
+  there with connection or launch errors, and they failed the same way before
+  any change. `readerControls.browser.test.ts` was updated to the ticket API
+  and must be run locally.
+
+Owner checklist (pending):
+
+- [ ] Browser tests locally: `npx vitest run src/tts/playAnywhere` (includes the
+  `*.browser.test.ts` files).
+- [x] Desktop and Android, once during preparation and once during startup
+  (owner, 2026-10-26):
+  - Play from here, Play from selection, Play from beginning;
+  - Pause/Resume, skip, chunk jump, Stop;
+  - voice/model change, delete, document switch/close.
+  - Expect no “passage changed” notice after your own action.
+- [ ] Android first-play notification-permission dialog: startup continues
+  after Allow or Block.
+- [ ] Dev build (StrictMode): Play from here starts on first use.
+
 ## 7. Standards and design rationale
 
 This plan applies separation of concerns, explicit capability contracts,
@@ -2330,3 +2602,7 @@ coverage. These are engineering design choices, not a claim of certification.
 | Slice chunks before calling the player | Changes canonical indices/signature and breaks saved-audio identity. |
 | Approximate word timing or forced alignment | Unneeded for the accepted chunk-start behavior. |
 | New player, global event bus, feature-flag framework or persistent settings | Duplicates ownership and makes debugging/removal harder. |
+| Keep the cancellation wrappers and add comments naming each other (2026-10-26) | Documents the hazard but keeps opt-in cancellation and the false `stale` feedback. |
+| One manager helper that wraps every transport/settings handler | Still opt-in at a single list, and still polls the guard after dispatch. Supersession belongs where commands are ordered, in the player. |
+| Keep polled guards but carry a cancel reason | Fixes the feedback, but keeps the side-effecting `isCurrentJob`, the post-dispatch Android cancellation, and the timing-dependent document-switch result. |
+| `AbortSignal.any` / `signal.reason` | Not available on the iOS 15.0 minimum. A once-listener forward and a typed result do the same job. |

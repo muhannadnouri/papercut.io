@@ -103,6 +103,7 @@ export function useAudiobookManager({
     skipBackward: skipTtsBackward,
     skipForward: skipTtsForward,
     stop: stopTts,
+    commandSignal: ttsCommandSignal,
   } = useTtsPlayer(ttsPlaybackRate)
   const {
     defaultThreadCount: ttsDefaultThreadCount,
@@ -243,11 +244,11 @@ export function useAudiobookManager({
     ? downloadAudiobookState
     : selectedAudiobookState
 
-  const { cancel: cancelTargetPlayback, playFromHere, playFromBeginning: handleReadDocument } = usePlayAnywherePlayback({
+  // Player commands supersede pending targets; option/document/readiness changes dispose the scope.
+  const { playFromHere, playFromBeginning: handleReadDocument } = usePlayAnywherePlayback({
     complete: audioControlsAudiobookState.complete, options: playbackOptions, resolve: resolveTextTarget,
-    getChunks: getCanonicalChunks, play: playTtsFromChunk,
+    getChunks: getCanonicalChunks, play: playTtsFromChunk, commandSignal: ttsCommandSignal,
   })
-  const stopDocumentPlayback = useCallback(() => { cancelTargetPlayback(); stopTts() }, [cancelTargetPlayback, stopTts])
 
   useEffect(() => {
     // Native manifests are the completed-audio registry; WebView storage is not durable enough.
@@ -318,7 +319,6 @@ export function useAudiobookManager({
   }, [preloadTts, selectedDoc])
 
   const prepareDocumentOpen = useCallback(() => {
-    cancelTargetPlayback()
     if (preserveGeneratedSpeedOnOpenRef.current) {
       preserveGeneratedSpeedOnOpenRef.current = false
     } else {
@@ -326,21 +326,21 @@ export function useAudiobookManager({
     }
     resetAudiobookDocument()
     resetSelectedAudiobookState()
-  }, [cancelTargetPlayback, resetAudiobookDocument, resetSelectedAudiobookState])
+  }, [resetAudiobookDocument, resetSelectedAudiobookState])
 
   const closeDocumentAudio = useCallback(() => {
-    stopDocumentPlayback()
+    stopTts()
     resetAudiobookDocument()
-  }, [resetAudiobookDocument, stopDocumentPlayback])
+  }, [resetAudiobookDocument, stopTts])
 
   const handleModelChange = useCallback((modelId: string) => {
     const model = getTtsModel(ttsModels, modelId)
-    stopDocumentPlayback()
+    stopTts()
     resetSelectedAudiobookState()
     setTtsModelId(model.id)
     setTtsVoice(model.defaultVoice)
     setTtsTextPreprocessor(model.defaultTextPreprocessor)
-  }, [resetSelectedAudiobookState, setTtsModelId, stopDocumentPlayback, ttsModels])
+  }, [resetSelectedAudiobookState, setTtsModelId, stopTts, ttsModels])
 
   const handleSaveAudiobook = useCallback(async () => {
     if (!selectedDoc) return
@@ -481,7 +481,7 @@ export function useAudiobookManager({
     await deleteSavedAudiobook(record, (deletedUserUpload) => {
       invalidateCompletedAudiobookDownload(record.id)
       if (selectedDoc === record.documentUrl) {
-        stopDocumentPlayback()
+        stopTts()
         resetSelectedAudiobookState()
         if (deletedUserUpload) {
           onClearDocument()
@@ -489,7 +489,7 @@ export function useAudiobookManager({
         }
       }
     })
-  }, [confirmAudiobookAction, deleteSavedAudiobook, invalidateCompletedAudiobookDownload, onClearDocument, resetAudiobookDocument, resetSelectedAudiobookState, selectedDoc, stopDocumentPlayback])
+  }, [confirmAudiobookAction, deleteSavedAudiobook, invalidateCompletedAudiobookDownload, onClearDocument, resetAudiobookDocument, resetSelectedAudiobookState, selectedDoc, stopTts])
 
   const importAudiobook = useCallback(async (openDocument: (url: string) => Promise<void>) => {
     await importSavedAudiobook(openDocument, (result) => {
@@ -505,14 +505,14 @@ export function useAudiobookManager({
 
   const selectSavedAudiobook = useCallback((record: SavedAudiobookRecord) => {
     autoSelectedDocumentRef.current = record.documentUrl
-    stopDocumentPlayback()
+    stopTts()
     resetSelectedAudiobookState()
     setTtsModelId(record.modelId)
     setTtsVoice(record.voice as TtsVoice)
     setTtsTextPreprocessor(record.textPreprocessor)
     setTtsSpeed(record.speed)
     setSilmaNfeStep(resolveSilmaNfeStep(record))
-  }, [resetSelectedAudiobookState, setTtsModelId, stopDocumentPlayback])
+  }, [resetSelectedAudiobookState, setTtsModelId, stopTts])
 
   const openSavedAudiobook = useCallback(async (record: SavedAudiobookRecord, openDocument: (url: string) => Promise<void>) => {
     preserveGeneratedSpeedOnOpenRef.current = true
@@ -569,7 +569,7 @@ export function useAudiobookManager({
     preparedChunks,
     resolveTextTarget,
     playFromHere,
-    cancelTargetPlayback,
+    commandSignal: ttsCommandSignal,
     playFromBeginning: handleReadDocument,
     audioControlsProps: {
       audiobookState: audioControlsAudiobookState,
@@ -580,15 +580,15 @@ export function useAudiobookManager({
       modelSetupLabel,
       saveInProgress: downloadIsForSelectedDoc && activeDownloadIsRunning,
       onCancelSave: handleCancelAudiobookSave,
-      onPause: () => { cancelTargetPlayback(); pauseTts() },
+      onPause: pauseTts,
       onRead: () => { void handleReadDocument() },
-      onResume: () => { cancelTargetPlayback(); resumeTts() },
+      onResume: resumeTts,
       onSelectSavedAudiobook: selectSavedAudiobook,
-      onJumpToChunk: (index: number) => { cancelTargetPlayback(); jumpTtsToChunk(index) },
+      onJumpToChunk: (index: number) => jumpTtsToChunk(index),
       onSave: handleSaveAudiobook,
-      onSkipBackward: () => { cancelTargetPlayback(); skipTtsBackward() },
-      onSkipForward: () => { cancelTargetPlayback(); skipTtsForward() },
-      onStop: stopDocumentPlayback,
+      onSkipBackward: skipTtsBackward,
+      onSkipForward: skipTtsForward,
+      onStop: stopTts,
       onPlaybackRateChange: setTtsPlaybackRate,
       onWordHighlightEnabledChange: setTtsWordHighlightEnabled,
       playbackDurationSec: audioControlsAudiobookState.audioDurationSec,
@@ -610,11 +610,11 @@ export function useAudiobookManager({
       onInstallModel: handleInstallTtsModel,
       onModelChange: handleModelChange,
       onProbeSilmaSidecar: handleProbeSilmaSidecar,
-      onPreviewStart: stopDocumentPlayback,
-      onSilmaNfeStepChange: (nfeStep: number) => { cancelTargetPlayback(); setSilmaNfeStep(resolveSilmaNfeStep({ silmaNfeStep: nfeStep })) },
-      onTextPreprocessorChange: (value: TextPreprocessorId) => { cancelTargetPlayback(); setTtsTextPreprocessor(value) },
-      onThreadCountChange: (value: number) => { cancelTargetPlayback(); handleThreadCountChange(value) },
-      onVoiceChange: (value: TtsVoice) => { cancelTargetPlayback(); setTtsVoice(value) },
+      onPreviewStart: stopTts,
+      onSilmaNfeStepChange: (nfeStep: number) => setSilmaNfeStep(resolveSilmaNfeStep({ silmaNfeStep: nfeStep })),
+      onTextPreprocessorChange: setTtsTextPreprocessor,
+      onThreadCountChange: handleThreadCountChange,
+      onVoiceChange: setTtsVoice,
       textPreprocessor: ttsTextPreprocessor,
       textPreprocessors: selectedTtsModel.textPreprocessors,
       silmaProbeRunning,

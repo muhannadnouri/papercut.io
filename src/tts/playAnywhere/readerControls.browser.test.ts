@@ -72,18 +72,17 @@ beforeAll(async () => {
       if(captureMode)surface.replaceChildren();
       const chunks=captureMode?chunkAudiobookSaveHtmlWithSpans(content).map((chunk,i)=>legacy?{id:'saved-'+i,text:chunk.text}:{...chunk,id:'saved-'+i}):[];
       const preparation=createTextTargetPreparation({documentUrl:'/user-uploads/ab.html',docContent:content,chunks,getChunks:async()=>chunks,getPdfSegments:async()=>[],getPdfPageText:async()=>{throw new Error('HTML must not read PDF')}});
-      const playFromHere=async(api,onStarted)=>{
+      const playFromHere=async(api)=>{
         const result=await api.captureViewport();
         const target=await preparation.resolve('/user-uploads/ab.html',result);
-        if(target.status==='resolved')onStarted?.();
         await new Promise(requestAnimationFrame);
         parent.postMessage({type:'capture-result',result:{status:result.status,point:result.point,reason:result.reason,current:result.status==='captured'&&result.isCurrent(),target:{status:target.status,reason:target.reason,chunkIndex:target.chunkIndex,chunkId:target.chunkId}}},'*');
-        return target.status==='resolved'?{status:'dispatched'}:target;
+        return target.status==='resolved'?{status:'dispatched',started:Promise.resolve('started')}:target;
       };
       function Controls(){
         const [sample,setSample]=React.useState({index:18,status:'paused',pending:false,feedback:'unmapped',message:'',highlight:true,rate:1});
         React.useEffect(()=>{window.updateControls=patch=>setSample(value=>({...value,...patch}));return()=>{delete window.updateControls}},[]);
-        const reader=usePlayAnywhereReader({documentUrl:'fixture',active:!captureMode||playbackStatus!=='idle',playFromHere,playFromBeginning:async()=>({status:'dispatched'}),cancelTargetPlayback:noop});
+        const reader=usePlayAnywhereReader({documentUrl:'fixture',active:!captureMode||playbackStatus!=='idle',playFromHere,playFromBeginning:async()=>({status:'dispatched',started:Promise.resolve('started')}),commandSignal:()=>new AbortController().signal});
         const contentRef=React.useRef(null);
         const viewport=React.useCallback(()=>readerTextViewport(shell),[]);
         const register=React.useCallback(api=>{reader.register(api);if(api)window.captureReady=true},[reader.register]);

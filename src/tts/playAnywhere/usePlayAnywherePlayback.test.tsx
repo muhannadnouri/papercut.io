@@ -15,16 +15,15 @@ const options: TtsOptions = { documentUrl: '/book.html', modelId: 'kokoro', voic
 const chunks = [{ id: 'a', text: 'A' }, { id: 'b', text: 'B' }]
 const capture: ViewerTextTargetResult = { status: 'captured', point: { format: 'html', segmentIndex: 0, offset: 0 }, segmentTexts: ['A B'], segmentLengths: [3], isCurrent: () => true }
 const target: PreparedTextTargetResult = { status: 'resolved', documentUrl: '/book.html', chunks, chunkIndex: 1, chunkId: 'b', isCurrent: () => true }
-const setup = () => ({ complete: true, options, resolve: vi.fn<Parameters<typeof createPlayAnywherePlayback>[0]['resolve']>(async () => target), getChunks: vi.fn(async () => chunks), play: vi.fn<Parameters<typeof createPlayAnywherePlayback>[0]['play']>(() => true) })
+const setup = () => ({ complete: true, options, resolve: vi.fn<Parameters<typeof createPlayAnywherePlayback>[0]['resolve']>(async () => target), getChunks: vi.fn(async () => chunks),
+  play: vi.fn<Parameters<typeof createPlayAnywherePlayback>[0]['play']>(() => Promise.resolve('started')), commandSignal: () => new AbortController().signal })
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(yes => { resolve = yes }); return { promise, resolve } }
-it('dispatches verified chunk boundaries with the original full sequence and a live guard; beginning uses zero', async () => {
+it('dispatches verified chunk boundaries with the original full sequence; beginning uses zero', async () => {
   const config = setup(), scope = createPlayAnywherePlayback(config)
   const api = { captureViewport: vi.fn(async () => capture) }
-  expect(await scope.playFromHere(api)).toEqual({ status: 'dispatched' })
-  expect(config.play).toHaveBeenCalledWith(chunks, options, 1, expect.any(Function), undefined)
-  const guard = config.play.mock.calls[0]![3]
-  expect(guard()).toBe(true); scope.cancel(); expect(guard()).toBe(false)
-  await scope.playFromBeginning(); expect(config.play).toHaveBeenLastCalledWith(chunks, options, 0, expect.any(Function), undefined)
+  expect(await scope.playFromHere(api)).toMatchObject({ status: 'dispatched' })
+  expect(config.play).toHaveBeenCalledWith(chunks, options, 1)
+  await scope.playFromBeginning(); expect(config.play).toHaveBeenLastCalledWith(chunks, options, 0)
 })
 it('requires completed saved audio and never changes playback when capture or resolution fails', async () => {
   const config = setup(), scope = createPlayAnywherePlayback(config)
@@ -47,16 +46,16 @@ it('targets imported saved chunks after playing from the beginning despite claus
     getPdfSegments: async () => [], getPdfPageText: async () => { throw new Error('HTML must not read PDF') } })
   const config = { ...setup(), options: { ...options, documentUrl }, resolve: preparation.resolve, getChunks: async () => saved }
   const scope = createPlayAnywherePlayback(config)
-  expect(await scope.playFromBeginning()).toEqual({ status: 'dispatched' })
-  expect(config.play).toHaveBeenLastCalledWith(saved, config.options, 0, expect.any(Function), undefined)
+  expect(await scope.playFromBeginning()).toMatchObject({ status: 'dispatched' })
+  expect(config.play).toHaveBeenLastCalledWith(saved, config.options, 0)
   const visible: ViewerTextTargetResult = { status: 'captured', point: { format: 'html', segmentIndex: 1, offset: 2 },
     segmentTexts: [text, 'Later viewport passage.'], segmentLengths: [text.length, 23], isCurrent: () => true }
-  expect(await scope.playFromHere({ captureViewport: async () => visible })).toEqual({ status: 'dispatched' })
-  expect(config.play).toHaveBeenLastCalledWith(saved, config.options, saved.length - 1, expect.any(Function), undefined)
+  expect(await scope.playFromHere({ captureViewport: async () => visible })).toMatchObject({ status: 'dispatched' })
+  expect(config.play).toHaveBeenLastCalledWith(saved, config.options, saved.length - 1)
   expect(saved).toEqual(original)
   scope.dispose(); preparation.dispose()
 })
-it.each(['capture', 'resolve'])('keeps only the newest action during %s and honors cancellation', async phase => {
+it.each(['capture', 'resolve'])('keeps only the newest action during %s', async phase => {
   const config = setup(), scope = createPlayAnywherePlayback(config)
   const pendingCapture = deferred<ViewerTextTargetResult>(), pendingTarget = deferred<PreparedTextTargetResult>()
   const api: ViewerTextTargetApi = { captureViewport: async () => phase === 'capture' ? pendingCapture.promise : capture }
@@ -65,25 +64,37 @@ it.each(['capture', 'resolve'])('keeps only the newest action during %s and hono
   await Promise.resolve()
   await scope.playFromBeginning()
   pendingCapture.resolve(capture); pendingTarget.resolve(target)
-  expect(await old).toMatchObject({ reason: 'stale' })
+  expect(await old).toEqual({ status: 'cancelled', reason: 'superseded' })
   expect(config.play).toHaveBeenCalledOnce()
-  const other = scope.playFromHere({ captureViewport: async () => capture }); scope.cancel()
-  expect(await other).toMatchObject({ reason: 'stale' })
 })
-it.each(['cancel', 'dispose', 'beginning'] as const)('aborts cold target work on %s and never dispatches its late result', async action => {
-  const config = setup(), scope = createPlayAnywherePlayback(config)
+it.each(['command', 'dispose', 'newer'] as const)('reports a %s before dispatch as cancelled, never as a changed passage', async action => {
+  const command = new AbortController()
+  const config = { ...setup(), commandSignal: () => command.signal }, scope = createPlayAnywherePlayback(config)
   const pending = deferred<PreparedTextTargetResult>()
   config.resolve.mockReturnValueOnce(pending.promise)
   const old = scope.playFromHere({ captureViewport: async () => capture })
   await Promise.resolve()
   const signal = config.resolve.mock.calls[0]![2]!
-  expect(signal.aborted).toBe(false)
-  if (action === 'beginning') await scope.playFromBeginning()
-  else scope[action]()
+  if (action === 'command') command.abort()
+  else if (action === 'dispose') scope.dispose()
+  else void scope.playFromBeginning()
   expect(signal.aborted).toBe(true)
   pending.resolve(target)
-  expect(await old).toMatchObject({ reason: 'stale' })
-  expect(config.play).toHaveBeenCalledTimes(action === 'beginning' ? 1 : 0)
+  expect(await old).toEqual({ status: 'cancelled', reason: action === 'dispose' ? 'disposed' : 'superseded' })
+  expect(config.play).toHaveBeenCalledTimes(action === 'newer' ? 1 : 0)
+})
+it('checks passage validity once before dispatch and returns the player start ticket', async () => {
+  const started = Promise.resolve('started' as const)
+  const config = { ...setup(), commandSignal: () => new AbortController().signal }, scope = createPlayAnywherePlayback(config)
+  config.play.mockReturnValue(started)
+  let valid = false
+  config.resolve.mockResolvedValue({ ...target, isCurrent: () => valid })
+  expect(await scope.playFromHere({ captureViewport: async () => capture })).toEqual({ status: 'unavailable', reason: 'stale' })
+  expect(config.play).not.toHaveBeenCalled()
+  valid = true
+  const result = await scope.playFromHere({ captureViewport: async () => capture })
+  expect(result).toEqual({ status: 'dispatched', started })
+  expect(config.play).toHaveBeenCalledWith(chunks, options, 1)
 })
 it('contains errors and rejects stale or cross-document resolved targets', async () => {
   const config = setup(), scope = createPlayAnywherePlayback(config)
@@ -105,7 +116,7 @@ it('disposes action scopes on document/options/source changes and unmount before
       const pending = deferred<ViewerTextTargetResult>()
       const old = controls.playFromHere({ captureViewport: () => pending.promise })
       await act(async () => app.render(<Harness {...config} {...overrides} />))
-      pending.resolve(capture); expect(await old).toMatchObject({ reason: 'stale' })
+      pending.resolve(capture); expect(await old).toEqual({ status: 'cancelled', reason: 'disposed' })
       await act(async () => app.render(<Harness {...config} />))
     }
   } finally { await act(async () => app.unmount()) }

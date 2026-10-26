@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useRef } from 'react'
 import type { ViewerTextTargetApi, ViewerTextTargetResult } from '../../viewers/types'
 import type { TtsChunk, TtsOptions } from '../types'
+import type { PlaybackStart } from '../hooks/useTtsPlayer'
 import type { PreparedTextTargetResult } from './prepareTextTarget'
 
 interface PlaybackTargetOptions {
@@ -8,61 +9,81 @@ interface PlaybackTargetOptions {
   options: TtsOptions
   resolve: (url: string, capture: ViewerTextTargetResult, signal?: AbortSignal) => Promise<PreparedTextTargetResult>
   getChunks: () => Promise<readonly TtsChunk[]>
-  play: (chunks: readonly TtsChunk[], options: TtsOptions, index: number, isCurrent: () => boolean, onStarted?: () => void) => boolean
+  play: (chunks: readonly TtsChunk[], options: TtsOptions, index: number) => Promise<PlaybackStart> | null
+  /** The player's command epoch; any later playback command aborts it. */
+  commandSignal: () => AbortSignal
 }
 
-export type PlaybackTargetResult = { status: 'dispatched' }
+export type PlaybackTargetResult = { status: 'dispatched'; started: Promise<PlaybackStart> }
+  | { status: 'cancelled'; reason: 'superseded' | 'disposed' }
   | { status: 'error'; error: unknown }
   | Extract<PreparedTextTargetResult, { status: 'unavailable' }>
 
-/** Only this boundary owns target intent; the existing player still owns transport queues. */
+/**
+ * Owns target intent only until dispatch. A run is cancelled by a newer run, by any player command
+ * (its epoch) or by disposal; passage validity is checked once more right before the player call.
+ * After dispatch the player's own job/navigation fences own the start.
+ */
 export function createPlayAnywherePlayback(scope: PlaybackTargetOptions) {
-  let alive = true, intent = 0
+  let alive = true
   let preparation: AbortController | undefined
   const unavailable = (reason: 'stale' | 'not-ready' | 'invalid-point') => ({ status: 'unavailable', reason }) as const
-  const run = async (api?: ViewerTextTargetApi, onStarted?: () => void): Promise<PlaybackTargetResult> => {
+  const run = async (api?: ViewerTextTargetApi): Promise<PlaybackTargetResult> => {
     preparation?.abort()
-    const request = ++intent
-    const controller = new AbortController(); preparation = controller
-    const current = () => alive && intent === request
     const url = scope.options.documentUrl
-    if (!current() || !scope.complete || !url) return unavailable('not-ready')
+    if (!alive || !scope.complete || !url) return unavailable('not-ready')
+    const controller = new AbortController(); preparation = controller
+    const command = scope.commandSignal()
+    // Forward rather than AbortSignal.any: the iOS 15.0 minimum lacks it.
+    const supersede = () => controller.abort()
+    command.addEventListener('abort', supersede, { once: true })
+    if (command.aborted) controller.abort()
+    const current = () => !controller.signal.aborted
+    const cancelled = () => ({ status: 'cancelled', reason: alive ? 'superseded' : 'disposed' }) as const
     try {
       let chunks: readonly TtsChunk[], index = 0
-      let accepts = current
+      let valid = () => true
       if (api) {
         const capture = await api.captureViewport()
-        if (!current()) return unavailable('stale')
+        if (!current()) return cancelled()
         if (capture.status === 'unavailable') return capture
         const target = await scope.resolve(url, capture, controller.signal)
-        if (!current()) return unavailable('stale')
+        if (!current()) return cancelled()
         if (target.status !== 'resolved') return target
         if (target.documentUrl !== url) return unavailable('stale')
         chunks = target.chunks; index = target.chunkIndex
-        accepts = () => current() && target.isCurrent()
+        valid = target.isCurrent
       } else {
         chunks = await scope.getChunks()
       }
-      if (!accepts()) return unavailable('stale')
-      return scope.play(chunks, scope.options, index, accepts, onStarted ? () => { if (current()) onStarted() } : undefined) ? { status: 'dispatched' } : unavailable('invalid-point')
-    } catch (error) { return current() ? { status: 'error', error } : unavailable('stale') }
+      if (!current()) return cancelled()
+      if (!valid()) return unavailable('stale')
+      const started = scope.play(chunks, scope.options, index)
+      return started ? { status: 'dispatched', started } : unavailable('invalid-point')
+    } catch (error) {
+      return current() ? { status: 'error', error } : cancelled()
+    } finally {
+      command.removeEventListener('abort', supersede)
+    }
   }
-  return { playFromHere: (api: ViewerTextTargetApi, onStarted?: () => void) => run(api, onStarted), playFromBeginning: (onStarted?: () => void) => run(undefined, onStarted),
-    cancel() { intent++; preparation?.abort(); preparation = undefined }, dispose() { alive = false; intent++; preparation?.abort(); preparation = undefined } }
+  return {
+    playFromHere: (api: ViewerTextTargetApi) => run(api),
+    playFromBeginning: () => run(),
+    dispose() { alive = false; preparation?.abort(); preparation = undefined },
+  }
 }
 
 export function usePlayAnywherePlayback(options: PlaybackTargetOptions) {
-  const { complete, options: playbackOptions, resolve, getChunks, play } = options
+  const { complete, options: playbackOptions, resolve, getChunks, play, commandSignal } = options
   const active = useRef<ReturnType<typeof createPlayAnywherePlayback> | null>(null)
   useLayoutEffect(() => {
-    const scope = createPlayAnywherePlayback({ complete, options: playbackOptions, resolve, getChunks, play })
+    const scope = createPlayAnywherePlayback({ complete, options: playbackOptions, resolve, getChunks, play, commandSignal })
     active.current = scope
     return () => { scope.dispose(); active.current = null }
-  }, [complete, playbackOptions, resolve, getChunks, play])
-  const cancel = useCallback(() => active.current?.cancel(), [])
-  const playFromHere = useCallback((api: ViewerTextTargetApi, onStarted?: () => void) => active.current?.playFromHere(api, onStarted)
+  }, [complete, playbackOptions, resolve, getChunks, play, commandSignal])
+  const playFromHere = useCallback((api: ViewerTextTargetApi) => active.current?.playFromHere(api)
     ?? Promise.resolve({ status: 'unavailable', reason: 'not-ready' } as const), [])
-  const playFromBeginning = useCallback((onStarted?: () => void) => active.current?.playFromBeginning(onStarted)
+  const playFromBeginning = useCallback(() => active.current?.playFromBeginning()
     ?? Promise.resolve({ status: 'unavailable', reason: 'not-ready' } as const), [])
-  return { cancel, playFromHere, playFromBeginning }
+  return { playFromHere, playFromBeginning }
 }

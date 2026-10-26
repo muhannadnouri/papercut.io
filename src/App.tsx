@@ -174,7 +174,7 @@ function App() {
     active: hasFloatingAudioControls || audioControlsProps.ttsState.currentChunkIndex !== null,
     playFromHere: audiobook.playFromHere,
     playFromBeginning: audiobook.playFromBeginning,
-    cancelTargetPlayback: audiobook.cancelTargetPlayback,
+    commandSignal: audiobook.commandSignal,
   })
 
   const libraryDocuments = useMemo<DocumentInfo[]>(() => [
@@ -498,12 +498,6 @@ function App() {
                     onSnapshotSelection: readerPlayback.snapshotSelection, onPlayFromSelection: readerPlayback.playFromSelection,
                     onSelectionMenuClose: readerPlayback.clearSelection,
                   }}
-                  onPause={() => { readerPlayback.cancel(); audioControlsProps.onPause() }}
-                  onResume={() => { readerPlayback.cancel(); audioControlsProps.onResume() }}
-                  onStop={() => { readerPlayback.cancel(); audioControlsProps.onStop() }}
-                  onSkipBackward={() => { readerPlayback.cancel(); audioControlsProps.onSkipBackward() }}
-                  onSkipForward={() => { readerPlayback.cancel(); audioControlsProps.onSkipForward() }}
-                  onJumpToChunk={(index) => { readerPlayback.cancel(); audioControlsProps.onJumpToChunk(index) }}
                   onManageSave={handleManageAudiobookSave}
                   onOpenAudioSetup={() => setReaderAudioSetupOpen(true)}
                 />

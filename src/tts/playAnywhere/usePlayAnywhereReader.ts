@@ -13,21 +13,23 @@ import type { PlaybackTargetResult } from './usePlayAnywherePlayback'
 interface ReaderPlaybackOptions {
   documentUrl: string | null
   active: boolean
-  playFromHere: (api: ViewerTextTargetApi, onStarted?: () => void) => Promise<PlaybackTargetResult>
-  playFromBeginning: (onStarted?: () => void) => Promise<PlaybackTargetResult>
-  cancelTargetPlayback: () => void
+  playFromHere: (api: ViewerTextTargetApi) => Promise<PlaybackTargetResult>
+  playFromBeginning: () => Promise<PlaybackTargetResult>
+  /** The player's command epoch; the next playback command clears this run's feedback. */
+  commandSignal: () => AbortSignal
 }
 
 /**
  * Browsing suspends reveals without pausing audio; Return restores reveals without seeking.
  * Explicit starts restore following after audio acknowledgement only if newer browsing has not won.
+ * This hook presents results only: cancellation belongs to the playback scope and the player.
  */
 export function usePlayAnywhereReader({
   documentUrl,
   active,
   playFromHere,
   playFromBeginning,
-  cancelTargetPlayback,
+  commandSignal,
 }: ReaderPlaybackOptions) {
   const api = useRef<ViewerTextTargetApi | null>(null)
   const selectionEpoch = useRef(0)
@@ -50,8 +52,8 @@ export function usePlayAnywhereReader({
   useLayoutEffect(() => {
     const current = { alive: true, intent: 0, browse: 0, following: true, active: false }
     scope.current = current
-    return () => { current.alive = false; cancelTargetPlayback() }
-  }, [documentUrl, cancelTargetPlayback])
+    return () => { current.alive = false }
+  }, [documentUrl])
   useLayoutEffect(() => {
     scope.current.active = active
     if (!active) {
@@ -102,11 +104,6 @@ export function usePlayAnywhereReader({
     logTtsDiagnostic('[play-anywhere] follow changed', { following: true })
     setView(previous => ({ ...previous, following: true, revision: previous.revision + 1 }))
   }, [])
-  const cancel = useCallback(() => {
-    scope.current.intent++
-    invalidateSelection()
-    cancelTargetPlayback(); setPending(false); setCapturing(false); setFeedback(null)
-  }, [cancelTargetPlayback, invalidateSelection])
   /**
    * Choose selection before menu cleanup can release it, then settle chrome before viewport measurement.
    * Beginning bypasses capture; actual playback and stale-action rejection stay in the coordinator.
@@ -124,13 +121,8 @@ export function usePlayAnywhereReader({
       setFeedback(null)
     })
     logTtsDiagnostic('[play-anywhere] action requested', { requestId: intent, action })
-    const started = () => {
-      if (!valid()) return
-      setPending(false)
-      if (current.browse === browseVersion) restore()
-    }
     const targetApi = api.current
-    const result = action === 'beginning' ? await playFromBeginning(started)
+    const result = action === 'beginning' ? await playFromBeginning()
       : targetApi ? await playFromHere({ captureViewport: async () => {
         const capture = action === 'selection'
           ? chosen?.read() ?? { status: 'unavailable', reason: 'no-selection' } as const
@@ -138,15 +130,24 @@ export function usePlayAnywhereReader({
         if (capture.status === 'unavailable') logTtsDiagnostic('[play-anywhere] capture rejected', { requestId: intent, action, reason: capture.reason })
         if (valid()) setCapturing(false)
         return capture
-      } }, started)
+      } })
       : { status: 'unavailable', reason: 'not-ready' } as const
     if (!valid()) return
     setCapturing(false)
-    if (result.status !== 'dispatched') setPending(false)
-    logTtsDiagnostic('[play-anywhere] action resolved', { requestId: intent, status: result.status, ...(result.status === 'unavailable' ? { reason: result.reason } : {}) })
-    if (result.status === 'error') setFeedback('failed')
-    else if (result.status === 'unavailable') setFeedback(result.reason)
-  }, [playFromBeginning, playFromHere, restore, snapshotSelection])
+    logTtsDiagnostic('[play-anywhere] action resolved', { requestId: intent, status: result.status, ...('reason' in result ? { reason: result.reason } : {}) })
+    if (result.status === 'dispatched') {
+      const start = await result.started
+      if (!valid()) return
+      setPending(false)
+      if (start === 'started' && current.browse === browseVersion) restore()
+      return
+    }
+    setPending(false)
+    // Cancellation is the user's own newer action, never a passage problem worth reporting.
+    if (result.status === 'cancelled') return
+    setFeedback(result.status === 'error' ? 'failed' : result.reason)
+    commandSignal().addEventListener('abort', () => { if (valid()) setFeedback(null) }, { once: true })
+  }, [commandSignal, playFromBeginning, playFromHere, restore, snapshotSelection])
   const followPolicy: AudioFollowPolicy = useMemo(() => ({
     active: active || pending,
     allowsReveal: () => scope.current.alive && (!scope.current.active || scope.current.following),
@@ -163,7 +164,6 @@ export function usePlayAnywhereReader({
     pending,
     capturing,
     feedback,
-    cancel,
     playFromHere: () => { void run() },
     playFromSelection: () => { void run('selection') },
     playFromBeginning: () => { void run('beginning') },
