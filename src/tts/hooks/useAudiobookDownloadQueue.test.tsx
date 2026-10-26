@@ -95,7 +95,8 @@ beforeEach(async () => {
   vi.mocked(api.saveNativeAudiobook).mockImplementation(input => {
     jobId = input.jobId
     return new Promise((resolve, reject) => {
-      finish = resolve; fail = reject
+      finish = resolve
+      fail = reject
     })
   })
   function Harness() {

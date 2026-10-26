@@ -50,7 +50,8 @@ export function createPlayAnywherePlayback(scope: PlaybackTargetOptions) {
     if (!alive || !scope.complete || !url) {
       return unavailable('not-ready')
     }
-    const controller = new AbortController(); preparation = controller
+    const controller = new AbortController()
+    preparation = controller
     const command = scope.commandSignal()
     // Forward rather than AbortSignal.any: the iOS 15.0 minimum lacks it.
     const supersede = () => controller.abort()
@@ -64,7 +65,8 @@ export function createPlayAnywherePlayback(scope: PlaybackTargetOptions) {
       reason: alive ? 'superseded' : 'disposed',
     }) as const
     try {
-      let chunks: readonly TtsChunk[]; let index = 0
+      let chunks: readonly TtsChunk[]
+      let index = 0
       let valid = () => true
       if (api) {
         const capture = await api.captureViewport()
@@ -84,7 +86,8 @@ export function createPlayAnywherePlayback(scope: PlaybackTargetOptions) {
         if (target.documentUrl !== url) {
           return unavailable('stale')
         }
-        chunks = target.chunks; index = target.chunkIndex
+        chunks = target.chunks
+        index = target.chunkIndex
         valid = target.isCurrent
       } else {
         chunks = await scope.getChunks()
@@ -113,7 +116,9 @@ export function createPlayAnywherePlayback(scope: PlaybackTargetOptions) {
     playFromHere: (api: ViewerTextTargetApi) => run(api),
     playFromBeginning: () => run(),
     dispose() {
-      alive = false; preparation?.abort(); preparation = undefined
+      alive = false
+      preparation?.abort()
+      preparation = undefined
     },
   }
 }
@@ -132,7 +137,8 @@ export function usePlayAnywherePlayback(options: PlaybackTargetOptions) {
     })
     active.current = scope
     return () => {
-      scope.dispose(); active.current = null
+      scope.dispose()
+      active.current = null
     }
   }, [complete, playbackOptions, resolve, getChunks, play, commandSignal])
   const playFromHere = useCallback((api: ViewerTextTargetApi) => active.current?.playFromHere(api)

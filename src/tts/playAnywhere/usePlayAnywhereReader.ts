@@ -64,7 +64,9 @@ export function usePlayAnywhereReader({
       revision: view.revision + 1,
     })
     if (reset) {
-      setFeedback(view.documentUrl === documentUrl && pending ? 'stale' : null); setPending(false); setCapturing(false)
+      setFeedback(view.documentUrl === documentUrl && pending ? 'stale' : null)
+      setPending(false)
+      setCapturing(false)
     }
   }
   useLayoutEffect(() => {
@@ -87,10 +89,12 @@ export function usePlayAnywhereReader({
     }
   }, [active, documentUrl])
   const invalidateSelection = useCallback(() => {
-    selectionEpoch.current++; selection.current = null
+    selectionEpoch.current++
+    selection.current = null
   }, [])
   const register = useCallback((value: ViewerTextTargetApi | null) => {
-    invalidateSelection(); api.current = value
+    invalidateSelection()
+    api.current = value
   }, [invalidateSelection])
   const clearSelection = useCallback(() => {
     selection.current = null
@@ -100,7 +104,8 @@ export function usePlayAnywhereReader({
    * The boolean is UI availability, not audio proof; the retained snapshot still checks source/input lifetime.
    */
   const snapshotSelection = useCallback(() => {
-    const targetApi = api.current; const epoch = selectionEpoch.current
+    const targetApi = api.current
+    const epoch = selectionEpoch.current
     if (!targetApi) {
       selection.current = null
       return false
@@ -165,7 +170,9 @@ export function usePlayAnywhereReader({
    * Beginning bypasses capture; actual playback and stale-action rejection stay in the coordinator.
    */
   const run = useCallback(async (action: 'viewport' | 'beginning' | 'selection' = 'viewport') => {
-    const current = scope.current; const intent = ++current.intent; const browseVersion = current.browse
+    const current = scope.current
+    const intent = ++current.intent
+    const browseVersion = current.browse
     const valid = () => current.alive && current.intent === intent
     if (action === 'selection' && !selection.current) {
       snapshotSelection()

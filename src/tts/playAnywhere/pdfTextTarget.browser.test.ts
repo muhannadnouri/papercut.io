@@ -150,8 +150,11 @@ describe.skipIf(!browser)('PDF/OCR viewport capture in Chromium', () => {
       const stale=capture.status==='captured'&&!capture.isCurrent();session.dispose();
       parent.postMessage({type:'capture-result',result:{before,expected:{format:'pdf',pageIndex:0,blockOrder,offset},resolved:resolved.status,focusSafe,stale}},'*');await task.destroy();
     `, true)
-    expect(result.before.status).toBe('captured'); expect(result.before.point).toEqual(result.expected)
-    expect(result.resolved).toBe('resolved'); expect(result.focusSafe).toBe(true); expect(result.stale).toBe(true)
+    expect(result.before.status).toBe('captured')
+    expect(result.before.point).toEqual(result.expected)
+    expect(result.resolved).toBe('resolved')
+    expect(result.focusSafe).toBe(true)
+    expect(result.stale).toBe(true)
   }, 30_000)
 
   it.each([{

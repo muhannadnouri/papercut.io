@@ -43,7 +43,8 @@ export function NearbySessions({ interfaceId, mode, disabled, onSelect }: {
       return
     }
     const attempt = generation.current
-    let disposed = false; let polling = false
+    let disposed = false
+    let polling = false
     const timer = window.setInterval(() => {
       if (polling) {
         return
@@ -51,7 +52,8 @@ export function NearbySessions({ interfaceId, mode, disabled, onSelect }: {
       polling = true
       void getTransferDiscovery(id).then(next => {
         if (!disposed && generation.current === attempt) {
-          setSnapshot(next); setFailed(!next)
+          setSnapshot(next)
+          setFailed(!next)
         }
       }).catch(() => {
         if (!disposed && generation.current === attempt) {
@@ -62,7 +64,8 @@ export function NearbySessions({ interfaceId, mode, disabled, onSelect }: {
       })
     }, 250)
     return () => {
-      disposed = true; window.clearInterval(timer)
+      disposed = true
+      window.clearInterval(timer)
     }
   }, [id, watching])
   async function browse() {
@@ -70,13 +73,16 @@ export function NearbySessions({ interfaceId, mode, disabled, onSelect }: {
       return
     }
     generation.current += 1
-    setPending(true); setFailed(false)
+    setPending(true)
+    setFailed(false)
     try {
       const next = await startTransferDiscovery(interfaceId, mode)
       if (!alive.current) {
-        await stopTransferDiscovery(next.id); return
+        await stopTransferDiscovery(next.id)
+        return
       }
-      session.current = next.id; setSnapshot(next)
+      session.current = next.id
+      setSnapshot(next)
     } catch {
       if (alive.current) {
         setFailed(true)
@@ -91,7 +97,8 @@ export function NearbySessions({ interfaceId, mode, disabled, onSelect }: {
     if (!snapshot || disabled || pending) {
       return
     }
-    setPending(true); setFailed(false)
+    setPending(true)
+    setFailed(false)
     const name = snapshot.peers.find(candidate => candidate.id === peer)?.name ?? ''
     try {
       const address = await selectTransferPeer(snapshot.id, peer)

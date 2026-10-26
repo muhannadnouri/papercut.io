@@ -143,7 +143,8 @@ export function AppSettings({
       {searchOpen && (
         <AppDialog key="search" fallbackFocusRef={settingsButton} className="app-settings-search-dialog" title={t('settings.semantic.title')}
           showCloseButton onCancel={closeSettings} onBack={() => {
-            setOpen(true); setSearchOpen(false)
+            setOpen(true)
+            setSearchOpen(false)
           }}>
           <SearchModelSetup semantic={semanticSearch} />
         </AppDialog>

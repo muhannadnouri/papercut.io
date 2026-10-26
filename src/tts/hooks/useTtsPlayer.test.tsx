@@ -72,7 +72,8 @@ let audios: FakeAudio[]
 let player: ReturnType<typeof useTtsPlayer>
 let frames: Map<number, FrameRequestCallback>
 let unmount: (() => Promise<void>) | undefined
-let position: number; let playing: boolean
+let position: number
+let playing: boolean
 const nativeState = () => ({
   status: playing ? 'playing' : 'idle',
   currentTime: position,
@@ -86,7 +87,8 @@ class FakeAudio extends EventTarget {
   pause = vi.fn()
   play = vi.fn(async () => {})
   constructor() {
-    super(); audios.push(this)
+    super()
+    audios.push(this)
   }
 }
 type PreparedTarget = Awaited<ReturnType<Parameters<typeof createPlayAnywherePlayback>[0]['resolve']>>
@@ -110,9 +112,11 @@ const resolvedTarget = (isCurrent: () => boolean): PreparedTarget => ({
   isCurrent,
 })
 function deferred<T>() {
-  let resolve!: (value: T) => void; let reject!: (error: Error) => void
+  let resolve!: (value: T) => void
+  let reject!: (error: Error) => void
   const promise = new Promise<T>((yes, no) => {
-    resolve = yes; reject = no
+    resolve = yes
+    reject = no
   })
   return {
     promise,
@@ -129,29 +133,40 @@ async function mount(platform = 'linux', controls?: (result: ReturnType<typeof u
     }, [result])
     return controls?.(result) ?? null
   }
-  const element = document.createElement('div'); document.body.append(element)
+  const element = document.createElement('div')
+  document.body.append(element)
   const root = createRoot(element)
   await act(async () => root.render(<Harness />))
   audio = audios.at(-1)!
   unmount = async () => {
-    await act(async () => root.unmount()); unmount = undefined
+    await act(async () => root.unmount())
+    unmount = undefined
   }
 }
 async function frame() {
   await act(async () => {
-    const batch = [...frames.values()]; frames.clear(); batch.forEach(callback => callback(performance.now()))
+    const batch = [...frames.values()]
+    frames.clear()
+    batch.forEach(callback => callback(performance.now()))
   })
 }
 async function start(index?: number) {
   await act(async () => {
     player.speak(chunks, options, index)
-  }); await frame()
+  })
+  await frame()
 }
 beforeEach(() => {
-  vi.resetAllMocks(); audios = []; position = 0; playing = false; frames = new Map(); let id = 0
+  vi.resetAllMocks()
+  audios = []
+  position = 0
+  playing = false
+  frames = new Map()
+  let id = 0
   vi.stubGlobal('Audio', FakeAudio)
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
-    frames.set(++id, callback); return id
+    frames.set(++id, callback)
+    return id
   })
   vi.stubGlobal('cancelAnimationFrame', (key: number) => frames.delete(key))
   vi.stubGlobal('URL', class extends URL {
@@ -161,11 +176,14 @@ beforeEach(() => {
   vi.mocked(api.prepareNativeAudiobookPlayback).mockResolvedValue(playback)
   vi.mocked(native.initializeNativeAudio).mockImplementation(async () => nativeState())
   vi.mocked(native.setNativeAudioSource).mockImplementation(async () => {
-    position = 0; playing = false; return nativeState()
+    position = 0
+    playing = false
+    return nativeState()
   })
   vi.mocked(native.setNativeAudioRate).mockImplementation(async () => nativeState())
   vi.mocked(native.seekNativeAudio).mockImplementation(async target => {
-    position = target; return nativeState()
+    position = target
+    return nativeState()
   })
   vi.mocked(native.playNativeAudio).mockImplementation(async isCurrent => {
     if (isCurrent && !isCurrent()) {
@@ -175,14 +193,18 @@ beforeEach(() => {
     return nativeState()
   })
   vi.mocked(native.pauseNativeAudio).mockImplementation(async () => {
-    playing = false; return nativeState()
+    playing = false
+    return nativeState()
   })
   vi.mocked(native.getNativeAudioState).mockImplementation(async () => nativeState())
   vi.mocked(native.stopNativeAudio).mockResolvedValue()
   vi.mocked(native.disposeNativeAudio).mockResolvedValue()
 })
 afterEach(async () => {
-  await unmount?.(); vi.restoreAllMocks(); vi.unstubAllGlobals(); document.body.replaceChildren()
+  await unmount?.()
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  document.body.replaceChildren()
 })
 
 it.each([
@@ -308,13 +330,15 @@ it.each([
 
 describe('desktop target playback', () => {
   it('starts the canonical target first, keeps the complete sequence and prefetches only the next two chunks', async () => {
-    await mount(); await start(4)
+    await mount()
+    await start(4)
     expect(vi.mocked(api.getNativeSavedAudiobookChunk).mock.calls.map(call => call[2])).toEqual([4, 5, 6])
     expect(player.state.currentChunkIndex).toBe(4)
     expect(player.state.chunks).toEqual(chunks)
     expect(audio.currentTime).toBe(0)
     expect(audio.play).toHaveBeenCalledOnce()
-    await act(async () => audio.dispatchEvent(new Event('ended'))); await frame()
+    await act(async () => audio.dispatchEvent(new Event('ended')))
+    await frame()
     expect(player.state.currentChunkIndex).toBe(5)
   })
   it('keeps loading until play acknowledgement while prefetching the next two chunks', async () => {
@@ -359,13 +383,15 @@ describe('desktop target playback', () => {
     if (action === 'seek') {
       await act(async () => {
         player.playFromChunk(chunks, options, 1)
-      }); await frame()
+      })
+      await frame()
     }
     if (action === 'book') {
       await act(async () => player.speak(chunks, {
         ...options,
         documentUrl: '/other.html',
-      }, 2)); await frame()
+      }, 2))
+      await frame()
     }
     if (action === 'unmount') {
       await unmount!()
@@ -393,7 +419,8 @@ describe('desktop target playback', () => {
   })
   it('supersedes the start on Pause and acknowledges only the resumed attempt at its saved time', async () => {
     await mount()
-    const first = deferred<void>(); const resumed = deferred<void>()
+    const first = deferred<void>()
+    const resumed = deferred<void>()
     const onStarted = vi.fn()
     audio.play.mockReturnValueOnce(first.promise).mockReturnValueOnce(resumed.promise)
     await act(async () => {
@@ -415,7 +442,8 @@ describe('desktop target playback', () => {
     expect(onStarted).toHaveBeenCalledExactlyOnceWith('superseded')
   })
   it('defaults to zero and rejects malformed indices before touching the current audio', async () => {
-    await mount(); await start()
+    await mount()
+    await start()
     const calls = audio.pause.mock.calls.length
     for (const index of [-1, NaN, 0.1, Infinity, chunks.length]) {
       expect(player.speak(chunks, options, index)).toBe(false)
@@ -430,16 +458,21 @@ describe('desktop target playback', () => {
     vi.mocked(api.getNativeSavedAudiobookChunk).mockReturnValueOnce(pending.promise)
     await start(1)
     await act(async () => {
-      player.playFromChunk(chunks, options, 3); player.playFromChunk(chunks, options, 6)
-    }); await frame()
-    await act(async () => pending.reject(new Error('old corrupt chunk'))); await frame()
+      player.playFromChunk(chunks, options, 3)
+      player.playFromChunk(chunks, options, 6)
+    })
+    await frame()
+    await act(async () => pending.reject(new Error('old corrupt chunk')))
+    await frame()
     expect(player.state.currentChunkIndex).toBe(6)
     expect(player.state.status).toBe('playing')
   })
   it.each(['stop', 'unmount'])('does not play a late chunk after %s', async action => {
-    await mount(); const pending = deferred<SavedChunk | null>()
+    await mount()
+    const pending = deferred<SavedChunk | null>()
     vi.mocked(api.getNativeSavedAudiobookChunk).mockReturnValueOnce(pending.promise)
-    await act(async () => player.speak(chunks, options, 4)); await frame()
+    await act(async () => player.speak(chunks, options, 4))
+    await frame()
     if (action === 'stop') {
       await act(async () => player.stop())
     }
@@ -450,41 +483,54 @@ describe('desktop target playback', () => {
     expect(audio.play).not.toHaveBeenCalled()
   })
   it('resumes the current desktop time and ignores an old ended event while loading a different target', async () => {
-    await mount(); await start(2); audio.currentTime = 1.25
-    await act(async () => player.pause()); await act(async () => player.resume())
+    await mount()
+    await start(2)
+    audio.currentTime = 1.25
+    await act(async () => player.pause())
+    await act(async () => player.resume())
     expect(audio.currentTime).toBe(1.25)
     const pending = deferred<SavedChunk | null>()
     vi.mocked(api.getNativeSavedAudiobookChunk).mockReturnValueOnce(pending.promise)
     await act(async () => {
       player.playFromChunk(chunks, options, 6)
-    }); await frame()
+    })
+    await frame()
     await act(async () => audio.dispatchEvent(new Event('ended')))
-    await act(async () => pending.resolve({ wav: new ArrayBuffer(64) } as SavedChunk)); await frame()
+    await act(async () => pending.resolve({ wav: new ArrayBuffer(64) } as SavedChunk))
+    await frame()
     expect(player.state.currentChunkIndex).toBe(6)
   })
   it('does not let a late capability preload alter a newer playback job', async () => {
-    await mount(); const pending = deferred<api.NativeTtsCapabilities>()
+    await mount()
+    const pending = deferred<api.NativeTtsCapabilities>()
     vi.mocked(api.getNativeTtsCapabilities).mockReturnValueOnce(pending.promise)
-    await act(async () => player.preload()); await start(4)
+    await act(async () => player.preload())
+    await start(4)
     await act(async () => pending.resolve({
       platform: 'android',
       available: false,
       reason: 'old reply',
     } as api.NativeTtsCapabilities))
-    expect(player.state.status).toBe('playing'); expect(player.state.currentChunkIndex).toBe(4)
+    expect(player.state.status).toBe('playing')
+    expect(player.state.currentChunkIndex).toBe(4)
   })
   it('surfaces missing chunks and decoder rejection without falling back to zero', async () => {
-    await mount(); vi.mocked(api.getNativeSavedAudiobookChunk).mockResolvedValueOnce(null)
-    await start(4); expect(player.state.status).toBe('error'); expect(audio.play).not.toHaveBeenCalled()
+    await mount()
+    vi.mocked(api.getNativeSavedAudiobookChunk).mockResolvedValueOnce(null)
+    await start(4)
+    expect(player.state.status).toBe('error')
+    expect(audio.play).not.toHaveBeenCalled()
     audio.play.mockRejectedValueOnce(new Error('corrupt WAV'))
-    await start(4); expect(player.state.status).toBe('error')
+    await start(4)
+    expect(player.state.status).toBe('error')
     expect(vi.mocked(api.getNativeSavedAudiobookChunk).mock.calls.every(call => call[2] >= 4)).toBe(true)
   })
 })
 
 describe('native target playback', () => {
   it('sets source/rate and seeks the real target start before playing, with all canonical chunks', async () => {
-    await mount('android'); await start(4)
+    await mount('android')
+    await start(4)
     expect(api.prepareNativeAudiobookPlayback).toHaveBeenCalledWith(options.documentUrl, chunks, options)
     expect(native.seekNativeAudio).toHaveBeenCalledWith(10, expect.any(Function))
     expect(vi.mocked(native.setNativeAudioSource).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(native.setNativeAudioRate).mock.invocationCallOrder[0])
@@ -493,24 +539,30 @@ describe('native target playback', () => {
     expect(player.state.currentChunkTime).toBe(0)
   })
   it('reuses an active paused session for explicit seek-and-play while Resume preserves time and ordinary jump stays paused', async () => {
-    await mount('ios'); await start(2)
-    await act(async () => player.pause()); position = 4.25
+    await mount('ios')
+    await start(2)
+    await act(async () => player.pause())
+    position = 4.25
     await act(async () => player.resume())
     expect(position).toBe(4.25)
     await act(async () => player.pause())
     const calls = vi.mocked(native.playNativeAudio).mock.calls.length
-    await act(async () => player.jumpToChunk(3)); await frame()
+    await act(async () => player.jumpToChunk(3))
+    await frame()
     expect(native.playNativeAudio).toHaveBeenCalledTimes(calls)
     expect(player.state.status).toBe('paused')
     await act(async () => {
       player.playFromChunk(chunks, options, 5)
-    }); await frame()
-    expect(position).toBe(15); expect(player.state.status).toBe('playing')
+    })
+    await frame()
+    expect(position).toBe(15)
+    expect(player.state.status).toBe('playing')
     expect(api.prepareNativeAudiobookPlayback).toHaveBeenCalledOnce()
     expect(native.setNativeAudioSource).toHaveBeenCalledOnce()
   })
   it('starts a new session when canonical hashes or audio options change', async () => {
-    await mount('android'); await start(2)
+    await mount('android')
+    await start(2)
     const changed = chunks.map(chunk => ({
       ...chunk,
       textHash: 'new-' + chunk.id,
@@ -528,20 +580,27 @@ describe('native target playback', () => {
     expect(api.prepareNativeAudiobookPlayback).toHaveBeenCalledTimes(3)
   })
   it('keeps only the newest active seek and does not let a late previous-book reply alter the replacement', async () => {
-    await mount('android'); await start(1)
+    await mount('android')
+    await start(1)
     const pending = deferred<native.NativeAudioState>()
     vi.mocked(native.seekNativeAudio).mockReturnValueOnce(pending.promise)
     await act(async () => {
       player.playFromChunk(chunks, options, 2)
-    }); await frame()
+    })
+    await frame()
     await act(async () => {
-      player.playFromChunk(chunks, options, 4); player.playFromChunk(chunks, options, 6)
-    }); await frame()
-    await act(async () => pending.resolve(nativeState())); await frame()
-    expect(position).toBe(21); expect(player.state.currentChunkIndex).toBe(6)
+      player.playFromChunk(chunks, options, 4)
+      player.playFromChunk(chunks, options, 6)
+    })
+    await frame()
+    await act(async () => pending.resolve(nativeState()))
+    await frame()
+    expect(position).toBe(21)
+    expect(player.state.currentChunkIndex).toBe(6)
     const previous = deferred<native.NativeAudioState>()
     vi.mocked(native.seekNativeAudio).mockReturnValueOnce(previous.promise)
-    await act(async () => player.jumpToChunk(3)); await frame()
+    await act(async () => player.jumpToChunk(3))
+    await frame()
     await act(async () => player.speak(chunks, {
       ...options,
       documentUrl: '/other.html',
@@ -580,19 +639,27 @@ describe('native target playback', () => {
       play: native.playNativeAudio,
     }[phase]!
     vi.mocked(operation).mockRejectedValueOnce(new Error(phase + ' failed'))
-    await start(4); expect(player.state.status).toBe('error')
+    await start(4)
+    expect(player.state.status).toBe('error')
   })
   it('preserves rapid relative skips while coalescing bridge navigation', async () => {
-    await mount('android'); await start(1)
+    await mount('android')
+    await start(1)
     await act(async () => {
-      player.skipForward(); player.skipForward(); player.skipForward()
-    }); await frame()
+      player.skipForward()
+      player.skipForward()
+      player.skipForward()
+    })
+    await frame()
     expect(player.state.currentChunkIndex).toBe(4)
   })
   it('does not play before initial preparation finishes when Pause/Resume occurs during loading', async () => {
-    await mount('android'); const pending = deferred<api.NativeAudiobookPlayback>()
+    await mount('android')
+    const pending = deferred<api.NativeAudiobookPlayback>()
     vi.mocked(api.prepareNativeAudiobookPlayback).mockReturnValueOnce(pending.promise)
-    await start(4); await act(async () => player.pause()); await act(async () => player.resume())
+    await start(4)
+    await act(async () => player.pause())
+    await act(async () => player.resume())
     expect(native.playNativeAudio).not.toHaveBeenCalled()
     await act(async () => pending.resolve(playback))
     expect(native.seekNativeAudio).toHaveBeenLastCalledWith(10, expect.any(Function))
@@ -600,19 +667,23 @@ describe('native target playback', () => {
     expect(player.state.status).toBe('playing')
   })
   it('ignores late play replies after Stop', async () => {
-    await mount('android'); const pending = deferred<native.NativeAudioState>()
+    await mount('android')
+    const pending = deferred<native.NativeAudioState>()
     vi.mocked(native.playNativeAudio).mockReturnValueOnce(pending.promise)
-    await start(4); await act(async () => player.stop())
+    await start(4)
+    await act(async () => player.stop())
     await act(async () => pending.resolve({
       ...nativeState(),
       currentTime: 10,
       isPlaying: true,
       status: 'playing',
     }))
-    expect(player.state.status).toBe('idle'); expect(player.state.currentChunkIndex).toBeNull()
+    expect(player.state.status).toBe('idle')
+    expect(player.state.currentChunkIndex).toBeNull()
   })
   it('does not enqueue a seek after Stop during foreground synchronization', async () => {
-    await mount('android'); await start(1)
+    await mount('android')
+    await start(1)
     const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
     await act(async () => document.dispatchEvent(new Event('visibilitychange')))
     const pending = deferred<native.NativeAudioState>()
@@ -622,16 +693,21 @@ describe('native target playback', () => {
     const seekCount = vi.mocked(native.seekNativeAudio).mock.calls.length
     await act(async () => {
       player.playFromChunk(chunks, options, 4)
-    }); await act(async () => player.stop())
-    await act(async () => pending.resolve(nativeState())); await frame()
+    })
+    await act(async () => player.stop())
+    await act(async () => pending.resolve(nativeState()))
+    await frame()
     expect(native.seekNativeAudio).toHaveBeenCalledTimes(seekCount)
   })
   it('rejects a track for a different canonical sequence before setting its source', async () => {
-    await mount('android'); vi.mocked(api.prepareNativeAudiobookPlayback).mockResolvedValue({
+    await mount('android')
+    vi.mocked(api.prepareNativeAudiobookPlayback).mockResolvedValue({
       ...playback,
       chunks: playback.chunks.slice(1),
     })
-    await start(4); expect(player.state.status).toBe('error'); expect(native.setNativeAudioSource).not.toHaveBeenCalled()
+    await start(4)
+    expect(player.state.status).toBe('error')
+    expect(native.setNativeAudioSource).not.toHaveBeenCalled()
   })
 })
 
@@ -641,20 +717,24 @@ describe('command epoch and start tickets', () => {
     let ticket!: ReturnType<typeof player.playFromChunk>
     await act(async () => {
       ticket = player.playFromChunk(chunks, options, index)
-    }); await frame()
+    })
+    await frame()
     const settled = vi.fn<(start: Start) => void>()
     void ticket!.then(settled)
     return settled
   }
   it('replaces the command signal on every public command but not on automatic advance', async () => {
-    await mount(); await start(2)
+    await mount()
+    await start(2)
     const signal = player.commandSignal()
-    await act(async () => audio.dispatchEvent(new Event('ended'))); await frame()
+    await act(async () => audio.dispatchEvent(new Event('ended')))
+    await frame()
     expect(player.state.currentChunkIndex).toBe(3)
     expect(signal.aborted).toBe(false)
     for (const command of [player.pause, player.resume, player.skipForward, player.skipBackward, () => player.jumpToChunk(1), player.stop]) {
       const before = player.commandSignal()
-      await act(async () => command()); await frame()
+      await act(async () => command())
+      await frame()
       expect(before.aborted).toBe(true)
       expect(player.commandSignal().aborted).toBe(false)
     }
@@ -662,11 +742,14 @@ describe('command epoch and start tickets', () => {
   it('keeps a live command epoch after StrictMode replays effects', async () => {
     vi.mocked(api.getNativeTtsCapabilities).mockResolvedValue({ platform: 'linux' } as api.NativeTtsCapabilities)
     function Harness() {
-      const result = useTtsPlayer(); useLayoutEffect(() => {
+      const result = useTtsPlayer()
+      useLayoutEffect(() => {
         player = result
-      }, [result]); return null
+      }, [result])
+      return null
     }
-    const element = document.createElement('div'); document.body.append(element)
+    const element = document.createElement('div')
+    document.body.append(element)
     const root = createRoot(element)
     await act(async () => root.render(<StrictMode><Harness /></StrictMode>))
     try {
@@ -677,7 +760,8 @@ describe('command epoch and start tickets', () => {
   })
   it.each(['linux', 'android'])('settles started only after the play acknowledgement on %s', async platform => {
     await mount(platform)
-    const pending = deferred<void>(); const nativePending = deferred<native.NativeAudioState>()
+    const pending = deferred<void>()
+    const nativePending = deferred<native.NativeAudioState>()
     if (platform === 'linux') {
       audio.play.mockReturnValueOnce(pending.promise)
     } else {
@@ -686,12 +770,15 @@ describe('command epoch and start tickets', () => {
     const settled = await dispatch(4)
     expect(settled).not.toHaveBeenCalled()
     await act(async () => {
-      pending.resolve(); playing = true; nativePending.resolve(nativeState())
+      pending.resolve()
+      playing = true
+      nativePending.resolve(nativeState())
     })
     expect(settled).toHaveBeenCalledExactlyOnceWith('started')
   })
   it.each(['pause', 'stop', 'skip', 'jump', 'target', 'unmount'])('settles superseded when %s precedes the acknowledgement', async action => {
-    await mount(); const pending = deferred<void>()
+    await mount()
+    const pending = deferred<void>()
     audio.play.mockReturnValueOnce(pending.promise)
     const settled = await dispatch(4)
     if (action === 'pause') {
@@ -730,7 +817,8 @@ describe('command epoch and start tickets', () => {
     expect(settled).toHaveBeenCalledExactlyOnceWith('failed')
   })
   it.each(['linux', 'android'])('lets any playback command cancel a target still preparing on %s, without a wrapper', async platform => {
-    await mount(platform); await start(1)
+    await mount(platform)
+    await start(1)
     const pending = deferred<PreparedTarget>()
     const scope = createPlayAnywherePlayback({
       complete: true,
@@ -753,7 +841,8 @@ describe('command epoch and start tickets', () => {
   it.each(['linux', 'android'])('does not re-check passage validity after dispatch on %s', async platform => {
     await mount(platform)
     let valid = true
-    const demand = deferred<SavedChunk | null>(); const prepared = deferred<api.NativeAudiobookPlayback>()
+    const demand = deferred<SavedChunk | null>()
+    const prepared = deferred<api.NativeAudiobookPlayback>()
     if (platform === 'linux') {
       vi.mocked(api.getNativeSavedAudiobookChunk).mockReturnValueOnce(demand.promise)
     } else {
@@ -770,15 +859,18 @@ describe('command epoch and start tickets', () => {
     let result!: Awaited<ReturnType<typeof scope.playFromHere>>
     await act(async () => {
       result = await scope.playFromHere({ captureViewport: async () => htmlCapture })
-    }); await frame()
+    })
+    await frame()
     if (result.status !== 'dispatched') {
       throw new Error('Expected dispatch')
     }
     // Android's first-play permission dialog hides the page and invalidates the capture here.
     valid = false
     await act(async () => {
-      demand.resolve({ wav: new ArrayBuffer(64) } as SavedChunk); prepared.resolve(playback)
-    }); await frame()
+      demand.resolve({ wav: new ArrayBuffer(64) } as SavedChunk)
+      prepared.resolve(playback)
+    })
+    await frame()
     expect(player.state.status).toBe('playing')
     expect(player.state.currentChunkIndex).toBe(4)
     expect(await result.started).toBe('started')
@@ -786,18 +878,23 @@ describe('command epoch and start tickets', () => {
   // Visible buttons stay gated during startup; any other path that reaches skip must not idle playback.
   it.each(['linux', 'android'])('keeps playing and navigates when skip reaches a dispatched startup on %s', async platform => {
     await mount(platform)
-    const browserPlay = deferred<void>(); const prepared = deferred<api.NativeAudiobookPlayback>()
+    const browserPlay = deferred<void>()
+    const prepared = deferred<api.NativeAudiobookPlayback>()
     if (platform === 'linux') {
       audio.play.mockReturnValueOnce(browserPlay.promise)
     } else {
       vi.mocked(api.prepareNativeAudiobookPlayback).mockReturnValueOnce(prepared.promise)
     }
     const settled = await dispatch(4)
-    await act(async () => player.skipForward()); await frame()
+    await act(async () => player.skipForward())
+    await frame()
     await act(async () => {
-      browserPlay.resolve(); prepared.resolve(playback)
-    }); await frame()
-    await act(async () => player.skipForward()); await frame()
+      browserPlay.resolve()
+      prepared.resolve(playback)
+    })
+    await frame()
+    await act(async () => player.skipForward())
+    await frame()
     expect(player.state.status).toBe('playing')
     expect(player.state.currentChunkIndex).toBe(platform === 'linux' ? 6 : 5)
     expect(settled).toHaveBeenCalledExactlyOnceWith('superseded')

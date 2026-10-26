@@ -75,7 +75,9 @@ beforeEach(() => {
   })
 })
 afterEach(() => {
-  vi.clearAllMocks(); vi.unstubAllGlobals(); document.body.replaceChildren()
+  vi.clearAllMocks()
+  vi.unstubAllGlobals()
+  document.body.replaceChildren()
 })
 
 it('does not set up PDF capture when no consumer requests it', async () => {
@@ -143,7 +145,9 @@ it('registers ready PDF capabilities and disposes them on URL replacement, opt-o
 it('highlights offscreen audio without moving PDF pages while browsing, then reveals on Return', async () => {
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => window.setTimeout(() => callback(0), 0))
   vi.stubGlobal('cancelAnimationFrame', window.clearTimeout)
-  const element = document.createElement('div'); document.body.append(element); const app = createRoot(element)
+  const element = document.createElement('div')
+  document.body.append(element)
+  const app = createRoot(element)
   let follow = false
   const spans = [{
     pageIndex: 1,
@@ -157,15 +161,19 @@ it('highlights offscreen audio without moving PDF pages while browsing, then rev
   }
   try {
     await act(async () => app.render(<PdfViewer url="one.pdf" pdfTtsHighlightSpans={spans} audioFollowPolicy={policy} />))
-    await act(() => vi.dynamicImportSettled()); await act(() => new Promise(resolve => setTimeout(resolve, 5)))
-    expect(applyPdfTtsHighlight).toHaveBeenCalled(); expect(scene.viewer?.currentPageNumber).toBe(1); expect(scene.scroll).not.toHaveBeenCalled()
+    await act(() => vi.dynamicImportSettled())
+    await act(() => new Promise(resolve => setTimeout(resolve, 5)))
+    expect(applyPdfTtsHighlight).toHaveBeenCalled()
+    expect(scene.viewer?.currentPageNumber).toBe(1)
+    expect(scene.scroll).not.toHaveBeenCalled()
     follow = true
     await act(async () => app.render(<PdfViewer url="one.pdf" pdfTtsHighlightSpans={spans} audioFollowPolicy={{
       ...policy,
       revision: 1,
     }} />))
     await act(() => new Promise(resolve => setTimeout(resolve, 5)))
-    expect(scene.viewer?.currentPageNumber).toBe(2); expect(scene.scroll).toHaveBeenCalledWith({
+    expect(scene.viewer?.currentPageNumber).toBe(2)
+    expect(scene.scroll).toHaveBeenCalledWith({
       block: 'center',
       behavior: 'smooth',
     })

@@ -59,13 +59,18 @@ const writeText = vi.fn()
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   vi.useFakeTimers()
-  container = document.createElement('div'); document.body.append(container); root = createRoot(container)
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
   vi.mocked(invoke).mockReset().mockResolvedValue(initial)
   writeText.mockReset().mockResolvedValue(undefined)
   vi.stubGlobal('navigator', { clipboard: { writeText } })
 })
 afterEach(async () => {
-  await act(() => root.unmount()); container.remove(); vi.useRealTimers(); vi.unstubAllGlobals()
+  await act(() => root.unmount())
+  container.remove()
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
 })
 
 it('copies only bounded diagnostic facts, never extra request, credential, path, address or item fields', () => {

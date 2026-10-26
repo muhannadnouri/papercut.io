@@ -1,6 +1,7 @@
 /** Observe input intent, never bare scroll events: audio reveals also scroll. */
 export function bindReaderBrowse(shell: HTMLElement, browse: () => void): () => void {
-  const doc = shell.ownerDocument; const view = doc.defaultView
+  const doc = shell.ownerDocument
+  const view = doc.defaultView
   if (!view) {
     return () => {}
   }
@@ -45,7 +46,8 @@ export function bindReaderBrowse(shell: HTMLElement, browse: () => void): () => 
     if (Math.hypot(event.clientX - pointer.x, event.clientY - pointer.y) < 5) {
       return
     }
-    browse(); pointer = null
+    browse()
+    pointer = null
   }
   const up = () => {
     pointer = null
@@ -81,8 +83,12 @@ export function bindReaderBrowse(shell: HTMLElement, browse: () => void): () => 
   doc.addEventListener('keydown', key, true)
   doc.addEventListener('click', click, true)
   return () => {
-    doc.removeEventListener('wheel', wheel, true); doc.removeEventListener('pointerdown', down, true)
-    doc.removeEventListener('pointermove', move, true); doc.removeEventListener('pointerup', up, true)
-    doc.removeEventListener('pointercancel', up, true); doc.removeEventListener('keydown', key, true); doc.removeEventListener('click', click, true)
+    doc.removeEventListener('wheel', wheel, true)
+    doc.removeEventListener('pointerdown', down, true)
+    doc.removeEventListener('pointermove', move, true)
+    doc.removeEventListener('pointerup', up, true)
+    doc.removeEventListener('pointercancel', up, true)
+    doc.removeEventListener('keydown', key, true)
+    doc.removeEventListener('click', click, true)
   }
 }

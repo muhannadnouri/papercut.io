@@ -26,7 +26,8 @@ export const browser = [process.env.CHROME_BIN, 'chromium', 'chromium-browser', 
       execFileSync(candidate, ['--version'], {
         stdio: 'ignore',
         timeout: 5000,
-      }); return true
+      })
+      return true
     } catch {
       return false
     }
@@ -41,11 +42,14 @@ export async function runBrowserFixture(directory: string, frame: string, width 
     '--allow-file-access-from-files', '--disable-dev-shm-usage', '--no-first-run', '--remote-debugging-pipe',
     `--user-data-dir=${join(directory, 'profile')}`, 'about:blank'],
   { stdio: ['ignore', 'ignore', 'pipe', 'pipe', 'pipe'] })
-  const input = child.stdio[3] as Writable; const output = child.stdio[4] as Readable
+  const input = child.stdio[3] as Writable
+  const output = child.stdio[4] as Readable
   const closed = new Promise<void>((resolve) => child.once('close', () => resolve()))
   const commands = new Map<number, { resolve: (value: Record<string, unknown>) => void;
     reject: (error: Error) => void }>()
-  let nextId = 0; let buffer = ''; let errors = ''
+  let nextId = 0
+  let buffer = ''
+  let errors = ''
   const decoder = new StringDecoder('utf8')
   child.stderr?.on('data', (data) => {
     errors = (errors + data).slice(-2000)
@@ -93,7 +97,8 @@ export async function runBrowserFixture(directory: string, frame: string, width 
       }) + '\0')
     })
   const timer = setTimeout(() => {
-    fail(new Error(`Browser fixture timed out: ${errors}`)); child.kill()
+    fail(new Error(`Browser fixture timed out: ${errors}`))
+    child.kill()
   }, 15_000)
   try {
     const target = await send('Target.createTarget', { url: 'about:blank' })
@@ -137,6 +142,8 @@ export async function runBrowserFixture(directory: string, frame: string, width 
     }
     return result
   } finally {
-    clearTimeout(timer); child.kill(); await closed
+    clearTimeout(timer)
+    child.kill()
+    await closed
   }
 }

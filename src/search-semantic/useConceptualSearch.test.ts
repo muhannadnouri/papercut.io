@@ -119,7 +119,8 @@ function pending() {
   let resolve!: (value: ConceptualResponse) => void
   let reject!: (reason: unknown) => void
   const promise = new Promise<ConceptualResponse>((done, fail) => {
-    resolve = done; reject = fail
+    resolve = done
+    reject = fail
   })
   return {
     promise,
@@ -128,7 +129,9 @@ function pending() {
   }
 }
 beforeEach(() => {
-  mocked.cursor = 0; mocked.slots = []; mocked.effects = []
+  mocked.cursor = 0
+  mocked.slots = []
+  mocked.effects = []
   mocked.invoke.mockReset().mockResolvedValue(response())
   mocked.isTauri.mockReset().mockReturnValue(true)
   options = {
@@ -162,7 +165,8 @@ it('does no work and renders no fallback while off, empty or invalid; unavailabl
       enabled: false,
     },
   })).toBeNull()
-  await settle(); expect(mocked.invoke).not.toHaveBeenCalled()
+  await settle()
+  expect(mocked.invoke).not.toHaveBeenCalled()
   render({
     semantic: {
       ...options.semantic,
@@ -171,11 +175,13 @@ it('does no work and renders no fallback while off, empty or invalid; unavailabl
     submittedQuery: '"unfinished',
   })
   expect(await settle()).toBeNull()
-  render({ submittedQuery: '' }); expect(await settle()).toBeNull()
+  render({ submittedQuery: '' })
+  expect(await settle()).toBeNull()
   render({
     submittedQuery: 'travel',
     queryError: 'tooLong',
-  }); expect(await settle()).toBeNull()
+  })
+  expect(await settle()).toBeNull()
   render({
     queryError: null,
     semantic: {
@@ -219,7 +225,8 @@ it('does no work and renders no fallback while off, empty or invalid; unavailabl
 })
 
 it('forwards complete authored clauses and all/empty/filtered scope, and reissues the same submitted query', async () => {
-  render(); expect((await settle())?.phase).toBe('ready')
+  render()
+  expect((await settle())?.phase).toBe('ready')
   expect(mocked.invoke).toHaveBeenLastCalledWith('search_semantic_query', {
     request: {
       query: 'evening travel',
@@ -233,20 +240,23 @@ it('forwards complete authored clauses and all/empty/filtered scope, and reissue
       revision: 2,
       scope: '',
     },
-  }); await settle()
+  })
+  await settle()
   expect(mocked.invoke).toHaveBeenCalledTimes(2)
   // Scope changes arrive before App reruns lexical search; avoid an extra native reservation.
   expect(render({
     scopeActive: true,
     scopeUrls: new Set(['/uploads/guide.html']),
   })).toBeNull()
-  await settle(); expect(mocked.invoke).toHaveBeenCalledTimes(2)
+  await settle()
+  expect(mocked.invoke).toHaveBeenCalledTimes(2)
   render({
     searchRequest: {
       revision: 3,
       scope: '["/uploads/guide.html"]',
     },
-  }); await settle()
+  })
+  await settle()
   expect(mocked.invoke.mock.calls.at(-1)?.[1].request.documentUrls).toEqual(['/uploads/guide.html'])
   render({
     scopeUrls: new Set(),
@@ -254,7 +264,8 @@ it('forwards complete authored clauses and all/empty/filtered scope, and reissue
       revision: 4,
       scope: '[]',
     },
-  }); await settle()
+  })
+  await settle()
   expect(mocked.invoke.mock.calls.at(-1)?.[1].request.documentUrls).toEqual([])
   render({
     scopeActive: false,
@@ -263,7 +274,8 @@ it('forwards complete authored clauses and all/empty/filtered scope, and reissue
       scope: '',
     },
     submittedQuery: '"electric bus"',
-  }); await settle()
+  })
+  await settle()
   expect(mocked.invoke.mock.calls.at(-1)?.[1].request).toMatchObject({
     query: '',
     exactPhrases: ['electric bus'],
@@ -272,28 +284,34 @@ it('forwards complete authored clauses and all/empty/filtered scope, and reissue
 })
 
 it('ignores stale A → B → A, disable, library mutation and unmount completions', async () => {
-  const a = pending(); const latest = pending(); const edited = pending()
+  const a = pending()
+  const latest = pending()
+  const edited = pending()
   mocked.invoke.mockReturnValueOnce(a.promise)
     .mockReturnValueOnce(latest.promise).mockReturnValueOnce(edited.promise)
-  render({ submittedQuery: 'alpha' }); await settle()
+  render({ submittedQuery: 'alpha' })
+  await settle()
   render({
     submittedQuery: 'beta',
     searchRequest: {
       revision: 2,
       scope: '',
     },
-  }); await settle()
+  })
+  await settle()
   render({
     submittedQuery: 'alpha',
     searchRequest: {
       revision: 3,
       scope: '',
     },
-  }); await settle()
+  })
+  await settle()
   expect(mocked.invoke).toHaveBeenCalledTimes(1)
   a.resolve(response())
   expect((await settle())?.phase).toBe('loading')
-  latest.resolve(response()); expect((await settle())?.phase).toBe('ready')
+  latest.resolve(response())
+  expect((await settle())?.phase).toBe('ready')
   expect(render({
     library: [{
       title: 'Edited',
@@ -307,23 +325,29 @@ it('ignores stale A → B → A, disable, library mutation and unmount completio
       enabled: false,
     },
   })).toBeNull()
-  edited.resolve(response()); expect(await settle()).toBeNull()
-  const abandoned = pending(); mocked.invoke.mockReturnValueOnce(abandoned.promise)
+  edited.resolve(response())
+  expect(await settle()).toBeNull()
+  const abandoned = pending()
+  mocked.invoke.mockReturnValueOnce(abandoned.promise)
   render({
     semantic: {
       ...options.semantic,
       enabled: true,
     },
-  }); await settle(); unmount()
+  })
+  await settle()
+  unmount()
   const before = [...mocked.slots]
-  abandoned.resolve(response()); for (let i = 0; i < 12; i++) {
+  abandoned.resolve(response())
+  for (let i = 0; i < 12; i++) {
     await Promise.resolve()
   }
   expect(mocked.slots).toEqual(before)
 })
 
 it('coalesces replacements behind the native single slot and drains the latest scoped clauses after failure', async () => {
-  const first = pending(); const latest = pending()
+  const first = pending()
+  const latest = pending()
   const requests = [first, latest]
   let running = false
   mocked.invoke.mockImplementation(() => {
@@ -335,14 +359,16 @@ it('coalesces replacements behind the native single slot and drains the latest s
       running = false
     })
   })
-  render(); await settle()
+  render()
+  await settle()
   render({
     submittedQuery: 'obsolete',
     searchRequest: {
       revision: 2,
       scope: '',
     },
-  }); await settle()
+  })
+  await settle()
   const scope = '["/uploads/guide.html"]'
   render({
     submittedQuery: 'morning travel "electric bus"',
@@ -355,7 +381,8 @@ it('coalesces replacements behind the native single slot and drains the latest s
   })
   expect((await settle())?.phase).toBe('loading')
   expect(mocked.invoke).toHaveBeenCalledTimes(1)
-  first.reject('old native query failed'); await settle()
+  first.reject('old native query failed')
+  await settle()
   expect(mocked.invoke).toHaveBeenCalledTimes(2)
   expect(mocked.invoke).toHaveBeenLastCalledWith('search_semantic_query', {
     request: {
@@ -366,20 +393,23 @@ it('coalesces replacements behind the native single slot and drains the latest s
     },
   })
   expect((await settle())?.phase).toBe('loading')
-  latest.resolve(response()); expect((await settle())?.phase).toBe('ready')
+  latest.resolve(response())
+  expect((await settle())?.phase).toBe('ready')
 })
 
 it.each(['disabled', 'invalid', 'scope-pending', 'preparing', 'unavailable', 'unmount'])('drops a queued replacement when %s before the running call settles', async (reason) => {
   const first = pending()
   mocked.invoke.mockReturnValue(first.promise)
-  render(); await settle()
+  render()
+  await settle()
   render({
     submittedQuery: 'queued travel',
     searchRequest: {
       revision: 2,
       scope: '',
     },
-  }); await settle()
+  })
+  await settle()
   if (reason === 'disabled') {
     render({
       semantic: {
@@ -433,7 +463,8 @@ it('distinguishes empty ready results from missing/incompatible/partial/error le
       },
     })
     const state = await settle()
-    expect(state?.phase).toBe('fallback'); expect(state?.reason).toBe(availability)
+    expect(state?.phase).toBe('fallback')
+    expect(state?.reason).toBe(availability)
     expect(state?.response?.indexedDocuments).toBe(1)
   }
   mocked.invoke.mockRejectedValue('native query failed')
@@ -464,7 +495,10 @@ it('StrictMode effect replay reserves just one query and normal rerenders do not
   render()
   const effect = mocked.slots.at(-1) as { effect: () => (() => void);
     cleanup: () => void }
-  effect.cleanup(); effect.cleanup = effect.effect()
-  await settle(); render(); await settle()
+  effect.cleanup()
+  effect.cleanup = effect.effect()
+  await settle()
+  render()
+  await settle()
   expect(mocked.invoke).toHaveBeenCalledTimes(1)
 })

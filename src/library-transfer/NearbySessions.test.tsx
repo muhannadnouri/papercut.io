@@ -19,7 +19,9 @@ vi.mock('@tauri-apps/api/core', () => ({
 }))
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
 import { NearbySessions } from './NearbySessions'
-let root: Root; let container: HTMLDivElement; let snapshot: TransferDiscoverySnapshot
+let root: Root
+let container: HTMLDivElement
+let snapshot: TransferDiscoverySnapshot
 const selected = vi.fn()
 const peer = {
   id: 'session',
@@ -27,9 +29,13 @@ const peer = {
   addresses: ['192.168.1.3:53318'],
 }
 beforeEach(() => {
-  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true); vi.useFakeTimers()
-  container = document.createElement('div'); document.body.append(container); root = createRoot(container)
-  selected.mockReset(); snapshot = {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  vi.useFakeTimers()
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+  selected.mockReset()
+  snapshot = {
     id: 1,
     state: 'searching',
     name: null,
@@ -49,7 +55,10 @@ beforeEach(() => {
   })
 })
 afterEach(async () => {
-  await act(() => root.unmount()); container.remove(); vi.useRealTimers(); vi.unstubAllGlobals()
+  await act(() => root.unmount())
+  container.remove()
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
 })
 async function mount() {
   await act(() => root.render(<NearbySessions interfaceId="42:wlan0" mode="push" disabled={false} onSelect={selected} />))
@@ -62,7 +71,8 @@ async function poll() {
 }
 
 it('starts only by request and selects an untrusted plain-text label without connecting or changing mode', async () => {
-  await mount(); expect(ipc.invoke).not.toHaveBeenCalled()
+  await mount()
+  expect(ipc.invoke).not.toHaveBeenCalled()
   await click('libraryTransfer.nearby.find')
   expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_discovery_start', {
     request: {
@@ -73,8 +83,10 @@ it('starts only by request and selects an untrusted plain-text label without con
   snapshot = {
     ...snapshot,
     peers: [peer],
-  }; await poll()
-  expect(container.textContent).toContain(peer.name); expect(container.querySelector('b')).toBeNull()
+  }
+  await poll()
+  expect(container.textContent).toContain(peer.name)
+  expect(container.querySelector('b')).toBeNull()
   expect(selected).not.toHaveBeenCalled()
   await click(peer.name)
   expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_discovery_select', {
@@ -89,22 +101,27 @@ it('removes lost peers and surfaces a rejected stale selection without using cac
   snapshot = {
     ...snapshot,
     peers: [peer],
-  }; await mount(); await click('libraryTransfer.nearby.find')
+  }
+  await mount()
+  await click('libraryTransfer.nearby.find')
   const fallback = ipc.invoke.getMockImplementation()!
   ipc.invoke.mockImplementation((command: string, args: unknown) => command === 'library_transfer_discovery_select'
     ? Promise.reject(new Error('private endpoint detail')) : fallback(command, args))
   await click(peer.name)
-  expect(selected).not.toHaveBeenCalled(); expect(container.querySelector('[role="alert"]')?.textContent).toBe('libraryTransfer.nearby.unavailable')
+  expect(selected).not.toHaveBeenCalled()
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe('libraryTransfer.nearby.unavailable')
   expect(container.textContent).not.toContain('private endpoint detail')
   snapshot = {
     ...snapshot,
     peers: [],
-  }; await poll()
+  }
+  await poll()
   expect(container.textContent).not.toContain(peer.name)
 })
 
 it('cannot revive an old peer list with a poll that completes after Refresh', async () => {
-  await mount(); await click('libraryTransfer.nearby.find')
+  await mount()
+  await click('libraryTransfer.nearby.find')
   let release!: (value: unknown) => void
   const fallback = ipc.invoke.getMockImplementation()!
   ipc.invoke.mockImplementation((command: string, args: unknown) => command === 'library_transfer_discovery_status'
@@ -127,7 +144,8 @@ it('cannot revive an old peer list with a poll that completes after Refresh', as
     id: 1,
     peers: [peer],
   }))
-  expect(container.textContent).toContain('New Session'); expect(container.textContent).not.toContain(peer.name)
+  expect(container.textContent).toContain('New Session')
+  expect(container.textContent).not.toContain(peer.name)
   await click('New Session')
   expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_discovery_select', {
     id: 2,
@@ -142,7 +160,9 @@ it('disposes a native browser even when its start response arrives after the dia
     ? new Promise(resolve => {
       release = resolve
     }) : fallback(command, args))
-  await mount(); await click('libraryTransfer.nearby.find'); await act(() => root.unmount())
+  await mount()
+  await click('libraryTransfer.nearby.find')
+  await act(() => root.unmount())
   await act(() => release(snapshot))
   expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_discovery_stop', { id: 1 })
   expect(selected).not.toHaveBeenCalled()
@@ -153,7 +173,9 @@ it.each(['denied', 'unsupported', 'unavailable', 'limited'] as const)('shows %s 
     ...snapshot,
     state,
     peers: [],
-  }; await mount(); await click('libraryTransfer.nearby.find')
+  }
+  await mount()
+  await click('libraryTransfer.nearby.find')
   expect(container.textContent).toContain(`libraryTransfer.nearby.${state}`)
   expect(selected).not.toHaveBeenCalled()
   await act(() => root.unmount())

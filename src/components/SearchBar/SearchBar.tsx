@@ -40,7 +40,8 @@ export function SearchBar({
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !submitDisabled) {
-              e.preventDefault(); onSubmit()
+              e.preventDefault()
+              onSubmit()
             }
           }}
           disabled={disabled}

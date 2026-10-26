@@ -265,7 +265,8 @@ export function locatorRangeIsIgnorable(locator: ReadableDomTextLocatorIndex, st
   if (!isSentencePunctuationOrSpace(text)) {
     return false
   }
-  const from = matchOffsetAtOrAfterGlobalOffset(locator, start); const to = matchOffsetAtOrAfterGlobalOffset(locator, end)
+  const from = matchOffsetAtOrAfterGlobalOffset(locator, start)
+  const to = matchOffsetAtOrAfterGlobalOffset(locator, end)
   return from < 0 || !locator.matchText.slice(from, to < 0 ? undefined : to).trim()
 }
 

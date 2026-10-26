@@ -107,7 +107,8 @@ export function SearchModelSetup({ semantic }: { semantic: SemanticSearchControl
       }
     }).then(async (stop) => {
       if (closed) {
-        stop(); return
+        stop()
+        return
       }
       unlisten = stop
       await refresh()
@@ -219,7 +220,8 @@ export function SearchModelSetup({ semantic }: { semantic: SemanticSearchControl
       await refresh()
     } catch (err) {
       if (mounted.current) {
-        setError(String(err)); setCancelling(false)
+        setError(String(err))
+        setCancelling(false)
       }
     }
   }

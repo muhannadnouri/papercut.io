@@ -23,7 +23,8 @@ import {
   runBrowserFixture,
 } from './browserCaptureFixture'
 
-let directory: string; let bundle: string
+let directory: string
+let bundle: string
 beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), 'papercut-preparation-'))
   const entry = join(directory, 'entry.ts')

@@ -163,7 +163,8 @@ export function createHtmlTextTargetApi(
           reason: 'unmapped',
         }
       }
-      const built = getIndex(); const version = revision
+      const built = getIndex()
+      const version = revision
       const segmentIndex = built.textSegments.get(start.node)
       const segment = segmentIndex === undefined ? undefined : built.dom.segments[segmentIndex]
       const point = segment && normalizeDomTextPoint(segment.textNodes, start.node, start.offset)
@@ -287,7 +288,8 @@ export function createHtmlTextTargetApi(
           try {
             finish()
           } catch (error) {
-            pending = null; reject(error)
+            pending = null
+            reject(error)
           }
         }
         pending = {

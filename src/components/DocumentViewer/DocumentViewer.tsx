@@ -626,13 +626,16 @@ export function DocumentViewer({
           currentIndex={findCurrentIndex}
           inputRef={findInputRef}
           onChange={(query) => {
-            onReaderBrowse?.(); handleFind(query)
+            onReaderBrowse?.()
+            handleFind(query)
           }}
           onNext={() => {
-            onReaderBrowse?.(); findNext()
+            onReaderBrowse?.()
+            findNext()
           }}
           onPrev={() => {
-            onReaderBrowse?.(); findPrev()
+            onReaderBrowse?.()
+            findPrev()
           }}
           onClose={closeFind}
         />
@@ -694,7 +697,8 @@ export function DocumentViewer({
             onMove={moveBookmark}
             onRemove={removeBookmark}
             onRestore={() => {
-              onReaderBrowse?.(); returnToBookmark()
+              onReaderBrowse?.()
+              returnToBookmark()
             }}
             onSave={saveBookmark}
           />

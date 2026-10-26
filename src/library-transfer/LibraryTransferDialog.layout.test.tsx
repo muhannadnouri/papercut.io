@@ -53,7 +53,8 @@ const browser = [process.env.CHROME_BIN, 'chromium', 'chromium-browser', 'google
       execFileSync(candidate, ['--version'], {
         stdio: 'ignore',
         timeout: 5000,
-      }); return true
+      })
+      return true
     } catch {
       return false
     }
@@ -178,7 +179,8 @@ describe.skipIf(!browser)('transfer dialog browser layout', () => {
     it.each([false, true])(`keeps controls visible/reachable at ${viewport.width}×${viewport.height}, ${viewport.font}px ${viewport.dir}, connector=%s`, connector => {
       const directory = mkdtempSync(join(tmpdir(), 'papercut-dialog-layout-'))
       try {
-        const path = join(directory, 'fixture.html'); const frame = join(directory, 'frame.html')
+        const path = join(directory, 'fixture.html')
+        const frame = join(directory, 'frame.html')
         writeFileSync(frame, `<!doctype html><html dir="${viewport.dir}"><meta charset="utf-8"><style>
           :root {font-size:${viewport.font}px;--mobile-safe-top-space:1.35rem;--control-surface:#303640;--surface-muted:#20242a;--surface-accent:#363367;
           --text-body:#ddd;--accent-text:#bbf;--accent-strong:#ccf;--text-soft:#888;--radius-control:8px;--shadow-focus:#8899ff}

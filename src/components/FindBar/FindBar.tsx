@@ -37,9 +37,11 @@ export function FindBar({
           if (e.key === 'Escape') {
             onClose()
           } else if (e.key === 'Enter' && e.shiftKey) {
-            e.preventDefault(); onPrev()
+            e.preventDefault()
+            onPrev()
           } else if (e.key === 'Enter') {
-            e.preventDefault(); onNext()
+            e.preventDefault()
+            onNext()
           }
         }}
       />

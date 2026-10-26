@@ -83,7 +83,8 @@ export function* narrationMatchIndexSteps(text: string): Generator<void, { match
       offset += char.length
       batchUnits += char.length
       if (batchUnits >= 2048) {
-        batchUnits = 0; yield
+        batchUnits = 0
+        yield
       }
     }
   }

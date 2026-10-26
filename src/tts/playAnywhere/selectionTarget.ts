@@ -1,7 +1,8 @@
 /** Snapshot before controls take focus; never infer selection direction from anchor/focus. */
 export function readerSelection(root: HTMLElement): { range: Range;
   isCurrent: () => boolean } | null {
-  const doc = root.ownerDocument; const selection = doc.getSelection()
+  const doc = root.ownerDocument
+  const selection = doc.getSelection()
   if (!selection || selection.rangeCount !== 1 || selection.isCollapsed) {
     return null
   }
@@ -43,7 +44,8 @@ export function selectedTextStart(range: Range): { node: Text;
       }
     }
     walker.currentNode = current
-    current = walker.nextNode(); offset = 0
+    current = walker.nextNode()
+    offset = 0
   } else {
     walker.currentNode = current
   }
@@ -60,7 +62,8 @@ export function selectedTextStart(range: Range): { node: Text;
         }
       }
     }
-    current = walker.nextNode(); offset = 0
+    current = walker.nextNode()
+    offset = 0
   }
   return null
 }
@@ -88,8 +91,10 @@ export function bindSelectionIntent(shell: HTMLElement, actions: { snapshot: () 
       actions.invalidate()
     }
   }
-  doc.addEventListener('pointerdown', pointer, true); doc.addEventListener('keydown', key, true)
+  doc.addEventListener('pointerdown', pointer, true)
+  doc.addEventListener('keydown', key, true)
   return () => {
-    doc.removeEventListener('pointerdown', pointer, true); doc.removeEventListener('keydown', key, true)
+    doc.removeEventListener('pointerdown', pointer, true)
+    doc.removeEventListener('keydown', key, true)
   }
 }

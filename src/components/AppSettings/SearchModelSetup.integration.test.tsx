@@ -131,7 +131,8 @@ beforeEach(async () => {
       }
       downloadEvent('starting')
       return new Promise<void>((resolve, reject) => {
-        resolveDownload = resolve; rejectDownload = reject
+        resolveDownload = resolve
+        rejectDownload = reject
       })
     }
     if (command === 'search_embedding_cancel_download') {
@@ -147,7 +148,8 @@ beforeEach(async () => {
         return
       }
       return new Promise<void>((resolve, reject) => {
-        resolveActivation = resolve; rejectActivation = reject
+        resolveActivation = resolve
+        rejectActivation = reject
       })
     }
     throw new Error(`Unexpected IPC: ${command}`)
@@ -281,7 +283,8 @@ async function reopen() {
   await act(() => root.render(<Harness />))
 }
 async function startDownload() {
-  filesPresent = false; storedFiles = false
+  filesPresent = false
+  storedFiles = false
   await reopen()
   expect(button('settings.searchModel.download')?.disabled).toBe(true)
   await act(() => container.querySelector<HTMLInputElement>('.search-model-consent input')!.click())
@@ -421,7 +424,8 @@ it('keeps real download failure and Retry in the model panel, even after a cance
       ...provider,
       downloadingFormat: null,
     }
-    filesPresent = true; storedFiles = true
+    filesPresent = true
+    storedFiles = true
     downloadEvent('installed')
     resolveDownload()
   })
@@ -493,11 +497,13 @@ it.each([
       index.running = true
       index.error = null
       return new Promise<void>((resolve, reject) => {
-        resolveBuild = resolve; rejectBuild = reject
+        resolveBuild = resolve
+        rejectBuild = reject
       })
     }
     if (command === 'search_semantic_index_cancel') {
-      index.cancelRequested = true; return
+      index.cancelRequested = true
+      return
     }
     return normally(command, args, options)
   })
@@ -506,17 +512,23 @@ it.each([
     provider = {
       ...provider,
       activeFormat: 'float32',
-    }; resolveActivation()
+    }
+    resolveActivation()
   })
   await act(() => button('settings.semantic.build')!.click())
-  index.passages = 20; index.indexedDocuments = readyDocuments; index.embeddedPassages = 15; index.reusedPassages = 5
+  index.passages = 20
+  index.indexedDocuments = readyDocuments
+  index.embeddedPassages = 15
+  index.reusedPassages = 5
   await act(() => semantic.refresh())
   await act(() => button('settings.semantic.stop')!.click())
   expect(semantic.busy).toBe(true)
   expect(button('settings.semantic.stop')?.disabled).toBe(true)
   expect(container.querySelector('.search-library-index')?.textContent).not.toContain('settings.semantic.activity.cancelled')
   await act(() => {
-    index.running = false; index.error = outcome; rejectBuild(outcome)
+    index.running = false
+    index.error = outcome
+    rejectBuild(outcome)
   })
   expect(semantic.busy).toBe(false)
   expect(semantic.index?.passages).toBe(20)
@@ -544,7 +556,9 @@ it.each([
     await act(() => button('settings.semantic.update')!.click())
     expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'search_semantic_index_build')).toHaveLength(2)
     await act(() => {
-      index.running = false; index.indexedDocuments = 2; resolveBuild()
+      index.running = false
+      index.indexedDocuments = 2
+      resolveBuild()
     })
     expect(semanticSearchStatus(semantic)).toBe('ready')
     expect(semantic.error).toBe('')
@@ -563,7 +577,8 @@ it('keeps the switch name and row interaction stable across coverage, native wor
     provider = {
       ...provider,
       activeFormat: 'float32',
-    }; resolveActivation()
+    }
+    resolveActivation()
   })
   assertToggleRow('ready')
   const normally = vi.mocked(invoke).getMockImplementation()!
@@ -589,12 +604,14 @@ it('keeps the switch name and row interaction stable across coverage, native wor
   index.cancelRequested = true
   await act(() => semantic.refresh())
   assertToggleRow('cancelling')
-  index.running = false; index.cancelRequested = false
+  index.running = false
+  index.cancelRequested = false
   statusUnavailable = true
   await act(() => semantic.refresh())
   assertToggleRow('statusUnavailable')
   expect(container.querySelector('[role="alert"]')?.textContent).toContain('Index status unavailable')
-  statusUnavailable = false; index.indexedDocuments = 2
+  statusUnavailable = false
+  index.indexedDocuments = 2
   await act(() => button('settings.semantic.retryStatus')!.click())
   assertToggleRow('ready')
   expect(container.querySelector('[role="alert"]')).toBeNull()
@@ -607,7 +624,8 @@ it('keeps the switch name and row interaction stable across coverage, native wor
 })
 
 it('keeps the missing-model warning tied to the stable switch and blocks status-label clicks without consent or files', async () => {
-  filesPresent = false; storedFiles = false
+  filesPresent = false
+  storedFiles = false
   await reopen()
   assertToggleRow('off')
   const warning = container.querySelector<HTMLElement>('.search-semantic-setup .search-model-attention')!

@@ -73,7 +73,8 @@ export function DocumentList({
                 <button
                   className="author-group-action"
                   onClick={(e) => {
-                    e.stopPropagation(); onToggleAllInGroup(docs)
+                    e.stopPropagation()
+                    onToggleAllInGroup(docs)
                   }}
                 >
                   {allSelected ? t('common.deselectAll') : t('common.selectAll')}
@@ -143,7 +144,8 @@ function DocumentRow({
       className="document-row-action document-row-action-view"
       disabled={disabled}
       onClick={(e) => {
-        e.preventDefault(); if (!disabled) {
+        e.preventDefault()
+        if (!disabled) {
           onViewDocument(doc.url)
         }
       }}
@@ -156,7 +158,8 @@ function DocumentRow({
       className="document-row-action document-row-action-danger"
       disabled={deleteDisabled}
       onClick={(e) => {
-        e.preventDefault(); void onDeleteDocument(doc)
+        e.preventDefault()
+        void onDeleteDocument(doc)
       }}
     >
       {t('common.delete')}

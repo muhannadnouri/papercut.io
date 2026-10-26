@@ -1095,14 +1095,16 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     playingRef.current = false
     playbackAttemptRef.current += 1
     cancelNavigation()
-    const jobId = jobIdRef.current; const intent = navigationIntentRef.current
+    const jobId = jobIdRef.current
+    const intent = navigationIntentRef.current
     const current = () => jobIdRef.current === jobId && navigationIntentRef.current === intent
     if (mobileModeRef.current) {
       void syncMobileForegroundState()
         .then(() => {
           if (current()) {
-            pausedRef.current = true;
-          } return pauseNativeAudio(current)
+            pausedRef.current = true
+          }
+          return pauseNativeAudio(current)
         })
         .then(nativeState => {
           if (current()) {
@@ -1135,14 +1137,16 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     if (startingRef.current) {
       return
     }
-    const jobId = jobIdRef.current; const intent = navigationIntentRef.current
+    const jobId = jobIdRef.current
+    const intent = navigationIntentRef.current
     const current = () => jobIdRef.current === jobId && navigationIntentRef.current === intent
     if (mobileModeRef.current) {
       void syncMobileForegroundState()
         .then(() => {
           if (current()) {
-            pausedRef.current = false;
-          } return playNativeAudio(current)
+            pausedRef.current = false
+          }
+          return playNativeAudio(current)
         })
         .then(nativeState => {
           if (current()) {
@@ -1181,7 +1185,8 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
 
     if (mobileModeRef.current) {
       mobileSkipDeltaRef.current += delta
-      const jobId = jobIdRef.current; const intent = ++navigationIntentRef.current
+      const jobId = jobIdRef.current
+      const intent = ++navigationIntentRef.current
       void syncMobileForegroundState()
         .then(() => {
           if (jobIdRef.current !== jobId || navigationIntentRef.current !== intent || !mobileModeRef.current || totalChunksRef.current === 0) {
@@ -1227,7 +1232,8 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     beginCommand()
     mobileSkipDeltaRef.current = 0
     if (mobileModeRef.current) {
-      const jobId = jobIdRef.current; const intent = ++navigationIntentRef.current
+      const jobId = jobIdRef.current
+      const intent = ++navigationIntentRef.current
       void syncMobileForegroundState().then(() => {
         if (!isCurrentJob(jobId) || navigationIntentRef.current !== intent || !mobileModeRef.current) {
           return

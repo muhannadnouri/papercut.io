@@ -22,7 +22,9 @@ import {
   expect,
   it,
 } from 'vitest'
-let directory: string; let bundle: string; let css: string
+let directory: string
+let bundle: string
+let css: string
 beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), 'papercut-reader-controls-'))
   const entry = join(directory, 'entry.tsx')
@@ -603,9 +605,11 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       }catch(e){parent.postMessage({type:'capture-result',result:{error:String(e.stack||e)}},'*')}})();</script>`)
     const result = await runBrowserFixture(directory, frame, width)
     expect(result.visible, JSON.stringify(result)).toBe(true)
-    expect(result.outsideHeader).toBe(true); expect(result.feedback.length).toBeGreaterThan(0)
+    expect(result.outsideHeader).toBe(true)
+    expect(result.feedback.length).toBeGreaterThan(0)
     expect(result.browse).toHaveLength(1)
-    expect(result.inlineReturn).toBe(true); expect(result.extraStrip).toBe(false)
+    expect(result.inlineReturn).toBe(true)
+    expect(result.extraStrip).toBe(false)
     for (const button of result.browse) {
       expect(button.height).toBeGreaterThanOrEqual(44)
     }

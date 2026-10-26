@@ -338,7 +338,8 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
       return
     }
     const id = networkSessionId
-    let disposed = false; let pending = false
+    let disposed = false
+    let pending = false
     const timer = window.setInterval(() => {
       if (pending) {
         return
@@ -363,7 +364,8 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
         })
     }, 500)
     return () => {
-      disposed = true; window.clearInterval(timer)
+      disposed = true
+      window.clearInterval(timer)
     }
   }, [networkSessionId, networkActive])
 
@@ -453,7 +455,8 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
       }
     } catch (error) {
       if (alive.current && operationAttempt.current === attempt) {
-        setCancelling(false); setControlError(formatTransferError(error, locale, t))
+        setCancelling(false)
+        setControlError(formatTransferError(error, locale, t))
       }
     }
   }
@@ -608,7 +611,10 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
               }))]}
               disabled={busy || !networks.length}
               onChange={id => {
-                setNetworkId(id); setSourceAddress(''); setPairingCode(''); setPeerName('')
+                setNetworkId(id)
+                setSourceAddress('')
+                setPairingCode('')
+                setPeerName('')
               }}
             />
             <button type="button" disabled={busy || networksLoading} onClick={() => {
@@ -626,7 +632,9 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
         {!listening && <>
           <NearbySessions key={`${networkId}:${connectionMode}`} interfaceId={networkId} mode={connectionMode} disabled={busy}
             onSelect={(address, name) => {
-              setSourceAddress(address); setPeerName(name); setPairingCode('')
+              setSourceAddress(address)
+              setPeerName(name)
+              setPairingCode('')
             }} />
           {peerName && <p role="status">{t('libraryTransfer.selectedPeer')}: <bdi>{peerName}</bdi></p>}
           <details className="library-transfer-alternate">
@@ -634,7 +642,9 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
             <label className="library-transfer-pairing-fields"><span>{t('libraryTransfer.peerAddress')}</span>
               <input type="text" dir="ltr" value={sourceAddress} disabled={busy} placeholder="192.168.1.20:53318"
                 onChange={event => {
-                  setSourceAddress(event.target.value); setPeerName(''); setPairingCode('')
+                  setSourceAddress(event.target.value)
+                  setPeerName('')
+                  setPairingCode('')
                 }} />
             </label>
           </details>
@@ -870,7 +880,9 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
                         <button type="button" className="library-transfer-primary" disabled={busy || !sendSelectionReady || !hasContent}
                           aria-describedby={selectionEmpty ? selectionHelpId : undefined}
                           onClick={() => {
-                            setStatus({ state: 'idle' }); setProgress(null); setShowConnection(true)
+                            setStatus({ state: 'idle' })
+                            setProgress(null)
+                            setShowConnection(true)
                           }}>
                           {t('libraryTransfer.continueToConnection')}
                         </button>

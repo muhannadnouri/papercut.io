@@ -140,7 +140,8 @@ function deferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (error: unknown) => void
   const promise = new Promise<T>((yes, no) => {
-    resolve = yes; reject = no
+    resolve = yes
+    reject = no
   })
   return {
     promise,
@@ -189,7 +190,8 @@ beforeEach(() => {
     activityNotice: null,
     dismissActivity: vi.fn(),
   }
-  present = false; storedFiles = false
+  present = false
+  storedFiles = false
   mocked.invoke.mockReset().mockImplementation(async (command: string) => {
     if (command === 'search_embedding_status') {
       return { ...status }
@@ -223,7 +225,8 @@ beforeEach(() => {
       ]
     }
     if (command === 'search_embedding_remove') {
-      present = false; storedFiles = false
+      present = false
+      storedFiles = false
     }
     return { ...status }
   })
@@ -235,8 +238,10 @@ afterEach(() => {
 })
 
 it('selects Base and Large independently of precision without implicit work or shared consent', async () => {
-  render(); await settle()
-  consent(); render()
+  render()
+  await settle()
+  consent()
+  render()
   for (const format of ['base-float32', 'large-float32']) {
     const select = controls().find((item) => item.type === 'select' && item.props['aria-label'] === 'settings.searchModel.model')!
     expect(select.props.disabled).toBe(false)
@@ -251,7 +256,10 @@ it('selects Base and Large independently of precision without implicit work or s
     expect(control('input').props.checked).toBe(false)
     expect(control('button', 'settings.searchModel.download').props.disabled).toBe(true)
     expect(mocked.invoke.mock.calls.some(([cmd]) => cmd === 'search_embedding_configure' || cmd === 'search_semantic_index_build')).toBe(false)
-    consent(); render(); click('settings.searchModel.download'); await settle()
+    consent()
+    render()
+    click('settings.searchModel.download')
+    await settle()
   }
   expect(mocked.invoke.mock.calls.filter(([cmd]) => cmd === 'search_embedding_download')).toEqual([
     ['search_embedding_download', { format: 'base-float32' }],
@@ -264,7 +272,8 @@ it('uses the App-owned download diagnostic and selection without starting recove
     format: 'float32',
     message: 'Native cache checksum failed',
   }
-  render(); await settle()
+  render()
+  await settle()
   expect(render()).toContain('Native cache checksum failed')
   ;(control('select').props.onChange as (event: unknown) => void)({ target: { value: 'dynamic-int8' } })
   expect(render()).not.toContain('Native cache checksum failed')
@@ -485,21 +494,27 @@ it('recovers failed subscriptions and releases listeners even if they arrive aft
 
 it('requires confirmation for cleanup, cancellation preserves files, and format changes retire confirmation', async () => {
   storedFiles = true
-  render(); await settle()
-  click('settings.searchModel.remove'); render()
+  render()
+  await settle()
+  click('settings.searchModel.remove')
+  render()
   expect(mocked.invoke.mock.calls.some(([cmd]) => cmd === 'search_embedding_remove')).toBe(false)
   expect(render()).toContain('settings.searchModel.confirmRemove')
   const removals = controls().filter(node => node.type === 'button' && buttonText(node) === 'settings.searchModel.remove')
   expect(removals.filter(node => !node.props.hidden)).toHaveLength(1)
   expect(removals.filter(node => node.props.hidden)).toHaveLength(1)
   expect(render()).toContain('class="app-settings-data-icon"')
-  click('common.cancel'); render()
+  click('common.cancel')
+  render()
   expect(render()).not.toContain('settings.searchModel.confirmRemove')
-  click('settings.searchModel.remove'); render()
+  click('settings.searchModel.remove')
+  render()
   ;(control('select').props.onChange as (event: unknown) => void)({ target: { value: 'dynamic-int8' } })
   expect(render()).not.toContain('settings.searchModel.confirmRemove')
-  click('settings.searchModel.remove'); render()
-  confirmRemoval(); await settle()
+  click('settings.searchModel.remove')
+  render()
+  confirmRemoval()
+  await settle()
   expect(mocked.invoke.mock.calls.filter(([cmd]) => cmd === 'search_embedding_remove')).toEqual([
     ['search_embedding_remove', { format: 'dynamic-int8' }],
   ])
@@ -541,7 +556,8 @@ it('keeps index removal behind confirmation and disables it for an empty index',
     activityNotice: null,
     dismissActivity: vi.fn(),
   }
-  render(); await settle()
+  render()
+  await settle()
   const markup = render()
   expect(markup.indexOf('settings.semantic.controlsTitle')).toBeLessThan(markup.indexOf('settings.searchModel.title'))
   expect(markup.indexOf('settings.searchModel.title')).toBeLessThan(markup.indexOf('settings.semantic.libraryTitle'))
@@ -549,19 +565,26 @@ it('keeps index removal behind confirmation and disables it for an empty index',
   expect(markup).not.toContain('settings.semantic.closeHelp')
   expect(markup).not.toContain('settings.semantic.refresh')
   expect(semantic.refresh).toHaveBeenCalledTimes(1)
-  click('settings.semantic.remove'); render()
+  click('settings.semantic.remove')
+  render()
   expect(semantic.remove).not.toHaveBeenCalled()
-  click('common.cancel'); render()
+  click('common.cancel')
+  render()
   expect(semantic.remove).not.toHaveBeenCalled()
-  click('settings.semantic.remove'); render(); confirmRemoval('index')
+  click('settings.semantic.remove')
+  render()
+  confirmRemoval('index')
   expect(semantic.remove).toHaveBeenCalledTimes(1)
-  semantic.index!.passages = 0; semantic.index!.hasStoredIndex = false; render()
+  semantic.index!.passages = 0
+  semantic.index!.hasStoredIndex = false
+  render()
   expect(control('button', 'settings.semantic.remove').props.disabled).toBe(true)
 })
 
 it('keeps progress and cancellation without background notices or starting work on open', async () => {
   status.downloadingFormat = 'float32'
-  render(); await settle()
+  render()
+  await settle()
   expect(render()).not.toContain('settings.searchModel.closeHelp')
   expect(render()).toContain('settings.searchModel.cancel')
   expect(render()).toContain('<progress')
@@ -603,7 +626,8 @@ it('keeps progress and cancellation without background notices or starting work 
     activityNotice: null,
     dismissActivity: vi.fn(),
   }
-  await vi.advanceTimersByTimeAsync(1000); await settle()
+  await vi.advanceTimersByTimeAsync(1000)
+  await settle()
   expect(render()).not.toContain('settings.semantic.closeHelp')
   expect(render()).toContain('settings.semantic.stop')
   expect(render()).toContain('settings.semantic.progress')
@@ -624,12 +648,15 @@ it('keeps progress and cancellation without background notices or starting work 
 
 it('keeps model preparation expanded through completion and restores preparation after disable', async () => {
   present = true
-  render(); await settle()
+  render()
+  await settle()
   expect(render()).toContain('settings.searchModel.present')
   expect(render()).not.toContain('settings.searchModel.loaded')
   const downloadCalls = () => mocked.invoke.mock.calls.filter(([cmd]) => cmd === 'search_embedding_download')
   expect(downloadCalls()).toHaveLength(0)
-  consent(); render(); click('settings.searchModel.verify')
+  consent()
+  render()
+  click('settings.searchModel.verify')
   expect(await settle()).toContain('settings.searchModel.verified')
   expect(render()).not.toContain('settings.searchModel.present')
   status.activeFormat = 'float32'
@@ -657,9 +684,13 @@ it('keeps model preparation expanded through completion and restores preparation
 
 it('blocks repeated removal after cleanup, but permits incomplete-file cleanup', async () => {
   storedFiles = true
-  render(); await settle()
+  render()
+  await settle()
   expect(render()).toContain('settings.searchModel.incomplete')
-  click('settings.searchModel.remove'); render(); confirmRemoval(); await settle()
+  click('settings.searchModel.remove')
+  render()
+  confirmRemoval()
+  await settle()
   expect(control('button', 'settings.searchModel.remove').props.disabled).toBe(true)
   ;(control('button', 'settings.searchModel.remove').props.onClick as () => void)()
   expect(render()).not.toContain('settings.searchModel.confirmRemove')
@@ -669,7 +700,8 @@ it('blocks repeated removal after cleanup, but permits incomplete-file cleanup',
 
 it('preserves manual model expansion and collapse as provider status changes', async () => {
   present = true
-  render(); await settle()
+  render()
+  await settle()
   const model = () => controls().find(node => node.type === 'details' && node.props.className === 'search-model-panel search-model-management')!
   expect(model().props.open).toBe(false)
   ;(model().props.onToggle as (event: unknown) => void)({ currentTarget: { open: true } })
@@ -698,7 +730,8 @@ it('preserves manual model expansion and collapse as provider status changes', a
 
 it('collapses installed files while off, keeps model removal in its section, and omits separate storage', async () => {
   present = true
-  render(); await settle()
+  render()
+  await settle()
   const model = controls().find(node => node.type === 'details' && node.props.className === 'search-model-panel search-model-management')!
   expect(model.props.open).toBe(false)
   expect(controls(model.props.children as ReactNode).some(node => buttonText(node) === 'settings.searchModel.remove')).toBe(true)
@@ -708,7 +741,8 @@ it('collapses installed files while off, keeps model removal in its section, and
 it('shows active file work instead of recovery instructions and keeps cancellation distinct from removal', async () => {
   storedFiles = true
   status.downloadingFormat = 'float32'
-  render(); await settle()
+  render()
+  await settle()
   const event = mocked.listen.mock.calls[0][1]
   const start = render()
   expect(start).toContain('settings.searchModel.working')
@@ -756,17 +790,21 @@ it('shows active file work instead of recovery instructions and keeps cancellati
       totalBytes: 100,
     },
   })
-  await settle(); consent(); render()
+  await settle()
+  consent()
+  render()
   const verification = deferred<unknown>()
   mocked.invoke.mockImplementationOnce(() => verification.promise)
   click('settings.searchModel.verify')
   expect(render()).toContain('settings.searchModel.verifying')
   expect(render()).not.toContain('settings.searchModel.present')
-  verification.resolve(null); await settle()
+  verification.resolve(null)
+  await settle()
 })
 
 it('keeps conceptual scope and quoted-clause help in Technical Details', async () => {
-  render(); await settle()
+  render()
+  await settle()
   const details = controls().find(node => node.type === 'details'
     && buttonText(controls(node.props.children as ReactNode).find(child => child.type === 'summary')!) === 'settings.searchModel.details')!
   const markup = renderToStaticMarkup(details)

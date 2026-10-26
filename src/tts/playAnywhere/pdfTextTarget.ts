@@ -55,7 +55,8 @@ export function createPdfTextTargetApi(
     pageIndex: number, page: PdfPageViewWithTextMapping & { div: HTMLElement },
     layer: HTMLElement, ocr: boolean, blockOrder: number, element: Node, offset: number,
   ): ViewerTextTargetResult => {
-    const version = revision; const mapping = page._textHighlighter
+    const version = revision
+    const mapping = page._textHighlighter
     const sourceText = ocr ? element.textContent : mapping?.textContentItemsStr?.[blockOrder]
     if (!element.isConnected || !layer.contains(element) || typeof sourceText !== 'string' ||
       element.textContent !== sourceText) {
@@ -155,7 +156,9 @@ export function createPdfTextTargetApi(
           reason: 'unmapped',
         }
       }
-      const prefix = doc.createRange(); prefix.selectNodeContents(element); prefix.setEnd(start.node, start.offset)
+      const prefix = doc.createRange()
+      prefix.selectNodeContents(element)
+      prefix.setEnd(start.node, start.offset)
       const capture = capturePoint(pageIndex, page, layer, Boolean(ocr), blockOrder, element, prefix.toString().length)
       return capture.status === 'captured' ? {
         ...capture,

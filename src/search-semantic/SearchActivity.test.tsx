@@ -99,7 +99,8 @@ it('retains actionable outcomes without a busy spinner and opens the existing ma
     expect(render()).toContain(`settings.semantic.activity.${notice}`)
     expect(render()).not.toContain('class="spinner"')
   }
-  semantic.busy = true; semantic.operation = 'build'
+  semantic.busy = true
+  semantic.operation = 'build'
   expect(render()).toContain('settings.semantic.activity.indexing')
   expect(render()).not.toContain('settings.semantic.activity.statusFailed')
 })

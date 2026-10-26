@@ -129,7 +129,8 @@ export function createTextTargetPreparation(options: TextTargetPreparationOption
           }
           if (htmlCache?.chunks !== chunks || htmlCache.texts !== capture.segmentTexts) {
             if (htmlPending && (htmlPending.chunks !== chunks || htmlPending.texts !== capture.segmentTexts || !htmlPending.work.current())) {
-              htmlPending.work.cancel(); htmlPending = undefined
+              htmlPending.work.cancel()
+              htmlPending = undefined
             }
             if (!htmlPending) {
               const work = start(prepareHtml(chunks, capture.segmentTexts), isCurrent, signal)
@@ -143,7 +144,8 @@ export function createTextTargetPreparation(options: TextTargetPreparationOption
                 if (!work.current()) {
                   throw new DOMException('Preparation cancelled', 'AbortError')
                 }
-                htmlCache = cache; return cache
+                htmlCache = cache
+                return cache
               }).finally(() => {
                 if (htmlPending === pending) {
                   htmlPending = undefined
@@ -182,19 +184,22 @@ export function createTextTargetPreparation(options: TextTargetPreparationOption
             }
             if (pdfCache?.chunks !== chunks) {
               if (pdfPending && (pdfPending.chunks !== chunks || !pdfPending.work.current())) {
-                pdfPending.work.cancel(); pdfPending = undefined
+                pdfPending.work.cancel()
+                pdfPending = undefined
               }
               if (!pdfPending) {
                 const work = start(preparePdf(chunks, segments), isCurrent, signal)
                 const pending = {
                   chunks,
                   work,
-                }; pdfPending = pending
+                }
+                pdfPending = pending
                 work.promise = work.promise.then(cache => {
                   if (!work.current()) {
                     throw new DOMException('Preparation cancelled', 'AbortError')
                   }
-                  pdfCache = cache; return cache
+                  pdfCache = cache
+                  return cache
                 }).finally(() => {
                   if (pdfPending === pending) {
                     pdfPending = undefined
@@ -253,7 +258,14 @@ export function createTextTargetPreparation(options: TextTargetPreparationOption
       }
     },
     dispose() {
-      active = false; lifetime.abort(); htmlPending = undefined; pdfPending = undefined; chunkRequest = undefined; htmlCache = undefined; pdfCache = undefined; pageCache = undefined
+      active = false
+      lifetime.abort()
+      htmlPending = undefined
+      pdfPending = undefined
+      chunkRequest = undefined
+      htmlCache = undefined
+      pdfCache = undefined
+      pageCache = undefined
     },
   }
 }

@@ -56,7 +56,8 @@ it('invalidates pending and resolved targets on committed document, model and ch
     }, [result])
     return null
   }
-  const element = document.createElement('div'); document.body.append(element)
+  const element = document.createElement('div')
+  document.body.append(element)
   const app = createRoot(element)
   let mounted = true
   const render = async (props: typeof base) => act(async () => app.render(<StrictMode><Harness {...props} /></StrictMode>))
@@ -96,7 +97,8 @@ it('invalidates pending and resolved targets on committed document, model and ch
     })
     finish(chunks)
     expect(await pending).toMatchObject({ reason: 'stale' })
-    await act(async () => app.unmount()); mounted = false
+    await act(async () => app.unmount())
+    mounted = false
     expect(await resolve('/book.html', capture)).toMatchObject({ reason: 'not-ready' })
   } finally {
     if (mounted) {

@@ -63,7 +63,8 @@ async function key(key: string, shiftKey = false) {
 }
 
 it('keeps Back separate from Close and ignores clicks inside the dialog', async () => {
-  const back = vi.fn(); const close = vi.fn()
+  const back = vi.fn()
+  const close = vi.fn()
   await render(<AppDialog title="Settings" onBack={back} showCloseButton onCancel={close}>
     <input aria-label="Name" />
   </AppDialog>)
@@ -80,7 +81,9 @@ it('keeps Back separate from Close and ignores clicks inside the dialog', async 
 })
 
 it('uses the latest busy guard and Close handler for Escape, buttons and backdrop after rerender', async () => {
-  const back = vi.fn(); const oldClose = vi.fn(); const close = vi.fn()
+  const back = vi.fn()
+  const oldClose = vi.fn()
+  const close = vi.fn()
   const dialog = (busy: boolean, cancel: () => void) => <AppDialog title="Transfer"
     onBack={back} showCloseButton onCancel={cancel} navigationDisabled={busy}>
     <input aria-label="Transfer Code" />
@@ -142,7 +145,8 @@ it('focuses an actionless dialog and removes Escape listeners when unmounted', a
 })
 
 it('keeps header navigation non-submitting while Save submits the form and Cancel dismisses it', async () => {
-  const close = vi.fn(); const back = vi.fn()
+  const close = vi.fn()
+  const back = vi.fn()
   const submit = vi.fn((event: FormEvent) => event.preventDefault())
   await render(<AppDialog title="Edit" onCancel={close} onSubmit={submit} onBack={back} showCloseButton
     actions={<><button type="button" onClick={close}>Cancel</button><button type="submit">Save</button></>}>

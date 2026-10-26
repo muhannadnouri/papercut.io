@@ -22,7 +22,8 @@ import type { PlaybackStart } from '../hooks/useTtsPlayer'
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 afterEach(() => document.body.replaceChildren())
 async function setup() {
-  let reader!: ReturnType<typeof usePlayAnywhereReader>; let settle: ((start: PlaybackStart) => void) | undefined
+  let reader!: ReturnType<typeof usePlayAnywhereReader>
+  let settle: ((start: PlaybackStart) => void) | undefined
   const dispatched = (): PlaybackTargetResult => ({
     status: 'dispatched',
     started: new Promise(resolve => {
@@ -37,11 +38,15 @@ async function setup() {
     playFromBeginning: vi.fn(async (): Promise<PlaybackTargetResult> => dispatched()),
   }
   function Harness(props: typeof config) {
-    const result = usePlayAnywhereReader(props); useLayoutEffect(() => {
+    const result = usePlayAnywhereReader(props)
+    useLayoutEffect(() => {
       reader = result
-    }); return null
+    })
+    return null
   }
-  const element = document.createElement('div'); document.body.append(element); const app = createRoot(element)
+  const element = document.createElement('div')
+  document.body.append(element)
+  const app = createRoot(element)
   const render = async (overrides: Partial<typeof config> = {}) => {
     await act(async () => app.render(<Harness {...config} {...overrides} />))
   }
@@ -72,7 +77,8 @@ it('keeps browsing independent of playback and Return reveals without dispatchin
     await act(async () => app.reader.returnToAudio())
     expect(app.reader.followPolicy.allowsReveal()).toBe(true)
     expect(app.reader.followPolicy.revision).toBeGreaterThan(policy.revision)
-    expect(app.config.playFromHere).not.toHaveBeenCalled(); expect(app.config.playFromBeginning).not.toHaveBeenCalled()
+    expect(app.config.playFromHere).not.toHaveBeenCalled()
+    expect(app.config.playFromBeginning).not.toHaveBeenCalled()
   } finally {
     await app.unmount()
   }
@@ -80,13 +86,20 @@ it('keeps browsing independent of playback and Return reveals without dispatchin
 it('restores follow only after play succeeds and lets later browse input win', async () => {
   const app = await setup()
   try {
-    await act(async () => app.reader.browse()); await act(async () => app.reader.playFromHere())
-    expect(app.reader.browsing).toBe(true); expect(app.reader.pending).toBe(true)
-    await act(async () => app.started()); expect(app.reader.browsing).toBe(false); expect(app.reader.pending).toBe(false)
-    await act(async () => app.reader.browse()); await act(async () => app.reader.playFromHere())
-    await act(async () => app.reader.browse()); await act(async () => app.started())
+    await act(async () => app.reader.browse())
+    await act(async () => app.reader.playFromHere())
     expect(app.reader.browsing).toBe(true)
-    await act(async () => app.reader.playFromBeginning()); await act(async () => app.started())
+    expect(app.reader.pending).toBe(true)
+    await act(async () => app.started())
+    expect(app.reader.browsing).toBe(false)
+    expect(app.reader.pending).toBe(false)
+    await act(async () => app.reader.browse())
+    await act(async () => app.reader.playFromHere())
+    await act(async () => app.reader.browse())
+    await act(async () => app.started())
+    expect(app.reader.browsing).toBe(true)
+    await act(async () => app.reader.playFromBeginning())
+    await act(async () => app.started())
     expect(app.reader.browsing).toBe(false)
   } finally {
     await app.unmount()
@@ -100,21 +113,29 @@ it('reports unavailable without fallback, clears sessions on stop and ignores ol
       reason: 'unmapped',
     })
     await act(async () => app.reader.playFromHere())
-    expect(app.reader.feedback).toBe('unmapped'); expect(app.config.playFromBeginning).not.toHaveBeenCalled()
-    await act(async () => app.reader.playFromHere()); await act(async () => app.reader.browse())
-    await app.render({ documentUrl: 'two' }); await act(async () => app.reader.browse()); await act(async () => app.started())
+    expect(app.reader.feedback).toBe('unmapped')
+    expect(app.config.playFromBeginning).not.toHaveBeenCalled()
+    await act(async () => app.reader.playFromHere())
+    await act(async () => app.reader.browse())
+    await app.render({ documentUrl: 'two' })
+    await act(async () => app.reader.browse())
+    await act(async () => app.started())
     expect(app.reader.browsing).toBe(true)
     await app.render({
       documentUrl: 'two',
       active: false,
-    }); expect(app.reader.browsing).toBe(false)
-    expect(app.reader.feedback).toBeNull(); expect(app.reader.followPolicy.active).toBe(false)
+    })
+    expect(app.reader.browsing).toBe(false)
+    expect(app.reader.feedback).toBeNull()
+    expect(app.reader.followPolicy.active).toBe(false)
   } finally {
     await app.unmount()
   }
 })
 it.each(['command', 'settings'] as const)('treats a %s during preparation as cancellation, not a changed passage', async action => {
-  const app = await setup(); const command = new AbortController(); const chunks = [{
+  const app = await setup()
+  const command = new AbortController()
+  const chunks = [{
     id: 'a',
     text: 'Passage',
   }]
@@ -171,11 +192,13 @@ it.each(['command', 'settings'] as const)('treats a %s during preparation as can
     expect(app.reader.feedback).toBeNull()
     expect(app.reader.pending).toBe(false)
   } finally {
-    playback.dispose(); await app.unmount()
+    playback.dispose()
+    await app.unmount()
   }
 })
 it('clears feedback on the next playback command and cancels nothing itself', async () => {
-  const app = await setup(); const command = new AbortController()
+  const app = await setup()
+  const command = new AbortController()
   await app.render({ commandSignal: () => command.signal })
   try {
     app.config.playFromHere.mockResolvedValueOnce({
@@ -194,10 +217,13 @@ it('clears feedback on the next playback command and cancels nothing itself', as
 it('clears pending without restoring follow when the start ticket is superseded', async () => {
   const app = await setup()
   try {
-    await act(async () => app.reader.browse()); await act(async () => app.reader.playFromHere())
+    await act(async () => app.reader.browse())
+    await act(async () => app.reader.playFromHere())
     expect(app.reader.pending).toBe(true)
     await act(async () => app.started('superseded'))
-    expect(app.reader.pending).toBe(false); expect(app.reader.browsing).toBe(true); expect(app.reader.feedback).toBeNull()
+    expect(app.reader.pending).toBe(false)
+    expect(app.reader.browsing).toBe(true)
+    expect(app.reader.feedback).toBeNull()
   } finally {
     await app.unmount()
   }
@@ -216,13 +242,15 @@ it('snapshots selection before focus loss, keeps viewport independent and invali
     segmentLengths: [1],
     isCurrent: () => true,
   }
-  const captureSelection = vi.fn((): ViewerTextTargetResult => captured); const captureViewport = vi.fn(async () => ({
+  const captureSelection = vi.fn((): ViewerTextTargetResult => captured)
+  const captureViewport = vi.fn(async () => ({
     status: 'unavailable',
     reason: 'no-visible-text',
   } as const))
   const seen: ViewerTextTargetResult[] = []
   app.config.playFromHere.mockImplementation(async api => {
-    seen.push(await api.captureViewport()); return {
+    seen.push(await api.captureViewport())
+    return {
       status: 'dispatched',
       started: Promise.resolve('started'),
     }
@@ -253,15 +281,19 @@ it('snapshots selection before focus loss, keeps viewport independent and invali
     expect(seen[0].isCurrent()).toBe(true)
     await act(async () => app.reader.selectionActions.invalidate())
     expect(seen[0].isCurrent()).toBe(false)
-    await act(async () => app.reader.playFromHere()); expect(captureViewport).toHaveBeenCalledOnce()
-    await act(async () => app.reader.playFromSelection()); expect(seen.at(-1)).toMatchObject({ reason: 'no-selection' })
+    await act(async () => app.reader.playFromHere())
+    expect(captureViewport).toHaveBeenCalledOnce()
+    await act(async () => app.reader.playFromSelection())
+    expect(seen.at(-1)).toMatchObject({ reason: 'no-selection' })
   } finally {
     await app.unmount()
   }
 })
 
 it('does not dispatch a selected target invalidated while verified preparation is pending', async () => {
-  const app = await setup(); const play = vi.fn(() => Promise.resolve('started' as const)); const chunks = [{
+  const app = await setup()
+  const play = vi.fn(() => Promise.resolve('started' as const))
+  const chunks = [{
     id: 'saved',
     text: 'Selected passage',
   }]
@@ -282,8 +314,10 @@ it('does not dispatch a selected target invalidated while verified preparation i
     commandSignal: () => new AbortController().signal,
     resolve: async (_url, capture) => {
       if (capture.status !== 'captured') {
-        throw new Error('Missing selection');
-      } captured = capture; return preparation
+        throw new Error('Missing selection')
+      }
+      captured = capture
+      return preparation
     },
     getChunks: async () => chunks,
   })
@@ -307,7 +341,8 @@ it('does not dispatch a selected target invalidated while verified preparation i
   })
   try {
     await act(async () => app.reader.playFromSelection())
-    expect(captured).toBeDefined(); app.reader.clearSelection()
+    expect(captured).toBeDefined()
+    app.reader.clearSelection()
     expect(captured.isCurrent()).toBe(true)
     app.reader.selectionActions.invalidate()
     await act(async () => finish({
@@ -318,8 +353,10 @@ it('does not dispatch a selected target invalidated while verified preparation i
       chunkId: 'saved',
       isCurrent: captured.isCurrent,
     }))
-    expect(play).not.toHaveBeenCalled(); expect(app.reader.feedback).toBe('stale')
+    expect(play).not.toHaveBeenCalled()
+    expect(app.reader.feedback).toBe('stale')
   } finally {
-    playback.dispose(); await app.unmount()
+    playback.dispose()
+    await app.unmount()
   }
 })

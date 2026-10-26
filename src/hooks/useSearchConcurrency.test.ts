@@ -203,7 +203,8 @@ it.each([
 ])('rejects over-budget input before either provider and clears the conceptual submission', (query) => {
   const pagefind = { search: vi.fn() }
   const search = useSearch({ current: pagefind })
-  search.handleSearch(query); search.submitSearch()
+  search.handleSearch(query)
+  search.submitSearch()
   expect(pagefind.search).not.toHaveBeenCalled()
   expect(mocked.searchUploadedDocuments).not.toHaveBeenCalled()
   expect(mocked.setters[2]).toHaveBeenLastCalledWith('tooLong')
@@ -214,7 +215,8 @@ it.each(['é'.repeat(4096), 'word '.repeat(128).trim()])('permits budget boundar
   mocked.searchUploadedDocuments.mockResolvedValue(response(0))
   const pagefind = { search: vi.fn().mockResolvedValue({ results: [] }) }
   const search = useSearch({ current: pagefind })
-  search.handleSearch(query); search.submitSearch()
+  search.handleSearch(query)
+  search.submitSearch()
   expect(pagefind.search).toHaveBeenCalledOnce()
   expect(mocked.searchUploadedDocuments).toHaveBeenCalledOnce()
 })

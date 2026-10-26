@@ -273,7 +273,8 @@ export function PdfViewer({
             pdfViewer.pagesCount,
           )
           if (targetPage !== null) {
-            onReaderBrowse?.(); pdfViewer.currentPageNumber = targetPage
+            onReaderBrowse?.()
+            pdfViewer.currentPageNumber = targetPage
           }
         }
       }
@@ -338,7 +339,8 @@ export function PdfViewer({
           scroll: true,
         }
         if (pdfViewer) {
-          onReaderBrowse?.(); pdfViewer.currentPageNumber = match.pageIndex + 1
+          onReaderBrowse?.()
+          pdfViewer.currentPageNumber = match.pageIndex + 1
         }
         requestAnimationFrame(highlightPendingOcrFind)
       }
@@ -537,7 +539,8 @@ export function PdfViewer({
     })))
     onTextTargetApiChange(target.api)
     return () => {
-      target.dispose(); onTextTargetApiChange(null)
+      target.dispose()
+      onTextTargetApiChange(null)
     }
   }, [getTextTargetViewport, onTextTargetApiChange, status, url])
 
@@ -664,10 +667,12 @@ export function PdfViewer({
         }
       }}
       onPageNext={() => {
-        onReaderBrowse?.(); pdfViewerRef.current?.nextPage()
+        onReaderBrowse?.()
+        pdfViewerRef.current?.nextPage()
       }}
       onPagePrevious={() => {
-        onReaderBrowse?.(); pdfViewerRef.current?.previousPage()
+        onReaderBrowse?.()
+        pdfViewerRef.current?.previousPage()
       }}
       onSpreadChange={applySpreadMode}
       onZoomChange={(percentage) => {

@@ -27,7 +27,8 @@ export function TransferDiagnostics({ active, revision }: { active: boolean;
       try {
         const next = await getTransferDiagnostics()
         if (!closed) {
-          setSnapshot(next); setUnavailable(false)
+          setSnapshot(next)
+          setUnavailable(false)
         }
       } catch {
         if (!closed) {
@@ -42,7 +43,8 @@ export function TransferDiagnostics({ active, revision }: { active: boolean;
       void refresh()
     }, 1000) : undefined
     return () => {
-      closed = true; window.clearInterval(timer)
+      closed = true
+      window.clearInterval(timer)
     }
   }, [active, revision, retry])
 

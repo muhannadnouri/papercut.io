@@ -24,7 +24,8 @@ vi.mock('../../uploads/DocumentUploads', async importOriginal => ({
   getUploadedPdfPageText: vi.fn(),
 }))
 afterEach(() => {
-  vi.restoreAllMocks(); vi.mocked(getUploadedPdfPageText).mockReset()
+  vi.restoreAllMocks()
+  vi.mocked(getUploadedPdfPageText).mockReset()
 })
 
 const chunks: TtsChunk[] = [
@@ -78,7 +79,8 @@ function deferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (error: Error) => void
   const promise = new Promise<T>((yes, no) => {
-    resolve = yes; reject = no
+    resolve = yes
+    reject = no
   })
   return {
     promise,
@@ -90,7 +92,8 @@ function deferred<T>() {
 describe('source-only target preparation', () => {
   it('returns original prepared chunks before playback, caches per view/chunk revision and invalidates results on disposal', async () => {
     const verify = vi.spyOn(verification, 'htmlResolverSteps')
-    const config = options(); const preparation = createTextTargetPreparation(config)
+    const config = options()
+    const preparation = createTextTargetPreparation(config)
     const first = await preparation.resolve('/book.html', htmlCapture())
     expect(first).toMatchObject({
       status: 'resolved',
@@ -134,7 +137,8 @@ describe('source-only target preparation', () => {
       expect(vi.getTimerCount()).toBe(0)
       expect(verify).toHaveBeenCalledOnce()
     } finally {
-      preparation.dispose(); vi.useRealTimers()
+      preparation.dispose()
+      vi.useRealTimers()
     }
   })
 
@@ -179,7 +183,8 @@ describe('source-only target preparation', () => {
         expect(await retry).toMatchObject({ chunkIndex: 1 })
       }
     } finally {
-      preparation.dispose(); vi.useRealTimers()
+      preparation.dispose()
+      vi.useRealTimers()
     }
   })
 
@@ -187,7 +192,8 @@ describe('source-only target preparation', () => {
     const config = options({ chunks: null })
     const preparation = createTextTargetPreparation(config)
     const [a, b] = await Promise.all([preparation.resolve('/book.html', htmlCapture()), preparation.resolve('/book.html', htmlCapture())])
-    expect(a.status).toBe('resolved'); expect(b.status).toBe('resolved')
+    expect(a.status).toBe('resolved')
+    expect(b.status).toBe('resolved')
     expect(config.getChunks).toHaveBeenCalledOnce()
     const retry = options({
       chunks: null,
@@ -281,7 +287,8 @@ describe('source-only target preparation', () => {
   })
 
   it.each(['dispose', 'view-change'])('rejects replacement during awaited preparation: %s', async change => {
-    const pending = deferred<TtsChunk[]>(); const config = options({
+    const pending = deferred<TtsChunk[]>()
+    const config = options({
       chunks: null,
       getChunks: () => pending.promise,
     })
@@ -435,7 +442,8 @@ describe('source-only target preparation', () => {
       getPdfSegments: () => pending.promise,
     }))
     const result = preparation.resolve('/uploads/ab.pdf', pdfCapture)
-    preparation.dispose(); pending.resolve(segments)
+    preparation.dispose()
+    pending.resolve(segments)
     expect(await result).toMatchObject({ reason: 'stale' })
     expect(getUploadedPdfPageText).not.toHaveBeenCalled()
   })
@@ -451,7 +459,8 @@ describe('source-only target preparation', () => {
     const preparation = createTextTargetPreparation(config)
     const promise = preparation.resolve('/uploads/ab.pdf', pdfCapture)
     await vi.waitFor(() => expect(getUploadedPdfPageText).toHaveBeenCalled())
-    preparation.dispose(); pending.resolve(page)
+    preparation.dispose()
+    pending.resolve(page)
     expect(await promise).toMatchObject({ reason: 'stale' })
     vi.mocked(getUploadedPdfPageText).mockRejectedValueOnce(new Error('read failed')).mockResolvedValue(page)
     const retry = createTextTargetPreparation(config)

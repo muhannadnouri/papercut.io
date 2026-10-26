@@ -126,7 +126,8 @@ export function useSemanticSearch(library?: readonly UploadedDocument[]) {
       if (mounted.current && version === generation.current) {
         await refresh().catch(() => {})
         if (mounted.current && version === generation.current) {
-          action.current = false; setOperation(null)
+          action.current = false
+          setOperation(null)
         }
       }
     }
@@ -228,7 +229,9 @@ export function useSemanticSearch(library?: readonly UploadedDocument[]) {
           }
         }
         if (mounted.current && version === generation.current) {
-          action.current = false; setOperation(null); setCancelling(false)
+          action.current = false
+          setOperation(null)
+          setCancelling(false)
           setActivityNotice(notice ? { kind: notice } : null)
         }
       }
@@ -246,7 +249,8 @@ export function useSemanticSearch(library?: readonly UploadedDocument[]) {
       await invoke('search_semantic_index_cancel')
     } catch (err) {
       if (mounted.current && version === generation.current) {
-        setError(String(err)); setCancelling(false)
+        setError(String(err))
+        setCancelling(false)
       }
       return
     }
@@ -271,7 +275,8 @@ export function useSemanticSearch(library?: readonly UploadedDocument[]) {
         }
       } catch {
         if (mounted.current && version === generation.current) {
-          action.current = false; setOperation(null)
+          action.current = false
+          setOperation(null)
         }
       }
     })()
@@ -333,7 +338,8 @@ export function useSemanticSearch(library?: readonly UploadedDocument[]) {
       }
     })
     return () => {
-      closed = true; stop?.()
+      closed = true
+      stop?.()
     }
   }, [refresh])
 

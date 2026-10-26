@@ -21,7 +21,8 @@ vi.mock('../../uploads/DocumentUploads', async importOriginal => ({
 }))
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 afterEach(() => {
-  vi.clearAllMocks(); document.body.replaceChildren()
+  vi.clearAllMocks()
+  document.body.replaceChildren()
 })
 
 type Options = Parameters<typeof useAudiobookDocument>[0]
@@ -39,11 +40,13 @@ it('never exposes the previous document/model chunks during replacement and reta
   function Harness(props: Options) {
     const result = useAudiobookDocument(props)
     useLayoutEffect(() => {
-      latest = result; seen.push(result.chunks)
+      latest = result
+      seen.push(result.chunks)
     }, [result])
     return null
   }
-  const element = document.createElement('div'); document.body.append(element)
+  const element = document.createElement('div')
+  document.body.append(element)
   const app = createRoot(element)
   try {
     await act(async () => app.render(<Harness {...base} />))
@@ -94,7 +97,8 @@ it('excludes display fallback from canonical imported chunks and retries authori
     return null
   }
   vi.mocked(getImportedAudiobookMetadata).mockRejectedValue(new Error('manifest unavailable'))
-  const element = document.createElement('div'); document.body.append(element)
+  const element = document.createElement('div')
+  document.body.append(element)
   const app = createRoot(element)
   try {
     await act(async () => app.render(<Harness />))

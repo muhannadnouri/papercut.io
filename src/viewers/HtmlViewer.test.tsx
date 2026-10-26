@@ -17,7 +17,9 @@ import { createHtmlTextTargetApi } from '../tts/playAnywhere/htmlTextTarget'
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 afterEach(() => {
-  vi.restoreAllMocks(); vi.unstubAllGlobals(); document.body.replaceChildren()
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  document.body.replaceChildren()
 })
 
 it('does no capture setup when the optional capability is absent', async () => {
@@ -79,8 +81,10 @@ it('returns a rejected Promise when the viewport provider unexpectedly fails', a
 })
 
 it('preserves source nodes, selection and target snapshots when only audio follow state changes', async () => {
-  const container = document.createElement('div'); document.body.append(container)
-  const app = createRoot(container); const ref = createRef<HTMLElement>()
+  const container = document.createElement('div')
+  document.body.append(container)
+  const app = createRoot(container)
+  const ref = createRef<HTMLElement>()
   const register = vi.fn<(api: ViewerTextTargetApi | null) => void>()
   const render = async (revision: number, content = '<p>Selected passage.</p>') => act(async () => app.render(
     <HtmlViewer url="one" content={content} contentRef={ref} onTextTargetApiChange={register}

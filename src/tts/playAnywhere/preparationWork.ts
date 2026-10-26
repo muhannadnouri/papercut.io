@@ -4,7 +4,9 @@ import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 export function runPreparationWork<T>(steps: Generator<void, T>, isCurrent: () => boolean, signals: readonly (AbortSignal | undefined)[]): Promise<T> {
   return new Promise((resolve, reject) => {
     let timer: ReturnType<typeof setTimeout> | undefined
-    let settled = false; let batches = 0; let maxBatchMs = 0
+    let settled = false
+    let batches = 0
+    let maxBatchMs = 0
     let advancing = false
     const started = performance.now()
     const cleanup = () => {
@@ -17,13 +19,15 @@ export function runPreparationWork<T>(steps: Generator<void, T>, isCurrent: () =
       if (settled) {
         return
       }
-      settled = true; cleanup()
+      settled = true
+      cleanup()
       try {
         if (!advancing) {
           steps.return(undefined as never)
         }
       } catch (error) {
-        reject(error); return
+        reject(error)
+        return
       }
       reject(new DOMException('Preparation cancelled', 'AbortError'))
     }
@@ -32,7 +36,8 @@ export function runPreparationWork<T>(steps: Generator<void, T>, isCurrent: () =
       const batchStart = performance.now()
       try {
         if (!isCurrent() || signals.some(signal => signal?.aborted)) {
-          cancel(); return
+          cancel()
+          return
         }
         if (settled) {
           return
@@ -41,7 +46,8 @@ export function runPreparationWork<T>(steps: Generator<void, T>, isCurrent: () =
         // A count cap also guarantees yielding when timer clocks are coarse or mocked.
         for (let count = 0; count < 128; count++) {
           if (!isCurrent()) {
-            cancel(); return
+            cancel()
+            return
           }
           if (settled) {
             return
@@ -53,15 +59,18 @@ export function runPreparationWork<T>(steps: Generator<void, T>, isCurrent: () =
             advancing = false
           }
           if (settled) {
-            steps.return(undefined as never); return
+            steps.return(undefined as never)
+            return
           }
           if (step.done || performance.now() - batchStart >= 8) {
             break
           }
         }
-        batches++; maxBatchMs = Math.max(maxBatchMs, performance.now() - batchStart)
+        batches++
+        maxBatchMs = Math.max(maxBatchMs, performance.now() - batchStart)
         if (step?.done) {
-          settled = true; cleanup()
+          settled = true
+          cleanup()
           logTtsDiagnostic('[play-anywhere] preparation completed', {
             batches,
             maxBatchMs,
@@ -72,11 +81,13 @@ export function runPreparationWork<T>(steps: Generator<void, T>, isCurrent: () =
           timer = setTimeout(pump, 0)
         }
       } catch (error) {
-        settled = true; cleanup()
+        settled = true
+        cleanup()
         try {
           steps.return(undefined as never)
         } catch (closeError) {
-          reject(closeError); return
+          reject(closeError)
+          return
         }
         reject(error)
       }

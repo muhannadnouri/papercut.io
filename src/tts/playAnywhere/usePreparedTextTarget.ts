@@ -26,7 +26,8 @@ export function usePreparedTextTarget(options: Omit<TextTargetPreparationOptions
     })
     current.current = preparation
     return () => {
-      preparation.dispose(); current.current = null
+      preparation.dispose()
+      current.current = null
     }
   }, [documentUrl, docContent, chunks, getChunks, getPdfSegments, modelId])
   return useCallback((url: string, capture: ViewerTextTargetResult, signal?: AbortSignal): Promise<PreparedTextTargetResult> =>

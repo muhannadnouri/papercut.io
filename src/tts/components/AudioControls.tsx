@@ -314,7 +314,8 @@ export function AudioControls({
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
-        setChunkMenuOpen(false); menuButtonRef.current?.focus()
+        setChunkMenuOpen(false)
+        menuButtonRef.current?.focus()
       }
     }
 

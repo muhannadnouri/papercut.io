@@ -44,9 +44,12 @@ vi.mock('../i18n', () => ({
 }))
 import { LibraryTransferDialog } from './LibraryTransferDialog'
 
-let root: Root; let container: HTMLDivElement
+let root: Root
+let container: HTMLDivElement
 let snapshot: LibraryTransferNetworkStatus | null
-const back = vi.fn(); const close = vi.fn(); const imported = vi.fn()
+const back = vi.fn()
+const close = vi.fn()
+const imported = vi.fn()
 const waiting: LibraryTransferNetworkStatus = {
   id: 1,
   role: 'receiver',
@@ -81,8 +84,11 @@ beforeEach(() => {
     value: vi.fn(),
   })
   snapshot = null
-  back.mockReset(); close.mockReset(); imported.mockReset().mockResolvedValue(undefined)
-  ipc.stop.mockReset(); ipc.listen.mockReset().mockResolvedValue(ipc.stop)
+  back.mockReset()
+  close.mockReset()
+  imported.mockReset().mockResolvedValue(undefined)
+  ipc.stop.mockReset()
+  ipc.listen.mockReset().mockResolvedValue(ipc.stop)
   ipc.invoke.mockReset().mockImplementation(async (command: string, args?: { id?: number;
     request?: { role: string;
       mode: string } }) => {
@@ -163,7 +169,9 @@ beforeEach(() => {
 
 afterEach(async () => {
   await act(() => root.unmount())
-  vi.restoreAllMocks(); vi.useRealTimers(); vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
   document.body.replaceChildren()
 })
 async function mount() {
@@ -201,7 +209,8 @@ async function enterPeer() {
   for (const [placeholder, value] of [['192.168.1.20:53318', '192.168.1.21:53318'], ['ABCD-EFGH-JKLM', '2345-ABCD-GHJK']]) {
     await act(() => {
       const input = container.querySelector<HTMLInputElement>(`[placeholder="${placeholder}"]`)!
-      set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true }))
+      set.call(input, value)
+      input.dispatchEvent(new Event('input', { bubbles: true }))
     })
   }
 }
@@ -218,10 +227,12 @@ async function tryNavigation() {
 }
 
 it('starts a default outgoing send only after explicit peer details, with no listener port or hidden direction switch', async () => {
-  await mount(); await openSender()
+  await mount()
+  await openSender()
   expect(button('libraryTransfer.startSending').disabled).toBe(true)
   expect(container.querySelector('input[type="number"]')).toBeNull()
-  await enterPeer(); await click('libraryTransfer.startSending')
+  await enterPeer()
+  await click('libraryTransfer.startSending')
   expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_network_start', {
     request: {
       role: 'sender',
@@ -235,7 +246,9 @@ it('starts a default outgoing send only after explicit peer details, with no lis
       },
     },
   })
-  await tryNavigation(); expect(back).not.toHaveBeenCalled(); expect(close).not.toHaveBeenCalled()
+  await tryNavigation()
+  expect(back).not.toHaveBeenCalled()
+  expect(close).not.toHaveBeenCalled()
 })
 
 it('starts with a task choice and keeps content selection ahead of connection setup', async () => {
@@ -266,7 +279,8 @@ it('starts with a task choice and keeps content selection ahead of connection se
     .toBe('Choose which uploaded documents to include.')
   expect(button('libraryTransfer.continueToConnection').disabled).toBe(true)
   expect(button('libraryTransfer.export').disabled).toBe(true)
-  await click('libraryTransfer.continueToConnection'); await click('libraryTransfer.export')
+  await click('libraryTransfer.continueToConnection')
+  await click('libraryTransfer.export')
   expect(ipc.invoke.mock.calls.some(([command]) => /network_start|library_transfer_export/.test(command))).toBe(false)
   await act(() => {
     container.querySelector<HTMLDetailsElement>('.library-transfer-content')!.open = true
@@ -287,7 +301,9 @@ it('starts with a task choice and keeps content selection ahead of connection se
   expect(container.querySelectorAll<HTMLInputElement>('.library-transfer-content input[type="checkbox"]')[1].checked).toBe(false)
   expect(container.querySelector('.library-transfer-network')).toBeNull()
   await act(() => root.unmount())
-  root = createRoot(container); await mount(); await click('libraryTransfer.modeSend')
+  root = createRoot(container)
+  await mount()
+  await click('libraryTransfer.modeSend')
   expect(documents().map(input => input.checked)).toEqual([false, false])
   expect(button('libraryTransfer.continueToConnection').disabled).toBe(true)
 })
@@ -307,22 +323,29 @@ it('starts audiobooks unselected and includes their source only after an explici
       savedAt: 1,
       chunks: 1,
     }]) : fallback(command, args))
-  await mount(); await click('libraryTransfer.modeSend')
+  await mount()
+  await click('libraryTransfer.modeSend')
   const pickers = container.querySelectorAll<HTMLDetailsElement>('.library-transfer-content')
   const source = pickers[0].querySelector<HTMLInputElement>('.library-transfer-picker-list input')!
   const audio = pickers[1].querySelector<HTMLInputElement>('.library-transfer-picker-list input')!
-  expect(source.checked).toBe(false); expect(audio.checked).toBe(false)
+  expect(source.checked).toBe(false)
+  expect(audio.checked).toBe(false)
   expect(button('libraryTransfer.continueToConnection').disabled).toBe(true)
   await act(() => {
-    pickers[1].open = true; audio.click()
+    pickers[1].open = true
+    audio.click()
   })
-  expect(source.checked).toBe(true); expect(source.disabled).toBe(true)
+  expect(source.checked).toBe(true)
+  expect(source.disabled).toBe(true)
   expect(button('libraryTransfer.continueToConnection').disabled).toBe(false)
   await act(() => audio.click())
-  expect(source.checked).toBe(false); expect(source.disabled).toBe(false)
+  expect(source.checked).toBe(false)
+  expect(source.disabled).toBe(false)
   expect(button('libraryTransfer.continueToConnection').disabled).toBe(true)
   await act(() => audio.click())
-  await click('libraryTransfer.continueToConnection'); await enterPeer(); await click('libraryTransfer.startSending')
+  await click('libraryTransfer.continueToConnection')
+  await enterPeer()
+  await click('libraryTransfer.startSending')
   expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_network_start', {
     request: expect.objectContaining({
       selection: {
@@ -338,11 +361,13 @@ it('does not opt documents into sending after retrying a failed document load', 
   let failed = false
   ipc.invoke.mockImplementation((command: string, args: unknown) => {
     if (command === 'document_uploads_list' && !failed) {
-      failed = true; return Promise.reject(new Error('List failed'))
+      failed = true
+      return Promise.reject(new Error('List failed'))
     }
     return fallback(command, args)
   })
-  await mount(); await click('libraryTransfer.modeSend')
+  await mount()
+  await click('libraryTransfer.modeSend')
   expect(container.textContent).toContain('libraryTransfer.documentsLoadFailed')
   await click('common.retry')
   expect(container.querySelector<HTMLInputElement>('.library-transfer-picker-list input')?.checked).toBe(false)
@@ -354,7 +379,8 @@ it('explains an empty library before showing address, code or network controls',
   const fallback = ipc.invoke.getMockImplementation()!
   ipc.invoke.mockImplementation((command: string, args: unknown) => command === 'document_uploads_list'
     ? Promise.resolve([]) : fallback(command, args))
-  await mount(); await click('libraryTransfer.modeSend')
+  await mount()
+  await click('libraryTransfer.modeSend')
   expect(container.textContent).toContain('libraryTransfer.emptyLibrary')
   expect(button('libraryTransfer.continueToConnection').disabled).toBe(true)
   expect(container.querySelector('.library-transfer-network')).toBeNull()
@@ -366,7 +392,8 @@ it('keeps diagnostic details available after a file-export failure on the conten
   const fallback = ipc.invoke.getMockImplementation()!
   ipc.invoke.mockImplementation((command: string, args: unknown) => command === 'library_transfer_export'
     ? Promise.reject(new Error('Export failed')) : fallback(command, args))
-  await mount(); await click('libraryTransfer.modeSend')
+  await mount()
+  await click('libraryTransfer.modeSend')
   expect(container.querySelector('.library-transfer-diagnostics')).toBeNull()
   await selectFirstDocument()
   await click('libraryTransfer.export')
@@ -396,7 +423,8 @@ it('explains missing content when restoring a cancelled sender instead of leavin
 })
 
 it('keeps manual and alternate setup secondary and discards credentials on method/network changes', async () => {
-  await mount(); await openSender()
+  await mount()
+  await openSender()
   const details = (key: string) => Array.from(container.querySelectorAll('details')).find(d => d.querySelector('summary')?.textContent === key)!
   for (const key of ['libraryTransfer.manualAddress', 'libraryTransfer.otherConnectionMethod', 'libraryTransfer.networkSettings']) {
     expect(details(key).open).toBe(false)
@@ -407,7 +435,8 @@ it('keeps manual and alternate setup secondary and discards credentials on metho
   expect(container.querySelector('[placeholder="192.168.1.20:53318"]')).toBeNull()
   await click('libraryTransfer.useOtherCode')
   expect(container.querySelector<HTMLInputElement>('[placeholder="192.168.1.20:53318"]')?.value).toBe('')
-  await enterPeer(); await click('libraryTransfer.refreshNetworks')
+  await enterPeer()
+  await click('libraryTransfer.refreshNetworks')
   expect(container.querySelector<HTMLInputElement>('[placeholder="192.168.1.20:53318"]')?.value).toBe('')
   expect(container.querySelector('[placeholder="ABCD-EFGH-JKLM"]')).toBeNull()
   expect(ipc.invoke.mock.calls.some(([command]) => command === 'library_transfer_network_start')).toBe(false)
@@ -437,7 +466,10 @@ it('shows the explicitly selected unverified peer name and requires its code bef
     }
     return fallback(command, args)
   })
-  await mount(); await openSender(); await click('libraryTransfer.nearby.find'); await click(name)
+  await mount()
+  await openSender()
+  await click('libraryTransfer.nearby.find')
+  await click(name)
   expect(container.querySelector('.library-transfer-network > [role="status"]')?.textContent).toContain(name)
   expect(container.querySelector('b')).toBeNull()
   expect(button('libraryTransfer.startSending').disabled).toBe(true)
@@ -458,7 +490,8 @@ it('shows the explicitly selected unverified peer name and requires its code bef
 })
 
 it('listens by default on Receive and shows credentials and instructions for the sender', async () => {
-  await mount(); await click('libraryTransfer.modeReceive')
+  await mount()
+  await click('libraryTransfer.modeReceive')
   expect(container.querySelector('.library-transfer-pairing-fields')).toBeNull()
   await click('libraryTransfer.showPairingDetails')
   expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_network_start', {
@@ -471,11 +504,14 @@ it('listens by default on Receive and shows credentials and instructions for the
   })
   expect(container.textContent).toContain(waiting.code)
   expect(container.textContent).toContain('libraryTransfer.receiverPairingStep')
-  await tryNavigation(); expect(close).not.toHaveBeenCalled()
+  await tryNavigation()
+  expect(close).not.toHaveBeenCalled()
 })
 
 it.each(['send', 'receive'] as const)('offers the explicit alternate for %s and clears old peer inputs', async role => {
-  await mount(); await openSender(); await enterPeer()
+  await mount()
+  await openSender()
+  await enterPeer()
   if (role === 'receive') {
     await click('libraryTransfer.modeReceive')
   }
@@ -506,11 +542,16 @@ it.each(['send', 'receive'] as const)('offers the explicit alternate for %s and 
 })
 
 it.each(['cancelled', 'complete', 'expired', 'failed', 'outcomeUnknown'] as const)('keeps navigation blocked until native cleanup reports %s', async state => {
-  await mount(); await openSender(); await enterPeer(); await click('libraryTransfer.startSending')
-  await tryNavigation(); expect(close).not.toHaveBeenCalled()
+  await mount()
+  await openSender()
+  await enterPeer()
+  await click('libraryTransfer.startSending')
+  await tryNavigation()
+  expect(close).not.toHaveBeenCalled()
   await click('libraryTransfer.cancelTransfer')
   expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_network_cancel', { id: 1 })
-  await tryNavigation(); expect(close).not.toHaveBeenCalled()
+  await tryNavigation()
+  expect(close).not.toHaveBeenCalled()
   snapshot = {
     ...snapshot!,
     state,
@@ -519,8 +560,10 @@ it.each(['cancelled', 'complete', 'expired', 'failed', 'outcomeUnknown'] as cons
     code: '',
     cancellable: false,
   }
-  await poll(); await tryNavigation()
-  expect(back).toHaveBeenCalledOnce(); expect(close).toHaveBeenCalledTimes(3)
+  await poll()
+  await tryNavigation()
+  expect(back).toHaveBeenCalledOnce()
+  expect(close).toHaveBeenCalledTimes(3)
   expect(container.textContent).not.toContain(waiting.code)
   expect(container.textContent).not.toContain(waiting.addresses[0])
   if (state === 'outcomeUnknown') {
@@ -530,11 +573,14 @@ it.each(['cancelled', 'complete', 'expired', 'failed', 'outcomeUnknown'] as cons
 })
 
 it('does not dismiss when cancellation fails or native import admission refuses it', async () => {
-  await mount(); await click('libraryTransfer.modeReceive'); await click('libraryTransfer.showPairingDetails')
+  await mount()
+  await click('libraryTransfer.modeReceive')
+  await click('libraryTransfer.showPairingDetails')
   ipc.invoke.mockRejectedValueOnce(new Error('Cancel request failed'))
   await click('libraryTransfer.cancelTransfer')
   expect(container.textContent).toContain('Cancel request failed')
-  await tryNavigation(); expect(close).not.toHaveBeenCalled()
+  await tryNavigation()
+  expect(close).not.toHaveBeenCalled()
   const fallback = ipc.invoke.getMockImplementation()!
   ipc.invoke.mockImplementation(async (command: string, args: unknown) => {
     if (command === 'library_transfer_network_cancel') {
@@ -545,18 +591,23 @@ it('does not dismiss when cancellation fails or native import admission refuses 
         listenerReady: false,
         addresses: [],
         code: '',
-      }; return false
+      }
+      return false
     }
     return fallback(command, args)
   })
   await click('libraryTransfer.cancelTransfer')
   expect(container.textContent).toContain('libraryTransfer.finishingImport')
   expect(button('libraryTransfer.cancelTransfer').disabled).toBe(true)
-  await tryNavigation(); expect(close).not.toHaveBeenCalled()
+  await tryNavigation()
+  expect(close).not.toHaveBeenCalled()
 })
 
 it('surfaces retained interruptions and retries only the same native connector generation after an explicit click', async () => {
-  await mount(); await openSender(); await enterPeer(); await click('libraryTransfer.startSending')
+  await mount()
+  await openSender()
+  await enterPeer()
+  await click('libraryTransfer.startSending')
   snapshot = {
     ...snapshot!,
     state: 'waitingResume',
@@ -581,20 +632,25 @@ it('surfaces retained interruptions and retries only the same native connector g
 })
 
 it('drops mismatched-generation and late status polls', async () => {
-  await mount(); await click('libraryTransfer.modeReceive'); await click('libraryTransfer.showPairingDetails')
+  await mount()
+  await click('libraryTransfer.modeReceive')
+  await click('libraryTransfer.showPairingDetails')
   snapshot = {
     ...waiting,
     id: 999,
     state: 'complete',
   }
-  await poll(); expect(container.textContent).toContain(waiting.code)
+  await poll()
+  expect(container.textContent).toContain(waiting.code)
   let release!: (value: unknown) => void
   const fallback = ipc.invoke.getMockImplementation()!
   ipc.invoke.mockImplementation((command: string, args: unknown) => command === 'library_transfer_network_status'
     ? new Promise(resolve => {
       release = resolve
     }) : fallback(command, args))
-  await poll(); await act(() => root.unmount()); await act(() => release({
+  await poll()
+  await act(() => root.unmount())
+  await act(() => release({
     ...waiting,
     state: 'complete',
   }))
@@ -604,7 +660,9 @@ it('drops mismatched-generation and late status polls', async () => {
 
 it('preserves diagnostic access on polling/subscription failures without inventing terminal success', async () => {
   ipc.listen.mockRejectedValueOnce(new Error('private subscription detail'))
-  await mount(); await click('libraryTransfer.modeReceive'); await click('libraryTransfer.showPairingDetails')
+  await mount()
+  await click('libraryTransfer.modeReceive')
+  await click('libraryTransfer.showPairingDetails')
   const fallback = ipc.invoke.getMockImplementation()!
   ipc.invoke.mockImplementation(async (command: string, args: unknown) => command === 'library_transfer_network_status' ? Promise.reject('poll failure') : fallback(command, args))
   await poll()
@@ -612,21 +670,26 @@ it('preserves diagnostic access on polling/subscription failures without inventi
   expect(container.textContent).toContain('libraryTransfer.diagnostics.progressUnavailable')
   expect(container.textContent).not.toContain('private subscription detail')
   expect(container.querySelector('.library-transfer-diagnostics')).not.toBeNull()
-  await tryNavigation(); expect(close).not.toHaveBeenCalled()
+  await tryNavigation()
+  expect(close).not.toHaveBeenCalled()
 })
 
 it('validates a listener override and leaves file export available when no interface is selected', async () => {
-  await mount(); await openSender(); await click('libraryTransfer.showCodeHere')
+  await mount()
+  await openSender()
+  await click('libraryTransfer.showCodeHere')
   const input = container.querySelector<HTMLInputElement>('input[type="number"]')!
   const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
   for (const port of ['0', '1023', '65536', '53318.5']) {
     await act(() => {
-      set.call(input, port); input.dispatchEvent(new Event('input', { bubbles: true }))
+      set.call(input, port)
+      input.dispatchEvent(new Event('input', { bubbles: true }))
     })
     expect(button('libraryTransfer.startSending').disabled).toBe(true)
   }
   await act(() => {
-    set.call(input, '54444'); input.dispatchEvent(new Event('input', { bubbles: true }))
+    set.call(input, '54444')
+    input.dispatchEvent(new Event('input', { bubbles: true }))
   })
   await click('libraryTransfer.startSending')
   expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_network_start', expect.objectContaining({ request: expect.objectContaining({ port: 54444 }) }))
@@ -647,10 +710,12 @@ it('requires an explicit interface when several are eligible and still permits s
       automatic: true,
     }]
     : fallback(command, args))
-  await mount(); await click('libraryTransfer.modeSend')
+  await mount()
+  await click('libraryTransfer.modeSend')
   await selectFirstDocument()
   expect(button('libraryTransfer.export').disabled).toBe(false)
-  await click('libraryTransfer.continueToConnection'); await enterPeer()
+  await click('libraryTransfer.continueToConnection')
+  await enterPeer()
   expect(button('libraryTransfer.startSending').disabled).toBe(true)
   const settings = Array.from(container.querySelectorAll('details')).find(d => d.querySelector('summary')?.textContent === 'libraryTransfer.networkSettings')!
   expect(settings.open).toBe(true)
@@ -670,7 +735,8 @@ it('resolves native ownership before allowing role changes, new operations or na
     expect(button(key).disabled).toBe(true)
     await click(key)
   }
-  await tryNavigation(); expect(close).not.toHaveBeenCalled()
+  await tryNavigation()
+  expect(close).not.toHaveBeenCalled()
   expect(ipc.invoke.mock.calls.some(([command]) => command === 'library_transfer_network_start')).toBe(false)
   snapshot = {
     ...waiting,
@@ -682,7 +748,8 @@ it('resolves native ownership before allowing role changes, new operations or na
   expect(button('libraryTransfer.modeSend').getAttribute('aria-pressed')).toBe('true')
   expect(container.textContent).toContain(waiting.code)
   expect(button('libraryTransfer.cancelTransfer').disabled).toBe(false)
-  await tryNavigation(); expect(close).not.toHaveBeenCalled()
+  await tryNavigation()
+  expect(close).not.toHaveBeenCalled()
   await click('libraryTransfer.cancelTransfer')
   expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_network_cancel', { id: 1 })
   snapshot = {
@@ -691,7 +758,9 @@ it('resolves native ownership before allowing role changes, new operations or na
     cancellable: false,
     listenerReady: false,
   }
-  await poll(); await tryNavigation(); expect(close).toHaveBeenCalled()
+  await poll()
+  await tryNavigation()
+  expect(close).toHaveBeenCalled()
 })
 
 it('keeps new work disabled after an ownership lookup fails, with visible Retry and Close', async () => {
@@ -751,12 +820,15 @@ it.each(['failed', 'expired', 'outcomeUnknown'] as const)('acknowledges %s befor
       message: 'Disconnected',
     },
   }
-  await mount(); await click('libraryTransfer.changeSelection')
+  await mount()
+  await click('libraryTransfer.changeSelection')
   expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_network_dismiss', { id: 1 })
   expect(snapshot).toBeNull()
-  await tryNavigation(); expect(close).toHaveBeenCalled()
+  await tryNavigation()
+  expect(close).toHaveBeenCalled()
   await act(() => root.unmount())
-  root = createRoot(container); await mount()
+  root = createRoot(container)
+  await mount()
   expect(button('libraryTransfer.startSending')).toBeUndefined()
   expect(button('libraryTransfer.modeSend')).toBeDefined()
   expect(button('libraryTransfer.changeSelection')).toBeUndefined()
@@ -777,7 +849,8 @@ it('retains terminal state and exposes dismissal errors until Change Selection s
   const fallback = ipc.invoke.getMockImplementation()!
   ipc.invoke.mockImplementation((command: string, args: unknown) => command === 'library_transfer_network_dismiss'
     ? Promise.reject(new Error('Could not dismiss transfer')) : fallback(command, args))
-  await mount(); await click('libraryTransfer.changeSelection')
+  await mount()
+  await click('libraryTransfer.changeSelection')
   expect(container.textContent).toContain('Disconnected')
   expect(container.textContent).toContain('Could not dismiss transfer')
   expect(snapshot?.id).toBe(1)
@@ -811,11 +884,13 @@ it('locks controls during dismissal and cannot dismiss a newer native generation
         void Promise.resolve(fallback(command, args)).then(resolve)
       }
     }) : fallback(command, args))
-  await mount(); await click('libraryTransfer.changeSelection')
+  await mount()
+  await click('libraryTransfer.changeSelection')
   expect(container.textContent).toContain('Disconnected')
   expect(button('libraryTransfer.changeSelection').disabled).toBe(true)
   expect(button('libraryTransfer.modeSend').disabled).toBe(true)
-  await tryNavigation(); expect(close).not.toHaveBeenCalled()
+  await tryNavigation()
+  expect(close).not.toHaveBeenCalled()
   snapshot = {
     ...waiting,
     id: 2,
@@ -824,9 +899,11 @@ it('locks controls during dismissal and cannot dismiss a newer native generation
   await act(() => release())
   expect(snapshot?.id).toBe(2)
   ipc.invoke.mockImplementation(fallback)
-  await tryNavigation(); expect(close).toHaveBeenCalled()
+  await tryNavigation()
+  expect(close).toHaveBeenCalled()
   await act(() => root.unmount())
-  root = createRoot(container); await mount()
+  root = createRoot(container)
+  await mount()
   expect(container.textContent).toContain('3456-BCDE-HJKL')
   expect(ipc.invoke).not.toHaveBeenCalledWith('library_transfer_network_dismiss', { id: 2 })
 })
@@ -838,10 +915,14 @@ it('waits for the native generation before enabling cancellation during preparat
     ? new Promise(resolve => {
       release = resolve
     }) : fallback(command, args))
-  await mount(); await openSender(); await enterPeer(); await click('libraryTransfer.startSending')
+  await mount()
+  await openSender()
+  await enterPeer()
+  await click('libraryTransfer.startSending')
   expect(button('libraryTransfer.cancelTransfer')).toBeUndefined()
   expect(button('libraryTransfer.changeSelection').disabled).toBe(true)
-  await tryNavigation(); expect(close).not.toHaveBeenCalled()
+  await tryNavigation()
+  expect(close).not.toHaveBeenCalled()
   await act(() => release({
     ...waiting,
     role: 'sender',
@@ -865,7 +946,8 @@ it('reattaches native receiving work and applies a partial import result exactly
   }
   await mount()
   expect(button('libraryTransfer.modeReceive').getAttribute('aria-pressed')).toBe('true')
-  await tryNavigation(); expect(close).not.toHaveBeenCalled()
+  await tryNavigation()
+  expect(close).not.toHaveBeenCalled()
   snapshot = {
     ...snapshot,
     state: 'complete',
@@ -886,16 +968,21 @@ it('reattaches native receiving work and applies a partial import result exactly
       }],
     },
   }
-  await poll(); await poll()
+  await poll()
+  await poll()
   expect(imported).toHaveBeenCalledOnce()
   expect(container.textContent).toContain('libraryTransfer.completionPartialTitle')
   expect(container.textContent).toContain('<b>Unreadable book</b>')
   expect(container.querySelector('.library-transfer-result b')).toBeNull()
-  await tryNavigation(); expect(close).toHaveBeenCalledTimes(3)
+  await tryNavigation()
+  expect(close).toHaveBeenCalledTimes(3)
 })
 
 it('ignores a late Retry reply after cancellation and a new generation', async () => {
-  await mount(); await openSender(); await enterPeer(); await click('libraryTransfer.startSending')
+  await mount()
+  await openSender()
+  await enterPeer()
+  await click('libraryTransfer.startSending')
   snapshot = {
     ...snapshot!,
     state: 'waitingResume',
@@ -912,13 +999,16 @@ it('ignores a late Retry reply after cancellation and a new generation', async (
     ? new Promise(resolve => {
       release = resolve
     }) : fallback(command, args))
-  await click('common.retry'); await click('libraryTransfer.cancelTransfer')
+  await click('common.retry')
+  await click('libraryTransfer.cancelTransfer')
   snapshot = {
     ...snapshot!,
     state: 'cancelled',
     canRetry: false,
   }
-  await poll(); await click('libraryTransfer.modeReceive'); await click('libraryTransfer.showPairingDetails')
+  await poll()
+  await click('libraryTransfer.modeReceive')
+  await click('libraryTransfer.showPairingDetails')
   snapshot = {
     ...snapshot!,
     id: 2,
@@ -978,9 +1068,12 @@ it('keeps manual sending available when system discovery is unsupported', async 
     }
     return fallback(command, args)
   })
-  await mount(); await openSender(); await click('libraryTransfer.nearby.find')
+  await mount()
+  await openSender()
+  await click('libraryTransfer.nearby.find')
   expect(container.textContent).toContain('libraryTransfer.nearby.unsupported')
-  await enterPeer(); expect(button('libraryTransfer.startSending').disabled).toBe(false)
+  await enterPeer()
+  expect(button('libraryTransfer.startSending').disabled).toBe(false)
   await click('libraryTransfer.startSending')
   expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_network_start', expect.objectContaining({
     request: expect.objectContaining({
