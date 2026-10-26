@@ -1,14 +1,37 @@
 // @vitest-environment jsdom
-import { act, useEffect } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import {
+  act,
+  useEffect,
+} from 'react'
+import {
+  createRoot,
+  type Root,
+} from 'react-dom/client'
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import { SearchModelSetup } from './SearchModelSetup'
-import { useSemanticSearch, type ProviderStatus, type SemanticSearchController, type DownloadProgress } from '../../search-semantic/useSemanticSearch'
+import {
+  useSemanticSearch,
+  type ProviderStatus,
+  type SemanticSearchController,
+  type DownloadProgress,
+} from '../../search-semantic/useSemanticSearch'
 import { semanticSearchStatus } from '../../search-semantic/semanticSearchStatus'
 import { invoke } from '@tauri-apps/api/core'
-import { listen, type Event } from '@tauri-apps/api/event'
+import {
+  listen,
+  type Event,
+} from '@tauri-apps/api/event'
 
-vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: () => true }))
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(),
+  isTauri: () => true,
+}))
 vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn(async () => () => {}) }))
 vi.mock('react-i18next', async (original) => ({
   ...await original<typeof import('react-i18next')>(),
@@ -28,13 +51,27 @@ let rejectDownload: (error: string) => void
 let downloadJob: number
 const downloadListeners = new Set<(event: Event<DownloadProgress>) => void>()
 function downloadEvent(phase: DownloadProgress['phase'], error: string | null = null) {
-  for (const listener of downloadListeners) listener({ event: 'search-embedding-download-progress', id: 0,
-    payload: { jobId: `download-${downloadJob}`, format: 'float32', phase, downloadedBytes: 50, totalBytes: 100, error } })
+  for (const listener of downloadListeners) {
+    listener({
+      event: 'search-embedding-download-progress',
+      id: 0,
+      payload: {
+        jobId: `download-${downloadJob}`,
+        format: 'float32',
+        phase,
+        downloadedBytes: 50,
+        totalBytes: 100,
+        error,
+      },
+    })
+  }
 }
 
 function Harness() {
   const controller = useSemanticSearch()
-  useEffect(() => { semantic = controller }, [controller])
+  useEffect(() => {
+    semantic = controller
+  }, [controller])
   return <SearchModelSetup semantic={controller} />
 }
 
@@ -51,27 +88,67 @@ beforeEach(async () => {
   vi.mocked(listen).mockImplementation(async (_, callback) => {
     const listener = callback as (event: Event<DownloadProgress>) => void
     downloadListeners.add(listener)
-    return () => { downloadListeners.delete(listener) }
+    return () => {
+      downloadListeners.delete(listener)
+    }
   })
-  provider = { compiled: true, activeFormat: null, loadingFormat: null, downloadingFormat: null }
+  provider = {
+    compiled: true,
+    activeFormat: null,
+    loadingFormat: null,
+    downloadingFormat: null,
+  }
   vi.mocked(invoke).mockImplementation(async (command, args) => {
-    if (command === 'search_embedding_status') return { ...provider }
-    if (command === 'search_embedding_cache_status') return [{ format: 'float32', filesPresent, hasStoredFiles: storedFiles, expectedBytes: 465000000 }]
-    if (command === 'search_semantic_index_status') return { running: false, cancelRequested: false, indexedDocuments: 2,
-      eligibleDocuments: 2, passages: 100, hasStoredIndex: true, embeddedPassages: 0, reusedPassages: 0, error: null }
+    if (command === 'search_embedding_status') {
+      return { ...provider }
+    }
+    if (command === 'search_embedding_cache_status') {
+      return [{
+        format: 'float32',
+        filesPresent,
+        hasStoredFiles: storedFiles,
+        expectedBytes: 465000000,
+      }]
+    }
+    if (command === 'search_semantic_index_status') {
+      return {
+        running: false,
+        cancelRequested: false,
+        indexedDocuments: 2,
+        eligibleDocuments: 2,
+        passages: 100,
+        hasStoredIndex: true,
+        embeddedPassages: 0,
+        reusedPassages: 0,
+        error: null,
+      }
+    }
     if (command === 'search_embedding_download') {
       downloadJob++
-      provider = { ...provider, downloadingFormat: 'float32' }
+      provider = {
+        ...provider,
+        downloadingFormat: 'float32',
+      }
       downloadEvent('starting')
-      return new Promise<void>((resolve, reject) => { resolveDownload = resolve; rejectDownload = reject })
+      return new Promise<void>((resolve, reject) => {
+        resolveDownload = resolve; rejectDownload = reject
+      })
     }
-    if (command === 'search_embedding_cancel_download') return { ...provider }
+    if (command === 'search_embedding_cancel_download') {
+      return { ...provider }
+    }
     if (command === 'search_embedding_configure') {
       if ((args as { format: string | null }).format === null) {
-        provider = { ...provider, activeFormat: null, loadingFormat: null }
+        provider = {
+          ...provider,
+          activeFormat: null,
+          loadingFormat: null,
+        }
         return
       }
-      return new Promise<void>((resolve, reject) => { resolveActivation = resolve; rejectActivation = reject })
+      return new Promise<void>((resolve, reject) => {
+        resolveActivation = resolve; rejectActivation = reject
+      })
     }
     throw new Error(`Unexpected IPC: ${command}`)
   })
@@ -86,10 +163,16 @@ afterEach(async () => {
   vi.unstubAllGlobals()
 })
 
-function toggle() { return container.querySelector<HTMLInputElement>('[role="switch"]')! }
-function phase() { return container.querySelector('.search-model-management > summary .search-model-phase') }
+function toggle() {
+  return container.querySelector<HTMLInputElement>('[role="switch"]')!
+}
+function phase() {
+  return container.querySelector('.search-model-management > summary .search-model-phase')
+}
 function assertDescriptionsResolve() {
-  for (const id of toggle().getAttribute('aria-describedby')?.split(' ') ?? []) expect(document.getElementById(id)).not.toBeNull()
+  for (const id of toggle().getAttribute('aria-describedby')?.split(' ') ?? []) {
+    expect(document.getElementById(id)).not.toBeNull()
+  }
 }
 function assertToggleRow(state: string) {
   const heading = container.querySelector<HTMLElement>('.search-semantic-setup h3')!
@@ -103,7 +186,9 @@ function assertToggleRow(state: string) {
   expect(container.querySelector('.search-semantic-setup > [role="status"]')).toBeNull()
   assertDescriptionsResolve()
 }
-async function enable() { await act(() => toggle().click()) }
+async function enable() {
+  await act(() => toggle().click())
+}
 
 it('announces activation once, keeps Off usable, then clears loading and exposes ready index controls', async () => {
   expect(toggle().disabled).toBe(false)
@@ -118,7 +203,10 @@ it('announces activation once, keeps Off usable, then clears loading and exposes
   expect(container.textContent?.match(/settings.searchModel.loadingModel/g)).toHaveLength(1)
   assertToggleRow('loading')
   await act(() => {
-    provider = { ...provider, activeFormat: 'float32' }
+    provider = {
+      ...provider,
+      activeFormat: 'float32',
+    }
     resolveActivation()
   })
   expect(phase()).toBeNull()
@@ -162,13 +250,20 @@ it('keeps native loading feedback after activation IPC settles, while download w
   vi.useFakeTimers()
   await enable()
   await act(() => {
-    provider = { ...provider, loadingFormat: 'float32' }
+    provider = {
+      ...provider,
+      loadingFormat: 'float32',
+    }
     resolveActivation()
   })
   expect(phase()).not.toBeNull()
   expect(toggle().disabled).toBe(false)
   await act(() => toggle().click())
-  provider = { ...provider, loadingFormat: null, downloadingFormat: 'float32' }
+  provider = {
+    ...provider,
+    loadingFormat: null,
+    downloadingFormat: 'float32',
+  }
   await act(() => semantic.refresh())
   expect(phase()).toBeNull()
   expect(toggle().disabled).toBe(true)
@@ -176,7 +271,6 @@ it('keeps native loading feedback after activation IPC settles, while download w
   expect(container.querySelector('.search-download-progress')?.textContent).toContain('settings.searchModel.verifying')
   assertDescriptionsResolve()
 })
-
 
 function button(key: string) {
   return [...container.querySelectorAll<HTMLButtonElement>('button')].find(item => item.textContent === key)
@@ -193,7 +287,9 @@ async function startDownload() {
   await act(() => container.querySelector<HTMLInputElement>('.search-model-consent input')!.click())
   await act(() => button('settings.searchModel.download')!.click())
 }
-function downloadCalls() { return vi.mocked(invoke).mock.calls.filter(([command]) => command === 'search_embedding_download') }
+function downloadCalls() {
+  return vi.mocked(invoke).mock.calls.filter(([command]) => command === 'search_embedding_download')
+}
 
 it.each([true, false])('keeps cancellation local and guarded through cleanup (terminal event: %s)', async (withEvent) => {
   vi.useFakeTimers()
@@ -212,9 +308,14 @@ it.each([true, false])('keeps cancellation local and guarded through cleanup (te
   expect(container.querySelector('.search-model-management')?.textContent).not.toContain('settings.searchModel.cancelled')
   expect(downloadCalls()).toHaveLength(1)
   await act(() => {
-    provider = { ...provider, downloadingFormat: null }
+    provider = {
+      ...provider,
+      downloadingFormat: null,
+    }
     storedFiles = true
-    if (withEvent) downloadEvent('cancelled', 'Embedding download cancelled')
+    if (withEvent) {
+      downloadEvent('cancelled', 'Embedding download cancelled')
+    }
     rejectDownload('Embedding download cancelled')
   })
   // Native polling reconciles the controller even when its terminal event is missed.
@@ -253,7 +354,10 @@ it('groups storage guidance and distinguishes stored, pending and explicitly ver
   expect(fileStatus()).toBeNull()
   expect(container.querySelector('.search-model-verified')).toBeNull()
   await act(() => {
-    provider = { ...provider, downloadingFormat: null }
+    provider = {
+      ...provider,
+      downloadingFormat: null,
+    }
     downloadEvent('installed')
     resolveDownload()
   })
@@ -290,7 +394,10 @@ it('keeps real download failure and Retry in the model panel, even after a cance
   await act(() => button('settings.searchModel.cancel')!.click())
   const diagnostic = 'Embedding download unavailable: connection cancelled by proxy'
   await act(() => {
-    provider = { ...provider, downloadingFormat: null }
+    provider = {
+      ...provider,
+      downloadingFormat: null,
+    }
     downloadEvent('failed', diagnostic)
     rejectDownload(diagnostic)
   })
@@ -310,7 +417,10 @@ it('keeps real download failure and Retry in the model panel, even after a cance
   expect(downloadCalls()).toHaveLength(2)
   expect(container.querySelector('[role="alert"]')).toBeNull()
   await act(() => {
-    provider = { ...provider, downloadingFormat: null }
+    provider = {
+      ...provider,
+      downloadingFormat: null,
+    }
     filesPresent = true; storedFiles = true
     downloadEvent('installed')
     resolveDownload()
@@ -323,7 +433,9 @@ it('keeps setup recovery available when the initial cache-status read cannot ope
   const invokeNormally = vi.mocked(invoke).getMockImplementation()!
   let unavailable = true
   vi.mocked(invoke).mockImplementation(async (command, args, options) => {
-    if (command === 'search_embedding_cache_status' && unavailable) throw new Error('Cache status unavailable')
+    if (command === 'search_embedding_cache_status' && unavailable) {
+      throw new Error('Cache status unavailable')
+    }
     return invokeNormally(command, args, options)
   })
   await reopen()
@@ -337,30 +449,65 @@ it('keeps setup recovery available when the initial cache-status read cannot ope
   expect(downloadCalls()).toHaveLength(0)
 })
 
-
 it.each([
-  { outcome: 'Semantic indexing cancelled', readyDocuments: 1, expected: 'needsIndex' },
-  { outcome: 'Semantic indexing cancelled', readyDocuments: 2, expected: 'ready' },
-  { outcome: 'Disk full', readyDocuments: 1, expected: 'fallback' },
-  { outcome: 'Semantic indexing cancelled: cleanup failed', readyDocuments: 1, expected: 'fallback' },
+  {
+    outcome: 'Semantic indexing cancelled',
+    readyDocuments: 1,
+    expected: 'needsIndex',
+  },
+  {
+    outcome: 'Semantic indexing cancelled',
+    readyDocuments: 2,
+    expected: 'ready',
+  },
+  {
+    outcome: 'Disk full',
+    readyDocuments: 1,
+    expected: 'fallback',
+  },
+  {
+    outcome: 'Semantic indexing cancelled: cleanup failed',
+    readyDocuments: 1,
+    expected: 'fallback',
+  },
 ] as const)('retains checkpoints after Stop and derives $expected from $outcome ($readyDocuments ready)', async ({ outcome, readyDocuments, expected }) => {
   const normally = vi.mocked(invoke).getMockImplementation()!
-  const index = { running: false, cancelRequested: false, indexedDocuments: 0, eligibleDocuments: 2,
-    passages: 0, hasStoredIndex: true, embeddedPassages: 0, reusedPassages: 0, error: null as string | null }
+  const index = {
+    running: false,
+    cancelRequested: false,
+    indexedDocuments: 0,
+    eligibleDocuments: 2,
+    passages: 0,
+    hasStoredIndex: true,
+    embeddedPassages: 0,
+    reusedPassages: 0,
+    error: null as string | null,
+  }
   let rejectBuild!: (error: string) => void
   let resolveBuild!: () => void
   vi.mocked(invoke).mockImplementation(async (command, args, options) => {
-    if (command === 'search_semantic_index_status') return { ...index }
+    if (command === 'search_semantic_index_status') {
+      return { ...index }
+    }
     if (command === 'search_semantic_index_build') {
       index.running = true
       index.error = null
-      return new Promise<void>((resolve, reject) => { resolveBuild = resolve; rejectBuild = reject })
+      return new Promise<void>((resolve, reject) => {
+        resolveBuild = resolve; rejectBuild = reject
+      })
     }
-    if (command === 'search_semantic_index_cancel') { index.cancelRequested = true; return }
+    if (command === 'search_semantic_index_cancel') {
+      index.cancelRequested = true; return
+    }
     return normally(command, args, options)
   })
   await enable()
-  await act(() => { provider = { ...provider, activeFormat: 'float32' }; resolveActivation() })
+  await act(() => {
+    provider = {
+      ...provider,
+      activeFormat: 'float32',
+    }; resolveActivation()
+  })
   await act(() => button('settings.semantic.build')!.click())
   index.passages = 20; index.indexedDocuments = readyDocuments; index.embeddedPassages = 15; index.reusedPassages = 5
   await act(() => semantic.refresh())
@@ -368,7 +515,9 @@ it.each([
   expect(semantic.busy).toBe(true)
   expect(button('settings.semantic.stop')?.disabled).toBe(true)
   expect(container.querySelector('.search-library-index')?.textContent).not.toContain('settings.semantic.activity.cancelled')
-  await act(() => { index.running = false; index.error = outcome; rejectBuild(outcome) })
+  await act(() => {
+    index.running = false; index.error = outcome; rejectBuild(outcome)
+  })
   expect(semantic.busy).toBe(false)
   expect(semantic.index?.passages).toBe(20)
   expect(semantic.index?.indexedDocuments).toBe(readyDocuments)
@@ -394,13 +543,14 @@ it.each([
   if (expected === 'needsIndex') {
     await act(() => button('settings.semantic.update')!.click())
     expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'search_semantic_index_build')).toHaveLength(2)
-    await act(() => { index.running = false; index.indexedDocuments = 2; resolveBuild() })
+    await act(() => {
+      index.running = false; index.indexedDocuments = 2; resolveBuild()
+    })
     expect(semanticSearchStatus(semantic)).toBe('ready')
     expect(semantic.error).toBe('')
     expect(container.textContent).not.toContain('settings.semantic.activity.cancelled')
   }
 })
-
 
 it('keeps the switch name and row interaction stable across coverage, native work and status recovery', async () => {
   assertToggleRow('off')
@@ -409,14 +559,24 @@ it('keeps the switch name and row interaction stable across coverage, native wor
   assertToggleRow('loading')
   expect(toggle().checked).toBe(true)
   expect(toggle().disabled).toBe(false)
-  await act(() => { provider = { ...provider, activeFormat: 'float32' }; resolveActivation() })
+  await act(() => {
+    provider = {
+      ...provider,
+      activeFormat: 'float32',
+    }; resolveActivation()
+  })
   assertToggleRow('ready')
   const normally = vi.mocked(invoke).getMockImplementation()!
-  const index = { ...semantic.index!, indexedDocuments: 1 }
+  const index = {
+    ...semantic.index!,
+    indexedDocuments: 1,
+  }
   let statusUnavailable = false
   vi.mocked(invoke).mockImplementation(async (command, args, options) => {
     if (command === 'search_semantic_index_status') {
-      if (statusUnavailable) throw new Error('Index status unavailable')
+      if (statusUnavailable) {
+        throw new Error('Index status unavailable')
+      }
       return { ...index }
     }
     return normally(command, args, options)

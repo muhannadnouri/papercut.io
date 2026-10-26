@@ -42,7 +42,10 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
       ['bf_lily', '🇬🇧 Lily (D)'], ['bm_george', '🇬🇧 George (C)'],
       ['bm_lewis', '🇬🇧 Lewis (D+)'], ['bm_daniel', '🇬🇧 Daniel (D)'],
       ['bm_fable', '🇬🇧 Fable (C)'],
-    ].map(([id, name]) => ({ id, name })),
+    ].map(([id, name]) => ({
+      id,
+      name,
+    })),
   },
   {
     id: KOKORO_ZH_MODEL_ID,
@@ -62,7 +65,10 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
       ['zf_xiaoxiao', '🇨🇳 Xiaoxiao (D)'], ['zf_xiaoyi', '🇨🇳 Xiaoyi (D)'],
       ['zm_yunjian', '🇨🇳 Yunjian (D)'], ['zm_yunxi', '🇨🇳 Yunxi (D)'],
       ['zm_yunxia', '🇨🇳 Yunxia (D)'], ['zm_yunyang', '🇨🇳 Yunyang (D)'],
-    ].map(([id, name]) => ({ id, name })),
+    ].map(([id, name]) => ({
+      id,
+      name,
+    })),
   },
   {
     id: 'sherpa-onnx/kokoro-multi-lang-v1_0-es',
@@ -78,8 +84,14 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
       description: 'Synthesize source text without language preprocessing.',
     }],
     voices: [
-      { id: 'ef_dora', name: '🇪🇸 Dora' },
-      { id: 'em_alex', name: '🇪🇸 Alex' },
+      {
+        id: 'ef_dora',
+        name: '🇪🇸 Dora',
+      },
+      {
+        id: 'em_alex',
+        name: '🇪🇸 Alex',
+      },
     ],
   },
   {
@@ -95,7 +107,10 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
       name: 'Original text',
       description: 'Synthesize source text without language preprocessing.',
     }],
-    voices: [{ id: 'ff_siwis', name: '🇫🇷 Siwis (B-)' }],
+    voices: [{
+      id: 'ff_siwis',
+      name: '🇫🇷 Siwis (B-)',
+    }],
   },
   {
     id: 'sherpa-onnx/kokoro-multi-lang-v1_0-hi',
@@ -113,7 +128,10 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
     voices: [
       ['hf_alpha', '🇮🇳 Alpha (C)'], ['hf_beta', '🇮🇳 Beta (C)'],
       ['hm_omega', '🇮🇳 Omega (C)'], ['hm_psi', '🇮🇳 Psi (C)'],
-    ].map(([id, name]) => ({ id, name })),
+    ].map(([id, name]) => ({
+      id,
+      name,
+    })),
   },
   {
     id: 'sherpa-onnx/kokoro-multi-lang-v1_0-it',
@@ -129,8 +147,14 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
       description: 'Synthesize source text without language preprocessing.',
     }],
     voices: [
-      { id: 'if_sara', name: '🇮🇹 Sara (C)' },
-      { id: 'im_nicola', name: '🇮🇹 Nicola (C)' },
+      {
+        id: 'if_sara',
+        name: '🇮🇹 Sara (C)',
+      },
+      {
+        id: 'im_nicola',
+        name: '🇮🇹 Nicola (C)',
+      },
     ],
   },
   {
@@ -147,9 +171,18 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
       description: 'Synthesize source text without language preprocessing.',
     }],
     voices: [
-      { id: 'pf_dora', name: '🇧🇷 Dora' },
-      { id: 'pm_alex', name: '🇧🇷 Alex' },
-      { id: 'pm_santa', name: '🇧🇷 Santa' },
+      {
+        id: 'pf_dora',
+        name: '🇧🇷 Dora',
+      },
+      {
+        id: 'pm_alex',
+        name: '🇧🇷 Alex',
+      },
+      {
+        id: 'pm_santa',
+        name: '🇧🇷 Santa',
+      },
     ],
   },
   {
@@ -172,7 +205,10 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
         description: 'Restore Arabic tashkeel with Libtashkeel before Piper synthesis.',
       },
     ],
-    voices: [{ id: 'kareem', name: 'Kareem' }],
+    voices: [{
+      id: 'kareem',
+      name: 'Kareem',
+    }],
   },
   {
     id: SUPERTONIC_EN_MODEL_ID,
@@ -187,7 +223,10 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
       name: 'Original text',
       description: 'Synthesize source text without language preprocessing.',
     }],
-    voices: [{ id: 'speaker_6', name: 'Speaker 6' }],
+    voices: [{
+      id: 'speaker_6',
+      name: 'Speaker 6',
+    }],
   },
   {
     id: SUPERTONIC_AR_MODEL_ID,
@@ -202,7 +241,10 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
       name: 'Original text',
       description: 'Synthesize source text without language preprocessing.',
     }],
-    voices: [{ id: 'speaker_6', name: 'Speaker 6' }],
+    voices: [{
+      id: 'speaker_6',
+      name: 'Speaker 6',
+    }],
   },
   {
     id: SILMA_MODEL_ID,
@@ -217,7 +259,10 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
       name: 'SILMA default',
       description: "Use SILMA's default Arabic text processing before synthesis.",
     }],
-    voices: [{ id: 'silma-ar-default', name: 'SILMA Arabic Reference' }],
+    voices: [{
+      id: 'silma-ar-default',
+      name: 'SILMA Arabic Reference',
+    }],
   },
 ]
 
@@ -267,22 +312,31 @@ export function suggestTtsModel(
   let latin = 0
   for (const chunk of chunks) {
     for (const char of chunk.text) {
-      if (/[\u0600-\u06ff]/u.test(char)) arabic += 1
-      else if (/\p{Script=Han}/u.test(char)) han += 1
-      else if (/[\u3040-\u30ff]/u.test(char)) kana += 1
-      else if (/[A-Za-z]/.test(char)) latin += 1
+      if (/[\u0600-\u06ff]/u.test(char)) {
+        arabic += 1
+      } else if (/\p{Script=Han}/u.test(char)) {
+        han += 1
+      } else if (/[\u3040-\u30ff]/u.test(char)) {
+        kana += 1
+      } else if (/[A-Za-z]/.test(char)) {
+        latin += 1
+      }
     }
   }
 
   // Han characters dominate Mandarin prose, while kana prevents Japanese text
   // from being incorrectly suggested as Chinese.
   if (han > latin && han > arabic && han >= 20 && kana < 5) {
-    if (currentLanguage.startsWith('zh')) return null
+    if (currentLanguage.startsWith('zh')) {
+      return null
+    }
     return models.find((model) => model.language.toLowerCase().startsWith('zh'))
       ?? getTtsModel(models, DEFAULT_TTS_MODEL_ID)
   }
   if (arabic > latin && arabic >= 20) {
-    if (currentLanguage.startsWith('ar')) return null
+    if (currentLanguage.startsWith('ar')) {
+      return null
+    }
     return models.find((model) => model.language.toLowerCase().startsWith('ar'))
       ?? getTtsModel(models, DEFAULT_TTS_MODEL_ID)
   }

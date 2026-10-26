@@ -1,5 +1,10 @@
 import { existsSync } from "node:fs"
-import { cp, mkdir, rm, stat } from "node:fs/promises"
+import {
+  cp,
+  mkdir,
+  rm,
+  stat,
+} from "node:fs/promises"
 import { join } from "node:path"
 import {
   SHERPA_ANDROID_ABIS,
@@ -24,7 +29,10 @@ export function androidSherpaLibDir(abi = SHERPA_DEFAULT_ANDROID_ABI) {
 export async function ensureAndroidSherpaLibs({ force = false } = {}) {
   await mkdir(SHERPA_ANDROID_RUNTIME_ROOT, { recursive: true })
   if (force) {
-    await rm(join(SHERPA_ANDROID_RUNTIME_ROOT, "jniLibs"), { recursive: true, force: true })
+    await rm(join(SHERPA_ANDROID_RUNTIME_ROOT, "jniLibs"), {
+      recursive: true,
+      force: true,
+    })
   }
 
   if (!await hasAllAndroidRuntimeLibs()) {
@@ -53,7 +61,9 @@ async function hasAllAndroidRuntimeLibs() {
     for (const lib of SHERPA_REQUIRED_LIBS) {
       try {
         const info = await stat(join(SHERPA_ANDROID_RUNTIME_ROOT, "jniLibs", abi, lib))
-        if (!info.isFile()) return false
+        if (!info.isFile()) {
+          return false
+        }
       } catch {
         return false
       }
@@ -64,7 +74,11 @@ async function hasAllAndroidRuntimeLibs() {
 
 async function extractAndroidArchive() {
   console.log("[sherpa-android-libs] extracting " + SHERPA_ANDROID_ARCHIVE)
-  await extractTar({ archive: SHERPA_ANDROID_ARCHIVE, destination: SHERPA_ANDROID_RUNTIME_ROOT, compression: "bzip2" })
+  await extractTar({
+    archive: SHERPA_ANDROID_ARCHIVE,
+    destination: SHERPA_ANDROID_RUNTIME_ROOT,
+    compression: "bzip2",
+  })
 }
 
 // Tauri's generated Android project is what Gradle packages into the APK.

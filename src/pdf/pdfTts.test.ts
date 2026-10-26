@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
 import {
   AUDIOBOOK_SAVE_CHUNK_PROFILE,
   chunkAudiobookSaveSegmentsWithSpans,
@@ -23,8 +27,14 @@ describe('pdfNarrationToReadableSegments', () => {
           sourceEndOffset: 16,
         }],
       },
-      { text: '  ', sourceRuns: [] },
-      { text: 'Second paragraph.', sourceRuns: [] },
+      {
+        text: '  ',
+        sourceRuns: [],
+      },
+      {
+        text: 'Second paragraph.',
+        sourceRuns: [],
+      },
     ])).toEqual([
       {
         text: 'First paragraph.',
@@ -38,14 +48,21 @@ describe('pdfNarrationToReadableSegments', () => {
           sourceEndOffset: 16,
         }],
       },
-      { text: 'Second paragraph.', kind: 'paragraph', sourceRuns: [] },
+      {
+        text: 'Second paragraph.',
+        kind: 'paragraph',
+        sourceRuns: [],
+      },
     ])
   })
 
   it('keeps reconstructed prose within audiobook save limits', () => {
     const text = `${'A long reconstructed PDF sentence keeps every source word intact, '.repeat(14)}then ends.`
     const chunks = chunkAudiobookSaveSegmentsWithSpans(
-      pdfNarrationToReadableSegments([{ text, sourceRuns: [] }]),
+      pdfNarrationToReadableSegments([{
+        text,
+        sourceRuns: [],
+      }]),
     )
 
     expect(chunks.length).toBeGreaterThan(1)
@@ -103,10 +120,30 @@ describe('pdfNarrationToReadableSegments', () => {
       endSegmentIndex: 1,
       endOffset: 9,
     })).toEqual([
-      { pageIndex: 0, blockOrder: 3, startOffset: 6, endOffset: 10 },
-      { pageIndex: 1, blockOrder: 0, startOffset: 0, endOffset: 6 },
-      { pageIndex: 1, blockOrder: 1, startOffset: 0, endOffset: 1 },
-      { pageIndex: 1, blockOrder: 1, startOffset: 1, endOffset: 2 },
+      {
+        pageIndex: 0,
+        blockOrder: 3,
+        startOffset: 6,
+        endOffset: 10,
+      },
+      {
+        pageIndex: 1,
+        blockOrder: 0,
+        startOffset: 0,
+        endOffset: 6,
+      },
+      {
+        pageIndex: 1,
+        blockOrder: 1,
+        startOffset: 0,
+        endOffset: 1,
+      },
+      {
+        pageIndex: 1,
+        blockOrder: 1,
+        startOffset: 1,
+        endOffset: 2,
+      },
     ])
   })
 })
@@ -114,14 +151,49 @@ describe('pdfNarrationToReadableSegments', () => {
 describe('mergePdfTtsHighlightRects', () => {
   it('bridges word spaces without joining lines or columns', () => {
     expect(mergePdfTtsHighlightRects([
-      { top: 10, right: 30, bottom: 20, left: 10 },
-      { top: 10, right: 54, bottom: 20, left: 34 },
-      { top: 24, right: 30, bottom: 34, left: 10 },
-      { top: 10, right: 230, bottom: 20, left: 210 },
+      {
+        top: 10,
+        right: 30,
+        bottom: 20,
+        left: 10,
+      },
+      {
+        top: 10,
+        right: 54,
+        bottom: 20,
+        left: 34,
+      },
+      {
+        top: 24,
+        right: 30,
+        bottom: 34,
+        left: 10,
+      },
+      {
+        top: 10,
+        right: 230,
+        bottom: 20,
+        left: 210,
+      },
     ])).toEqual([
-      { top: 10, right: 54, bottom: 20, left: 10 },
-      { top: 10, right: 230, bottom: 20, left: 210 },
-      { top: 24, right: 30, bottom: 34, left: 10 },
+      {
+        top: 10,
+        right: 54,
+        bottom: 20,
+        left: 10,
+      },
+      {
+        top: 10,
+        right: 230,
+        bottom: 20,
+        left: 210,
+      },
+      {
+        top: 24,
+        right: 30,
+        bottom: 34,
+        left: 10,
+      },
     ])
   })
 })

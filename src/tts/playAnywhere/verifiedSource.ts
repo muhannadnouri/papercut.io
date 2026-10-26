@@ -1,12 +1,23 @@
 import {
-  textLocatorIndexSteps, locatorRangeIsIgnorable, locatorTextIsIgnorable, locatorTextsMatch, orderedSourceSpanSteps,
-  sourceSpanEndGlobalOffset, sourceSpanStartGlobalOffset,
+  textLocatorIndexSteps,
+  locatorRangeIsIgnorable,
+  locatorTextIsIgnorable,
+  locatorTextsMatch,
+  orderedSourceSpanSteps,
+  sourceSpanEndGlobalOffset,
+  sourceSpanStartGlobalOffset,
 } from '../alignment/domTextSegments'
 import type { PdfReadableSegment } from '../../pdf/pdfTts'
 import { pdfSourceSpansForChunk } from '../../pdf/pdfTts'
 import { normalizeSegmentText } from '../alignment/readableSegments'
-import { finishNarrationWork, splitNarrationSentences } from '../alignment/narrationText'
-import type { TtsChunk, TtsChunkSourceSpan } from '../types'
+import {
+  finishNarrationWork,
+  splitNarrationSentences,
+} from '../alignment/narrationText'
+import type {
+  TtsChunk,
+  TtsChunkSourceSpan,
+} from '../types'
 import { createChunkSourceResolver } from './sourceChunkResolver'
 import { createPdfChunkSourceResolver } from './pdfChunkSourceResolver'
 
@@ -23,29 +34,46 @@ export function* htmlResolverSteps(chunks: readonly TtsChunk[], texts: readonly 
   const lengths = texts.map(text => text.length)
   function* validate(mapped: readonly TtsChunk[]): Generator<void, HtmlResolver> {
     const resolver = createChunkSourceResolver(mapped, lengths)
-    if (resolver.status !== 'ready') return resolver
+    if (resolver.status !== 'ready') {
+      return resolver
+    }
     let cursor = 0
     for (const chunk of mapped) {
       yield
-      if (!chunk.text.trim()) continue
+      if (!chunk.text.trim()) {
+        continue
+      }
       const span = chunk.sourceSpan!
       const start = sourceSpanStartGlobalOffset(locator, span)
       const end = sourceSpanEndGlobalOffset(locator, span)
       const matches = locatorTextsMatch(locator.text.slice(start, end), chunk.text) ||
         (span.startSegmentIndex !== span.endSegmentIndex && locatorTextsMatch(narratedSpanText(texts, span), chunk.text))
       if (!locatorRangeIsIgnorable(locator, cursor, start) || !matches) {
-        return { status: 'unavailable', reason: 'unmapped' } as const
+        return {
+          status: 'unavailable',
+          reason: 'unmapped',
+        } as const
       }
       cursor = end
     }
     return locatorRangeIsIgnorable(locator, cursor, locator.text.length) ? resolver
-      : { status: 'unavailable', reason: 'unmapped' } as const
+      : {
+        status: 'unavailable',
+        reason: 'unmapped',
+      } as const
   }
   const durable = yield* validate(chunks)
-  if (durable.status === 'ready' || !allowRecovery) return durable
+  if (durable.status === 'ready' || !allowRecovery) {
+    return durable
+  }
   const recovered = yield* orderedSourceSpanSteps(locator, chunks)
-  if (chunks.some((chunk, index) => chunk.text.trim() && !recovered.has(index))) return durable
-  return yield* validate(chunks.map((chunk, index) => ({ ...chunk, sourceSpan: recovered.get(index) })))
+  if (chunks.some((chunk, index) => chunk.text.trim() && !recovered.has(index))) {
+    return durable
+  }
+  return yield* validate(chunks.map((chunk, index) => ({
+    ...chunk,
+    sourceSpan: recovered.get(index),
+  })))
 }
 
 /** Generation splits paragraphs before merging; a leading terminator may be omitted in each paragraph. */
@@ -67,7 +95,12 @@ export function verifiedPdfResolver(chunks: readonly TtsChunk[], segments: PdfRe
 export function* pdfResolverSteps(chunks: readonly TtsChunk[], segments: PdfReadableSegment[]): Generator<void, PdfResolver> {
   for (const segment of segments) {
     yield
-    if (normalizeSegmentText(segment.text) !== segment.text) return { status: 'unavailable', reason: 'invalid-source' } as const
+    if (normalizeSegmentText(segment.text) !== segment.text) {
+      return {
+        status: 'unavailable',
+        reason: 'invalid-source',
+      } as const
+    }
     let cursor = 0
     for (const run of segment.sourceRuns) {
       yield
@@ -75,23 +108,40 @@ export function* pdfResolverSteps(chunks: readonly TtsChunk[], segments: PdfRead
         .every(value => Number.isSafeInteger(value) && value >= 0) || run.startOffset < cursor ||
         run.endOffset <= run.startOffset || run.endOffset > segment.text.length || run.sourceEndOffset <= run.sourceStartOffset ||
         !locatorTextIsIgnorable(segment.text.slice(cursor, run.startOffset))) {
-        return { status: 'unavailable', reason: 'invalid-source' } as const
+        return {
+          status: 'unavailable',
+          reason: 'invalid-source',
+        } as const
       }
       cursor = run.endOffset
     }
-    if (!locatorTextIsIgnorable(segment.text.slice(cursor))) return { status: 'unavailable', reason: 'invalid-source' } as const
+    if (!locatorTextIsIgnorable(segment.text.slice(cursor))) {
+      return {
+        status: 'unavailable',
+        reason: 'invalid-source',
+      } as const
+    }
   }
   const narration = yield* htmlResolverSteps(chunks, segments.map(segment => segment.text), false)
-  if (narration.status !== 'ready') return narration
+  if (narration.status !== 'ready') {
+    return narration
+  }
   for (const chunk of chunks) {
     yield
-    if (!chunk.text.trim()) continue
+    if (!chunk.text.trim()) {
+      continue
+    }
     const projected = pdfSourceSpansForChunk(segments, chunk.sourceSpan)
     if (projected.length !== chunk.pdfSourceSpans?.length || projected.some((span, index) => {
       const actual = chunk.pdfSourceSpans![index]
       return span.pageIndex !== actual.pageIndex || span.blockOrder !== actual.blockOrder ||
         span.startOffset !== actual.startOffset || span.endOffset !== actual.endOffset
-    })) return { status: 'unavailable', reason: 'invalid-source' } as const
+    })) {
+      return {
+        status: 'unavailable',
+        reason: 'invalid-source',
+      } as const
+    }
   }
   return createPdfChunkSourceResolver(chunks)
 }

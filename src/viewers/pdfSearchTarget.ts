@@ -6,7 +6,10 @@ import {
   clearSearchTargetHighlight,
   highlightSearchTarget,
 } from '../components/DocumentViewer/readerTarget'
-import { renderedPdfSearchLayer, renderedPdfTextLayer } from '../pdf/ocr/pdfOcrTextLayer'
+import {
+  renderedPdfSearchLayer,
+  renderedPdfTextLayer,
+} from '../pdf/ocr/pdfOcrTextLayer'
 import type { SearchOpenTarget } from '../types/search'
 import { pdfSearchTargetPage } from './pdfFind'
 import type { ViewerFindApi } from './types'
@@ -46,7 +49,9 @@ export function bindPdfSearchTarget({
   viewer,
 }: PdfSearchTargetOptions): () => void {
   const text = target.text?.trim()
-  if (!text) return () => {}
+  if (!text) {
+    return () => {}
+  }
 
   clearSearchTargetHighlight(viewer)
 
@@ -56,21 +61,32 @@ export function bindPdfSearchTarget({
   }
 
   const pageNumber = pdfSearchTargetPage(target, pages)
-  if (pageNumber === null) return () => {}
+  if (pageNumber === null) {
+    return () => {}
+  }
   let complete = false
   let fallbackStarted = false
-  onProgress({ pageNumber, phase: 'locating' })
+  onProgress({
+    pageNumber,
+    phase: 'locating',
+  })
 
   const finish = () => {
-    if (complete) return
+    if (complete) {
+      return
+    }
     complete = true
     onProgress(null)
   }
   const highlightTargetPage = () => {
     const searchLayer = renderedPdfSearchLayer(viewer, pageNumber)
-    if (!searchLayer) return false
+    if (!searchLayer) {
+      return false
+    }
     const range = highlightSearchTarget(searchLayer, text, target.occurrenceIndex ?? 0, true)
-    if (!range) return false
+    if (!range) {
+      return false
+    }
 
     finish()
     range.startContainer.parentElement?.scrollIntoView({
@@ -80,19 +96,33 @@ export function bindPdfSearchTarget({
     return true
   }
   const fallbackToDocumentFind = () => {
-    if (complete || fallbackStarted) return
+    if (complete || fallbackStarted) {
+      return
+    }
     fallbackStarted = true
-    onProgress({ pageNumber, phase: 'verifying' })
+    onProgress({
+      pageNumber,
+      phase: 'verifying',
+    })
     const findApi = getFindApi()
-    if (findApi) findApi.search(text)
-    else finish()
+    if (findApi) {
+      findApi.search(text)
+    } else {
+      finish()
+    }
   }
   const handleTextLayerRendered = ({ pageNumber: renderedPage }: { pageNumber: number }) => {
-    if (renderedPage !== pageNumber) return
-    if (!highlightTargetPage()) fallbackToDocumentFind()
+    if (renderedPage !== pageNumber) {
+      return
+    }
+    if (!highlightTargetPage()) {
+      fallbackToDocumentFind()
+    }
   }
   const handleFindSettled = ({ state }: { state: number }) => {
-    if (fallbackStarted && state !== PDF_FIND_PENDING) finish()
+    if (fallbackStarted && state !== PDF_FIND_PENDING) {
+      finish()
+    }
   }
 
   eventBus.on('textlayerrendered', handleTextLayerRendered)
@@ -100,9 +130,13 @@ export function bindPdfSearchTarget({
   eventBus.on('updatefindcontrolstate', handleFindSettled)
   pdfViewer.currentPageNumber = pageNumber
   const frame = requestAnimationFrame(() => {
-    if (highlightTargetPage()) return
+    if (highlightTargetPage()) {
+      return
+    }
     const textLayer = renderedPdfTextLayer(viewer, pageNumber)
-    if (textLayer?.textContent?.trim()) fallbackToDocumentFind()
+    if (textLayer?.textContent?.trim()) {
+      fallbackToDocumentFind()
+    }
   })
   const fallbackTimer = globalThis.setTimeout(fallbackToDocumentFind, SEARCH_TARGET_FALLBACK_MS)
   const settleTimer = globalThis.setTimeout(finish, SEARCH_TARGET_SETTLE_MS)
@@ -116,6 +150,8 @@ export function bindPdfSearchTarget({
     eventBus.off('pdfocrtextlayerrendered', handleTextLayerRendered)
     eventBus.off('updatefindcontrolstate', handleFindSettled)
     clearSearchTargetHighlight(viewer)
-    if (fallbackStarted) getFindApi()?.clear()
+    if (fallbackStarted) {
+      getFindApi()?.clear()
+    }
   }
 }

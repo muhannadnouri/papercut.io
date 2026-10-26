@@ -1,4 +1,10 @@
-import { afterEach, beforeEach, expect, it, vi } from "vitest"
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  it,
+  vi,
+} from "vitest"
 
 const calls = vi.hoisted(() => ({
   runSync: vi.fn(() => ({ status: 0 })),
@@ -9,19 +15,47 @@ const calls = vi.hoisted(() => ({
   prepare: vi.fn(),
   resources: vi.fn(),
 }))
-vi.mock("./lib/process.js", () => ({ runSync: calls.runSync, exitFromResult: calls.exitFromResult }))
-vi.mock("./lib/tauri.js", () => ({ tauriCommand: args => ({ command: "tauri", args }) }))
+vi.mock("./lib/process.js", () => ({
+  runSync: calls.runSync,
+  exitFromResult: calls.exitFromResult,
+}))
+vi.mock("./lib/tauri.js", () => ({
+  tauriCommand: args => ({
+    command: "tauri",
+    args,
+  }),
+}))
 vi.mock("./lib/desktop/platform.js", () => ({
-  currentDesktopPlatform: () => ({ linux: "linux", win32: "windows", darwin: "macos" })[process.platform],
+  currentDesktopPlatform: () => ({
+    linux: "linux",
+    win32: "windows",
+    darwin: "macos",
+  })[process.platform],
   prepareDesktopBuild: calls.prepare,
   desktopBuildEnv: (_platform, env) => env,
   prepareDesktopBundleResources: calls.resources,
 }))
 vi.mock("./lib/android/build-env.js", () => ({ runTauriAndroidBuild: calls.android }))
-vi.mock("./lib/android/sherpa.js", () => ({ androidSherpaLibDir: () => "/prepared/android", ensureAndroidSherpaLibs: calls.androidLibs }))
-vi.mock("./lib/ios/sherpa.js", () => ({ iosSherpaLibDir: slice => "/prepared/" + slice, ensureIosSherpaLibs: calls.iosLibs }))
-vi.mock("node:fs", async importOriginal => ({ ...await importOriginal(), existsSync: () => true }))
-vi.mock("node:fs/promises", () => ({ cp: vi.fn(), mkdir: vi.fn(), stat: async () => ({ isDirectory: () => true, isFile: () => true }) }))
+vi.mock("./lib/android/sherpa.js", () => ({
+  androidSherpaLibDir: () => "/prepared/android",
+  ensureAndroidSherpaLibs: calls.androidLibs,
+}))
+vi.mock("./lib/ios/sherpa.js", () => ({
+  iosSherpaLibDir: slice => "/prepared/" + slice,
+  ensureIosSherpaLibs: calls.iosLibs,
+}))
+vi.mock("node:fs", async importOriginal => ({
+  ...await importOriginal(),
+  existsSync: () => true,
+}))
+vi.mock("node:fs/promises", () => ({
+  cp: vi.fn(),
+  mkdir: vi.fn(),
+  stat: async () => ({
+    isDirectory: () => true,
+    isFile: () => true,
+  }),
+}))
 
 const platform = Object.getOwnPropertyDescriptor(process, "platform")
 const argv = process.argv
@@ -49,7 +83,11 @@ it.each(["linux", "win32", "darwin"])("desktop ships the shared provider on %s w
   const bundles = target === "linux" ? ["--bundles", "deb"] : []
   await build("build-desktop.js", target, bundles)
   const features = "native-tts-shared,experimental-search-embeddings"
-  expect(calls.resources.mock.calls[0][0]).toBe(({ linux: "linux", win32: "windows", darwin: "macos" })[target])
+  expect(calls.resources.mock.calls[0][0]).toBe(({
+    linux: "linux",
+    win32: "windows",
+    darwin: "macos",
+  })[target])
   expect(calls.resources.mock.calls[0][1].feature).toBe(features)
   expect(calls.runSync.mock.calls[0][1]).toEqual(["build", "--features", features, ...bundles])
   expect(calls.runSync.mock.calls[0][2].env.PAPERCUT_NATIVE_TTS_LINK).toBe("shared")
@@ -61,7 +99,10 @@ it("keeps the explicit static desktop alternative separate", async () => {
 it("Android's shipping native APK includes the provider and its prepared runtime", async () => {
   await build("build-android.js", "linux", ["--native-tts"])
   expect(calls.androidLibs).toHaveBeenCalledOnce()
-  expect(calls.android).toHaveBeenCalledWith(["android", "build", "--apk", "--debug", "--target", "aarch64", "--features", "native-tts-shared,experimental-search-embeddings"], { SHERPA_ONNX_LIB_DIR: "/prepared/android", ORT_LIB_LOCATION: "/prepared/android" })
+  expect(calls.android).toHaveBeenCalledWith(["android", "build", "--apk", "--debug", "--target", "aarch64", "--features", "native-tts-shared,experimental-search-embeddings"], {
+    SHERPA_ONNX_LIB_DIR: "/prepared/android",
+    ORT_LIB_LOCATION: "/prepared/android",
+  })
 })
 it("keeps the explicit no-native Android build and custom native arguments", async () => {
   await build("build-android.js", "linux")
@@ -77,8 +118,11 @@ it.each([{ args: [] }, { args: ["--ci-check"] }])("iOS native export/archive use
   expect(call[1]).toContain("native-tts-ios,experimental-search-embeddings-linked")
   expect(call[1]).not.toContain("experimental-search-embeddings")
   expect(call[2].env.ORT_LIB_LOCATION).toEqual(call[2].env.SHERPA_ONNX_LIB_DIR)
-  if (args.length) expect(call[1]).toContain("--archive-only")
-  else expect(call[1]).toContain("app-store-connect")
+  if (args.length) {
+    expect(call[1]).toContain("--archive-only")
+  } else {
+    expect(call[1]).toContain("app-store-connect")
+  }
 })
 it("unsigned iOS device validation checks the same linked provider and packaged protocol", async () => {
   await build("check-ios-device-build.js", "darwin")

@@ -1,6 +1,9 @@
 import { join } from "node:path"
 import { ensureLocalJdk } from "./jdk.js"
-import { pathSeparator, run } from "../process.js"
+import {
+  pathSeparator,
+  run,
+} from "../process.js"
 import { ROOT } from "../paths.js"
 import { tauriCommand } from "../tauri.js"
 

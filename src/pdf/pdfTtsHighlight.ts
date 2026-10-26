@@ -47,23 +47,33 @@ export function applyPdfTtsHighlight(
     const mapping = pageView?._textHighlighter
     const node = mapping?.textDivs?.[span.blockOrder]
     const sourceText = mapping?.textContentItemsStr?.[span.blockOrder]
-    if (!node?.isConnected || sourceText === undefined) continue
+    if (!node?.isConnected || sourceText === undefined) {
+      continue
+    }
 
     const start = textPoint(node, Math.min(span.startOffset, sourceText.length))
     const end = textPoint(node, Math.min(span.endOffset, sourceText.length))
-    if (!start || !end) continue
+    if (!start || !end) {
+      continue
+    }
 
     const range = doc.createRange()
     range.setStart(start.node, start.offset)
     range.setEnd(end.node, end.offset)
-    if (range.collapsed) continue
+    if (range.collapsed) {
+      continue
+    }
     firstRange ??= range
 
     const page = start.node.parentElement?.closest<HTMLElement>('.page')
-    if (!page) continue
+    if (!page) {
+      continue
+    }
     const rects = pageRects.get(page) ?? []
     for (const rect of range.getClientRects()) {
-      if (rect.width <= 0 || rect.height <= 0) continue
+      if (rect.width <= 0 || rect.height <= 0) {
+        continue
+      }
       rects.push({
         bottom: rect.bottom,
         left: rect.left,
@@ -74,7 +84,9 @@ export function applyPdfTtsHighlight(
     pageRects.set(page, rects)
   }
 
-  for (const [page, rects] of pageRects) renderHighlightBands(page, rects, doc)
+  for (const [page, rects] of pageRects) {
+    renderHighlightBands(page, rects, doc)
+  }
   return firstRange
 }
 
@@ -127,16 +139,24 @@ function renderHighlightBands(
     band.style.height = `${rect.bottom - rect.top}px`
     layer.append(band)
   }
-  if (layer.childElementCount > 0) page.append(layer)
+  if (layer.childElementCount > 0) {
+    page.append(layer)
+  }
 }
 
 /** Resolve an offset against nested nodes after PDF.js Find rewrites a text div. */
-function textPoint(root: Node, targetOffset: number): { node: Text; offset: number } | null {
+function textPoint(root: Node, targetOffset: number): { node: Text;
+  offset: number } | null {
   const doc = root.ownerDocument
-  if (!doc) return null
+  if (!doc) {
+    return null
+  }
   if (root.nodeType === Node.TEXT_NODE) {
     const node = root as Text
-    return { node, offset: Math.min(targetOffset, node.length) }
+    return {
+      node,
+      offset: Math.min(targetOffset, node.length),
+    }
   }
   const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   let remaining = targetOffset
@@ -145,8 +165,16 @@ function textPoint(root: Node, targetOffset: number): { node: Text; offset: numb
   while (walker.nextNode()) {
     const node = walker.currentNode as Text
     last = node
-    if (remaining <= node.length) return { node, offset: remaining }
+    if (remaining <= node.length) {
+      return {
+        node,
+        offset: remaining,
+      }
+    }
     remaining -= node.length
   }
-  return last ? { node: last, offset: last.length } : null
+  return last ? {
+    node: last,
+    offset: last.length,
+  } : null
 }

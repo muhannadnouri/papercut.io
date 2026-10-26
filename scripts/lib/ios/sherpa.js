@@ -1,4 +1,12 @@
-import { cp, link, mkdir, readFile, realpath, rm, stat } from "node:fs/promises"
+import {
+  cp,
+  link,
+  mkdir,
+  readFile,
+  realpath,
+  rm,
+  stat,
+} from "node:fs/promises"
 import { join } from "node:path"
 import { extractTar } from "../archive.js"
 import { downloadFile } from "../download.js"
@@ -26,7 +34,10 @@ export function iosSherpaLibDir(slice = SHERPA_IOS_DEFAULT_SLICE) {
 export async function ensureIosSherpaLibs({ force = false, includeSimulator = process.platform === "darwin" } = {}) {
   await mkdir(SHERPA_IOS_RUNTIME_ROOT, { recursive: true })
   if (force) {
-    await rm(SHERPA_IOS_RUNTIME_ROOT, { recursive: true, force: true })
+    await rm(SHERPA_IOS_RUNTIME_ROOT, {
+      recursive: true,
+      force: true,
+    })
     await mkdir(SHERPA_IOS_RUNTIME_ROOT, { recursive: true })
   }
 
@@ -66,7 +77,11 @@ async function hasIosArchiveLibs() {
 
 async function extractIosArchive() {
   console.log("[sherpa-ios-libs] extracting " + SHERPA_IOS_ARCHIVE)
-  await extractTar({ archive: SHERPA_IOS_ARCHIVE, destination: SHERPA_IOS_RUNTIME_ROOT, compression: "bzip2" })
+  await extractTar({
+    archive: SHERPA_IOS_ARCHIVE,
+    destination: SHERPA_IOS_RUNTIME_ROOT,
+    compression: "bzip2",
+  })
 }
 
 // The sherpa device archive is thin, but ORT 1.27 wraps its arm64 static archive
@@ -86,7 +101,10 @@ async function syncSimulatorArm64CargoLibs() {
 
 async function resetCargoLibDir(slice) {
   const target = iosSherpaLibDir(slice)
-  await rm(target, { recursive: true, force: true })
+  await rm(target, {
+    recursive: true,
+    force: true,
+  })
   await mkdir(target, { recursive: true })
   return target
 }

@@ -38,7 +38,9 @@ export function loadPdfViewer() {
  * the large PDF.js module during ordinary non-PDF app startup.
  */
 export function pdfLoadErrorMessage(error: unknown): string {
-  if (!(error instanceof Error)) return String(error)
+  if (!(error instanceof Error)) {
+    return String(error)
+  }
   if (error.name === 'ResponseException' && hasMissingFlag(error)) {
     return 'The PDF file is missing or unavailable.'
   }

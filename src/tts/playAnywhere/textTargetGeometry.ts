@@ -1,7 +1,8 @@
 import type { ViewerViewportBounds } from '../../viewers/types'
 
 type CaretDocument = Document & {
-  caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null
+  caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node;
+    offset: number } | null
   caretRangeFromPoint?: (x: number, y: number) => Range | null
 }
 
@@ -30,7 +31,9 @@ export function firstVisibleTextOffset(node: Text, bounds: ViewerViewportBounds)
   // shortcut: one oversized text node yields all its line rects; optimize if measured paragraph cost exceeds the capture budget.
   for (const rect of range.getClientRects()) {
     const clip = intersect(bounds, rect)
-    if (!clip) continue
+    if (!clip) {
+      continue
+    }
     const insetX = Math.min(1, (clip.right - clip.left) / 2)
     const insetY = Math.min(1, (clip.bottom - clip.top) / 2)
     for (const y of [clip.top + insetY, (clip.top + clip.bottom) / 2, clip.bottom - insetY]) {
@@ -39,14 +42,24 @@ export function firstVisibleTextOffset(node: Text, bounds: ViewerViewportBounds)
         const fallback = caret ? null : doc.caretRangeFromPoint?.(x, y)
         const target = caret?.offsetNode ?? fallback?.startContainer
         let offset = caret?.offset ?? fallback?.startOffset
-        if (target !== node || offset === undefined) continue
-        while (offset < node.length && /\s/u.test(node.data[offset])) offset++
-        if (offset >= node.length) continue
+        if (target !== node || offset === undefined) {
+          continue
+        }
+        while (offset < node.length && /\s/u.test(node.data[offset])) {
+          offset++
+        }
+        if (offset >= node.length) {
+          continue
+        }
         const glyph = doc.createRange()
         glyph.setStart(node, offset)
         glyph.setEnd(node, offset + 1)
-        if (![...glyph.getClientRects()].some((rect) => intersect(clip, rect))) continue
-        if (first === null || offset < first) first = offset
+        if (![...glyph.getClientRects()].some((rect) => intersect(clip, rect))) {
+          continue
+        }
+        if (first === null || offset < first) {
+          first = offset
+        }
       }
     }
   }
@@ -55,11 +68,17 @@ export function firstVisibleTextOffset(node: Text, bounds: ViewerViewportBounds)
 
 export function visibleText(node: Text, root: HTMLElement): boolean {
   const view = node.ownerDocument.defaultView!
-  if (!node.parentElement || view.getComputedStyle(node.parentElement).visibility !== 'visible') return false
+  if (!node.parentElement || view.getComputedStyle(node.parentElement).visibility !== 'visible') {
+    return false
+  }
   for (let element: HTMLElement | null = node.parentElement; element; element = element.parentElement) {
     const style = view.getComputedStyle(element)
-    if (style.display === 'none' || style.opacity === '0') return false
-    if (element === root) return true
+    if (style.display === 'none' || style.opacity === '0') {
+      return false
+    }
+    if (element === root) {
+      return true
+    }
   }
   return false
 }
@@ -70,8 +89,12 @@ export function validBounds(bounds: ViewerViewportBounds): boolean {
 }
 
 export function intersect(left: ViewerViewportBounds, right: ViewerViewportBounds): ViewerViewportBounds | null {
-  const result = { top: Math.max(left.top, right.top), bottom: Math.min(left.bottom, right.bottom),
-    left: Math.max(left.left, right.left), right: Math.min(left.right, right.right) }
+  const result = {
+    top: Math.max(left.top, right.top),
+    bottom: Math.min(left.bottom, right.bottom),
+    left: Math.max(left.left, right.left),
+    right: Math.min(left.right, right.right),
+  }
   return validBounds(result) ? result : null
 }
 

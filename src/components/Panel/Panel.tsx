@@ -1,4 +1,7 @@
-import { useState, type ReactNode } from 'react'
+import {
+  useState,
+  type ReactNode,
+} from 'react'
 import './Panel.css'
 
 interface PanelProps {
@@ -36,8 +39,11 @@ export function Panel({
   const isOpen = isControlled ? open : internalOpen
 
   const handleToggle = () => {
-    if (isControlled) onToggle?.()
-    else setInternalOpen((value) => !value)
+    if (isControlled) {
+      onToggle?.()
+    } else {
+      setInternalOpen((value) => !value)
+    }
   }
 
   return (

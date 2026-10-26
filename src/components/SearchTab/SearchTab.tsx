@@ -1,9 +1,30 @@
-import { useLayoutEffect, useRef, useState } from 'react'
-import { Tabs, TabList, Tab, TabPanel } from 'react-aria-components'
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
+import {
+  Tabs,
+  TabList,
+  Tab,
+  TabPanel,
+} from 'react-aria-components'
 import { useTranslation } from 'react-i18next'
-import type { AuthorGroup, DocumentScopeMode } from '../../hooks/useDocumentFilters'
-import type { LastSearchInfo, SearchPhase, SearchQueryError } from '../../hooks/useSearch'
-import type { DocumentInfo, SearchMode, SearchOpenTarget, SearchResult } from '../../types/search'
+import type {
+  AuthorGroup,
+  DocumentScopeMode,
+} from '../../hooks/useDocumentFilters'
+import type {
+  LastSearchInfo,
+  SearchPhase,
+  SearchQueryError,
+} from '../../hooks/useSearch'
+import type {
+  DocumentInfo,
+  SearchMode,
+  SearchOpenTarget,
+  SearchResult,
+} from '../../types/search'
 import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
 import { ConceptualResults } from '../../search-semantic/ConceptualResults'
 import type { semanticSearchStatus } from '../../search-semantic/semanticSearchStatus'
@@ -23,7 +44,8 @@ interface SearchTabProps {
   onOpenSearchSettings: () => void
   conceptualState: ConceptualState
   resultView: SearchResultView
-  searchRequest: { revision: number; scope: string }
+  searchRequest: { revision: number;
+    scope: string }
   onResultViewChange: (view: SearchResultView) => void
   onViewConceptualResult: (url: string, target: SearchOpenTarget) => void
   mode: SearchMode
@@ -107,12 +129,20 @@ export function SearchTab({
 }: SearchTabProps) {
   const { t } = useTranslation()
   const view = semanticEnabled ? resultView : 'keyword'
-  const [limits, setLimits] = useState({ request: searchRequest, keyword: 10, conceptual: 10 })
+  const [limits, setLimits] = useState({
+    request: searchRequest,
+    keyword: 10,
+    conceptual: 10,
+  })
   const resultArea = useRef<HTMLDivElement>(null)
   const positions = useRef<Partial<Record<SearchResultView, number>>>({})
   const restoreScroll = useRef<number | null>(null)
   if (limits.request !== searchRequest) {
-    setLimits({ request: searchRequest, keyword: 10, conceptual: 10 })
+    setLimits({
+      request: searchRequest,
+      keyword: 10,
+      conceptual: 10,
+    })
   }
   useLayoutEffect(() => {
     positions.current = {}
@@ -120,7 +150,10 @@ export function SearchTab({
   }, [searchRequest])
   useLayoutEffect(() => {
     if (restoreScroll.current !== null) {
-      window.scrollTo({ top: restoreScroll.current, behavior: 'instant' })
+      window.scrollTo({
+        top: restoreScroll.current,
+        behavior: 'instant',
+      })
       restoreScroll.current = null
     }
   }, [view])
@@ -139,7 +172,10 @@ export function SearchTab({
     openingDocumentUrl={openingDocumentUrl}
     onViewResult={onViewResult}
     visibleLimit={limits.keyword}
-    onShowMore={() => setLimits(current => ({ ...current, keyword: current.keyword + 10 }))}
+    onShowMore={() => setLimits(current => ({
+      ...current,
+      keyword: current.keyword + 10,
+    }))}
     onRetrySearch={(suggestion) => {
       onChangeQuery(suggestion)
       onSubmitSearch()
@@ -203,8 +239,12 @@ export function SearchTab({
 
       {semanticEnabled ? <Tabs className="search-result-views" ref={resultArea} selectedKey={view}
         onSelectionChange={(key) => {
-          if (key !== 'keyword' && key !== 'conceptual') return
-          if (key === view) return
+          if (key !== 'keyword' && key !== 'conceptual') {
+            return
+          }
+          if (key === view) {
+            return
+          }
           const top = resultArea.current?.getBoundingClientRect().top ?? 0
           const toolbar = resultArea.current?.querySelector('.search-options-toolbar')
           const inset = toolbar ? Number.parseFloat(window.getComputedStyle(toolbar).top) || 0 : 0
@@ -223,7 +263,10 @@ export function SearchTab({
             hasStoredIndex={hasStoredIndex} onOpenSearchSettings={onOpenSearchSettings}
             openingDocumentUrl={openingDocumentUrl} onViewDocument={onViewConceptualResult}
             visibleLimit={limits.conceptual}
-            onShowMore={() => setLimits(current => ({ ...current, conceptual: current.conceptual + 10 }))} />
+            onShowMore={() => setLimits(current => ({
+              ...current,
+              conceptual: current.conceptual + 10,
+            }))} />
         </TabPanel>
       </Tabs> : <>{searchOptions}{searchScope}{keywordResults}</>}
     </section>

@@ -10,7 +10,10 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs"
-import { basename, join } from "node:path"
+import {
+  basename,
+  join,
+} from "node:path"
 import { ROOT } from "./lib/paths.js"
 import { runSync } from "./lib/process.js"
 
@@ -28,7 +31,9 @@ const outputDir =
 const appRuntimeManifestPath = join(ROOT, "src-tauri", "tts", "silma-runtime-packs.json")
 const exeBase = "silma-worker-" + target
 const archiveName = options.archiveName ?? "papercut-silma-runtime-" + runtimeId + ".tar.bz2"
-if (!archiveName.endsWith(".tar.bz2")) fail("--archive-name must end with .tar.bz2")
+if (!archiveName.endsWith(".tar.bz2")) {
+  fail("--archive-name must end with .tar.bz2")
+}
 const archivePath = join(outputDir, archiveName)
 const manifestPath = join(outputDir, archiveName.replace(/\.tar\.bz2$/, ".manifest.json"))
 const workerRelativePath = exeBase + "/" + exeBase
@@ -41,12 +46,18 @@ mkdirSync(outputDir, { recursive: true })
 rmSync(archivePath, { force: true })
 rmSync(manifestPath, { force: true })
 for (const fileName of readdirSync(outputDir)) {
-  if (fileName.startsWith(archiveName + ".part")) rmSync(join(outputDir, fileName), { force: true })
+  if (fileName.startsWith(archiveName + ".part")) {
+    rmSync(join(outputDir, fileName), { force: true })
+  }
 }
 
 const tar = runSync("tar", ["-cjf", archivePath, "-C", sourceDir, exeBase], { cwd: ROOT })
-if (tar.error) fail("Failed to start tar: " + tar.error.message)
-if (tar.status !== 0) process.exit(tar.status ?? 1)
+if (tar.error) {
+  fail("Failed to start tar: " + tar.error.message)
+}
+if (tar.status !== 0) {
+  process.exit(tar.status ?? 1)
+}
 
 const archiveBytes = statSync(archivePath).size
 const archiveSha256 = await sha256File(archivePath)
@@ -69,15 +80,22 @@ const manifest = {
 
 writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n")
 if (options.updateAppManifest) {
-  if (!manifest.url && !manifest.parts?.every((part) => part.url)) fail("--update-app-manifest requires --url")
+  if (!manifest.url && !manifest.parts?.every((part) => part.url)) {
+    fail("--update-app-manifest requires --url")
+  }
   updateAppRuntimeManifest(manifest)
 }
-if (manifest.parts) console.log("[silma-runtime-pack] split " + archivePath)
-else console.log("[silma-runtime-pack] wrote " + archivePath)
+if (manifest.parts) {
+  console.log("[silma-runtime-pack] split " + archivePath)
+} else {
+  console.log("[silma-runtime-pack] wrote " + archivePath)
+}
 console.log("[silma-runtime-pack] wrote " + manifestPath)
 console.log("[silma-runtime-pack] sha256 " + manifest.sha256)
 console.log("[silma-runtime-pack] bytes " + manifest.archiveBytes)
-if (manifest.parts) console.log("[silma-runtime-pack] parts " + manifest.parts.length)
+if (manifest.parts) {
+  console.log("[silma-runtime-pack] parts " + manifest.parts.length)
+}
 
 function parseArgs(args) {
   const parsed = {}
@@ -99,7 +117,9 @@ function parseArgs(args) {
       parsed.updateAppManifest = true
     } else if (arg === "--part-bytes") {
       const value = Number(requireValue(args, ++index, arg))
-      if (!Number.isSafeInteger(value) || value <= 0) fail("--part-bytes must be a positive integer")
+      if (!Number.isSafeInteger(value) || value <= 0) {
+        fail("--part-bytes must be a positive integer")
+      }
       parsed.partBytes = value
     } else {
       fail("Unknown option: " + arg)
@@ -120,23 +140,33 @@ function requireValue(args, index, flag) {
 function currentTargetTriple() {
   const platform = process.platform
   const arch = process.arch
-  if (platform === "linux" && arch === "x64") return "x86_64-unknown-linux-gnu"
+  if (platform === "linux" && arch === "x64") {
+    return "x86_64-unknown-linux-gnu"
+  }
   fail("Unsupported SILMA runtime target: " + platform + "/" + arch + ". SILMA runtime packs are currently Linux x64 only.")
 }
 
 function runtimeIdForTarget(target) {
-  if (target === "x86_64-unknown-linux-gnu") return "linux-x64-cpu"
+  if (target === "x86_64-unknown-linux-gnu") {
+    return "linux-x64-cpu"
+  }
   fail("No default runtime id for " + target + ". SILMA runtime packs are currently Linux x64 only.")
 }
 
 function platformForTarget(target) {
-  if (target.includes("linux")) return "linux"
+  if (target.includes("linux")) {
+    return "linux"
+  }
   return "unknown"
 }
 
 function archForTarget(target) {
-  if (target.startsWith("x86_64")) return "x64"
-  if (target.startsWith("aarch64")) return "arm64"
+  if (target.startsWith("x86_64")) {
+    return "x64"
+  }
+  if (target.startsWith("aarch64")) {
+    return "arm64"
+  }
   return "unknown"
 }
 
@@ -160,7 +190,9 @@ async function splitArchive(archivePath, archiveName, partBytes, archiveUrl) {
   let partSize = 0
 
   const closePart = () => new Promise((resolvePart, reject) => {
-    if (!writer) return resolvePart()
+    if (!writer) {
+      return resolvePart()
+    }
     writer.once("error", reject)
     writer.once("finish", resolvePart)
     writer.end()
@@ -255,8 +287,11 @@ function updateAppRuntimeManifest(runtime) {
     workerPath: runtime.workerPath,
   }
   const index = appManifest.runtimes.findIndex((item) => item.runtimeId === runtime.runtimeId)
-  if (index >= 0) appManifest.runtimes[index] = entry
-  else appManifest.runtimes.push(entry)
+  if (index >= 0) {
+    appManifest.runtimes[index] = entry
+  } else {
+    appManifest.runtimes.push(entry)
+  }
   writeFileSync(appRuntimeManifestPath, JSON.stringify(appManifest, null, 2) + "\n")
   console.log("[silma-runtime-pack] updated " + appRuntimeManifestPath)
 }

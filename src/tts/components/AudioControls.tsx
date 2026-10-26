@@ -13,7 +13,10 @@ import {
 } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import type { AudiobookCacheState } from '../hooks/useAudiobookCache'
-import type { TtsChunkSummary, TtsPlayerState } from '../hooks/useTtsPlayer'
+import type {
+  TtsChunkSummary,
+  TtsPlayerState,
+} from '../hooks/useTtsPlayer'
 import type { SavedAudiobookRecord } from '../storage/AudiobookLibrary'
 import { formatSpeedLabel } from '../utils/format'
 import { SavedAudiobooksMenu } from './SavedAudiobooksMenu'
@@ -118,14 +121,20 @@ export function AudioControls({
   const [portalTarget, setPortalTarget] = useState<Element | null>(null)
   const registerControls = useCallback((node: HTMLElement | null) => {
     controlsRef.current = node
-    if (node) setPortalTarget(node.closest('.app-reader') ?? node.ownerDocument.body)
+    if (node) {
+      setPortalTarget(node.closest('.app-reader') ?? node.ownerDocument.body)
+    }
   }, [])
   const registerReturn = useCallback((node: HTMLButtonElement | null) => {
-    if (!node && returnButtonRef.current === returnButtonRef.current?.ownerDocument.activeElement) restoreTransportFocusRef.current = true
+    if (!node && returnButtonRef.current === returnButtonRef.current?.ownerDocument.activeElement) {
+      restoreTransportFocusRef.current = true
+    }
     returnButtonRef.current = node
   }, [])
   const registerIdlePlay = useCallback((node: HTMLButtonElement | null) => {
-    if (!node && idlePlayRef.current === idlePlayRef.current?.ownerDocument.activeElement) restoreTransportFocusRef.current = true
+    if (!node && idlePlayRef.current === idlePlayRef.current?.ownerDocument.activeElement) {
+      restoreTransportFocusRef.current = true
+    }
     idlePlayRef.current = node
   }, [])
   useLayoutEffect(() => {
@@ -139,7 +148,9 @@ export function AudioControls({
   useLayoutEffect(() => {
     const dock = dockRef.current
     const view = dock?.ownerDocument.defaultView
-    if (!chunkMenuOpen || !dock || !view) return
+    if (!chunkMenuOpen || !dock || !view) {
+      return
+    }
     /** Large text can wrap the player into several rows; fit above its actual surface, not an assumed toolbar height. */
     const fit = () => {
       const gap = parseFloat(view.getComputedStyle(dock).fontSize) * 0.4 + 8
@@ -201,16 +212,22 @@ export function AudioControls({
     const dock = dockRef.current
     const shell = controlsRef.current?.closest<HTMLElement>('.app-reader')
     const view = dock?.ownerDocument.defaultView
-    if (!dock || !shell || !view) return
+    if (!dock || !shell || !view) {
+      return
+    }
     let actions: HTMLElement | null = null
     const resize = typeof view.ResizeObserver === 'function' ? new view.ResizeObserver(() => fit()) : null
     /** Compare the opposite-edge candidate, not the stacked position, so resizing can restore a shared bottom edge. */
     const fit = () => {
       const nextActions = shell.querySelector<HTMLElement>('.reader-floating-actions')
       if (actions !== nextActions) {
-        if (actions) resize?.unobserve(actions)
+        if (actions) {
+          resize?.unobserve(actions)
+        }
         actions = nextActions
-        if (actions) resize?.observe(actions)
+        if (actions) {
+          resize?.observe(actions)
+        }
       }
       const bounds = dock.getBoundingClientRect()
       const style = view.getComputedStyle(shell)
@@ -225,8 +242,11 @@ export function AudioControls({
       }
       shell.style.setProperty('--reader-playback-height', bounds.height + 'px')
       shell.style.setProperty('--reader-playback-offset', !beside && bounds.height > 0 ? bounds.height + gap + 'px' : '0px')
-      if (bounds.height > 0) shell.dataset.readerToolsLayout = beside ? 'beside' : 'stacked'
-      else delete shell.dataset.readerToolsLayout
+      if (bounds.height > 0) {
+        shell.dataset.readerToolsLayout = beside ? 'beside' : 'stacked'
+      } else {
+        delete shell.dataset.readerToolsLayout
+      }
     }
     // Publish before passage capture stamps the layout; ResizeObserver alone runs too late.
     fit()
@@ -256,11 +276,17 @@ export function AudioControls({
     menuButtonRef.current?.focus()
   }
   const toggleMenu = () => {
-    if (!chunkMenuOpen) snapshotSelection()
+    if (!chunkMenuOpen) {
+      snapshotSelection()
+    }
     setChunkMenuOpen(value => !value)
   }
   const onSelectionMenuClose = playAnywhere?.onSelectionMenuClose
-  useEffect(() => { if (chunkMenuOpen) return () => onSelectionMenuClose?.() }, [chunkMenuOpen, onSelectionMenuClose])
+  useEffect(() => {
+    if (chunkMenuOpen) {
+      return () => onSelectionMenuClose?.()
+    }
+  }, [chunkMenuOpen, onSelectionMenuClose])
 
   const handleChunkSelect = useCallback((index: number) => {
     setChunkMenuOpen(false)
@@ -273,17 +299,23 @@ export function AudioControls({
   }, [onPlaybackRateChange, playbackRate])
 
   useEffect(() => {
-    if (!chunkMenuOpen) return
+    if (!chunkMenuOpen) {
+      return
+    }
     dockRef.current?.querySelector<HTMLElement>('.audio-chunk-menu button:not(:disabled), .audio-chunk-menu input:not(:disabled)')?.focus()
 
     function handlePointerDown(event: PointerEvent) {
       const root = controlsRef.current
-      if (!root || root.contains(event.target as Node) || dockRef.current?.contains(event.target as Node)) return
+      if (!root || root.contains(event.target as Node) || dockRef.current?.contains(event.target as Node)) {
+        return
+      }
       setChunkMenuOpen(false)
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') { setChunkMenuOpen(false); menuButtonRef.current?.focus() }
+      if (event.key === 'Escape') {
+        setChunkMenuOpen(false); menuButtonRef.current?.focus()
+      }
     }
 
     document.addEventListener('pointerdown', handlePointerDown)
@@ -313,7 +345,11 @@ export function AudioControls({
           <button
             ref={menuButtonRef}
             className={'audio-icon-btn audio-menu-btn' + (chunkMenuOpen ? ' audio-menu-btn-open' : '')}
-            onPointerDown={() => { if (!chunkMenuOpen) snapshotSelection() }}
+            onPointerDown={() => {
+              if (!chunkMenuOpen) {
+                snapshotSelection()
+              }
+            }}
             onClick={toggleMenu}
             aria-label={t('tts.controls.playbackOptions')}
             aria-expanded={chunkMenuOpen}
@@ -364,7 +400,7 @@ export function AudioControls({
           <div className="audio-playback-surface">
             <div className={'audio-target-notice' + (noticePending ? ' audio-target-pending' : noticeError ? ' audio-target-error' : '')
               + (playAnywhere?.capturing || chunkMenuOpen ? ' audio-target-capturing' : '')}
-              role="status" aria-live="polite" aria-atomic="true" dir="auto">
+            role="status" aria-live="polite" aria-atomic="true" dir="auto">
               {notice && <>
                 {noticePending && <span className="spinner" aria-hidden="true" />}
                 <span>{notice}</span>
@@ -392,7 +428,11 @@ export function AudioControls({
                   <button
                     ref={menuButtonRef}
                     className={'audio-icon-btn audio-menu-btn' + (chunkMenuOpen ? ' audio-menu-btn-open' : '')}
-                    onPointerDown={() => { if (!chunkMenuOpen) snapshotSelection() }}
+                    onPointerDown={() => {
+                      if (!chunkMenuOpen) {
+                        snapshotSelection()
+                      }
+                    }}
                     onClick={toggleMenu}
                     aria-label={t('tts.controls.playbackOptions')}
                     aria-expanded={chunkMenuOpen}
@@ -425,7 +465,10 @@ export function AudioControls({
                   <div className={'audio-floating-status tts-status-' + ttsState.status} dir="auto">
                     <span>{ttsState.status === 'error'
                       ? ttsState.message
-                      : t('tts.controls.chunkProgress', { current: currentChunkNumber || 0, total: chunkTotal })}</span>
+                      : t('tts.controls.chunkProgress', {
+                        current: currentChunkNumber || 0,
+                        total: chunkTotal,
+                      })}</span>
                     {ttsState.status !== 'error' && playbackNotice && (
                       <span>{playbackNotice}</span>
                     )}
@@ -498,7 +541,9 @@ export function AudioControls({
 
 function nextPlaybackRate(currentRate: number): number {
   const currentIndex = PLAYBACK_RATE_OPTIONS.findIndex((rate) => Math.abs(rate - currentRate) < 0.001)
-  if (currentIndex === -1 || currentIndex === PLAYBACK_RATE_OPTIONS.length - 1) return PLAYBACK_RATE_OPTIONS[0]
+  if (currentIndex === -1 || currentIndex === PLAYBACK_RATE_OPTIONS.length - 1) {
+    return PLAYBACK_RATE_OPTIONS[0]
+  }
   return PLAYBACK_RATE_OPTIONS[currentIndex + 1]
 }
 
@@ -567,7 +612,9 @@ const ChunkMenu = memo(function ChunkMenu({
   const visibleChunks = chunks.slice(firstVisibleIndex, lastVisibleIndex)
 
   useEffect(() => {
-    if (currentChunkIndex === null || !listRef.current) return
+    if (currentChunkIndex === null || !listRef.current) {
+      return
+    }
     const list = listRef.current
     if (listBrowsing.current) {
       list.scrollTop = listPosition.current
@@ -665,44 +712,44 @@ const ChunkMenu = memo(function ChunkMenu({
         </div>
       </div>}
       {showChunks && (
-          <div
-            ref={listRef}
-            aria-labelledby={viewId + '-chunks'}
-            className="audio-chunk-list"
-            onPointerDown={browseList}
-            onWheel={browseList}
-            onFocusCapture={browseList}
-            onScroll={(event) => {
-              listPosition.current = event.currentTarget.scrollTop
-              setScrollTop(event.currentTarget.scrollTop)
-            }}
-          >
-            <div className="audio-chunk-virtual-space" style={{ height: chunks.length * CHUNK_ROW_HEIGHT }}>
-              <div
-                className="audio-chunk-window"
-                style={{ transform: `translateY(${firstVisibleIndex * CHUNK_ROW_HEIGHT}px)` }}
-              >
-                {visibleChunks.map((chunk) => {
-                  const isCurrent = chunk.index === currentChunkIndex
-                  const estimatedStart = estimateChunkStart(chunk.index, chunksTotal, playbackDurationSec)
-                  return (
-                    <button
-                      key={chunk.chunkId}
-                      className={'audio-chunk-item' + (isCurrent ? ' audio-chunk-item-current' : '')}
-                      style={{ height: CHUNK_ROW_HEIGHT }}
-                      disabled={currentChunkIndex === null}
-                      onClick={() => onSelect(chunk.index)}
-                      title={chunk.textPreview}
-                    >
-                      <span className="audio-chunk-time">{estimatedStart === null ? '--:--' : formatTtsTime(estimatedStart)}</span>
-                      <span className="audio-chunk-text" dir="auto">{chunk.textPreview}</span>
-                      <span className="audio-chunk-number">{chunk.index + 1}</span>
-                    </button>
-                  )
-                })}
-              </div>
+        <div
+          ref={listRef}
+          aria-labelledby={viewId + '-chunks'}
+          className="audio-chunk-list"
+          onPointerDown={browseList}
+          onWheel={browseList}
+          onFocusCapture={browseList}
+          onScroll={(event) => {
+            listPosition.current = event.currentTarget.scrollTop
+            setScrollTop(event.currentTarget.scrollTop)
+          }}
+        >
+          <div className="audio-chunk-virtual-space" style={{ height: chunks.length * CHUNK_ROW_HEIGHT }}>
+            <div
+              className="audio-chunk-window"
+              style={{ transform: `translateY(${firstVisibleIndex * CHUNK_ROW_HEIGHT}px)` }}
+            >
+              {visibleChunks.map((chunk) => {
+                const isCurrent = chunk.index === currentChunkIndex
+                const estimatedStart = estimateChunkStart(chunk.index, chunksTotal, playbackDurationSec)
+                return (
+                  <button
+                    key={chunk.chunkId}
+                    className={'audio-chunk-item' + (isCurrent ? ' audio-chunk-item-current' : '')}
+                    style={{ height: CHUNK_ROW_HEIGHT }}
+                    disabled={currentChunkIndex === null}
+                    onClick={() => onSelect(chunk.index)}
+                    title={chunk.textPreview}
+                  >
+                    <span className="audio-chunk-time">{estimatedStart === null ? '--:--' : formatTtsTime(estimatedStart)}</span>
+                    <span className="audio-chunk-text" dir="auto">{chunk.textPreview}</span>
+                    <span className="audio-chunk-number">{chunk.index + 1}</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
+        </div>
       )}
     </div>
   )
@@ -767,16 +814,22 @@ function renderIconPath(name: AudioIconName) {
 }
 
 function formatTtsTime(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds <= 0) return '0:00'
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return '0:00'
+  }
   const rounded = Math.floor(seconds)
   const hours = Math.floor(rounded / 3600)
   const minutes = Math.floor((rounded % 3600) / 60)
   const remainingSeconds = rounded % 60
-  if (hours > 0) return hours + ':' + String(minutes).padStart(2, '0') + ':' + String(remainingSeconds).padStart(2, '0')
+  if (hours > 0) {
+    return hours + ':' + String(minutes).padStart(2, '0') + ':' + String(remainingSeconds).padStart(2, '0')
+  }
   return minutes + ':' + String(remainingSeconds).padStart(2, '0')
 }
 
 function estimateChunkStart(index: number, totalChunks: number, totalDurationSec?: number): number | null {
-  if (!totalDurationSec || totalDurationSec <= 0 || totalChunks <= 0) return null
+  if (!totalDurationSec || totalDurationSec <= 0 || totalChunks <= 0) {
+    return null
+  }
   return Math.max(0, (totalDurationSec / totalChunks) * index)
 }

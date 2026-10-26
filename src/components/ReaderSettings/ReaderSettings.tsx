@@ -1,4 +1,8 @@
-import { useRef, useState, type Ref } from 'react'
+import {
+  useRef,
+  useState,
+  type Ref,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { Popover } from 'react-aria-components'
 import {
@@ -19,7 +23,6 @@ interface ReaderSettingsProps {
   onChange: (next: Partial<ReaderSettingsState>) => void
   onReset: () => void
 }
-
 
 export function ReaderSettings({
   applyingFontFamily,

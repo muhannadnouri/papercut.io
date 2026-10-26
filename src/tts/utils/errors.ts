@@ -17,7 +17,9 @@ const ERROR_KEYS = {
 export function nativeTtsErrorMessage(error: unknown): string {
   if (error instanceof NativeTtsError) {
     const key = ERROR_KEYS[error.code as keyof typeof ERROR_KEYS]
-    if (key) return i18n.t(key)
+    if (key) {
+      return i18n.t(key)
+    }
   }
   return nativeTtsErrorDetail(error)
 }

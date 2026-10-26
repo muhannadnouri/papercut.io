@@ -1,4 +1,10 @@
-import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components'
+import {
+  Button,
+  Menu,
+  MenuItem,
+  MenuTrigger,
+  Popover,
+} from 'react-aria-components'
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SavedAudiobookRecord } from '../storage/AudiobookLibrary'
@@ -70,7 +76,9 @@ export function SavedAudiobooksMenu({ records, selectedId, onSelect }: SavedAudi
                   aria-current={current ? 'true' : undefined}
                   textValue={current ? meta + ' - ' + t('tts.controls.currentSetup') : meta}
                   onAction={() => {
-                    if (!current) onSelect(record)
+                    if (!current) {
+                      onSelect(record)
+                    }
                   }}
                 >
                   <span className="audio-saved-meta" dir="ltr">

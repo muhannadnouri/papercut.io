@@ -1,10 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import type { SearchOpenTarget } from '../types/search'
 
 type DocumentLoadState =
   | { status: 'idle' }
-  | { status: 'loading'; url: string; message: string }
-  | { status: 'error'; url: string; message: string }
+  | { status: 'loading';
+    url: string;
+    message: string }
+  | { status: 'error';
+    url: string;
+    message: string }
 
 type BrowseScrollSnapshot = {
   activeTab: string
@@ -48,7 +57,9 @@ export function useDocumentViewerState({
   const browseScrollRef = useRef<BrowseScrollSnapshot | null>(null)
 
   const clearSelectedDocument = useCallback((options?: { restoreBrowseScroll?: boolean }) => {
-    if (options?.restoreBrowseScroll === false) browseScrollRef.current = null
+    if (options?.restoreBrowseScroll === false) {
+      browseScrollRef.current = null
+    }
     openDocumentRequestRef.current += 1
     documentOpeningRef.current = false
     setSelectedDoc(null)
@@ -59,10 +70,16 @@ export function useDocumentViewerState({
   }, [])
 
   useEffect(() => {
-    if (selectedDoc) return
+    if (selectedDoc) {
+      return
+    }
     const snapshot = browseScrollRef.current
-    if (!snapshot || snapshot.activeTab !== activeTab) return
-    if (documentsLoading) return
+    if (!snapshot || snapshot.activeTab !== activeTab) {
+      return
+    }
+    if (documentsLoading) {
+      return
+    }
 
     browseScrollRef.current = null
     let innerFrame = 0
@@ -88,7 +105,9 @@ export function useDocumentViewerState({
     options?: OpenDocumentOptions,
     prepareOpen?: () => void,
   ) => {
-    if (documentOpeningRef.current) return
+    if (documentOpeningRef.current) {
+      return
+    }
     documentOpeningRef.current = true
     const requestId = openDocumentRequestRef.current + 1
     openDocumentRequestRef.current = requestId
@@ -104,21 +123,33 @@ export function useDocumentViewerState({
     setRestoreBookmark(Boolean(options?.restoreBookmark))
     setSelectedDoc(url)
     setDocContent('')
-    setDocumentLoad({ status: 'loading', url, message: 'Opening Document...' })
+    setDocumentLoad({
+      status: 'loading',
+      url,
+      message: 'Opening Document...',
+    })
     window.scrollTo({ top: 0 })
 
     try {
       const html = await loadHtmlDocument(url)
-      if (openDocumentRequestRef.current !== requestId) return
+      if (openDocumentRequestRef.current !== requestId) {
+        return
+      }
       documentOpeningRef.current = false
       setDocContent(html)
       setDocumentLoad({ status: 'idle' })
     } catch (err) {
-      if (openDocumentRequestRef.current !== requestId) return
+      if (openDocumentRequestRef.current !== requestId) {
+        return
+      }
       const message = err instanceof Error ? err.message : String(err)
       documentOpeningRef.current = false
       setDocContent('')
-      setDocumentLoad({ status: 'error', url, message })
+      setDocumentLoad({
+        status: 'error',
+        url,
+        message,
+      })
       console.error('Failed to load document:', err)
     }
   }, [activeTab, loadHtmlDocument])

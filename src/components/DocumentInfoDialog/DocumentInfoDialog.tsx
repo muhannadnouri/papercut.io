@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { LIBRARY_OPERATION_IN_PROGRESS } from '../../hooks/useUploadedLibrary'
 import type { DocumentInfo } from '../../types/search'
@@ -29,7 +35,10 @@ export function DocumentInfoDialog({
   const trimmedTitle = title.trim()
   const locale = i18n.resolvedLanguage ?? i18n.language
   const imported = document.importedAtMs
-    ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' })
+    ? new Intl.DateTimeFormat(locale, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    })
       .format(new Date(document.importedAtMs))
     : null
   const size = formatStorageSize(document.bytes)
@@ -40,12 +49,16 @@ export function DocumentInfoDialog({
   }, [])
 
   const cancel = useCallback(() => {
-    if (!busy) onCancel()
+    if (!busy) {
+      onCancel()
+    }
   }, [busy, onCancel])
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
-    if (!trimmedTitle || busy || trimmedTitle === document.title) return
+    if (!trimmedTitle || busy || trimmedTitle === document.title) {
+      return
+    }
     setBusy(true)
     setError('')
     try {
@@ -121,7 +134,8 @@ export function DocumentInfoDialog({
   )
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
+function Detail({ label, value }: { label: string;
+  value: string }) {
   return (
     <div className="app-dialog-detail-row">
       <dt>{label}</dt>

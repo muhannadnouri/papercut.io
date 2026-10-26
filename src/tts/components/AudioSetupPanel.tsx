@@ -1,7 +1,16 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
-import type { NativeTtsModelInstallProgress, NativeTtsModelStatus } from '../api/nativeTts'
+import type {
+  NativeTtsModelInstallProgress,
+  NativeTtsModelStatus,
+} from '../api/nativeTts'
 import { previewNativeTtsVoice } from '../api/nativeTts'
 import { getTtsPreviewText } from '../models'
 import { nativeTtsErrorMessage } from '../utils/errors'
@@ -23,21 +32,47 @@ interface SelectOption {
   value: string | number
 }
 
-const LANGUAGE_LABELS: Record<string, { label: string; sortKey: string }> = {
-  ar: { label: 'العربية (Arabic)', sortKey: 'Arabic' },
-  en: { label: 'English', sortKey: 'English' },
-  es: { label: 'Español (Spanish)', sortKey: 'Spanish' },
-  fr: { label: 'Français (French)', sortKey: 'French' },
-  hi: { label: 'हिन्दी (Hindi)', sortKey: 'Hindi' },
-  it: { label: 'Italiano (Italian)', sortKey: 'Italian' },
-  pt: { label: 'Português (Brasil) - Portuguese (Brazil)', sortKey: 'Portuguese' },
-  zh: { label: '中文（普通话） - Chinese (Mandarin)', sortKey: 'Chinese' },
+const LANGUAGE_LABELS: Record<string, { label: string;
+  sortKey: string }> = {
+  ar: {
+    label: 'العربية (Arabic)',
+    sortKey: 'Arabic',
+  },
+  en: {
+    label: 'English',
+    sortKey: 'English',
+  },
+  es: {
+    label: 'Español (Spanish)',
+    sortKey: 'Spanish',
+  },
+  fr: {
+    label: 'Français (French)',
+    sortKey: 'French',
+  },
+  hi: {
+    label: 'हिन्दी (Hindi)',
+    sortKey: 'Hindi',
+  },
+  it: {
+    label: 'Italiano (Italian)',
+    sortKey: 'Italian',
+  },
+  pt: {
+    label: 'Português (Brasil) - Portuguese (Brazil)',
+    sortKey: 'Portuguese',
+  },
+  zh: {
+    label: '中文（普通话） - Chinese (Mandarin)',
+    sortKey: 'Chinese',
+  },
 }
 
 // The model metadata can be locale-specific (`ar-JO`) even when the UI should
 // present one human language. Keep the full model id intact and group only the
 // language dropdown by base language; the model dropdown carries dialect/engine detail.
-function getLanguageOption(model: TtsModelInfo): { label: string; value: string } {
+function getLanguageOption(model: TtsModelInfo): { label: string;
+  value: string } {
   const value = model.language.split('-')[0].toLowerCase() || model.language
   const languageLabel = LANGUAGE_LABELS[value]?.label
     ?? model.languageLabel
@@ -108,8 +143,12 @@ export function AudioSetupPanel({
   const [previewState, setPreviewState] = useState<{
     selection: string
     status: 'idle' | 'loading' | 'playing'
-  }>({ selection: '', status: 'idle' })
-  const [previewError, setPreviewError] = useState<{ selection: string, message: string } | null>(null)
+  }>({
+    selection: '',
+    status: 'idle',
+  })
+  const [previewError, setPreviewError] = useState<{ selection: string,
+    message: string } | null>(null)
   const modelInstalling = modelStatus?.installing || (
     modelInstallProgress !== null &&
     modelInstallProgress.status !== 'installed' &&
@@ -135,14 +174,14 @@ export function AudioSetupPanel({
   const sourceAssetLabel = isSilmaModel ? t('tts.setup.sourceHuggingFace') : t('tts.setup.sourceGitHub')
   const silmaInstallNote = isSilmaModel
     ? [
-        silmaRuntimeMissing
-          ? t('tts.setup.installRuntimeNote')
-          : modelInstalled
-            ? t('tts.setup.silmaInstalledNote')
-            : t('tts.setup.silmaDownloadNote'),
-        modelSize ? t('tts.setup.downloadSize', { size: modelSize }) : '',
-        t('tts.setup.largeDownloadNote'),
-      ].filter(Boolean).join(' ')
+      silmaRuntimeMissing
+        ? t('tts.setup.installRuntimeNote')
+        : modelInstalled
+          ? t('tts.setup.silmaInstalledNote')
+          : t('tts.setup.silmaDownloadNote'),
+      modelSize ? t('tts.setup.downloadSize', { size: modelSize }) : '',
+      t('tts.setup.largeDownloadNote'),
+    ].filter(Boolean).join(' ')
     : null
   const selectedLanguage = selectedModel ? getLanguageOption(selectedModel).value : ''
   const languageOptions = models.reduce<SelectOption[]>((options, model) => {
@@ -169,9 +208,9 @@ export function AudioSetupPanel({
   const advancedSummary = [
     hasTextProcessing && textPreprocessor !== selectedModel?.defaultTextPreprocessor
       ? localizeTextPreprocessor(
-          textPreprocessors.find((item) => item.id === textPreprocessor),
-          t,
-        ).name
+        textPreprocessors.find((item) => item.id === textPreprocessor),
+        t,
+      ).name
       : '',
     threadCount !== defaultThreadCount
       ? `${showHighThreadWarning ? '⚠ ' : ''}${t('tts.setup.threadCount', { count: threadCount })}`
@@ -192,12 +231,17 @@ export function AudioSetupPanel({
     previewRequestRef.current += 1
     previewAudioRef.current?.pause()
     previewAudioRef.current = null
-    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current)
+    }
     previewUrlRef.current = null
   }, [])
   const stopPreview = useCallback(() => {
     clearPreviewAudio()
-    setPreviewState({ selection: '', status: 'idle' })
+    setPreviewState({
+      selection: '',
+      status: 'idle',
+    })
   }, [clearPreviewAudio])
 
   useEffect(() => clearPreviewAudio, [clearPreviewAudio, previewSelection])
@@ -208,7 +252,10 @@ export function AudioSetupPanel({
       return
     }
     onPreviewStart()
-    setPreviewState({ selection: previewSelection, status: 'loading' })
+    setPreviewState({
+      selection: previewSelection,
+      status: 'loading',
+    })
     setPreviewError(null)
     const requestId = previewRequestRef.current + 1
     previewRequestRef.current = requestId
@@ -222,15 +269,22 @@ export function AudioSetupPanel({
         threadCount,
         silmaNfeStep,
       })
-      if (previewRequestRef.current !== requestId) return
+      if (previewRequestRef.current !== requestId) {
+        return
+      }
       const url = URL.createObjectURL(new Blob([wav], { type: 'audio/wav' }))
       const audio = new Audio(url)
       previewUrlRef.current = url
       previewAudioRef.current = audio
       audio.onended = stopPreview
       await audio.play()
-      if (previewRequestRef.current !== requestId) return
-      setPreviewState({ selection: previewSelection, status: 'playing' })
+      if (previewRequestRef.current !== requestId) {
+        return
+      }
+      setPreviewState({
+        selection: previewSelection,
+        status: 'playing',
+      })
     } catch (error) {
       stopPreview()
       setPreviewError({
@@ -253,7 +307,9 @@ export function AudioSetupPanel({
             options={languageOptions}
             onChange={(language) => {
               const nextModel = models.find((model) => getLanguageOption(model).value === language)
-              if (nextModel) onModelChange(nextModel.id)
+              if (nextModel) {
+                onModelChange(nextModel.id)
+              }
             }}
           />
 
@@ -448,14 +504,14 @@ export function AudioSetupPanel({
             <span className="audio-thread-meta">
               {appliedThreadCount !== null
                 ? t('tts.setup.threadSummaryApplied', {
-                    default: defaultThreadCount,
-                    max: maxThreadCount,
-                    applied: appliedThreadCount,
-                  })
+                  default: defaultThreadCount,
+                  max: maxThreadCount,
+                  applied: appliedThreadCount,
+                })
                 : t('tts.setup.threadSummary', {
-                    default: defaultThreadCount,
-                    max: maxThreadCount,
-                  })}
+                  default: defaultThreadCount,
+                  max: maxThreadCount,
+                })}
             </span>
             {showHighThreadWarning && (
               <span className="audio-thread-warning" role="alert">
@@ -514,11 +570,21 @@ export function AudioSetupPanel({
 }
 
 function silmaNfeStepLabel(step: number, t: TFunction): string {
-  if (step === 64) return t('tts.setup.qualityHighest', { step })
-  if (step === 32) return t('tts.setup.qualityHigh', { step })
-  if (step === 16) return t('tts.setup.qualityBalanced', { step })
-  if (step === 12) return t('tts.setup.qualityFast', { step })
-  if (step === 8) return t('tts.setup.qualityFaster', { step })
+  if (step === 64) {
+    return t('tts.setup.qualityHighest', { step })
+  }
+  if (step === 32) {
+    return t('tts.setup.qualityHigh', { step })
+  }
+  if (step === 16) {
+    return t('tts.setup.qualityBalanced', { step })
+  }
+  if (step === 12) {
+    return t('tts.setup.qualityFast', { step })
+  }
+  if (step === 8) {
+    return t('tts.setup.qualityFaster', { step })
+  }
   return t('tts.setup.qualityFastest', { step })
 }
 
@@ -526,7 +592,12 @@ function localizeTextPreprocessor(
   item: TextPreprocessorInfo | undefined,
   t: TFunction,
 ): Pick<TextPreprocessorInfo, 'name' | 'description'> {
-  if (!item) return { name: '', description: '' }
+  if (!item) {
+    return {
+      name: '',
+      description: '',
+    }
+  }
   if (item.id === TEXT_PREPROCESSOR_NONE) {
     return {
       name: t('tts.setup.preprocessorOriginal'),
@@ -554,10 +625,18 @@ function formatModelInstallProgressMessage(
   progress: NativeTtsModelInstallProgress | null,
   t: TFunction,
 ): string | undefined {
-  if (!progress) return undefined
-  if (progress.status === 'error') return progress.message
-  if (progress.status === 'installed') return t('tts.setup.installed')
-  if (progress.status === 'extracting') return t('tts.audiobooks.extracting')
+  if (!progress) {
+    return undefined
+  }
+  if (progress.status === 'error') {
+    return progress.message
+  }
+  if (progress.status === 'installed') {
+    return t('tts.setup.installed')
+  }
+  if (progress.status === 'extracting') {
+    return t('tts.audiobooks.extracting')
+  }
   if (progress.status === 'downloading') {
     return t('tts.audiobooks.downloadingPercent', { percent: progress.percent })
   }
@@ -628,7 +707,11 @@ function PreviewIcon({ playing }: { playing: boolean }) {
 }
 
 function formatModelSize(bytes: number): string | null {
-  if (!Number.isFinite(bytes) || bytes <= 0) return null
-  if (bytes >= 1024 * 1024 * 1024) return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB'
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return null
+  }
+  if (bytes >= 1024 * 1024 * 1024) {
+    return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB'
+  }
   return Math.round(bytes / 1024 / 1024) + ' MB'
 }

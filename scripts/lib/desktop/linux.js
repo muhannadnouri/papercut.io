@@ -1,10 +1,17 @@
-import { existsSync, mkdirSync } from "node:fs"
+import {
+  existsSync,
+  mkdirSync,
+} from "node:fs"
 import { NODE_VERSION } from "../constants.js"
 import {
   SHERPA_LINUX_SHARED_OUT_DIR,
   SHERPA_LINUX_SHARED_SOURCE_DIR,
 } from "../linux/constants.js"
-import { runSync, shQuote, exitFromResult } from "../process.js"
+import {
+  runSync,
+  shQuote,
+  exitFromResult,
+} from "../process.js"
 
 export function prepareLinuxDesktopBuild({ isStatic }) {
   if (isFlatpak() && !process.env.PAPERCUT_HOST_BUILD) {
@@ -60,7 +67,9 @@ npm run ${npmScript}
 // Tauri's GStreamer AppImage plugin patches each bundled plugin's runtime path.
 function ensurePatchelf() {
   const result = runSync("patchelf", ["--version"], { stdio: "ignore" })
-  if (!result.error && result.status === 0) return
+  if (!result.error && result.status === 0) {
+    return
+  }
 
   console.error("[desktop-build] patchelf is required to bundle AppImage audio. Install the documented Linux build dependencies and retry.")
   process.exit(1)

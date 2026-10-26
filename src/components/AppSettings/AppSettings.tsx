@@ -1,4 +1,11 @@
-import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { getVersion } from '@tauri-apps/api/app'
 import { isTauri } from '@tauri-apps/api/core'
@@ -86,7 +93,9 @@ export function AppSettings({
   }[themeChoice]
 
   useEffect(() => {
-    if (!tauriRuntime || !open || version !== null) return
+    if (!tauriRuntime || !open || version !== null) {
+      return
+    }
     void getVersion()
       .then(setVersion)
       .catch(() => setVersion(''))
@@ -96,9 +105,18 @@ export function AppSettings({
     ? t('settings.versionLoading')
     : version || (tauriRuntime ? t('settings.versionUnavailable') : t('settings.webBuild'))
   const legalNotices = [
-    { id: 'ai-audio' as const, title: t('settings.aiAudioUseNotice') },
-    { id: 'papercut' as const, title: t('settings.papercutLicense') },
-    { id: 'third-party' as const, title: t('settings.thirdPartyNotices') },
+    {
+      id: 'ai-audio' as const,
+      title: t('settings.aiAudioUseNotice'),
+    },
+    {
+      id: 'papercut' as const,
+      title: t('settings.papercutLicense'),
+    },
+    {
+      id: 'third-party' as const,
+      title: t('settings.thirdPartyNotices'),
+    },
   ]
   const selectedNotice = legalNotices.find(({ id }) => id === selectedLegalNotice)
 
@@ -124,7 +142,9 @@ export function AppSettings({
 
       {searchOpen && (
         <AppDialog key="search" fallbackFocusRef={settingsButton} className="app-settings-search-dialog" title={t('settings.semantic.title')}
-          showCloseButton onCancel={closeSettings} onBack={() => { setOpen(true); setSearchOpen(false) }}>
+          showCloseButton onCancel={closeSettings} onBack={() => {
+            setOpen(true); setSearchOpen(false)
+          }}>
           <SearchModelSetup semantic={semanticSearch} />
         </AppDialog>
       )}
@@ -137,8 +157,11 @@ export function AppSettings({
           showCloseButton
           onCancel={closeSettings}
           onBack={() => {
-            if (selectedLegalNotice) setSelectedLegalNotice(null)
-            else setLegalNoticesOpen(false)
+            if (selectedLegalNotice) {
+              setSelectedLegalNotice(null)
+            } else {
+              setLegalNoticesOpen(false)
+            }
           }}
         >
           {selectedLegalNotice ? (
@@ -182,7 +205,9 @@ export function AppSettings({
                     : option.label,
                 }))}
                 ariaLabelledBy="app-setting-language"
-                onChange={(locale) => { void changeAppLocale(locale) }}
+                onChange={(locale) => {
+                  void changeAppLocale(locale)
+                }}
               />
             </div>
 
@@ -346,7 +371,9 @@ function LegalNoticeContent({ source }: { source: string }) {
     <div className="app-settings-legal-content" dir="ltr">
       {blocks.map((block, index) => {
         const heading = block.match(/^##\s+(.+)$/)
-        if (heading) return <h3 key={index}>{renderLegalInline(heading[1])}</h3>
+        if (heading) {
+          return <h3 key={index}>{renderLegalInline(heading[1])}</h3>
+        }
 
         return <p key={index}>{renderLegalInline(block.replace(/\s*\n\s*/g, ' '))}</p>
       })}
@@ -374,7 +401,9 @@ function renderLegalInline(text: string): ReactNode[] {
             key={index}
             type="button"
             className="app-settings-legal-link"
-            onClick={() => { void openExternalUrl(part) }}
+            onClick={() => {
+              void openExternalUrl(part)
+            }}
           >
             {part}
           </button>
@@ -396,15 +425,21 @@ function useAppZoom() {
   // Tauri applies WebView zoom outside the DOM, so restore it explicitly on
   // startup and after every preference change.
   useEffect(() => {
-    if (!supported) return
+    if (!supported) {
+      return
+    }
     void getCurrentWebview().setZoom(value / 100).catch(() => {})
   }, [supported, value])
 
   useEffect(() => {
-    if (!supported) return
+    if (!supported) {
+      return
+    }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (!event.ctrlKey && !event.metaKey) return
+      if (!event.ctrlKey && !event.metaKey) {
+        return
+      }
       if (event.key === '0') {
         event.preventDefault()
         setZoom(DEFAULT_ZOOM)
@@ -421,7 +456,11 @@ function useAppZoom() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [setZoom, supported, value])
 
-  return { supported, value, setValue: setZoom }
+  return {
+    supported,
+    value,
+    setValue: setZoom,
+  }
 }
 
 function loadZoom(): number {

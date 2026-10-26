@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
 import type { DocumentInfo } from '../../types/search'
-import { buildLibraryTree, countDescendantFolders } from './libraryTree'
+import {
+  buildLibraryTree,
+  countDescendantFolders,
+} from './libraryTree'
 
 describe('buildLibraryTree', () => {
   it('includes uploaded HTML and PDF documents', () => {
@@ -43,11 +50,38 @@ describe('buildLibraryTree', () => {
     }]
     const tree = buildLibraryTree(documents, {
       folders: [
-        { id: 'parent', name: 'Parent', depth: 0, sortOrder: 0, createdAtMs: 0, updatedAtMs: 0 },
-        { id: 'match', parentId: 'parent', name: 'Match', depth: 1, sortOrder: 0, createdAtMs: 0, updatedAtMs: 0 },
-        { id: 'empty', parentId: 'parent', name: 'Empty', depth: 1, sortOrder: 1, createdAtMs: 0, updatedAtMs: 0 },
+        {
+          id: 'parent',
+          name: 'Parent',
+          depth: 0,
+          sortOrder: 0,
+          createdAtMs: 0,
+          updatedAtMs: 0,
+        },
+        {
+          id: 'match',
+          parentId: 'parent',
+          name: 'Match',
+          depth: 1,
+          sortOrder: 0,
+          createdAtMs: 0,
+          updatedAtMs: 0,
+        },
+        {
+          id: 'empty',
+          parentId: 'parent',
+          name: 'Empty',
+          depth: 1,
+          sortOrder: 1,
+          createdAtMs: 0,
+          updatedAtMs: 0,
+        },
       ],
-      documentLocations: [{ documentId: 'a1', folderId: 'match', sortOrder: 0 }],
+      documentLocations: [{
+        documentId: 'a1',
+        folderId: 'match',
+        sortOrder: 0,
+      }],
     }, { hideEmptyFolders: true })
 
     expect(tree.nodes).toHaveLength(1)

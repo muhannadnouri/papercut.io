@@ -20,7 +20,9 @@ export function pdfRecognitionIndicatorState(
   textStatus?: UploadedDocumentTextStatus,
 ): PdfRecognitionIndicatorState {
   if (isPdfRecognitionStatusForDocument(status, documentUrl)) {
-    if (status.status === 'recognizing') return 'running'
+    if (status.status === 'recognizing') {
+      return 'running'
+    }
     if (status.status === 'error') {
       return status.message === PDF_OCR_INTERRUPTED ? 'attention' : 'error'
     }
@@ -36,9 +38,13 @@ export function pdfRecognitionIndicatorState(
 export function pdfRecognitionIssueAction(
   issues?: PdfRecognitionIssues,
 ): 'retry' | 'accept' | null {
-  if ((issues?.failedPages.length ?? 0) > 0) return 'retry'
+  if ((issues?.failedPages.length ?? 0) > 0) {
+    return 'retry'
+  }
   if ((issues?.unrecognizedPages.length ?? 0) > 0 ||
-      (issues?.lowConfidencePages.length ?? 0) > 0) return 'accept'
+      (issues?.lowConfidencePages.length ?? 0) > 0) {
+    return 'accept'
+  }
   return null
 }
 

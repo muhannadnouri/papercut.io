@@ -12,7 +12,9 @@ export function splitNarrationSentences(text: string): string[] {
 
 export function splitNarrationClauses(text: string): string[] {
   return text.split(clausePattern).reduce<string[]>((parts, part, index, source) => {
-    if (index % 2 === 0) parts.push(part + (source[index + 1] ?? ''))
+    if (index % 2 === 0) {
+      parts.push(part + (source[index + 1] ?? ''))
+    }
     return parts
   }, []).map(part => part.trim()).filter(Boolean)
 }
@@ -24,7 +26,9 @@ export function isSentencePunctuationOrSpace(text: string): boolean {
 /** Baseline callers finish synchronously; only the feature schedules these pure steps. */
 export function finishNarrationWork<T>(steps: Generator<void, T>): T {
   let step = steps.next()
-  while (!step.done) step = steps.next()
+  while (!step.done) {
+    step = steps.next()
+  }
   return step.value
 }
 
@@ -35,7 +39,8 @@ export function buildNarrationMatchIndex(text: string) {
 // Imported audiobook bundles may only have chunk text, not durable DOM locators.
 // The tolerant index keeps exact matching first, then removes Arabic-only visual
 // marks and folds common Arabic/Persian codepoint variants for compatibility.
-export function* narrationMatchIndexSteps(text: string): Generator<void, { matchText: string; matchTextOffsets: number[] }> {
+export function* narrationMatchIndexSteps(text: string): Generator<void, { matchText: string;
+  matchTextOffsets: number[] }> {
   let matchText = ''
   let afterChunkSeparator = false
   const matchTextOffsets: number[] = []
@@ -47,9 +52,17 @@ export function* narrationMatchIndexSteps(text: string): Generator<void, { match
     for (const match of text.matchAll(sentencePattern)) {
       found = true
       const raw = match[0]
-      yield { start: match.index + raw.length - raw.trimStart().length, end: match.index + raw.trimEnd().length }
+      yield {
+        start: match.index + raw.length - raw.trimStart().length,
+        end: match.index + raw.trimEnd().length,
+      }
     }
-    if (!found) yield { start: 0, end: text.length }
+    if (!found) {
+      yield {
+        start: 0,
+        end: text.length,
+      }
+    }
   }
   for (const range of ranges()) {
     for (let offset = range.start; offset < range.end;) {
@@ -57,26 +70,37 @@ export function* narrationMatchIndexSteps(text: string): Generator<void, { match
       const char = String.fromCodePoint(codePoint)
       const normalized = normalizeLocatorMatchChar(char)
       for (const outputChar of normalized) {
-        if (outputChar === ' ' && afterChunkSeparator) continue
+        if (outputChar === ' ' && afterChunkSeparator) {
+          continue
+        }
         afterChunkSeparator = sentenceEndPattern.test(outputChar) || clauseSeparatorPattern.test(outputChar) ||
           (afterChunkSeparator && sentenceCloserPattern.test(outputChar))
         matchText += outputChar
-        for (let unit = 0; unit < outputChar.length; unit++) matchTextOffsets.push(offset)
+        for (let unit = 0; unit < outputChar.length; unit++) {
+          matchTextOffsets.push(offset)
+        }
       }
       offset += char.length
       batchUnits += char.length
-      if (batchUnits >= 2048) { batchUnits = 0; yield }
+      if (batchUnits >= 2048) {
+        batchUnits = 0; yield
+      }
     }
   }
 
-  return { matchText, matchTextOffsets }
+  return {
+    matchText,
+    matchTextOffsets,
+  }
 }
 
 function normalizeLocatorMatchChar(char: string): string {
   const normalized = char.normalize('NFKC')
   let output = ''
   for (const normalizedChar of normalized) {
-    if (shouldDropArabicMatchChar(normalizedChar)) continue
+    if (shouldDropArabicMatchChar(normalizedChar)) {
+      continue
+    }
     output += foldArabicMatchChar(normalizedChar)
   }
   return output
@@ -84,7 +108,9 @@ function normalizeLocatorMatchChar(char: string): string {
 
 function shouldDropArabicMatchChar(char: string): boolean {
   const cp = char.codePointAt(0)
-  if (cp === undefined) return false
+  if (cp === undefined) {
+    return false
+  }
 
   return (
     cp === 0x0640 || // tatweel
@@ -119,4 +145,3 @@ function foldArabicMatchChar(char: string): string {
       return char
   }
 }
-

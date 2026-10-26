@@ -1,38 +1,75 @@
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
-const mocked = vi.hoisted(() => ({ invoke: vi.fn(), isTauri: vi.fn(), listen: vi.fn(), stop: vi.fn(), cursor: 0,
-  slots: [] as unknown[], effects: [] as (() => void)[] }))
+const mocked = vi.hoisted(() => ({
+  invoke: vi.fn(),
+  isTauri: vi.fn(),
+  listen: vi.fn(),
+  stop: vi.fn(),
+  cursor: 0,
+  slots: [] as unknown[],
+  effects: [] as (() => void)[],
+}))
 vi.mock('@tauri-apps/api/event', () => ({ listen: mocked.listen }))
-vi.mock('@tauri-apps/api/core', () => ({ invoke: mocked.invoke, isTauri: mocked.isTauri }))
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: mocked.invoke,
+  isTauri: mocked.isTauri,
+}))
 // The repository uses hook slots to exercise async behavior without a DOM dependency.
 vi.mock('react', () => {
   function stable<T>(value: T, deps: unknown[]): T {
     const i = mocked.cursor++
-    const previous = mocked.slots[i] as { deps: unknown[]; value: T } | undefined
-    if (!previous || deps.some((dep, n) => !Object.is(dep, previous.deps[n]))) mocked.slots[i] = { value, deps }
+    const previous = mocked.slots[i] as { deps: unknown[];
+      value: T } | undefined
+    if (!previous || deps.some((dep, n) => !Object.is(dep, previous.deps[n]))) {
+      mocked.slots[i] = {
+        value,
+        deps,
+      }
+    }
     return (mocked.slots[i] as { value: T }).value
   }
   return {
     useState: (initial: unknown) => {
       const i = mocked.cursor++
-      if (i >= mocked.slots.length) mocked.slots[i] = typeof initial === 'function' ? initial() : initial
-      return [mocked.slots[i], (value: unknown) => { mocked.slots[i] = value }]
+      if (i >= mocked.slots.length) {
+        mocked.slots[i] = typeof initial === 'function' ? initial() : initial
+      }
+      return [mocked.slots[i], (value: unknown) => {
+        mocked.slots[i] = value
+      }]
     },
     useRef: (initial: unknown) => stable({ current: initial }, []),
     useCallback: stable,
     useEffect: (effect: () => void | (() => void), deps: unknown[]) => {
       const i = mocked.cursor++
-      const previous = mocked.slots[i] as { deps: unknown[]; cleanup?: () => void } | undefined
-      if (!previous || deps.some((dep, n) => !Object.is(dep, previous.deps[n]))) mocked.effects.push(() => {
-        previous?.cleanup?.()
-        mocked.slots[i] = { deps, cleanup: effect(), effect }
-      })
+      const previous = mocked.slots[i] as { deps: unknown[];
+        cleanup?: () => void } | undefined
+      if (!previous || deps.some((dep, n) => !Object.is(dep, previous.deps[n]))) {
+        mocked.effects.push(() => {
+          previous?.cleanup?.()
+          mocked.slots[i] = {
+            deps,
+            cleanup: effect(),
+            effect,
+          }
+        })
+      }
     },
   }
 })
 
 import type { UploadedDocument } from '../uploads/DocumentUploads'
-import { useSemanticSearch, type ModelSelection, type ProviderStatus } from './useSemanticSearch'
+import {
+  useSemanticSearch,
+  type ModelSelection,
+  type ProviderStatus,
+} from './useSemanticSearch'
 const key = 'papercut.semantic-search.v1'
 let library: UploadedDocument[] | undefined
 let storage: Map<string, string>
@@ -42,49 +79,90 @@ function render() {
   mocked.cursor = 0
   // eslint-disable-next-line react-hooks/rules-of-hooks -- Explicit hook harness, not a React component.
   const value = useSemanticSearch(library)
-  for (const effect of mocked.effects.splice(0)) effect()
+  for (const effect of mocked.effects.splice(0)) {
+    effect()
+  }
   return value
 }
 async function settle() {
-  for (let i = 0; i < 30; i++) await Promise.resolve()
+  for (let i = 0; i < 30; i++) {
+    await Promise.resolve()
+  }
   return render()
 }
 function deferred() {
   let resolve!: (value?: unknown) => void
   let reject!: (error: unknown) => void
-  const promise = new Promise((yes, no) => { resolve = yes; reject = no })
-  return { promise, resolve, reject }
+  const promise = new Promise((yes, no) => {
+    resolve = yes; reject = no
+  })
+  return {
+    promise,
+    resolve,
+    reject,
+  }
 }
 function unmount() {
-  for (const slot of mocked.slots) (slot as { cleanup?: () => void } | null)?.cleanup?.()
+  for (const slot of mocked.slots) {
+    (slot as { cleanup?: () => void } | null)?.cleanup?.()
+  }
 }
 function restart() {
   unmount(); mocked.slots = []; mocked.effects = []
   return render()
 }
-function commands() { return mocked.invoke.mock.calls.map(([command]) => command) }
+function commands() {
+  return mocked.invoke.mock.calls.map(([command]) => command)
+}
 
 beforeEach(() => {
   vi.useFakeTimers()
   library = undefined
   storage = new Map()
-  vi.stubGlobal('window', { setInterval, clearInterval,
-    localStorage: { getItem: (name: string) => storage.get(name) ?? null,
-      setItem: (name: string, value: string) => storage.set(name, value) } })
+  vi.stubGlobal('window', {
+    setInterval,
+    clearInterval,
+    localStorage: {
+      getItem: (name: string) => storage.get(name) ?? null,
+      setItem: (name: string, value: string) => storage.set(name, value),
+    },
+  })
   mocked.slots = []; mocked.effects = []; mocked.cursor = 0
   mocked.stop.mockReset()
   mocked.listen.mockReset().mockResolvedValue(mocked.stop)
   mocked.isTauri.mockReset().mockReturnValue(true)
-  provider = { compiled: true, activeFormat: null, loadingFormat: null, downloadingFormat: null }
-  index = { running: false, cancelRequested: false, indexedDocuments: 0, eligibleDocuments: 2,
-    passages: 0, hasStoredIndex: false, embeddedPassages: 0, reusedPassages: 0, error: null }
+  provider = {
+    compiled: true,
+    activeFormat: null,
+    loadingFormat: null,
+    downloadingFormat: null,
+  }
+  index = {
+    running: false,
+    cancelRequested: false,
+    indexedDocuments: 0,
+    eligibleDocuments: 2,
+    passages: 0,
+    hasStoredIndex: false,
+    embeddedPassages: 0,
+    reusedPassages: 0,
+    error: null,
+  }
   mocked.invoke.mockReset().mockImplementation(async (command: string, args?: { format: ModelSelection | null }) => {
-    if (command === 'search_embedding_status') return { ...provider }
-    if (command === 'search_semantic_index_status') return { ...index }
-    if (command === 'search_embedding_configure') { provider.activeFormat = args!.format; return { ...provider } }
+    if (command === 'search_embedding_status') {
+      return { ...provider }
+    }
+    if (command === 'search_semantic_index_status') {
+      return { ...index }
+    }
+    if (command === 'search_embedding_configure') {
+      provider.activeFormat = args!.format; return { ...provider }
+    }
   })
 })
-afterEach(() => { unmount(); vi.useRealTimers(); vi.unstubAllGlobals() })
+afterEach(() => {
+  unmount(); vi.useRealTimers(); vi.unstubAllGlobals()
+})
 
 it('starts off, reads status only, and never invokes native commands in a browser', async () => {
   render()
@@ -145,7 +223,10 @@ it('retries failed status reads independently of action errors and discards stal
 })
 
 it.each(['base-float32', 'large-float32'] as const)('restores %s only with saved consent and prevents a live model switch', async (format) => {
-  storage.set(key, JSON.stringify({ enabled: false, format }))
+  storage.set(key, JSON.stringify({
+    enabled: false,
+    format,
+  }))
   render(); let value = await settle()
   expect(value.format).toBe(format)
   expect(commands()).not.toContain('search_embedding_configure')
@@ -170,7 +251,10 @@ it('persists format and opt-in, restores only cached activation, and stays off a
   await enable; value = await settle()
   expect(mocked.invoke.mock.calls.filter(([cmd]) => cmd === 'search_embedding_configure')).toHaveLength(1)
   expect(provider.activeFormat).toBe('dynamic-int8')
-  expect(JSON.parse(storage.get(key)!)).toEqual({ enabled: true, format: 'dynamic-int8' })
+  expect(JSON.parse(storage.get(key)!)).toEqual({
+    enabled: true,
+    format: 'dynamic-int8',
+  })
   value.setFormat('float32'); expect(render().format).toBe('dynamic-int8')
   provider.activeFormat = null
   mocked.invoke.mockClear()
@@ -212,7 +296,9 @@ it('surfaces activation failure and retry without downloading or resetting opt-i
 it('disable interrupts pending activation and ignores late failure', async () => {
   render(); let value = await settle()
   const loading = deferred()
-  mocked.invoke.mockImplementationOnce(() => { provider.loadingFormat = 'float32'; return loading.promise })
+  mocked.invoke.mockImplementationOnce(() => {
+    provider.loadingFormat = 'float32'; return loading.promise
+  })
   const enabling = value.setEnabled(true)
   value = render(); expect(value.operation).toBe('activate')
   await value.setEnabled(false); value = await settle()
@@ -232,7 +318,9 @@ it('explicit jobs keep cancellation busy, expose coverage, and reject conflictin
   await value.build(); expect(commands()).not.toContain('search_semantic_index_build')
   await value.setEnabled(true); value = await settle()
   const building = deferred()
-  mocked.invoke.mockImplementationOnce(() => { index.running = true; return building.promise })
+  mocked.invoke.mockImplementationOnce(() => {
+    index.running = true; return building.promise
+  })
   const work = value.build()
   await value.build(); await value.remove()
   expect(commands().filter(cmd => cmd === 'search_semantic_index_build')).toHaveLength(1)
@@ -256,7 +344,9 @@ it('disable during indexing cannot be overwritten by the old job completion', as
   render(); let value = await settle()
   await value.setEnabled(true); value = await settle()
   const building = deferred()
-  mocked.invoke.mockImplementationOnce(() => { index.running = true; return building.promise })
+  mocked.invoke.mockImplementationOnce(() => {
+    index.running = true; return building.promise
+  })
   const work = value.build()
   value = render(); await value.setEnabled(false); value = await settle()
   expect(value.enabled).toBe(false)
@@ -270,13 +360,17 @@ it('disable during indexing cannot be overwritten by the old job completion', as
 it('refuses opt-in if saving fails, but still unloads when saving disable fails', async () => {
   render(); let value = await settle()
   const write = window.localStorage.setItem
-  window.localStorage.setItem = () => { throw new Error('quota') }
+  window.localStorage.setItem = () => {
+    throw new Error('quota')
+  }
   await value.setEnabled(true); value = render()
   expect(value.enabled).toBe(false); expect(value.error).toContain('Unable to save')
   expect(commands()).not.toContain('search_embedding_configure')
   window.localStorage.setItem = write
   await value.setEnabled(true); value = await settle()
-  window.localStorage.setItem = () => { throw new Error('quota') }
+  window.localStorage.setItem = () => {
+    throw new Error('quota')
+  }
   await value.setEnabled(false); value = await settle()
   expect(value.enabled).toBe(false); expect(provider.activeFormat).toBeNull()
   expect(value.error).toContain('previous preference may return')
@@ -290,7 +384,9 @@ it('ignores startup completion after unmount and bounds polling while status is 
   expect(commands()).not.toContain('search_embedding_configure')
   restart(); let value = await settle()
   const building = deferred()
-  mocked.invoke.mockImplementationOnce(() => { index.running = true; return building.promise })
+  mocked.invoke.mockImplementationOnce(() => {
+    index.running = true; return building.promise
+  })
   const work = value.build(); render()
   const slow = deferred()
   mocked.invoke.mockImplementationOnce(() => slow.promise)
@@ -305,14 +401,18 @@ it('StrictMode effect replay starts only one activation from saved consent', asy
   storage.set(key, '{"enabled":true,"format":"float32"}')
   render()
   const effects = mocked.slots.filter(slot => (slot as { effect?: unknown } | null)?.effect) as {
-    cleanup?: () => void; effect: () => void | (() => void)
+    cleanup?: () => void;
+    effect: () => void | (() => void)
   }[]
-  for (const effect of effects) effect.cleanup?.()
-  for (const effect of effects) effect.cleanup = effect.effect() || undefined
+  for (const effect of effects) {
+    effect.cleanup?.()
+  }
+  for (const effect of effects) {
+    effect.cleanup = effect.effect() || undefined
+  }
   await settle()
   expect(commands().filter(cmd => cmd === 'search_embedding_configure')).toHaveLength(1)
 })
-
 
 it('tracks downloads outside Settings, polls only while busy, and ignores byte-progress events', async () => {
   render(); await settle()
@@ -321,7 +421,9 @@ it('tracks downloads outside Settings, polls only while busy, and ignores byte-p
   notify({ payload: { phase: 'starting' } })
   expect((await settle()).busy).toBe(true)
   mocked.invoke.mockClear()
-  for (let i = 0; i < 50; i++) notify({ payload: { phase: 'downloading' } })
+  for (let i = 0; i < 50; i++) {
+    notify({ payload: { phase: 'downloading' } })
+  }
   expect(commands()).toEqual([])
   await vi.advanceTimersByTimeAsync(1000)
   expect(commands()).toEqual(['search_embedding_status', 'search_semantic_index_status'])
@@ -370,7 +472,9 @@ it('distinguishes confirmed cancellation from a failure racing cancel, and prese
   expect(value.error).toBe('')
   await vi.advanceTimersByTimeAsync(4000)
   const work = deferred()
-  mocked.invoke.mockImplementationOnce(() => { index.running = true; return work.promise })
+  mocked.invoke.mockImplementationOnce(() => {
+    index.running = true; return work.promise
+  })
   const building = value.build(); render()
   await vi.advanceTimersByTimeAsync(1000); value = await settle()
   await value.cancel()
@@ -386,14 +490,15 @@ it('distinguishes confirmed cancellation from a failure racing cancel, and prese
   expect(value.activityNotice).toBeNull()
 })
 
-
 it('guards index removal by saved work, including checkpoints without ready passages', async () => {
   render(); let value = await settle()
   await value.remove()
   expect(commands()).not.toContain('search_semantic_index_remove')
   index.hasStoredIndex = true
   await value.refresh(); value = await settle()
-  mocked.invoke.mockImplementationOnce(async () => { index.hasStoredIndex = false })
+  mocked.invoke.mockImplementationOnce(async () => {
+    index.hasStoredIndex = false
+  })
   await value.remove(); value = await settle()
   await value.remove()
   expect(commands().filter(cmd => cmd === 'search_semantic_index_remove')).toHaveLength(1)
@@ -404,32 +509,81 @@ it('retains a background download failure after settings navigation, review and 
   const notify = mocked.listen.mock.calls[0][1]
   // No Settings subscriber is mounted; only the App owner receives the terminal event.
   provider.downloadingFormat = 'float32'
-  notify({ payload: { jobId: '1', phase: 'starting', format: 'float32' } })
+  notify({
+    payload: {
+      jobId: '1',
+      phase: 'starting',
+      format: 'float32',
+    },
+  })
   expect((await settle()).busy).toBe(true)
   provider.downloadingFormat = null
-  notify({ payload: { jobId: '1', phase: 'failed', format: 'float32', error: 'Network disconnected' } })
+  notify({
+    payload: {
+      jobId: '1',
+      phase: 'failed',
+      format: 'float32',
+      error: 'Network disconnected',
+    },
+  })
   let value = await settle()
   expect(value.busy).toBe(false)
   expect(value.activityNotice).toBe('downloadFailed')
-  expect(value.downloadFailure).toEqual({ format: 'float32', message: 'Network disconnected' })
+  expect(value.downloadFailure).toEqual({
+    format: 'float32',
+    message: 'Network disconnected',
+  })
   await vi.advanceTimersByTimeAsync(30000)
   value = render(); expect(value.activityNotice).toBe('downloadFailed')
   value.dismissActivity(); await value.refresh(); value = await settle()
   expect(value.activityNotice).toBeNull()
   expect(value.downloadFailure?.message).toBe('Network disconnected') // Reopening Settings reads the same diagnostic.
-  notify({ payload: { jobId: '2', phase: 'starting', format: 'float32' } })
-  notify({ payload: { jobId: '1', phase: 'failed', format: 'float32', error: 'Old failure' } })
+  notify({
+    payload: {
+      jobId: '2',
+      phase: 'starting',
+      format: 'float32',
+    },
+  })
+  notify({
+    payload: {
+      jobId: '1',
+      phase: 'failed',
+      format: 'float32',
+      error: 'Old failure',
+    },
+  })
   value = await settle()
   expect(value.downloadFailure).toBeNull()
   expect(value.activityNotice).toBeNull()
-  notify({ payload: { jobId: '2', phase: 'installed', format: 'float32' } })
-  notify({ payload: { jobId: '2', phase: 'failed', format: 'float32', error: 'Duplicate terminal event' } })
+  notify({
+    payload: {
+      jobId: '2',
+      phase: 'installed',
+      format: 'float32',
+    },
+  })
+  notify({
+    payload: {
+      jobId: '2',
+      phase: 'failed',
+      format: 'float32',
+      error: 'Duplicate terminal event',
+    },
+  })
   value = await settle()
   expect(value.downloadFailure).toBeNull()
   expect(value.enabled).toBe(false)
   expect(commands()).not.toContain('search_embedding_configure')
   expect(commands()).not.toContain('search_semantic_index_build')
   unmount()
-  notify({ payload: { jobId: '3', phase: 'failed', format: 'float32', error: 'After App unmount' } })
+  notify({
+    payload: {
+      jobId: '3',
+      phase: 'failed',
+      format: 'float32',
+      error: 'After App unmount',
+    },
+  })
   expect(render().downloadFailure).toBeNull()
 })

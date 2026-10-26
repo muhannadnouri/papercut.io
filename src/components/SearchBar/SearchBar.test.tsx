@@ -1,5 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it, vi } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import { SearchBar } from './SearchBar'
 import { SearchOptions } from './SearchOptions'
 

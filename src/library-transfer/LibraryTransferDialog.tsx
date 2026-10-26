@@ -1,21 +1,49 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { AppSelect } from '../components/AppSelect/AppSelect'
 import { AppDialog } from '../components/AppDialog/AppDialog'
 import {
-  cancelNetworkTransfer, dismissNetworkTransfer, getNetworkTransferStatus, retryNetworkTransfer, startNetworkTransfer,
-  isNetworkTransferActive, getTransferInterfaces, type TransferInterface,
-  type TransferConnectionMode, type LibraryTransferNetworkStatus,
-  exportLibrary, importLibrary, isLibraryTransferErrorPayload, listenLibraryTransferProgress,
-  type LibraryTransferExportResult, type LibraryTransferImportResult, type LibraryTransferProgress,
+  cancelNetworkTransfer,
+  dismissNetworkTransfer,
+  getNetworkTransferStatus,
+  retryNetworkTransfer,
+  startNetworkTransfer,
+  isNetworkTransferActive,
+  getTransferInterfaces,
+  type TransferInterface,
+  type TransferConnectionMode,
+  type LibraryTransferNetworkStatus,
+  exportLibrary,
+  importLibrary,
+  isLibraryTransferErrorPayload,
+  listenLibraryTransferProgress,
+  type LibraryTransferExportResult,
+  type LibraryTransferImportResult,
+  type LibraryTransferProgress,
 } from './libraryTransfer'
 import { listNativeSavedAudiobooks } from '../tts/api/nativeTts'
 import type { SavedAudiobookRecord } from '../tts/storage/AudiobookLibrary'
-import { isUserUploadUrl, upsertUserUpload } from '../tts/storage/UserUploads'
+import {
+  isUserUploadUrl,
+  upsertUserUpload,
+} from '../tts/storage/UserUploads'
 import { formatSavedAudiobookMetaParts } from '../tts/utils/format'
-import { listUploadedDocuments, type UploadedDocument } from '../uploads/DocumentUploads'
-import { filterTransferDocuments, updateScopedSelection } from './documentSelection'
+import {
+  listUploadedDocuments,
+  type UploadedDocument,
+} from '../uploads/DocumentUploads'
+import {
+  filterTransferDocuments,
+  updateScopedSelection,
+} from './documentSelection'
 import './LibraryTransferDialog.css'
 import { TransferDiagnostics } from './TransferDiagnostics'
 import { NearbySessions } from './NearbySessions'
@@ -32,9 +60,12 @@ type TransferStatus =
   | { state: 'exporting' }
   | { state: 'importing' }
 
-  | { state: 'exported'; result: LibraryTransferExportResult }
-  | { state: 'imported'; result: LibraryTransferImportResult }
-  | { state: 'error'; message: string }
+  | { state: 'exported';
+    result: LibraryTransferExportResult }
+  | { state: 'imported';
+    result: LibraryTransferImportResult }
+  | { state: 'error';
+    message: string }
 
 const DOCUMENT_FILTER_THRESHOLD = 20
 
@@ -71,7 +102,9 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
   const appliedResult = useRef<number | null>(null)
   const alive = useRef(true)
   const stepHeading = useRef<HTMLHeadingElement>(null)
-  useEffect(() => { stepHeading.current?.focus() }, [mode, showConnection])
+  useEffect(() => {
+    stepHeading.current?.focus()
+  }, [mode, showConnection])
   const validPort = /^\d+$/.test(port) && Number(port) >= 1024 && Number(port) <= 65535
   const listening = (mode === 'receive') === (connectionMode === 'push')
   const portHelpId = useId()
@@ -142,13 +175,22 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
       const next = await getTransferInterfaces()
       setNetworks(next)
       const automatic = next.filter(network => network.automatic)
-      if (automatic.length === 1) setNetworkId(automatic[0].id)
-      if (!next.length) setNetworkError(true)
-    } catch { setNetworkError(true) }
-    finally { setNetworksLoading(false) }
+      if (automatic.length === 1) {
+        setNetworkId(automatic[0].id)
+      }
+      if (!next.length) {
+        setNetworkError(true)
+      }
+    } catch {
+      setNetworkError(true)
+    } finally {
+      setNetworksLoading(false)
+    }
   }, [])
 
-  useEffect(() => { void loadNetworks() }, [loadNetworks])
+  useEffect(() => {
+    void loadNetworks()
+  }, [loadNetworks])
 
   useEffect(() => {
     void loadDocuments()
@@ -164,13 +206,22 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
     let unlisten: (() => void) | undefined
     let disposed = false
     void listenLibraryTransferProgress((next) => {
-      if (disposed || next.operation === 'receive') return
+      if (disposed || next.operation === 'receive') {
+        return
+      }
       setProgress(next)
     })
       .then((stop) => {
-        if (disposed) stop()
-        else unlisten = stop
-      }).catch(() => { if (!disposed) setProgressUnavailable(true) })
+        if (disposed) {
+          stop()
+        } else {
+          unlisten = stop
+        }
+      }).catch(() => {
+        if (!disposed) {
+          setProgressUnavailable(true)
+        }
+      })
     return () => {
       disposed = true
       unlisten?.()
@@ -179,7 +230,9 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
 
   const applyImportResult = useCallback(async (result: LibraryTransferImportResult, attempt = operationAttempt.current) => {
     for (const record of result.importedAudiobooks) {
-      if (!isUserUploadUrl(record.documentUrl)) continue
+      if (!isUserUploadUrl(record.documentUrl)) {
+        continue
+      }
       upsertUserUpload({
         url: record.documentUrl,
         title: record.title,
@@ -194,27 +247,42 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
         wavBytes: record.wavBytes,
       })
     }
-    if (result.imported > 0 || result.audiobooksImported > 0) await onImported()
+    if (result.imported > 0 || result.audiobooksImported > 0) {
+      await onImported()
+    }
     if (alive.current && operationAttempt.current === attempt) {
       setProgress(null)
-      setStatus({ state: 'imported', result })
+      setStatus({
+        state: 'imported',
+        result,
+      })
     }
   }, [onImported])
 
   const handleExport = async () => {
-    if (busy) return
+    if (busy) {
+      return
+    }
     setProgress(null)
     setStatus({ state: 'exporting' })
     try {
       const result = await exportLibrary(effectiveDocumentIds, selectedAudiobookIds)
-      setStatus(result ? { state: 'exported', result } : { state: 'idle' })
+      setStatus(result ? {
+        state: 'exported',
+        result,
+      } : { state: 'idle' })
     } catch (error) {
-      setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
+      setStatus({
+        state: 'error',
+        message: formatTransferError(error, locale, t),
+      })
     }
   }
 
   const handleImport = async () => {
-    if (busy) return
+    if (busy) {
+      return
+    }
     setProgress(null)
     setStatus({ state: 'importing' })
     try {
@@ -225,20 +293,29 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
       }
       await applyImportResult(result)
     } catch (error) {
-      setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
+      setStatus({
+        state: 'error',
+        message: formatTransferError(error, locale, t),
+      })
     }
   }
 
   useEffect(() => {
     alive.current = true
-    return () => { alive.current = false }
+    return () => {
+      alive.current = false
+    }
   }, [])
 
   useEffect(() => {
-    if (ownershipState !== 'loading') return
+    if (ownershipState !== 'loading') {
+      return
+    }
     let disposed = false
     void getNetworkTransferStatus().then(next => {
-      if (disposed) return
+      if (disposed) {
+        return
+      }
       if (next) {
         setMode(next.role === 'sender' ? 'send' : 'receive')
         setShowConnection(true)
@@ -246,40 +323,68 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
         setNetworkStatus(next)
       }
       setOwnershipState('ready')
-    }).catch(() => { if (!disposed) setOwnershipState('failed') })
-    return () => { disposed = true }
+    }).catch(() => {
+      if (!disposed) {
+        setOwnershipState('failed')
+      }
+    })
+    return () => {
+      disposed = true
+    }
   }, [ownershipState])
 
   useEffect(() => {
-    if (networkSessionId === undefined || !networkActive) return
+    if (networkSessionId === undefined || !networkActive) {
+      return
+    }
     const id = networkSessionId
-    let disposed = false, pending = false
+    let disposed = false; let pending = false
     const timer = window.setInterval(() => {
-      if (pending) return
+      if (pending) {
+        return
+      }
       pending = true
       void getNetworkTransferStatus(id).then(next => {
-        if (disposed || !next || next.id !== id) return
+        if (disposed || !next || next.id !== id) {
+          return
+        }
         setNetworkStatus(next)
         setStatusUnavailable(false)
-        if (!isNetworkTransferActive(next) || !next.cancellable) setCancelling(false)
-      }).catch(() => { if (!disposed) setStatusUnavailable(true) })
-        .finally(() => { pending = false })
+        if (!isNetworkTransferActive(next) || !next.cancellable) {
+          setCancelling(false)
+        }
+      }).catch(() => {
+        if (!disposed) {
+          setStatusUnavailable(true)
+        }
+      })
+        .finally(() => {
+          pending = false
+        })
     }, 500)
-    return () => { disposed = true; window.clearInterval(timer) }
+    return () => {
+      disposed = true; window.clearInterval(timer)
+    }
   }, [networkSessionId, networkActive])
 
   useEffect(() => {
     if (networkStatus?.state !== 'complete' || networkStatus.role !== 'receiver'
-      || !networkStatus.result || appliedResult.current === networkStatus.id) return
+      || !networkStatus.result || appliedResult.current === networkStatus.id) {
+      return
+    }
     appliedResult.current = networkStatus.id
     const attempt = operationAttempt.current
     void applyImportResult(networkStatus.result).catch(error => {
-      if (alive.current && operationAttempt.current === attempt) setControlError(formatTransferError(error, locale, t))
+      if (alive.current && operationAttempt.current === attempt) {
+        setControlError(formatTransferError(error, locale, t))
+      }
     })
   }, [networkStatus, applyImportResult, locale, t])
 
   const handleStartNetwork = async () => {
-    if (busy || !mode || !showConnection || !validConnection || (mode === 'send' && (!sendSelectionReady || !hasContent))) return
+    if (busy || !mode || !showConnection || !validConnection || (mode === 'send' && (!sendSelectionReady || !hasContent))) {
+      return
+    }
     const attempt = ++operationAttempt.current
     setProgress(null)
     setNetworkStatus(null)
@@ -290,22 +395,45 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
     setStatus({ state: 'idle' })
     try {
       const next = await startNetworkTransfer({
-        role: mode === 'send' ? 'sender' : 'receiver', mode: connectionMode, interfaceId: networkId,
-        ...(listening ? { port: Number(port) } : { address: sourceAddress.trim(), code: pairingCode }),
-        ...(mode === 'send' ? { selection: { documentIds: effectiveDocumentIds, audiobookIds: selectedAudiobookIds } } : {}),
+        role: mode === 'send' ? 'sender' : 'receiver',
+        mode: connectionMode,
+        interfaceId: networkId,
+        ...(listening ? { port: Number(port) } : {
+          address: sourceAddress.trim(),
+          code: pairingCode,
+        }),
+        ...(mode === 'send' ? {
+          selection: {
+            documentIds: effectiveDocumentIds,
+            audiobookIds: selectedAudiobookIds,
+          },
+        } : {}),
       })
-      if (alive.current && operationAttempt.current === attempt) setNetworkStatus(next)
+      if (alive.current && operationAttempt.current === attempt) {
+        setNetworkStatus(next)
+      }
     } catch (error) {
-      if (alive.current && operationAttempt.current === attempt) setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
+      if (alive.current && operationAttempt.current === attempt) {
+        setStatus({
+          state: 'error',
+          message: formatTransferError(error, locale, t),
+        })
+      }
     } finally {
-      if (alive.current && operationAttempt.current === attempt) setStarting(false)
+      if (alive.current && operationAttempt.current === attempt) {
+        setStarting(false)
+      }
     }
   }
 
   const handleCancelNetwork = async () => {
-    if (!networkStatus || cancelling) return
+    if (!networkStatus || cancelling) {
+      return
+    }
     if (!networkActive) {
-      if (await resetNetwork()) setShowConnection(mode === 'receive')
+      if (await resetNetwork()) {
+        setShowConnection(mode === 'receive')
+      }
       return
     }
     const id = networkStatus.id
@@ -317,36 +445,54 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
       if (!cancelled) {
         const next = await getNetworkTransferStatus(id)
         if (alive.current && operationAttempt.current === attempt) {
-          if (next?.id === id) setNetworkStatus(next)
+          if (next?.id === id) {
+            setNetworkStatus(next)
+          }
           setCancelling(false)
         }
       }
     } catch (error) {
-      if (alive.current && operationAttempt.current === attempt) { setCancelling(false); setControlError(formatTransferError(error, locale, t)) }
+      if (alive.current && operationAttempt.current === attempt) {
+        setCancelling(false); setControlError(formatTransferError(error, locale, t))
+      }
     }
   }
 
   const handleRetryNetwork = async () => {
-    if (!networkStatus?.canRetry) return
+    if (!networkStatus?.canRetry) {
+      return
+    }
     setControlError(null)
     const id = networkStatus.id
     const attempt = operationAttempt.current
     try {
       const next = await retryNetworkTransfer(id)
-      if (alive.current && operationAttempt.current === attempt && next.id === id) setNetworkStatus(next)
-    } catch (error) { if (alive.current && operationAttempt.current === attempt) setControlError(formatTransferError(error, locale, t)) }
+      if (alive.current && operationAttempt.current === attempt && next.id === id) {
+        setNetworkStatus(next)
+      }
+    } catch (error) {
+      if (alive.current && operationAttempt.current === attempt) {
+        setControlError(formatTransferError(error, locale, t))
+      }
+    }
   }
 
   const resetNetwork = async () => {
-    if (networkActive || dismissing) return false
+    if (networkActive || dismissing) {
+      return false
+    }
     const previous = networkStatus
     operationAttempt.current += 1
     const attempt = operationAttempt.current
     setDismissing(true)
     setControlError(null)
     try {
-      if (previous) await dismissNetworkTransfer(previous.id)
-      if (!alive.current || operationAttempt.current !== attempt) return false
+      if (previous) {
+        await dismissNetworkTransfer(previous.id)
+      }
+      if (!alive.current || operationAttempt.current !== attempt) {
+        return false
+      }
       setNetworkStatus(null)
       setCancelling(false)
       setStatusUnavailable(false)
@@ -357,31 +503,49 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
       setProgress(null)
       return true
     } catch (error) {
-      if (alive.current && operationAttempt.current === attempt) setControlError(formatTransferError(error, locale, t))
+      if (alive.current && operationAttempt.current === attempt) {
+        setControlError(formatTransferError(error, locale, t))
+      }
       return false
     } finally {
-      if (alive.current && operationAttempt.current === attempt) setDismissing(false)
+      if (alive.current && operationAttempt.current === attempt) {
+        setDismissing(false)
+      }
     }
   }
   const selectMode = async (nextMode: TransferMode) => {
-    if (busy || nextMode === mode) return
-    if (!await resetNetwork()) return
+    if (busy || nextMode === mode) {
+      return
+    }
+    if (!await resetNetwork()) {
+      return
+    }
     setMode(nextMode)
     setShowConnection(nextMode === 'receive')
     setConnectionMode('push')
   }
   const selectConnectionMode = async (next: TransferConnectionMode) => {
-    if (busy) return
-    if (!await resetNetwork()) return
+    if (busy) {
+      return
+    }
+    if (!await resetNetwork()) {
+      return
+    }
     setConnectionMode(next)
   }
   const leave = async (navigate: () => void) => {
     const attempt = operationAttempt.current
     try {
-      if (networkStatus && !networkActive) await dismissNetworkTransfer(networkStatus.id)
-      if (alive.current && operationAttempt.current === attempt) navigate()
+      if (networkStatus && !networkActive) {
+        await dismissNetworkTransfer(networkStatus.id)
+      }
+      if (alive.current && operationAttempt.current === attempt) {
+        navigate()
+      }
     } catch (error) {
-      if (alive.current) setControlError(formatTransferError(error, locale, t))
+      if (alive.current) {
+        setControlError(formatTransferError(error, locale, t))
+      }
     }
   }
 
@@ -392,14 +556,22 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
       description={!mode ? t('libraryTransfer.description') : undefined}
       showCloseButton
       navigationDisabled={busy && ownershipState !== 'failed'}
-      onBack={() => { void leave(onBack) }}
-      onCancel={() => { void leave(onClose) }}
+      onBack={() => {
+        void leave(onBack)
+      }}
+      onCancel={() => {
+        void leave(onClose)
+      }}
     >
       <div className="library-transfer-mode" role="group" aria-label={t('libraryTransfer.modeLabel')}>
-        <button type="button" aria-pressed={mode === 'send'} disabled={busy} onClick={() => { void selectMode('send') }}>
+        <button type="button" aria-pressed={mode === 'send'} disabled={busy} onClick={() => {
+          void selectMode('send')
+        }}>
           {t('libraryTransfer.modeSend')}
         </button>
-        <button type="button" aria-pressed={mode === 'receive'} disabled={busy} onClick={() => { void selectMode('receive') }}>
+        <button type="button" aria-pressed={mode === 'receive'} disabled={busy} onClick={() => {
+          void selectMode('receive')
+        }}>
           {t('libraryTransfer.modeReceive')}
         </button>
       </div>
@@ -426,13 +598,22 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
             <AppSelect
               ariaLabel={t('libraryTransfer.network')}
               value={networkId}
-              options={[{ value: '', label: t('libraryTransfer.chooseNetwork'), disabled: true }, ...networks.map(network => ({
-                value: network.id, label: `${network.name} · ${network.addresses.join(', ')}`,
+              options={[{
+                value: '',
+                label: t('libraryTransfer.chooseNetwork'),
+                disabled: true,
+              }, ...networks.map(network => ({
+                value: network.id,
+                label: `${network.name} · ${network.addresses.join(', ')}`,
               }))]}
               disabled={busy || !networks.length}
-              onChange={id => { setNetworkId(id); setSourceAddress(''); setPairingCode(''); setPeerName('') }}
+              onChange={id => {
+                setNetworkId(id); setSourceAddress(''); setPairingCode(''); setPeerName('')
+              }}
             />
-            <button type="button" disabled={busy || networksLoading} onClick={() => { void loadNetworks() }}>{t('libraryTransfer.refreshNetworks')}</button>
+            <button type="button" disabled={busy || networksLoading} onClick={() => {
+              void loadNetworks()
+            }}>{t('libraryTransfer.refreshNetworks')}</button>
             {networkError && <p role="alert">{t('libraryTransfer.networkUnavailable')}</p>}
             {listening && <label className="library-transfer-port">
               <span>{t('libraryTransfer.port')}</span>
@@ -444,13 +625,17 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
         </details>
         {!listening && <>
           <NearbySessions key={`${networkId}:${connectionMode}`} interfaceId={networkId} mode={connectionMode} disabled={busy}
-            onSelect={(address, name) => { setSourceAddress(address); setPeerName(name); setPairingCode('') }} />
+            onSelect={(address, name) => {
+              setSourceAddress(address); setPeerName(name); setPairingCode('')
+            }} />
           {peerName && <p role="status">{t('libraryTransfer.selectedPeer')}: <bdi>{peerName}</bdi></p>}
           <details className="library-transfer-alternate">
             <summary>{t('libraryTransfer.manualAddress')}</summary>
             <label className="library-transfer-pairing-fields"><span>{t('libraryTransfer.peerAddress')}</span>
               <input type="text" dir="ltr" value={sourceAddress} disabled={busy} placeholder="192.168.1.20:53318"
-                onChange={event => { setSourceAddress(event.target.value); setPeerName(''); setPairingCode('') }} />
+                onChange={event => {
+                  setSourceAddress(event.target.value); setPeerName(''); setPairingCode('')
+                }} />
             </label>
           </details>
           {sourceAddress.trim() && <label className="library-transfer-pairing-fields"><span>{t('libraryTransfer.pairingCode')}</span>
@@ -462,7 +647,9 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
           <summary>{t('libraryTransfer.otherConnectionMethod')}</summary>
           <div className="library-transfer-alternate-content">
             <p>{t('libraryTransfer.otherConnectionHelp')}</p>
-            <button type="button" disabled={busy} onClick={() => { void selectConnectionMode(connectionMode === 'push' ? 'pull' : 'push') }}>
+            <button type="button" disabled={busy} onClick={() => {
+              void selectConnectionMode(connectionMode === 'push' ? 'pull' : 'push')
+            }}>
               {t(listening ? 'libraryTransfer.useOtherCode' : 'libraryTransfer.showCodeHere')}
             </button>
           </div>
@@ -470,279 +657,298 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
       </section>}
       {mode && <div className="library-transfer-actions">
         {status.state === 'imported' ? <LibraryTransferCompletion kind="receive" result={status.result} />
-        : networkStatus?.state === 'complete' && networkStatus.role === 'sender'
-          ? <LibraryTransferCompletion kind="send" status={networkStatus} />
-        : networkStatus?.state === 'complete' && networkStatus.result
-          ? <LibraryTransferCompletion kind="receive" result={networkStatus.result} />
-        : networkFlowVisible ? <LibraryNetworkFlow role={mode === 'send' ? 'sender' : 'receiver'} starting={starting} status={networkStatus} locale={locale} cancelling={cancelling} dismissing={dismissing}
-            onExit={() => { void handleCancelNetwork() }} onRetry={() => { void handleRetryNetwork() }} />
-        : mode === 'send' ? (
-            <>
-            <section className="library-transfer-primary-section">
-              {!showConnection && <>
-                <header><h3 ref={stepHeading} tabIndex={-1}>{t('libraryTransfer.chooseContent')}</h3></header>
-                {!documentsLoaded && (
-                  <div className="library-transfer-status library-transfer-status-busy" role="status" aria-live="polite">
-                    <span className="spinner" aria-hidden="true" />
-                    <span>{t('libraryTransfer.loadingDocuments')}</span>
-                  </div>
-                )}
-                {documentsLoadFailed && (
+          : networkStatus?.state === 'complete' && networkStatus.role === 'sender'
+            ? <LibraryTransferCompletion kind="send" status={networkStatus} />
+            : networkStatus?.state === 'complete' && networkStatus.result
+              ? <LibraryTransferCompletion kind="receive" result={networkStatus.result} />
+              : networkFlowVisible ? <LibraryNetworkFlow role={mode === 'send' ? 'sender' : 'receiver'} starting={starting} status={networkStatus} locale={locale} cancelling={cancelling} dismissing={dismissing}
+                onExit={() => {
+                  void handleCancelNetwork()
+                }} onRetry={() => {
+                  void handleRetryNetwork()
+                }} />
+                : mode === 'send' ? (
                   <>
-                    <p className="app-dialog-error" role="alert">
-                      {t('libraryTransfer.documentsLoadFailed')}
-                    </p>
-                    <button type="button" onClick={() => { void loadDocuments() }}>
-                      {t('common.retry')}
-                    </button>
+                    <section className="library-transfer-primary-section">
+                      {!showConnection && <>
+                        <header><h3 ref={stepHeading} tabIndex={-1}>{t('libraryTransfer.chooseContent')}</h3></header>
+                        {!documentsLoaded && (
+                          <div className="library-transfer-status library-transfer-status-busy" role="status" aria-live="polite">
+                            <span className="spinner" aria-hidden="true" />
+                            <span>{t('libraryTransfer.loadingDocuments')}</span>
+                          </div>
+                        )}
+                        {documentsLoadFailed && (
+                          <>
+                            <p className="app-dialog-error" role="alert">
+                              {t('libraryTransfer.documentsLoadFailed')}
+                            </p>
+                            <button type="button" onClick={() => {
+                              void loadDocuments()
+                            }}>
+                              {t('common.retry')}
+                            </button>
+                          </>
+                        )}
+                        {documents.length > 0 && (
+                          <details className="library-transfer-content">
+                            <summary>
+                              <span>
+                                <strong aria-live="polite">
+                                  {t('libraryTransfer.includeDocuments', {
+                                    selected: effectiveDocumentIds.length,
+                                    count: documents.length,
+                                  })}
+                                </strong>
+                                <small>{t('libraryTransfer.includeDocumentsDescription')}</small>
+                              </span>
+                            </summary>
+                            <div className="library-transfer-picker">
+                              {documents.length >= DOCUMENT_FILTER_THRESHOLD && (
+                                <>
+                                  <label className="library-transfer-filter">
+                                    <span>{t('libraryTransfer.filterDocuments')}</span>
+                                    <input
+                                      type="search"
+                                      value={documentFilter}
+                                      disabled={busy}
+                                      onChange={(event) => setDocumentFilter(event.target.value)}
+                                    />
+                                  </label>
+                                  <div className="library-transfer-filter-state">
+                                    <span role="status" aria-live="polite">
+                                      {t('libraryTransfer.showingDocuments', {
+                                        shown: filteredDocuments.length,
+                                        count: documents.length,
+                                      })}
+                                    </span>
+                                    <label>
+                                      <input
+                                        type="checkbox"
+                                        checked={showSelectedDocuments}
+                                        disabled={busy}
+                                        onChange={(event) => setShowSelectedDocuments(event.target.checked)}
+                                      />
+                                      <span>{t('libraryTransfer.showSelectedDocuments')}</span>
+                                    </label>
+                                  </div>
+                                </>
+                              )}
+                              <div className="library-transfer-picker-actions">
+                                {!showSelectedDocuments && (
+                                  <button
+                                    type="button"
+                                    disabled={busy || allScopedDocumentsSelected || scopedDocumentIds.length === 0}
+                                    onClick={() => setSelectedDocumentIds((current) => (
+                                      updateScopedSelection(current, scopedDocumentIds, true)
+                                    ))}
+                                  >
+                                    {t(documentFilterActive
+                                      ? 'libraryTransfer.selectMatchingDocuments'
+                                      : 'common.selectAll')}
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  disabled={busy || !anyScopedDocumentsSelected}
+                                  onClick={() => setSelectedDocumentIds((current) => (
+                                    updateScopedSelection(current, scopedDocumentIds, false)
+                                  ))}
+                                >
+                                  {t(showSelectedDocuments
+                                    ? 'libraryTransfer.deselectShownDocuments'
+                                    : documentFilterActive
+                                      ? 'libraryTransfer.deselectMatchingDocuments'
+                                      : 'common.deselectAll')}
+                                </button>
+                              </div>
+                              <div className="library-transfer-picker-list">
+                                {filteredDocuments.map((document) => {
+                                  const required = requiredDocumentIds.has(document.id)
+                                  return (
+                                    <label key={document.id}>
+                                      <input
+                                        type="checkbox"
+                                        checked={required || selectedDocumentIds.includes(document.id)}
+                                        disabled={busy || required}
+                                        onChange={(event) => {
+                                          setSelectedDocumentIds((current) => event.target.checked
+                                            ? [...current, document.id]
+                                            : current.filter((id) => id !== document.id))
+                                        }}
+                                      />
+                                      <span>
+                                        <strong><bdi>{document.title}</bdi></strong>
+                                        <small className="library-transfer-item-meta">
+                                          <span dir="ltr">{document.format.toUpperCase()}</span>
+                                          {required && <span>{t('libraryTransfer.requiredByAudiobook')}</span>}
+                                        </small>
+                                      </span>
+                                    </label>
+                                  )
+                                })}
+                                {filteredDocuments.length === 0 && (
+                                  <p className="library-transfer-empty">
+                                    {t(showSelectedDocuments
+                                      ? 'libraryTransfer.noSelectedDocuments'
+                                      : 'libraryTransfer.noMatchingDocuments')}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </details>
+                        )}
+                        {savedAudiobooks.length > 0 && (
+                          <details className="library-transfer-content">
+                            <summary>
+                              <span>
+                                <strong aria-live="polite">
+                                  {t('libraryTransfer.includeAudiobooks', {
+                                    selected: selectedAudiobookIds.length,
+                                    count: savedAudiobooks.length,
+                                  })}
+                                </strong>
+                                <small>{t('libraryTransfer.includeAudiobooksDescription')}</small>
+                              </span>
+                            </summary>
+                            <div className="library-transfer-picker">
+                              <div className="library-transfer-picker-actions">
+                                <button
+                                  type="button"
+                                  disabled={busy || selectedAudiobookIds.length === savedAudiobooks.length}
+                                  onClick={() => setSelectedAudiobookIds(savedAudiobooks.map((record) => record.id))}
+                                >
+                                  {t('common.selectAll')}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={busy || selectedAudiobookIds.length === 0}
+                                  onClick={() => setSelectedAudiobookIds([])}
+                                >
+                                  {t('common.deselectAll')}
+                                </button>
+                              </div>
+                              <div className="library-transfer-picker-list">
+                                {savedAudiobooks.map((record) => {
+                                  const meta = formatSavedAudiobookMetaParts(
+                                    technicalT,
+                                    record.modelId,
+                                    record.voice,
+                                    record.speed,
+                                    record.textPreprocessor,
+                                    record.audioDurationSec,
+                                    record.wavBytes,
+                                  )
+                                  return (
+                                    <label key={record.id}>
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedAudiobookIds.includes(record.id)}
+                                        disabled={busy}
+                                        onChange={(event) => {
+                                          setSelectedAudiobookIds((current) => event.target.checked
+                                            ? [...current, record.id]
+                                            : current.filter((id) => id !== record.id))
+                                        }}
+                                      />
+                                      <span>
+                                        <strong><bdi>{record.title}</bdi></strong>
+                                        <small className="library-transfer-item-meta" dir="ltr">
+                                          {meta.map((part) => <span key={part}>{part}</span>)}
+                                        </small>
+                                      </span>
+                                    </label>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          </details>
+                        )}
+                        {selectionEmpty && (
+                          <p id={selectionHelpId} role="status">{t(documents.length || savedAudiobooks.length ? 'libraryTransfer.selectAtLeastOne' : 'libraryTransfer.emptyLibrary')}</p>
+                        )}
+                        <button type="button" className="library-transfer-primary" disabled={busy || !sendSelectionReady || !hasContent}
+                          aria-describedby={selectionEmpty ? selectionHelpId : undefined}
+                          onClick={() => {
+                            setStatus({ state: 'idle' }); setProgress(null); setShowConnection(true)
+                          }}>
+                          {t('libraryTransfer.continueToConnection')}
+                        </button>
+                      </>}
+                      {showConnection && <>
+                        <p>{t('libraryTransfer.selectionSummary', {
+                          documents: effectiveDocumentIds.length,
+                          audiobooks: selectedAudiobookIds.length,
+                        })}</p>
+                        {selectionEmpty && <p id={selectionHelpId} role="status">{t('libraryTransfer.selectAtLeastOne')}</p>}
+                        <button type="button" disabled={busy} onClick={() => setShowConnection(false)}>{t('libraryTransfer.changeSelection')}</button>
+                        <button
+                          type="button"
+                          className="library-transfer-primary"
+                          disabled={busy || !sendSelectionReady || !hasContent || !validConnection}
+                          aria-describedby={selectionEmpty ? selectionHelpId : undefined}
+                          onClick={() => {
+                            void handleStartNetwork()
+                          }}
+                        >
+                          {t('libraryTransfer.startSending')}
+                        </button>
+                      </>}
+                    </section>
+
+                    {!showConnection && <details className="library-transfer-alternate">
+                      <summary>{t('libraryTransfer.exportTitle')}</summary>
+                      <div className="library-transfer-alternate-content">
+                        <p>{t('libraryTransfer.exportDescription', {
+                          documents: effectiveDocumentIds.length,
+                          audiobooks: selectedAudiobookIds.length,
+                        })}</p>
+                        <p id={exportPrivacyId} className="library-transfer-privacy-note">
+                          {t('libraryTransfer.exportPrivacy')}
+                        </p>
+                        <button
+                          type="button"
+                          disabled={busy || !sendSelectionReady || !hasContent}
+                          aria-busy={status.state === 'exporting' || undefined}
+                          aria-describedby={selectionEmpty
+                            ? `${selectionHelpId} ${exportPrivacyId}`
+                            : exportPrivacyId}
+                          onClick={() => {
+                            void handleExport()
+                          }}
+                        >
+                          {status.state === 'exporting' ? t('libraryTransfer.exporting') : t('libraryTransfer.export')}
+                        </button>
+                        {status.state === 'exporting' && <TransferPreparationMessage />}
+                      </div>
+                    </details>}
+                  </>
+                ) : (
+                  <>
+                    <section className="library-transfer-primary-section">
+                      <button type="button" className="library-transfer-primary" disabled={busy || !validConnection} onClick={() => {
+                        void handleStartNetwork()
+                      }}>
+                        {t(listening ? 'libraryTransfer.showPairingDetails' : 'libraryTransfer.receive')}
+                      </button>
+                    </section>
+
+                    <details className="library-transfer-alternate">
+                      <summary>{t('libraryTransfer.importTitle')}</summary>
+                      <div className="library-transfer-alternate-content">
+                        <p>{t('libraryTransfer.importDescription')}</p>
+                        <button type="button" disabled={busy} onClick={() => {
+                          void handleImport()
+                        }}>
+                          {status.state === 'importing' ? t('libraryTransfer.importing') : t('libraryTransfer.import')}
+                        </button>
+                      </div>
+                    </details>
+                    {status.state === 'importing' && progress?.operation === 'import' && (
+                      <TransferProgressMessage progress={progress} locale={locale} />
+                    )}
                   </>
                 )}
-                {documents.length > 0 && (
-                  <details className="library-transfer-content">
-                    <summary>
-                      <span>
-                        <strong aria-live="polite">
-                          {t('libraryTransfer.includeDocuments', {
-                            selected: effectiveDocumentIds.length,
-                            count: documents.length,
-                          })}
-                        </strong>
-                        <small>{t('libraryTransfer.includeDocumentsDescription')}</small>
-                      </span>
-                    </summary>
-                    <div className="library-transfer-picker">
-                      {documents.length >= DOCUMENT_FILTER_THRESHOLD && (
-                        <>
-                          <label className="library-transfer-filter">
-                            <span>{t('libraryTransfer.filterDocuments')}</span>
-                            <input
-                              type="search"
-                              value={documentFilter}
-                              disabled={busy}
-                              onChange={(event) => setDocumentFilter(event.target.value)}
-                            />
-                          </label>
-                          <div className="library-transfer-filter-state">
-                            <span role="status" aria-live="polite">
-                              {t('libraryTransfer.showingDocuments', {
-                                shown: filteredDocuments.length,
-                                count: documents.length,
-                              })}
-                            </span>
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={showSelectedDocuments}
-                                disabled={busy}
-                                onChange={(event) => setShowSelectedDocuments(event.target.checked)}
-                              />
-                              <span>{t('libraryTransfer.showSelectedDocuments')}</span>
-                            </label>
-                          </div>
-                        </>
-                      )}
-                      <div className="library-transfer-picker-actions">
-                        {!showSelectedDocuments && (
-                          <button
-                            type="button"
-                            disabled={busy || allScopedDocumentsSelected || scopedDocumentIds.length === 0}
-                            onClick={() => setSelectedDocumentIds((current) => (
-                              updateScopedSelection(current, scopedDocumentIds, true)
-                            ))}
-                          >
-                            {t(documentFilterActive
-                              ? 'libraryTransfer.selectMatchingDocuments'
-                              : 'common.selectAll')}
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          disabled={busy || !anyScopedDocumentsSelected}
-                          onClick={() => setSelectedDocumentIds((current) => (
-                            updateScopedSelection(current, scopedDocumentIds, false)
-                          ))}
-                        >
-                          {t(showSelectedDocuments
-                            ? 'libraryTransfer.deselectShownDocuments'
-                            : documentFilterActive
-                              ? 'libraryTransfer.deselectMatchingDocuments'
-                              : 'common.deselectAll')}
-                        </button>
-                      </div>
-                      <div className="library-transfer-picker-list">
-                        {filteredDocuments.map((document) => {
-                          const required = requiredDocumentIds.has(document.id)
-                          return (
-                            <label key={document.id}>
-                              <input
-                                type="checkbox"
-                                checked={required || selectedDocumentIds.includes(document.id)}
-                                disabled={busy || required}
-                                onChange={(event) => {
-                                  setSelectedDocumentIds((current) => event.target.checked
-                                    ? [...current, document.id]
-                                    : current.filter((id) => id !== document.id))
-                                }}
-                              />
-                              <span>
-                                <strong><bdi>{document.title}</bdi></strong>
-                                <small className="library-transfer-item-meta">
-                                  <span dir="ltr">{document.format.toUpperCase()}</span>
-                                  {required && <span>{t('libraryTransfer.requiredByAudiobook')}</span>}
-                                </small>
-                              </span>
-                            </label>
-                          )
-                        })}
-                        {filteredDocuments.length === 0 && (
-                          <p className="library-transfer-empty">
-                            {t(showSelectedDocuments
-                              ? 'libraryTransfer.noSelectedDocuments'
-                              : 'libraryTransfer.noMatchingDocuments')}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </details>
-                )}
-                {savedAudiobooks.length > 0 && (
-                  <details className="library-transfer-content">
-                    <summary>
-                      <span>
-                        <strong aria-live="polite">
-                          {t('libraryTransfer.includeAudiobooks', {
-                            selected: selectedAudiobookIds.length,
-                            count: savedAudiobooks.length,
-                          })}
-                        </strong>
-                        <small>{t('libraryTransfer.includeAudiobooksDescription')}</small>
-                      </span>
-                    </summary>
-                    <div className="library-transfer-picker">
-                      <div className="library-transfer-picker-actions">
-                        <button
-                          type="button"
-                          disabled={busy || selectedAudiobookIds.length === savedAudiobooks.length}
-                          onClick={() => setSelectedAudiobookIds(savedAudiobooks.map((record) => record.id))}
-                        >
-                          {t('common.selectAll')}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy || selectedAudiobookIds.length === 0}
-                          onClick={() => setSelectedAudiobookIds([])}
-                        >
-                          {t('common.deselectAll')}
-                        </button>
-                      </div>
-                      <div className="library-transfer-picker-list">
-                        {savedAudiobooks.map((record) => {
-                          const meta = formatSavedAudiobookMetaParts(
-                            technicalT,
-                            record.modelId,
-                            record.voice,
-                            record.speed,
-                            record.textPreprocessor,
-                            record.audioDurationSec,
-                            record.wavBytes,
-                          )
-                          return (
-                            <label key={record.id}>
-                              <input
-                                type="checkbox"
-                                checked={selectedAudiobookIds.includes(record.id)}
-                                disabled={busy}
-                                onChange={(event) => {
-                                  setSelectedAudiobookIds((current) => event.target.checked
-                                    ? [...current, record.id]
-                                    : current.filter((id) => id !== record.id))
-                                }}
-                              />
-                              <span>
-                                <strong><bdi>{record.title}</bdi></strong>
-                                <small className="library-transfer-item-meta" dir="ltr">
-                                  {meta.map((part) => <span key={part}>{part}</span>)}
-                                </small>
-                              </span>
-                            </label>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  </details>
-                )}
-                {selectionEmpty && (
-                  <p id={selectionHelpId} role="status">{t(documents.length || savedAudiobooks.length ? 'libraryTransfer.selectAtLeastOne' : 'libraryTransfer.emptyLibrary')}</p>
-                )}
-                <button type="button" className="library-transfer-primary" disabled={busy || !sendSelectionReady || !hasContent}
-                  aria-describedby={selectionEmpty ? selectionHelpId : undefined}
-                  onClick={() => { setStatus({ state: 'idle' }); setProgress(null); setShowConnection(true) }}>
-                  {t('libraryTransfer.continueToConnection')}
-                </button>
-              </>}
-              {showConnection && <>
-                <p>{t('libraryTransfer.selectionSummary', { documents: effectiveDocumentIds.length, audiobooks: selectedAudiobookIds.length })}</p>
-                {selectionEmpty && <p id={selectionHelpId} role="status">{t('libraryTransfer.selectAtLeastOne')}</p>}
-                <button type="button" disabled={busy} onClick={() => setShowConnection(false)}>{t('libraryTransfer.changeSelection')}</button>
-                <button
-                  type="button"
-                  className="library-transfer-primary"
-                  disabled={busy || !sendSelectionReady || !hasContent || !validConnection}
-                  aria-describedby={selectionEmpty ? selectionHelpId : undefined}
-                  onClick={() => { void handleStartNetwork() }}
-                >
-                  {t('libraryTransfer.startSending')}
-                </button>
-              </>}
-            </section>
-
-            {!showConnection && <details className="library-transfer-alternate">
-              <summary>{t('libraryTransfer.exportTitle')}</summary>
-              <div className="library-transfer-alternate-content">
-                <p>{t('libraryTransfer.exportDescription', {
-                  documents: effectiveDocumentIds.length,
-                  audiobooks: selectedAudiobookIds.length,
-                })}</p>
-                <p id={exportPrivacyId} className="library-transfer-privacy-note">
-                  {t('libraryTransfer.exportPrivacy')}
-                </p>
-                <button
-                  type="button"
-                  disabled={busy || !sendSelectionReady || !hasContent}
-                  aria-busy={status.state === 'exporting' || undefined}
-                  aria-describedby={selectionEmpty
-                    ? `${selectionHelpId} ${exportPrivacyId}`
-                    : exportPrivacyId}
-                  onClick={() => { void handleExport() }}
-                >
-                  {status.state === 'exporting' ? t('libraryTransfer.exporting') : t('libraryTransfer.export')}
-                </button>
-                {status.state === 'exporting' && <TransferPreparationMessage />}
-              </div>
-            </details>}
-            </>
-        ) : (
-          <>
-            <section className="library-transfer-primary-section">
-              <button type="button" className="library-transfer-primary" disabled={busy || !validConnection} onClick={() => { void handleStartNetwork() }}>
-                {t(listening ? 'libraryTransfer.showPairingDetails' : 'libraryTransfer.receive')}
-              </button>
-            </section>
-
-            <details className="library-transfer-alternate">
-              <summary>{t('libraryTransfer.importTitle')}</summary>
-              <div className="library-transfer-alternate-content">
-                <p>{t('libraryTransfer.importDescription')}</p>
-                <button type="button" disabled={busy} onClick={() => { void handleImport() }}>
-                  {status.state === 'importing' ? t('libraryTransfer.importing') : t('libraryTransfer.import')}
-                </button>
-              </div>
-            </details>
-            {status.state === 'importing' && progress?.operation === 'import' && (
-              <TransferProgressMessage progress={progress} locale={locale} />
-            )}
-          </>
-        )}
       </div>}
 
       <TransferStatusMessage status={status} />
@@ -754,7 +960,8 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
   )
 }
 
-function TransferProgressMessage({ progress, locale }: { progress: LibraryTransferProgress; locale: string }) {
+function TransferProgressMessage({ progress, locale }: { progress: LibraryTransferProgress;
+  locale: string }) {
   const { t } = useTranslation()
   const bytesKnown = progress.bytesProcessed !== undefined && progress.bytesTotal !== undefined
   const itemsKnown = progress.itemsProcessed !== undefined && progress.itemsTotal !== undefined
@@ -764,21 +971,21 @@ function TransferProgressMessage({ progress, locale }: { progress: LibraryTransf
     ? t('libraryTransfer.progressConnecting')
     : progress.phase === 'receiving' && bytesKnown
       ? t('libraryTransfer.progressReceiving', {
-          processed: formatBytes(progress.bytesProcessed!, locale),
-          total: formatBytes(progress.bytesTotal!, locale),
-        })
+        processed: formatBytes(progress.bytesProcessed!, locale),
+        total: formatBytes(progress.bytesTotal!, locale),
+      })
       : progress.phase === 'verifying'
         ? t('libraryTransfer.progressVerifying')
         : progress.phase === 'importingDocuments' && itemsKnown
           ? t('libraryTransfer.progressImportingDocuments', {
+            processed: progress.itemsProcessed,
+            total: progress.itemsTotal,
+          })
+          : progress.phase === 'restoringAudiobooks' && itemsKnown
+            ? t('libraryTransfer.progressRestoringAudiobooks', {
               processed: progress.itemsProcessed,
               total: progress.itemsTotal,
             })
-          : progress.phase === 'restoringAudiobooks' && itemsKnown
-            ? t('libraryTransfer.progressRestoringAudiobooks', {
-                processed: progress.itemsProcessed,
-                total: progress.itemsTotal,
-              })
             : t('libraryTransfer.importing')
 
   return (
@@ -791,7 +998,14 @@ function TransferProgressMessage({ progress, locale }: { progress: LibraryTransf
 }
 
 export function LibraryNetworkFlow({ role, starting, status, locale, onExit, onRetry, cancelling = false, dismissing = false }: {
-  role: 'sender' | 'receiver'; starting: boolean; status: LibraryTransferNetworkStatus | null; locale: string; onExit: () => void; onRetry: () => void; cancelling?: boolean; dismissing?: boolean
+  role: 'sender' | 'receiver';
+  starting: boolean;
+  status: LibraryTransferNetworkStatus | null;
+  locale: string;
+  onExit: () => void;
+  onRetry: () => void;
+  cancelling?: boolean;
+  dismissing?: boolean
 }) {
   const { t } = useTranslation()
   const active = isNetworkTransferActive(status)
@@ -845,8 +1059,10 @@ function TransferStatusMessage({ status }: { status: TransferStatus }) {
 }
 
 type LibraryTransferCompletionProps =
-  | { kind: 'send'; status: LibraryTransferNetworkStatus }
-  | { kind: 'receive'; result: LibraryTransferImportResult }
+  | { kind: 'send';
+    status: LibraryTransferNetworkStatus }
+  | { kind: 'receive';
+    result: LibraryTransferImportResult }
 
 export function LibraryTransferCompletion(props: LibraryTransferCompletionProps) {
   const { t } = useTranslation()
@@ -908,23 +1124,33 @@ export function LibraryTransferCompletion(props: LibraryTransferCompletionProps)
   )
 }
 
-function LibraryNetworkStatusMessage({ status, locale }: { status: LibraryTransferNetworkStatus | null; locale: string }) {
+function LibraryNetworkStatusMessage({ status, locale }: { status: LibraryTransferNetworkStatus | null;
+  locale: string }) {
   const { t } = useTranslation()
-  if (!status || status.state === 'cancelled') return null
-  if (status.state === 'outcomeUnknown') return <p className="library-transfer-outcome-warning" role="alert">{t('libraryTransfer.outcomeUnknown')}</p>
-  if (status.state === 'expired') return <p role="alert">{t('libraryTransfer.expired')}</p>
-  if (status.state === 'failed') return <p className="app-dialog-error" role="alert" dir="auto">{formatTransferError(status.error, locale, t)}</p>
+  if (!status || status.state === 'cancelled') {
+    return null
+  }
+  if (status.state === 'outcomeUnknown') {
+    return <p className="library-transfer-outcome-warning" role="alert">{t('libraryTransfer.outcomeUnknown')}</p>
+  }
+  if (status.state === 'expired') {
+    return <p role="alert">{t('libraryTransfer.expired')}</p>
+  }
+  if (status.state === 'failed') {
+    return <p className="app-dialog-error" role="alert" dir="auto">{formatTransferError(status.error, locale, t)}</p>
+  }
   const phase = status.state === 'waitingResume' ? 'waitingToResume'
     : status.state === 'waiting' ? 'waitingForReceiver'
-    : status.state === 'finishingImport' ? 'finishingImport'
-    : status.state === 'awaitingResult' ? 'awaitingResult'
-    : status.state === 'verifying' ? 'progressVerifying' : 'progressConnecting'
+      : status.state === 'finishingImport' ? 'finishingImport'
+        : status.state === 'awaitingResult' ? 'awaitingResult'
+          : status.state === 'verifying' ? 'progressVerifying' : 'progressConnecting'
   const copying = status.state === 'sending' || status.state === 'receiving'
   return <div className="library-transfer-session">
     {status.receiverProgress ? <TransferProgressMessage progress={status.receiverProgress} locale={locale} />
       : <div role="status" aria-live="polite">
         <span>{copying ? t(status.role === 'sender' ? 'libraryTransfer.progressSending' : 'libraryTransfer.progressReceiving', {
-          processed: formatBytes(status.bytesTransferred, locale), total: formatBytes(status.packageBytes, locale),
+          processed: formatBytes(status.bytesTransferred, locale),
+          total: formatBytes(status.packageBytes, locale),
         }) : t(`libraryTransfer.${phase}`)}</span>
         {copying && <progress value={status.packageBytes > 0 ? status.bytesTransferred : undefined} max={status.packageBytes || undefined} />}
       </div>}
@@ -967,7 +1193,11 @@ function formatTransferError(error: unknown, locale: string, t: TFunction): stri
       available: formatBytes(error.availableBytes, locale),
     })
   }
-  if (isLibraryTransferErrorPayload(error) && error.code === 'TRANSFER_PORT_IN_USE') return t('libraryTransfer.portInUse')
-  if (isLibraryTransferErrorPayload(error)) return error.message
+  if (isLibraryTransferErrorPayload(error) && error.code === 'TRANSFER_PORT_IN_USE') {
+    return t('libraryTransfer.portInUse')
+  }
+  if (isLibraryTransferErrorPayload(error)) {
+    return error.message
+  }
   return error instanceof Error ? error.message : String(error)
 }

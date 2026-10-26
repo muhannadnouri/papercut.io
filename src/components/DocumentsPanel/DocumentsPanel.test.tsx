@@ -1,11 +1,23 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DocumentsPanel, type DocumentImportOption } from './DocumentsPanel'
+import {
+  afterEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
+import {
+  DocumentsPanel,
+  type DocumentImportOption,
+} from './DocumentsPanel'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
-    i18n: { language: 'en', resolvedLanguage: 'en' },
+    i18n: {
+      language: 'en',
+      resolvedLanguage: 'en',
+    },
   }),
 }))
 
@@ -41,7 +53,10 @@ describe('document import progress', () => {
       label: 'Files',
       statusLabel: 'Importing documents',
       disabled: true,
-    }], [{ status: 'importing', message: 'Importing 1 of 2' }])
+    }], [{
+      status: 'importing',
+      message: 'Importing 1 of 2',
+    }])
 
     expect(html).toContain('aria-label="Importing documents"')
     expect(html).toContain('document-import-btn-spinner')
@@ -53,7 +68,10 @@ describe('document import progress', () => {
       id: 'files',
       label: 'Files',
       disabled: true,
-    }], [{ status: 'importing', message: 'Importing 1 of 2' }])
+    }], [{
+      status: 'importing',
+      message: 'Importing 1 of 2',
+    }])
 
     expect(html).toContain('aria-label="library.import.importingBatch"')
     expect(html).toContain('document-import-btn-busy')
@@ -83,13 +101,34 @@ describe('document list filters', () => {
         docFilterLower=""
         documentFilter=""
         documentsLoading={false}
-        groupedDocs={[{ author: 'library.groups.userUploads', docs: [document] }]}
+        groupedDocs={[{
+          author: 'library.groups.userUploads',
+          docs: [document],
+        }]}
         libraryOrganization={{
           folders: [
-            { id: 'saved', name: 'Saved folder', depth: 0, sortOrder: 0, createdAtMs: 0, updatedAtMs: 0 },
-            { id: 'empty', name: 'Unrelated folder', depth: 0, sortOrder: 1, createdAtMs: 0, updatedAtMs: 0 },
+            {
+              id: 'saved',
+              name: 'Saved folder',
+              depth: 0,
+              sortOrder: 0,
+              createdAtMs: 0,
+              updatedAtMs: 0,
+            },
+            {
+              id: 'empty',
+              name: 'Unrelated folder',
+              depth: 0,
+              sortOrder: 1,
+              createdAtMs: 0,
+              updatedAtMs: 0,
+            },
           ],
-          documentLocations: [{ documentId: 'a1', folderId: 'saved', sortOrder: 0 }],
+          documentLocations: [{
+            documentId: 'a1',
+            folderId: 'saved',
+            sortOrder: 0,
+          }],
         }}
         showDocuments
         onAudioSavedOnlyChange={() => undefined}

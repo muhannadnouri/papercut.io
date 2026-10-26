@@ -1,4 +1,8 @@
-import { useCallback, useRef, useState } from 'react'
+import {
+  useCallback,
+  useRef,
+  useState,
+} from 'react'
 import i18n from '../../i18n'
 import {
   cancelNativeAudiobookSave,
@@ -9,8 +13,14 @@ import {
   NativeTtsError,
   type NativeAudiobookSaveProgress,
 } from '../api/nativeTts'
-import { logTtsDiagnostic, summarizeTtsCapabilities } from '../diagnostics/TtsDiagnostics'
-import { nativeTtsErrorDetail, nativeTtsErrorMessage } from '../utils/errors'
+import {
+  logTtsDiagnostic,
+  summarizeTtsCapabilities,
+} from '../diagnostics/TtsDiagnostics'
+import {
+  nativeTtsErrorDetail,
+  nativeTtsErrorMessage,
+} from '../utils/errors'
 import {
   resolveTtsDtype,
   type TtsOptions,
@@ -75,9 +85,13 @@ export function useAudiobookCache() {
 
     void (async () => {
       try {
-        if (!options.documentUrl) throw new Error(i18n.t('tts.errors.documentRequired'))
+        if (!options.documentUrl) {
+          throw new Error(i18n.t('tts.errors.documentRequired'))
+        }
         const status = await getNativeAudiobookStatus(options.documentUrl, chunks, options)
-        if (checkIdRef.current !== checkId) return
+        if (checkIdRef.current !== checkId) {
+          return
+        }
         setState({
           status: status.complete ? 'saved' : 'partial',
           message: status.complete ? i18n.t('tts.status.saved') : i18n.t('tts.status.notSaved'),
@@ -89,7 +103,9 @@ export function useAudiobookCache() {
           appliedThreadCount: null,
         })
       } catch (err) {
-        if (checkIdRef.current !== checkId) return
+        if (checkIdRef.current !== checkId) {
+          return
+        }
         setState({
           status: 'error',
           message: nativeTtsErrorMessage(err),
@@ -106,7 +122,9 @@ export function useAudiobookCache() {
 
   const save = useCallback((chunks: TtsChunk[], options: TtsOptions) => {
     const speakableChunks = chunks.filter((chunk) => chunk.text.trim())
-    if (speakableChunks.length === 0) return
+    if (speakableChunks.length === 0) {
+      return
+    }
 
     const jobId = jobIdRef.current + 1
     const nativeJobId = 'tts-save-' + Date.now() + '-' + jobId
@@ -134,11 +152,17 @@ export function useAudiobookCache() {
         if (!capabilities.available) {
           throw new NativeTtsError('native-tts-unavailable', capabilities.reason)
         }
-        if (!options.documentUrl) throw new Error(i18n.t('tts.errors.documentRequired'))
-        if (jobIdRef.current !== jobId) return
+        if (!options.documentUrl) {
+          throw new Error(i18n.t('tts.errors.documentRequired'))
+        }
+        if (jobIdRef.current !== jobId) {
+          return
+        }
 
         unlisten = await listenNativeAudiobookSaveProgress((progress) => {
-          if (progress.jobId !== nativeJobId || jobIdRef.current !== jobId) return
+          if (progress.jobId !== nativeJobId || jobIdRef.current !== jobId) {
+            return
+          }
           handleNativeProgress(progress, options)
         })
 
@@ -149,7 +173,9 @@ export function useAudiobookCache() {
           chunks: speakableChunks,
           options,
         })
-        if (jobIdRef.current !== jobId) return
+        if (jobIdRef.current !== jobId) {
+          return
+        }
 
         logTtsDiagnostic('[tts-save] completed', {
           totalMs: Math.round(performance.now() - saveStartedAtRef.current),
@@ -179,7 +205,9 @@ export function useAudiobookCache() {
           appliedThreadCount: result.appliedThreadCount,
         })
       } catch (err) {
-        if (jobIdRef.current !== jobId) return
+        if (jobIdRef.current !== jobId) {
+          return
+        }
         logTtsDiagnostic('[tts-save] failed', {
           totalMs: Math.round(performance.now() - saveStartedAtRef.current),
           dtype: resolveTtsDtype(options),
@@ -198,14 +226,18 @@ export function useAudiobookCache() {
         })
       } finally {
         unlisten?.()
-        if (activeNativeJobIdRef.current === nativeJobId) activeNativeJobIdRef.current = null
+        if (activeNativeJobIdRef.current === nativeJobId) {
+          activeNativeJobIdRef.current = null
+        }
       }
     })()
   }, [])
 
   const cancel = useCallback(() => {
     const nativeJobId = activeNativeJobIdRef.current
-    if (nativeJobId) void cancelNativeAudiobookSave(nativeJobId)
+    if (nativeJobId) {
+      void cancelNativeAudiobookSave(nativeJobId)
+    }
     activeNativeJobIdRef.current = null
     jobIdRef.current += 1
     setState((prev) => ({
@@ -314,8 +346,12 @@ export function useAudiobookCache() {
 }
 
 function formatNativeProgressMessage(progress: NativeAudiobookSaveProgress): string {
-  if (progress.status === 'checking') return i18n.t('tts.status.checkingCache')
-  if (progress.status === 'saved') return i18n.t('tts.status.saved')
+  if (progress.status === 'checking') {
+    return i18n.t('tts.status.checkingCache')
+  }
+  if (progress.status === 'saved') {
+    return i18n.t('tts.status.saved')
+  }
   if (progress.chunkNumber) {
     return i18n.t(progress.generateMs ? 'tts.status.savedChunk' : 'tts.status.savingChunk', {
       current: progress.chunkNumber,

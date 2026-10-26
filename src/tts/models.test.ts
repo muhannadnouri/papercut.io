@@ -1,6 +1,17 @@
-import { describe, expect, it } from 'vitest'
-import { FALLBACK_TTS_MODELS, getTtsPreviewText, suggestTtsModel } from './models'
-import { SUPERTONIC_AR_MODEL_ID, SUPERTONIC_EN_MODEL_ID } from './types'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
+import {
+  FALLBACK_TTS_MODELS,
+  getTtsPreviewText,
+  suggestTtsModel,
+} from './models'
+import {
+  SUPERTONIC_AR_MODEL_ID,
+  SUPERTONIC_EN_MODEL_ID,
+} from './types'
 
 const LATIN_CHUNKS = [{
   id: 'latin',

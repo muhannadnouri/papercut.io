@@ -1,5 +1,8 @@
 import type { ReadableSegment } from '../tts/alignment/readableSegments'
-import type { PdfTtsSourceSpan, TtsChunkSourceSpan } from '../tts/types'
+import type {
+  PdfTtsSourceSpan,
+  TtsChunkSourceSpan,
+} from '../tts/types'
 import type { PdfNarrationSegment } from '../uploads/DocumentUploads'
 
 export type PdfReadableSegment = ReadableSegment & PdfNarrationSegment
@@ -14,7 +17,10 @@ export function pdfNarrationToReadableSegments(
 ): PdfReadableSegment[] {
   return segments
     .filter((segment) => segment.text.trim())
-    .map((segment) => ({ ...segment, kind: 'paragraph' as const }))
+    .map((segment) => ({
+      ...segment,
+      kind: 'paragraph' as const,
+    }))
 }
 
 /**
@@ -28,7 +34,9 @@ export function pdfSourceSpansForChunk(
   segments: PdfReadableSegment[],
   chunkSpan: TtsChunkSourceSpan | undefined,
 ): PdfTtsSourceSpan[] {
-  if (!chunkSpan) return []
+  if (!chunkSpan) {
+    return []
+  }
 
   const spans: PdfTtsSourceSpan[] = []
   for (
@@ -37,7 +45,9 @@ export function pdfSourceSpansForChunk(
     segmentIndex++
   ) {
     const segment = segments[segmentIndex]
-    if (!segment) continue
+    if (!segment) {
+      continue
+    }
     const segmentStart = segmentIndex === chunkSpan.startSegmentIndex ? chunkSpan.startOffset : 0
     const segmentEnd = segmentIndex === chunkSpan.endSegmentIndex
       ? chunkSpan.endOffset
@@ -46,7 +56,9 @@ export function pdfSourceSpansForChunk(
     for (const run of segment.sourceRuns) {
       const overlapStart = Math.max(segmentStart, run.startOffset)
       const overlapEnd = Math.min(segmentEnd, run.endOffset)
-      if (overlapStart >= overlapEnd) continue
+      if (overlapStart >= overlapEnd) {
+        continue
+      }
 
       const narrationLength = run.endOffset - run.startOffset
       const sourceLength = run.sourceEndOffset - run.sourceStartOffset

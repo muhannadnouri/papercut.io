@@ -1,8 +1,15 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import type { LastSearchInfo, SearchPhase } from '../../hooks/useSearch'
-import type { SearchOpenTarget, SearchPassage, SearchResult } from '../../types/search'
+import type {
+  LastSearchInfo,
+  SearchPhase,
+} from '../../hooks/useSearch'
+import type {
+  SearchOpenTarget,
+  SearchPassage,
+  SearchResult,
+} from '../../types/search'
 import {
   findUploadedDocumentOccurrences,
   type UploadedDocumentConcordanceEntry,
@@ -99,7 +106,11 @@ export function SearchResults({
       } : current)
     } catch {
       setConcordance((current) => current?.key === key
-        ? { ...current, loading: false, failed: true }
+        ? {
+          ...current,
+          loading: false,
+          failed: true,
+        }
         : current)
     }
   }
@@ -133,7 +144,10 @@ export function SearchResults({
       {lastSearchInfo && submittedQuery.length > 0 && visibleCount > 0 && (
         <div className="search-info" role="status">
           <strong>{visibleCount < lastSearchInfo.uploadedDocuments + lastSearchInfo.starterDocuments
-            ? t('search.results.showingCount', { shown: visibleCount, total: lastSearchInfo.uploadedDocuments + lastSearchInfo.starterDocuments })
+            ? t('search.results.showingCount', {
+              shown: visibleCount,
+              total: lastSearchInfo.uploadedDocuments + lastSearchInfo.starterDocuments,
+            })
             : t('search.results.resultCount', { count: visibleCount })}</strong>
           {hasFilters && <> · {t('search.results.filtered')}</>}
           {' · '}
@@ -431,9 +445,16 @@ export function SearchResults({
         )
       })}
       {onShowMore && filtered.length > 10 && <div className="result-list-more">
-        <span role="status">{t('search.results.documentsShown', { shown: Math.min(visibleLimit, filtered.length), total: filtered.length })}</span>
+        <span role="status">{t('search.results.documentsShown', {
+          shown: Math.min(visibleLimit, filtered.length),
+          total: filtered.length,
+        })}</span>
         <button type="button" className="result-evidence-action" aria-disabled={visibleLimit >= filtered.length}
-          onClick={() => { if (visibleLimit < filtered.length) onShowMore() }}>{t('search.results.showMore')}</button>
+          onClick={() => {
+            if (visibleLimit < filtered.length) {
+              onShowMore()
+            }
+          }}>{t('search.results.showMore')}</button>
       </div>}
 
       {submittedQuery.length === 0 && (
@@ -446,7 +467,8 @@ export function SearchResults({
   )
 }
 
-function QuerySummary({ info, t }: { info: LastSearchInfo; t: TFunction }) {
+function QuerySummary({ info, t }: { info: LastSearchInfo;
+  t: TFunction }) {
   return (
     <>
       {info.unquotedText && (
@@ -479,7 +501,9 @@ function searchOpenTargetForPassage(passage: SearchPassage): SearchOpenTarget {
 
 function concordanceTerms(result: SearchResult, info: LastSearchInfo | null): string[] {
   const phrases = info?.phrases.map((phrase) => phrase.trim()).filter(Boolean) ?? []
-  if (phrases.length > 0) return [...new Set(phrases)]
+  if (phrases.length > 0) {
+    return [...new Set(phrases)]
+  }
   const terms = result.termMatches
     ?.filter((match) => match.matched !== false)
     ?.map((match) => match.text?.trim() || match.term.trim())
@@ -503,28 +527,41 @@ function searchOpenTargetForResult(result: SearchResult, exactPhrase?: string): 
   const sectionIndex = result.sectionIndex
   const pageIndex = result.pageIndex ?? undefined
   return hash || text || sectionIndex !== undefined || pageIndex !== undefined
-    ? { hash, text, sectionIndex, pageIndex }
+    ? {
+      hash,
+      text,
+      sectionIndex,
+      pageIndex,
+    }
     : undefined
 }
 
 // Use the richest safe snippet available, but avoid rendering a body line that
 // merely repeats the section label already shown in result metadata.
 function resultExcerpt(result: SearchResult, exactPhrase = false): string | null {
-  if (!exactPhrase && result.matchScope === 'document') return null
+  if (!exactPhrase && result.matchScope === 'document') {
+    return null
+  }
 
   const sectionTitle = result.sub_results?.[0]?.title
   const excerpt = usefulExcerpt(result.customExcerpt, sectionTitle)
     ?? usefulExcerpt(result.sub_results?.[0]?.excerpt, sectionTitle)
     ?? usefulExcerpt(result.excerpt, sectionTitle)
-  if (!exactPhrase && excerpt && !/<mark\b/i.test(excerpt)) return null
+  if (!exactPhrase && excerpt && !/<mark\b/i.test(excerpt)) {
+    return null
+  }
   return excerpt
 }
 
 // Compare rendered text instead of raw HTML so highlighted snippets and plain
 // section titles can be recognized as duplicates.
 function usefulExcerpt(excerpt: string | undefined, sectionTitle: string | undefined): string | null {
-  if (!excerpt) return null
-  if (plainText(excerpt) === plainText(sectionTitle)) return null
+  if (!excerpt) {
+    return null
+  }
+  if (plainText(excerpt) === plainText(sectionTitle)) {
+    return null
+  }
   return excerpt
 }
 
@@ -557,13 +594,17 @@ function resultMeta(
 
 function hashFromUrl(url?: string): string | undefined {
   const index = url?.indexOf('#') ?? -1
-  if (index < 0 || !url) return undefined
+  if (index < 0 || !url) {
+    return undefined
+  }
   const hash = url.slice(index)
   return hash.length > 1 ? hash : undefined
 }
 
 function firstMarkedText(html: string): string | undefined {
-  if (typeof DOMParser === 'undefined') return undefined
+  if (typeof DOMParser === 'undefined') {
+    return undefined
+  }
   const doc = new DOMParser().parseFromString(html, 'text/html')
   const text = doc.querySelector('mark')?.textContent?.trim()
   return text || undefined
@@ -572,8 +613,12 @@ function firstMarkedText(html: string): string | undefined {
 // Converts snippet HTML into comparable visible text without letting entities,
 // tags, or <mark> wrappers change duplicate detection.
 function plainText(html?: string): string {
-  if (!html) return ''
-  if (typeof DOMParser === 'undefined') return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!html) {
+    return ''
+  }
+  if (typeof DOMParser === 'undefined') {
+    return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  }
   const doc = new DOMParser().parseFromString(html, 'text/html')
   return (doc.body.textContent ?? '').replace(/\s+/g, ' ').trim()
 }

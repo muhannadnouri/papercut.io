@@ -1,4 +1,7 @@
-import { invoke, isTauri } from '@tauri-apps/api/core'
+import {
+  invoke,
+  isTauri,
+} from '@tauri-apps/api/core'
 
 export interface LibraryTransferErrorPayload {
   code: string
@@ -78,10 +81,17 @@ export interface TransferDiscoverySnapshot {
   id: number
   state: TransferDiscoveryState
   name: string | null
-  peers: Array<{ id: string; name: string; addresses: string[] }>
+  peers: Array<{ id: string;
+    name: string;
+    addresses: string[] }>
 }
 export function startTransferDiscovery(interfaceId: string, mode: TransferConnectionMode): Promise<TransferDiscoverySnapshot> {
-  return invoke('library_transfer_discovery_start', { request: { interfaceId, mode } })
+  return invoke('library_transfer_discovery_start', {
+    request: {
+      interfaceId,
+      mode,
+    },
+  })
 }
 export function getTransferDiscovery(id: number): Promise<TransferDiscoverySnapshot | null> {
   return invoke('library_transfer_discovery_status', { id })
@@ -90,7 +100,10 @@ export function stopTransferDiscovery(id: number): Promise<void> {
   return invoke('library_transfer_discovery_stop', { id })
 }
 export function selectTransferPeer(id: number, peer: string): Promise<string> {
-  return invoke('library_transfer_discovery_select', { id, peer })
+  return invoke('library_transfer_discovery_select', {
+    id,
+    peer,
+  })
 }
 
 export interface NetworkTransferRequest {
@@ -100,7 +113,8 @@ export interface NetworkTransferRequest {
   port?: number
   address?: string
   code?: string
-  selection?: { documentIds: string[]; audiobookIds: string[] }
+  selection?: { documentIds: string[];
+    audiobookIds: string[] }
 }
 
 export function isNetworkTransferActive(status: LibraryTransferNetworkStatus | null): boolean {
@@ -116,7 +130,9 @@ export interface TransferInterface {
 }
 
 export async function getTransferInterfaces(): Promise<TransferInterface[]> {
-  if (!isTauri()) return []
+  if (!isTauri()) {
+    return []
+  }
   return invoke('library_transfer_interfaces')
 }
 
@@ -175,23 +191,44 @@ export interface TransferDiagnosticSnapshot {
 }
 
 export async function getTransferDiagnostics(): Promise<TransferDiagnosticSnapshot | null> {
-  if (!isTauri()) return null
+  if (!isTauri()) {
+    return null
+  }
   return invoke<TransferDiagnosticSnapshot>('library_transfer_diagnostics')
 }
 
 /** Copy only the native diagnostic allowlist, never command requests or progress item labels. */
 export function formatTransferDiagnosticReport(snapshot: TransferDiagnosticSnapshot): string {
   return JSON.stringify({
-    reportVersion: 1, redacted: true,
-    appVersion: snapshot.appVersion, build: snapshot.build, os: snapshot.os, arch: snapshot.arch,
-    protocol: snapshot.protocol, dropped: snapshot.dropped + Math.max(0, snapshot.events.length - 200),
+    reportVersion: 1,
+    redacted: true,
+    appVersion: snapshot.appVersion,
+    build: snapshot.build,
+    os: snapshot.os,
+    arch: snapshot.arch,
+    protocol: snapshot.protocol,
+    dropped: snapshot.dropped + Math.max(0, snapshot.events.length - 200),
     events: snapshot.events.slice(-200).map(event => ({
-      attempt: event.attempt, role: event.role, timestampMs: event.timestampMs,
-      elapsedMs: event.elapsedMs, phase: event.phase, level: event.level, code: event.code,
-      bytes: event.bytes, totalBytes: event.totalBytes, items: event.items, totalItems: event.totalItems,
-      ioKind: event.ioKind, osCode: event.osCode, port: event.port, addressScope: event.addressScope,
-      requiredBytes: event.requiredBytes, availableBytes: event.availableBytes,
-      imported: event.imported, skipped: event.skipped, failed: event.failed,
+      attempt: event.attempt,
+      role: event.role,
+      timestampMs: event.timestampMs,
+      elapsedMs: event.elapsedMs,
+      phase: event.phase,
+      level: event.level,
+      code: event.code,
+      bytes: event.bytes,
+      totalBytes: event.totalBytes,
+      items: event.items,
+      totalItems: event.totalItems,
+      ioKind: event.ioKind,
+      osCode: event.osCode,
+      port: event.port,
+      addressScope: event.addressScope,
+      requiredBytes: event.requiredBytes,
+      availableBytes: event.availableBytes,
+      imported: event.imported,
+      skipped: event.skipped,
+      failed: event.failed,
     })),
   }, null, 2)
 }
@@ -200,14 +237,21 @@ export async function exportLibrary(
   documentIds: string[],
   audiobookIds: string[] = [],
 ): Promise<LibraryTransferExportResult | null> {
-  if (!isTauri()) return null
+  if (!isTauri()) {
+    return null
+  }
   return invoke<LibraryTransferExportResult | null>('library_transfer_export', {
-    request: { documentIds, audiobookIds },
+    request: {
+      documentIds,
+      audiobookIds,
+    },
   })
 }
 
 export async function importLibrary(): Promise<LibraryTransferImportResult | null> {
-  if (!isTauri()) return null
+  if (!isTauri()) {
+    return null
+  }
   return invoke<LibraryTransferImportResult | null>('library_transfer_import')
 }
 
@@ -216,7 +260,9 @@ export async function startNetworkTransfer(request: NetworkTransferRequest): Pro
 }
 
 export async function getNetworkTransferStatus(id?: number): Promise<LibraryTransferNetworkStatus | null> {
-  if (!isTauri()) return null
+  if (!isTauri()) {
+    return null
+  }
   return invoke('library_transfer_network_status', id === undefined ? {} : { id })
 }
 
@@ -235,7 +281,9 @@ export async function dismissNetworkTransfer(id: number): Promise<void> {
 export async function listenLibraryTransferProgress(
   onProgress: (progress: LibraryTransferProgress) => void,
 ): Promise<() => void> {
-  if (!isTauri()) return () => {}
+  if (!isTauri()) {
+    return () => {}
+  }
   const { listen } = await import('@tauri-apps/api/event')
   return listen<LibraryTransferProgress>(LIBRARY_TRANSFER_PROGRESS_EVENT, (event) => {
     onProgress(event.payload)
@@ -243,7 +291,9 @@ export async function listenLibraryTransferProgress(
 }
 
 export function isLibraryTransferErrorPayload(value: unknown): value is LibraryTransferErrorPayload {
-  if (!value || typeof value !== 'object') return false
+  if (!value || typeof value !== 'object') {
+    return false
+  }
   const payload = value as Record<string, unknown>
   return typeof payload.code === 'string'
     && typeof payload.message === 'string'

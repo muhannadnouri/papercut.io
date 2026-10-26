@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest'
-import { parseReaderBookmark, readBookmarkedDocumentUrls } from './useReaderBookmark'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
+import {
+  parseReaderBookmark,
+  readBookmarkedDocumentUrls,
+} from './useReaderBookmark'
 
 function bookmarkStorage(entries: Record<string, string>) {
   const keys = Object.keys(entries)
@@ -30,10 +37,18 @@ describe('parseReaderBookmark', () => {
   it('keeps PDF page coordinates', () => {
     expect(parseReaderBookmark(JSON.stringify({
       updatedAtMs: 10,
-      viewerLocation: { pageNumber: 7, left: 12, top: 416 },
+      viewerLocation: {
+        pageNumber: 7,
+        left: 12,
+        top: 416,
+      },
     }))).toEqual({
       updatedAtMs: 10,
-      viewerLocation: { pageNumber: 7, left: 12, top: 416 },
+      viewerLocation: {
+        pageNumber: 7,
+        left: 12,
+        top: 416,
+      },
     })
   })
 
@@ -58,7 +73,10 @@ describe('parseReaderBookmark', () => {
   it('rejects an invalid viewer location', () => {
     expect(parseReaderBookmark(JSON.stringify({
       updatedAtMs: 10,
-      viewerLocation: { pageNumber: 7, pageOffsetRatio: 0.5 },
+      viewerLocation: {
+        pageNumber: 7,
+        pageOffsetRatio: 0.5,
+      },
     }))).toBeNull()
   })
 

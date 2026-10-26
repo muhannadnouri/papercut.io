@@ -1,17 +1,32 @@
-import { useState, type ReactNode } from 'react'
+import {
+  useState,
+  type ReactNode,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components'
+import {
+  Button,
+  Menu,
+  MenuItem,
+  MenuTrigger,
+  Popover,
+} from 'react-aria-components'
 import type { DocumentInfo } from '../../types/search'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
-import type { UploadedDocumentDeleteBatchResult, UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
+import type {
+  UploadedDocumentDeleteBatchResult,
+  UploadedLibraryOrganization,
+} from '../../uploads/DocumentUploads'
 import { BookmarkIcon } from '../BookmarkIndicator/BookmarkIndicator'
 import { filterBookmarkedGroups } from '../BookmarkIndicator/bookmarkFilters'
 import { BundledDocumentTree } from '../BundledDocumentTree/BundledDocumentTree'
 import { Panel } from '../Panel/Panel'
 import { DocumentList } from '../DocumentList/DocumentList'
 import { UploadedLibraryTree } from '../UploadedLibraryTree/UploadedLibraryTree'
-import { LibraryGalleryView, type LibraryGalleryCategory } from '../LibraryGalleryView/LibraryGalleryView'
+import {
+  LibraryGalleryView,
+  type LibraryGalleryCategory,
+} from '../LibraryGalleryView/LibraryGalleryView'
 import { splitDocumentGroupsBySource } from '../DocumentBrowser/documentGroups'
 import '../DocumentBrowser/DocumentBrowser.css'
 
@@ -394,9 +409,15 @@ function emptyMessage(
   filter: string,
   t: TFunction,
 ): string {
-  if (documentCount === 0) return t('library.documents.empty')
-  if (bookmarkedOnly) return t('library.documents.emptyBookmarked')
-  if (audioSavedOnly) return t('library.documents.emptySavedAudio')
+  if (documentCount === 0) {
+    return t('library.documents.empty')
+  }
+  if (bookmarkedOnly) {
+    return t('library.documents.emptyBookmarked')
+  }
+  if (audioSavedOnly) {
+    return t('library.documents.emptySavedAudio')
+  }
   return filter.trim() ? t('library.documents.emptyFilter') : t('library.documents.empty')
 }
 

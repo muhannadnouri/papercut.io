@@ -1,11 +1,21 @@
 // @vitest-environment node
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it, vi } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import { LibraryTransferDialog } from './LibraryTransferDialog'
 import en from '../i18n/locales/en.json'
 import { NearbySessions } from './NearbySessions'
@@ -13,22 +23,44 @@ import { NearbySessions } from './NearbySessions'
 function translate(key: string) {
   let message: unknown = en
   for (const part of key.split('.')) {
-    if (!message || typeof message !== 'object') return key
+    if (!message || typeof message !== 'object') {
+      return key
+    }
     message = (message as Record<string, unknown>)[part]
   }
   return typeof message === 'string' ? message : key
 }
-vi.mock('react-i18next', () => ({ useTranslation: () => ({
-  t: translate, i18n: { language: 'en', getFixedT: () => translate },
-}) }))
-vi.mock('../i18n', () => ({ currentAppLocale: () => 'en', default: {} }))
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: translate,
+    i18n: {
+      language: 'en',
+      getFixedT: () => translate,
+    },
+  }),
+}))
+vi.mock('../i18n', () => ({
+  currentAppLocale: () => 'en',
+  default: {},
+}))
 
 const browser = [process.env.CHROME_BIN, 'chromium', 'chromium-browser', 'google-chrome', 'google-chrome-stable']
   .find(candidate => {
-    if (!candidate) return false
-    try { execFileSync(candidate, ['--version'], { stdio: 'ignore', timeout: 5000 }); return true } catch { return false }
+    if (!candidate) {
+      return false
+    }
+    try {
+      execFileSync(candidate, ['--version'], {
+        stdio: 'ignore',
+        timeout: 5000,
+      }); return true
+    } catch {
+      return false
+    }
   })
-if (process.env.CI && !browser) throw new Error('Layout tests require Chrome/Chromium; set CHROME_BIN if it is not on PATH.')
+if (process.env.CI && !browser) {
+  throw new Error('Layout tests require Chrome/Chromium; set CHROME_BIN if it is not on PATH.')
+}
 
 const css = ['src/components/AppDialog/AppDialog.css', 'src/library-transfer/LibraryTransferDialog.css']
   .map(path => readFileSync(path, 'utf8')).join('\n')
@@ -105,18 +137,48 @@ parent.postMessage({type:'papercut-layout',result:{width:innerWidth,height:inner
 
 describe.skipIf(!browser)('transfer dialog browser layout', () => {
   const viewports = [
-    { width: 390, height: 780, font: 16, dir: 'ltr' },
-    { width: 320, height: 568, font: 16, dir: 'rtl' },
-    { width: 390, height: 500, font: 24, dir: 'ltr' },
-    { width: 740, height: 360, font: 16, dir: 'ltr' },
-    { width: 800, height: 800, font: 24, dir: 'rtl' },
-    { width: 1280, height: 800, font: 16, dir: 'ltr' },
+    {
+      width: 390,
+      height: 780,
+      font: 16,
+      dir: 'ltr',
+    },
+    {
+      width: 320,
+      height: 568,
+      font: 16,
+      dir: 'rtl',
+    },
+    {
+      width: 390,
+      height: 500,
+      font: 24,
+      dir: 'ltr',
+    },
+    {
+      width: 740,
+      height: 360,
+      font: 16,
+      dir: 'ltr',
+    },
+    {
+      width: 800,
+      height: 800,
+      font: 24,
+      dir: 'rtl',
+    },
+    {
+      width: 1280,
+      height: 800,
+      font: 16,
+      dir: 'ltr',
+    },
   ]
   for (const viewport of viewports) {
     it.each([false, true])(`keeps controls visible/reachable at ${viewport.width}×${viewport.height}, ${viewport.font}px ${viewport.dir}, connector=%s`, connector => {
       const directory = mkdtempSync(join(tmpdir(), 'papercut-dialog-layout-'))
       try {
-        const path = join(directory, 'fixture.html'), frame = join(directory, 'frame.html')
+        const path = join(directory, 'fixture.html'); const frame = join(directory, 'frame.html')
         writeFileSync(frame, `<!doctype html><html dir="${viewport.dir}"><meta charset="utf-8"><style>
           :root {font-size:${viewport.font}px;--mobile-safe-top-space:1.35rem;--control-surface:#303640;--surface-muted:#20242a;--surface-accent:#363367;
           --text-body:#ddd;--accent-text:#bbf;--accent-strong:#ccf;--text-soft:#888;--radius-control:8px;--shadow-focus:#8899ff}
@@ -131,12 +193,19 @@ describe.skipIf(!browser)('transfer dialog browser layout', () => {
         const html = execFileSync(browser!, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-background-networking',
           '--disable-dev-shm-usage', '--no-first-run', `--user-data-dir=${join(directory, 'profile')}`,
           '--window-size=1440,1100', '--virtual-time-budget=1000', '--dump-dom', pathToFileURL(path).href],
-        { encoding: 'utf8', timeout: 20_000, maxBuffer: 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] })
+        {
+          encoding: 'utf8',
+          timeout: 20_000,
+          maxBuffer: 1024 * 1024,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
         const result = JSON.parse(html.match(/<output id="layout-result">([^<]+)<\/output>/)![1])
         expect(result.width).toBe(viewport.width)
         expect(result.height).toBe(viewport.height)
         for (const phase of ['compact', 'expanded', 'collapsed']) {
-          for (const mode of result[phase]) expect(mode.group).toBeGreaterThanOrEqual(mode.button)
+          for (const mode of result[phase]) {
+            expect(mode.group).toBeGreaterThanOrEqual(mode.button)
+          }
         }
         expect(result.header.top).toBeGreaterThanOrEqual(0)
         expect(result.header.bottom).toBeLessThanOrEqual(viewport.height)
@@ -164,7 +233,12 @@ describe.skipIf(!browser)('transfer dialog browser layout', () => {
           expect(result.buttons.disabled.nearby).toEqual(result.buttons.disabled.reference)
           expect(result.buttons.focused).toBe(true)
         }
-      } finally { rmSync(directory, { recursive: true, force: true }) }
+      } finally {
+        rmSync(directory, {
+          recursive: true,
+          force: true,
+        })
+      }
     }, 30_000)
   }
 })

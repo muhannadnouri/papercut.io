@@ -1,4 +1,7 @@
-import type { TtsChunk, TtsOptions } from '../types'
+import type {
+  TtsChunk,
+  TtsOptions,
+} from '../types'
 import type { NativeAudiobookPlayback } from '../api/nativeTts'
 
 export const DEFAULT_PLAYBACK_RATE = 1
@@ -9,7 +12,9 @@ export function findPlaybackChunk(
   currentTime: number,
 ): NativeAudiobookPlayback['chunks'][number] | null {
   const chunks = playback.chunks
-  if (chunks.length === 0) return null
+  if (chunks.length === 0) {
+    return null
+  }
 
   let low = 0
   let high = chunks.length - 1
@@ -30,7 +35,9 @@ export function findPlaybackChunk(
 }
 
 export function normalizePlaybackRate(rate: number): number {
-  if (!Number.isFinite(rate) || rate <= 0) return DEFAULT_PLAYBACK_RATE
+  if (!Number.isFinite(rate) || rate <= 0) {
+    return DEFAULT_PLAYBACK_RATE
+  }
   return Number(Math.min(3, Math.max(0.5, rate)).toFixed(2))
 }
 
@@ -40,7 +47,9 @@ export function isNativeMobilePlatform(platform: string): boolean {
 
 /** Ignore browser play interruptions caused by quickly replacing an audio source. */
 export function isTransientPlaybackInterruption(err: unknown): boolean {
-  if (!(err instanceof Error)) return false
+  if (!(err instanceof Error)) {
+    return false
+  }
   const name = err.name.toLowerCase()
   const message = err.message.toLowerCase()
   return name === 'aborterror' ||
@@ -51,7 +60,9 @@ export function isTransientPlaybackInterruption(err: unknown): boolean {
 
 export function textPreview(text: string): string {
   const normalized = text.replace(/\s+/g, ' ').trim()
-  if (normalized.length <= 96) return normalized
+  if (normalized.length <= 96) {
+    return normalized
+  }
   return normalized.slice(0, 95).trimEnd() + '...'
 }
 
@@ -61,12 +72,16 @@ const PLAYBACK_TIMING_TOLERANCE_SEC = 0.05
 /** The native track must describe this full canonical sequence before seeking. */
 export function playbackMatchesChunks(playback: NativeAudiobookPlayback, chunks: readonly TtsChunk[]): boolean {
   if (!playback.audioUrl || !Number.isFinite(playback.audioDurationSec) || playback.audioDurationSec <= 0 ||
-    playback.chunks.length !== chunks.length) return false
+    playback.chunks.length !== chunks.length) {
+    return false
+  }
   let end = 0
   return playback.chunks.every((timing, index) => {
     if (timing.index !== index || timing.chunkId !== chunks[index].id ||
       !Number.isFinite(timing.startSec) || !Number.isFinite(timing.durationSec) ||
-      timing.startSec < 0 || timing.durationSec <= 0 || Math.abs(timing.startSec - end) > PLAYBACK_TIMING_TOLERANCE_SEC) return false
+      timing.startSec < 0 || timing.durationSec <= 0 || Math.abs(timing.startSec - end) > PLAYBACK_TIMING_TOLERANCE_SEC) {
+      return false
+    }
     end += timing.durationSec
     return Number.isFinite(end) && end <= playback.audioDurationSec + PLAYBACK_TIMING_TOLERANCE_SEC
   }) && Math.abs(end - playback.audioDurationSec) <= PLAYBACK_TIMING_TOLERANCE_SEC

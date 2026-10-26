@@ -23,13 +23,18 @@ export interface ViewerViewportBounds {
 
 export type ViewerTextTargetResult = {
   status: 'captured'
-  point: { format: 'html'; segmentIndex: number; offset: number }
+  point: { format: 'html';
+    segmentIndex: number;
+    offset: number }
   segmentTexts: readonly string[]
   segmentLengths: readonly number[]
   isCurrent: () => boolean
 } | {
   status: 'captured'
-  point: { format: 'pdf'; pageIndex: number; blockOrder: number; offset: number }
+  point: { format: 'pdf';
+    pageIndex: number;
+    blockOrder: number;
+    offset: number }
   sourceText: string
   isCurrent: () => boolean
 } | {

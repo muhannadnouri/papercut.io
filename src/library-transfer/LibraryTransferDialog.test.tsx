@@ -1,5 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it, vi } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import {
   LibraryNetworkFlow,
   LibraryTransferCompletion,
@@ -16,7 +21,10 @@ vi.mock('../i18n', () => ({
   default: {},
 }))
 
-const locales = import.meta.glob<{ libraryTransfer: Record<string, unknown> }>('../i18n/locales/*.json', { eager: true, import: 'default' })
+const locales = import.meta.glob<{ libraryTransfer: Record<string, unknown> }>('../i18n/locales/*.json', {
+  eager: true,
+  import: 'default',
+})
 it.each(Object.entries(locales))('uses the actual pairing-action labels in %s instructions', (_path, locale) => {
   const copy = locale.libraryTransfer
   for (const [instruction, labels] of [
@@ -26,7 +34,9 @@ it.each(Object.entries(locales))('uses the actual pairing-action labels in %s in
     ['receiverPairingStep', ['modeSend', 'continueToConnection']],
     ['senderPairingStep', ['modeReceive', 'otherConnectionMethod', 'useOtherCode']],
   ] as const) {
-    for (const label of labels) expect(copy[instruction]).toContain(copy[label])
+    for (const label of labels) {
+      expect(copy[instruction]).toContain(copy[label])
+    }
   }
 })
 
@@ -49,9 +59,18 @@ describe('library transfer send flow', () => {
         onRetry={() => undefined}
         onExit={() => undefined}
         status={{
-          id: 1, listenerReady: true, addresses: ['192.168.1.20:49152'],
-          role: 'sender', mode: 'pull', state: 'waiting',
-          expiresAtMs: null, cancellable: true, canRetry: false, receiverProgress: null, error: null, result: null,
+          id: 1,
+          listenerReady: true,
+          addresses: ['192.168.1.20:49152'],
+          role: 'sender',
+          mode: 'pull',
+          state: 'waiting',
+          expiresAtMs: null,
+          cancellable: true,
+          canRetry: false,
+          receiverProgress: null,
+          error: null,
+          result: null,
           code: 'ABCD-EFGH-JKLM',
           documents: 2,
           audiobooks: 1,
@@ -74,9 +93,18 @@ describe('library transfer send flow', () => {
       <LibraryTransferCompletion
         kind="send"
         status={{
-          id: 1, listenerReady: true, addresses: ['192.168.1.20:49152'],
-          role: 'sender', mode: 'push', state: 'complete',
-          expiresAtMs: null, cancellable: false, canRetry: false, receiverProgress: null, error: null, result: null,
+          id: 1,
+          listenerReady: true,
+          addresses: ['192.168.1.20:49152'],
+          role: 'sender',
+          mode: 'push',
+          state: 'complete',
+          expiresAtMs: null,
+          cancellable: false,
+          canRetry: false,
+          receiverProgress: null,
+          error: null,
+          result: null,
           code: 'ABCD-EFGH-JKLM',
           documents: 2,
           audiobooks: 1,
@@ -108,7 +136,10 @@ describe('library transfer send flow', () => {
           audiobooksSkipped: 0,
           audiobooksFailed: 0,
           importedAudiobooks: [],
-          failures: [{ item: 'Damaged book', error: 'Checksum failed' }],
+          failures: [{
+            item: 'Damaged book',
+            error: 'Checksum failed',
+          }],
         }}
       />,
     )

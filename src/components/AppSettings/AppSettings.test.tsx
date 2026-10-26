@@ -1,15 +1,32 @@
-import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
+import {
+  Children,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { beforeEach, expect, it, vi } from 'vitest'
+import {
+  beforeEach,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import type { SemanticSearchController } from '../../search-semantic/useSemanticSearch'
 
-const slots = vi.hoisted(() => ({ values: [] as unknown[], cursor: 0 }))
+const slots = vi.hoisted(() => ({
+  values: [] as unknown[],
+  cursor: 0,
+}))
 vi.mock('react', async (original) => ({
   ...await original<typeof import('react')>(),
   useState: (initial: unknown) => {
     const i = slots.cursor++
-    if (i >= slots.values.length) slots.values[i] = typeof initial === 'function' ? initial() : initial
-    return [slots.values[i], (next: unknown) => { slots.values[i] = next }]
+    if (i >= slots.values.length) {
+      slots.values[i] = typeof initial === 'function' ? initial() : initial
+    }
+    return [slots.values[i], (next: unknown) => {
+      slots.values[i] = next
+    }]
   },
   useRef: () => ({ current: null }),
   useCallback: (callback: unknown) => callback,
@@ -17,10 +34,16 @@ vi.mock('react', async (original) => ({
 }))
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => true }))
-vi.mock('../../i18n', () => ({ APP_LOCALE_OPTIONS: [], currentAppLocale: () => 'en' }))
+vi.mock('../../i18n', () => ({
+  APP_LOCALE_OPTIONS: [],
+  currentAppLocale: () => 'en',
+}))
 vi.mock('../../utils/platform', () => ({ isMobileUserAgent: () => true }))
 vi.mock('../AppSelect/AppSelect', () => ({ AppSelect: () => null }))
-vi.mock('../AppDialog/AppDialog', () => ({ AppDialog: ({ title, children }: { title: ReactNode; children: ReactNode }) => <div>{title}{children}</div> }))
+vi.mock('../AppDialog/AppDialog', () => ({
+  AppDialog: ({ title, children }: { title: ReactNode;
+    children: ReactNode }) => <div>{title}{children}</div>,
+}))
 vi.mock('./SearchModelSetup', () => ({ SearchModelSetup: () => <div>model-and-index-controls</div> }))
 vi.mock('../../library-transfer/LibraryTransferDialog', () => ({ LibraryTransferDialog: () => null }))
 
@@ -28,11 +51,24 @@ import { AppSettings } from './AppSettings'
 import { SearchActivity } from '../../search-semantic/SearchActivity'
 let tree: ReactElement
 let searchOpen = false
-const semantic = { enabled: false, busy: false } as SemanticSearchController
+const semantic = {
+  enabled: false,
+  busy: false,
+} as SemanticSearchController
 function render() {
   slots.cursor = 0
-  tree = AppSettings({ themeChoice: 'light', onThemeChange: vi.fn(), developerMode: false,
-    onDeveloperModeChange: vi.fn(), onLibraryImported: vi.fn(), semanticSearch: semantic, searchOpen, onSearchOpenChange: (next) => { searchOpen = next } })
+  tree = AppSettings({
+    themeChoice: 'light',
+    onThemeChange: vi.fn(),
+    developerMode: false,
+    onDeveloperModeChange: vi.fn(),
+    onLibraryImported: vi.fn(),
+    semanticSearch: semantic,
+    searchOpen,
+    onSearchOpenChange: (next) => {
+      searchOpen = next
+    },
+  })
   return renderToStaticMarkup(tree)
 }
 function elements(node: ReactNode = tree): ReactElement<Record<string, unknown>>[] {
@@ -142,10 +178,24 @@ it('shows current readiness in general Settings rather than a generic enabled pr
   semantic.operation = 'activate'
   expect(render()).toContain('settings.semantic.summary.loading')
   semantic.operation = null
-  semantic.provider = { compiled: true, activeFormat: 'float32', loadingFormat: null, downloadingFormat: null }
+  semantic.provider = {
+    compiled: true,
+    activeFormat: 'float32',
+    loadingFormat: null,
+    downloadingFormat: null,
+  }
   semantic.format = 'float32'
-  semantic.index = { running: false, cancelRequested: false, indexedDocuments: 1, eligibleDocuments: 2,
-    passages: 3, hasStoredIndex: true, embeddedPassages: 0, reusedPassages: 0, error: null }
+  semantic.index = {
+    running: false,
+    cancelRequested: false,
+    indexedDocuments: 1,
+    eligibleDocuments: 2,
+    passages: 3,
+    hasStoredIndex: true,
+    embeddedPassages: 0,
+    reusedPassages: 0,
+    error: null,
+  }
   expect(render()).toContain('settings.semantic.summary.needsIndex')
   semantic.index.indexedDocuments = 2
   expect(render()).toContain('settings.semantic.summary.ready')

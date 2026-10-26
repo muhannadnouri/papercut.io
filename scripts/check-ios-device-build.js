@@ -1,11 +1,24 @@
 import { readFileSync } from "node:fs"
-import { cp, mkdir, stat } from "node:fs/promises"
-import { dirname, join } from "node:path"
+import {
+  cp,
+  mkdir,
+  stat,
+} from "node:fs/promises"
+import {
+  dirname,
+  join,
+} from "node:path"
 import { parseArgs } from "node:util"
 import { SHERPA_IOS_DEVICE_SLICE } from "./lib/ios/constants.js"
-import { ensureIosSherpaLibs, iosSherpaLibDir } from "./lib/ios/sherpa.js"
+import {
+  ensureIosSherpaLibs,
+  iosSherpaLibDir,
+} from "./lib/ios/sherpa.js"
 import { runSync } from "./lib/process.js"
-import { ROOT, SRC_TAURI_DIR } from "./lib/paths.js"
+import {
+  ROOT,
+  SRC_TAURI_DIR,
+} from "./lib/paths.js"
 
 const { values } = parseArgs({ options: { features: { type: "string" } } })
 // Validate the shipping linked provider, retaining the packaged frontend protocol and extra CI features.

@@ -1,4 +1,12 @@
-import { useEffect, useEffectEvent, useId, useRef, type FormEvent, type ReactNode, type RefObject } from 'react'
+import {
+  useEffect,
+  useEffectEvent,
+  useId,
+  useRef,
+  type FormEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import './AppDialog.css'
 
@@ -32,11 +40,17 @@ export function AppDialog({ title, description, children, actions, className, sh
   const descriptionId = useId()
   const dialogRef = useRef<HTMLDivElement | HTMLFormElement | null>(null)
   // Use one busy guard for Close, Escape and backdrop dismissal, including updated transfer state.
-  const dismiss = () => { if (!navigationDisabled) onCancel() }
+  const dismiss = () => {
+    if (!navigationDisabled) {
+      onCancel()
+    }
+  }
   const cancelDialog = useEffectEvent(dismiss)
   const restoreDialogFocus = useEffectEvent((previousFocus: HTMLElement | null) => {
     const focusTarget = previousFocus?.isConnected ? previousFocus : fallbackFocusRef?.current
-    if (focusTarget?.isConnected) focusTarget.focus()
+    if (focusTarget?.isConnected) {
+      focusTarget.focus()
+    }
   })
   const dialogClassName = 'app-dialog' + (showCloseButton || onBack ? ' app-dialog-navigable' : '') + (className ? ` ${className}` : '')
   const setDialogRef = (node: HTMLDivElement | HTMLFormElement | null) => {
@@ -45,7 +59,9 @@ export function AppDialog({ title, description, children, actions, className, sh
 
   useEffect(() => {
     const dialog = dialogRef.current
-    if (!dialog) return
+    if (!dialog) {
+      return
+    }
     const dialogElement = dialog
     const previousFocus = document.activeElement instanceof HTMLElement
       ? document.activeElement
@@ -63,7 +79,9 @@ export function AppDialog({ title, description, children, actions, className, sh
         return
       }
 
-      if (event.key !== 'Tab') return
+      if (event.key !== 'Tab') {
+        return
+      }
 
       const focusable = getFocusableElements(dialogElement)
       if (focusable.length === 0) {
@@ -100,7 +118,11 @@ export function AppDialog({ title, description, children, actions, className, sh
       <header className="app-dialog-header">
         {(onBack || showCloseButton) && <div className="app-dialog-navigation">
           {onBack && <button type="button" className="app-dialog-cancel app-dialog-back" disabled={navigationDisabled}
-            aria-label={t('common.back')} title={t('common.back')} onClick={() => { if (!navigationDisabled) onBack() }}>
+            aria-label={t('common.back')} title={t('common.back')} onClick={() => {
+              if (!navigationDisabled) {
+                onBack()
+              }
+            }}>
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 5-7 7 7 7M5 12h14" /></svg>
           </button>}
           {showCloseButton && <button type="button" className="app-dialog-cancel app-dialog-close"

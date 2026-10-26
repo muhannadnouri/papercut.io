@@ -1,11 +1,29 @@
 // @vitest-environment node
-import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import {
+  join,
+  resolve,
+} from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { build } from 'vite'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { browser, runBrowserFixture } from './browserCaptureFixture'
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  it,
+} from 'vitest'
+import {
+  browser,
+  runBrowserFixture,
+} from './browserCaptureFixture'
 
 let directory: string
 beforeAll(async () => {
@@ -22,14 +40,33 @@ beforeAll(async () => {
     ['node_modules/pdfjs-dist/legacy/build/pdf.mjs', 'getDocument, GlobalWorkerOptions'],
     ['node_modules/pdfjs-dist/legacy/web/pdf_viewer.mjs', 'PDFViewer, EventBus, PDFLinkService, PDFFindController'],
   ].map(([path, exports]) => `export { ${exports} } from ${JSON.stringify(resolve(path))}`).join('\n'))
-  const output = await build({ configFile: false, logLevel: 'silent', build: {
-    write: false, minify: false, lib: { entry, name: 'PdfTargets', formats: ['iife'] },
-  } })
+  const output = await build({
+    configFile: false,
+    logLevel: 'silent',
+    build: {
+      write: false,
+      minify: false,
+      lib: {
+        entry,
+        name: 'PdfTargets',
+        formats: ['iife'],
+      },
+    },
+  })
   const result = Array.isArray(output) ? output[0] : output
-  if (!('output' in result)) throw new Error('Expected browser bundle')
+  if (!('output' in result)) {
+    throw new Error('Expected browser bundle')
+  }
   writeFileSync(join(directory, 'bundle.js'), result.output.filter(item => item.type === 'chunk').map(item => item.code).join('\n'))
 }, 30_000)
-afterAll(() => { if (directory) rmSync(directory, { recursive: true, force: true }) })
+afterAll(() => {
+  if (directory) {
+    rmSync(directory, {
+      recursive: true,
+      force: true,
+    })
+  }
+})
 
 const setup = `
 const container=document.querySelector('.pdf-viewer-container'), root=container.firstElementChild;
@@ -117,7 +154,16 @@ describe.skipIf(!browser)('PDF/OCR viewport capture in Chromium', () => {
     expect(result.resolved).toBe('resolved'); expect(result.focusSafe).toBe(true); expect(result.stale).toBe(true)
   }, 30_000)
 
-  it.each([{ mode: 'standard', rotation: 90 }, { mode: 'webkit-fallback', rotation: 180 }, { mode: 'ranges-only', rotation: 270 }])('uses real PDF.js offsets through Find, zoom, rotation, page navigation and fullscreen (%j)', async ({ mode, rotation }) => {
+  it.each([{
+    mode: 'standard',
+    rotation: 90,
+  }, {
+    mode: 'webkit-fallback',
+    rotation: 180,
+  }, {
+    mode: 'ranges-only',
+    rotation: 270,
+  }])('uses real PDF.js offsets through Find, zoom, rotation, page navigation and fullscreen (%j)', async ({ mode, rotation }) => {
     const result = await run(`
       if(${JSON.stringify(mode)}!=='standard')Object.defineProperty(document,'caretPositionFromPoint',{value:undefined});
       if(${JSON.stringify(mode)}==='ranges-only')Object.defineProperty(document,'caretRangeFromPoint',{value:undefined});
@@ -154,7 +200,10 @@ describe.skipIf(!browser)('PDF/OCR viewport capture in Chromium', () => {
     expect(result.pageTwo.capture.point.pageIndex).toBe(1)
     expect(result.pageTwo.target.chunkIndex).toBeGreaterThan(0)
     expect(result.stale).toBe(true)
-    expect(result.disposed).toEqual({ status: 'unavailable', reason: 'stale' })
+    expect(result.disposed).toEqual({
+      status: 'unavailable',
+      reason: 'stale',
+    })
   }, 30_000)
 
   it('inverts merged OCR lines to original word offsets and resolves a production chunk at its beginning', async () => {
@@ -189,21 +238,35 @@ describe.skipIf(!browser)('PDF/OCR viewport capture in Chromium', () => {
       parent.postMessage({type:'capture-result',result:{before,afterFind,target,selected,selectionTarget:selectionTarget.status,stale,changed:plain(await session.api.captureViewport()),space,newline,trim}},'*');session.dispose();
     `)
     expect(result.before.status).toBe('captured')
-    expect(result.before.point).toMatchObject({ format: 'pdf', pageIndex: 3, blockOrder: 11 })
+    expect(result.before.point).toMatchObject({
+      format: 'pdf',
+      pageIndex: 3,
+      blockOrder: 11,
+    })
     expect(result.before.point.offset).toBeGreaterThan(0)
     expect(result.before.sourceText).toBe('recognized\r\npassage.  ')
     expect(result.afterFind.point).toEqual(result.before.point)
-    expect(result.selected.point).toEqual({ format: 'pdf', pageIndex: 3, blockOrder: 11, offset: 2 })
+    expect(result.selected.point).toEqual({
+      format: 'pdf',
+      pageIndex: 3,
+      blockOrder: 11,
+      offset: 2,
+    })
     expect(result.selectionTarget).toBe('resolved')
     expect(result.target.status).toBe('resolved')
     expect(result.target.chunkIndex).toBeGreaterThan(0)
     expect(result.stale).toBe(true)
-    expect(result.changed).toEqual({ status: 'unavailable', reason: 'unmapped' })
+    expect(result.changed).toEqual({
+      status: 'unavailable',
+      reason: 'unmapped',
+    })
     expect(result.space).toBeNull()
-    expect(result.newline).toMatchObject({ blockOrder: 11, offset: 12 })
+    expect(result.newline).toMatchObject({
+      blockOrder: 11,
+      offset: 12,
+    })
     expect(result.trim).toBeNull()
   }, 30_000)
-
 
   it('keeps Arabic OCR in source order when columns run in the opposite screen order', async () => {
     const result = await run(`
@@ -219,7 +282,12 @@ describe.skipIf(!browser)('PDF/OCR viewport capture in Chromium', () => {
       const session=PdfTargets.createPdfTextTargetApi(viewer,container,bus,bounds);await tick();
       parent.postMessage({type:'capture-result',result:plain(await session.api.captureViewport())},'*');session.dispose();
     `)
-    expect(result.point).toEqual({ format: 'pdf', pageIndex: 0, blockOrder: 9, offset: 0 })
+    expect(result.point).toEqual({
+      format: 'pdf',
+      pageIndex: 0,
+      blockOrder: 9,
+      offset: 0,
+    })
   }, 30_000)
 
   it('reports unavailable for blank pages and unmapped OCR, and invalidates detached snapshots', async () => {
@@ -239,11 +307,20 @@ describe.skipIf(!browser)('PDF/OCR viewport capture in Chromium', () => {
       container.remove();const detached=await session.api.captureViewport();
       parent.postMessage({type:'capture-result',result:{blank,unmapped:plain(unmapped),captured:plain(captured),stale,detached}},'*');session.dispose();
     `)
-    expect(result.blank).toEqual({ status: 'unavailable', reason: 'no-visible-text' })
+    expect(result.blank).toEqual({
+      status: 'unavailable',
+      reason: 'no-visible-text',
+    })
     expect(result.captured.status).toBe('captured')
-    expect(result.unmapped).toEqual({ status: 'unavailable', reason: 'unmapped' })
+    expect(result.unmapped).toEqual({
+      status: 'unavailable',
+      reason: 'unmapped',
+    })
     expect(result.stale).toBe(true)
-    expect(result.detached).toEqual({ status: 'unavailable', reason: 'stale' })
+    expect(result.detached).toEqual({
+      status: 'unavailable',
+      reason: 'stale',
+    })
   }, 30_000)
 
   it('restores source order for spreads and rejects absent/stale/hidden layers without rendering them', async () => {
@@ -264,11 +341,20 @@ describe.skipIf(!browser)('PDF/OCR viewport capture in Chromium', () => {
       parent.postMessage({type:'capture-result',result:{first:plain(first),missing:plain(missing),unmapped:plain(unmapped),stale,absent,hidden,requested}},'*');
     `)
     expect(result.first.point.pageIndex).toBe(0)
-    expect(result.missing).toEqual({ status: 'unavailable', reason: 'not-ready' })
+    expect(result.missing).toEqual({
+      status: 'unavailable',
+      reason: 'not-ready',
+    })
     expect(result.unmapped.status).toBe('unavailable')
     expect(result.stale).toBe(true)
-    expect(result.absent).toEqual({ status: 'unavailable', reason: 'not-ready' })
-    expect(result.hidden).toEqual({ status: 'unavailable', reason: 'not-ready' })
+    expect(result.absent).toEqual({
+      status: 'unavailable',
+      reason: 'not-ready',
+    })
+    expect(result.hidden).toEqual({
+      status: 'unavailable',
+      reason: 'not-ready',
+    })
     expect(result.requested.every((i: number) => i < 2)).toBe(true)
   }, 30_000)
 })

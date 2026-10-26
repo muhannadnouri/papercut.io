@@ -1,6 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { relative, resolve, sep } from 'path'
+import {
+  relative,
+  resolve,
+  sep,
+} from 'path'
 
 function isRootHtmlFixture(path: string): boolean {
   const relativePath = relative(__dirname, path)

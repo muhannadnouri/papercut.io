@@ -1,5 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
-import type { PagefindInstance, DocumentInfo } from '../types/search'
+import {
+  useState,
+  useEffect,
+  useRef,
+} from 'react'
+import type {
+  PagefindInstance,
+  DocumentInfo,
+} from '../types/search'
 
 interface UsePagefindReturn {
   pagefindRef: React.MutableRefObject<PagefindInstance | null>
@@ -26,10 +33,16 @@ export function usePagefind(): UsePagefindReturn {
         if (allResults.results.length === 0) {
           const fallback = await pagefind.search('a')
           const docs = await Promise.all(fallback.results.map((r) => r.data()))
-          setAllDocuments(docs.map((d) => ({ title: d.meta.title, url: d.url })))
+          setAllDocuments(docs.map((d) => ({
+            title: d.meta.title,
+            url: d.url,
+          })))
         } else {
           const docs = await Promise.all(allResults.results.map((r) => r.data()))
-          setAllDocuments(docs.map((d) => ({ title: d.meta.title, url: d.url })))
+          setAllDocuments(docs.map((d) => ({
+            title: d.meta.title,
+            url: d.url,
+          })))
         }
       } catch {
         console.error('Pagefind index not found. Run `npm run build` first to generate the index.')
@@ -40,5 +53,10 @@ export function usePagefind(): UsePagefindReturn {
     loadPagefind()
   }, [])
 
-  return { pagefindRef, pagefindReady, allDocuments, documentsLoading }
+  return {
+    pagefindRef,
+    pagefindReady,
+    allDocuments,
+    documentsLoading,
+  }
 }

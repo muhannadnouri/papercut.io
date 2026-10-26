@@ -46,13 +46,20 @@ export function PdfRecognitionStatus({
   if (recognizing && status.cancelRequested) {
     message = t('library.status.stoppingRecognition')
   } else if (recognizing && progress?.phase === 'recognizing') {
-    message = <Trans i18nKey="library.status.recognizingPage" values={{ title, current: progress.pageNumber, total: progress.pageCount }} components={{ title: <bdi /> }} />
+    message = <Trans i18nKey="library.status.recognizingPage" values={{
+      title,
+      current: progress.pageNumber,
+      total: progress.pageCount,
+    }} components={{ title: <bdi /> }} />
   } else if (recognizing && progress?.phase === 'indexing') {
     message = <Trans i18nKey="library.status.indexingRecognition" values={{ title }} components={{ title: <bdi /> }} />
   } else if (recognizing) {
     message = <Trans i18nKey="library.status.preparingRecognition" values={{ title }} components={{ title: <bdi /> }} />
   } else if (status.status === 'recognized' && issueAction === 'retry') {
-    message = <Trans i18nKey="library.status.recognitionNeedsRetry" values={{ title, count: actionPageCount }} components={{ title: <bdi /> }} />
+    message = <Trans i18nKey="library.status.recognitionNeedsRetry" values={{
+      title,
+      count: actionPageCount,
+    }} components={{ title: <bdi /> }} />
   } else if (status.status === 'recognized' && issueAction === 'accept') {
     message = (
       <span className="pdf-recognition-outcome">

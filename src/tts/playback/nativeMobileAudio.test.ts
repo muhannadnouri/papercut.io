@@ -1,17 +1,45 @@
 // @vitest-environment jsdom
-import { beforeEach, expect, it, vi } from 'vitest'
+import {
+  beforeEach,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import * as plugin from 'tauri-plugin-native-audio-api'
-vi.mock('tauri-plugin-native-audio-api', () => ({ initialize: vi.fn(), setSource: vi.fn(), play: vi.fn(), pause: vi.fn(), seekTo: vi.fn(), setRate: vi.fn(), getState: vi.fn(), dispose: vi.fn() }))
+vi.mock('tauri-plugin-native-audio-api', () => ({
+  initialize: vi.fn(),
+  setSource: vi.fn(),
+  play: vi.fn(),
+  pause: vi.fn(),
+  seekTo: vi.fn(),
+  setRate: vi.fn(),
+  getState: vi.fn(),
+  dispose: vi.fn(),
+}))
 let audio: typeof import('./nativeMobileAudio')
-const state = { status: 'idle', currentTime: 0, duration: 10, isPlaying: false, buffering: false, rate: 1 } as plugin.NativeAudioState
+const state = {
+  status: 'idle',
+  currentTime: 0,
+  duration: 10,
+  isPlaying: false,
+  buffering: false,
+  rate: 1,
+} as plugin.NativeAudioState
 function deferred() {
   let resolve!: (value: plugin.NativeAudioState) => void
-  const promise = new Promise<plugin.NativeAudioState>(yes => { resolve = yes })
-  return { promise, resolve }
+  const promise = new Promise<plugin.NativeAudioState>(yes => {
+    resolve = yes
+  })
+  return {
+    promise,
+    resolve,
+  }
 }
 beforeEach(async () => {
   vi.resetModules(); vi.resetAllMocks()
-  for (const method of [plugin.initialize, plugin.setSource, plugin.play, plugin.pause, plugin.seekTo, plugin.setRate, plugin.getState]) vi.mocked(method).mockResolvedValue(state)
+  for (const method of [plugin.initialize, plugin.setSource, plugin.play, plugin.pause, plugin.seekTo, plugin.setRate, plugin.getState]) {
+    vi.mocked(method).mockResolvedValue(state)
+  }
   audio = await import('./nativeMobileAudio')
 })
 it('checks cancellation inside the lifecycle queue and continues after an aborted command', async () => {

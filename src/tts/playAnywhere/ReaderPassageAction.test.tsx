@@ -26,7 +26,10 @@ it('uses the source-order selection through control focus, then returns to viewp
   const here = vi.fn()
   const selected = vi.fn()
   const invalidate = vi.fn()
-  const dispose = bindSelectionIntent(shell, { snapshot, invalidate })
+  const dispose = bindSelectionIntent(shell, {
+    snapshot,
+    invalidate,
+  })
   try {
     await act(async () => app.render(<ReaderPassageAction pending={false}
       onSnapshotSelection={snapshot} onPlayFromHere={here} onPlayFromSelection={selected} />))

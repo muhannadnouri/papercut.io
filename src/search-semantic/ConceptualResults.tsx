@@ -1,4 +1,7 @@
-import { useId, useState } from 'react'
+import {
+  useId,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { SettingsIcon } from '../components/SettingsIcon/SettingsIcon'
 import { WarningIcon } from '../components/WarningIcon/WarningIcon'
@@ -6,7 +9,10 @@ import type { semanticSearchStatus } from './semanticSearchStatus'
 import type { SearchOpenTarget } from '../types/search'
 import { indexedSearchOpenTarget } from '../utils/searchOpenTarget'
 import { contextPreview } from './contextPreview'
-import type { ConceptualResult, ConceptualState } from './useConceptualSearch'
+import type {
+  ConceptualResult,
+  ConceptualState,
+} from './useConceptualSearch'
 import '../components/SearchResults/SearchResults.css'
 import './ConceptualResults.css'
 
@@ -26,7 +32,9 @@ export function ConceptualResults({ visibleLimit = Infinity, onShowMore, state, 
   const { t } = useTranslation()
   const id = useId()
   if (!state) {
-    if (!setupStatus) return null
+    if (!setupStatus) {
+      return null
+    }
     const needsIndex = setupStatus === 'needsIndex'
     const preparing = ['loading', 'downloading', 'indexing', 'cancelling', 'checking', 'disabling'].includes(setupStatus)
     const message = ({
@@ -66,15 +74,25 @@ export function ConceptualResults({ visibleLimit = Infinity, onShowMore, state, 
     {indexWarning && onOpenSearchSettings && <button type="button" className="result-evidence-action conceptual-settings-action" aria-haspopup="dialog"
       onClick={onOpenSearchSettings}><SettingsIcon />{t('search.conceptual.openSettings')}</button>}
     {state.response && state.phase === 'fallback' && state.reason === 'partial' && <p className="conceptual-results-coverage">
-      {t('search.conceptual.coverage', { ready: state.response.indexedDocuments, total: state.response.eligibleDocuments })}
+      {t('search.conceptual.coverage', {
+        ready: state.response.indexedDocuments,
+        total: state.response.eligibleDocuments,
+      })}
     </p>}
     {state.phase === 'ready' && results.length === 0 && <p role="status">{t('search.conceptual.empty')}</p>}
     {results.slice(0, visibleLimit).map(result => <ConceptualResultCard key={`${result.documentId}:${result.sectionIndex}:${result.byteStart}:${result.byteEnd}`}
       result={result} opening={result.url === openingDocumentUrl} openingDisabled={openingDisabled} onViewDocument={onViewDocument} />)}
     {onShowMore && results.length > 10 && <div className="result-list-more">
-      <span role="status">{t('search.results.documentsShown', { shown: Math.min(visibleLimit, results.length), total: results.length })}</span>
+      <span role="status">{t('search.results.documentsShown', {
+        shown: Math.min(visibleLimit, results.length),
+        total: results.length,
+      })}</span>
       <button type="button" className="result-evidence-action conceptual-more-action" aria-disabled={visibleLimit >= results.length}
-        onClick={() => { if (visibleLimit < results.length) onShowMore() }}>
+        onClick={() => {
+          if (visibleLimit < results.length) {
+            onShowMore()
+          }
+        }}>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6" /></svg>
         {t('search.results.showMore')}
       </button>

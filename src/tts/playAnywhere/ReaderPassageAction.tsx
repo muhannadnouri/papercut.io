@@ -35,11 +35,15 @@ export function ReaderPassageAction({
   useLayoutEffect(() => {
     const button = buttonRef.current
     const root = button?.closest('.app-reader')?.querySelector<HTMLElement>('.document-view')
-    if (!button || !root) return
+    if (!button || !root) {
+      return
+    }
     const doc = button.ownerDocument
     const update = () => {
       // Control focus may collapse native selection; preserve its advertised action until focus leaves.
-      if (doc.activeElement === button) return
+      if (doc.activeElement === button) {
+        return
+      }
       const selection = readerSelection(root)
       const available = Boolean(selection && selectedTextStart(selection.range))
       selectionIntent.current = available
@@ -52,11 +56,13 @@ export function ReaderPassageAction({
       doc.removeEventListener('selectionchange', update)
       button.removeEventListener('blur', update)
       // Starting audio removes this idle shortcut; transfer keyboard focus to the resulting player.
-      if (doc.activeElement === button) queueMicrotask(() => {
-        if (root.isConnected && doc.activeElement === doc.body) {
-          root.closest('.app-reader')?.querySelector<HTMLButtonElement>('.audio-floating-playback .audio-primary-btn')?.focus()
-        }
-      })
+      if (doc.activeElement === button) {
+        queueMicrotask(() => {
+          if (root.isConnected && doc.activeElement === doc.body) {
+            root.closest('.app-reader')?.querySelector<HTMLButtonElement>('.audio-floating-playback .audio-primary-btn')?.focus()
+          }
+        })
+      }
     }
   }, [])
 
@@ -67,8 +73,11 @@ export function ReaderPassageAction({
   const play = () => {
     // Never silently fall back to the viewport if an advertised selection becomes stale.
     const selected = selectionIntent.current || onSnapshotSelection()
-    if (selected) onPlayFromSelection()
-    else onPlayFromHere()
+    if (selected) {
+      onPlayFromSelection()
+    } else {
+      onPlayFromHere()
+    }
   }
   const label = t(hasSelection ? 'tts.playAnywhere.selection' : 'tts.playAnywhere.here')
 

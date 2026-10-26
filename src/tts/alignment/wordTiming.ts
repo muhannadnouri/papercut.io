@@ -30,7 +30,9 @@ export function segmentWordTokens(text: string): WordToken[] {
   const tokens: WordToken[] = []
   const wordPattern = /[\p{L}\p{N}_]+(?:[-'][\p{L}\p{N}_]+)*/gu
   for (const match of text.matchAll(wordPattern)) {
-    if (match.index === undefined) continue
+    if (match.index === undefined) {
+      continue
+    }
     tokens.push({
       startOffset: match.index,
       endOffset: match.index + match[0].length,

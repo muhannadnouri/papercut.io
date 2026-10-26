@@ -1,4 +1,7 @@
-import { useId, type ReactNode } from 'react'
+import {
+  useId,
+  type ReactNode,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SemanticSearchController } from './useSemanticSearch'
 import { WarningIcon } from '../components/WarningIcon/WarningIcon'
@@ -7,7 +10,11 @@ import { isIndexingCancelled } from './indexingOutcome'
 
 /** Explicit opt-in shares the cache installer; no download or indexing starts from a search. */
 export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, children, indexMaintenance }: {
-  semantic: SemanticSearchController; cachePresent: boolean; cacheBusy: boolean; children?: ReactNode; indexMaintenance?: (actions: ReactNode) => ReactNode
+  semantic: SemanticSearchController;
+  cachePresent: boolean;
+  cacheBusy: boolean;
+  children?: ReactNode;
+  indexMaintenance?: (actions: ReactNode) => ReactNode
 }) {
   const { t } = useTranslation()
   const id = useId()
@@ -27,11 +34,15 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
   const expandIndex = enabled || indexing || operation === 'remove' || !!index?.error
   const indexActions = ((enabled && !statusError) || indexing) && !current && <>
     {!indexing && <button type="button" className="app-settings-data-action search-action-primary" disabled={busy || !active || !index || index.eligibleDocuments === 0}
-      onClick={() => { void semantic.build() }}>{t(index && index.eligibleDocuments > 0 && (index.indexedDocuments > 0 || index.passages > 0)
+      onClick={() => {
+        void semantic.build()
+      }}>{t(index && index.eligibleDocuments > 0 && (index.indexedDocuments > 0 || index.passages > 0)
         ? 'settings.semantic.update' : 'settings.semantic.build')}</button>}
     {indexing && <button type="button" className="app-settings-data-action"
       disabled={!index?.running || semantic.cancelling || index.cancelRequested}
-      onClick={() => { void semantic.cancel() }}>{t('settings.semantic.stop')}</button>}
+      onClick={() => {
+        void semantic.cancel()
+      }}>{t('settings.semantic.stop')}</button>}
   </>
   return <>
     <section className="search-model-panel search-semantic-setup" aria-labelledby={`${id}-semantic-title`}>
@@ -42,10 +53,14 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
           aria-labelledby={`${id}-semantic-title`}
           aria-describedby={description}
           disabled={operation === 'disable' || (!enabled && (busy || !!statusError || !cachePresent || !provider?.compiled))}
-          onChange={(event) => { void semantic.setEnabled(event.target.checked) }} /><span aria-hidden="true" /></span>
+          onChange={(event) => {
+            void semantic.setEnabled(event.target.checked)
+          }} /><span aria-hidden="true" /></span>
       </label>
       {enabled && !active && !statusError && <button type="button" className="app-settings-data-action" disabled={busy || !cachePresent || !provider?.compiled}
-        onClick={() => { void semantic.setEnabled(true) }}>{t('settings.semantic.retry')}</button>}
+        onClick={() => {
+          void semantic.setEnabled(true)
+        }}>{t('settings.semantic.retry')}</button>}
       {actionError && <p className="app-dialog-error" role="alert" dir="auto">{actionError}</p>}
       {statusError && <div className="search-status-recovery">
         <p className="app-dialog-error" role="alert" dir="auto">{statusError}</p>
@@ -54,7 +69,9 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
           const toggle = button.closest('.search-semantic-setup')?.querySelector<HTMLInputElement>('input[role="switch"]')
           await semantic.refresh()
           requestAnimationFrame(() => {
-            if (!button.isConnected && button.ownerDocument.activeElement === button.ownerDocument.body && toggle?.isConnected && !toggle.disabled) toggle.focus()
+            if (!button.isConnected && button.ownerDocument.activeElement === button.ownerDocument.body && toggle?.isConnected && !toggle.disabled) {
+              toggle.focus()
+            }
           })
         }}>{t('settings.semantic.retryStatus')}</button>
       </div>}
@@ -76,10 +93,12 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
         {!indexing && <p role="status" className={needsIndex ? 'search-index-attention' : undefined}>
           {needsIndex && <WarningIcon />}
           {t(statusError ? 'settings.semantic.statusUnavailable' : !enabled ? 'settings.semantic.enableFirst' : !index ? 'settings.semantic.checkingIndex' : index.eligibleDocuments === 0
-          ? 'settings.semantic.emptyLibrary' : !active ? 'settings.semantic.modelRequired'
-          : current ? 'settings.semantic.indexReady' : 'settings.semantic.needsIndex')}</p>}
-        {enabled && !statusError && index && index.eligibleDocuments > 0 && <p>{t('settings.semantic.documentsIndexed', { ready: index.indexedDocuments,
-          total: index.eligibleDocuments })}</p>}
+            ? 'settings.semantic.emptyLibrary' : !active ? 'settings.semantic.modelRequired'
+              : current ? 'settings.semantic.indexReady' : 'settings.semantic.needsIndex')}</p>}
+        {enabled && !statusError && index && index.eligibleDocuments > 0 && <p>{t('settings.semantic.documentsIndexed', {
+          ready: index.indexedDocuments,
+          total: index.eligibleDocuments,
+        })}</p>}
       </div>
       {!indexing && cancelled && !actionError && !indexError && !statusError && <p role="status">{t('settings.semantic.activity.cancelled')}</p>}
       {needsIndex && <p className="search-index-help">{t(index.indexedDocuments > 0 ? 'settings.semantic.updateHelp' : 'settings.semantic.buildHelp')}</p>}

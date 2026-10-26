@@ -1,7 +1,19 @@
 // @vitest-environment jsdom
-import { act, useLayoutEffect } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import {
+  act,
+  useLayoutEffect,
+} from 'react'
+import {
+  createRoot,
+  type Root,
+} from 'react-dom/client'
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import * as api from '../api/nativeTts'
 import { useAudiobookDownloadQueue } from './useAudiobookDownloadQueue'
 import { DEFAULT_TTS_MODEL_ID } from '../types'
@@ -9,10 +21,15 @@ import { createAudiobookDownloadId } from '../storage/AudiobookDownloadQueue'
 
 vi.mock('../api/nativeTts', async importOriginal => ({
   ...await importOriginal<typeof import('../api/nativeTts')>(),
-  getNativeTtsCapabilities: vi.fn(), listenNativeAudiobookSaveProgress: vi.fn(),
-  saveNativeAudiobook: vi.fn(), cancelNativeAudiobookSave: vi.fn(),
+  getNativeTtsCapabilities: vi.fn(),
+  listenNativeAudiobookSaveProgress: vi.fn(),
+  saveNativeAudiobook: vi.fn(),
+  cancelNativeAudiobookSave: vi.fn(),
 }))
-vi.mock('../diagnostics/TtsDiagnostics', () => ({ logTtsDiagnostic: vi.fn(), summarizeTtsCapabilities: vi.fn() }))
+vi.mock('../diagnostics/TtsDiagnostics', () => ({
+  logTtsDiagnostic: vi.fn(),
+  summarizeTtsCapabilities: vi.fn(),
+}))
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 
 let root: Root
@@ -22,15 +39,48 @@ let finish: (result: api.NativeAudiobookSaveResult) => void
 let fail: (error: Error) => void
 let jobId: string
 const onCompleted = vi.fn()
-const input = { documentUrl: '/uploads/ab.pdf', title: 'Reader handbook', modelId: DEFAULT_TTS_MODEL_ID,
-  textPreprocessor: 'none', voice: 'af_heart', speed: 1, dtype: 'native' as const,
-  chunks: [{ id: 'first', text: 'First topic.' }, { id: 'second', text: 'Second topic.' }] }
-const result = (): api.NativeAudiobookSaveResult => ({ jobId, cachedChunks: 2, totalChunks: 2,
-  generatedChunks: 2, complete: true, dir: 'saved', generateMs: 10, audioDurationSec: 2,
-  wavBytes: 100, appliedThreadCount: 1, backend: 'native' })
+const input = {
+  documentUrl: '/uploads/ab.pdf',
+  title: 'Reader handbook',
+  modelId: DEFAULT_TTS_MODEL_ID,
+  textPreprocessor: 'none',
+  voice: 'af_heart',
+  speed: 1,
+  dtype: 'native' as const,
+  chunks: [{
+    id: 'first',
+    text: 'First topic.',
+  }, {
+    id: 'second',
+    text: 'Second topic.',
+  }],
+}
+const result = (): api.NativeAudiobookSaveResult => ({
+  jobId,
+  cachedChunks: 2,
+  totalChunks: 2,
+  generatedChunks: 2,
+  complete: true,
+  dir: 'saved',
+  generateMs: 10,
+  audioDurationSec: 2,
+  wavBytes: 100,
+  appliedThreadCount: 1,
+  backend: 'native',
+})
 function emit(status: string) {
-  progress({ jobId, status, message: status, cachedChunks: 2, totalChunks: 2, generatedChunks: 2,
-    totalAudioDurationSec: 2, totalWavBytes: 100, appliedThreadCount: 1, backend: 'native' })
+  progress({
+    jobId,
+    status,
+    message: status,
+    cachedChunks: 2,
+    totalChunks: 2,
+    generatedChunks: 2,
+    totalAudioDurationSec: 2,
+    totalWavBytes: 100,
+    appliedThreadCount: 1,
+    backend: 'native',
+  })
 }
 
 beforeEach(async () => {
@@ -44,11 +94,18 @@ beforeEach(async () => {
   vi.mocked(api.cancelNativeAudiobookSave).mockResolvedValue()
   vi.mocked(api.saveNativeAudiobook).mockImplementation(input => {
     jobId = input.jobId
-    return new Promise((resolve, reject) => { finish = resolve; fail = reject })
+    return new Promise((resolve, reject) => {
+      finish = resolve; fail = reject
+    })
   })
   function Harness() {
-    const current = useAudiobookDownloadQueue({ threadCount: 1, onCompleted })
-    useLayoutEffect(() => { queue = current }, [current])
+    const current = useAudiobookDownloadQueue({
+      threadCount: 1,
+      onCompleted,
+    })
+    useLayoutEffect(() => {
+      queue = current
+    }, [current])
     return null
   }
   const container = document.createElement('div')
@@ -70,7 +127,9 @@ it.each(['event', 'response'])('refreshes the registry only after manifest final
   expect(queue.state.status).toBe('saving')
   expect(queue.state.complete).toBe(false)
   expect(onCompleted).not.toHaveBeenCalled()
-  if (completion === 'event') await act(async () => emit('saved'))
+  if (completion === 'event') {
+    await act(async () => emit('saved'))
+  }
   await act(async () => finish(result()))
   expect(queue.state.complete).toBe(true)
   expect(onCompleted).toHaveBeenCalledOnce()
@@ -101,7 +160,11 @@ it('forgets deleted completion and ignores the save command response still in fl
   expect(queue.state.complete).toBe(true)
   await act(async () => queue.invalidateCompleted(createAudiobookDownloadId(input.documentUrl, input)))
   expect(queue.activeDownload).toBeNull()
-  expect(queue.state).toMatchObject({ status: 'idle', complete: false, cachedChunks: 0 })
+  expect(queue.state).toMatchObject({
+    status: 'idle',
+    complete: false,
+    cachedChunks: 0,
+  })
   await act(async () => finish(result()))
   document.dispatchEvent(new Event('visibilitychange'))
   expect(queue.state.complete).toBe(false)
@@ -112,7 +175,10 @@ it('forgets deleted completion and ignores the save command response still in fl
 
 it('keeps completed readiness when a different saved record is deleted', async () => {
   await act(async () => finish(result()))
-  const other = createAudiobookDownloadId(input.documentUrl, { ...input, voice: 'af_bella' })
+  const other = createAudiobookDownloadId(input.documentUrl, {
+    ...input,
+    voice: 'af_bella',
+  })
   await act(async () => queue.invalidateCompleted(other))
   expect(queue.activeDownload?.voice).toBe(input.voice)
   expect(queue.state.complete).toBe(true)
@@ -122,7 +188,10 @@ it.each(['same', 'different'])('does not let a late deletion invalidate a newer 
   await act(async () => finish(result()))
   const invalidateDeletedSave = queue.invalidateCompleted
   const deletedId = createAudiobookDownloadId(input.documentUrl, input)
-  const next = { ...input, documentUrl: identity === 'same' ? input.documentUrl : '/other.pdf' }
+  const next = {
+    ...input,
+    documentUrl: identity === 'same' ? input.documentUrl : '/other.pdf',
+  }
   await act(async () => queue.start(next))
   await act(async () => finish(result()))
   await act(async () => invalidateDeletedSave(deletedId))

@@ -1,8 +1,15 @@
-import { useState, useCallback, useMemo } from 'react'
+import {
+  useState,
+  useCallback,
+  useMemo,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DocumentInfo } from '../types/search'
 import { bundledDocumentFolderNames } from '../components/DocumentBrowser/bundledDocuments'
-import { deriveAuthor, UNCATEGORIZED } from '../utils/documentUtils'
+import {
+  deriveAuthor,
+  UNCATEGORIZED,
+} from '../utils/documentUtils'
 
 export interface AuthorGroup {
   author: string
@@ -53,7 +60,10 @@ export function useDocumentFilters(
   const locale = i18n.resolvedLanguage ?? i18n.language
   const docFilterLower = documentFilter.trim().toLocaleLowerCase(locale)
   const collator = useMemo(
-    () => new Intl.Collator(locale, { numeric: true, sensitivity: 'base' }),
+    () => new Intl.Collator(locale, {
+      numeric: true,
+      sensitivity: 'base',
+    }),
     [locale],
   )
 
@@ -75,7 +85,9 @@ export function useDocumentFilters(
   const groupedDocs = useMemo<AuthorGroup[]>(() => {
     const groups = new Map<string, DocumentInfo[]>()
     for (const doc of allDocuments) {
-      if (includeDocument && !includeDocument(doc)) continue
+      if (includeDocument && !includeDocument(doc)) {
+        continue
+      }
 
       const derivedAuthor = deriveAuthor(doc.url)
       const author = doc.source === 'audiobook-upload'
@@ -98,8 +110,11 @@ export function useDocumentFilters(
         continue
       }
       const list = groups.get(author)
-      if (list) list.push(doc)
-      else groups.set(author, [doc])
+      if (list) {
+        list.push(doc)
+      } else {
+        groups.set(author, [doc])
+      }
     }
     return Array.from(groups.entries())
       .map(([author, docs]) => ({
@@ -108,8 +123,12 @@ export function useDocumentFilters(
       }))
       .sort((a, b) => {
         const uncategorized = t('library.groups.uncategorized')
-        if (a.author === uncategorized) return 1
-        if (b.author === uncategorized) return -1
+        if (a.author === uncategorized) {
+          return 1
+        }
+        if (b.author === uncategorized) {
+          return -1
+        }
         return collator.compare(a.author, b.author)
       })
   }, [allDocuments, collator, docFilterLower, includeDocument, locale, t])
@@ -117,8 +136,11 @@ export function useDocumentFilters(
   const toggleFilter = useCallback((url: string) => {
     setSelectedFilters((prev) => {
       const next = new Set(prev)
-      if (next.has(url)) next.delete(url)
-      else next.add(url)
+      if (next.has(url)) {
+        next.delete(url)
+      } else {
+        next.add(url)
+      }
       return next
     })
   }, [])
@@ -129,7 +151,9 @@ export function useDocumentFilters(
 
   const removeFilter = useCallback((url: string) => {
     setSelectedFilters((prev) => {
-      if (!prev.has(url)) return prev
+      if (!prev.has(url)) {
+        return prev
+      }
       const next = new Set(prev)
       next.delete(url)
       return next
@@ -139,8 +163,11 @@ export function useDocumentFilters(
   const toggleAuthor = useCallback((author: string) => {
     setCollapsedAuthors((prev) => {
       const next = new Set(prev)
-      if (next.has(author)) next.delete(author)
-      else next.add(author)
+      if (next.has(author)) {
+        next.delete(author)
+      } else {
+        next.add(author)
+      }
       return next
     })
   }, [])
@@ -149,8 +176,11 @@ export function useDocumentFilters(
     setSelectedFilters((prev) => {
       const next = new Set(prev)
       const allSelected = docs.every((d) => next.has(d.url))
-      if (allSelected) docs.forEach((d) => next.delete(d.url))
-      else docs.forEach((d) => next.add(d.url))
+      if (allSelected) {
+        docs.forEach((d) => next.delete(d.url))
+      } else {
+        docs.forEach((d) => next.add(d.url))
+      }
       return next
     })
   }, [])

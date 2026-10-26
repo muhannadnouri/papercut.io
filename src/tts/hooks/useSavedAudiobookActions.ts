@@ -1,4 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import i18n from '../../i18n'
 import {
   deleteNativeAudiobook,
@@ -16,16 +21,37 @@ import {
   createAudiobookId,
   type SavedAudiobookRecord,
 } from '../storage/AudiobookLibrary'
-import { isUserUploadUrl, removeUserUpload, upsertUserUpload } from '../storage/UserUploads'
-import type { TtsChunk, TtsDtype } from '../types'
-import { isNativeTtsCancellation, nativeTtsErrorMessage } from '../utils/errors'
-import { formatAudiobookExportMessage, formatStorageSize } from '../utils/format'
+import {
+  isUserUploadUrl,
+  removeUserUpload,
+  upsertUserUpload,
+} from '../storage/UserUploads'
+import type {
+  TtsChunk,
+  TtsDtype,
+} from '../types'
+import {
+  isNativeTtsCancellation,
+  nativeTtsErrorMessage,
+} from '../utils/errors'
+import {
+  formatAudiobookExportMessage,
+  formatStorageSize,
+} from '../utils/format'
 
-type ExportState = { id: string; status: 'exporting'; message: string }
-type DeleteState = { id: string; status: 'deleting'; message: string }
-type ImportState = { status: 'idle' | 'importing'; message: string }
-type NoticeState = { id: string; status: 'success' | 'cancelled' | 'error'; message: string }
-type ExportPreparation = { chunks: TtsChunk[]; sourceHtml?: string }
+type ExportState = { id: string;
+  status: 'exporting';
+  message: string }
+type DeleteState = { id: string;
+  status: 'deleting';
+  message: string }
+type ImportState = { status: 'idle' | 'importing';
+  message: string }
+type NoticeState = { id: string;
+  status: 'success' | 'cancelled' | 'error';
+  message: string }
+type ExportPreparation = { chunks: TtsChunk[];
+  sourceHtml?: string }
 
 interface SavedAudiobookActionsOptions {
   refreshSavedAudiobooks: () => void | Promise<void>
@@ -34,7 +60,10 @@ interface SavedAudiobookActionsOptions {
 }
 
 const NOTICE_TIMEOUT_MS = 10000
-const IDLE_IMPORT_STATE: ImportState = { status: 'idle', message: '' }
+const IDLE_IMPORT_STATE: ImportState = {
+  status: 'idle',
+  message: '',
+}
 
 /** Owns native saved-audiobook mutations and their transient UI state. */
 export function useSavedAudiobookActions({
@@ -49,7 +78,9 @@ export function useSavedAudiobookActions({
   const noticeTimerRef = useRef<number | null>(null)
 
   const clearNoticeTimer = useCallback(() => {
-    if (noticeTimerRef.current === null) return
+    if (noticeTimerRef.current === null) {
+      return
+    }
     window.clearTimeout(noticeTimerRef.current)
     noticeTimerRef.current = null
   }, [])
@@ -128,14 +159,20 @@ export function useSavedAudiobookActions({
     onDeleted: (deleteUserUpload: boolean) => void | Promise<void>,
   ) => {
     const deleteUserUpload = isUserUploadUrl(record.documentUrl)
-    setDeleteState({ id: record.id, status: 'deleting', message: i18n.t('tts.audiobooks.deletingAction') })
+    setDeleteState({
+      id: record.id,
+      status: 'deleting',
+      message: i18n.t('tts.audiobooks.deletingAction'),
+    })
     try {
       const result = await deleteNativeAudiobook({
         audiobookId: record.id,
         documentUrl: record.documentUrl,
         deleteUserUpload,
       })
-      if (deleteUserUpload) removeUserUpload(record.documentUrl)
+      if (deleteUserUpload) {
+        removeUserUpload(record.documentUrl)
+      }
       await refreshSavedAudiobooks()
       onUserUploadsChanged()
       await onDeleted(deleteUserUpload)
@@ -164,14 +201,19 @@ export function useSavedAudiobookActions({
     onImported: (result: NativeAudiobookImportResult) => void | Promise<void>,
   ) => {
     dismissNotice()
-    setImportState({ status: 'importing', message: i18n.t('tts.audiobooks.importingAction') })
+    setImportState({
+      status: 'importing',
+      message: i18n.t('tts.audiobooks.importingAction'),
+    })
     try {
       const result = await importNativeAudiobook()
       if (result.sourceKind === 'pdf') {
         try {
           const document = (await listUploadedDocuments())
             .find((item) => item.url === result.documentUrl)
-          if (!document) throw new Error('Imported audiobook PDF is missing from the library')
+          if (!document) {
+            throw new Error('Imported audiobook PDF is missing from the library')
+          }
           const indexed = await indexImportedPdfs({
             selected: 1,
             processed: 1,

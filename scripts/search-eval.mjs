@@ -1,9 +1,25 @@
 import { spawnSync } from 'node:child_process'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 import { ROOT } from './lib/paths.js'
 
@@ -17,7 +33,9 @@ if (process.argv[2] === '--prepare-library') {
 }
 if (['--review', '--review-comparison', '--check-review'].includes(process.argv[2])) {
   checkReviewPreparation()
-  if (process.argv[2] !== '--check-review') runReviewPreparation()
+  if (process.argv[2] !== '--check-review') {
+    runReviewPreparation()
+  }
   process.exit(0)
 }
 
@@ -33,14 +51,26 @@ function privatePath(path, existing = true) {
 }
 
 function reviewPacket(report) {
-  if (!Array.isArray(report.queries) || !report.queries.length) throw new Error('expected production query report')
+  if (!Array.isArray(report.queries) || !report.queries.length) {
+    throw new Error('expected production query report')
+  }
   const seen = new Set()
-  const key = { version: 1, snapshotSha256: report.snapshotSha256, sourceCommit: report.sourceCommit,
-    modelSha256: report.modelSha256, int8ModelSha256: report.int8ModelSha256,
-    inputReportSha256: report.inputReportSha256, broaderReportSha256: report.broaderReportSha256,
+  const key = {
+    version: 1,
+    snapshotSha256: report.snapshotSha256,
+    sourceCommit: report.sourceCommit,
+    modelSha256: report.modelSha256,
+    int8ModelSha256: report.int8ModelSha256,
+    inputReportSha256: report.inputReportSha256,
+    broaderReportSha256: report.broaderReportSha256,
     hybridEvidencePolicy: report.hybridEvidencePolicy,
-    rerankingModelSha256: report.reranking?.modelSha256, queries: [] }
-  const grades = { version: 1, queries: [] }
+    rerankingModelSha256: report.reranking?.modelSha256,
+    queries: [],
+  }
+  const grades = {
+    version: 1,
+    queries: [],
+  }
   const lines = [
     '# Private search relevance review', '',
     'Grade the document and the displayed evidence separately: **0 irrelevant, 1 useful, 2 directly relevant**. Leave a grade **null** when unsure; an unjudged candidate is not irrelevant. Add a short reason in `grades.json`, or reply with the candidate code and your grades.', '',
@@ -52,8 +82,20 @@ function reviewPacket(report) {
   const md = (text) => text.replace(/\s+/g, ' ').replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/[\\`*_{}[\]()#!|]/g, '\\$&')
   const sourceText = (excerpt) => excerpt.replace(/<\/?mark>/g, '').replace(/&(amp|lt|gt|quot|#39);/g,
-    (_, entity) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[entity])
-  const locator = ({ sectionIndex, pageIndex, byteStart, byteEnd, evidenceKind }) => ({ sectionIndex, pageIndex, byteStart, byteEnd, evidenceKind })
+    (_, entity) => ({
+      amp: '&',
+      lt: '<',
+      gt: '>',
+      quot: '"',
+      '#39': "'",
+    })[entity])
+  const locator = ({ sectionIndex, pageIndex, byteStart, byteEnd, evidenceKind }) => ({
+    sectionIndex,
+    pageIndex,
+    byteStart,
+    byteEnd,
+    evidenceKind,
+  })
   const renderPassage = (passage) => {
     if (typeof passage.excerpt !== 'string' || !Number.isInteger(passage.sectionIndex) || passage.sectionIndex < 0 ||
       (passage.pageIndex != null && (!Number.isInteger(passage.pageIndex) || passage.pageIndex < 0)) ||
@@ -63,7 +105,9 @@ function reviewPacket(report) {
       throw new Error('invalid source locator or excerpt')
     }
     lines.push(`Section index ${passage.sectionIndex}${passage.sectionTitle ? ` · ${md(passage.sectionTitle)}` : ''}${passage.pageIndex == null ? '' : ` · Page ${passage.pageIndex + 1}`}`, '')
-    if (passage.evidenceKind === 'semantic') lines.push('Conceptual source context; literal counts and highlights do not apply.', '')
+    if (passage.evidenceKind === 'semantic') {
+      lines.push('Conceptual source context; literal counts and highlights do not apply.', '')
+    }
     // Render source as inert code, including any authored HTML, after removing only native marks.
     lines.push(...sourceText(passage.excerpt).split(/\r?\n/).map((line) => `    ${line}`), '')
   }
@@ -79,14 +123,25 @@ function reviewPacket(report) {
       if (row.request?.exactPhrases?.length && (channel.includes('semantic') || channel.includes('hybrid')) && response != null) {
         throw new Error('mandatory quotation cannot receive semantic candidates')
       }
-      if (channel !== 'direct' && response == null) continue
-      if (!Array.isArray(response?.results)) throw new Error('expected native result evidence')
+      if (channel !== 'direct' && response == null) {
+        continue
+      }
+      if (!Array.isArray(response?.results)) {
+        throw new Error('expected native result evidence')
+      }
       const channelIds = new Set()
       for (const [rank, hit] of response.results.slice(0, 10).entries()) {
         if (typeof hit.documentId !== 'string' || !hit.documentId || channelIds.has(hit.documentId) ||
-          typeof hit.title !== 'string' || typeof hit.excerpt !== 'string') throw new Error('invalid or duplicate native hit')
+          typeof hit.title !== 'string' || typeof hit.excerpt !== 'string') {
+          throw new Error('invalid or duplicate native hit')
+        }
         channelIds.add(hit.documentId)
-        const candidate = candidates.get(hit.documentId) ?? { hit, evidenceSets: [], channels: [], order: createHash('sha256').update(JSON.stringify([row.id, hit.documentId])).digest('hex') }
+        const candidate = candidates.get(hit.documentId) ?? {
+          hit,
+          evidenceSets: [],
+          channels: [],
+          order: createHash('sha256').update(JSON.stringify([row.id, hit.documentId])).digest('hex'),
+        }
         const passages = hit.passages?.length ? hit.passages.slice(0, 3) : [hit]
         if (hit.semanticEvidence != null) {
           const source = hit.semanticEvidence
@@ -95,21 +150,40 @@ function reviewPacket(report) {
             context.some((passage) => passage.documentId !== hit.documentId || !Number.isInteger(passage.byteStart) || !Number.isInteger(passage.byteEnd))) {
             throw new Error('invalid hybrid semantic context')
           }
-          passages.push(...context.map((passage) => ({ ...passage, evidenceKind: 'semantic' })))
+          passages.push(...context.map((passage) => ({
+            ...passage,
+            evidenceKind: 'semantic',
+          })))
         }
-        const signature = JSON.stringify([hit, ...passages].map(({ excerpt, sectionIndex, pageIndex, byteStart, byteEnd }) => ({ excerpt: sourceText(excerpt), sectionIndex, pageIndex, byteStart, byteEnd })))
+        const signature = JSON.stringify([hit, ...passages].map(({ excerpt, sectionIndex, pageIndex, byteStart, byteEnd }) => ({
+          excerpt: sourceText(excerpt),
+          sectionIndex,
+          pageIndex,
+          byteStart,
+          byteEnd,
+        })))
         let evidence = candidate.evidenceSets.findIndex((set) => set.signature === signature)
         if (evidence < 0) {
           evidence = candidate.evidenceSets.length
-          candidate.evidenceSets.push({ signature, lead: hit, passages })
+          candidate.evidenceSets.push({
+            signature,
+            lead: hit,
+            passages,
+          })
         }
-        candidate.channels.push({ channel, rank: rank + 1, evidenceSet: evidence + 1 })
+        candidate.channels.push({
+          channel,
+          rank: rank + 1,
+          evidenceSet: evidence + 1,
+        })
         candidates.set(hit.documentId, candidate)
       }
     }
     const question = `Q${String(index + 1).padStart(2, '0')}`
     lines.push(`## ${question}: ${md(row.query)}`, '')
-    if (!candidates.size) lines.push('No candidates to grade; no relevance judgment is inferred.', '')
+    if (!candidates.size) {
+      lines.push('No candidates to grade; no relevance judgment is inferred.', '')
+    }
     const mappings = []
     const judgments = []
     const ordered = [...candidates.values()].sort((a, b) => a.order.localeCompare(b.order))
@@ -123,37 +197,80 @@ function reviewPacket(report) {
         lines.push('Lead excerpt (result card)', '')
         renderPassage(lead)
         lines.push('Lead excerpt grade: ___ · Reason: ___', '', 'Expanded evidence', '')
-        for (const passage of passages) renderPassage(passage)
-        sets.push({ code: evidenceCode, leadEvidenceGrade: null, evidenceGrade: null, notes: '' })
+        for (const passage of passages) {
+          renderPassage(passage)
+        }
+        sets.push({
+          code: evidenceCode,
+          leadEvidenceGrade: null,
+          evidenceGrade: null,
+          notes: '',
+        })
         lines.push('Evidence set grade: ___ · Reason: ___', '')
       }
       lines.push('Document grade: ___ · Overall evidence grade: ___ · Reason: ___', '')
-      mappings.push({ code, documentId: hit.documentId, channels,
-        locators: evidenceSets[0].passages.map(({ sectionIndex, pageIndex }) => ({ sectionIndex, pageIndex })), evidenceSets: evidenceSets.map(({ lead, passages }, index) => ({
-        code: sets[index].code, leadLocator: locator(lead), locators: passages.map(locator),
-      })) })
-      judgments.push({ code, documentGrade: null, evidenceGrade: null, notes: '', evidenceSets: sets })
+      mappings.push({
+        code,
+        documentId: hit.documentId,
+        channels,
+        locators: evidenceSets[0].passages.map(({ sectionIndex, pageIndex }) => ({
+          sectionIndex,
+          pageIndex,
+        })),
+        evidenceSets: evidenceSets.map(({ lead, passages }, index) => ({
+          code: sets[index].code,
+          leadLocator: locator(lead),
+          locators: passages.map(locator),
+        })),
+      })
+      judgments.push({
+        code,
+        documentGrade: null,
+        evidenceGrade: null,
+        notes: '',
+        evidenceSets: sets,
+      })
     }
-    key.queries.push({ id: row.id, query: row.query, request: row.request, suggestedQuery: row.response?.suggestedQuery,
-      directTotal: row.response?.totalDocuments, retryTotal: row.retry?.response?.totalDocuments, candidates: mappings })
-    grades.queries.push({ id: row.id, candidates: judgments })
+    key.queries.push({
+      id: row.id,
+      query: row.query,
+      request: row.request,
+      suggestedQuery: row.response?.suggestedQuery,
+      directTotal: row.response?.totalDocuments,
+      retryTotal: row.retry?.response?.totalDocuments,
+      candidates: mappings,
+    })
+    grades.queries.push({
+      id: row.id,
+      candidates: judgments,
+    })
   }
-  return { review: `${lines.join('\n')}\n`, key, grades }
+  return {
+    review: `${lines.join('\n')}\n`,
+    key,
+    grades,
+  }
 }
 
 function runReviewPreparation() {
   const comparison = process.argv[2] === '--review-comparison'
-  if (process.argv.length !== (comparison ? 6 : 5)) throw new Error('usage: search-eval.mjs --review REPORT_JSON NEW_OUTPUT_DIRECTORY or --review-comparison FLOAT32_JSON INT8_JSON NEW_OUTPUT_DIRECTORY')
+  if (process.argv.length !== (comparison ? 6 : 5)) {
+    throw new Error('usage: search-eval.mjs --review REPORT_JSON NEW_OUTPUT_DIRECTORY or --review-comparison FLOAT32_JSON INT8_JSON NEW_OUTPUT_DIRECTORY')
+  }
   const input = privatePath(process.argv[3])
   const output = privatePath(process.argv[comparison ? 5 : 4], false)
-  if (existsSync(output)) throw new Error('review directory must be new')
+  if (existsSync(output)) {
+    throw new Error('review directory must be new')
+  }
   const bytes = readFileSync(input)
   let report = JSON.parse(bytes)
   if (comparison) {
     const right = readFileSync(privatePath(process.argv[4]))
     report = comparisonReport(report, JSON.parse(right))
-    report.inputReportSha256 = { float32: createHash('sha256').update(bytes).digest('hex'),
-      int8: createHash('sha256').update(right).digest('hex') }
+    report.inputReportSha256 = {
+      float32: createHash('sha256').update(bytes).digest('hex'),
+      int8: createHash('sha256').update(right).digest('hex'),
+    }
   }
   const packet = reviewPacket(report)
   const reportSha256 = createHash('sha256').update(comparison ? JSON.stringify(report) : bytes).digest('hex')
@@ -162,10 +279,16 @@ function runReviewPreparation() {
   mkdirSync(output, { mode: 0o700 })
   try {
     for (const [name, data] of [['review.md', packet.review], ['grades.json', JSON.stringify(packet.grades, null, 2)], ['key.json', JSON.stringify(packet.key, null, 2)]]) {
-      writeFileSync(join(output, name), data, { flag: 'wx', mode: 0o600 })
+      writeFileSync(join(output, name), data, {
+        flag: 'wx',
+        mode: 0o600,
+      })
     }
   } catch (error) {
-    rmSync(output, { recursive: true, force: true })
+    rmSync(output, {
+      recursive: true,
+      force: true,
+    })
     throw error
   }
   console.log(`Private grading packet: ${packet.grades.queries.length} questions, ${packet.grades.queries.reduce((sum, row) => sum + row.candidates.length, 0)} candidates; all grades unjudged.`)
@@ -182,56 +305,128 @@ function comparisonReport(float32, int8) {
     }
   }
   for (const field of ['documents', 'passages', 'semanticEvidencePolicy', 'hybridEvidencePolicy', 'broaderReportSha256']) {
-    if (!isDeepStrictEqual(float32[field], int8[field])) throw new Error('comparison source or evidence policies differ')
+    if (!isDeepStrictEqual(float32[field], int8[field])) {
+      throw new Error('comparison source or evidence policies differ')
+    }
   }
   if ([float32, int8].some((report) => report.queries?.some((row) => row.rerankedSemanticResponse != null)) &&
-    (!float32.reranking?.modelSha256 || !int8.reranking?.modelSha256)) throw new Error('comparison reranking identity missing')
+    (!float32.reranking?.modelSha256 || !int8.reranking?.modelSha256)) {
+    throw new Error('comparison reranking identity missing')
+  }
   for (const field of ['modelSha256', 'scoreType', 'documents', 'passagesPerDocument', 'pairTokens', 'aggregation', 'batchSize', 'intraThreads']) {
-    if (!isDeepStrictEqual(float32.reranking?.[field], int8.reranking?.[field])) throw new Error('comparison reranking policies differ')
+    if (!isDeepStrictEqual(float32.reranking?.[field], int8.reranking?.[field])) {
+      throw new Error('comparison reranking policies differ')
+    }
   }
   if (!Array.isArray(float32.queries) || !Array.isArray(int8.queries) || float32.queries.length !== int8.queries.length) {
     throw new Error('comparison question pools differ')
   }
   const right = new Map(int8.queries.map((row) => [row.id, row]))
-  if (right.size !== int8.queries.length) throw new Error('duplicate comparison question')
-  return { ...float32, int8ModelSha256: int8.modelSha256, queries: float32.queries.map((row) => {
-    const other = right.get(row.id)
-    if (!other || ['query', 'request', 'response', 'broaderResponse', 'retry', 'excluded'].some((field) => !isDeepStrictEqual(row[field], other[field]))) {
-      throw new Error('comparison question, constraints or native controls differ')
-    }
-    if (row.request?.exactPhrases?.length && [row.semanticResponse, row.hybridResponse, row.semanticFirstResponse, row.rerankedSemanticResponse,
-      other.semanticResponse, other.hybridResponse, other.semanticFirstResponse, other.rerankedSemanticResponse].some((value) => value != null)) {
-      throw new Error('mandatory quotation cannot receive semantic candidates')
-    }
-    return { ...row, semanticInt8Response: other.semanticResponse, hybridInt8Response: other.hybridResponse,
-      semanticFirstInt8Response: other.semanticFirstResponse, rerankedSemanticInt8Response: other.rerankedSemanticResponse }
-  }) }
+  if (right.size !== int8.queries.length) {
+    throw new Error('duplicate comparison question')
+  }
+  return {
+    ...float32,
+    int8ModelSha256: int8.modelSha256,
+    queries: float32.queries.map((row) => {
+      const other = right.get(row.id)
+      if (!other || ['query', 'request', 'response', 'broaderResponse', 'retry', 'excluded'].some((field) => !isDeepStrictEqual(row[field], other[field]))) {
+        throw new Error('comparison question, constraints or native controls differ')
+      }
+      if (row.request?.exactPhrases?.length && [row.semanticResponse, row.hybridResponse, row.semanticFirstResponse, row.rerankedSemanticResponse,
+        other.semanticResponse, other.hybridResponse, other.semanticFirstResponse, other.rerankedSemanticResponse].some((value) => value != null)) {
+        throw new Error('mandatory quotation cannot receive semantic candidates')
+      }
+      return {
+        ...row,
+        semanticInt8Response: other.semanticResponse,
+        hybridInt8Response: other.hybridResponse,
+        semanticFirstInt8Response: other.semanticFirstResponse,
+        rerankedSemanticInt8Response: other.rerankedSemanticResponse,
+      }
+    }),
+  }
 }
 
 function checkReviewPreparation() {
-  const hit = (id) => ({ documentId: id, title: 'Navigation guide', excerpt: '<mark>Compass</mark> &amp; <script>source text</script>', sectionIndex: 0, pageIndex: 2 })
-  const report = { queries: [
-    { id: 'navigation', query: 'compas navigation', response: { results: [hit('a')] }, retry: { response: { results: [hit('a'), hit('b')] } } },
-    { id: 'empty', query: 'unknown', response: { results: [] } },
-    { id: 'many', query: 'archive', response: { results: Array.from({ length: 12 }, (_, i) => hit(`d${i}`)) } },
-  ] }
+  const hit = (id) => ({
+    documentId: id,
+    title: 'Navigation guide',
+    excerpt: '<mark>Compass</mark> &amp; <script>source text</script>',
+    sectionIndex: 0,
+    pageIndex: 2,
+  })
+  const report = {
+    queries: [
+      {
+        id: 'navigation',
+        query: 'compas navigation',
+        response: { results: [hit('a')] },
+        retry: { response: { results: [hit('a'), hit('b')] } },
+      },
+      {
+        id: 'empty',
+        query: 'unknown',
+        response: { results: [] },
+      },
+      {
+        id: 'many',
+        query: 'archive',
+        response: { results: Array.from({ length: 12 }, (_, i) => hit(`d${i}`)) },
+      },
+    ],
+  }
   const packet = reviewPacket(report)
   assert.deepEqual(packet, reviewPacket(report), 'packet ordering must be repeatable')
   assert.equal(packet.grades.queries[0].candidates.length, 2, 'deduplicate across direct and retry')
   assert.equal(packet.grades.queries[1].candidates.length, 0)
   assert.equal(packet.grades.queries[2].candidates.length, 10, 'bound each channel to ten')
   assert.deepEqual(packet.key.queries[0].candidates.find((row) => row.documentId === 'a').channels,
-    [{ channel: 'direct', rank: 1, evidenceSet: 1 }, { channel: 'retry', rank: 1, evidenceSet: 1 }])
+    [{
+      channel: 'direct',
+      rank: 1,
+      evidenceSet: 1,
+    }, {
+      channel: 'retry',
+      rank: 1,
+      evidenceSet: 1,
+    }])
   assert.ok(packet.grades.queries.every((row) => row.candidates.every((item) => item.documentGrade === null && item.evidenceGrade === null)))
   assert.ok(packet.review.includes('    Compass & <script>source text</script>'), 'source HTML must be inert')
   assert.ok(!packet.review.includes('<mark>') && !packet.review.includes('rank:'))
   assert.throws(() => reviewPacket({ queries: [report.queries[0], report.queries[0]] }), /duplicate query/)
-  assert.throws(() => reviewPacket({ queries: [{ id: 'bad', query: 'archive', response: { results: [{ ...hit('a'), sectionIndex: -1 }] } }] }), /locator/)
-  assert.throws(() => reviewPacket({ queries: [{ id: 'duplicate', query: 'archive', response: { results: [hit('a'), hit('a')] } }] }), /duplicate native hit/)
-  const semantic = { ...hit('a'), excerpt: 'Authored compass passage', byteStart: 10, byteEnd: 30 }
-  const pooled = reviewPacket({ queries: [{ ...report.queries[0],
-    semanticResponse: { results: [semantic, hit('c')] }, hybridResponse: { results: [semantic] },
-  }] })
+  assert.throws(() => reviewPacket({
+    queries: [{
+      id: 'bad',
+      query: 'archive',
+      response: {
+        results: [{
+          ...hit('a'),
+          sectionIndex: -1,
+        }],
+      },
+    }],
+  }), /locator/)
+  assert.throws(() => reviewPacket({
+    queries: [{
+      id: 'duplicate',
+      query: 'archive',
+      response: { results: [hit('a'), hit('a')] },
+    }],
+  }), /duplicate native hit/)
+  const semantic = {
+    ...hit('a'),
+    excerpt: 'Authored compass passage',
+    byteStart: 10,
+    byteEnd: 30,
+  }
+  const pooled = reviewPacket({
+    queries: [{
+      ...report.queries[0],
+      semanticResponse: { results: [semantic, hit('c')] },
+      hybridResponse: { results: [semantic] },
+    }],
+  })
   const mapping = pooled.key.queries[0].candidates.find((row) => row.documentId === 'a')
   assert.equal(pooled.grades.queries[0].candidates.length, 3)
   assert.equal(mapping.evidenceSets.length, 2, 'retain different lexical and semantic evidence')
@@ -240,88 +435,363 @@ function checkReviewPreparation() {
   assert.ok(pooled.grades.queries[0].candidates.every((row) => row.evidenceSets.every((set) => set.leadEvidenceGrade === null)))
   assert.equal(mapping.evidenceSets[1].locators[0].byteStart, 10)
   assert.equal(mapping.evidenceSets[1].leadLocator.byteStart, 10)
-  const expanded = [{ ...hit('a'), excerpt: 'A compass needle aligns with magnetic north.', sectionIndex: 1 }]
-  const distinctLeads = reviewPacket({ queries: [{ ...report.queries[0],
-    retry: undefined,
-    response: { results: [{ ...hit('a'), passages: expanded }] },
-    broaderResponse: { results: [{ ...hit('a'), excerpt: 'Navigation index', sectionIndex: 4, passages: expanded }] },
-  }] })
+  const expanded = [{
+    ...hit('a'),
+    excerpt: 'A compass needle aligns with magnetic north.',
+    sectionIndex: 1,
+  }]
+  const distinctLeads = reviewPacket({
+    queries: [{
+      ...report.queries[0],
+      retry: undefined,
+      response: {
+        results: [{
+          ...hit('a'),
+          passages: expanded,
+        }],
+      },
+      broaderResponse: {
+        results: [{
+          ...hit('a'),
+          excerpt: 'Navigation index',
+          sectionIndex: 4,
+          passages: expanded,
+        }],
+      },
+    }],
+  })
   const leads = distinctLeads.key.queries[0].candidates.find((row) => row.documentId === 'a').evidenceSets
   assert.equal(leads.length, 2, 'identical expanded passages must not hide different result-card leads')
   assert.deepEqual(leads.map((set) => set.leadLocator.sectionIndex), [0, 4])
   assert.deepEqual(leads[0].locators, leads[1].locators)
   assert.ok(distinctLeads.review.includes('Lead excerpt (result card)') && distinctLeads.review.includes('Lead excerpt grade: ___'))
-  assert.throws(() => reviewPacket({ queries: [{ ...report.queries[0], response: { results: [{
-    ...hit('a'), sectionIndex: -1, passages: expanded,
-  }] } }] }), /locator/, 'validate the actual lead even when expanded passages are valid')
-  assert.throws(() => reviewPacket({ queries: [{ ...report.queries[0], semanticResponse: { results: [{ ...semantic, byteEnd: 0 }] } }] }), /locator/)
-  const supportedHit = { ...hit('a'), semanticEvidence: semantic }
-  const supported = reviewPacket({ queries: [{ ...report.queries[0], hybridResponse: { results: [supportedHit] } }] })
+  assert.throws(() => reviewPacket({
+    queries: [{
+      ...report.queries[0],
+      response: {
+        results: [{
+          ...hit('a'),
+          sectionIndex: -1,
+          passages: expanded,
+        }],
+      },
+    }],
+  }), /locator/, 'validate the actual lead even when expanded passages are valid')
+  assert.throws(() => reviewPacket({
+    queries: [{
+      ...report.queries[0],
+      semanticResponse: {
+        results: [{
+          ...semantic,
+          byteEnd: 0,
+        }],
+      },
+    }],
+  }), /locator/)
+  const supportedHit = {
+    ...hit('a'),
+    semanticEvidence: semantic,
+  }
+  const supported = reviewPacket({
+    queries: [{
+      ...report.queries[0],
+      hybridResponse: { results: [supportedHit] },
+    }],
+  })
   const supportSet = supported.key.queries[0].candidates.find((row) => row.documentId === 'a').evidenceSets[1]
   assert.equal(supportSet.locators.length, 2, 'retain lexical evidence and conceptual context separately')
   assert.equal(supportSet.locators[1].evidenceKind, 'semantic')
   assert.ok(supported.review.includes('Conceptual source context; literal counts and highlights do not apply.'))
-  const ordered = reviewPacket({ queries: [{ ...report.queries[0], semanticFirstResponse: { results: [supportedHit] } }] })
-  assert.deepEqual(ordered.key.queries[0].candidates, supported.key.queries[0].candidates.map((candidate) => ({ ...candidate, channels: candidate.channels.map((item) => item.channel === 'hybrid' ? { ...item, channel: 'semantic-first-hybrid' } : item) })))
-  assert.throws(() => reviewPacket({ queries: [{ ...report.queries[0], request: { exactPhrases: ['silver compass'] }, semanticFirstResponse: { results: [supportedHit] } }] }), /quotation/)
-  assert.throws(() => reviewPacket({ queries: [{ ...report.queries[0], semanticFirstResponse: { results: [{ ...supportedHit, semanticEvidence: { ...semantic, documentId: 'other' } }] } }] }), /hybrid semantic/)
-  const nativePassages = [0, 1, 2].map((sectionIndex) => ({ ...hit('a'), sectionIndex }))
-  const complete = reviewPacket({ queries: [{ ...report.queries[0], hybridResponse: { results: [{
-    ...supportedHit, passages: nativePassages,
-    semanticEvidence: { ...semantic, passages: [semantic, { ...semantic, sectionIndex: 3 }] },
-  }] } }] })
+  const ordered = reviewPacket({
+    queries: [{
+      ...report.queries[0],
+      semanticFirstResponse: { results: [supportedHit] },
+    }],
+  })
+  assert.deepEqual(ordered.key.queries[0].candidates, supported.key.queries[0].candidates.map((candidate) => ({
+    ...candidate,
+    channels: candidate.channels.map((item) => item.channel === 'hybrid' ? {
+      ...item,
+      channel: 'semantic-first-hybrid',
+    } : item),
+  })))
+  assert.throws(() => reviewPacket({
+    queries: [{
+      ...report.queries[0],
+      request: { exactPhrases: ['silver compass'] },
+      semanticFirstResponse: { results: [supportedHit] },
+    }],
+  }), /quotation/)
+  assert.throws(() => reviewPacket({
+    queries: [{
+      ...report.queries[0],
+      semanticFirstResponse: {
+        results: [{
+          ...supportedHit,
+          semanticEvidence: {
+            ...semantic,
+            documentId: 'other',
+          },
+        }],
+      },
+    }],
+  }), /hybrid semantic/)
+  const nativePassages = [0, 1, 2].map((sectionIndex) => ({
+    ...hit('a'),
+    sectionIndex,
+  }))
+  const complete = reviewPacket({
+    queries: [{
+      ...report.queries[0],
+      hybridResponse: {
+        results: [{
+          ...supportedHit,
+          passages: nativePassages,
+          semanticEvidence: {
+            ...semantic,
+            passages: [semantic, {
+              ...semantic,
+              sectionIndex: 3,
+            }],
+          },
+        }],
+      },
+    }],
+  })
   const completeSet = complete.key.queries[0].candidates.find((row) => row.documentId === 'a').evidenceSets[1]
   assert.equal(completeSet.locators.length, 5, 'bound context to three lexical plus two semantic passages')
   assert.equal(nativePassages.length, 3, 'review preparation must not mutate the native passages')
-  assert.throws(() => reviewPacket({ queries: [{ ...report.queries[0], hybridResponse: { results: [{ ...supportedHit,
-    semanticEvidence: { ...semantic, documentId: 'b' } }] } }] }), /hybrid semantic/)
-  assert.throws(() => reviewPacket({ queries: [{ ...report.queries[0], hybridResponse: { results: [{ ...supportedHit,
-    semanticEvidence: { ...semantic, passages: [semantic, semantic, semantic] } }] } }] }), /hybrid semantic/)
-  assert.throws(() => reviewPacket({ queries: [{ ...report.queries[0], hybridResponse: { results: [{ ...supportedHit,
-    semanticEvidence: { ...semantic, byteEnd: 0 } }] } }] }), /locator/)
-  assert.throws(() => reviewPacket({ queries: [{ ...report.queries[0], response: { results: [supportedHit] } }] }), /hybrid semantic/)
-  const left = { ...report, corpusSha256: 'a'.repeat(64), snapshotSha256: 'b'.repeat(64), lexicalSha256: 'c'.repeat(64),
-    modelQuantization: 'none', modelSha256: 'float32', queries: [{ ...report.queries[0], semanticResponse: { results: [semantic] } }] }
-  const right = { ...left, modelQuantization: 'dynamic-int8', modelSha256: 'int8', queries: [{ ...left.queries[0],
-    semanticResponse: { results: [{ ...semantic, excerpt: 'Different source context' }, hit('d')] } }] }
+  assert.throws(() => reviewPacket({
+    queries: [{
+      ...report.queries[0],
+      hybridResponse: {
+        results: [{
+          ...supportedHit,
+          semanticEvidence: {
+            ...semantic,
+            documentId: 'b',
+          },
+        }],
+      },
+    }],
+  }), /hybrid semantic/)
+  assert.throws(() => reviewPacket({
+    queries: [{
+      ...report.queries[0],
+      hybridResponse: {
+        results: [{
+          ...supportedHit,
+          semanticEvidence: {
+            ...semantic,
+            passages: [semantic, semantic, semantic],
+          },
+        }],
+      },
+    }],
+  }), /hybrid semantic/)
+  assert.throws(() => reviewPacket({
+    queries: [{
+      ...report.queries[0],
+      hybridResponse: {
+        results: [{
+          ...supportedHit,
+          semanticEvidence: {
+            ...semantic,
+            byteEnd: 0,
+          },
+        }],
+      },
+    }],
+  }), /locator/)
+  assert.throws(() => reviewPacket({
+    queries: [{
+      ...report.queries[0],
+      response: { results: [supportedHit] },
+    }],
+  }), /hybrid semantic/)
+  const left = {
+    ...report,
+    corpusSha256: 'a'.repeat(64),
+    snapshotSha256: 'b'.repeat(64),
+    lexicalSha256: 'c'.repeat(64),
+    modelQuantization: 'none',
+    modelSha256: 'float32',
+    queries: [{
+      ...report.queries[0],
+      semanticResponse: { results: [semantic] },
+    }],
+  }
+  const right = {
+    ...left,
+    modelQuantization: 'dynamic-int8',
+    modelSha256: 'int8',
+    queries: [{
+      ...left.queries[0],
+      semanticResponse: {
+        results: [{
+          ...semantic,
+          excerpt: 'Different source context',
+        }, hit('d')],
+      },
+    }],
+  }
   const combined = reviewPacket(comparisonReport(left, right))
   assert.equal(combined.grades.queries[0].candidates.length, 3, 'include both variants without duplicate documents')
   const shared = combined.key.queries[0].candidates.find((row) => row.documentId === 'a')
   assert.equal(shared.evidenceSets.length, 3, 'keep distinct variant excerpts independently judgeable')
   assert.ok(shared.channels.some((row) => row.channel === 'semantic-int8'))
-  const semanticFirstComparison = comparisonReport({ ...left, queries: [{ ...left.queries[0], semanticFirstResponse: { results: [supportedHit] } }] }, { ...right, queries: [{ ...right.queries[0], semanticFirstResponse: { results: [supportedHit] } }] })
+  const semanticFirstComparison = comparisonReport({
+    ...left,
+    queries: [{
+      ...left.queries[0],
+      semanticFirstResponse: { results: [supportedHit] },
+    }],
+  }, {
+    ...right,
+    queries: [{
+      ...right.queries[0],
+      semanticFirstResponse: { results: [supportedHit] },
+    }],
+  })
   assert.deepEqual(semanticFirstComparison.queries[0].semanticFirstInt8Response, { results: [supportedHit] })
   assert.ok(reviewPacket(semanticFirstComparison).key.queries[0].candidates.find((row) => row.documentId === 'a').channels.some((row) => row.channel === 'semantic-first-hybrid-int8'))
   assert.ok(combined.grades.queries[0].candidates.every((row) => row.documentGrade === null && row.evidenceSets.every((set) => set.evidenceGrade === null)))
-  const reranking = { modelSha256: 'reranker', documents: 10, passagesPerDocument: 2, pairTokens: 512 }
-  const rerankedLeft = { ...left, reranking, queries: [{ ...left.queries[0], rerankedSemanticResponse: left.queries[0].semanticResponse }] }
-  const rerankedRight = { ...right, reranking, queries: [{ ...right.queries[0],
-    rerankedSemanticResponse: { results: [...right.queries[0].semanticResponse.results].reverse() } }] }
+  const reranking = {
+    modelSha256: 'reranker',
+    documents: 10,
+    passagesPerDocument: 2,
+    pairTokens: 512,
+  }
+  const rerankedLeft = {
+    ...left,
+    reranking,
+    queries: [{
+      ...left.queries[0],
+      rerankedSemanticResponse: left.queries[0].semanticResponse,
+    }],
+  }
+  const rerankedRight = {
+    ...right,
+    reranking,
+    queries: [{
+      ...right.queries[0],
+      rerankedSemanticResponse: { results: [...right.queries[0].semanticResponse.results].reverse() },
+    }],
+  }
   const reranked = reviewPacket(comparisonReport(rerankedLeft, rerankedRight))
   assert.equal(reranked.key.rerankingModelSha256, 'reranker')
   assert.deepEqual(reranked.grades, combined.grades, 'reranking identical evidence must not duplicate the blinded pool or assign grades')
   assert.equal(reranked.key.queries[0].candidates.find((row) => row.documentId === 'a').channels.find((row) => row.channel === 'reranked-semantic-int8').rank, 2)
   assert.ok(!reranked.review.includes('rerankScore') && !reranked.review.includes('rank:'))
-  assert.throws(() => comparisonReport(rerankedLeft, { ...rerankedRight, reranking: { ...reranking, pairTokens: 256 } }), /reranking policies/)
-  assert.throws(() => comparisonReport({ ...rerankedLeft, reranking: undefined }, { ...rerankedRight, reranking: undefined }), /reranking identity/)
-  assert.throws(() => reviewPacket({ queries: [{ ...rerankedLeft.queries[0], request: { exactPhrases: ['silver compass'] }, semanticResponse: null }] }), /quotation/)
-  const broad = reviewPacket({ queries: [{ ...report.queries[0], broaderResponse: { results: [hit('e')] } }] })
+  assert.throws(() => comparisonReport(rerankedLeft, {
+    ...rerankedRight,
+    reranking: {
+      ...reranking,
+      pairTokens: 256,
+    },
+  }), /reranking policies/)
+  assert.throws(() => comparisonReport({
+    ...rerankedLeft,
+    reranking: undefined,
+  }, {
+    ...rerankedRight,
+    reranking: undefined,
+  }), /reranking identity/)
+  assert.throws(() => reviewPacket({
+    queries: [{
+      ...rerankedLeft.queries[0],
+      request: { exactPhrases: ['silver compass'] },
+      semanticResponse: null,
+    }],
+  }), /quotation/)
+  const broad = reviewPacket({
+    queries: [{
+      ...report.queries[0],
+      broaderResponse: { results: [hit('e')] },
+    }],
+  })
   assert.equal(broad.grades.queries[0].candidates.length, 3)
   assert.equal(broad.key.queries[0].candidates.find((row) => row.documentId === 'e').channels[0].channel, 'broader')
-  const sameText = reviewPacket({ queries: [{ ...report.queries[0], broaderResponse: { results: [{ ...hit('a'), excerpt: hit('a').excerpt.replace(/<\/?mark>/g, '') }] } }] })
+  const sameText = reviewPacket({
+    queries: [{
+      ...report.queries[0],
+      broaderResponse: {
+        results: [{
+          ...hit('a'),
+          excerpt: hit('a').excerpt.replace(/<\/?mark>/g, ''),
+        }],
+      },
+    }],
+  })
   assert.equal(sameText.key.queries[0].candidates.find((row) => row.documentId === 'a').evidenceSets.length, 1, 'highlight changes must not duplicate displayed evidence')
-  assert.throws(() => comparisonReport(left, { ...right, corpusSha256: 'd'.repeat(64) }), /hashes/)
-  assert.throws(() => comparisonReport(left, { ...right, hybridEvidencePolicy: { maximumSemanticPassages: 1 } }), /evidence policies/)
-  assert.throws(() => comparisonReport(left, { ...right, queries: [{ ...right.queries[0], request: { mode: 'broader' } }] }), /constraints/)
-  assert.throws(() => comparisonReport(left, { ...right, queries: [{ ...right.queries[0], response: { results: [] } }] }), /controls/)
-  assert.throws(() => comparisonReport({ ...left, queries: [left.queries[0], { ...left.queries[0], id: 'second' }] },
-    { ...right, queries: [right.queries[0], right.queries[0]] }), /duplicate/)
-  const quoted = { ...left, queries: [{ ...left.queries[0], request: { exactPhrases: ['silver compass'] } }] }
-  assert.throws(() => comparisonReport(quoted, { ...right, queries: [{ ...right.queries[0], request: quoted.queries[0].request }] }), /quotation/)
+  assert.throws(() => comparisonReport(left, {
+    ...right,
+    corpusSha256: 'd'.repeat(64),
+  }), /hashes/)
+  assert.throws(() => comparisonReport(left, {
+    ...right,
+    hybridEvidencePolicy: { maximumSemanticPassages: 1 },
+  }), /evidence policies/)
+  assert.throws(() => comparisonReport(left, {
+    ...right,
+    queries: [{
+      ...right.queries[0],
+      request: { mode: 'broader' },
+    }],
+  }), /constraints/)
+  assert.throws(() => comparisonReport(left, {
+    ...right,
+    queries: [{
+      ...right.queries[0],
+      response: { results: [] },
+    }],
+  }), /controls/)
+  assert.throws(() => comparisonReport({
+    ...left,
+    queries: [left.queries[0], {
+      ...left.queries[0],
+      id: 'second',
+    }],
+  },
+  {
+    ...right,
+    queries: [right.queries[0], right.queries[0]],
+  }), /duplicate/)
+  const quoted = {
+    ...left,
+    queries: [{
+      ...left.queries[0],
+      request: { exactPhrases: ['silver compass'] },
+    }],
+  }
+  assert.throws(() => comparisonReport(quoted, {
+    ...right,
+    queries: [{
+      ...right.queries[0],
+      request: quoted.queries[0].request,
+    }],
+  }), /quotation/)
 
-  const aligned = embeddingInputs({ snapshotSha256: 'same-source', queries: [{ id: 'scope', query: 'compass',
-    request: { documentUrls: ['doc:a'], exactPhrases: ['silver compass'] }, ids: ['a'], response: { results: [hit('a')] },
-  }] }, [{ id: 'a', url: 'doc:a', sections: [{ text: 'Authored source', page_index: 2 }] }])
+  const aligned = embeddingInputs({
+    snapshotSha256: 'same-source',
+    queries: [{
+      id: 'scope',
+      query: 'compass',
+      request: {
+        documentUrls: ['doc:a'],
+        exactPhrases: ['silver compass'],
+      },
+      ids: ['a'],
+      response: { results: [hit('a')] },
+    }],
+  }, [{
+    id: 'a',
+    url: 'doc:a',
+    sections: [{
+      text: 'Authored source',
+      page_index: 2,
+    }],
+  }])
   const corpus = JSON.parse(aligned.corpusBytes)
   assert.deepEqual(corpus.queries[0].scope, ['a'])
   assert.deepEqual(corpus.queries[0].phrases, ['silver compass'])
@@ -337,32 +807,56 @@ function embeddingInputs(report, documents) {
     throw new Error('duplicate embedding document identity')
   }
   for (const row of report.queries) {
-    if (row.request.documentUrls?.some((url) => !urls.has(url))) throw new Error('embedding scope contains an unknown document')
+    if (row.request.documentUrls?.some((url) => !urls.has(url))) {
+      throw new Error('embedding scope contains an unknown document')
+    }
   }
-  const corpus = { snapshotSha256: report.snapshotSha256, documents, queries: report.queries.map((row) => ({
-    id: row.id, query: row.query, category: 'development', phrases: row.request.exactPhrases,
-    scope: row.request.documentUrls ? documents.filter((doc) => row.request.documentUrls.includes(doc.url)).map((doc) => doc.id) : [],
-    relevant: [],
-  })) }
+  const corpus = {
+    snapshotSha256: report.snapshotSha256,
+    documents,
+    queries: report.queries.map((row) => ({
+      id: row.id,
+      query: row.query,
+      category: 'development',
+      phrases: row.request.exactPhrases,
+      scope: row.request.documentUrls ? documents.filter((doc) => row.request.documentUrls.includes(doc.url)).map((doc) => doc.id) : [],
+      relevant: [],
+    })),
+  }
   const corpusBytes = `${JSON.stringify(corpus)}\n`
-  const lexical = { corpus_sha256: createHash('sha256').update(corpusBytes).digest('hex'),
-    snapshotSha256: report.snapshotSha256, queries: report.queries }
-  return { corpusBytes, lexical }
+  const lexical = {
+    corpus_sha256: createHash('sha256').update(corpusBytes).digest('hex'),
+    snapshotSha256: report.snapshotSha256,
+    queries: report.queries,
+  }
+  return {
+    corpusBytes,
+    lexical,
+  }
 }
 
 function runLibraryPreparation() {
-  if (process.argv.length !== 5) throw new Error('usage: search-eval.mjs --prepare-library CORPUS_JSON NEW_EXTERNAL_DIRECTORY')
+  if (process.argv.length !== 5) {
+    throw new Error('usage: search-eval.mjs --prepare-library CORPUS_JSON NEW_EXTERNAL_DIRECTORY')
+  }
   const input = privatePath(process.argv[3])
   const output = privatePath(process.argv[4], false)
-  if (existsSync(output)) throw new Error('prepared library directory must be new')
+  if (existsSync(output)) {
+    throw new Error('prepared library directory must be new')
+  }
   mkdirSync(output, { mode: 0o700 })
   try {
     run('cargo', ['test', '--offline', '--manifest-path', 'src-tauri/Cargo.toml',
       'search_v2_prepare_library', '--lib', '--', '--ignored'], {
-      ...process.env, PAPERCUT_SEARCH_EVAL_INPUT: input, PAPERCUT_SEARCH_EVAL_PREPARED_LIBRARY: output,
+      ...process.env,
+      PAPERCUT_SEARCH_EVAL_INPUT: input,
+      PAPERCUT_SEARCH_EVAL_PREPARED_LIBRARY: output,
     })
   } catch (error) {
-    rmSync(output, { recursive: true, force: true })
+    rmSync(output, {
+      recursive: true,
+      force: true,
+    })
     throw error
   }
   console.log('External evaluation library prepared through the production document store.')
@@ -373,10 +867,16 @@ function runLibraryEvaluation() {
     throw new Error('usage: search-eval.mjs --library LIBRARY_SQLITE QUERIES_JSON OUTPUT_JSON [--embedding-input NEW_EXTERNAL_DIRECTORY]')
   }
   const [library, queries, output] = process.argv.slice(3, 6).map((path, index) => privatePath(path, index !== 2))
-  if (output === library || output === queries) throw new Error('output must not overwrite an input')
-  if (existsSync(output)) throw new Error('output must be a new file')
+  if (output === library || output === queries) {
+    throw new Error('output must not overwrite an input')
+  }
+  if (existsSync(output)) {
+    throw new Error('output must be a new file')
+  }
   const embeddingDirectory = process.argv[7] ? privatePath(process.argv[7], false) : null
-  if (embeddingDirectory && existsSync(embeddingDirectory)) throw new Error('embedding input directory must be new')
+  if (embeddingDirectory && existsSync(embeddingDirectory)) {
+    throw new Error('embedding input directory must be new')
+  }
   const temp = mkdtempSync(join(tmpdir(), 'papercut-library-eval-'))
   try {
     const requests = join(temp, 'requests.json')
@@ -400,7 +900,10 @@ function runLibraryEvaluation() {
       row.query = input.get(row.id).query
       row.request = parsed.get(row.id)
     }
-    const commit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' })
+    const commit = spawnSync('git', ['rev-parse', 'HEAD'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    })
     report.sourceCommit = commit.status === 0 ? commit.stdout.trim() : null
     report.queriesSha256 = createHash('sha256').update(readFileSync(queries)).digest('hex')
     report.snapshotSha256 = createHash('sha256').update(readFileSync(env.PAPERCUT_SEARCH_EVAL_SNAPSHOT)).digest('hex')
@@ -409,17 +912,32 @@ function runLibraryEvaluation() {
       const { corpusBytes, lexical } = embeddingInputs(report, documents)
       mkdirSync(embeddingDirectory, { mode: 0o700 })
       try {
-        writeFileSync(join(embeddingDirectory, 'corpus.json'), corpusBytes, { flag: 'wx', mode: 0o600 })
-        writeFileSync(join(embeddingDirectory, 'lexical.json'), `${JSON.stringify(lexical)}\n`, { flag: 'wx', mode: 0o600 })
+        writeFileSync(join(embeddingDirectory, 'corpus.json'), corpusBytes, {
+          flag: 'wx',
+          mode: 0o600,
+        })
+        writeFileSync(join(embeddingDirectory, 'lexical.json'), `${JSON.stringify(lexical)}\n`, {
+          flag: 'wx',
+          mode: 0o600,
+        })
       } catch (error) {
-        rmSync(embeddingDirectory, { recursive: true, force: true })
+        rmSync(embeddingDirectory, {
+          recursive: true,
+          force: true,
+        })
         throw error
       }
     }
-    writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`, { flag: 'wx', mode: 0o600 })
+    writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`, {
+      flag: 'wx',
+      mode: 0o600,
+    })
     console.log(`Read-only production evaluation: ${report.queries.length} queries; report written outside checkout.`)
   } finally {
-    rmSync(temp, { recursive: true, force: true })
+    rmSync(temp, {
+      recursive: true,
+      force: true,
+    })
   }
 }
 
@@ -431,13 +949,23 @@ const rawPath = join(scratch, 'native.json')
 const outputPath = resolve(process.argv[2] ?? join(ROOT, 'dist/search-v2-evaluation.json'))
 
 function run(command, args, env = process.env) {
-  const result = spawnSync(command, args, { cwd: ROOT, env, stdio: 'inherit' })
-  if (result.error) throw result.error
-  if (result.status !== 0) throw new Error(`${command} failed with exit code ${result.status}`)
+  const result = spawnSync(command, args, {
+    cwd: ROOT,
+    env,
+    stdio: 'inherit',
+  })
+  if (result.error) {
+    throw result.error
+  }
+  if (result.status !== 0) {
+    throw new Error(`${command} failed with exit code ${result.status}`)
+  }
 }
 
 function percentile(values, fraction) {
-  if (values.length === 0) return null
+  if (values.length === 0) {
+    return null
+  }
   const sorted = [...values].sort((left, right) => left - right)
   return sorted[Math.ceil(fraction * sorted.length) - 1]
 }
@@ -509,7 +1037,13 @@ function discountedGain(found, labels, key) {
 
 assert.equal(reciprocal(['miss', 'hit'], [{ id: 'hit' }], (item) => item.id), 0.5)
 assert.equal(discountedGain(['direct', 'useful'], [
-  { id: 'direct', grade: 2 }, { id: 'useful', grade: 1 },
+  {
+    id: 'direct',
+    grade: 2,
+  }, {
+    id: 'useful',
+    grade: 1,
+  },
 ], (item) => item.id), 1)
 assert.equal(percentile([5, 1, 3], 0.5), 3)
 
@@ -523,7 +1057,9 @@ try {
   const byId = new Map(fixture.queries.map((query) => [query.id, query]))
   const rows = native.query_results.map((row) => {
     const query = byId.get(row.id)
-    if (!query) throw new Error(`Unlabeled query ${row.id}`)
+    if (!query) {
+      throw new Error(`Unlabeled query ${row.id}`)
+    }
     return {
       id: row.id,
       mode: query.mode,
@@ -547,7 +1083,9 @@ try {
   for (const previous of baseline.queries) {
     assert.ok(byId.has(previous.id), `missing baseline query ${previous.id}`)
     const current = currentById.get(previous.id)
-    if (!current) continue // A selected evaluation split may omit this query.
+    if (!current) {
+      continue
+    } // A selected evaluation split may omit this query.
     for (const label of previous.labels.filter((item) => item.grade > 0 && previous.ids.slice(0, 10).includes(item.id))) {
       assert.ok(current.ids.slice(0, 10).includes(label.id), `${previous.id}: lost baseline relevant document ${label.id}`)
     }
@@ -559,9 +1097,15 @@ try {
   const phases = ['db_ms', 'candidate_ms', 'verification_ms', 'exact_evidence_ms', 'result_evidence_ms', 'term_matches_ms', 'result_ms', 'total_ms']
   const warmPhases = Object.fromEntries(phases.map((field) => {
     const samples = native.query_results.flatMap((row) => row.warm.map((sample) => sample.measurements[field]))
-    return [field, { p50: percentile(samples, 0.5), p95: percentile(samples, 0.95) }]
+    return [field, {
+      p50: percentile(samples, 0.5),
+      p95: percentile(samples, 0.95),
+    }]
   }))
-  const commit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' })
+  const commit = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  })
   const report = {
     sourceCommit: commit.status === 0 ? commit.stdout.trim() : null,
     corpusVersion: native.corpus_version,
@@ -576,11 +1120,28 @@ try {
       memoryMethod: native.peak_rss_kib == null ? 'unavailable' : 'Linux process VmHWM; includes the test binary and fixture creation',
       peakRssKiB: native.peak_rss_kib,
     },
-    corpus: { documents: native.documents, sections: native.sections, sqliteBytes: native.sqlite_bytes, queries: rows.length },
+    corpus: {
+      documents: native.documents,
+      sections: native.sections,
+      sqliteBytes: native.sqlite_bytes,
+      queries: rows.length,
+    },
     timingMethod: 'First run after fixture creation and five repeats, each reopening SQLite; OS page cache is not cleared. Milliseconds are native search pipeline timings.',
     metricsNote: 'Grades are 0 irrelevant, 1 useful, 2 direct. Labels are incomplete; unlabeled returns are scored as 0 for nDCG. Empty-relevance cases are contract checks and excluded from ranking averages.',
-    metrics: { all: quality(rows), byMode: grouped('mode'), bySplit: grouped('split'), byLanguage: grouped('language'), byCategory: grouped('category') },
-    performance: { firstMs: { p50: percentile(rows.map((row) => row.firstMs), 0.5), p95: percentile(rows.map((row) => row.firstMs), 0.95) }, warmPhases },
+    metrics: {
+      all: quality(rows),
+      byMode: grouped('mode'),
+      bySplit: grouped('split'),
+      byLanguage: grouped('language'),
+      byCategory: grouped('category'),
+    },
+    performance: {
+      firstMs: {
+        p50: percentile(rows.map((row) => row.firstMs), 0.5),
+        p95: percentile(rows.map((row) => row.firstMs), 0.95),
+      },
+      warmPhases,
+    },
     queries: rows,
   }
   mkdirSync(dirname(outputPath), { recursive: true })
@@ -588,5 +1149,8 @@ try {
   console.log(`Search evaluation: ${outputPath}`)
   console.log(`Document Recall@10 ${report.metrics.all.document.recallAt10.toFixed(3)}; warm p95 ${report.performance.warmPhases.total_ms.p95.toFixed(2)} ms`)
 } finally {
-  rmSync(scratch, { recursive: true, force: true })
+  rmSync(scratch, {
+    recursive: true,
+    force: true,
+  })
 }

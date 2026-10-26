@@ -1,6 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { listen } from '@tauri-apps/api/event'
-import { invoke, isTauri } from '@tauri-apps/api/core'
+import {
+  invoke,
+  isTauri,
+} from '@tauri-apps/api/core'
 import type { UploadedDocument } from '../uploads/DocumentUploads'
 import { isIndexingCancelled } from './indexingOutcome'
 
@@ -32,7 +40,8 @@ interface IndexStatus {
   reusedPassages: number
   error: string | null
 }
-interface Preference { enabled: boolean; format: ModelSelection }
+interface Preference { enabled: boolean;
+  format: ModelSelection }
 type ActivityNotice = 'complete' | 'cancelled' | 'failed' | 'statusFailed' | 'downloadFailed'
 const STORAGE_KEY = 'papercut.semantic-search.v1'
 
@@ -41,22 +50,30 @@ function readPreference(): Preference {
   try {
     const value = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? 'null')
     if (value && typeof value.enabled === 'boolean' &&
-      MODEL_SELECTIONS.includes(value.format)) return value
+      MODEL_SELECTIONS.includes(value.format)) {
+      return value
+    }
   } catch { /* Start disabled when storage is unavailable. */ }
-  return { enabled: false, format: 'float32' }
+  return {
+    enabled: false,
+    format: 'float32',
+  }
 }
 
 /** One App-level owner survives settings/reader navigation. Only saved consent reloads
  * a cached model; indexing is explicit, and querying has its own independent hook. */
 export function useSemanticSearch(library?: readonly UploadedDocument[]) {
   const [preference, setPreference] = useState(readPreference)
-  const [snapshot, setSnapshot] = useState<{ provider: ProviderStatus; index: IndexStatus } | null>(null)
+  const [snapshot, setSnapshot] = useState<{ provider: ProviderStatus;
+    index: IndexStatus } | null>(null)
   const [operation, setOperation] = useState<'activate' | 'disable' | 'build' | 'remove' | null>(null)
   const [error, setError] = useState('')
   // Retrying a status read must not erase a failed indexing/activation diagnostic.
   const [statusError, setStatusError] = useState('')
-  const [downloadFailure, setDownloadFailure] = useState<{ format: ModelSelection; message: string } | null>(null)
-  const download = useRef<{ jobId: string; finished: boolean } | null>(null)
+  const [downloadFailure, setDownloadFailure] = useState<{ format: ModelSelection;
+    message: string } | null>(null)
+  const download = useRef<{ jobId: string;
+    finished: boolean } | null>(null)
   const [cancelling, setCancelling] = useState(false)
   // A fresh identity resets expiry even when two fast jobs finish with the same outcome.
   const [activityNotice, setActivityNotice] = useState<{ kind: ActivityNotice } | null>(null)
@@ -79,14 +96,19 @@ export function useSemanticSearch(library?: readonly UploadedDocument[]) {
         invoke<ProviderStatus>('search_embedding_status'),
         invoke<IndexStatus>('search_semantic_index_status'),
       ])
-      const value = { provider, index }
+      const value = {
+        provider,
+        index,
+      }
       if (mounted.current && ticket === request.current && version === generation.current) {
         setSnapshot(value)
         setStatusError('')
       }
       return value
     } catch (err) {
-      if (mounted.current && ticket === request.current && version === generation.current) setStatusError(String(err))
+      if (mounted.current && ticket === request.current && version === generation.current) {
+        setStatusError(String(err))
+      }
       throw err
     }
   }, [])
@@ -97,11 +119,15 @@ export function useSemanticSearch(library?: readonly UploadedDocument[]) {
     try {
       await invoke('search_embedding_configure', { format })
     } catch (err) {
-      if (mounted.current && version === generation.current) setError(String(err))
+      if (mounted.current && version === generation.current) {
+        setError(String(err))
+      }
     } finally {
       if (mounted.current && version === generation.current) {
         await refresh().catch(() => {})
-        if (mounted.current && version === generation.current) { action.current = false; setOperation(null) }
+        if (mounted.current && version === generation.current) {
+          action.current = false; setOperation(null)
+        }
       }
     }
   }, [refresh])
@@ -123,12 +149,21 @@ export function useSemanticSearch(library?: readonly UploadedDocument[]) {
 
   /** Disabling can interrupt activation/indexing; stale completions cannot restore consent. */
   async function setEnabled(enabled: boolean) {
-    if (enabled && (action.current || busy || !provider?.compiled)) return
-    if (!enabled && operation === 'disable') return
-    const value = { ...currentPreference.current, enabled }
+    if (enabled && (action.current || busy || !provider?.compiled)) {
+      return
+    }
+    if (!enabled && operation === 'disable') {
+      return
+    }
+    const value = {
+      ...currentPreference.current,
+      enabled,
+    }
     setError('')
     setActivityNotice(null)
-    if (!save(value) && enabled) return
+    if (!save(value) && enabled) {
+      return
+    }
     currentPreference.current = value
     setPreference(value)
     const version = ++generation.current
@@ -137,19 +172,32 @@ export function useSemanticSearch(library?: readonly UploadedDocument[]) {
   }
 
   function setFormat(format: ModelSelection) {
-    if (currentPreference.current.enabled || action.current || busy) return
-    const value = { enabled: false, format }
+    if (currentPreference.current.enabled || action.current || busy) {
+      return
+    }
+    const value = {
+      enabled: false,
+      format,
+    }
     setError('')
     setActivityNotice(null)
-    if (!save(value)) return
+    if (!save(value)) {
+      return
+    }
     currentPreference.current = value
     setPreference(value)
   }
 
   async function run(kind: 'build' | 'remove') {
-    if (action.current || busy || !provider?.compiled) return
-    if (kind === 'remove' && !index?.hasStoredIndex) return
-    if (kind === 'build' && (!currentPreference.current.enabled || provider.activeFormat !== preference.format)) return
+    if (action.current || busy || !provider?.compiled) {
+      return
+    }
+    if (kind === 'remove' && !index?.hasStoredIndex) {
+      return
+    }
+    if (kind === 'build' && (!currentPreference.current.enabled || provider.activeFormat !== preference.format)) {
+      return
+    }
     action.current = true
     const version = generation.current
     setOperation(kind)
@@ -159,15 +207,25 @@ export function useSemanticSearch(library?: readonly UploadedDocument[]) {
     let notice: ActivityNotice | null = null
     try {
       await invoke(kind === 'build' ? 'search_semantic_index_build' : 'search_semantic_index_remove')
-      if (kind === 'build') notice = 'complete'
+      if (kind === 'build') {
+        notice = 'complete'
+      }
     } catch (err) {
       // A requested cancel can race a real failure; only the native cancellation result is cancellation.
-      if (kind === 'build') notice = isIndexingCancelled(err) ? 'cancelled' : 'failed'
-      if (mounted.current && version === generation.current) setError(notice === 'cancelled' ? '' : String(err))
+      if (kind === 'build') {
+        notice = isIndexingCancelled(err) ? 'cancelled' : 'failed'
+      }
+      if (mounted.current && version === generation.current) {
+        setError(notice === 'cancelled' ? '' : String(err))
+      }
     } finally {
       if (mounted.current && version === generation.current) {
-        try { await refresh() } catch {
-          if (notice === 'complete') notice = 'statusFailed'
+        try {
+          await refresh()
+        } catch {
+          if (notice === 'complete') {
+            notice = 'statusFailed'
+          }
         }
         if (mounted.current && version === generation.current) {
           action.current = false; setOperation(null); setCancelling(false)
@@ -179,94 +237,157 @@ export function useSemanticSearch(library?: readonly UploadedDocument[]) {
 
   async function cancel() {
     // Wait for native reservation; cancelling before IPC starts the job would be a no-op.
-    if (cancelling || !index?.running) return
+    if (cancelling || !index?.running) {
+      return
+    }
     setCancelling(true)
     const version = generation.current
-    try { await invoke('search_semantic_index_cancel') }
-    catch (err) {
-      if (mounted.current && version === generation.current) { setError(String(err)); setCancelling(false) }
+    try {
+      await invoke('search_semantic_index_cancel')
+    } catch (err) {
+      if (mounted.current && version === generation.current) {
+        setError(String(err)); setCancelling(false)
+      }
       return
     }
     await refresh().catch(() => {})
   }
 
   useEffect(() => {
-    if (!isTauri()) return
+    if (!isTauri()) {
+      return
+    }
     mounted.current = true
     const version = generation.current
     void (async () => {
       try {
         const value = await refresh()
-        if (!mounted.current || version !== generation.current) return
+        if (!mounted.current || version !== generation.current) {
+          return
+        }
         // Normal builds retain the preference but never attempt unsupported activation.
         if (currentPreference.current.enabled && value.provider.compiled) {
           await configure(currentPreference.current.format, version)
         }
       } catch {
-        if (mounted.current && version === generation.current) { action.current = false; setOperation(null) }
+        if (mounted.current && version === generation.current) {
+          action.current = false; setOperation(null)
+        }
       }
     })()
     return invalidate
   }, [refresh, configure, invalidate])
 
   useEffect(() => {
-    if (isTauri() && library) void refresh().catch(() => {})
+    if (isTauri() && library) {
+      void refresh().catch(() => {})
+    }
   }, [library, refresh])
 
   useEffect(() => {
-    if (!isTauri()) return
+    if (!isTauri()) {
+      return
+    }
     let closed = false
     let stop: (() => void) | undefined
     // Downloads outlive Settings; terminal events also catch jobs shorter than one poll.
     void listen<DownloadProgress>('search-embedding-download-progress', ({ payload }) => {
-      if (closed) return
+      if (closed) {
+        return
+      }
       if (payload.phase === 'starting') {
-        download.current = { jobId: payload.jobId, finished: false }
+        download.current = {
+          jobId: payload.jobId,
+          finished: false,
+        }
         setDownloadFailure(null)
         setActivityNotice(null)
       } else if (payload.phase !== 'downloading') {
-        if (download.current && (download.current.finished || download.current.jobId !== payload.jobId)) return
-        download.current = { jobId: payload.jobId, finished: true }
+        if (download.current && (download.current.finished || download.current.jobId !== payload.jobId)) {
+          return
+        }
+        download.current = {
+          jobId: payload.jobId,
+          finished: true,
+        }
         if (payload.phase === 'failed') {
-          setDownloadFailure({ format: payload.format, message: payload.error ?? '' })
+          setDownloadFailure({
+            format: payload.format,
+            message: payload.error ?? '',
+          })
           setActivityNotice({ kind: 'downloadFailed' })
         }
       }
-      if (payload.phase !== 'downloading') void refresh().catch(() => {})
+      if (payload.phase !== 'downloading') {
+        void refresh().catch(() => {})
+      }
     }).then((unlisten) => {
-      if (closed) unlisten()
-      else stop = unlisten
-    }).catch((err: unknown) => { if (!closed) setError(String(err)) })
-    return () => { closed = true; stop?.() }
+      if (closed) {
+        unlisten()
+      } else {
+        stop = unlisten
+      }
+    }).catch((err: unknown) => {
+      if (!closed) {
+        setError(String(err))
+      }
+    })
+    return () => {
+      closed = true; stop?.()
+    }
   }, [refresh])
 
   useEffect(() => {
     // App-owned notices survive reader navigation; errors stay until reviewed or a new action starts.
-    if (activityNotice?.kind !== 'complete' && activityNotice?.kind !== 'cancelled') return
+    if (activityNotice?.kind !== 'complete' && activityNotice?.kind !== 'cancelled') {
+      return
+    }
     const timer = setTimeout(() => setActivityNotice(null), 8000)
     return () => clearTimeout(timer)
   }, [activityNotice])
 
   useEffect(() => {
-    if (!busy) return
+    if (!busy) {
+      return
+    }
     let polling = false
     // One in-flight status request bounds polling even when a native call is slow.
     const timer = window.setInterval(() => {
-      if (polling) return
+      if (polling) {
+        return
+      }
       polling = true
       void refresh().catch(() => {})
-        .finally(() => { polling = false })
+        .finally(() => {
+          polling = false
+        })
     }, 1000)
     return () => window.clearInterval(timer)
   }, [busy, refresh])
 
   const refreshStatus = useCallback(async () => {
-    if (isTauri()) await refresh().catch(() => {})
+    if (isTauri()) {
+      await refresh().catch(() => {})
+    }
   }, [refresh])
 
-  return { ...preference, provider, index, busy, operation, cancelling, error, statusError, downloadFailure, activityNotice: activityNotice?.kind ?? null,
+  return {
+    ...preference,
+    provider,
+    index,
+    busy,
+    operation,
+    cancelling,
+    error,
+    statusError,
+    downloadFailure,
+    activityNotice: activityNotice?.kind ?? null,
     dismissActivity: () => setActivityNotice(null),
-    setEnabled, setFormat, build: () => run('build'), remove: () => run('remove'), cancel,
+    setEnabled,
+    setFormat,
+    build: () => run('build'),
+    remove: () => run('remove'),
+    cancel,
     refresh: refreshStatus,
   }
 }

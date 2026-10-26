@@ -1,4 +1,7 @@
-import { spawn, spawnSync } from "node:child_process"
+import {
+  spawn,
+  spawnSync,
+} from "node:child_process"
 import { resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { ROOT } from "./paths.js"
@@ -26,18 +29,29 @@ export function run(command, args, options = {}) {
   } = options
 
   return new Promise((resolveRun, reject) => {
-    const child = spawn(command, args, { cwd, env, stdio })
+    const child = spawn(command, args, {
+      cwd,
+      env,
+      stdio,
+    })
     child.on("error", reject)
     child.on("exit", (code) => {
-      if (code === 0) resolveRun()
-      else reject(new Error(label + " exited with code " + code))
+      if (code === 0) {
+        resolveRun()
+      } else {
+        reject(new Error(label + " exited with code " + code))
+      }
     })
   })
 }
 
 export function runSync(command, args, options = {}) {
   const { cwd = ROOT, env = process.env, stdio = "inherit" } = options
-  return spawnSync(command, args, { cwd, env, stdio })
+  return spawnSync(command, args, {
+    cwd,
+    env,
+    stdio,
+  })
 }
 
 // Sync wrappers use process exit codes so npm/Tauri callers fail fast.

@@ -39,14 +39,18 @@ export class BrowserAudioCache {
   trackLoading(index: number, promise: Promise<LoadedBrowserAudio | null>): void {
     this.loading.set(index, promise)
     const clear = () => {
-      if (this.loading.get(index) === promise) this.loading.delete(index)
+      if (this.loading.get(index) === promise) {
+        this.loading.delete(index)
+      }
     }
     void promise.then(clear, clear)
   }
 
   enqueue(loaded: LoadedBrowserAudio): void {
     const previous = this.items.get(loaded.index)
-    if (previous) URL.revokeObjectURL(previous.url)
+    if (previous) {
+      URL.revokeObjectURL(previous.url)
+    }
 
     this.items.set(loaded.index, {
       index: loaded.index,
@@ -64,15 +68,21 @@ export class BrowserAudioCache {
     const max = Math.min(anchorIndex + 4, Math.max(totalChunks - 1, 0))
 
     for (const item of this.items.values()) {
-      if (item.index >= min && item.index <= max) continue
-      if (item.index === currentIndex) continue
+      if (item.index >= min && item.index <= max) {
+        continue
+      }
+      if (item.index === currentIndex) {
+        continue
+      }
       URL.revokeObjectURL(item.url)
       this.items.delete(item.index)
     }
   }
 
   clear(): void {
-    for (const item of this.items.values()) URL.revokeObjectURL(item.url)
+    for (const item of this.items.values()) {
+      URL.revokeObjectURL(item.url)
+    }
     this.items.clear()
     this.loadedIndexes.clear()
     this.loading.clear()

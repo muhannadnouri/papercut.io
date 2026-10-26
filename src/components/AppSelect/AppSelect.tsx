@@ -5,7 +5,7 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent,
-  type ReactNode
+  type ReactNode,
 } from 'react'
 import { Popover } from 'react-aria-components'
 import './AppSelect.css'
@@ -46,7 +46,9 @@ export function AppSelect({
   const selectedOption = options[selectedIndex]
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      return
+    }
     optionRefs.current[activeIndex]?.scrollIntoView({ block: 'nearest' })
   }, [activeIndex, open])
 
@@ -61,17 +63,23 @@ export function AppSelect({
   }
 
   function selectOption(option: AppSelectOption) {
-    if (option.disabled) return
+    if (option.disabled) {
+      return
+    }
     onChange(option.value)
     setOpen(false)
     requestAnimationFrame(() => buttonRef.current?.focus())
   }
 
   function handleKeyDown(event: KeyboardEvent) {
-    if (disabled) return
+    if (disabled) {
+      return
+    }
 
     if (event.key === 'Escape') {
-      if (open) event.preventDefault()
+      if (open) {
+        event.preventDefault()
+      }
       close()
       return
     }
@@ -104,7 +112,9 @@ export function AppSelect({
         return
       }
       const option = options[activeIndex]
-      if (option) selectOption(option)
+      if (option) {
+        selectOption(option)
+      }
     }
   }
 
@@ -134,7 +144,9 @@ export function AppSelect({
         className="app-select-popover"
         isOpen={open}
         onOpenChange={(isOpen) => {
-          if (!isOpen) close()
+          if (!isOpen) {
+            close()
+          }
         }}
         triggerRef={buttonRef}
         placement="bottom start"
@@ -155,7 +167,9 @@ export function AppSelect({
             <button
               key={option.value}
               id={`${listboxId}-${index}`}
-              ref={(node) => { optionRefs.current[index] = node }}
+              ref={(node) => {
+                optionRefs.current[index] = node
+              }}
               type="button"
               className={[
                 'app-select-option',
@@ -168,7 +182,9 @@ export function AppSelect({
               disabled={option.disabled}
               style={option.style}
               onMouseEnter={() => {
-                if (!option.disabled) setActiveIndex(index)
+                if (!option.disabled) {
+                  setActiveIndex(index)
+                }
               }}
               onClick={() => selectOption(option)}
             >
@@ -183,16 +199,24 @@ export function AppSelect({
 }
 
 function enabledIndexOrFallback(options: AppSelectOption[], index: number): number {
-  if (!options.length) return 0
-  if (!options[index]?.disabled) return Math.max(0, index)
+  if (!options.length) {
+    return 0
+  }
+  if (!options[index]?.disabled) {
+    return Math.max(0, index)
+  }
   return nextEnabledIndex(options, index, 1)
 }
 
 function nextEnabledIndex(options: AppSelectOption[], current: number, direction: 1 | -1): number {
-  if (!options.length) return 0
+  if (!options.length) {
+    return 0
+  }
   for (let step = 1; step <= options.length; step += 1) {
     const index = (current + step * direction + options.length) % options.length
-    if (!options[index].disabled) return index
+    if (!options[index].disabled) {
+      return index
+    }
   }
   return current
 }

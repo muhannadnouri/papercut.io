@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 
 const READER_SETTINGS_KEY = 'papercut.readerSettings.v1'
@@ -49,20 +56,59 @@ interface StoredReaderSettings extends Partial<ReaderSettingsState> {
 
 // Single source of truth for slider UI and persisted-value validation.
 export const READER_SETTING_LIMITS = {
-  fontSizePx: { min: 8, max: 24, step: 1, suffix: 'px' },
-  lineHeight: { min: 0.5, max: 2.2, step: 0.05, suffix: '' },
-  widthCh: { min: 40, max: 200, step: 4, suffix: 'ch' },
+  fontSizePx: {
+    min: 8,
+    max: 24,
+    step: 1,
+    suffix: 'px',
+  },
+  lineHeight: {
+    min: 0.5,
+    max: 2.2,
+    step: 0.05,
+    suffix: '',
+  },
+  widthCh: {
+    min: 40,
+    max: 200,
+    step: 4,
+    suffix: 'ch',
+  },
 } satisfies Record<'fontSizePx' | 'lineHeight' | 'widthCh', ReaderRangeConfig>
 
 export const FONT_FAMILY_OPTIONS = [
-  { labelKey: 'reader.settings.fonts.literata', value: READER_FONT_STACKS.literata },
-  { labelKey: 'reader.settings.fonts.atkinson', value: READER_FONT_STACKS.atkinson },
-  { labelKey: 'reader.settings.fonts.systemSerif', value: READER_FONT_STACKS.systemSerif },
-  { labelKey: 'reader.settings.fonts.systemSans', value: READER_FONT_STACKS.systemSans },
-  { labelKey: 'reader.settings.fonts.naskhArabic', value: READER_FONT_STACKS.naskhArabic },
-  { labelKey: 'reader.settings.fonts.droidArabicNaskh', value: READER_FONT_STACKS.droidArabicNaskh },
-  { labelKey: 'reader.settings.fonts.scheherazadeNew', value: READER_FONT_STACKS.scheherazadeNew },
-  { labelKey: 'reader.settings.fonts.readexPro', value: READER_FONT_STACKS.readexPro },
+  {
+    labelKey: 'reader.settings.fonts.literata',
+    value: READER_FONT_STACKS.literata,
+  },
+  {
+    labelKey: 'reader.settings.fonts.atkinson',
+    value: READER_FONT_STACKS.atkinson,
+  },
+  {
+    labelKey: 'reader.settings.fonts.systemSerif',
+    value: READER_FONT_STACKS.systemSerif,
+  },
+  {
+    labelKey: 'reader.settings.fonts.systemSans',
+    value: READER_FONT_STACKS.systemSans,
+  },
+  {
+    labelKey: 'reader.settings.fonts.naskhArabic',
+    value: READER_FONT_STACKS.naskhArabic,
+  },
+  {
+    labelKey: 'reader.settings.fonts.droidArabicNaskh',
+    value: READER_FONT_STACKS.droidArabicNaskh,
+  },
+  {
+    labelKey: 'reader.settings.fonts.scheherazadeNew',
+    value: READER_FONT_STACKS.scheherazadeNew,
+  },
+  {
+    labelKey: 'reader.settings.fonts.readexPro',
+    value: READER_FONT_STACKS.readexPro,
+  },
 ] as const
 
 const LEGACY_FONT_FAMILY_MAP = new Map([
@@ -101,11 +147,15 @@ export function useReaderSettings() {
     setApplyingFontFamily(fontFamily)
 
     void prepareReaderFontApplication(fontFamily).then(async () => {
-      if (fontApplicationRef.current !== request) return
+      if (fontApplicationRef.current !== request) {
+        return
+      }
       appliedFontRef.current = fontFamily
       setAppliedFontFamily(fontFamily)
       await waitForAnimationFrame()
-      if (fontApplicationRef.current === request) setApplyingFontFamily(null)
+      if (fontApplicationRef.current === request) {
+        setApplyingFontFamily(null)
+      }
     })
   }, [])
 
@@ -119,7 +169,9 @@ export function useReaderSettings() {
     saveReaderSettings(updated, fontFamilyExplicit)
     setSettings(updated)
 
-    if (!applyFont) return
+    if (!applyFont) {
+      return
+    }
     if (updated.fontFamily === appliedFontRef.current) {
       fontApplicationRef.current += 1
       setApplyingFontFamily(null)
@@ -129,7 +181,10 @@ export function useReaderSettings() {
   }, [stageFontApplication])
 
   const onChange = useCallback((next: Partial<ReaderSettingsState>) => {
-    const updated = clampReaderSettings({ ...settingsRef.current, ...next })
+    const updated = clampReaderSettings({
+      ...settingsRef.current,
+      ...next,
+    })
     const fontFamilyExplicit = next.fontFamily === undefined
       ? fontFamilyExplicitRef.current
       : true
@@ -137,21 +192,36 @@ export function useReaderSettings() {
   }, [applySettings])
 
   const onReset = useCallback(() => {
-    applySettings({ ...DEFAULT_READER_SETTINGS, fontFamily: defaultFontFamily }, false, true)
+    applySettings({
+      ...DEFAULT_READER_SETTINGS,
+      fontFamily: defaultFontFamily,
+    }, false, true)
   }, [applySettings, defaultFontFamily])
 
   const previousDefaultFontRef = useRef(defaultFontFamily)
   useEffect(() => {
-    if (previousDefaultFontRef.current === defaultFontFamily) return
+    if (previousDefaultFontRef.current === defaultFontFamily) {
+      return
+    }
     previousDefaultFontRef.current = defaultFontFamily
-    if (fontFamilyExplicitRef.current) return
-    applySettings({ ...settingsRef.current, fontFamily: defaultFontFamily }, false, true)
+    if (fontFamilyExplicitRef.current) {
+      return
+    }
+    applySettings({
+      ...settingsRef.current,
+      fontFamily: defaultFontFamily,
+    }, false, true)
   }, [applySettings, defaultFontFamily])
 
   return {
     applyingFontFamily,
     readerSettingsStyle,
-    readerSettingsProps: { applyingFontFamily, settings, onChange, onReset },
+    readerSettingsProps: {
+      applyingFontFamily,
+      settings,
+      onChange,
+      onReset,
+    },
   }
 }
 
@@ -170,12 +240,16 @@ export async function prepareReaderFontApplication(
 }
 
 function loadReaderFont(fontFamily: string): Promise<unknown> {
-  if (typeof document === 'undefined' || !document.fonts) return Promise.resolve()
+  if (typeof document === 'undefined' || !document.fonts) {
+    return Promise.resolve()
+  }
   return document.fonts.load(`16px ${fontFamily}`, 'Aa العربية')
 }
 
 function waitForAnimationFrame(): Promise<void> {
-  if (typeof requestAnimationFrame !== 'function') return Promise.resolve()
+  if (typeof requestAnimationFrame !== 'function') {
+    return Promise.resolve()
+  }
   return new Promise((resolve) => requestAnimationFrame(() => resolve()))
 }
 
@@ -185,11 +259,24 @@ function loadReaderSettings(defaultFontFamily: string): {
   settings: ReaderSettingsState
   fontFamilyExplicit: boolean
 } {
-  const defaults = { ...DEFAULT_READER_SETTINGS, fontFamily: defaultFontFamily }
-  if (typeof window === 'undefined') return { settings: defaults, fontFamilyExplicit: false }
+  const defaults = {
+    ...DEFAULT_READER_SETTINGS,
+    fontFamily: defaultFontFamily,
+  }
+  if (typeof window === 'undefined') {
+    return {
+      settings: defaults,
+      fontFamilyExplicit: false,
+    }
+  }
   try {
     const raw = window.localStorage.getItem(READER_SETTINGS_KEY)
-    if (!raw) return { settings: defaults, fontFamilyExplicit: false }
+    if (!raw) {
+      return {
+        settings: defaults,
+        fontFamilyExplicit: false,
+      }
+    }
     const stored = JSON.parse(raw) as StoredReaderSettings
     const fontPreference = resolveReaderFontPreference(
       stored.fontFamily,
@@ -197,18 +284,27 @@ function loadReaderSettings(defaultFontFamily: string): {
       defaultFontFamily,
     )
     return {
-      settings: clampReaderSettings({ ...defaults, ...stored, fontFamily: fontPreference.fontFamily }),
+      settings: clampReaderSettings({
+        ...defaults,
+        ...stored,
+        fontFamily: fontPreference.fontFamily,
+      }),
       fontFamilyExplicit: fontPreference.explicit,
     }
   } catch {
-    return { settings: defaults, fontFamilyExplicit: false }
+    return {
+      settings: defaults,
+      fontFamilyExplicit: false,
+    }
   }
 }
 
 // Preference persistence is best effort. Reader styling should still work in
 // browser previews or restricted WebViews where localStorage writes fail.
 function saveReaderSettings(settings: ReaderSettingsState, fontFamilyExplicit: boolean): void {
-  if (typeof window === 'undefined') return
+  if (typeof window === 'undefined') {
+    return
+  }
   try {
     window.localStorage.setItem(READER_SETTINGS_KEY, JSON.stringify({
       ...settings,
@@ -231,7 +327,8 @@ export function resolveReaderFontPreference(
   storedFontFamily: unknown,
   storedExplicit: unknown,
   defaultFontFamily: string,
-): { fontFamily: string; explicit: boolean } {
+): { fontFamily: string;
+  explicit: boolean } {
   const normalized = typeof storedFontFamily === 'string'
     ? normalizeReaderFontFamily(storedFontFamily)
     : DEFAULT_READER_SETTINGS.fontFamily
@@ -265,7 +362,9 @@ export function normalizeReaderPageTheme(value: unknown): ReaderPageTheme {
 // Older saved settings used desktop font names that collapse on Android. Map
 // those values into bundled stacks instead of resetting every preference.
 function normalizeReaderFontFamily(value: string): string {
-  if (FONT_FAMILY_OPTIONS.some((option) => option.value === value)) return value
+  if (FONT_FAMILY_OPTIONS.some((option) => option.value === value)) {
+    return value
+  }
   return LEGACY_FONT_FAMILY_MAP.get(value) ?? DEFAULT_READER_SETTINGS.fontFamily
 }
 
@@ -281,6 +380,8 @@ function clampSettingNumber(
 }
 
 export function clampReaderNumber(value: number, min: number, max: number, fallback: number): number {
-  if (!Number.isFinite(value)) return fallback
+  if (!Number.isFinite(value)) {
+    return fallback
+  }
   return Math.min(max, Math.max(min, value))
 }

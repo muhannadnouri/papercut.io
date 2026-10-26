@@ -1,4 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import i18n from '../../i18n'
 import {
   getNativeTtsCapabilities,
@@ -12,7 +17,10 @@ import {
 } from '../api/nativeTts'
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import { FALLBACK_TTS_MODELS } from '../models'
-import { nativeTtsErrorDetail, nativeTtsErrorMessage } from '../utils/errors'
+import {
+  nativeTtsErrorDetail,
+  nativeTtsErrorMessage,
+} from '../utils/errors'
 
 interface UseTtsModelRuntimeOptions {
   initialModelId: string
@@ -20,7 +28,9 @@ interface UseTtsModelRuntimeOptions {
 }
 
 function summarizeTtsModelStatus(status: NativeTtsModelStatus | null): Record<string, unknown> {
-  if (!status) return {}
+  if (!status) {
+    return {}
+  }
   return {
     modelId: status.modelId,
     installed: status.installed,
@@ -49,7 +59,9 @@ export function useTtsModelRuntime({ initialModelId, preload }: UseTtsModelRunti
   // Clear model-specific state synchronously with selection so the UI cannot
   // briefly present the previous model as installed while the new status loads.
   const setModelId = useCallback((nextModelId: string) => {
-    if (modelIdRef.current === nextModelId) return
+    if (modelIdRef.current === nextModelId) {
+      return
+    }
     modelIdRef.current = nextModelId
     setModelStatus(null)
     setModelProgress(null)
@@ -65,7 +77,11 @@ export function useTtsModelRuntime({ initialModelId, preload }: UseTtsModelRunti
       maxThreadCount,
       Math.max(1, nextCapabilities.defaultThreadCount),
     )
-    setCapabilities({ ...nextCapabilities, defaultThreadCount, maxThreadCount })
+    setCapabilities({
+      ...nextCapabilities,
+      defaultThreadCount,
+      maxThreadCount,
+    })
     setThreadCount((current) => initializeThreadCount
       ? defaultThreadCount
       : Math.min(maxThreadCount, Math.max(1, current)))
@@ -74,7 +90,9 @@ export function useTtsModelRuntime({ initialModelId, preload }: UseTtsModelRunti
 
   const refreshModelStatus = useCallback(async () => {
     const status = await getNativeTtsModelStatus(modelId)
-    if (modelIdRef.current === status.modelId) setModelStatus(status)
+    if (modelIdRef.current === status.modelId) {
+      setModelStatus(status)
+    }
     return status
   }, [modelId])
 
@@ -87,10 +105,15 @@ export function useTtsModelRuntime({ initialModelId, preload }: UseTtsModelRunti
     let cancelled = false
     let unlisten: (() => void) | null = null
     listenNativeTtsModelInstallProgress((progress) => {
-      if (!cancelled && progress.modelId === modelId) setModelProgress(progress)
+      if (!cancelled && progress.modelId === modelId) {
+        setModelProgress(progress)
+      }
     }).then((value) => {
-      if (cancelled) value()
-      else unlisten = value
+      if (cancelled) {
+        value()
+      } else {
+        unlisten = value
+      }
     })
     return () => {
       cancelled = true
@@ -119,7 +142,9 @@ export function useTtsModelRuntime({ initialModelId, preload }: UseTtsModelRunti
       const result = await installNativeTtsModel(modelId)
       const status = await refreshModelStatus()
       await syncRuntimeSettings()
-      if (modelIdRef.current !== modelId) return
+      if (modelIdRef.current !== modelId) {
+        return
+      }
       logTtsDiagnostic('[tts-native] model install completed', {
         resultModelDir: result.modelDir,
         resultBytes: result.bytes,
@@ -139,7 +164,9 @@ export function useTtsModelRuntime({ initialModelId, preload }: UseTtsModelRunti
       }))
       preload()
     } catch (error) {
-      if (modelIdRef.current !== modelId) return
+      if (modelIdRef.current !== modelId) {
+        return
+      }
       logTtsDiagnostic('[tts-native] model install failed', {
         modelId,
         error: nativeTtsErrorDetail(error),
@@ -158,7 +185,9 @@ export function useTtsModelRuntime({ initialModelId, preload }: UseTtsModelRunti
   }, [modelId, modelStatus, preload, refreshModelStatus, syncRuntimeSettings])
 
   const probeSilmaSidecar = useCallback(async () => {
-    if (silmaProbeRunning) return
+    if (silmaProbeRunning) {
+      return
+    }
     setSilmaProbeRunning(true)
     try {
       const result = await probeNativeSilmaSidecar()

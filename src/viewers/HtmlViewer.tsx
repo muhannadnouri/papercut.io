@@ -1,4 +1,8 @@
-import { memo, useEffect, useMemo } from 'react'
+import {
+  memo,
+  useEffect,
+  useMemo,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { observeImageIssues } from './imageIssues'
 import { createHtmlBookmarkApi } from './htmlBookmark'
@@ -16,7 +20,9 @@ export const HtmlViewer = memo(function HtmlViewer({
   const { t } = useTranslation()
   useEffect(() => {
     const root = contentRef?.current
-    if (root) return observeImageIssues(root, t)
+    if (root) {
+      return observeImageIssues(root, t)
+    }
   }, [content, contentRef, t])
 
   const document = useMemo(() => parseHtmlDocument(content ?? ''), [content])
@@ -25,17 +31,26 @@ export const HtmlViewer = memo(function HtmlViewer({
 
   useEffect(() => {
     const root = contentRef?.current
-    if (!root) return
+    if (!root) {
+      return
+    }
     onBookmarkApiChange?.(createHtmlBookmarkApi(root))
     return () => onBookmarkApiChange?.(null)
   }, [content, contentRef, onBookmarkApiChange])
 
   useEffect(() => {
     const root = contentRef?.current
-    if (!root || !onTextTargetApiChange) return
+    if (!root || !onTextTargetApiChange) {
+      return
+    }
     const capture = createHtmlTextTargetApi(root, getTextTargetViewport ?? (() => {
       const view = root.ownerDocument.defaultView
-      return view ? { top: 0, left: 0, bottom: view.innerHeight, right: view.innerWidth } : null
+      return view ? {
+        top: 0,
+        left: 0,
+        bottom: view.innerHeight,
+        right: view.innerWidth,
+      } : null
     }))
     onTextTargetApiChange(capture.api)
     return () => {
@@ -65,7 +80,10 @@ function parseHtmlDocument(content: string): {
   direction: 'ltr' | 'rtl' | 'auto'
 } {
   if (typeof DOMParser === 'undefined') {
-    return { bodyHtml: content, direction: 'auto' }
+    return {
+      bodyHtml: content,
+      direction: 'auto',
+    }
   }
 
   const doc = new DOMParser().parseFromString(content, 'text/html')

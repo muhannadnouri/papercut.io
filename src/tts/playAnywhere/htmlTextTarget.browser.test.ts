@@ -1,10 +1,26 @@
 // @vitest-environment node
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import {
+  join,
+  resolve,
+} from 'node:path'
 import { build } from 'vite'
-import { browser, runBrowserFixture } from './browserCaptureFixture'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import {
+  browser,
+  runBrowserFixture,
+} from './browserCaptureFixture'
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  it,
+} from 'vitest'
 
 let directory: string
 let bundle: string
@@ -18,14 +34,33 @@ beforeAll(async () => {
     ['src/tts/utils/text.ts', 'chunkAudiobookSaveHtmlWithSpans'],
     ['src/tts/playAnywhere/prepareTextTarget.ts', 'createTextTargetPreparation'],
   ].map(([path, exports]) => `export { ${exports} } from ${JSON.stringify(resolve(path))}`).join('\n'))
-  const output = await build({ configFile: false, logLevel: 'silent', build: {
-    write: false, minify: false, lib: { entry, name: 'HtmlTargets', formats: ['iife'] },
-  } })
+  const output = await build({
+    configFile: false,
+    logLevel: 'silent',
+    build: {
+      write: false,
+      minify: false,
+      lib: {
+        entry,
+        name: 'HtmlTargets',
+        formats: ['iife'],
+      },
+    },
+  })
   const result = Array.isArray(output) ? output[0] : output
-  if (!('output' in result)) throw new Error('Expected a bundled browser fixture')
+  if (!('output' in result)) {
+    throw new Error('Expected a bundled browser fixture')
+  }
   bundle = result.output.filter(item => item.type === 'chunk').map(item => item.code).join('\n')
 }, 30_000)
-afterAll(() => { if (directory) rmSync(directory, { recursive: true, force: true }) })
+afterAll(() => {
+  if (directory) {
+    rmSync(directory, {
+      recursive: true,
+      force: true,
+    })
+  }
+})
 
 const paragraphs = Array.from({ length: 36 }, (_, i) =>
   `<p>Paragraph ${i}. First repeated sentence. <b>First repeated sentence.</b> Last passage here.</p>`).join('')
@@ -65,7 +100,10 @@ function plain(result) { return result.status==='captured'
   : result; }
 `
 
-async function run(content: string, action: string, options: { width?: number; font?: number; dir?: string; css?: string } = {}) {
+async function run(content: string, action: string, options: { width?: number;
+  font?: number;
+  dir?: string;
+  css?: string } = {}) {
   const frame = join(directory, 'frame.html')
   writeFileSync(frame, `<!doctype html><html dir="${options.dir ?? 'ltr'}"><meta charset="utf-8"><style>
     body{margin:0;font-family:Arial}main{margin-top:80px}article{width:calc(100% - 60px);margin:auto;font-size:${options.font ?? 20}px;line-height:1.6}
@@ -79,9 +117,22 @@ async function run(content: string, action: string, options: { width?: number; f
 
 describe.skipIf(!browser)('HTML viewport capture in a rendered browser', () => {
   it.each([
-    { width: 620, font: 20, dir: 'ltr' },
-    { width: 390, font: 24, dir: 'rtl' },
-    { width: 1280, font: 20, dir: 'ltr', css: 'article{column-count:2;column-gap:70px}' },
+    {
+      width: 620,
+      font: 20,
+      dir: 'ltr',
+    },
+    {
+      width: 390,
+      font: 24,
+      dir: 'rtl',
+    },
+    {
+      width: 1280,
+      font: 20,
+      dir: 'ltr',
+      css: 'article{column-count:2;column-gap:70px}',
+    },
   ])('targets the first visible source character under chrome: %j', async options => {
     const content = options.dir === 'rtl'
       ? paragraphs.replaceAll('First repeated sentence.', 'بِدايَةٌ واضحةٌ. نِهايَةٌ واضحةٌ.') : paragraphs
@@ -129,7 +180,10 @@ describe.skipIf(!browser)('HTML viewport capture in a rendered browser', () => {
     `, { css: 'article{height:420px;overflow:auto}' })
     expect(result.first.status).toBe('captured')
     expect(result.first.point).toEqual(result.firstOracle)
-    expect(result.reflow).toEqual({ status: 'unavailable', reason: 'stale' })
+    expect(result.reflow).toEqual({
+      status: 'unavailable',
+      reason: 'stale',
+    })
     expect(result.second.status).toBe('captured')
     expect(result.second.point).toEqual(result.secondOracle)
   }, 30_000)
@@ -158,10 +212,19 @@ describe.skipIf(!browser)('HTML viewport capture in a rendered browser', () => {
       parent.postMessage({type:'capture-result',result:{stale,scrollResult,cancelled,current:plain(current),disposed:await pending}},'*');
     `)
     expect(result.stale).toBe(true)
-    expect(result.scrollResult).toEqual({ status: 'unavailable', reason: 'stale' })
-    expect(result.cancelled).toEqual({ status: 'unavailable', reason: 'stale' })
+    expect(result.scrollResult).toEqual({
+      status: 'unavailable',
+      reason: 'stale',
+    })
+    expect(result.cancelled).toEqual({
+      status: 'unavailable',
+      reason: 'stale',
+    })
     expect(result.current.status).toBe('captured')
-    expect(result.disposed).toEqual({ status: 'unavailable', reason: 'stale' })
+    expect(result.disposed).toEqual({
+      status: 'unavailable',
+      reason: 'stale',
+    })
   }, 30_000)
 
   it('does not pick offscreen audio when only an image area is visible', async () => {
@@ -169,7 +232,10 @@ describe.skipIf(!browser)('HTML viewport capture in a rendered browser', () => {
       scrollTo(0,200);const session=HtmlTargets.createHtmlTextTargetApi(root,bounds);
       const result=await session.api.captureViewport();parent.postMessage({type:'capture-result',result:plain(result)},'*');session.dispose();
     `)
-    expect(result).toEqual({ status: 'unavailable', reason: 'no-visible-text' })
+    expect(result).toEqual({
+      status: 'unavailable',
+      reason: 'no-visible-text',
+    })
   }, 30_000)
 
   it('rejects pending work on text mutation, hidden documents and detached readers', async () => {
@@ -185,11 +251,23 @@ describe.skipIf(!browser)('HTML viewport capture in a rendered browser', () => {
       const detached=session.api.captureViewport();root.remove();
       parent.postMessage({type:'capture-result',result:{mutated,hidden,unavailable,stale,detached:await detached}},'*');session.dispose();
     `)
-    expect(result.mutated).toEqual({ status: 'unavailable', reason: 'stale' })
-    expect(result.hidden).toEqual({ status: 'unavailable', reason: 'stale' })
-    expect(result.unavailable).toEqual({ status: 'unavailable', reason: 'not-ready' })
+    expect(result.mutated).toEqual({
+      status: 'unavailable',
+      reason: 'stale',
+    })
+    expect(result.hidden).toEqual({
+      status: 'unavailable',
+      reason: 'stale',
+    })
+    expect(result.unavailable).toEqual({
+      status: 'unavailable',
+      reason: 'not-ready',
+    })
     expect(result.stale).toBe(true)
-    expect(result.detached).toEqual({ status: 'unavailable', reason: 'stale' })
+    expect(result.detached).toEqual({
+      status: 'unavailable',
+      reason: 'stale',
+    })
   }, 30_000)
 
   it.each([true, false])('waits for initial visibility and bounds a missing callback (delivers=%s)', async delivers => {
@@ -206,7 +284,10 @@ describe.skipIf(!browser)('HTML viewport capture in a rendered browser', () => {
       expect(result.capture.status, JSON.stringify(result)).toBe('captured')
       expect(result.capture.point).toEqual(result.oracle)
     } else {
-      expect(result.capture).toEqual({ status: 'unavailable', reason: 'not-ready' })
+      expect(result.capture).toEqual({
+        status: 'unavailable',
+        reason: 'not-ready',
+      })
     }
   }, 30_000)
 
@@ -217,6 +298,9 @@ describe.skipIf(!browser)('HTML viewport capture in a rendered browser', () => {
       const session=HtmlTargets.createHtmlTextTargetApi(root,bounds);
       parent.postMessage({type:'capture-result',result:plain(await session.api.captureViewport())},'*');session.dispose();
     `)
-    expect(result).toEqual({ status: 'unavailable', reason: 'unmapped' })
+    expect(result).toEqual({
+      status: 'unavailable',
+      reason: 'unmapped',
+    })
   }, 30_000)
 })

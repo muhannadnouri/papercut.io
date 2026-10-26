@@ -12,14 +12,46 @@ import zhCN from './locales/zh-CN.json'
 const LOCALE_STORAGE_KEY = 'papercut.locale.v1'
 
 export const APP_LOCALE_OPTIONS = [
-  { value: 'en', label: 'English', experimental: false },
-  { value: 'ar', label: 'العربية', experimental: false },
-  { value: 'zh-CN', label: '中文（简体）', experimental: true },
-  { value: 'fr', label: 'Français', experimental: true },
-  { value: 'hi', label: 'हिन्दी', experimental: true },
-  { value: 'it', label: 'Italiano', experimental: true },
-  { value: 'pt-BR', label: 'Português (Brasil)', experimental: true },
-  { value: 'es', label: 'Español', experimental: true },
+  {
+    value: 'en',
+    label: 'English',
+    experimental: false,
+  },
+  {
+    value: 'ar',
+    label: 'العربية',
+    experimental: false,
+  },
+  {
+    value: 'zh-CN',
+    label: '中文（简体）',
+    experimental: true,
+  },
+  {
+    value: 'fr',
+    label: 'Français',
+    experimental: true,
+  },
+  {
+    value: 'hi',
+    label: 'हिन्दी',
+    experimental: true,
+  },
+  {
+    value: 'it',
+    label: 'Italiano',
+    experimental: true,
+  },
+  {
+    value: 'pt-BR',
+    label: 'Português (Brasil)',
+    experimental: true,
+  },
+  {
+    value: 'es',
+    label: 'Español',
+    experimental: true,
+  },
 ] as const
 
 export type AppLocale = typeof APP_LOCALE_OPTIONS[number]['value']
@@ -52,13 +84,17 @@ applyDocumentLocale(initialLocale)
 
 export function resolveAppLocale(value: string | null | undefined): AppLocale {
   const normalized = value?.toLowerCase().replace('_', '-')
-  if (normalized === 'pt' || normalized?.startsWith('pt-br')) return 'pt-BR'
+  if (normalized === 'pt' || normalized?.startsWith('pt-br')) {
+    return 'pt-BR'
+  }
   if (
     normalized === 'zh'
     || normalized?.startsWith('zh-cn')
     || normalized?.startsWith('zh-hans')
     || normalized?.startsWith('zh-sg')
-  ) return 'zh-CN'
+  ) {
+    return 'zh-CN'
+  }
   const base = normalized?.split('-')[0]
   const locale = APP_LOCALE_OPTIONS.find((option) => option.value.toLowerCase() === base)
   return locale?.value ?? 'en'
@@ -85,14 +121,18 @@ export function applyDocumentLocale(locale: AppLocale): void {
 function loadInitialLocale(): AppLocale {
   try {
     const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY)
-    if (stored) return resolveAppLocale(stored)
+    if (stored) {
+      return resolveAppLocale(stored)
+    }
   } catch {
     // Browser language fallback remains available when storage is restricted.
   }
 
   for (const language of navigator.languages ?? [navigator.language]) {
     const locale = resolveAppLocale(language)
-    if (locale !== 'en' || language.toLowerCase().startsWith('en')) return locale
+    if (locale !== 'en' || language.toLowerCase().startsWith('en')) {
+      return locale
+    }
   }
   return 'en'
 }

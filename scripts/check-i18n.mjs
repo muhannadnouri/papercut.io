@@ -1,4 +1,7 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import {
+  readdirSync,
+  readFileSync,
+} from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const localeDirectory = new URL('../src/i18n/locales/', import.meta.url)
@@ -61,9 +64,15 @@ function buildSchema(keys) {
   for (const key of keys.keys()) {
     const match = key.match(PLURAL_SUFFIX)
     const base = match ? key.slice(0, -match[0].length) : key
-    const entry = schema.get(base) ?? { plain: false, forms: new Set() }
-    if (match) entry.forms.add(match[1])
-    else entry.plain = true
+    const entry = schema.get(base) ?? {
+      plain: false,
+      forms: new Set(),
+    }
+    if (match) {
+      entry.forms.add(match[1])
+    } else {
+      entry.plain = true
+    }
     schema.set(base, entry)
   }
   return schema
@@ -74,13 +83,17 @@ function validatePluralForms(locale, reference, schema) {
   const requiredForms = new Set(new Intl.PluralRules(locale).resolvedOptions().pluralCategories)
   for (const [key, referenceEntry] of reference) {
     const entry = schema.get(key)
-    if (!entry) continue
+    if (!entry) {
+      continue
+    }
     const isPlural = referenceEntry.forms.size > 0
     if (!isPlural && !entry.plain) {
       issues.push(`${key} must be a plain message`)
       continue
     }
-    if (!isPlural) continue
+    if (!isPlural) {
+      continue
+    }
     const missing = [...requiredForms].filter((form) => !entry.forms.has(form))
     const extra = [...entry.forms].filter((form) => !requiredForms.has(form))
     if (entry.plain || missing.length || extra.length) {

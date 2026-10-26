@@ -1,5 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { invoke, isTauri } from '@tauri-apps/api/core'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import {
+  invoke,
+  isTauri,
+} from '@tauri-apps/api/core'
 import type { DocumentInfo } from '../types/search'
 import type { SearchQueryError } from '../hooks/useSearch'
 import { parseSearchQuery } from '../utils/phraseSearch'
@@ -41,7 +49,8 @@ export function useConceptualSearch({ semantic, submittedQuery, searchRequest, q
   scopeUrls, scopeActive, library }: {
   semantic: SemanticSearchController
   submittedQuery: string
-  searchRequest: { revision: number; scope: string }
+  searchRequest: { revision: number;
+    scope: string }
   queryError: SearchQueryError | null
   scopeUrls: Set<string>
   scopeActive: boolean
@@ -51,13 +60,19 @@ export function useConceptualSearch({ semantic, submittedQuery, searchRequest, q
   const { enabled, format, provider, busy, index } = semantic
   // Index/library snapshots invalidate results after explicit jobs and source mutations.
   const key = useMemo(() => ({
-    searchRequest, library, index,
-    parsed: parseSearchQuery(submittedQuery), enabled, queryError, busy,
+    searchRequest,
+    library,
+    index,
+    parsed: parseSearchQuery(submittedQuery),
+    enabled,
+    queryError,
+    busy,
     active: !!provider?.compiled && provider.activeFormat === format,
     urls: scopeKey ? JSON.parse(scopeKey) as string[] : undefined,
   }), [submittedQuery, searchRequest, queryError, scopeKey, library, enabled, format,
     provider?.compiled, provider?.activeFormat, busy, index])
-  const [state, setState] = useState<{ key: typeof key; value: ConceptualState } | null>(null)
+  const [state, setState] = useState<{ key: typeof key;
+    value: ConceptualState } | null>(null)
   const running = useRef(false)
   const latest = useRef<(() => void) | null>(null)
   // Filter changes hide old results immediately, then wait for the matching lexical submission.
@@ -65,8 +80,12 @@ export function useConceptualSearch({ semantic, submittedQuery, searchRequest, q
     !key.parsed.unmatchedQuote && !!key.parsed.providerQuery
 
   useEffect(() => {
-    if (!eligible) return
-    if (!isTauri() || !key.active || key.busy) return
+    if (!eligible) {
+      return
+    }
+    if (!isTauri() || !key.active || key.busy) {
+      return
+    }
     let closed = false
     // Native queries share one slot; coalesce replacements until the running IPC settles.
     const run = () => {
@@ -74,36 +93,76 @@ export function useConceptualSearch({ semantic, submittedQuery, searchRequest, q
       running.current = true
       // A microtask lets StrictMode retire its first effect before reserving a native query slot.
       void Promise.resolve().then(() => {
-        if (closed) return
-        return invoke<ConceptualResponse>('search_semantic_query', { request: {
-          query: key.parsed.unquotedText,
-          exactPhrases: key.parsed.exactPhrases,
-          documentUrls: key.urls,
-          limit: 50,
-        } })
+        if (closed) {
+          return
+        }
+        return invoke<ConceptualResponse>('search_semantic_query', {
+          request: {
+            query: key.parsed.unquotedText,
+            exactPhrases: key.parsed.exactPhrases,
+            documentUrls: key.urls,
+            limit: 50,
+          },
+        })
       }).then((response) => {
-        if (closed || !response) return
+        if (closed || !response) {
+          return
+        }
         // Partial coverage uses lexical fallback rather than hiding unindexed library sources.
-        setState({ key, value: response.availability === 'ready'
-          ? { phase: 'ready', response }
-          : { phase: 'fallback', reason: response.availability, response } })
+        setState({
+          key,
+          value: response.availability === 'ready'
+            ? {
+              phase: 'ready',
+              response,
+            }
+            : {
+              phase: 'fallback',
+              reason: response.availability,
+              response,
+            },
+        })
       }).catch(() => {
-        if (!closed) setState({ key, value: { phase: 'fallback', reason: 'failed' } })
+        if (!closed) {
+          setState({
+            key,
+            value: {
+              phase: 'fallback',
+              reason: 'failed',
+            },
+          })
+        }
       }).finally(() => {
         running.current = false
         latest.current?.()
       })
     }
     latest.current = run
-    if (!running.current) run()
+    if (!running.current) {
+      run()
+    }
     return () => {
       closed = true
-      if (latest.current === run) latest.current = null
+      if (latest.current === run) {
+        latest.current = null
+      }
     }
   }, [key, eligible])
 
-  if (!eligible) return null
-  if (!isTauri() || !key.active) return { phase: 'fallback', reason: 'unavailable' }
-  if (key.busy) return { phase: 'fallback', reason: 'preparing' }
+  if (!eligible) {
+    return null
+  }
+  if (!isTauri() || !key.active) {
+    return {
+      phase: 'fallback',
+      reason: 'unavailable',
+    }
+  }
+  if (key.busy) {
+    return {
+      phase: 'fallback',
+      reason: 'preparing',
+    }
+  }
   return state?.key === key ? state.value : { phase: 'loading' }
 }

@@ -1,9 +1,20 @@
 // @vitest-environment jsdom
-import { act, type ComponentProps } from 'react'
+import {
+  act,
+  type ComponentProps,
+} from 'react'
 import { createRoot } from 'react-dom/client'
-import { afterEach, expect, it, vi } from 'vitest'
+import {
+  afterEach,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import { AudioControls } from './AudioControls'
-vi.mock('react-i18next', async importOriginal => ({ ...await importOriginal<typeof import('react-i18next')>(), useTranslation: () => ({ t: (key: string) => key }) }))
+vi.mock('react-i18next', async importOriginal => ({
+  ...await importOriginal<typeof import('react-i18next')>(),
+  useTranslation: () => ({ t: (key: string) => key }),
+}))
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 afterEach(() => document.body.replaceChildren())
 
@@ -15,7 +26,10 @@ it('keeps playback speed reachable through Options without the optional feature'
   const rate = vi.fn()
   try {
     await act(async () => app.render(<AudioControls {...config} playAnywhere={undefined}
-      onPlaybackRateChange={rate} ttsState={{ ...config.ttsState, status: 'paused' }} />))
+      onPlaybackRateChange={rate} ttsState={{
+        ...config.ttsState,
+        status: 'paused',
+      }} />))
     await act(async () => document.querySelector<HTMLButtonElement>('.audio-menu-btn')!.click())
     expect(document.activeElement).toBe(document.querySelector('[role="switch"]'))
     const speed = document.querySelector<HTMLButtonElement>('.audio-menu-rate')!
@@ -61,15 +75,68 @@ it('exposes Word Highlight as a stable named switch with the existing immediate 
 })
 function props(): ComponentProps<typeof AudioControls> {
   const noop = () => {}
-  return { audiobookState: { status: 'idle', complete: true, cachedChunks: 2, totalChunks: 2, message: '', audioDurationSec: 0, wavBytes: 0, appliedThreadCount: null },
-    canPlayAudiobook: true, canSaveAudiobook: false, canSkipBackward: false, canSkipForward: true, modelSetupLabel: null, saveInProgress: false,
-    onManageSave: noop, onPause: vi.fn(), onRead: vi.fn(), onResume: vi.fn(), onSelectSavedAudiobook: noop, onJumpToChunk: noop, onPlaybackRateChange: noop, onOpenAudioSetup: noop, onSave: noop, onSkipBackward: noop, onSkipForward: noop, onStop: noop, onWordHighlightEnabledChange: noop,
-    playbackRate: 1, savedAudiobooks: [], selectedAudiobookId: null, wordHighlightEnabled: true,
-    ttsState: { status: 'idle', message: '', chunksGenerated: 2, chunksPlayed: 0, chunksTotal: 2, currentText: '', currentChunkIndex: null, pendingChunkIndex: null, currentChunkId: null, currentChunkProgress: 0, currentChunkTime: 0, currentChunkDuration: 0, chunkSummaries: [], chunks: [] },
-    playAnywhere: { browsing: false, pending: false, feedback: null, onPlayFromHere: vi.fn(), onPlayFromBeginning: vi.fn(), onReturnToAudio: vi.fn() } }
+  return {
+    audiobookState: {
+      status: 'idle',
+      complete: true,
+      cachedChunks: 2,
+      totalChunks: 2,
+      message: '',
+      audioDurationSec: 0,
+      wavBytes: 0,
+      appliedThreadCount: null,
+    },
+    canPlayAudiobook: true,
+    canSaveAudiobook: false,
+    canSkipBackward: false,
+    canSkipForward: true,
+    modelSetupLabel: null,
+    saveInProgress: false,
+    onManageSave: noop,
+    onPause: vi.fn(),
+    onRead: vi.fn(),
+    onResume: vi.fn(),
+    onSelectSavedAudiobook: noop,
+    onJumpToChunk: noop,
+    onPlaybackRateChange: noop,
+    onOpenAudioSetup: noop,
+    onSave: noop,
+    onSkipBackward: noop,
+    onSkipForward: noop,
+    onStop: noop,
+    onWordHighlightEnabledChange: noop,
+    playbackRate: 1,
+    savedAudiobooks: [],
+    selectedAudiobookId: null,
+    wordHighlightEnabled: true,
+    ttsState: {
+      status: 'idle',
+      message: '',
+      chunksGenerated: 2,
+      chunksPlayed: 0,
+      chunksTotal: 2,
+      currentText: '',
+      currentChunkIndex: null,
+      pendingChunkIndex: null,
+      currentChunkId: null,
+      currentChunkProgress: 0,
+      currentChunkTime: 0,
+      currentChunkDuration: 0,
+      chunkSummaries: [],
+      chunks: [],
+    },
+    playAnywhere: {
+      browsing: false,
+      pending: false,
+      feedback: null,
+      onPlayFromHere: vi.fn(),
+      onPlayFromBeginning: vi.fn(),
+      onReturnToAudio: vi.fn(),
+    },
+  }
 }
 it('uses explicit viewport/beginning actions, keeps Resume while browsing, and restores menu focus', async () => {
-  const config = props(), shell = document.createElement('div'); shell.className = 'app-reader'
+  const config = props(); const shell = document.createElement('div'); shell.className = 'app-reader'
   const header = document.createElement('header'); shell.append(header); document.body.append(shell); const app = createRoot(header)
   const button = (name: string) => [...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === name || b.textContent === name)!
   try {
@@ -78,10 +145,20 @@ it('uses explicit viewport/beginning actions, keeps Resume while browsing, and r
     await act(async () => button('tts.controls.playbackOptions').click())
     expect(document.activeElement).toBe(document.querySelector('.audio-passage-here'))
     expect(header.contains(document.querySelector('.audio-playback-dock'))).toBe(false)
-    await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
+    await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+    })))
     expect(document.activeElement).toBe(button('tts.controls.playbackOptions'))
     await act(async () => button('tts.controls.playbackOptions').click()); await act(async () => button('tts.playAnywhere.beginning').click()); expect(config.playAnywhere!.onPlayFromBeginning).toHaveBeenCalledOnce()
-    await act(async () => app.render(<AudioControls {...config} ttsState={{ ...config.ttsState, status: 'paused', currentChunkIndex: 1 }} playAnywhere={{ ...config.playAnywhere!, browsing: true }} />))
+    await act(async () => app.render(<AudioControls {...config} ttsState={{
+      ...config.ttsState,
+      status: 'paused',
+      currentChunkIndex: 1,
+    }} playAnywhere={{
+      ...config.playAnywhere!,
+      browsing: true,
+    }} />))
     await act(async () => button('tts.controls.resume').click()); expect(config.onResume).toHaveBeenCalledOnce()
     await act(async () => button('tts.playAnywhere.return').click()); expect(config.playAnywhere!.onReturnToAudio).toHaveBeenCalledOnce()
     expect(config.playAnywhere!.onPlayFromHere).toHaveBeenCalledOnce()
@@ -89,16 +166,29 @@ it('uses explicit viewport/beginning actions, keeps Resume while browsing, and r
     expect(document.querySelector('.audio-browse-actions')).toBeNull()
     expect(button('tts.playAnywhere.return').querySelector('svg')).not.toBeNull()
     button('tts.playAnywhere.return').focus()
-    await act(async () => app.render(<AudioControls {...config} ttsState={{ ...config.ttsState, status: 'paused', currentChunkIndex: 1 }} />))
+    await act(async () => app.render(<AudioControls {...config} ttsState={{
+      ...config.ttsState,
+      status: 'paused',
+      currentChunkIndex: 1,
+    }} />))
     expect(document.activeElement).toBe(button('tts.controls.resume'))
-    await act(async () => app.render(<AudioControls {...config} playAnywhere={{ ...config.playAnywhere!, feedback: 'unmapped' }} />))
+    await act(async () => app.render(<AudioControls {...config} playAnywhere={{
+      ...config.playAnywhere!,
+      feedback: 'unmapped',
+    }} />))
     expect(document.querySelector('[role="status"]')?.textContent).toBe('tts.playAnywhere.unmapped')
-    await act(async () => app.render(<AudioControls {...config} ttsState={{ ...config.ttsState, status: 'error', message: 'Seek failed' }} />))
+    await act(async () => app.render(<AudioControls {...config} ttsState={{
+      ...config.ttsState,
+      status: 'error',
+      message: 'Seek failed',
+    }} />))
     expect(document.querySelector('[role="status"]')?.textContent).toBe('Seek failed')
     await act(async () => app.render(<AudioControls {...config} playAnywhere={undefined} />))
     await act(async () => button('tts.controls.playSaved').click())
     expect(config.onRead).toHaveBeenCalledOnce()
-  } finally { await act(async () => app.unmount()) }
+  } finally {
+    await act(async () => app.unmount())
+  }
 })
 
 it.each(['wheel', 'pointer', 'keyboard'])('keeps the list position after %s browsing until the popover is reopened', async method => {
@@ -112,7 +202,12 @@ it.each(['wheel', 'pointer', 'keyboard'])('keeps the list position after %s brow
     textPreview: 'Saved passage ' + index,
   }))
   const render = (index: number) => app.render(<AudioControls {...config}
-    ttsState={{ ...config.ttsState, status: 'playing', currentChunkIndex: index, chunkSummaries: chunks }} />)
+    ttsState={{
+      ...config.ttsState,
+      status: 'playing',
+      currentChunkIndex: index,
+      chunkSummaries: chunks,
+    }} />)
   try {
     await act(async () => render(20))
     const trigger = document.querySelector<HTMLButtonElement>('[aria-expanded="false"]')!
@@ -122,8 +217,11 @@ it.each(['wheel', 'pointer', 'keyboard'])('keeps the list position after %s brow
     await act(async () => render(21))
     expect(list.scrollTop).toBeGreaterThan(initial)
     await act(async () => {
-      if (method === 'keyboard') list.querySelector('button')!.focus()
-      else list.dispatchEvent(new Event(method === 'wheel' ? 'wheel' : 'pointerdown', { bubbles: true }))
+      if (method === 'keyboard') {
+        list.querySelector('button')!.focus()
+      } else {
+        list.dispatchEvent(new Event(method === 'wheel' ? 'wheel' : 'pointerdown', { bubbles: true }))
+      }
       list.scrollTop = 400
       list.dispatchEvent(new Event('scroll', { bubbles: true }))
     })
@@ -134,7 +232,10 @@ it.each(['wheel', 'pointer', 'keyboard'])('keeps the list position after %s brow
     await act(async () => views[0].click())
     list = document.querySelector<HTMLDivElement>('.audio-chunk-list')!
     expect(list.scrollTop).toBe(400)
-    await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
+    await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+    })))
     await act(async () => trigger.click())
     expect(document.querySelector<HTMLDivElement>('.audio-chunk-list')!.scrollTop).not.toBe(400)
   } finally {
@@ -149,7 +250,11 @@ it('keeps one live status with a decorative pending spinner and visible recovery
   const app = createRoot(element)
   try {
     await act(async () => app.render(<AudioControls {...config}
-      ttsState={{ ...config.ttsState, status: 'loading', message: 'Checking saved audio...' }} />))
+      ttsState={{
+        ...config.ttsState,
+        status: 'loading',
+        message: 'Checking saved audio...',
+      }} />))
     const status = document.querySelector<HTMLElement>('[role="status"]')!
     expect(status.textContent).toBe('Checking saved audio...')
     expect(status.getAttribute('aria-live')).toBe('polite')
@@ -157,7 +262,10 @@ it('keeps one live status with a decorative pending spinner and visible recovery
     expect(status.closest('.audio-playback-surface')).toBe(document.querySelector('.audio-floating-playback')?.parentElement)
     expect(document.querySelectorAll('[role="status"]')).toHaveLength(1)
     await act(async () => app.render(<AudioControls {...config}
-      playAnywhere={{ ...config.playAnywhere!, feedback: 'unmapped' }} />))
+      playAnywhere={{
+        ...config.playAnywhere!,
+        feedback: 'unmapped',
+      }} />))
     expect(status.textContent).toBe('tts.playAnywhere.unmapped')
     expect(status.classList.contains('audio-target-error')).toBe(true)
     expect(status.querySelector('.spinner')).toBeNull()
@@ -176,8 +284,14 @@ it('offers compact Return with its full accessible name and a labeled Options ac
   const app = createRoot(element)
   try {
     await act(async () => app.render(<AudioControls {...config}
-      ttsState={{ ...config.ttsState, status: 'paused' }}
-      playAnywhere={{ ...config.playAnywhere!, browsing: true }} />))
+      ttsState={{
+        ...config.ttsState,
+        status: 'paused',
+      }}
+      playAnywhere={{
+        ...config.playAnywhere!,
+        browsing: true,
+      }} />))
     const compact = document.querySelector<HTMLButtonElement>('.audio-return-control')!
     expect(compact.getAttribute('aria-label')).toBe('tts.playAnywhere.return')
     expect(compact.textContent).toBe('tts.playAnywhere.returnShort')
@@ -196,10 +310,15 @@ it('offers compact Return with its full accessible name and a labeled Options ac
 })
 
 it('snapshots on menu pointerdown before focus and exposes a keyboard-focusable explicit selection action', async () => {
-  const config = props(), element = document.createElement('div'); document.body.append(element); const app = createRoot(element)
-  const snapshot = vi.fn(() => true), play = vi.fn(), close = vi.fn()
+  const config = props(); const element = document.createElement('div'); document.body.append(element); const app = createRoot(element)
+  const snapshot = vi.fn(() => true); const play = vi.fn(); const close = vi.fn()
   try {
-    await act(async () => app.render(<AudioControls {...config} playAnywhere={{ ...config.playAnywhere!, onSnapshotSelection: snapshot, onPlayFromSelection: play, onSelectionMenuClose: close }} />))
+    await act(async () => app.render(<AudioControls {...config} playAnywhere={{
+      ...config.playAnywhere!,
+      onSnapshotSelection: snapshot,
+      onPlayFromSelection: play,
+      onSelectionMenuClose: close,
+    }} />))
     const trigger = document.querySelector<HTMLButtonElement>('[aria-expanded="false"]')!
     await act(async () => trigger.dispatchEvent(new Event('pointerdown', { bubbles: true })))
     expect(snapshot).toHaveBeenCalledOnce()
@@ -209,17 +328,30 @@ it('snapshots on menu pointerdown before focus and exposes a keyboard-focusable 
     action.focus(); expect(document.activeElement).toBe(action)
     await act(async () => action.click()); expect(play).toHaveBeenCalledOnce(); expect(close).toHaveBeenCalledOnce()
     expect(document.activeElement).toBe(trigger)
-    await act(async () => app.render(<AudioControls {...config} playAnywhere={{ ...config.playAnywhere!, feedback: 'no-selection' }} />))
+    await act(async () => app.render(<AudioControls {...config} playAnywhere={{
+      ...config.playAnywhere!,
+      feedback: 'no-selection',
+    }} />))
     expect(document.querySelector('[role="status"]')?.textContent).toBe('tts.playAnywhere.noSelection')
-  } finally { await act(async () => app.unmount()) }
+  } finally {
+    await act(async () => app.unmount())
+  }
 })
 
 it('keeps passage commands in the popover, reports missing selection and closes before viewport capture', async () => {
-  const config = props(), element = document.createElement('div'); document.body.append(element); const app = createRoot(element)
-  const play = vi.fn(), here = vi.fn(() => expect(document.querySelector('.audio-chunk-menu')).toBeNull())
+  const config = props(); const element = document.createElement('div'); document.body.append(element); const app = createRoot(element)
+  const play = vi.fn(); const here = vi.fn(() => expect(document.querySelector('.audio-chunk-menu')).toBeNull())
   try {
-    await act(async () => app.render(<AudioControls {...config} ttsState={{ ...config.ttsState, status: 'playing' }}
-      playAnywhere={{ ...config.playAnywhere!, onPlayFromHere: here, onSnapshotSelection: () => false, onPlayFromSelection: play }} />))
+    await act(async () => app.render(<AudioControls {...config} ttsState={{
+      ...config.ttsState,
+      status: 'playing',
+    }}
+    playAnywhere={{
+      ...config.playAnywhere!,
+      onPlayFromHere: here,
+      onSnapshotSelection: () => false,
+      onPlayFromSelection: play,
+    }} />))
     expect(document.querySelector('.audio-passage-actions')).toBeNull()
     const trigger = document.querySelector<HTMLButtonElement>('[aria-expanded="false"]')!
     await act(async () => trigger.click())
@@ -231,7 +363,9 @@ it('keeps passage commands in the popover, reports missing selection and closes 
     await act(async () => commands[1].click()); expect(play).not.toHaveBeenCalled()
     await act(async () => commands[0].click()); expect(here).toHaveBeenCalledOnce()
     expect(document.activeElement).toBe(trigger)
-  } finally { await act(async () => app.unmount()) }
+  } finally {
+    await act(async () => app.unmount())
+  }
 })
 
 it('opens a loaded audiobook on chunks, separates options, and resets the view on reopening', async () => {
@@ -247,7 +381,12 @@ it('opens a loaded audiobook on chunks, separates options, and resets the view o
   }))
   try {
     await act(async () => app.render(<AudioControls {...config} onJumpToChunk={jump}
-      ttsState={{ ...config.ttsState, status: 'playing', currentChunkIndex: 2, chunkSummaries: chunks }} />))
+      ttsState={{
+        ...config.ttsState,
+        status: 'playing',
+        currentChunkIndex: 2,
+        chunkSummaries: chunks,
+      }} />))
     const trigger = document.querySelector<HTMLButtonElement>('[aria-expanded="false"]')!
     await act(async () => trigger.click())
     expect(document.querySelector('.audio-chunk-list')).not.toBeNull()
@@ -273,13 +412,32 @@ it('opens a loaded audiobook on chunks, separates options, and resets the view o
   }
 })
 
-
 it.each([
-  { complete: true, setup: false, playable: true },
-  { complete: true, setup: true, playable: true },
-  { complete: false, setup: true, playable: true },
-  { complete: false, setup: true, playable: false },
-  { complete: false, setup: false, playable: true },
+  {
+    complete: true,
+    setup: false,
+    playable: true,
+  },
+  {
+    complete: true,
+    setup: true,
+    playable: true,
+  },
+  {
+    complete: false,
+    setup: true,
+    playable: true,
+  },
+  {
+    complete: false,
+    setup: true,
+    playable: false,
+  },
+  {
+    complete: false,
+    setup: false,
+    playable: true,
+  },
 ])('keeps Save presentation and generation setup separate from playable audio: %j', async ({ complete, setup, playable }) => {
   const config = props()
   const host = document.createElement('div')
@@ -289,7 +447,10 @@ it.each([
   const save = vi.fn()
   try {
     await act(async () => app.render(<AudioControls {...config}
-      audiobookState={{ ...config.audiobookState, complete }}
+      audiobookState={{
+        ...config.audiobookState,
+        complete,
+      }}
       canPlayAudiobook={playable} canSaveAudiobook={!setup}
       modelSetupLabel={setup ? 'Download model' : null}
       onOpenAudioSetup={openSetup} onSave={save} />))
@@ -322,7 +483,10 @@ it('keeps Save preparation and progress ahead of setup-required presentation', a
   try {
     for (const status of ['checking', 'saving'] as const) {
       await act(async () => app.render(<AudioControls {...config} saveInProgress modelSetupLabel="Download model"
-        audiobookState={{ ...config.audiobookState, status }} onManageSave={manage} />))
+        audiobookState={{
+          ...config.audiobookState,
+          status,
+        }} onManageSave={manage} />))
       const button = host.querySelector<HTMLButtonElement>('.audio-compact-row > button:last-child')!
       expect(button.classList.contains('audio-setup-required')).toBe(false)
       expect(button.classList.contains('audio-save-complete')).toBe(false)

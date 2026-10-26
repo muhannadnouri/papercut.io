@@ -1,6 +1,16 @@
-import { describe, expect, it } from 'vitest'
-import { parseSearchQuery, searchQueryWithinLimits } from './phraseSearch'
-import { normalizeForPhraseMatch, sanitizeMarkedExcerpt } from './textUtils'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
+import {
+  parseSearchQuery,
+  searchQueryWithinLimits,
+} from './phraseSearch'
+import {
+  normalizeForPhraseMatch,
+  sanitizeMarkedExcerpt,
+} from './textUtils'
 
 describe('search query parsing', () => {
   it('keeps broad words and exact phrases distinct in a mixed query', () => {

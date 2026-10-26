@@ -47,7 +47,12 @@ export function buildBundledDocumentTree(
       const id = `/documents/${path.map(encodeURIComponent).join('/')}`
       let folder = parent.folders.get(segment)
       if (!folder) {
-        folder = { id, name: segment, folders: new Map(), documents: [] }
+        folder = {
+          id,
+          name: segment,
+          folders: new Map(),
+          documents: [],
+        }
         parent.folders.set(segment, folder)
       }
       parent = folder
@@ -56,7 +61,10 @@ export function buildBundledDocumentTree(
     parent.documents.push(document)
   }
 
-  const collator = new Intl.Collator(locale, { numeric: true, sensitivity: 'base' })
+  const collator = new Intl.Collator(locale, {
+    numeric: true,
+    sensitivity: 'base',
+  })
   return finalizeFolder(root, collator)
 }
 
@@ -64,7 +72,9 @@ export function buildBundledDocumentTree(
 export function bundledDocumentFolderNames(url: string): string[] {
   const marker = '/documents/'
   const markerIndex = url.indexOf(marker)
-  if (markerIndex === -1) return []
+  if (markerIndex === -1) {
+    return []
+  }
 
   const relativePath = url
     .slice(markerIndex + marker.length)
@@ -80,7 +90,11 @@ function finalizeFolder(
   const folders = Array.from(folder.folders.values())
     .map((child) => {
       const finalized = finalizeFolder(child, collator)
-      return { id: child.id, name: child.name, ...finalized }
+      return {
+        id: child.id,
+        name: child.name,
+        ...finalized,
+      }
     })
     .sort((a, b) => collator.compare(a.name, b.name))
   const documents = folder.documents

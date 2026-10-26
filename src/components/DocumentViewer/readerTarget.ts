@@ -25,7 +25,9 @@ export function clearSearchTargetHighlight(root: HTMLElement): void {
   clearSearchTargetRegistry(doc)
   root.querySelectorAll('mark[data-search-target]').forEach((mark) => {
     const parent = mark.parentNode
-    if (!parent) return
+    if (!parent) {
+      return
+    }
     parent.replaceChild(doc.createTextNode(mark.textContent ?? ''), mark)
     parent.normalize()
   })
@@ -49,9 +51,13 @@ export function highlightSearchTarget(
   pdfWordWraps = false,
 ): Range | null {
   const match = findReaderTextMatches(root, text, occurrenceIndex + 1, pdfWordWraps)[occurrenceIndex]
-  if (!match) return null
+  if (!match) {
+    return null
+  }
   const { range } = match
-  if (setSearchTargetRegistryHighlight(root.ownerDocument, range)) return range
+  if (setSearchTargetRegistryHighlight(root.ownerDocument, range)) {
+    return range
+  }
 
   if (!isIOSWebKit()) {
     const mark = markSearchTargetMatch(match)
@@ -66,7 +72,9 @@ export function highlightSearchTarget(
 function setSearchTargetRegistryHighlight(doc: Document, range: Range): boolean {
   const view = doc.defaultView
   const registry = view?.CSS?.highlights
-  if (!view || !registry) return false
+  if (!view || !registry) {
+    return false
+  }
 
   const highlight = new view.Highlight(range)
   registry.set(SEARCH_TARGET_HIGHLIGHT_NAME, highlight)
@@ -75,7 +83,9 @@ function setSearchTargetRegistryHighlight(doc: Document, range: Range): boolean 
 
 function clearSearchTargetRegistry(doc: Document): void {
   const registry = doc.defaultView?.CSS?.highlights
-  if (!registry) return
+  if (!registry) {
+    return
+  }
   registry.get(SEARCH_TARGET_HIGHLIGHT_NAME)?.clear()
   registry.delete(SEARCH_TARGET_HIGHLIGHT_NAME)
 }
@@ -86,7 +96,9 @@ function markSearchTargetMatch(match: ReaderTextMatch): HTMLElement | null {
   let firstMark: HTMLElement | null = null
   for (const part of match.parts) {
     const parent = part.node.parentNode
-    if (!parent) continue
+    if (!parent) {
+      continue
+    }
     const doc = part.node.ownerDocument
     const text = part.node.data
     const mark = doc.createElement('mark')
@@ -116,12 +128,18 @@ function rangeForElement(element: Element): Range {
 export function scrollToReaderRange(range: Range): void {
   const rect = range.getBoundingClientRect()
   const targetTop = window.scrollY + rect.top
-  window.scrollTo({ top: Math.max(targetTop - window.innerHeight / 2, 0), behavior: readerScrollBehavior() })
+  window.scrollTo({
+    top: Math.max(targetTop - window.innerHeight / 2, 0),
+    behavior: readerScrollBehavior(),
+  })
 }
 
 export function scrollToReaderElement(element: Element): void {
   const targetTop = window.scrollY + element.getBoundingClientRect().top
-  window.scrollTo({ top: Math.max(targetTop - 120, 0), behavior: readerScrollBehavior() })
+  window.scrollTo({
+    top: Math.max(targetTop - 120, 0),
+    behavior: readerScrollBehavior(),
+  })
 }
 
 export function readerScrollBehavior(): ScrollBehavior {

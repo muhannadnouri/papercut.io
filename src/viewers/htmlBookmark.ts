@@ -1,10 +1,15 @@
-import type { HtmlBookmarkLocation, ViewerBookmarkApi, ViewerBookmarkLocation } from './types'
+import type {
+  HtmlBookmarkLocation,
+  ViewerBookmarkApi,
+  ViewerBookmarkLocation,
+} from './types'
 
 const BOOKMARK_VISIBILITY_MARGIN_PX = 8
 const READER_TEXT_SKIP_SELECTOR = 'script, style, noscript, svg'
 
 type CaretDocument = Document & {
-  caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null
+  caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node;
+    offset: number } | null
   caretRangeFromPoint?: (x: number, y: number) => Range | null
 }
 
@@ -14,10 +19,13 @@ type CaretDocument = Document & {
  */
 export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi {
   const view = root.ownerDocument.defaultView ?? window
-  let cached: { location: HtmlBookmarkLocation; range: Range } | null = null
+  let cached: { location: HtmlBookmarkLocation;
+    range: Range } | null = null
 
   const resolve = (location: ViewerBookmarkLocation): Range | null => {
-    if (!isHtmlLocation(location)) return null
+    if (!isHtmlLocation(location)) {
+      return null
+    }
     if (
       cached?.location.textOffset === location.textOffset &&
       root.contains(cached.range.startContainer)
@@ -29,13 +37,18 @@ export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi {
       nodes.map((node) => node.data.length),
       location.textOffset,
     )
-    if (!point) return null
+    if (!point) {
+      return null
+    }
 
     const node = nodes[point.partIndex]
     const range = root.ownerDocument.createRange()
     range.setStart(node, point.offset)
     range.setEnd(node, Math.min(node.length, point.offset + 1))
-    cached = { location, range }
+    cached = {
+      location,
+      range,
+    }
     return range
   }
 
@@ -43,7 +56,9 @@ export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi {
     capture: () => captureTextLocation(root),
     isCurrent: (location) => {
       const range = resolve(location)
-      if (!range) return false
+      if (!range) {
+        return false
+      }
       const bounds = range.getBoundingClientRect()
       return bounds.bottom >= -BOOKMARK_VISIBILITY_MARGIN_PX &&
         bounds.top <= view.innerHeight + BOOKMARK_VISIBILITY_MARGIN_PX
@@ -51,11 +66,19 @@ export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi {
     isPastStart: () => view.scrollY > 180,
     restore: (location) => {
       const range = resolve(location)
-      if (!range) return
+      if (!range) {
+        return
+      }
       const bounds = range.getBoundingClientRect()
-      view.scrollTo({ top: Math.max(0, view.scrollY + bounds.top), behavior: 'auto' })
+      view.scrollTo({
+        top: Math.max(0, view.scrollY + bounds.top),
+        behavior: 'auto',
+      })
     },
-    scrollToTop: () => view.scrollTo({ top: 0, behavior: 'smooth' }),
+    scrollToTop: () => view.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    }),
     subscribe: (listener) => {
       view.addEventListener('scroll', listener, { passive: true })
       view.addEventListener('resize', listener)
@@ -82,7 +105,8 @@ function captureTextLocation(root: HTMLElement): HtmlBookmarkLocation | null {
     total += node.data.length
   }
 
-  let nearest: { distance: number; textOffset: number } | null = null
+  let nearest: { distance: number;
+    textOffset: number } | null = null
   for (const node of nodes) {
     const start = starts.get(node) ?? 0
     const range = root.ownerDocument.createRange()
@@ -94,9 +118,14 @@ function captureTextLocation(root: HTMLElement): HtmlBookmarkLocation | null {
           ? bounds.top - view.innerHeight
           : 0
       if (!nearest || distance < nearest.distance) {
-        nearest = { distance, textOffset: start }
+        nearest = {
+          distance,
+          textOffset: start,
+        }
       }
-      if (distance > 0) continue
+      if (distance > 0) {
+        continue
+      }
 
       const point = caretTextPoint(root, node, bounds)
       const pointStart = point ? starts.get(point.node) : undefined
@@ -114,7 +143,8 @@ function caretTextPoint(
   root: HTMLElement,
   textNode: Text,
   bounds: DOMRect,
-): { node: Text; offset: number } | null {
+): { node: Text;
+  offset: number } | null {
   const doc = root.ownerDocument as CaretDocument
   const view = doc.defaultView ?? window
   const direction = view.getComputedStyle(textNode.parentElement ?? root).direction
@@ -125,11 +155,17 @@ function caretTextPoint(
   const position = doc.caretPositionFromPoint?.(x, y)
   const node = position?.offsetNode
   if (position && node instanceof Text && root.contains(node)) {
-    return { node, offset: position.offset }
+    return {
+      node,
+      offset: position.offset,
+    }
   }
   const range = doc.caretRangeFromPoint?.(x, y)
   return range?.startContainer instanceof Text && root.contains(range.startContainer)
-    ? { node: range.startContainer, offset: range.startOffset }
+    ? {
+      node: range.startContainer,
+      offset: range.startOffset,
+    }
     : null
 }
 
@@ -158,13 +194,23 @@ function isHtmlLocation(location: ViewerBookmarkLocation): location is HtmlBookm
 export function textPointAtOffset(
   lengths: readonly number[],
   textOffset: number,
-): { partIndex: number; offset: number } | null {
-  if (!Number.isInteger(textOffset) || textOffset < 0) return null
+): { partIndex: number;
+  offset: number } | null {
+  if (!Number.isInteger(textOffset) || textOffset < 0) {
+    return null
+  }
   let remaining = textOffset
   for (let partIndex = 0; partIndex < lengths.length; partIndex++) {
     const length = lengths[partIndex]
-    if (length <= 0) continue
-    if (remaining < length) return { partIndex, offset: remaining }
+    if (length <= 0) {
+      continue
+    }
+    if (remaining < length) {
+      return {
+        partIndex,
+        offset: remaining,
+      }
+    }
     remaining -= length
   }
   return null
