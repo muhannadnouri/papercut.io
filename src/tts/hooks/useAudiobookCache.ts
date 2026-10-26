@@ -210,8 +210,7 @@ export function useAudiobookCache() {
     jobIdRef.current += 1
     setState((prev) => ({
       ...prev,
-      status: prev.cachedChunks === prev.totalChunks && prev.totalChunks > 0 ? 'saved' : 'partial',
-      complete: prev.cachedChunks === prev.totalChunks && prev.totalChunks > 0,
+      status: prev.complete ? 'saved' : 'partial',
       message: i18n.t('tts.status.saveCancelled'),
     }))
   }, [])
@@ -305,9 +304,8 @@ export function useAudiobookCache() {
       message: formatNativeProgressMessage(progress),
       cachedChunks: progress.cachedChunks,
       totalChunks: progress.totalChunks,
-      complete: progress.status === 'saved' || (
-        progress.totalChunks > 0 && progress.cachedChunks === progress.totalChunks
-      ),
+      // The last WAV precedes manifest finalization; only the saved event confirms registry readiness.
+      complete: progress.status === 'saved',
       audioDurationSec: progress.totalAudioDurationSec,
       wavBytes: progress.totalWavBytes,
       appliedThreadCount: progress.appliedThreadCount,

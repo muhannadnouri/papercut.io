@@ -5,8 +5,8 @@ import {
 import type { PdfReadableSegment } from '../../pdf/pdfTts'
 import { pdfSourceSpansForChunk } from '../../pdf/pdfTts'
 import { normalizeSegmentText } from '../alignment/readableSegments'
-import { finishNarrationWork } from '../alignment/narrationText'
-import type { TtsChunk } from '../types'
+import { finishNarrationWork, splitNarrationSentences } from '../alignment/narrationText'
+import type { TtsChunk, TtsChunkSourceSpan } from '../types'
 import { createChunkSourceResolver } from './sourceChunkResolver'
 import { createPdfChunkSourceResolver } from './pdfChunkSourceResolver'
 
@@ -31,8 +31,9 @@ export function* htmlResolverSteps(chunks: readonly TtsChunk[], texts: readonly 
       const span = chunk.sourceSpan!
       const start = sourceSpanStartGlobalOffset(locator, span)
       const end = sourceSpanEndGlobalOffset(locator, span)
-      if (!locatorRangeIsIgnorable(locator, cursor, start) ||
-        !locatorTextsMatch(locator.text.slice(start, end), chunk.text)) {
+      const matches = locatorTextsMatch(locator.text.slice(start, end), chunk.text) ||
+        (span.startSegmentIndex !== span.endSegmentIndex && locatorTextsMatch(narratedSpanText(texts, span), chunk.text))
+      if (!locatorRangeIsIgnorable(locator, cursor, start) || !matches) {
         return { status: 'unavailable', reason: 'unmapped' } as const
       }
       cursor = end
@@ -45,6 +46,17 @@ export function* htmlResolverSteps(chunks: readonly TtsChunk[], texts: readonly 
   const recovered = yield* orderedSourceSpanSteps(locator, chunks)
   if (chunks.some((chunk, index) => chunk.text.trim() && !recovered.has(index))) return durable
   return yield* validate(chunks.map((chunk, index) => ({ ...chunk, sourceSpan: recovered.get(index) })))
+}
+
+/** Generation splits paragraphs before merging; a leading terminator may be omitted in each paragraph. */
+function narratedSpanText(texts: readonly string[], span: TtsChunkSourceSpan): string {
+  const parts: string[] = []
+  for (let index = span.startSegmentIndex; index <= span.endSegmentIndex; index++) {
+    const start = index === span.startSegmentIndex ? span.startOffset : 0
+    const end = index === span.endSegmentIndex ? span.endOffset : texts[index].length
+    parts.push(...splitNarrationSentences(texts[index].slice(start, end)))
+  }
+  return parts.join(' ')
 }
 
 /** PDF spans must be the current projection of verified narration spans, not arbitrary runtime locators. */

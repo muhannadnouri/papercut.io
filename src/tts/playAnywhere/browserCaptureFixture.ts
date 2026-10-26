@@ -12,7 +12,7 @@ export const browser = [process.env.CHROME_BIN, 'chromium', 'chromium-browser', 
   })
 if (process.env.CI && !browser) throw new Error('Viewport capture tests require Chrome/Chromium; set CHROME_BIN.')
 
-export async function runBrowserFixture(directory: string, frame: string, width = 620, screenshotPath?: string) {
+export async function runBrowserFixture(directory: string, frame: string, width = 620, screenshotPath?: string, accessibilityPath?: string) {
   // A DevTools pipe waits for real asynchronous layout; dump-dom virtual time can stop between RAFs.
   const child = spawn(browser!, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-background-networking',
     '--allow-file-access-from-files', '--disable-dev-shm-usage', '--no-first-run', '--remote-debugging-pipe',
@@ -65,6 +65,12 @@ export async function runBrowserFixture(directory: string, frame: string, width 
     if (!value.value) throw new Error(`No capture result: ${JSON.stringify(evaluated)}`)
     const result = JSON.parse(value.value)
     if (result.error) throw new Error(result.error)
+    // An AX snapshot checks exposed names/roles; it does not replace a real screen-reader acceptance run.
+    if (accessibilityPath) {
+      const tree = await send('Accessibility.getFullAXTree', {}, sessionId)
+      mkdirSync(dirname(accessibilityPath), { recursive: true })
+      writeFileSync(accessibilityPath, JSON.stringify(tree, null, 2) + '\n')
+    }
     if (screenshotPath) {
       const screenshot = await send('Page.captureScreenshot', { format: 'png' }, sessionId)
       mkdirSync(dirname(screenshotPath), { recursive: true })

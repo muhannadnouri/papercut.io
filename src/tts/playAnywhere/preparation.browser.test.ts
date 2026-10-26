@@ -1,5 +1,10 @@
 // @vitest-environment node
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { build } from 'vite'
@@ -24,6 +29,14 @@ beforeAll(async () => {
         getChunks:async()=>saved,getPdfSegments:async()=>[],getPdfPageText:async()=>{throw Error('HTML only')}});
       const capture={status:'captured',point:{format:'html',segmentIndex:1199,offset:2},
         segmentTexts:Object.freeze(texts.map(text=>text.trim())),segmentLengths:texts.map(text=>text.trim().length),isCurrent:()=>true};
+      // Start a fresh task so initial synthetic chunk generation cannot enter the observed interval.
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const longTasks = [];
+      const supportsLongTasks = PerformanceObserver.supportedEntryTypes.includes('longtask');
+      const observer = supportsLongTasks ? new PerformanceObserver(list => {
+        longTasks.push(...list.getEntries().map(entry => entry.duration));
+      }) : null;
+      observer?.observe({type:'longtask'});
       let ticks=0,finished=false,paintBeforeCompletion=false,eventBeforeCompletion=false;
       const heartbeat=setInterval(()=>ticks++,0);
       document.getElementById('status').textContent='Preparing';
@@ -33,13 +46,25 @@ beforeAll(async () => {
       const result=await pending;finished=true;
       const coldMs=performance.now()-started;
       clearInterval(heartbeat);
-      const warmStart=performance.now(),warm=cancel?null:await preparation.resolve('/user-uploads/ab.html',capture);
-      const warmMs=performance.now()-warmStart;
+      const warmSamples = [];
+      let warm = null;
+      for (let sample = 0; !cancel && sample < 30; sample++) {
+        const start = performance.now();
+        warm = await preparation.resolve('/user-uploads/ab.html', capture);
+        if (warm.status !== 'resolved') throw new Error('Warm synthetic lookup failed');
+        warmSamples.push(performance.now() - start);
+      }
+      // Let queued observer entries arrive; this scope excludes initial chunk generation and DOM/audio capture.
+      await new Promise(resolve => setTimeout(resolve, 0));
+      longTasks.push(...(observer?.takeRecords() ?? []).map(entry => entry.duration));
+      observer?.disconnect();
+      const ordered = [...warmSamples].sort((a,b) => a-b);
+      const warmP95Ms = ordered.length ? ordered[Math.ceil(ordered.length * 0.95) - 1] : null;
       const metrics=getTtsDiagnostics().find(event=>event.label==='[play-anywhere] preparation completed')?.data;
       preparation.dispose();
       return {status:result.status,reason:result.reason,chunkIndex:result.chunkIndex,expectedIndex:saved.length-1,
         identityUnchanged:JSON.stringify(saved)===before,ticks,eventBeforeCompletion,paintBeforeCompletion,
-        warmStatus:warm?.status,coldMs,warmMs,metrics,chunks:saved.length,sourceBytes:docContent.length};
+        browser:navigator.userAgent,hardwareConcurrency:navigator.hardwareConcurrency,warmStatus:warm?.status,coldMs,warmSamples,warmP95Ms,supportsLongTasks,longTasks,metrics,chunks:saved.length,sourceBytes:docContent.length};
     }
   `)
   const output = await build({ configFile: false, logLevel: 'silent', build: { write: false, minify: false, lib: { entry, name: 'Preparation', formats: ['iife'] } } })
@@ -63,6 +88,10 @@ describe.skipIf(!browser)('Cold preparation in Chromium', () => {
     else {
       expect(result).toMatchObject({ status: 'resolved', chunkIndex: result.expectedIndex, warmStatus: 'resolved', paintBeforeCompletion: true })
       expect(result.metrics.batches).toBeGreaterThan(1)
+      expect(result.warmSamples).toHaveLength(30)
+      const evidence = resolve('src-tauri/target/play-anywhere-acceptance/diagnosis')
+      mkdirSync(evidence, { recursive: true })
+      writeFileSync(join(evidence, 'preparation-30-sample.json'), JSON.stringify(result, null, 2) + '\n')
       // Numeric evidence only: browser/host load makes wall-clock thresholds unsuitable here.
       console.info('Synthetic Chromium preparation (not packaged acceptance)', result)
     }

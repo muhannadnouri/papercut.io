@@ -822,6 +822,8 @@
       "pauseTitle": "Pause",
       "stop": "Stop audiobook",
       "stopTitle": "Stop",
+      "playbackOptions": "Playback options",
+      "savedAudioSetupHint": "Saved audio can still play. Setup is only needed to generate new audio.",
       "showMenu": "Show playback menu",
       "hideMenu": "Hide playback menu",
       "menuTitle": "Playback menu",
@@ -840,6 +842,8 @@
       "currentSetup": "Current Setup",
       "savedVersionsMismatch": "No saved audiobook matches the current setup.",
       "savedVersionsAction": "Choose one to restore its settings and play it.",
+      "chunkView": "Chunks",
+      "optionsView": "Options",
       "playback": "Playback",
       "wordHighlight": "Word Highlight",
       "experimental": "BETA",
@@ -972,6 +976,7 @@
       "here": "Play from here",
       "beginning": "Play from beginning",
       "return": "Return to audio",
+      "returnShort": "Return",
       "description": "Starts at the beginning of the audio segment containing this passage.",
       "preparing": "Finding audio for this passage…",
       "notReady": "This passage is still preparing. Try again, or play from beginning.",
@@ -980,7 +985,8 @@
       "unmapped": "Audio could not be matched to this passage. Use Play from beginning or the audio menu.",
       "failed": "Unable to prepare playback. Try again, or play from beginning.",
       "selection": "Play from selection",
-      "noSelection": "Select text in this document, then use Play from selection."
+      "noSelection": "Select text in this document, then use Play from selection.",
+      "selectionHint": "Select text first."
     }
   },
   "imageIssues": {

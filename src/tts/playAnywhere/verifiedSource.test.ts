@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { verifiedHtmlResolver, verifiedPdfResolver } from './verifiedSource'
 import { buildTextLocatorIndex, createSourceSpanFromTextMatch, locatorTextsMatch, recoverOrderedSourceSpans } from '../alignment/domTextSegments'
 import type { TtsChunk } from '../types'
-import { chunkAudiobookSaveHtmlWithSpans } from '../utils/text'
+import { chunkAudiobookSaveHtmlWithSpans, chunkAudiobookSaveSegmentsWithSpans } from '../utils/text'
 import { pdfNarrationToReadableSegments, pdfSourceSpansForChunk } from '../../pdf/pdfTts'
 
 const span = (start: number, end: number) => ({ startSegmentIndex: 0, endSegmentIndex: 0, startOffset: start, endOffset: end })
@@ -133,4 +133,35 @@ describe('verified source lookup', () => {
 
 it('never treats the end-of-index sentinel as permission to discard independent final punctuation', () => {
   expect(verifiedHtmlResolver([{ id: 'saved', text: 'First', sourceSpan: { startSegmentIndex: 0, endSegmentIndex: 0, startOffset: 0, endOffset: 5 } }], ['First.'], false).status).toBe('unavailable')
+})
+
+it('verifies merged PDF paragraphs using generation grammar at each source boundary', () => {
+  const texts = ['Reader handbook', '! Chapter overview', 'This passage explains the first topic.']
+  const segments = pdfNarrationToReadableSegments(texts.map((text, blockOrder) => ({
+    text, sourceRuns: [{ pageIndex: 0, blockOrder, startOffset: 0, endOffset: text.length,
+      sourceStartOffset: 0, sourceEndOffset: text.length }],
+  })))
+  const chunks = chunkAudiobookSaveSegmentsWithSpans(segments).map((chunk, index) => ({
+    ...chunk, id: `saved-${index}`, pdfSourceSpans: pdfSourceSpansForChunk(segments, chunk.sourceSpan),
+  }))
+  expect(chunks).toHaveLength(1)
+  expect(chunks[0].text).not.toContain('!')
+  const original = structuredClone(chunks)
+  // Exact source text remains valid even when a prior producer retained the leading glyph.
+  expect(verifiedPdfResolver([{ ...chunks[0], text: texts.join(' ') }], segments).status).toBe('ready')
+  expect(verifiedHtmlResolver(chunks, texts, false).status).toBe('ready')
+  const resolver = verifiedPdfResolver(chunks, segments)
+  expect(resolver.status).toBe('ready')
+  if (resolver.status === 'ready') {
+    for (let blockOrder = 0; blockOrder < texts.length; blockOrder++) {
+      expect(resolver.resolve({ pageIndex: 0, blockOrder, offset: blockOrder === 1 ? 2 : 0 }, texts[blockOrder].length))
+        .toEqual({ status: 'resolved', chunkIndex: 0, chunkId: 'saved-0' })
+    }
+  }
+  expect(chunks).toEqual(original)
+  expect(verifiedPdfResolver([{ ...chunks[0], text: chunks[0].text.replace('first', 'wrong') }], segments).status).toBe('unavailable')
+  const source = 'Reader handbook ! Chapter overview'
+  const withinParagraph = [{ id: 'saved', text: 'Reader handbook Chapter overview',
+    sourceSpan: span(0, source.length) }]
+  expect(verifiedHtmlResolver(withinParagraph, [source], false).status).toBe('unavailable')
 })

@@ -830,6 +830,8 @@
       "pauseTitle": "Pause",
       "stop": "Arrêter le livre audio",
       "stopTitle": "Arrêt",
+      "playbackOptions": "Options de lecture",
+      "savedAudioSetupHint": "L’audio enregistré reste disponible à la lecture. La configuration est nécessaire uniquement pour générer de nouveaux fichiers audio.",
       "showMenu": "Afficher le menu de lecture",
       "hideMenu": "Masquer le menu de lecture",
       "menuTitle": "Menu de lecture",
@@ -848,6 +850,8 @@
       "currentSetup": "Configuration actuelle",
       "savedVersionsMismatch": "Aucun livre audio enregistré ne correspond à la configuration actuelle.",
       "savedVersionsAction": "Choisissez-en un pour restaurer ses réglages et le lire.",
+      "chunkView": "Segments",
+      "optionsView": "Options",
       "playback": "Lecture",
       "wordHighlight": "Mot surligné",
       "experimental": "BETA",
@@ -983,6 +987,7 @@
       "here": "Lire à partir d’ici",
       "beginning": "Lire depuis le début",
       "return": "Revenir à l’audio",
+      "returnShort": "Revenir",
       "description": "Commence au début du segment audio contenant ce passage.",
       "preparing": "Recherche de l’audio de ce passage…",
       "notReady": "Ce passage est en cours de préparation. Réessayez ou lancez la lecture depuis le début.",
@@ -991,7 +996,8 @@
       "unmapped": "Impossible d’associer l’audio à ce passage. Utilisez Lire depuis le début ou le menu audio.",
       "failed": "Impossible de préparer la lecture. Réessayez ou lancez la lecture depuis le début.",
       "selection": "Lire à partir de la sélection",
-      "noSelection": "Sélectionnez du texte dans ce document, puis utilisez Lire à partir de la sélection."
+      "noSelection": "Sélectionnez du texte dans ce document, puis utilisez Lire à partir de la sélection.",
+      "selectionHint": "Sélectionnez d’abord du texte."
     }
   },
   "imageIssues": {

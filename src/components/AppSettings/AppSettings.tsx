@@ -261,7 +261,7 @@ export function AppSettings({
             <h3 id="app-settings-developer">{t('settings.developer')}</h3>
             <label className="app-setting app-setting-toggle">
               <span>{t('settings.developerMode')}</span>
-              <span className="app-settings-switch">
+              <span className="app-switch">
                 <input
                   type="checkbox"
                   checked={developerMode}

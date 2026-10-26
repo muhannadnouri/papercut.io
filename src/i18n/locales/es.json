@@ -830,6 +830,8 @@
       "pauseTitle": "Pausa",
       "stop": "Detener audiolibro",
       "stopTitle": "Detener",
+      "playbackOptions": "Opciones de reproducción",
+      "savedAudioSetupHint": "El audio guardado se puede seguir reproduciendo. La configuración solo es necesaria para generar audio nuevo.",
       "showMenu": "Mostrar menú de reproducción",
       "hideMenu": "Ocultar menú de reproducción",
       "menuTitle": "Menú de reproducción",
@@ -848,6 +850,8 @@
       "currentSetup": "Configuración actual",
       "savedVersionsMismatch": "Ningún audiolibro guardado coincide con la configuración actual.",
       "savedVersionsAction": "Elige uno para restaurar su configuración y reproducirlo.",
+      "chunkView": "Fragmentos",
+      "optionsView": "Opciones",
       "playback": "Reproducción",
       "wordHighlight": "Resaltado de palabras",
       "experimental": "BETA",
@@ -983,6 +987,7 @@
       "here": "Reproducir desde aquí",
       "beginning": "Reproducir desde el principio",
       "return": "Volver al audio",
+      "returnShort": "Volver",
       "description": "Empieza al inicio del segmento de audio que contiene este pasaje.",
       "preparing": "Buscando el audio de este pasaje…",
       "notReady": "Este pasaje aún se está preparando. Inténtalo de nuevo o reproduce desde el principio.",
@@ -991,7 +996,8 @@
       "unmapped": "No se pudo asociar el audio a este pasaje. Usa Reproducir desde el principio o el menú de audio.",
       "failed": "No se pudo preparar la reproducción. Inténtalo de nuevo o reproduce desde el principio.",
       "selection": "Reproducir desde la selección",
-      "noSelection": "Selecciona texto en este documento y usa Reproducir desde la selección."
+      "noSelection": "Selecciona texto en este documento y usa Reproducir desde la selección.",
+      "selectionHint": "Selecciona texto primero."
     }
   },
   "imageIssues": {

@@ -814,6 +814,8 @@
       "pauseTitle": "暂停",
       "stop": "停止有声读物",
       "stopTitle": "停止",
+      "playbackOptions": "播放选项",
+      "savedAudioSetupHint": "已保存的音频仍可播放。只有生成新音频时才需要设置。",
       "showMenu": "显示播放菜单",
       "hideMenu": "隐藏播放菜单",
       "menuTitle": "播放菜单",
@@ -832,6 +834,8 @@
       "currentSetup": "当前设置",
       "savedVersionsMismatch": "没有已保存的有声读物与当前设置匹配。",
       "savedVersionsAction": "请选择一个以恢复其设置并播放。",
+      "chunkView": "片段",
+      "optionsView": "选项",
       "playback": "回放",
       "wordHighlight": "单词高亮",
       "experimental": "BETA",
@@ -961,6 +965,7 @@
       "here": "从此处播放",
       "beginning": "从头播放",
       "return": "返回音频位置",
+      "returnShort": "返回",
       "description": "从包含此段文字的音频片段开头开始播放。",
       "preparing": "正在查找此段文字的音频…",
       "notReady": "此段文字仍在准备中。请重试，或从头播放。",
@@ -969,7 +974,8 @@
       "unmapped": "无法将音频与此段文字匹配。请使用“从头播放”或音频菜单。",
       "failed": "无法准备播放。请重试，或从头播放。",
       "selection": "从所选文字播放",
-      "noSelection": "请在此文档中选择文字，然后使用“从所选文字播放”。"
+      "noSelection": "请在此文档中选择文字，然后使用“从所选文字播放”。",
+      "selectionHint": "请先选择文字。"
     }
   },
   "imageIssues": {

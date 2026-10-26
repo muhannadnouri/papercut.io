@@ -402,6 +402,10 @@ Compatibility is preserved: `native-save-v4-segmented` is unchanged, Kokoro keep
 
 See [docs/kokoro-tts.md](docs/kokoro-tts.md) for architecture, model metadata, mobile constraints, and maintenance rules.
 
+A disposable frontend removal rehearsal passes compilation, 61 baseline tests and
+a bundle check without feature-owned runtime modules. Packaged listening,
+assistive-technology/device acceptance and end-to-end timing remain pending.
+
 The proposed **Play from here** feature is documented in
 [docs/play-anywhere.md](docs/play-anywhere.md), including staged implementation,
 UX, integration/removal boundaries, and acceptance criteria. Its HTML/PDF chunk lookup and

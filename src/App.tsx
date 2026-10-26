@@ -38,6 +38,7 @@ import { TtsDiagnosticsPanel } from './tts/components/TtsDiagnosticsPanel'
 import { getImportedAudiobookSource } from './tts/api/nativeTts'
 import { getUserUploads, isUserUploadUrl, type UserUploadDocument } from './tts/storage/UserUploads'
 import { usePlayAnywhereReader } from './tts/playAnywhere/usePlayAnywhereReader'
+import { ReaderPassageAction } from './tts/playAnywhere/ReaderPassageAction'
 import { useAudiobookManager } from './tts/hooks/useAudiobookManager'
 import {
   getUploadedDocumentSource,
@@ -173,7 +174,7 @@ function App() {
     active: hasFloatingAudioControls || audioControlsProps.ttsState.currentChunkIndex !== null,
     playFromHere: audiobook.playFromHere,
     playFromBeginning: audiobook.playFromBeginning,
-    cancelTargetPlayback: audiobook.cancelTargetPlayback,
+    commandSignal: audiobook.commandSignal,
   })
 
   const libraryDocuments = useMemo<DocumentInfo[]>(() => [
@@ -497,17 +498,19 @@ function App() {
                     onSnapshotSelection: readerPlayback.snapshotSelection, onPlayFromSelection: readerPlayback.playFromSelection,
                     onSelectionMenuClose: readerPlayback.clearSelection,
                   }}
-                  onPause={() => { readerPlayback.cancel(); audioControlsProps.onPause() }}
-                  onResume={() => { readerPlayback.cancel(); audioControlsProps.onResume() }}
-                  onStop={() => { readerPlayback.cancel(); audioControlsProps.onStop() }}
-                  onSkipBackward={() => { readerPlayback.cancel(); audioControlsProps.onSkipBackward() }}
-                  onSkipForward={() => { readerPlayback.cancel(); audioControlsProps.onSkipForward() }}
-                  onJumpToChunk={(index) => { readerPlayback.cancel(); audioControlsProps.onJumpToChunk(index) }}
                   onManageSave={handleManageAudiobookSave}
                   onOpenAudioSetup={() => setReaderAudioSetupOpen(true)}
                 />
               </>
             )}
+            floatingControls={audioControlsProps.canPlayAudiobook && !hasFloatingAudioControls ? (
+              <ReaderPassageAction
+                pending={readerPlayback.pending}
+                onSnapshotSelection={readerPlayback.snapshotSelection}
+                onPlayFromHere={readerPlayback.playFromHere}
+                onPlayFromSelection={readerPlayback.playFromSelection}
+              />
+            ) : undefined}
             beforeDocument={(
               <TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />
             )}
