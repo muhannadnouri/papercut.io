@@ -1,9 +1,9 @@
 /* A modal dialog blocks the page behind it, so wheel and touch scrolling must not reach the document.
-   The gutter applies only while locked: page-wide it shrinks 100vw, which the playback dock sizes from.
+   No scrollbar-gutter: it narrows every open dialog (and, page-wide, 100vw); a hidden classic scrollbar
+   just shifts the page behind the backdrop.
    Known limit: no lock on iOS < 15.4 (no :has()); a JS overflow lock wouldn't stop touch scroll there either. */
 html:has(.app-dialog-backdrop) {
   overflow: hidden;
-  scrollbar-gutter: stable;
 }
 
 .app-dialog-backdrop {
