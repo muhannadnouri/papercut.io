@@ -38,8 +38,15 @@ afterEach(async () => {
 
 const button = () => container.querySelector<HTMLButtonElement>('.reader-settings-btn')!
 const panel = () => container.querySelector<HTMLElement>('[role="dialog"]')
+async function pointer(type: string, target: Element) {
+  await act(() => target.dispatchEvent(new PointerEvent(type, { bubbles: true })))
+}
 async function pointerDown(target: Element) {
-  await act(() => target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })))
+  await pointer('pointerdown', target)
+}
+async function tap(target: Element) {
+  await pointerDown(target)
+  await pointer('pointerup', target)
 }
 
 it('opens a fixed non-modal panel that takes focus and leaves page scrolling alone', async () => {
@@ -53,9 +60,13 @@ it('opens a fixed non-modal panel that takes focus and leaves page scrolling alo
 
 it('stays open for presses inside and closes for presses outside', async () => {
   await act(() => button().click())
-  await pointerDown(panel()!.querySelector('.reader-settings-reset')!)
+  await tap(panel()!.querySelector('.reader-settings-reset')!)
   expect(panel()).not.toBeNull()
+  // A touch scroll on the page starts a press but ends in pointercancel, so the panel stays.
   await pointerDown(document.querySelector('#page')!)
+  await pointer('pointercancel', document.querySelector('#page')!)
+  expect(panel()).not.toBeNull()
+  await tap(document.querySelector('#page')!)
   expect(panel()).toBeNull()
 })
 
@@ -76,7 +87,7 @@ it('stays open for presses in the font list, which renders outside the panel', a
   await act(() => panel()!.querySelector<HTMLButtonElement>('.reader-setting-font-select button')!.click())
   const option = document.querySelector('[role="option"]')!
   expect(panel()!.contains(option)).toBe(false)
-  await pointerDown(option)
+  await tap(option)
   expect(panel()).not.toBeNull()
 })
 

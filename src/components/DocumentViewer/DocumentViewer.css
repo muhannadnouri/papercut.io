@@ -841,9 +841,39 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
     clip-path: inset(50%);
     white-space: nowrap;
   }
+
+  /* The shared Settings button grows to 44px and adds a shadow on touch; match its header neighbours. */
+  .doc-header .app-settings-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+  }
 }
 
+.doc-header .app-settings-btn:not(:focus-visible) {
+  box-shadow: none;
+}
+
+/* Icon-only Back (the mobile platform norm) lets all reader controls share one row on typical phones. */
 @media (max-width: 440px) {
+  .back-button {
+    width: 2.5rem;
+    padding: 0;
+  }
+
+  .back-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* Too narrow for one row: reader tools beside Back, playback controls on their own row. */
+@media (max-width: 390px) {
   .doc-header {
     align-items: start;
     gap: 0.65rem 0.5rem;

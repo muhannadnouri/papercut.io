@@ -95,18 +95,29 @@ function EnabledReaderSettings({
     if (!open) {
       return
     }
-    // Pointer presses inside the panel's React tree (including AppSelect's portaled list) keep it open.
-    const closeOutside = (event: PointerEvent) => {
-      const inside = pointerInPanel.current || buttonRef.current?.contains(event.target as Node)
+    // Close only on a completed press that started outside the panel's React tree (including
+    // AppSelect's portaled list). A touch scroll ends in pointercancel, not pointerup, so it keeps the panel open.
+    let pressStartedOutside = false
+    const startPress = (event: PointerEvent) => {
+      pressStartedOutside = !pointerInPanel.current && !buttonRef.current?.contains(event.target as Node)
       pointerInPanel.current = false
-      if (!inside) {
+    }
+    const endPress = () => {
+      if (pressStartedOutside) {
         setOpen(false)
       }
     }
-    document.addEventListener('pointerdown', closeOutside)
+    const cancelPress = () => {
+      pressStartedOutside = false
+    }
+    document.addEventListener('pointerdown', startPress)
+    document.addEventListener('pointerup', endPress)
+    document.addEventListener('pointercancel', cancelPress)
     window.addEventListener('resize', place)
     return () => {
-      document.removeEventListener('pointerdown', closeOutside)
+      document.removeEventListener('pointerdown', startPress)
+      document.removeEventListener('pointerup', endPress)
+      document.removeEventListener('pointercancel', cancelPress)
       window.removeEventListener('resize', place)
     }
   }, [open])

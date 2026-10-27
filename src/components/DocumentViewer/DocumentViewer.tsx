@@ -581,7 +581,7 @@ export function DocumentViewer({
               <path d="M19 12H5" />
               <path d="m12 19-7-7 7-7" />
             </svg>
-            {t('reader.back')}
+            <span className="back-label">{t('reader.back')}</span>
           </button>
         </div>
         <div className="header-right">
