@@ -52,6 +52,8 @@ export function ReaderBookmarkButton({
         offset={8}
         containerPadding={8}
         shouldFlip
+        // React Aria sets an inline z-index of 100000; match the playback dock's top layer instead.
+        style={{ zIndex: 2147483647 }}
       >
         <Menu className="reader-bookmark-menu" aria-label={label}>
           {!isAtBookmark && (
