@@ -48,8 +48,12 @@
   background: var(--surface-muted);
 }
 
+/* Fixed and non-modal: the document keeps scrolling so setting changes can be judged across the page. */
 .reader-settings-popover {
+  position: fixed;
   z-index: 30;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: grid;
   gap: 0.65rem;
   width: min(22rem, calc(100vw - 2rem));
@@ -60,6 +64,10 @@
   box-shadow: 0 12px 28px var(--shadow-popover);
   color: var(--text-heading);
   text-align: start;
+}
+
+.reader-settings-popover:focus {
+  outline: none;
 }
 
 .reader-setting-row {
@@ -284,8 +292,6 @@
 
   .reader-settings-popover {
     width: calc(100vw - 2rem);
-    max-height: calc(100vh - 7rem);
-    overflow: visible;
   }
 }
 
