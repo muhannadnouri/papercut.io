@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
 import {
   DEFAULT_READER_SETTINGS,
   FONT_FAMILY_OPTIONS,
@@ -49,7 +53,9 @@ describe('prepareReaderFontApplication', () => {
         steps.push(`load:${fontFamily}`)
         throw new Error('Unavailable font')
       },
-      async () => { steps.push('frame') },
+      async () => {
+        steps.push('frame')
+      },
     )
 
     expect(steps).toEqual(['load:Reader Font', 'frame', 'frame'])

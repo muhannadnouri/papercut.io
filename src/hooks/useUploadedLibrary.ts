@@ -1,4 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import type { DocumentInfo } from '../types/search'
 import {
   importDocumentPhotos as importDocumentPhotosSource,
@@ -87,7 +92,9 @@ export function shouldAutoDismissDocumentImport(status: DocumentImportStatus): b
       (status.recognitionIssues?.unrecognizedPages.length ?? 0) === 0 &&
       (status.recognitionIssues?.lowConfidencePages.length ?? 0) === 0
   }
-  if (status.status !== 'imported' && status.status !== 'cancelled') return false
+  if (status.status !== 'imported' && status.status !== 'cancelled') {
+    return false
+  }
   const hasImageWarnings = status.batchResult?.imported.some((document) =>
     Object.values(document.importImageWarnings ?? {}).some((count) => count > 0),
   )
@@ -108,8 +115,12 @@ export function shouldRecognizeImportedScan(
 function scanOcrLanguage(
   language?: DocumentScanSetup['recognitionLanguage'],
 ): PdfOcrLanguage | null {
-  if (language === 'english') return 'eng'
-  if (language === 'arabic') return 'ara'
+  if (language === 'english') {
+    return 'eng'
+  }
+  if (language === 'arabic') {
+    return 'ara'
+  }
   return null
 }
 
@@ -118,7 +129,10 @@ async function loadUploadedLibrary(): Promise<UploadedLibraryState> {
     listUploadedDocuments(),
     getUploadedLibraryOrganization(),
   ])
-  return { documents, organization }
+  return {
+    documents,
+    organization,
+  }
 }
 
 /**
@@ -128,7 +142,10 @@ async function loadUploadedLibrary(): Promise<UploadedLibraryState> {
  */
 export function useUploadedLibrary() {
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([])
-  const [uploadedLibraryOrganization, setUploadedLibraryOrganization] = useState<UploadedLibraryOrganization>({ folders: [], documentLocations: [] })
+  const [uploadedLibraryOrganization, setUploadedLibraryOrganization] = useState<UploadedLibraryOrganization>({
+    folders: [],
+    documentLocations: [],
+  })
   const [documentImport, setDocumentImport] = useState<DocumentImportStatus>({ status: 'idle' })
   const operationInProgressRef = useRef(false)
   const importAbortRef = useRef<AbortController | null>(null)
@@ -145,10 +162,14 @@ export function useUploadedLibrary() {
   useEffect(() => {
     let cancelled = false
     loadUploadedLibrary().then((library) => {
-      if (cancelled) return
+      if (cancelled) {
+        return
+      }
       applyUploadedLibrary(library)
       const interrupted = getInterruptedPdfRecognitionJob()
-      if (!interrupted) return
+      if (!interrupted) {
+        return
+      }
       const document = library.documents.find((candidate) => candidate.url === interrupted.documentUrl)
       if (!document || document.sourceKind !== 'pdf') {
         clearPdfRecognitionJob(interrupted.documentUrl)
@@ -172,7 +193,9 @@ export function useUploadedLibrary() {
   }, [applyUploadedLibrary])
 
   useEffect(() => {
-    if (!shouldAutoDismissDocumentImport(documentImport)) return
+    if (!shouldAutoDismissDocumentImport(documentImport)) {
+      return
+    }
     const timer = window.setTimeout(() => {
       setDocumentImport((current) => current === documentImport ? { status: 'idle' } : current)
     }, IMPORT_NOTICE_MS)
@@ -208,7 +231,10 @@ export function useUploadedLibrary() {
         improveIssues,
         onProgress: (recognitionProgress) => {
           setDocumentImport((current) => current.status === 'recognizing' && current.format === 'pdf-ocr'
-            ? { ...current, recognitionProgress }
+            ? {
+              ...current,
+              recognitionProgress,
+            }
             : current)
         },
       })
@@ -247,14 +273,22 @@ export function useUploadedLibrary() {
     importer: () => Promise<UploadedDocumentBatchResult>,
     options: DocumentCollectionImportOptions = {},
   ): Promise<UploadedDocumentBatchResult | null> => {
-    if (operationInProgressRef.current) return null
+    if (operationInProgressRef.current) {
+      return null
+    }
     operationInProgressRef.current = true
-    setDocumentImport({ status: 'importing', format })
+    setDocumentImport({
+      status: 'importing',
+      format,
+    })
     let unlisten: (() => void) | undefined
     try {
       unlisten = await listenDocumentBatchProgress((batchProgress) => {
         setDocumentImport((current) => current.status === 'importing' && current.format === format
-          ? { ...current, batchProgress }
+          ? {
+            ...current,
+            batchProgress,
+          }
           : current)
       })
       const abort = new AbortController()
@@ -264,16 +298,19 @@ export function useUploadedLibrary() {
         titleOverride: options.titleOverride,
         onProgress: (batchProgress) => {
           setDocumentImport((current) => current.status === 'importing' && current.format === format
-            ? { ...current, batchProgress }
+            ? {
+              ...current,
+              batchProgress,
+            }
             : current)
         },
       })
       const recognitionLanguage = scanOcrLanguage(options.recognitionLanguage)
       const recognitionCandidate = recognitionLanguage
         ? batchResult.imported.find((document) => shouldRecognizeImportedScan(
-            document,
-            options.recognitionLanguage,
-          ))
+          document,
+          options.recognitionLanguage,
+        ))
         : undefined
       if (recognitionCandidate && recognitionLanguage) {
         const recognition = await runPdfRecognition(
@@ -292,11 +329,17 @@ export function useUploadedLibrary() {
           }
         }
         if (batchResult.failures.length > 0) {
-          setDocumentImport({ status: 'error', format, batchResult })
+          setDocumentImport({
+            status: 'error',
+            format,
+            batchResult,
+          })
         }
         return batchResult
       }
-      if (batchResult.imported.length > 0) await refreshUploadedLibrary()
+      if (batchResult.imported.length > 0) {
+        await refreshUploadedLibrary()
+      }
       setDocumentImport({
         status: batchResult.failures.length > 0
           ? 'error'
@@ -341,17 +384,32 @@ export function useUploadedLibrary() {
   /** Keep pasted text in the same exclusive Library-operation lifecycle while
    * allowing the dialog to retain user input when native validation fails. */
   const importPastedText = useCallback(async (title: string, text: string) => {
-    if (operationInProgressRef.current) throw new Error(LIBRARY_OPERATION_IN_PROGRESS)
+    if (operationInProgressRef.current) {
+      throw new Error(LIBRARY_OPERATION_IN_PROGRESS)
+    }
     operationInProgressRef.current = true
-    setDocumentImport({ status: 'importing', format: 'paste', title })
+    setDocumentImport({
+      status: 'importing',
+      format: 'paste',
+      title,
+    })
     try {
       const document = await importPastedTextSource(title, text)
       await refreshUploadedLibrary()
-      setDocumentImport({ status: 'imported', format: 'paste', title: document.title })
+      setDocumentImport({
+        status: 'imported',
+        format: 'paste',
+        title: document.title,
+      })
       return document
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      setDocumentImport({ status: 'error', format: 'paste', title, message })
+      setDocumentImport({
+        status: 'error',
+        format: 'paste',
+        title,
+        message,
+      })
       throw err
     } finally {
       operationInProgressRef.current = false
@@ -362,7 +420,10 @@ export function useUploadedLibrary() {
     (setup: DocumentScanSetup) => importDocumentCollection(
       'scan',
       () => scanDocumentSource(setup),
-      { recognitionLanguage: setup.recognitionLanguage, titleOverride: setup.title },
+      {
+        recognitionLanguage: setup.recognitionLanguage,
+        titleOverride: setup.title,
+      },
     ),
     [importDocumentCollection],
   )
@@ -371,7 +432,10 @@ export function useUploadedLibrary() {
     (setup: DocumentScanSetup) => importDocumentCollection(
       'photos',
       () => importDocumentPhotosSource(setup),
-      { recognitionLanguage: setup.recognitionLanguage, titleOverride: setup.title },
+      {
+        recognitionLanguage: setup.recognitionLanguage,
+        titleOverride: setup.title,
+      },
     ),
     [importDocumentCollection],
   )
@@ -384,7 +448,9 @@ export function useUploadedLibrary() {
     improveIssues?: PdfRecognitionIssues,
   ): Promise<boolean> => {
     const document = uploadedDocuments.find((candidate) => candidate.url === documentUrl)
-    if (!document || operationInProgressRef.current) return false
+    if (!document || operationInProgressRef.current) {
+      return false
+    }
 
     operationInProgressRef.current = true
     const abort = new AbortController()
@@ -395,7 +461,9 @@ export function useUploadedLibrary() {
         ? pending.improveIssues
         : undefined)
       const recognition = await runPdfRecognition(document, recognitionLanguage, abort.signal, resumeIssues)
-      if (!recognition) return false
+      if (!recognition) {
+        return false
+      }
       const updated = recognition.document
       setUploadedDocuments((documents) => documents.map((candidate) => (
         candidate.id === updated.id ? updated : candidate
@@ -411,7 +479,9 @@ export function useUploadedLibrary() {
    * rerunning the deterministic recognizer or changing the source PDF. */
   const acceptRecognizedDocumentText = useCallback(async (documentUrl: string): Promise<boolean> => {
     const document = uploadedDocuments.find((candidate) => candidate.url === documentUrl)
-    if (!document || operationInProgressRef.current) return false
+    if (!document || operationInProgressRef.current) {
+      return false
+    }
 
     operationInProgressRef.current = true
     try {
@@ -455,17 +525,25 @@ export function useUploadedLibrary() {
       if (abort) {
         setDocumentImport((current) => (current.status === 'importing' ||
           (current.status === 'recognizing' && current.format === 'pdf-ocr'))
-          ? { ...current, cancelRequested: true }
+          ? {
+            ...current,
+            cancelRequested: true,
+          }
           : current)
         abort.abort()
         return
       }
       const nativeCancelled = await cancelDocumentBatchSource()
-      if (!nativeCancelled) return
+      if (!nativeCancelled) {
+        return
+      }
       setDocumentImport((current) => (current.status === 'importing' &&
         (current.format === 'batch' || current.format === 'drop' || current.format === 'open' ||
           current.format === 'folder' || current.format === 'scan' || current.format === 'photos'))
-        ? { ...current, cancelRequested: true }
+        ? {
+          ...current,
+          cancelRequested: true,
+        }
         : current)
     } catch (err) {
       console.warn('Unable to cancel document batch import:', err)
@@ -473,10 +551,15 @@ export function useUploadedLibrary() {
   }, [])
 
   const deleteDocument = useCallback(async (doc: DocumentInfo): Promise<boolean> => {
-    if (doc.source !== 'upload' || operationInProgressRef.current) return false
+    if (doc.source !== 'upload' || operationInProgressRef.current) {
+      return false
+    }
 
     operationInProgressRef.current = true
-    setDocumentImport({ status: 'deleting', title: doc.title })
+    setDocumentImport({
+      status: 'deleting',
+      title: doc.title,
+    })
     try {
       const result = await deleteUploadedDocument(doc.url)
       await refreshUploadedLibrary()
@@ -521,14 +604,22 @@ export function useUploadedLibrary() {
   const runDeleteOperation = useCallback(async (
     operation: () => Promise<UploadedDocumentDeleteBatchResult>,
   ): Promise<UploadedDocumentDeleteBatchResult | null> => {
-    if (operationInProgressRef.current) return null
+    if (operationInProgressRef.current) {
+      return null
+    }
     operationInProgressRef.current = true
-    setDocumentImport({ status: 'deleting', format: 'delete-batch' })
+    setDocumentImport({
+      status: 'deleting',
+      format: 'delete-batch',
+    })
     let unlisten: (() => void) | undefined
     try {
       unlisten = await listenDocumentDeleteProgress((deleteProgress) => {
         setDocumentImport((current) => current.status === 'deleting' && current.format === 'delete-batch'
-          ? { ...current, deleteProgress }
+          ? {
+            ...current,
+            deleteProgress,
+          }
           : current)
       })
       const deleteResult = await operation()
@@ -536,10 +627,10 @@ export function useUploadedLibrary() {
       setDocumentImport(deleteResult.selected === 0
         ? { status: 'idle' }
         : {
-            status: deleteResult.failures.length > 0 ? 'error' : 'deleted',
-            format: 'delete-batch',
-            deleteResult,
-          })
+          status: deleteResult.failures.length > 0 ? 'error' : 'deleted',
+          format: 'delete-batch',
+          deleteResult,
+        })
       return deleteResult
     } catch (err) {
       try {
@@ -567,14 +658,18 @@ export function useUploadedLibrary() {
     const documentUrls = documents
       .filter((doc) => doc.source === 'upload')
       .map((doc) => doc.url)
-    if (documentUrls.length === 0) return null
+    if (documentUrls.length === 0) {
+      return null
+    }
     return runDeleteOperation(() => deleteUploadedDocuments(documentUrls))
   }, [runDeleteOperation])
 
   /** Serialize folder/order writes with imports and deletion because all of them
    * refresh or mutate the same uploaded-library state. */
   const runOrganizationMutation = useCallback(async (action: () => Promise<void>) => {
-    if (operationInProgressRef.current) return
+    if (operationInProgressRef.current) {
+      return
+    }
     operationInProgressRef.current = true
     try {
       await action()

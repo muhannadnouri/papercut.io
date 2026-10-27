@@ -1,12 +1,19 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it, vi } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import type { SearchPhase } from '../../hooks/useSearch'
 import { indexedSearchOpenTarget } from '../../utils/searchOpenTarget'
 import { SearchResults } from './SearchResults'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, options?: { count?: number; shown?: number; total?: number }) => (
+    t: (key: string, options?: { count?: number;
+      shown?: number;
+      total?: number }) => (
       options?.shown !== undefined ? `${key}:${options.shown}/${options.total}`
         : options?.count === undefined ? key : `${key}:${options.count}`
     ),
@@ -102,7 +109,15 @@ describe('explicit typo retry', () => {
         searchableDocumentCount={1}
         searchPhase={null}
         submittedQuery="enviroment"
-        lastSearchInfo={{ mode: 'all', phrases: [], unquotedText: 'enviroment', uploadedDocuments: 0, uploadedMatchingSections: 0, starterDocuments: 0, suggestedQuery: 'environment' }}
+        lastSearchInfo={{
+          mode: 'all',
+          phrases: [],
+          unquotedText: 'enviroment',
+          uploadedDocuments: 0,
+          uploadedMatchingSections: 0,
+          starterDocuments: 0,
+          suggestedQuery: 'environment',
+        }}
         scopeUrls={new Set()}
         scopeActive={false}
         onViewResult={() => undefined}
@@ -118,13 +133,27 @@ describe('explicit typo retry', () => {
   it('shows an uploaded retry beside starter results', () => {
     const html = renderToStaticMarkup(
       <SearchResults
-        results={[{ id: 'starter', url: '/starter', meta: { title: 'Starter' }, excerpt: '<mark>calendar</mark>', source: 'starter' }]}
+        results={[{
+          id: 'starter',
+          url: '/starter',
+          meta: { title: 'Starter' },
+          excerpt: '<mark>calendar</mark>',
+          source: 'starter',
+        }]}
         loading={false}
         searchFailed={false}
         searchableDocumentCount={2}
         searchPhase={null}
         submittedQuery="calendar meeting agenda"
-        lastSearchInfo={{ mode: 'all', phrases: [], unquotedText: 'calendar meeting agenda', uploadedDocuments: 0, uploadedMatchingSections: 0, starterDocuments: 1, suggestedQuery: 'calendar meeting agenda' }}
+        lastSearchInfo={{
+          mode: 'all',
+          phrases: [],
+          unquotedText: 'calendar meeting agenda',
+          uploadedDocuments: 0,
+          uploadedMatchingSections: 0,
+          starterDocuments: 1,
+          suggestedQuery: 'calendar meeting agenda',
+        }}
         scopeUrls={new Set()}
         scopeActive={false}
         onViewResult={() => undefined}
@@ -148,9 +177,21 @@ describe('search evidence', () => {
           excerpt: '<mark>compass</mark>',
           source: 'upload',
           termMatches: [
-            { term: 'silver', matched: false, matchingSections: 0 },
-            { term: 'compass', matched: true, matchingSections: 1 },
-            { term: 'lantern', matched: true, matchingSections: 1 },
+            {
+              term: 'silver',
+              matched: false,
+              matchingSections: 0,
+            },
+            {
+              term: 'compass',
+              matched: true,
+              matchingSections: 1,
+            },
+            {
+              term: 'lantern',
+              matched: true,
+              matchingSections: 1,
+            },
           ],
         }]}
         loading={false}
@@ -158,7 +199,14 @@ describe('search evidence', () => {
         searchableDocumentCount={1}
         searchPhase={null}
         submittedQuery="silver compass lantern"
-        lastSearchInfo={{ mode: 'broader', phrases: [], unquotedText: 'silver compass lantern', uploadedDocuments: 1, uploadedMatchingSections: 1, starterDocuments: 0 }}
+        lastSearchInfo={{
+          mode: 'broader',
+          phrases: [],
+          unquotedText: 'silver compass lantern',
+          uploadedDocuments: 1,
+          uploadedMatchingSections: 1,
+          starterDocuments: 0,
+        }}
         scopeUrls={new Set()}
         scopeActive={false}
         onViewResult={() => undefined}
@@ -173,14 +221,27 @@ describe('search evidence', () => {
 
   it('opens term coverage and distribution evidence with highlight text', () => {
     expect(indexedSearchOpenTarget(
-      { sectionIndex: 4, pageIndex: 3, occurrenceIndex: 2 },
+      {
+        sectionIndex: 4,
+        pageIndex: 3,
+        occurrenceIndex: 2,
+      },
       'orchard',
-    )).toEqual({ text: 'orchard', sectionIndex: 4, pageIndex: 3, occurrenceIndex: 2 })
+    )).toEqual({
+      text: 'orchard',
+      sectionIndex: 4,
+      pageIndex: 3,
+      occurrenceIndex: 2,
+    })
     expect(indexedSearchOpenTarget({
       sectionIndex: 7,
       pageIndex: null,
       text: 'lantern',
-    })).toEqual({ text: 'lantern', sectionIndex: 7, pageIndex: undefined })
+    })).toEqual({
+      text: 'lantern',
+      sectionIndex: 7,
+      pageIndex: undefined,
+    })
   })
 
   it('shows compact section coverage without a persistent comparison mode', () => {
@@ -196,17 +257,43 @@ describe('search evidence', () => {
           matchingSections: 3,
           sectionIndex: 0,
           passages: [
-            { sectionIndex: 0, pageIndex: 2, excerpt: 'The <mark>orchard</mark> survey explains the route.' },
-            { sectionIndex: 1, excerpt: 'The <mark>lantern</mark> illuminates the map.' },
-            { sectionIndex: 2, excerpt: 'A <mark>compass</mark> guides the return.' },
+            {
+              sectionIndex: 0,
+              pageIndex: 2,
+              excerpt: 'The <mark>orchard</mark> survey explains the route.',
+            },
+            {
+              sectionIndex: 1,
+              excerpt: 'The <mark>lantern</mark> illuminates the map.',
+            },
+            {
+              sectionIndex: 2,
+              excerpt: 'A <mark>compass</mark> guides the return.',
+            },
           ],
           matchLocations: [
-            { binIndex: 0, sectionIndex: 0, matchCount: 2 },
-            { binIndex: 1, sectionIndex: 1, matchCount: 1 },
+            {
+              binIndex: 0,
+              sectionIndex: 0,
+              matchCount: 2,
+            },
+            {
+              binIndex: 1,
+              sectionIndex: 1,
+              matchCount: 1,
+            },
           ],
           termMatches: [
-            { term: 'orchard', matchingSections: 2, sectionIndex: 0 },
-            { term: 'lantern', matchingSections: 1, sectionIndex: 1 },
+            {
+              term: 'orchard',
+              matchingSections: 2,
+              sectionIndex: 0,
+            },
+            {
+              term: 'lantern',
+              matchingSections: 1,
+              sectionIndex: 1,
+            },
           ],
         }))}
         loading={false}
@@ -253,7 +340,11 @@ describe('search evidence', () => {
           source: 'upload',
           matchCount: 3,
           matchingSections: 3,
-          matchLocations: [{ binIndex: 0, sectionIndex: 0, matchCount: 3 }],
+          matchLocations: [{
+            binIndex: 0,
+            sectionIndex: 0,
+            matchCount: 3,
+          }],
         }]}
         loading={false}
         searchFailed={false}
@@ -292,8 +383,18 @@ describe('search query summary', () => {
           matchCount: 1,
           matchingSections: 2,
           matchLocations: [
-            { binIndex: 0, sectionIndex: 0, matchCount: 1, text: 'anne' },
-            { binIndex: 1, sectionIndex: 1, matchCount: 1, text: 'green' },
+            {
+              binIndex: 0,
+              sectionIndex: 0,
+              matchCount: 1,
+              text: 'anne',
+            },
+            {
+              binIndex: 1,
+              sectionIndex: 1,
+              matchCount: 1,
+              text: 'green',
+            },
           ],
         }]}
         loading={false}
@@ -326,17 +427,41 @@ describe('search query summary', () => {
   })
 })
 
-
 describe('combined keyword results', () => {
   const rows = [
-    { id: 'upload-one', url: '/uploads/one.html', meta: { title: 'Orchard Guide' }, excerpt: '<mark>orchard</mark>', source: 'upload' as const },
-    { id: 'starter', url: '/starter.html', meta: { title: 'Search Guide' }, excerpt: '<mark>orchard</mark>', source: 'starter' as const },
-    { id: 'upload-two', url: '/uploads/two.html', meta: { title: 'Survey Notes' }, excerpt: '<mark>orchard</mark>', source: 'upload' as const },
+    {
+      id: 'upload-one',
+      url: '/uploads/one.html',
+      meta: { title: 'Orchard Guide' },
+      excerpt: '<mark>orchard</mark>',
+      source: 'upload' as const,
+    },
+    {
+      id: 'starter',
+      url: '/starter.html',
+      meta: { title: 'Search Guide' },
+      excerpt: '<mark>orchard</mark>',
+      source: 'starter' as const,
+    },
+    {
+      id: 'upload-two',
+      url: '/uploads/two.html',
+      meta: { title: 'Survey Notes' },
+      excerpt: '<mark>orchard</mark>',
+      source: 'upload' as const,
+    },
   ]
   const render = (scopeUrls = new Set<string>(), scopeActive = false, total = 3) => renderToStaticMarkup(
     <SearchResults results={rows} loading={false} searchFailed={false}
       searchableDocumentCount={3} searchPhase={null} submittedQuery="orchard"
-      lastSearchInfo={{ mode: 'all', phrases: [], unquotedText: 'orchard', uploadedDocuments: total - 1, uploadedMatchingSections: 2, starterDocuments: 1 }}
+      lastSearchInfo={{
+        mode: 'all',
+        phrases: [],
+        unquotedText: 'orchard',
+        uploadedDocuments: total - 1,
+        uploadedMatchingSections: 2,
+        starterDocuments: 1,
+      }}
       scopeUrls={scopeUrls} scopeActive={scopeActive} onViewResult={() => undefined} />,
   )
   it('preserves incoming order, labels starter cards and shows one count without source groups', () => {

@@ -2,6 +2,19 @@
     "window.autoDetectColorScheme": true,
     "workbench.preferredDarkColorTheme": "GitHub Dark High Contrast",
     "workbench.preferredLightColorTheme": "GitHub Light High Contrast",
+    "files.autoSave": "onFocusChange",
+    "eslint.validate": [
+        "javascript",
+        "javascriptreact",
+        "typescript",
+        "typescriptreact"
+    ],
+    "[javascript][javascriptreact][typescript][typescriptreact]": {
+        "editor.formatOnSave": false,
+        "editor.codeActionsOnSave": {
+            "source.fixAll.eslint": "always"
+        }
+    },
     "files.watcherExclude": {
         "**/.cache/**": true,
         "**/.venv-silma/**": true,

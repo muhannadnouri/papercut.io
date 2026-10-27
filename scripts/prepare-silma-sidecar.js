@@ -9,7 +9,10 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs"
-import { dirname, join } from "node:path"
+import {
+  dirname,
+  join,
+} from "node:path"
 import { ROOT } from "./lib/paths.js"
 import { runSync } from "./lib/process.js"
 
@@ -24,7 +27,10 @@ const appDir = join(outputDir, exeBase)
 const workerPath = join(appDir, exeBase)
 
 if (options.clean) {
-  rmSync(outputDir, { recursive: true, force: true })
+  rmSync(outputDir, {
+    recursive: true,
+    force: true,
+  })
 }
 
 if (!existsSync(WORKER)) {
@@ -98,15 +104,25 @@ function getPythonInfo(python) {
       "-c",
       "import json, sys; print(json.dumps({\"executable\": sys.executable, \"prefix\": sys.prefix, \"basePrefix\": sys.base_prefix, \"version\": sys.version_info[:3]}))",
     ],
-    { cwd: ROOT, stdio: "pipe" },
+    {
+      cwd: ROOT,
+      stdio: "pipe",
+    },
   )
-  if (result.error) fail("Failed to inspect Python: " + result.error.message)
-  if (result.status !== 0) fail("Python inspection failed: " + result.stderr.toString())
+  if (result.error) {
+    fail("Failed to inspect Python: " + result.error.message)
+  }
+  if (result.status !== 0) {
+    fail("Python inspection failed: " + result.stderr.toString())
+  }
   return JSON.parse(result.stdout.toString())
 }
 
 function copyPythonPrefix(source, destination) {
-  rmSync(destination, { recursive: true, force: true })
+  rmSync(destination, {
+    recursive: true,
+    force: true,
+  })
   cpSync(source, destination, {
     recursive: true,
     dereference: true,
@@ -126,7 +142,9 @@ function shouldSkipPythonPath(path) {
 // TorchCodec dlopens versioned FFmpeg sonames at import time, so the runtime
 // pack carries the same libav/libsw shared libraries CI validated.
 function copyFfmpegLibraries(destination) {
-  if (!target.includes("linux")) return
+  if (!target.includes("linux")) {
+    return
+  }
   const required = [
     "libavcodec",
     "libavdevice",
@@ -142,7 +160,9 @@ function copyFfmpegLibraries(destination) {
   const copied = []
   for (const name of required) {
     const source = findVersionedLibrary(entries, name)
-    if (!source) fail("Missing FFmpeg shared library " + name + ". Install ffmpeg before packaging SILMA.")
+    if (!source) {
+      fail("Missing FFmpeg shared library " + name + ". Install ffmpeg before packaging SILMA.")
+    }
     copySharedLibrary(source, join(destination, source.soname))
     copied.push(source.soname)
   }
@@ -160,15 +180,25 @@ function copySharedLibrary(source, destination) {
 
 // Reuse the platform loader cache instead of guessing distro-specific lib dirs.
 function loadLdconfigEntries() {
-  const result = runSync("ldconfig", ["-p"], { cwd: ROOT, stdio: "pipe" })
-  if (result.error) fail("Failed to inspect system shared libraries with ldconfig: " + result.error.message)
-  if (result.status !== 0) fail("ldconfig failed: " + result.stderr.toString())
+  const result = runSync("ldconfig", ["-p"], {
+    cwd: ROOT,
+    stdio: "pipe",
+  })
+  if (result.error) {
+    fail("Failed to inspect system shared libraries with ldconfig: " + result.error.message)
+  }
+  if (result.status !== 0) {
+    fail("ldconfig failed: " + result.stderr.toString())
+  }
   return result.stdout
     .toString()
     .split("\n")
     .map((line) => line.match(/^\s*(\S+)\s+\([^)]*\)\s+=>\s+(.+)$/))
     .filter(Boolean)
-    .map((match) => ({ soname: match[1], path: normalizeLdconfigPath(match[2]) }))
+    .map((match) => ({
+      soname: match[1],
+      path: normalizeLdconfigPath(match[2]),
+    }))
 }
 
 function normalizeLdconfigPath(path) {
@@ -236,7 +266,9 @@ function requireValue(args, index, flag) {
 // Prefer CI/system Python for release runtimes; venvs do not contain a full relocatable stdlib.
 function defaultPython() {
   const envPython = process.env.PAPERCUT_SILMA_PYTHON
-  if (envPython) return envPython
+  if (envPython) {
+    return envPython
+  }
   return process.platform === "win32" ? "python" : "python3"
 }
 
@@ -244,12 +276,24 @@ function defaultPython() {
 function currentTargetTriple() {
   const platform = process.platform
   const arch = process.arch
-  if (platform === "linux" && arch === "x64") return "x86_64-unknown-linux-gnu"
-  if (platform === "linux" && arch === "arm64") return "aarch64-unknown-linux-gnu"
-  if (platform === "darwin" && arch === "x64") return "x86_64-apple-darwin"
-  if (platform === "darwin" && arch === "arm64") return "aarch64-apple-darwin"
-  if (platform === "win32" && arch === "x64") return "x86_64-pc-windows-msvc"
-  if (platform === "win32" && arch === "arm64") return "aarch64-pc-windows-msvc"
+  if (platform === "linux" && arch === "x64") {
+    return "x86_64-unknown-linux-gnu"
+  }
+  if (platform === "linux" && arch === "arm64") {
+    return "aarch64-unknown-linux-gnu"
+  }
+  if (platform === "darwin" && arch === "x64") {
+    return "x86_64-apple-darwin"
+  }
+  if (platform === "darwin" && arch === "arm64") {
+    return "aarch64-apple-darwin"
+  }
+  if (platform === "win32" && arch === "x64") {
+    return "x86_64-pc-windows-msvc"
+  }
+  if (platform === "win32" && arch === "arm64") {
+    return "aarch64-pc-windows-msvc"
+  }
   fail("Unsupported sidecar target: " + platform + "/" + arch + ". Pass --target explicitly.")
 }
 

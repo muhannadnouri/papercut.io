@@ -7,23 +7,23 @@ import {
 
 export type LibraryNode =
   | {
-      key: string
-      kind: 'folder'
-      id: string
-      title: string
-      depth: number
-      documentCount: number
-      children: LibraryNode[]
-    }
+    key: string
+    kind: 'folder'
+    id: string
+    title: string
+    depth: number
+    documentCount: number
+    children: LibraryNode[]
+  }
   | {
-      key: string
-      kind: 'document'
-      id: string
-      title: string
-      url: string
-      doc: DocumentInfo
-      children: LibraryNode[]
-    }
+    key: string
+    kind: 'document'
+    id: string
+    title: string
+    url: string
+    doc: DocumentInfo
+    children: LibraryNode[]
+  }
 
 /**
  * Join uploaded documents, folder metadata, and persisted locations into the
@@ -32,17 +32,25 @@ export type LibraryNode =
 export function buildLibraryTree(
   documents: DocumentInfo[],
   organization: UploadedLibraryOrganization,
-  options: { hideEmptyFolders?: boolean; locale?: string } = {},
+  options: { hideEmptyFolders?: boolean;
+    locale?: string } = {},
 ): {
   nodes: LibraryNode[]
   folders: UploadedLibraryFolder[]
-  folderOptions: { id: string; label: string }[]
+  folderOptions: { id: string;
+    label: string }[]
   nodeByKey: Map<string, LibraryNode>
 } {
-  const collator = new Intl.Collator(options.locale, { numeric: true, sensitivity: 'base' })
+  const collator = new Intl.Collator(options.locale, {
+    numeric: true,
+    sensitivity: 'base',
+  })
   const uploadDocs = documents
     .filter((doc) => doc.source === 'upload' && isUploadedDocumentUrl(doc.url))
-    .map((doc) => ({ ...doc, uploadId: uploadIdFromUrl(doc.url) }))
+    .map((doc) => ({
+      ...doc,
+      uploadId: uploadIdFromUrl(doc.url),
+    }))
     .filter((doc): doc is DocumentInfo & { uploadId: string } => Boolean(doc.uploadId))
   const foldersByParent = groupFoldersByParent(organization.folders)
   const locations = new Map(organization.documentLocations.map((location) => [location.documentId, location]))
@@ -51,8 +59,11 @@ export function buildLibraryTree(
     const folderId = locations.get(doc.uploadId)?.folderId ?? null
     const key = folderId ?? ''
     const list = docsByFolder.get(key)
-    if (list) list.push(doc)
-    else docsByFolder.set(key, [doc])
+    if (list) {
+      list.push(doc)
+    } else {
+      docsByFolder.set(key, [doc])
+    }
   }
 
   const nodeByKey = new Map<string, LibraryNode>()
@@ -63,7 +74,9 @@ export function buildLibraryTree(
         .filter((node): node is LibraryNode => Boolean(node)),
       ...sortDocuments(docsByFolder.get(folder.id) ?? [], locations, collator).map(documentNode),
     ]
-    if (options.hideEmptyFolders && countDocuments(children) === 0) return null
+    if (options.hideEmptyFolders && countDocuments(children) === 0) {
+      return null
+    }
     const node: LibraryNode = {
       key: folderKey(folder.id),
       kind: 'folder',
@@ -106,13 +119,17 @@ export function buildLibraryTree(
 
 /** Collect descendant documents for folder-level search filter toggles. */
 export function collectDocuments(node: LibraryNode): DocumentInfo[] {
-  if (node.kind === 'document') return [node.doc]
+  if (node.kind === 'document') {
+    return [node.doc]
+  }
   return node.children.flatMap(collectDocuments)
 }
 
 /** Count folders below a selected folder without including the selected folder itself. */
 export function countDescendantFolders(node: LibraryNode): number {
-  if (node.kind === 'document') return 0
+  if (node.kind === 'document') {
+    return 0
+  }
   return node.children.reduce((total, child) => (
     total + (child.kind === 'folder' ? 1 + countDescendantFolders(child) : 0)
   ), 0)
@@ -124,8 +141,11 @@ function groupFoldersByParent(folders: UploadedLibraryFolder[]): Map<string, Upl
   for (const folder of folders) {
     const key = folder.parentId ?? ''
     const list = groups.get(key)
-    if (list) list.push(folder)
-    else groups.set(key, [folder])
+    if (list) {
+      list.push(folder)
+    } else {
+      groups.set(key, [folder])
+    }
   }
   return groups
 }
@@ -160,7 +180,8 @@ function sortDocuments(
 function buildFolderOptions(
   folders: UploadedLibraryFolder[],
   collator: Intl.Collator,
-): { id: string; label: string }[] {
+): { id: string;
+  label: string }[] {
   const byId = new Map(folders.map((folder) => [folder.id, folder]))
   return sortFolders(folders, collator).map((folder) => ({
     id: folder.id,
@@ -174,7 +195,9 @@ function folderPath(folder: UploadedLibraryFolder, byId: Map<string, UploadedLib
   let parentId = folder.parentId
   while (parentId) {
     const parent = byId.get(parentId)
-    if (!parent) break
+    if (!parent) {
+      break
+    }
     parts.unshift(parent.name)
     parentId = parent.parentId
   }

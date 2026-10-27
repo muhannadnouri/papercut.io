@@ -22,7 +22,9 @@ function runLifecycleOperation<T>(operation: () => Promise<T>): Promise<T> {
 // playback attempt to recover if native setup fails. The identity check prevents
 // an older rejected attempt from clearing a newer initialization after disposal.
 export function initializeNativeAudio(): Promise<NativeAudioState> {
-  if (initializePromise) return initializePromise
+  if (initializePromise) {
+    return initializePromise
+  }
 
   const attempt = runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
@@ -41,7 +43,9 @@ export async function setNativeAudioSource(payload: NativeAudioSetSourcePayload,
   await initializeNativeAudio()
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
-    if (isCurrent && !isCurrent()) throw new DOMException('Superseded playback request', 'AbortError')
+    if (isCurrent && !isCurrent()) {
+      throw new DOMException('Superseded playback request', 'AbortError')
+    }
     return plugin.setSource(payload)
   })
 }
@@ -49,7 +53,9 @@ export async function setNativeAudioSource(payload: NativeAudioSetSourcePayload,
 export function playNativeAudio(isCurrent?: () => boolean): Promise<NativeAudioState> {
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
-    if (isCurrent && !isCurrent()) throw new DOMException('Superseded playback request', 'AbortError')
+    if (isCurrent && !isCurrent()) {
+      throw new DOMException('Superseded playback request', 'AbortError')
+    }
     return plugin.play()
   })
 }
@@ -57,7 +63,9 @@ export function playNativeAudio(isCurrent?: () => boolean): Promise<NativeAudioS
 export function pauseNativeAudio(isCurrent?: () => boolean): Promise<NativeAudioState> {
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
-    if (isCurrent && !isCurrent()) throw new DOMException('Superseded playback request', 'AbortError')
+    if (isCurrent && !isCurrent()) {
+      throw new DOMException('Superseded playback request', 'AbortError')
+    }
     return plugin.pause()
   })
 }
@@ -65,7 +73,9 @@ export function pauseNativeAudio(isCurrent?: () => boolean): Promise<NativeAudio
 export function seekNativeAudio(position: number, isCurrent?: () => boolean): Promise<NativeAudioState> {
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
-    if (isCurrent && !isCurrent()) throw new DOMException('Superseded playback request', 'AbortError')
+    if (isCurrent && !isCurrent()) {
+      throw new DOMException('Superseded playback request', 'AbortError')
+    }
     return plugin.seekTo(position)
   })
 }
@@ -73,7 +83,9 @@ export function seekNativeAudio(position: number, isCurrent?: () => boolean): Pr
 export function setNativeAudioRate(rate: number, isCurrent?: () => boolean): Promise<NativeAudioState> {
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
-    if (isCurrent && !isCurrent()) throw new DOMException('Superseded playback request', 'AbortError')
+    if (isCurrent && !isCurrent()) {
+      throw new DOMException('Superseded playback request', 'AbortError')
+    }
     return plugin.setRate(rate)
   })
 }

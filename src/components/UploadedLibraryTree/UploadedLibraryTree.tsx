@@ -1,7 +1,21 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
+import {
+  Trans,
+  useTranslation,
+} from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { Button, Tree, TreeItem, TreeItemContent, type Key } from 'react-aria-components'
+import {
+  Button,
+  Tree,
+  TreeItem,
+  TreeItemContent,
+  type Key,
+} from 'react-aria-components'
 import type { DocumentInfo } from '../../types/search'
 import {
   type UploadedDocumentDeleteBatchResult,
@@ -9,7 +23,12 @@ import {
 } from '../../uploads/DocumentUploads'
 import { useAppConfirmation } from '../AppDialog/useAppConfirmation'
 import { TextInputDialog } from '../TextInputDialog/TextInputDialog'
-import { buildLibraryTree, collectDocuments, countDescendantFolders, type LibraryNode } from './libraryTree'
+import {
+  buildLibraryTree,
+  collectDocuments,
+  countDescendantFolders,
+  type LibraryNode,
+} from './libraryTree'
 import './UploadedLibraryTree.css'
 
 interface UploadedLibraryTreeProps {
@@ -39,8 +58,12 @@ interface UploadedLibraryTreeProps {
 }
 
 type FolderDialogState =
-  | { kind: 'create'; parentId: string | null; parentName?: string }
-  | { kind: 'rename'; folderId: string; initialName: string }
+  | { kind: 'create';
+    parentId: string | null;
+    parentName?: string }
+  | { kind: 'rename';
+    folderId: string;
+    initialName: string }
 
 export function UploadedLibraryTree({
   documents,
@@ -80,7 +103,10 @@ export function UploadedLibraryTree({
   const organizing = mode === 'library' && editMode
   const locale = i18n.resolvedLanguage ?? i18n.language
   const { nodes, folders, nodeByKey, folderOptions } = useMemo(
-    () => buildLibraryTree(documents, organization, { hideEmptyFolders: filterMode || filterActive, locale }),
+    () => buildLibraryTree(documents, organization, {
+      hideEmptyFolders: filterMode || filterActive,
+      locale,
+    }),
     [documents, filterActive, filterMode, locale, organization],
   )
   // Destructive counts must include documents hidden by active Library filters.
@@ -128,14 +154,18 @@ export function UploadedLibraryTree({
   // A batch import owns the shared library mutation slot, so leave manage
   // mode and close any pending folder edit before new documents arrive.
   useEffect(() => {
-    if (!resetEditing) return
+    if (!resetEditing) {
+      return
+    }
     setEditMode(false)
     setSelectedKeys(new Set())
     setFolderDialog(null)
   }, [resetEditing])
 
   const runEditAction = async (action: () => Promise<void> | void) => {
-    if (mutationDisabled) return
+    if (mutationDisabled) {
+      return
+    }
     setBusy(true)
     try {
       await action()
@@ -147,14 +177,18 @@ export function UploadedLibraryTree({
 
   const toggleSelection = (key: string) => {
     const node = nodeByKey.get(key)
-    if (!node) return
+    if (!node) {
+      return
+    }
     setSelectedKeys((current) => {
       if (current.has(key)) {
         const next = new Set(current)
         next.delete(key)
         return next
       }
-      if (node.kind === 'folder') return new Set([key])
+      if (node.kind === 'folder') {
+        return new Set([key])
+      }
 
       // Document and folder actions have different semantics, so selecting a
       // document drops any folder selection instead of permitting a mixed state.
@@ -175,7 +209,9 @@ export function UploadedLibraryTree({
   }
 
   const deleteSelectedDocuments = () => {
-    if (!canDeleteDocuments || !onDeleteDocuments) return
+    if (!canDeleteDocuments || !onDeleteDocuments) {
+      return
+    }
     const documentsToDelete = selectedDocuments.map((node) => node.doc)
     setActionError('')
     void (async () => {
@@ -188,7 +224,9 @@ export function UploadedLibraryTree({
           description: t('library.savedAudioDependency.batchDescription'),
           confirmLabel: t('library.savedAudioDependency.viewAudiobooks'),
         })
-        if (viewAudiobooks) onViewAudiobooks?.()
+        if (viewAudiobooks) {
+          onViewAudiobooks?.()
+        }
         return
       }
 
@@ -202,12 +240,16 @@ export function UploadedLibraryTree({
         confirmLabel: t('library.confirmDeleteDocuments.confirm', { count: documentsToDelete.length }),
         tone: 'danger',
       })
-      if (!confirmed) return
+      if (!confirmed) {
+        return
+      }
 
       setBusy(true)
       try {
         const result = await onDeleteDocuments(documentsToDelete)
-        if (!result) return
+        if (!result) {
+          return
+        }
         const failedUrls = new Set(result.failures.map((failure) => failure.documentUrl))
         setSelectedKeys(new Set(
           selectedDocuments
@@ -225,19 +267,29 @@ export function UploadedLibraryTree({
   const toggleFolderExpanded = (key: string) => {
     setExpandedKeys((current) => {
       const next = new Set(current)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
       return next
     })
   }
 
   const handleAction = (key: Key) => {
-    if (documentOpening) return
+    if (documentOpening) {
+      return
+    }
     const node = nodeByKey.get(String(key))
-    if (!node) return
+    if (!node) {
+      return
+    }
     if (filterMode) {
-      if (node.kind === 'folder') onToggleAllInGroup?.(collectDocuments(node))
-      else onToggleFilter?.(node.url)
+      if (node.kind === 'folder') {
+        onToggleAllInGroup?.(collectDocuments(node))
+      } else {
+        onToggleFilter?.(node.url)
+      }
       return
     }
     if (editMode) {
@@ -248,25 +300,37 @@ export function UploadedLibraryTree({
       toggleFolderExpanded(node.key)
       return
     }
-    if (node.kind === 'document') onViewDocument?.(node.url)
+    if (node.kind === 'document') {
+      onViewDocument?.(node.url)
+    }
   }
 
   const openFolderDialog = (parentId: string | null, parentName?: string) => {
     setFolderDialogError('')
     setActionError('')
-    setFolderDialog({ kind: 'create', parentId, parentName })
+    setFolderDialog({
+      kind: 'create',
+      parentId,
+      parentName,
+    })
   }
 
   const submitFolderDialog = (name: string) => {
-    if (!folderDialog || mutationDisabled) return
+    if (!folderDialog || mutationDisabled) {
+      return
+    }
     const target = folderDialog
     void (async () => {
       try {
         if (target.kind === 'create') {
-          if (!onCreateFolder) return
+          if (!onCreateFolder) {
+            return
+          }
           await runEditAction(() => onCreateFolder(target.parentId, name))
         } else {
-          if (!onRenameFolder) return
+          if (!onRenameFolder) {
+            return
+          }
           if (name === target.initialName) {
             setFolderDialog(null)
             setFolderDialogError('')
@@ -283,23 +347,37 @@ export function UploadedLibraryTree({
   }
 
   const renameSelectedFolder = () => {
-    if (!selectedSingleFolder) return
+    if (!selectedSingleFolder) {
+      return
+    }
     const folder = selectedFolders[0]
     setFolderDialogError('')
     setActionError('')
-    setFolderDialog({ kind: 'rename', folderId: folder.id, initialName: folder.title })
+    setFolderDialog({
+      kind: 'rename',
+      folderId: folder.id,
+      initialName: folder.title,
+    })
   }
 
   const deleteSelectedFolder = () => {
-    if (!selectedSingleFolder) return
-    if (!canDeleteSelectedFolder || !selectedFolder) return
+    if (!selectedSingleFolder) {
+      return
+    }
+    if (!canDeleteSelectedFolder || !selectedFolder) {
+      return
+    }
     const folder = selectedFolder
     const fullFolder = unfilteredNodeByKey.get(folder.key)
-    if (!fullFolder || fullFolder.kind !== 'folder') return
+    if (!fullFolder || fullFolder.kind !== 'folder') {
+      return
+    }
     const documentsToDelete = collectDocuments(fullFolder)
     const nestedFolderCount = countDescendantFolders(fullFolder)
     const hasContents = documentsToDelete.length > 0 || nestedFolderCount > 0
-    if (!onDeleteFolder) return
+    if (!onDeleteFolder) {
+      return
+    }
     setActionError('')
     void (async () => {
       const dependentDocuments = documentsToDelete.filter((document) => (
@@ -311,7 +389,9 @@ export function UploadedLibraryTree({
           description: t('library.savedAudioDependency.folderDescription'),
           confirmLabel: t('library.savedAudioDependency.viewAudiobooks'),
         })
-        if (viewAudiobooks) onViewAudiobooks?.()
+        if (viewAudiobooks) {
+          onViewAudiobooks?.()
+        }
         return
       }
 
@@ -323,7 +403,10 @@ export function UploadedLibraryTree({
           ? 'library.confirmDeleteFolderContents.description'
           : 'library.confirmDeleteFolder.description'),
         details: [
-          { label: t('library.confirmDeleteFolder.folder'), value: <bdi>{folder.title}</bdi> },
+          {
+            label: t('library.confirmDeleteFolder.folder'),
+            value: <bdi>{folder.title}</bdi>,
+          },
           ...(hasContents ? [
             {
               label: t('library.confirmDeleteFolderContents.nestedFolders'),
@@ -340,12 +423,16 @@ export function UploadedLibraryTree({
           : 'library.tree.deleteFolder'),
         tone: 'danger',
       })
-      if (!confirmed) return
+      if (!confirmed) {
+        return
+      }
 
       setBusy(true)
       try {
         const result = await onDeleteFolder(folder.id)
-        if (result && result.failures.length === 0) setSelectedKeys(new Set())
+        if (result && result.failures.length === 0) {
+          setSelectedKeys(new Set())
+        }
       } catch (err) {
         setActionError(err instanceof Error ? err.message : String(err))
       } finally {
@@ -355,8 +442,12 @@ export function UploadedLibraryTree({
   }
 
   const moveSelectedDocuments = (folderId: string | null) => {
-    if (!canMoveDocuments) return
-    if (!onMoveDocuments) return
+    if (!canMoveDocuments) {
+      return
+    }
+    if (!onMoveDocuments) {
+      return
+    }
     setActionError('')
     void (async () => {
       try {
@@ -368,11 +459,15 @@ export function UploadedLibraryTree({
   }
 
   const toggleAllRootDocuments = () => {
-    if (rootDocuments.length === 0) return
+    if (rootDocuments.length === 0) {
+      return
+    }
     onToggleAllInGroup?.(rootDocuments)
   }
 
-  if (nodes.length === 0 && folders.length === 0 && !managementStatus) return null
+  if (nodes.length === 0 && folders.length === 0 && !managementStatus) {
+    return null
+  }
 
   return (
     <section
@@ -440,94 +535,96 @@ export function UploadedLibraryTree({
             role="group"
             aria-label={t('library.tree.editActionsAriaLabel')}
           >
-          <div className="uploaded-library-context-actions">
-            <div className="uploaded-library-selection-actions">
-              <strong className="uploaded-library-selection-count" aria-live="polite">
-                {selectedFolder
-                  ? t('library.tree.folderSelected')
-                  : t('library.tree.selectedCount', { count: selectedDocumentIds.length })}
-              </strong>
-              {!selectedFolder && selectedDocumentIds.length === 0 && (
-                <button
-                  type="button"
-                  disabled={busy || mutationDisabled || allDocumentsSelected || documentNodes.length === 0}
-                  onClick={selectAllDocuments}
-                >
-                  {t('common.selectAll')}
-                </button>
+            <div className="uploaded-library-context-actions">
+              <div className="uploaded-library-selection-actions">
+                <strong className="uploaded-library-selection-count" aria-live="polite">
+                  {selectedFolder
+                    ? t('library.tree.folderSelected')
+                    : t('library.tree.selectedCount', { count: selectedDocumentIds.length })}
+                </strong>
+                {!selectedFolder && selectedDocumentIds.length === 0 && (
+                  <button
+                    type="button"
+                    disabled={busy || mutationDisabled || allDocumentsSelected || documentNodes.length === 0}
+                    onClick={selectAllDocuments}
+                  >
+                    {t('common.selectAll')}
+                  </button>
+                )}
+                {selectedKeys.size > 0 && (
+                  <button
+                    type="button"
+                    disabled={busy || mutationDisabled}
+                    onClick={clearSelection}
+                  >
+                    {t('common.deselectAll')}
+                  </button>
+                )}
+              </div>
+              {selectedDocumentIds.length > 0 && (
+                <div className="uploaded-library-task-actions">
+                  <label className="uploaded-library-move">
+                    <span className="uploaded-library-action-label">{t('library.tree.moveDocuments')}</span>
+                    <select
+                      disabled={busy || mutationDisabled || !canMoveDocuments}
+                      defaultValue=""
+                      onChange={(event) => {
+                        const value = event.target.value
+                        if (!value) {
+                          return
+                        }
+                        event.target.value = ''
+                        moveSelectedDocuments(value === 'root' ? null : value)
+                      }}
+                    >
+                      <option value="">{t('library.tree.chooseDestination')}</option>
+                      <option value="root">{t('library.tree.root')}</option>
+                      {folderOptions.map((folder) => (
+                        <option key={folder.id} value={folder.id}>
+                          {folder.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="uploaded-library-batch-delete"
+                    disabled={!canDeleteDocuments}
+                    onClick={deleteSelectedDocuments}
+                  >
+                    {t('common.delete')}
+                  </button>
+                </div>
               )}
-              {selectedKeys.size > 0 && (
-                <button
-                  type="button"
-                  disabled={busy || mutationDisabled}
-                  onClick={clearSelection}
-                >
-                  {t('common.deselectAll')}
-                </button>
+              {selectedFolder && (
+                <div className="uploaded-library-task-actions">
+                  <button
+                    type="button"
+                    className="uploaded-library-secondary-action"
+                    disabled={busy || mutationDisabled || !selectedSingleFolder}
+                    onClick={renameSelectedFolder}
+                  >
+                    {t('library.tree.rename')}
+                  </button>
+                  <button
+                    type="button"
+                    className="uploaded-library-delete-btn"
+                    disabled={!canDeleteSelectedFolder}
+                    title={t('library.tree.deleteSelectedFolder')}
+                    onClick={deleteSelectedFolder}
+                  >
+                    {t(selectedFolderHasContents
+                      ? 'library.tree.deleteFolderContents'
+                      : 'library.tree.deleteFolder')}
+                  </button>
+                </div>
               )}
             </div>
-            {selectedDocumentIds.length > 0 && (
-              <div className="uploaded-library-task-actions">
-                <label className="uploaded-library-move">
-                  <span className="uploaded-library-action-label">{t('library.tree.moveDocuments')}</span>
-                  <select
-                    disabled={busy || mutationDisabled || !canMoveDocuments}
-                    defaultValue=""
-                    onChange={(event) => {
-                      const value = event.target.value
-                      if (!value) return
-                      event.target.value = ''
-                      moveSelectedDocuments(value === 'root' ? null : value)
-                    }}
-                  >
-                    <option value="">{t('library.tree.chooseDestination')}</option>
-                    <option value="root">{t('library.tree.root')}</option>
-                    {folderOptions.map((folder) => (
-                      <option key={folder.id} value={folder.id}>
-                        {folder.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  className="uploaded-library-batch-delete"
-                  disabled={!canDeleteDocuments}
-                  onClick={deleteSelectedDocuments}
-                >
-                  {t('common.delete')}
-                </button>
-              </div>
+            {actionError && (
+              <p className="uploaded-library-action-error" role="alert" dir="auto">
+                {actionError}
+              </p>
             )}
-            {selectedFolder && (
-              <div className="uploaded-library-task-actions">
-                <button
-                  type="button"
-                  className="uploaded-library-secondary-action"
-                  disabled={busy || mutationDisabled || !selectedSingleFolder}
-                  onClick={renameSelectedFolder}
-                >
-                  {t('library.tree.rename')}
-                </button>
-                <button
-                  type="button"
-                  className="uploaded-library-delete-btn"
-                  disabled={!canDeleteSelectedFolder}
-                  title={t('library.tree.deleteSelectedFolder')}
-                  onClick={deleteSelectedFolder}
-                >
-                  {t(selectedFolderHasContents
-                    ? 'library.tree.deleteFolderContents'
-                    : 'library.tree.deleteFolder')}
-                </button>
-              </div>
-            )}
-          </div>
-          {actionError && (
-            <p className="uploaded-library-action-error" role="alert" dir="auto">
-              {actionError}
-            </p>
-          )}
           </div>
         )}
       </div>
@@ -641,9 +738,13 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
       ? options.t('library.tree.selectAllIn', { title: node.title })
       : options.t('library.tree.filterBy', { title: node.title })
   const toggleNodeSelection = () => {
-    if (options.editMode) options.onToggleSelection(node.key)
-    else if (node.kind === 'folder') options.onToggleAllInGroup?.(filterDocuments)
-    else options.onToggleFilter?.(node.url)
+    if (options.editMode) {
+      options.onToggleSelection(node.key)
+    } else if (node.kind === 'folder') {
+      options.onToggleAllInGroup?.(filterDocuments)
+    } else {
+      options.onToggleFilter?.(node.url)
+    }
   }
   const className = [
     'uploaded-library-item',
@@ -752,7 +853,9 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
                       disabled={options.documentOpening}
                       onClick={(event) => {
                         event.stopPropagation()
-                        if (!options.documentOpening) options.onViewDocument?.(node.url)
+                        if (!options.documentOpening) {
+                          options.onViewDocument?.(node.url)
+                        }
                       }}
                     >
                       {opening ? options.t('common.opening') : options.t('common.view')}

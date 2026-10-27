@@ -1,4 +1,7 @@
-import type { ViewerFindApi, ViewerFindResult } from './types'
+import type {
+  ViewerFindApi,
+  ViewerFindResult,
+} from './types'
 import type { SearchOpenTarget } from '../types/search'
 import type { PDFFindController } from 'pdfjs-dist/legacy/web/pdf_viewer.mjs'
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs'
@@ -30,18 +33,25 @@ type PdfJsQuery = string | string[]
 
 // PDF.js joins ASCII end-of-line hyphens, but normalizes Unicode hyphens too
 // late to join them. Equal-length replacements keep its source-offset map valid.
-export function pdfFindTextItems<T extends { str?: string; hasEOL?: boolean; type?: string }>(items: readonly T[]): T[] {
+export function pdfFindTextItems<T extends { str?: string;
+  hasEOL?: boolean;
+  type?: string }>(items: readonly T[]): T[] {
   const result = [...items]
   let previous = -1
   let lineBreak = false
   let lineTail = ''
   items.forEach((item, index) => {
-    if (typeof item.str !== 'string') return
+    if (typeof item.str !== 'string') {
+      return
+    }
     if (item.str) {
       const before = result[previous]
       if (lineBreak && before?.str && /[\u2010\u2011]$/u.test(before.str)
         && isPdfWordWrap(lineTail, item.str)) {
-        result[previous] = { ...before, str: `${before.str.slice(0, -1)}-` }
+        result[previous] = {
+          ...before,
+          str: `${before.str.slice(0, -1)}-`,
+        }
       }
       previous = index
       lineTail = `${lineBreak ? '' : lineTail}${item.str}`.slice(-4)
@@ -62,15 +72,22 @@ export function createPdfFindController(
       // the original page objects and text, including their Unicode hyphens.
       super.setDocument(document && new Proxy(document, {
         get(target, property) {
-          if (property !== 'getPage') return Reflect.get(target, property, target)
+          if (property !== 'getPage') {
+            return Reflect.get(target, property, target)
+          }
           return async (pageNumber: number) => {
             const page = await target.getPage(pageNumber)
             return new Proxy(page, {
               get(target, property) {
-                if (property !== 'getTextContent') return Reflect.get(target, property, target)
+                if (property !== 'getTextContent') {
+                  return Reflect.get(target, property, target)
+                }
                 return async (...args: Parameters<typeof page.getTextContent>) => {
                   const content = await target.getTextContent(...args)
-                  return { ...content, items: pdfFindTextItems(content.items) }
+                  return {
+                    ...content,
+                    items: pdfFindTextItems(content.items),
+                  }
                 }
               },
             })
@@ -86,7 +103,9 @@ export function pdfSearchTargetPage(
   target: SearchOpenTarget | null | undefined,
   pageCount?: number,
 ): number | null {
-  if (!target?.text?.trim() || target.pageIndex === undefined) return null
+  if (!target?.text?.trim() || target.pageIndex === undefined) {
+    return null
+  }
   const page = Math.max(target.pageIndex + 1, 1)
   return pageCount === undefined ? page : Math.min(page, Math.max(pageCount, 1))
 }
@@ -101,7 +120,9 @@ export function createPdfFindAdapter(
   let query: PdfJsQuery = ''
 
   const dispatchFind = (type: '' | 'again', findPrevious = false) => {
-    if (query.length === 0) return
+    if (query.length === 0) {
+      return
+    }
     eventBus.dispatch('find', {
       source: api,
       type,
@@ -132,12 +153,17 @@ export function createPdfFindAdapter(
     clear() {
       query = ''
       eventBus.dispatch('findbarclose', { source: api })
-      onResult({ currentIndex: 0, matchCount: 0 })
+      onResult({
+        currentIndex: 0,
+        matchCount: 0,
+      })
     },
   }
 
   const handleResult = ({ matchesCount }: PdfFindResultEvent) => {
-    if (!matchesCount) return
+    if (!matchesCount) {
+      return
+    }
     onResult({
       currentIndex: Math.max(matchesCount.current - 1, 0),
       matchCount: matchesCount.total,
@@ -160,7 +186,9 @@ export function createPdfFindAdapter(
  * for a few compounds without allowing pasted input to expand without bound. */
 function pdfFindQuery(input: string): PdfJsQuery {
   const original = input.trim()
-  if (!original) return ''
+  if (!original) {
+    return ''
+  }
 
   const normalized = normalizeSearchPunctuation(original)
   const compact = normalized.replace(/(\p{L})-\s+(?=\p{L})/gu, '$1-')
@@ -188,8 +216,12 @@ function pdfFindQuery(input: string): PdfJsQuery {
     })
     aliases.add(characters.map((character, index) => {
       const choice = choices.get(index)
-      if (choice === 1) return '- '
-      if (choice === 2) return ''
+      if (choice === 1) {
+        return '- '
+      }
+      if (choice === 2) {
+        return ''
+      }
       return character
     }).join(''))
   }

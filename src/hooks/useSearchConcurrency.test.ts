@@ -1,4 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import type { UploadedDocumentSearchResponse } from '../uploads/DocumentUploads'
 
 const mocked = vi.hoisted(() => ({
@@ -24,12 +30,21 @@ import { useSearch } from './useSearch'
 
 function deferredSearch() {
   let resolve!: (value: UploadedDocumentSearchResponse) => void
-  const promise = new Promise<UploadedDocumentSearchResponse>((done) => { resolve = done })
-  return { promise, resolve }
+  const promise = new Promise<UploadedDocumentSearchResponse>((done) => {
+    resolve = done
+  })
+  return {
+    promise,
+    resolve,
+  }
 }
 
 function response(totalDocuments: number): UploadedDocumentSearchResponse {
-  return { results: [], totalDocuments, totalMatchingSections: 0 }
+  return {
+    results: [],
+    totalDocuments,
+    totalMatchingSections: 0,
+  }
 }
 
 beforeEach(() => {
@@ -128,7 +143,8 @@ describe('search request freshness', () => {
 
   it('passes through a verified uploaded typo retry', async () => {
     mocked.searchUploadedDocuments.mockResolvedValue({
-      ...response(0), suggestedQuery: 'environment',
+      ...response(0),
+      suggestedQuery: 'environment',
     })
     const search = useSearch({ current: null })
     const setLastSearchInfo = mocked.setters.at(-1)
@@ -140,16 +156,32 @@ describe('search request freshness', () => {
   })
 
   it('keeps an uploaded spelling retry while rejecting loose starter hits', async () => {
-    mocked.searchUploadedDocuments.mockResolvedValue({ ...response(0), suggestedQuery: 'calendar meeting agenda' })
-    const pagefind = { search: vi.fn().mockResolvedValueOnce({ results: [{
-      id: 'starter', data: async () => ({ id: 'starter', url: '/starter', meta: { title: 'Starter' }, excerpt: '<mark>a</mark> guide' }),
-    }] }).mockResolvedValue({ results: [] }) }
+    mocked.searchUploadedDocuments.mockResolvedValue({
+      ...response(0),
+      suggestedQuery: 'calendar meeting agenda',
+    })
+    const pagefind = {
+      search: vi.fn().mockResolvedValueOnce({
+        results: [{
+          id: 'starter',
+          data: async () => ({
+            id: 'starter',
+            url: '/starter',
+            meta: { title: 'Starter' },
+            excerpt: '<mark>a</mark> guide',
+          }),
+        }],
+      }).mockResolvedValue({ results: [] }),
+    }
     const search = useSearch({ current: pagefind })
     const setLastSearchInfo = mocked.setters.at(-1)
     search.handleSearch('calender meeting agenda')
     search.submitSearch()
     await vi.waitFor(() => expect(setLastSearchInfo).toHaveBeenCalledWith(
-      expect.objectContaining({ suggestedQuery: 'calendar meeting agenda', starterDocuments: 0 }),
+      expect.objectContaining({
+        suggestedQuery: 'calendar meeting agenda',
+        starterDocuments: 0,
+      }),
     ))
   })
 
@@ -164,7 +196,6 @@ describe('search request freshness', () => {
   })
 })
 
-
 it.each([
   Array.from({ length: 129 }, (_, i) => `word${i}`).join(' '),
   'é'.repeat(4097),
@@ -172,7 +203,8 @@ it.each([
 ])('rejects over-budget input before either provider and clears the conceptual submission', (query) => {
   const pagefind = { search: vi.fn() }
   const search = useSearch({ current: pagefind })
-  search.handleSearch(query); search.submitSearch()
+  search.handleSearch(query)
+  search.submitSearch()
   expect(pagefind.search).not.toHaveBeenCalled()
   expect(mocked.searchUploadedDocuments).not.toHaveBeenCalled()
   expect(mocked.setters[2]).toHaveBeenLastCalledWith('tooLong')
@@ -183,7 +215,8 @@ it.each(['é'.repeat(4096), 'word '.repeat(128).trim()])('permits budget boundar
   mocked.searchUploadedDocuments.mockResolvedValue(response(0))
   const pagefind = { search: vi.fn().mockResolvedValue({ results: [] }) }
   const search = useSearch({ current: pagefind })
-  search.handleSearch(query); search.submitSearch()
+  search.handleSearch(query)
+  search.submitSearch()
   expect(pagefind.search).toHaveBeenCalledOnce()
   expect(mocked.searchUploadedDocuments).toHaveBeenCalledOnce()
 })

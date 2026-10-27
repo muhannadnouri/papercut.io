@@ -1,5 +1,8 @@
 import { AppDialog } from '../../components/AppDialog/AppDialog'
-import { AudioSetupPanel, type AudioSetupPanelProps } from './AudioSetupPanel'
+import {
+  AudioSetupPanel,
+  type AudioSetupPanelProps,
+} from './AudioSetupPanel'
 
 interface AudioSetupDialogProps {
   audioSetup: AudioSetupPanelProps

@@ -1,5 +1,13 @@
-import { useId, useState } from 'react'
-import { Button, Dialog, DialogTrigger, Popover } from 'react-aria-components'
+import {
+  useId,
+  useState,
+} from 'react'
+import {
+  Button,
+  Dialog,
+  DialogTrigger,
+  Popover,
+} from 'react-aria-components'
 import { useTranslation } from 'react-i18next'
 import { AppSelect } from '../../components/AppSelect/AppSelect'
 import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
@@ -51,7 +59,9 @@ export function PdfRecognitionPrompt({
   const indicator = pdfRecognitionIndicatorState(status, documentUrl, textStatus)
   const interrupted = ownsStatus && status.message === PDF_OCR_INTERRUPTED
 
-  if (!recognitionRequired && !recognitionAvailable && !ownsStatus) return null
+  if (!recognitionRequired && !recognitionAvailable && !ownsStatus) {
+    return null
+  }
 
   const issueCount = (status.recognitionIssues?.failedPages.length ?? 0) +
     (status.recognitionIssues?.unrecognizedPages.length ?? 0) +
@@ -120,8 +130,14 @@ export function PdfRecognitionPrompt({
                     ariaLabelledBy={languageLabelId}
                     disabled={ownsStatus}
                     options={[
-                      { value: 'eng', label: t('library.scanSetup.english') },
-                      { value: 'ara', label: t('library.scanSetup.arabic') },
+                      {
+                        value: 'eng',
+                        label: t('library.scanSetup.english'),
+                      },
+                      {
+                        value: 'ara',
+                        label: t('library.scanSetup.arabic'),
+                      },
                     ]}
                     onChange={(value) => setLanguage(value as PdfOcrLanguage)}
                   />

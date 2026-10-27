@@ -1,4 +1,10 @@
-import { DEFAULT_TTS_MODEL_ID, NATIVE_TTS_DTYPE, resolveSilmaNfeStep, SILMA_MODEL_ID, TEXT_PREPROCESSOR_NONE } from '../types'
+import {
+  DEFAULT_TTS_MODEL_ID,
+  NATIVE_TTS_DTYPE,
+  resolveSilmaNfeStep,
+  SILMA_MODEL_ID,
+  TEXT_PREPROCESSOR_NONE,
+} from '../types'
 
 const STORAGE_KEY = 'papercut.userUploads.v1'
 
@@ -24,7 +30,9 @@ export function isUserUploadUrl(url: string): boolean {
 export function getUserUploads(): UserUploadDocument[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
+    if (!raw) {
+      return []
+    }
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed)
       ? parsed
@@ -71,7 +79,9 @@ function writeUserUploads(records: UserUploadDocument[]): void {
 }
 
 function isUserUploadDocument(value: unknown): value is UserUploadDocument {
-  if (!value || typeof value !== 'object') return false
+  if (!value || typeof value !== 'object') {
+    return false
+  }
   const record = value as Partial<UserUploadDocument>
   return typeof record.url === 'string' &&
     typeof record.title === 'string' &&

@@ -39,7 +39,10 @@ export function SearchBar({
           value={query}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !submitDisabled) { e.preventDefault(); onSubmit() }
+            if (e.key === 'Enter' && !submitDisabled) {
+              e.preventDefault()
+              onSubmit()
+            }
           }}
           disabled={disabled}
           autoFocus
@@ -53,11 +56,11 @@ export function SearchBar({
           {searching
             ? <span className="spinner search-btn-spinner" aria-hidden="true" />
             : (
-                <svg className="search-btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m16 16 5 5" />
-                </svg>
-              )}
+              <svg className="search-btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m16 16 5 5" />
+              </svg>
+            )}
           {t('search.input.button')}
         </button>
       </div>

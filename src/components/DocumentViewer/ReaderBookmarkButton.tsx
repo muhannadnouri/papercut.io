@@ -1,4 +1,10 @@
-import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components'
+import {
+  Button,
+  Menu,
+  MenuItem,
+  MenuTrigger,
+  Popover,
+} from 'react-aria-components'
 import { useTranslation } from 'react-i18next'
 import { TrashIcon } from '../TrashIcon/TrashIcon'
 

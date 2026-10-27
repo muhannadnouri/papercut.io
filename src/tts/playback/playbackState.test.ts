@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
 import type { NativeAudiobookPlayback } from '../api/nativeTts'
 import {
   findPlaybackChunk,
@@ -16,9 +20,24 @@ const playback: NativeAudiobookPlayback = {
   audioDurationSec: 9,
   wavBytes: 100,
   chunks: [
-    { index: 0, chunkId: 'one', startSec: 0, durationSec: 2 },
-    { index: 1, chunkId: 'two', startSec: 2, durationSec: 3 },
-    { index: 2, chunkId: 'three', startSec: 5, durationSec: 4 },
+    {
+      index: 0,
+      chunkId: 'one',
+      startSec: 0,
+      durationSec: 2,
+    },
+    {
+      index: 1,
+      chunkId: 'two',
+      startSec: 2,
+      durationSec: 3,
+    },
+    {
+      index: 2,
+      chunkId: 'three',
+      startSec: 5,
+      durationSec: 4,
+    },
   ],
 }
 
@@ -29,7 +48,10 @@ describe('playback state helpers', () => {
     expect(findPlaybackChunk(playback, 2)?.chunkId).toBe('two')
     expect(findPlaybackChunk(playback, 5)?.chunkId).toBe('three')
     expect(findPlaybackChunk(playback, 12)?.chunkId).toBe('three')
-    expect(findPlaybackChunk({ ...playback, chunks: [] }, 0)).toBeNull()
+    expect(findPlaybackChunk({
+      ...playback,
+      chunks: [],
+    }, 0)).toBeNull()
   })
 
   it('normalizes playback rates to the supported range', () => {
@@ -60,21 +82,62 @@ describe('playback state helpers', () => {
 })
 
 it('validates full native timing identity, contiguous finite boundaries and positive durations', () => {
-  const chunks = playback.chunks.map(chunk => ({ id: chunk.chunkId, text: chunk.chunkId }))
+  const chunks = playback.chunks.map(chunk => ({
+    id: chunk.chunkId,
+    text: chunk.chunkId,
+  }))
   expect(playbackMatchesChunks(playback, chunks)).toBe(true)
   for (const change of [{ index: 5 }, { chunkId: 'wrong' }, { startSec: 0.5 }, { durationSec: NaN }, { durationSec: 0 }]) {
-    expect(playbackMatchesChunks({ ...playback, chunks: [{ ...playback.chunks[0], ...change }, ...playback.chunks.slice(1)] }, chunks)).toBe(false)
+    expect(playbackMatchesChunks({
+      ...playback,
+      chunks: [{
+        ...playback.chunks[0],
+        ...change,
+      }, ...playback.chunks.slice(1)],
+    }, chunks)).toBe(false)
   }
-  expect(playbackMatchesChunks({ ...playback, audioDurationSec: Infinity }, chunks)).toBe(false)
-  expect(playbackMatchesChunks({ ...playback, chunks: playback.chunks.slice(1) }, chunks)).toBe(false)
-  const options = { modelId: 'kokoro', voice: 'af_heart' as const, speed: 1, documentUrl: '/a.html' }
+  expect(playbackMatchesChunks({
+    ...playback,
+    audioDurationSec: Infinity,
+  }, chunks)).toBe(false)
+  expect(playbackMatchesChunks({
+    ...playback,
+    chunks: playback.chunks.slice(1),
+  }, chunks)).toBe(false)
+  const options = {
+    modelId: 'kokoro',
+    voice: 'af_heart' as const,
+    speed: 1,
+    documentUrl: '/a.html',
+  }
   expect(samePlaybackOptions(options, { ...options })).toBe(true)
-  expect(samePlaybackOptions(options, { ...options, voice: 'af_bella' })).toBe(false)
+  expect(samePlaybackOptions(options, {
+    ...options,
+    voice: 'af_bella',
+  })).toBe(false)
 })
 
 it('accepts the native stitched-track f32 duration rounding without changing seek boundaries', () => {
   const duration = 36_000.1234
-  const track = { ...playback, audioDurationSec: Math.fround(duration), chunks: [{ index: 0, chunkId: 'one', startSec: 0, durationSec: duration }] }
-  expect(playbackMatchesChunks(track, [{ id: 'one', text: 'Book' }])).toBe(true)
-  expect(playbackMatchesChunks({ ...track, audioDurationSec: duration + 0.1 }, [{ id: 'one', text: 'Book' }])).toBe(false)
+  const track = {
+    ...playback,
+    audioDurationSec: Math.fround(duration),
+    chunks: [{
+      index: 0,
+      chunkId: 'one',
+      startSec: 0,
+      durationSec: duration,
+    }],
+  }
+  expect(playbackMatchesChunks(track, [{
+    id: 'one',
+    text: 'Book',
+  }])).toBe(true)
+  expect(playbackMatchesChunks({
+    ...track,
+    audioDurationSec: duration + 0.1,
+  }, [{
+    id: 'one',
+    text: 'Book',
+  }])).toBe(false)
 })

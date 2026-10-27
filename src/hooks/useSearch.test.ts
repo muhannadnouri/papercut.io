@@ -1,7 +1,15 @@
-import { describe, expect, it, vi } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import type { SearchResult } from '../types/search'
 import { resolveDocumentScopeUrls } from './useDocumentFilters'
-import { pagefindResultsInScope, searchStarterDocuments } from './useSearch'
+import {
+  pagefindResultsInScope,
+  searchStarterDocuments,
+} from './useSearch'
 
 describe('document search scope', () => {
   const allUrls = ['/one', '/two', '/three']
@@ -20,7 +28,12 @@ describe('document search scope', () => {
         id: url,
         data: async (): Promise<SearchResult> => {
           reads += 1
-          return { id: url, url, meta: { title: url }, excerpt: '' }
+          return {
+            id: url,
+            url,
+            meta: { title: url },
+            excerpt: '',
+          }
         },
       }
     })
@@ -38,7 +51,12 @@ describe('document search scope', () => {
       id: '/one',
       data: async (): Promise<SearchResult> => {
         reads += 1
-        return { id: '/one', url: '/one', meta: { title: 'One' }, excerpt: '' }
+        return {
+          id: '/one',
+          url: '/one',
+          meta: { title: 'One' },
+          excerpt: '',
+        }
       },
     }]
 
@@ -68,13 +86,17 @@ describe('document search scope', () => {
   })
 })
 
-
 describe('starter All Words eligibility', () => {
   it('rejects loose partial hits, preserves provider order and checks every distinct unquoted term', async () => {
-    const rows = ['loose', 'second', 'first', 'missing'].map(id => ({ id, data: vi.fn() }))
-    const pagefind = { search: vi.fn().mockResolvedValueOnce({ results: rows })
-      .mockResolvedValueOnce({ results: rows.slice(1) })
-      .mockResolvedValueOnce({ results: [rows[2], rows[1]] }) }
+    const rows = ['loose', 'second', 'first', 'missing'].map(id => ({
+      id,
+      data: vi.fn(),
+    }))
+    const pagefind = {
+      search: vi.fn().mockResolvedValueOnce({ results: rows })
+        .mockResolvedValueOnce({ results: rows.slice(1) })
+        .mockResolvedValueOnce({ results: [rows[2], rows[1]] }),
+    }
     const found = await searchStarterDocuments(pagefind, 'orchard lantern orchard', 'orchard lantern orchard')
     expect(pagefind.search.mock.calls.map(([query]) => query)).toEqual([
       'orchard lantern orchard', '"orchard"', '"lantern"',
@@ -84,9 +106,14 @@ describe('starter All Words eligibility', () => {
   })
 
   it('short-circuits missing words and leaves phrase verification separate', async () => {
-    const row = { id: 'one', data: vi.fn() }
-    const pagefind = { search: vi.fn().mockResolvedValueOnce({ results: [row] })
-      .mockResolvedValueOnce({ results: [] }) }
+    const row = {
+      id: 'one',
+      data: vi.fn(),
+    }
+    const pagefind = {
+      search: vi.fn().mockResolvedValueOnce({ results: [row] })
+        .mockResolvedValueOnce({ results: [] }),
+    }
     expect(await searchStarterDocuments(pagefind, 'orchard lantern', 'orchard lantern')).toEqual({ results: [] })
     expect(pagefind.search).toHaveBeenCalledTimes(2)
     pagefind.search.mockReset().mockResolvedValue({ results: [row] })
@@ -96,10 +123,18 @@ describe('starter All Words eligibility', () => {
 })
 
 it('stops starter term lookups when a request is superseded during provider work', async () => {
-  let release!: (value: { results: { id: string; data: ReturnType<typeof vi.fn> }[] }) => void
-  const row = { id: 'one', data: vi.fn() }
-  const pagefind = { search: vi.fn().mockResolvedValueOnce({ results: [row] })
-    .mockImplementationOnce(() => new Promise(resolve => { release = resolve })) }
+  let release!: (value: { results: { id: string;
+    data: ReturnType<typeof vi.fn> }[] }) => void
+  const row = {
+    id: 'one',
+    data: vi.fn(),
+  }
+  const pagefind = {
+    search: vi.fn().mockResolvedValueOnce({ results: [row] })
+      .mockImplementationOnce(() => new Promise(resolve => {
+        release = resolve
+      })),
+  }
   let current = true
   const work = searchStarterDocuments(pagefind, 'orchard lantern compass', 'orchard lantern compass', () => current)
   await vi.waitFor(() => expect(pagefind.search).toHaveBeenCalledTimes(2))

@@ -58,7 +58,8 @@ export interface SearchOpenTarget {
 }
 
 export interface PagefindInstance {
-  search: (query: string) => Promise<{ results: { id: string; data: () => Promise<SearchResult> }[] }>
+  search: (query: string) => Promise<{ results: { id: string;
+    data: () => Promise<SearchResult> }[] }>
   destroy?: () => void
 }
 

@@ -1,4 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import i18n from '../../i18n'
 import {
   clearCompletedAudiobookDownload,
@@ -9,7 +14,11 @@ import {
   type AudiobookDownloadInput,
   type AudiobookDownloadRecord,
 } from '../storage/AudiobookDownloadQueue'
-import type { TtsChunk, TtsDtype, TtsVoice } from '../types'
+import type {
+  TtsChunk,
+  TtsDtype,
+  TtsVoice,
+} from '../types'
 import { useAudiobookCache } from './useAudiobookCache'
 
 export interface ActiveAudiobookDownload {
@@ -66,7 +75,9 @@ export function useAudiobookDownloadQueue({
     }
 
     const pending = pendingPersistRef.current
-    if (!pending) return
+    if (!pending) {
+      return
+    }
 
     pendingPersistRef.current = null
     upsertAudiobookDownload(pending)
@@ -80,13 +91,17 @@ export function useAudiobookDownloadQueue({
       return
     }
 
-    if (persistTimerRef.current !== null) return
+    if (persistTimerRef.current !== null) {
+      return
+    }
     persistTimerRef.current = window.setTimeout(flushPersist, PERSIST_DELAY_MS)
   }, [flushPersist])
 
   const start = useCallback((input: StartAudiobookDownloadInput) => {
     const speakableChunks = input.chunks.filter((chunk) => chunk.text.trim())
-    if (speakableChunks.length === 0) return
+    if (speakableChunks.length === 0) {
+      return
+    }
     completedDownloadRef.current = null
 
     // Persist before invoking native code so a process interruption still leaves a resumable job.
@@ -153,7 +168,9 @@ export function useAudiobookDownloadQueue({
       !activeDownload ||
       completedDownloadRef.current !== activeDownload ||
       createAudiobookDownloadId(activeDownload.url, activeDownload) !== id
-    ) return
+    ) {
+      return
+    }
 
     completedDownloadRef.current = null
     resetCache()
@@ -161,7 +178,9 @@ export function useAudiobookDownloadQueue({
   }, [activeDownload, resetCache])
 
   useEffect(() => {
-    if (!activeDownload || state.complete) return
+    if (!activeDownload || state.complete) {
+      return
+    }
 
     if (state.status === 'checking' || state.status === 'saving') {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -201,7 +220,9 @@ export function useAudiobookDownloadQueue({
   }, [activeDownload, schedulePersist, state])
 
   useEffect(() => {
-    if (!state.complete || !activeDownload) return
+    if (!state.complete || !activeDownload) {
+      return
+    }
     completedDownloadRef.current = activeDownload
     // eslint-disable-next-line react-hooks/set-state-in-effect
     flushPersist()

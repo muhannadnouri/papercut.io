@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { AppDialog } from '../AppDialog/AppDialog'
 import './TextInputDialog.css'
@@ -44,7 +50,9 @@ export function TextInputDialog({
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
-    if (!trimmedValue || busy) return
+    if (!trimmedValue || busy) {
+      return
+    }
     onSubmit(trimmedValue)
   }
 

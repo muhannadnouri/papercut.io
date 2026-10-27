@@ -6,12 +6,25 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import {
+  join,
+  resolve,
+} from 'node:path'
 import { build } from 'vite'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { browser, runBrowserFixture } from './browserCaptureFixture'
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  it,
+} from 'vitest'
+import {
+  browser,
+  runBrowserFixture,
+} from './browserCaptureFixture'
 
-let directory: string, bundle: string
+let directory: string
+let bundle: string
 beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), 'papercut-preparation-'))
   const entry = join(directory, 'entry.ts')
@@ -67,12 +80,33 @@ beforeAll(async () => {
         browser:navigator.userAgent,hardwareConcurrency:navigator.hardwareConcurrency,warmStatus:warm?.status,coldMs,warmSamples,warmP95Ms,supportsLongTasks,longTasks,metrics,chunks:saved.length,sourceBytes:docContent.length};
     }
   `)
-  const output = await build({ configFile: false, logLevel: 'silent', build: { write: false, minify: false, lib: { entry, name: 'Preparation', formats: ['iife'] } } })
+  const output = await build({
+    configFile: false,
+    logLevel: 'silent',
+    build: {
+      write: false,
+      minify: false,
+      lib: {
+        entry,
+        name: 'Preparation',
+        formats: ['iife'],
+      },
+    },
+  })
   const result = Array.isArray(output) ? output[0] : output
-  if (!('output' in result)) throw new Error('Expected fixture bundle')
+  if (!('output' in result)) {
+    throw new Error('Expected fixture bundle')
+  }
   bundle = result.output.filter(item => item.type === 'chunk').map(item => item.code).join('\n')
 }, 30_000)
-afterAll(() => { if (directory) rmSync(directory, { recursive: true, force: true }) })
+afterAll(() => {
+  if (directory) {
+    rmSync(directory, {
+      recursive: true,
+      force: true,
+    })
+  }
+})
 
 describe.skipIf(!browser)('Cold preparation in Chromium', () => {
   it.each([false, true])('handles another event before completion; cancel=%s', async cancel => {
@@ -84,9 +118,18 @@ describe.skipIf(!browser)('Cold preparation in Chromium', () => {
     expect(result.eventBeforeCompletion).toBe(true)
     expect(result.ticks).toBeGreaterThan(0)
     expect(result.identityUnchanged).toBe(true)
-    if (cancel) expect(result).toMatchObject({ status: 'unavailable', reason: 'stale' })
-    else {
-      expect(result).toMatchObject({ status: 'resolved', chunkIndex: result.expectedIndex, warmStatus: 'resolved', paintBeforeCompletion: true })
+    if (cancel) {
+      expect(result).toMatchObject({
+        status: 'unavailable',
+        reason: 'stale',
+      })
+    } else {
+      expect(result).toMatchObject({
+        status: 'resolved',
+        chunkIndex: result.expectedIndex,
+        warmStatus: 'resolved',
+        paintBeforeCompletion: true,
+      })
       expect(result.metrics.batches).toBeGreaterThan(1)
       expect(result.warmSamples).toHaveLength(30)
       const evidence = resolve('src-tauri/target/play-anywhere-acceptance/diagnosis')

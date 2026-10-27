@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
 import { PhysicalPosition } from '@tauri-apps/api/dpi'
 import { documentDropAction } from './documentDrop'
 
@@ -11,7 +15,11 @@ describe('documentDropAction', () => {
       position,
     }
 
-    expect(documentDropAction({ type: 'enter', paths: drop.paths, position }, false))
+    expect(documentDropAction({
+      type: 'enter',
+      paths: drop.paths,
+      position,
+    }, false))
       .toEqual({ active: true })
     expect(documentDropAction({ type: 'leave' }, false)).toEqual({ active: false })
     expect(documentDropAction(drop, false)).toEqual({

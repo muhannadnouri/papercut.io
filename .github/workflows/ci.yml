@@ -214,8 +214,11 @@ jobs:
       - name: Audit npm dependencies
         run: npm audit --audit-level=high
 
+      - name: Lint policy regression check
+        run: npm run test:lint-policy
+
       - name: Lint
-        run: npm run lint
+        run: npm run lint -- --quiet
 
       - name: Frontend tests
         run: npm test

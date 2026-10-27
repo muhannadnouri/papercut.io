@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
 import type { UploadedDocument } from '../uploads/DocumentUploads'
 import {
   shouldAutoDismissDocumentImport,
@@ -15,7 +19,10 @@ describe('shouldAutoDismissDocumentImport', () => {
         processed: 1,
         imported: [],
         alreadyInLibrary: [],
-        failures: [{ fileName: 'bad.epub', error: 'Invalid EPUB' }],
+        failures: [{
+          fileName: 'bad.epub',
+          error: 'Invalid EPUB',
+        }],
         cancelled: false,
       },
     }
@@ -25,7 +32,11 @@ describe('shouldAutoDismissDocumentImport', () => {
     expect(shouldAutoDismissDocumentImport(failed)).toBe(false)
     expect(shouldAutoDismissDocumentImport({
       ...failed,
-      batchResult: { ...failed.batchResult!, failures: [], imported: [{ importImageWarnings: { missing: 2 } } as unknown as UploadedDocument] },
+      batchResult: {
+        ...failed.batchResult!,
+        failures: [],
+        imported: [{ importImageWarnings: { missing: 2 } } as unknown as UploadedDocument],
+      },
     })).toBe(false)
     expect(shouldAutoDismissDocumentImport({ status: 'error' })).toBe(false)
   })
@@ -34,7 +45,11 @@ describe('shouldAutoDismissDocumentImport', () => {
     expect(shouldAutoDismissDocumentImport({ status: 'recognized' })).toBe(true)
     expect(shouldAutoDismissDocumentImport({
       status: 'recognized',
-      recognitionIssues: { failedPages: [2], unrecognizedPages: [3], lowConfidencePages: [4] },
+      recognitionIssues: {
+        failedPages: [2],
+        unrecognizedPages: [3],
+        lowConfidencePages: [4],
+      },
     })).toBe(false)
   })
 })
@@ -49,7 +64,13 @@ describe('shouldRecognizeImportedScan', () => {
     expect(shouldRecognizeImportedScan(document, 'english')).toBe(true)
     expect(shouldRecognizeImportedScan(document, 'arabic')).toBe(true)
     expect(shouldRecognizeImportedScan(document, 'other')).toBe(false)
-    expect(shouldRecognizeImportedScan({ ...document, textStatus: 'recognition-available' }, 'english')).toBe(true)
-    expect(shouldRecognizeImportedScan({ ...document, textStatus: 'ready' }, 'english')).toBe(false)
+    expect(shouldRecognizeImportedScan({
+      ...document,
+      textStatus: 'recognition-available',
+    }, 'english')).toBe(true)
+    expect(shouldRecognizeImportedScan({
+      ...document,
+      textStatus: 'ready',
+    }, 'english')).toBe(false)
   })
 })

@@ -61,7 +61,9 @@ export function isReadableHtmlBlock(element: Element): boolean {
 // Assign each text node to its nearest readable block. Consecutive runs keep
 // wrapper-owned text around child blocks without duplicating child content.
 export function collectReadableHtmlSegments(root: Element | null): ReadableHtmlSegment[] {
-  if (!root) return []
+  if (!root) {
+    return []
+  }
 
   const segments: ReadableHtmlSegment[] = []
   const fallbackTextNodes: Text[] = []
@@ -80,29 +82,41 @@ export function collectReadableHtmlSegments(root: Element | null): ReadableHtmlS
     const textNode = current as Text
     fallbackTextNodes.push(textNode)
     const owner = findNearestReadableOwner(textNode.parentElement, root)
-    if (!owner) continue
+    if (!owner) {
+      continue
+    }
 
     const previous = segments[segments.length - 1]
     if (previous?.owner === owner) {
       previous.textNodes.push(textNode)
     } else {
-      segments.push({ owner, textNodes: [textNode] })
+      segments.push({
+        owner,
+        textNodes: [textNode],
+      })
     }
   }
 
   const readableSegments = segments.filter((segment) =>
-    segment.textNodes.some((node) => /\S/.test(node.data))
+    segment.textNodes.some((node) => /\S/.test(node.data)),
   )
-  if (readableSegments.length > 0) return readableSegments
+  if (readableSegments.length > 0) {
+    return readableSegments
+  }
 
   return fallbackTextNodes.some((node) => /\S/.test(node.data))
-    ? [{ owner: root, textNodes: fallbackTextNodes }]
+    ? [{
+      owner: root,
+      textNodes: fallbackTextNodes,
+    }]
     : []
 }
 
 function isInlineFootnoteReferenceText(element: Element): boolean {
   const anchor = element.closest('a')
-  if (!anchor) return false
+  if (!anchor) {
+    return false
+  }
 
   const label = anchor.textContent?.replace(/\s+/g, '') ?? ''
   return INLINE_FOOTNOTE_REFERENCE_RE.test(label)
@@ -111,8 +125,12 @@ function isInlineFootnoteReferenceText(element: Element): boolean {
 function findNearestReadableOwner(element: Element | null, root: Element): Element | null {
   let current = element
   while (current) {
-    if (isReadableHtmlBlock(current)) return current
-    if (current === root) return null
+    if (isReadableHtmlBlock(current)) {
+      return current
+    }
+    if (current === root) {
+      return null
+    }
     current = current.parentElement
   }
   return null
@@ -120,8 +138,14 @@ function findNearestReadableOwner(element: Element | null, root: Element): Eleme
 
 // Reduces HTML-specific tags into format-neutral segment kinds used by chunking.
 export function htmlSegmentKind(element: Element): ReadableSegmentKind {
-  if (/^H[1-6]$/.test(element.tagName)) return 'heading'
-  if (element.tagName === 'P') return 'paragraph'
-  if (element.tagName === 'LI') return 'listItem'
+  if (/^H[1-6]$/.test(element.tagName)) {
+    return 'heading'
+  }
+  if (element.tagName === 'P') {
+    return 'paragraph'
+  }
+  if (element.tagName === 'LI') {
+    return 'listItem'
+  }
   return 'block'
 }

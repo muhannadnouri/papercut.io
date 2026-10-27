@@ -6,11 +6,25 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import {
+  join,
+  resolve,
+} from 'node:path'
 import { build } from 'vite'
-import { browser, runBrowserFixture } from './browserCaptureFixture'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-let directory: string, bundle: string, css: string
+import {
+  browser,
+  runBrowserFixture,
+} from './browserCaptureFixture'
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  it,
+} from 'vitest'
+let directory: string
+let bundle: string
+let css: string
 beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), 'papercut-reader-controls-'))
   const entry = join(directory, 'entry.tsx')
@@ -104,20 +118,62 @@ beforeAll(async () => {
       createRoot(document.getElementById('controls')).render(<Controls/>);
     }
   `)
-  const output = await build({ configFile: false, logLevel: 'silent', define: { 'process.env.NODE_ENV': JSON.stringify('production') }, resolve: { alias: { 'react/jsx-dev-runtime': resolve('node_modules/react/jsx-dev-runtime.js'), 'react/jsx-runtime': resolve('node_modules/react/jsx-runtime.js') } }, esbuild: { jsx: 'automatic', jsxDev: false }, build: {
-    write: false, minify: false, lib: { entry, name: 'ReaderControls', formats: ['iife'] },
-  } })
+  const output = await build({
+    configFile: false,
+    logLevel: 'silent',
+    define: { 'process.env.NODE_ENV': JSON.stringify('production') },
+    resolve: {
+      alias: {
+        'react/jsx-dev-runtime': resolve('node_modules/react/jsx-dev-runtime.js'),
+        'react/jsx-runtime': resolve('node_modules/react/jsx-runtime.js'),
+      },
+    },
+    esbuild: {
+      jsx: 'automatic',
+      jsxDev: false,
+    },
+    build: {
+      write: false,
+      minify: false,
+      lib: {
+        entry,
+        name: 'ReaderControls',
+        formats: ['iife'],
+      },
+    },
+  })
   const result = Array.isArray(output) ? output[0] : output
-  if (!('output' in result)) throw new Error('Expected browser fixture bundle')
+  if (!('output' in result)) {
+    throw new Error('Expected browser fixture bundle')
+  }
   bundle = result.output.filter(item => item.type === 'chunk').map(item => item.code).join('\n')
   css = result.output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css')).map(item => item.type === 'asset' ? String(item.source) : '').join('\n')
 }, 30_000)
-afterAll(() => { if (directory) rmSync(directory, { recursive: true, force: true }) })
+afterAll(() => {
+  if (directory) {
+    rmSync(directory, {
+      recursive: true,
+      force: true,
+    })
+  }
+})
 describe.skipIf(!browser)('Reader controls in Chromium', () => {
   it.each([
-    { width: 620, locale: 'en', setup: true },
-    { width: 620, locale: 'en', setup: false },
-    { width: 320, locale: 'ar', setup: true },
+    {
+      width: 620,
+      locale: 'en',
+      setup: true,
+    },
+    {
+      width: 620,
+      locale: 'en',
+      setup: false,
+    },
+    {
+      width: 320,
+      locale: 'ar',
+      setup: true,
+    },
   ])('uses green/warning floppy Save states with setup precedence without blocking imported playback: %j', async ({ width, locale, setup }) => {
     const frame = join(directory, 'save-states.html')
     writeFileSync(frame, `<!doctype html><html data-theme="${locale === 'ar' ? 'dark' : 'light'}"><meta charset="utf-8"><style>${css}body{margin:0}</style>
@@ -149,18 +205,55 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       })();</script>`)
     const result = await runBrowserFixture(directory, frame, width,
       resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `save-${width}-${locale}-${setup}.png`))
-    expect(result).toMatchObject({ setup, saved: !setup, tonal: true, disabled: !setup, setupRequested: setup, playRequested: true, iconOnly: true, named: true, floppy: true, warning: true })
+    expect(result).toMatchObject({
+      setup,
+      saved: !setup,
+      tonal: true,
+      disabled: !setup,
+      setupRequested: setup,
+      playRequested: true,
+      iconOnly: true,
+      named: true,
+      floppy: true,
+      warning: true,
+    })
     expect(result.label).toBe(result.title)
-    if (locale === 'en' && setup) expect(result.label).toContain('Saved audio can still play.')
+    if (locale === 'en' && setup) {
+      expect(result.label).toContain('Saved audio can still play.')
+    }
   }, 30_000)
 
   it.each([
-    { width: 320, font: 16, locale: 'en' },
-    { width: 453, font: 16, locale: 'en' },
-    { width: 620, font: 16, locale: 'ar' },
-    { width: 900, font: 32, locale: 'en' },
-    { width: 453, font: 32, locale: 'ar' },
-    { width: 320, font: 32, locale: 'en' },
+    {
+      width: 320,
+      font: 16,
+      locale: 'en',
+    },
+    {
+      width: 453,
+      font: 16,
+      locale: 'en',
+    },
+    {
+      width: 620,
+      font: 16,
+      locale: 'ar',
+    },
+    {
+      width: 900,
+      font: 32,
+      locale: 'en',
+    },
+    {
+      width: 453,
+      font: 32,
+      locale: 'ar',
+    },
+    {
+      width: 320,
+      font: 32,
+      locale: 'en',
+    },
   ])('keeps Back and saved-audio controls distinct in the complete reader header: %j', async ({ width, font, locale }) => {
     const frame = join(directory, 'full-header.html')
     writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>${css}html{font-size:${font}px}body{margin:0}</style>
@@ -189,7 +282,12 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       })();</script>`)
     const result = await runBrowserFixture(directory, frame, width,
       resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `header-${width}-${font}-${locale}.png`))
-    expect(result).toMatchObject({ visible: true, overlap: false, badgeOverlap: false, back: true })
+    expect(result).toMatchObject({
+      visible: true,
+      overlap: false,
+      badgeOverlap: false,
+      back: true,
+    })
     expect(result.scrollWidth).toBeLessThanOrEqual(width)
     for (const box of result.boxes) {
       expect(box.left).toBeGreaterThanOrEqual(-0.5)
@@ -198,10 +296,26 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
   }, 30_000)
 
   it.each([
-    { width: 320, font: 16, locale: 'en' },
-    { width: 320, font: 16, locale: 'ar' },
-    { width: 620, font: 16, locale: 'en' },
-    { width: 900, font: 32, locale: 'en' },
+    {
+      width: 320,
+      font: 16,
+      locale: 'en',
+    },
+    {
+      width: 320,
+      font: 16,
+      locale: 'ar',
+    },
+    {
+      width: 620,
+      font: 16,
+      locale: 'en',
+    },
+    {
+      width: 900,
+      font: 32,
+      locale: 'en',
+    },
   ])('groups the switch and compact rate with consistent Options styling: %j', async ({ width, font, locale }) => {
     const frame = join(directory, 'compact-options.html')
     writeFileSync(frame, `<!doctype html><html data-theme="${locale === 'ar' ? 'dark' : 'light'}"><meta charset="utf-8"><style>${css}html{font-size:${font}px}body{margin:0}</style>
@@ -238,7 +352,15 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     const axPath = resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `options-${width}-${font}-${locale}-ax.json`)
     const result = await runBrowserFixture(directory, frame, width,
       resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `options-${width}-${font}-${locale}.png`), axPath)
-    expect(result).toMatchObject({ icons: true, sameOptionsIcon: true, changed: true, focused: true, rate: '1x', sameRow: true, checked: true })
+    expect(result).toMatchObject({
+      icons: true,
+      sameOptionsIcon: true,
+      changed: true,
+      focused: true,
+      rate: '1x',
+      sameRow: true,
+      checked: true,
+    })
     expect(result.rateName).toBeTruthy()
     expect(result.terminalBorder).toBe('0px')
     expect(result.moreName).toBeTruthy()
@@ -247,21 +369,76 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     expect(Math.min(...result.bounds)).toBeGreaterThanOrEqual(0)
     expect(Math.max(...result.bounds)).toBeLessThanOrEqual(width)
     const tree = JSON.parse(readFileSync(axPath, 'utf8'))
-    const control = tree.nodes.find((node: { ignored: boolean; role?: { value: string } }) => !node.ignored && node.role?.value === 'switch')
+    const control = tree.nodes.find((node: { ignored: boolean;
+      role?: { value: string } }) => !node.ignored && node.role?.value === 'switch')
     expect(control?.name?.value).toBe(result.name)
     expect(control?.properties?.find((property: { name: string }) => property.name === 'checked')?.value?.value).toBe('true')
   }, 30_000)
 
   it.each([
-    { width: 320, font: 16, locale: 'en', status: 'idle', saved: true },
-    { width: 320, font: 32, locale: 'en', status: 'idle', saved: true },
-    { width: 320, font: 16, locale: 'en', status: 'paused', saved: true },
-    { width: 1600, font: 16, locale: 'en', status: 'paused', saved: true },
-    { width: 1600, font: 16, locale: 'ar', status: 'paused', saved: true },
-    { width: 900, font: 32, locale: 'en', status: 'paused', saved: true },
-    { width: 390, font: 32, locale: 'ar', status: 'loading', saved: true },
-    { width: 320, font: 32, locale: 'en', status: 'error', saved: true },
-    { width: 390, font: 16, locale: 'ar', status: 'idle', saved: false },
+    {
+      width: 320,
+      font: 16,
+      locale: 'en',
+      status: 'idle',
+      saved: true,
+    },
+    {
+      width: 320,
+      font: 32,
+      locale: 'en',
+      status: 'idle',
+      saved: true,
+    },
+    {
+      width: 320,
+      font: 16,
+      locale: 'en',
+      status: 'paused',
+      saved: true,
+    },
+    {
+      width: 1600,
+      font: 16,
+      locale: 'en',
+      status: 'paused',
+      saved: true,
+    },
+    {
+      width: 1600,
+      font: 16,
+      locale: 'ar',
+      status: 'paused',
+      saved: true,
+    },
+    {
+      width: 900,
+      font: 32,
+      locale: 'en',
+      status: 'paused',
+      saved: true,
+    },
+    {
+      width: 390,
+      font: 32,
+      locale: 'ar',
+      status: 'loading',
+      saved: true,
+    },
+    {
+      width: 320,
+      font: 32,
+      locale: 'en',
+      status: 'error',
+      saved: true,
+    },
+    {
+      width: 390,
+      font: 16,
+      locale: 'ar',
+      status: 'idle',
+      saved: false,
+    },
   ])('keeps real reader tools and bookmark feedback clear of playback: %j', async ({ width, font, locale, status, saved }) => {
     const frame = join(directory, 'reader-capsule.html')
     writeFileSync(frame, `<!doctype html><html data-theme="${locale === 'ar' ? 'dark' : 'light'}"><meta charset="utf-8"><style>${css}html{font-size:${font}px}body{margin:0}</style>
@@ -314,7 +491,11 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       })();</script>`)
     const result = await runBrowserFixture(directory, frame, width,
       resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `capsule-${width}-${font}-${locale}-${status}-${saved}.png`))
-    expect(result).toMatchObject({ named: true, reachable: true, mutedTop: true })
+    expect(result).toMatchObject({
+      named: true,
+      reachable: true,
+      mutedTop: true,
+    })
     expect(result.count).toBe(saved && ['idle', 'error'].includes(status) ? 3 : 2)
     expect(result.rail.left).toBeGreaterThanOrEqual(0)
     expect(result.rail.right).toBeLessThanOrEqual(width)
@@ -322,10 +503,14 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     expect(result.notice.top).toBeGreaterThanOrEqual(0)
     expect(result.notice.bottom).toBeLessThanOrEqual(result.rail.top)
     expect(result.measured).toBeCloseTo(result.rail.height, 1)
-    if (font === 16) expect(result.viewport).not.toBeNull()
+    if (font === 16) {
+      expect(result.viewport).not.toBeNull()
+    }
     if (result.viewport) {
       for (const control of [result.rail, result.notice, result.dock]) {
-        if (control.height > 0) expect(result.viewport.bottom <= control.top || result.viewport.top >= control.bottom).toBe(true)
+        if (control.height > 0) {
+          expect(result.viewport.bottom <= control.top || result.viewport.top >= control.bottom).toBe(true)
+        }
       }
     }
     if (result.dock.height > 0) {
@@ -338,13 +523,19 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
         expect(locale === 'ar' ? result.rail.left : result.rail.right).toBeCloseTo(locale === 'ar' ? result.dock.left : result.dock.right, 1)
       }
     }
-    if (width === 1600 && font === 16) expect(result.layout).toBe('beside')
-    if (saved && status !== 'idle') expect(result.stoppedIconOnly).toBe(true)
+    if (width === 1600 && font === 16) {
+      expect(result.layout).toBe('beside')
+    }
+    if (saved && status !== 'idle') {
+      expect(result.stoppedIconOnly).toBe(true)
+    }
     for (const box of result.boxes) {
       expect(box.width).toBeGreaterThanOrEqual(44)
       expect(box.height).toBeGreaterThanOrEqual(44)
     }
-    if (font === 16) expect(Math.max(...result.boxes.map((box: { top: number }) => box.top)) - result.boxes[0].top).toBeLessThan(1)
+    if (font === 16) {
+      expect(Math.max(...result.boxes.map((box: { top: number }) => box.top)) - result.boxes[0].top).toBeLessThan(1)
+    }
   }, 30_000)
 
   it.each(['en', 'ar'])('recalculates shared-edge layout after live resize and cleans up on Stop: %s', async locale => {
@@ -379,14 +570,29 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     for (const layout of result.layouts) {
       expect(layout.left).toBeGreaterThanOrEqual(0)
       expect(layout.right).toBeLessThanOrEqual(layout.width)
-      if (layout.mode === 'beside') expect(layout.bottom).toBeCloseTo(layout.playerBottom, 1)
-      else expect(layout.bottom).toBeLessThanOrEqual(layout.top)
+      if (layout.mode === 'beside') {
+        expect(layout.bottom).toBeCloseTo(layout.playerBottom, 1)
+      } else {
+        expect(layout.bottom).toBeLessThanOrEqual(layout.top)
+      }
     }
     expect(result.modeAfterStop).toBeNull()
     expect(result.offsetAfterStop).toBe('0px')
   }, 30_000)
 
-  it.each([{width:320,font:16,locale:'en'}, {width:390,font:32,locale:'ar'}, {width:1280,font:32,locale:'fr'}])('keeps browse/return controls usable outside the hidden fullscreen header: %j', async ({width,font,locale}) => {
+  it.each([{
+    width:320,
+    font:16,
+    locale:'en',
+  }, {
+    width:390,
+    font:32,
+    locale:'ar',
+  }, {
+    width:1280,
+    font:32,
+    locale:'fr',
+  }])('keeps browse/return controls usable outside the hidden fullscreen header: %j', async ({width,font,locale}) => {
     const frame = join(directory, 'frame.html')
     writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>html{font-size:${font}px}body{margin:0}${css}</style>
       <div class="app app-reader app-reader-pdf app-reader-pdf-fullscreen app-reader-pdf-toolbar-hidden"><header class="doc-header"><div id="controls"></div></header><main class="document-view">Reader</main></div>
@@ -399,13 +605,37 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       }catch(e){parent.postMessage({type:'capture-result',result:{error:String(e.stack||e)}},'*')}})();</script>`)
     const result = await runBrowserFixture(directory, frame, width)
     expect(result.visible, JSON.stringify(result)).toBe(true)
-    expect(result.outsideHeader).toBe(true); expect(result.feedback.length).toBeGreaterThan(0)
+    expect(result.outsideHeader).toBe(true)
+    expect(result.feedback.length).toBeGreaterThan(0)
     expect(result.browse).toHaveLength(1)
-    expect(result.inlineReturn).toBe(true); expect(result.extraStrip).toBe(false)
-    for (const button of result.browse) expect(button.height).toBeGreaterThanOrEqual(44)
+    expect(result.inlineReturn).toBe(true)
+    expect(result.extraStrip).toBe(false)
+    for (const button of result.browse) {
+      expect(button.height).toBeGreaterThanOrEqual(44)
+    }
   }, 30_000)
-  it.each([{width:320,font:16,locale:'en',theme:'light'}, {width:620,font:16,locale:'en',theme:'light'},
-    {width:390,font:32,locale:'ar',theme:'dark'}, {width:1280,font:32,locale:'fr',theme:'light'}])('reflows passage commands and keeps the popover reachable: %j', async ({width,font,locale,theme}) => {
+  it.each([{
+    width:320,
+    font:16,
+    locale:'en',
+    theme:'light',
+  }, {
+    width:620,
+    font:16,
+    locale:'en',
+    theme:'light',
+  },
+  {
+    width:390,
+    font:32,
+    locale:'ar',
+    theme:'dark',
+  }, {
+    width:1280,
+    font:32,
+    locale:'fr',
+    theme:'light',
+  }])('reflows passage commands and keeps the popover reachable: %j', async ({width,font,locale,theme}) => {
     const frame = join(directory, 'popover.html')
     writeFileSync(frame, `<!doctype html><html data-theme="${theme}"><meta charset="utf-8"><style>${css}
       html{font-size:${font}px}body{margin:0}.document-view{padding:24px}article{font-size:1.1rem;line-height:1.6}
@@ -441,15 +671,26 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     expect(result.bounds.right).toBeLessThanOrEqual(width)
     expect(result.bounds.bottom).toBeLessThanOrEqual(600)
     expect(result.reachable, JSON.stringify(result)).toBe(true)
-    expect(result).toMatchObject({ disabled: true, icons: true, escaped: true, focusVisible: true, inlineReturn: true, defaultChunks: true })
+    expect(result).toMatchObject({
+      disabled: true,
+      icons: true,
+      escaped: true,
+      focusVisible: true,
+      inlineReturn: true,
+      defaultChunks: true,
+    })
     expect(result.listHeight / result.menuHeight).toBeGreaterThan(font === 16 ? 0.75 : 0.5)
-    for (const button of result.initial) expect(button.height).toBeGreaterThanOrEqual(44)
+    for (const button of result.initial) {
+      expect(button.height).toBeGreaterThanOrEqual(44)
+    }
     if (width === 620) {
       expect(Math.abs(result.initial[0].top-result.initial[1].top)).toBeLessThan(1)
       expect(Math.abs(result.initial[2].top-result.initial[3].top)).toBeLessThan(1)
       expect(result.initial[2].top).toBeGreaterThan(result.initial[0].top)
     }
-    if (font === 32 && width === 390) expect(result.initial[2].top).toBeGreaterThan(result.initial[1].top)
+    if (font === 32 && width === 390) {
+      expect(result.initial[2].top).toBeGreaterThan(result.initial[1].top)
+    }
   }, 30_000)
   it.each(['en', 'ar'])('keeps six usable transport targets together at 320px (%s)', async locale => {
     const frame = join(directory, 'compact-player.html')
@@ -506,9 +747,13 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       expect(box.right).toBeLessThanOrEqual(320)
     }
     expect(Math.min(...result.contrasts)).toBeGreaterThanOrEqual(3)
-    expect(result).toMatchObject({ speedVisible: true, rate: 1.25 })
+    expect(result).toMatchObject({
+      speedVisible: true,
+      rate: 1.25,
+    })
     const tree = JSON.parse(readFileSync(axPath, 'utf8'))
-    const buttons = tree.nodes.filter((node: { ignored: boolean; role?: { value: string } }) => !node.ignored && node.role?.value === 'button')
+    const buttons = tree.nodes.filter((node: { ignored: boolean;
+      role?: { value: string } }) => !node.ignored && node.role?.value === 'button')
     expect(buttons.every((node: { name?: { value: string } }) => Boolean(node.name?.value))).toBe(true)
     expect(buttons.some((node: { name?: { value: string } }) => node.name?.value === (locale === 'en' ? 'Return to audio' : 'العودة إلى موضع الصوت'))).toBe(true)
   }, 30_000)
@@ -562,10 +807,23 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       parent.postMessage({type:'capture-result',result:{followed,stable,restored,recentered:document.querySelector('.audio-chunk-list').scrollTop!==before}},'*');
       })();
       </script>`)
-    expect(await runBrowserFixture(directory, frame)).toEqual({ followed: true, stable: true, restored: true, recentered: true })
+    expect(await runBrowserFixture(directory, frame)).toEqual({
+      followed: true,
+      stable: true,
+      restored: true,
+      recentered: true,
+    })
   }, 30_000)
 
-  it.each([{width:320,locale:'en',theme:'light'}, {width:620,locale:'ar',theme:'dark'}])('shows compact Return and integrated pending/recovery feedback: %j', async ({width,locale,theme}) => {
+  it.each([{
+    width:320,
+    locale:'en',
+    theme:'light',
+  }, {
+    width:620,
+    locale:'ar',
+    theme:'dark',
+  }])('shows compact Return and integrated pending/recovery feedback: %j', async ({width,locale,theme}) => {
     const frame = join(directory, 'feedback.html')
     writeFileSync(frame, `<!doctype html><html data-theme="${theme}"><meta charset="utf-8"><style>${css}body{margin:0}</style>
       <div class="app-reader"><header class="doc-header"><div id="controls"></div></header><main class="document-view"><article>${'<p>A synthetic book continues while checking audio.</p>'.repeat(30)}</article></main></div>
@@ -603,7 +861,14 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       </script>`)
     const result = await runBrowserFixture(directory, frame, width,
       resolve('src-tauri/target/play-anywhere-acceptance/ui-review', `playback-feedback-${width}-${locale}-${theme}.png`))
-    expect(result).toMatchObject({ labelHidden: width <= 480, tonal: true, sameSurface: true, spinner: true, status: 'status', recoveryVisible: true })
+    expect(result).toMatchObject({
+      labelHidden: width <= 480,
+      tonal: true,
+      sameSurface: true,
+      spinner: true,
+      status: 'status',
+      recoveryVisible: true,
+    })
     expect(result.name.length).toBeGreaterThan(0)
   }, 30_000)
 
@@ -642,10 +907,22 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     expect(result.status, JSON.stringify(result)).toBe('captured')
     expect(result.current).toBe(true)
     expect(result.target.status, JSON.stringify(result)).toBe('resolved')
-    expect(result.point).toEqual({ format: 'html', segmentIndex: 1, offset: 9 })
+    expect(result.point).toEqual({
+      format: 'html',
+      segmentIndex: 1,
+      offset: 9,
+    })
   }, 30_000)
 
-  it.each([{width:320,font:16,locale:'en'}, {width:390,font:32,locale:'ar'}])('keeps idle shortcut and bookmark feedback separate: %j', async ({width,font,locale}) => {
+  it.each([{
+    width:320,
+    font:16,
+    locale:'en',
+  }, {
+    width:390,
+    font:32,
+    locale:'ar',
+  }])('keeps idle shortcut and bookmark feedback separate: %j', async ({width,font,locale}) => {
     const frame = join(directory, 'reader-feedback.html')
     writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>${css}html{font-size:${font}px}article{margin:80px 30px;font-size:1rem}</style>
       <div class="app-reader"><header class="doc-header"><div id="controls"></div></header><main class="document-view"><article>${'<p>A synthetic saved book passage for reading.</p>'.repeat(30)}</article></main><div class="reader-bookmark-notice">Bookmark saved</div></div>
@@ -686,7 +963,11 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     expect(result.status, JSON.stringify(result)).toBe('captured')
     expect(result.current).toBe(true)
     expect(result.target.status, JSON.stringify(result)).toBe('resolved')
-    expect(result.point).toEqual({ format: 'html', segmentIndex: 12, offset: 12 })
+    expect(result.point).toEqual({
+      format: 'html',
+      segmentIndex: 12,
+      offset: 12,
+    })
     expect(result.target.chunkIndex).toBeGreaterThan(0)
   }, 30_000)
 
@@ -707,7 +988,9 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     expect(result.current).toBe(true)
     expect(result.target.status, JSON.stringify(result)).toBe('resolved')
     expect(result.target.chunkId).toBe('saved-' + result.target.chunkIndex)
-    if (legacy) expect(result.target.chunkIndex).toBeGreaterThan(0)
+    if (legacy) {
+      expect(result.target.chunkIndex).toBeGreaterThan(0)
+    }
   }, 30_000)
 
 })

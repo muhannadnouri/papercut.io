@@ -1,6 +1,12 @@
 import { join } from "node:path"
-import { SHERPA_REQUIRED_LIBS, SHERPA_VERSION } from "../constants.js"
-import { fromRuntime, SRC_TAURI_DIR } from "../paths.js"
+import {
+  SHERPA_REQUIRED_LIBS,
+  SHERPA_VERSION,
+} from "../constants.js"
+import {
+  fromRuntime,
+  SRC_TAURI_DIR,
+} from "../paths.js"
 
 export { SHERPA_REQUIRED_LIBS, SHERPA_VERSION }
 

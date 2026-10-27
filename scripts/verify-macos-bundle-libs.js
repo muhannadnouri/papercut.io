@@ -1,5 +1,12 @@
-import { existsSync, readdirSync } from "node:fs"
-import { dirname, join, resolve } from "node:path"
+import {
+  existsSync,
+  readdirSync,
+} from "node:fs"
+import {
+  dirname,
+  join,
+  resolve,
+} from "node:path"
 import { spawnSync } from "node:child_process"
 
 const requireSignatures = process.argv.includes("--require-signatures")
@@ -22,8 +29,13 @@ function fail(message) {
 
 // Runs a macOS command and returns its result for explicit status handling.
 function run(command, args, options = {}) {
-  const result = spawnSync(command, args, { encoding: "utf8", ...options })
-  if (result.error) throw result.error
+  const result = spawnSync(command, args, {
+    encoding: "utf8",
+    ...options,
+  })
+  if (result.error) {
+    throw result.error
+  }
   return result
 }
 
@@ -67,7 +79,9 @@ function existingCandidate(paths) {
 
 // Resolves a dependency install name to the path that should exist inside the app bundle.
 function resolveBundledDependency(dep, loaderPath) {
-  if (isSystemDependency(dep)) return null
+  if (isSystemDependency(dep)) {
+    return null
+  }
 
   if (dep.startsWith("@rpath/")) {
     const basename = dep.slice("@rpath/".length)
@@ -98,7 +112,9 @@ function resolveBundledDependency(dep, loaderPath) {
 
 // Verifies signatures on the app binary and bundled dylibs during protected release builds.
 function verifySignatures(paths) {
-  if (!requireSignatures) return
+  if (!requireSignatures) {
+    return
+  }
 
   for (const path of paths) {
     const result = run("codesign", ["--verify", "--strict", "--verbose=2", path], { stdio: "pipe" })
@@ -115,14 +131,18 @@ function main() {
     return
   }
 
-  if (!existsSync(appBinary)) fail("missing app binary: " + appBinary)
+  if (!existsSync(appBinary)) {
+    fail("missing app binary: " + appBinary)
+  }
 
   const dylibNames = listResourceDylibs()
   const dylibPaths = dylibNames.map((name) => join(resourcesDir, name))
   const dylibNameSet = new Set(dylibNames)
 
   for (const required of requiredDylibs) {
-    if (!dylibNameSet.has(required)) fail("missing required dylib: " + join(resourcesDir, required))
+    if (!dylibNameSet.has(required)) {
+      fail("missing required dylib: " + join(resourcesDir, required))
+    }
   }
 
   if (!dylibNames.some((name) => versionedOnnxRuntime.test(name))) {
@@ -130,7 +150,9 @@ function main() {
   }
 
   console.log("[verify-macos-bundle-libs] bundled dylibs:")
-  for (const name of dylibNames) console.log("  " + name)
+  for (const name of dylibNames) {
+    console.log("  " + name)
+  }
 
   const binaries = [appBinary, ...dylibPaths].filter((path) => existsSync(path))
   const expectedBundled = new Set(dylibPaths.map((path) => resolve(path)))
@@ -139,7 +161,9 @@ function main() {
     const deps = parseOtoolLibraries(binary)
     for (const dep of deps) {
       const resolved = resolveBundledDependency(dep, binary)
-      if (!resolved) continue
+      if (!resolved) {
+        continue
+      }
 
       const normalized = resolve(resolved)
       const depBase = dep.split("/").pop()
@@ -147,7 +171,9 @@ function main() {
 
       // A dylib's own install name is allowed when it resolves to itself or to
       // another bundled compatibility name that exists in Resources.
-      if (depBase === binaryBase && existsSync(normalized)) continue
+      if (depBase === binaryBase && existsSync(normalized)) {
+        continue
+      }
 
       if (!existsSync(normalized)) {
         fail(binary + " references missing dependency " + dep + " (expected " + normalized + ")")

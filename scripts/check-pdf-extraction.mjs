@@ -13,7 +13,9 @@ const expectedText = [
 ]
 
 const path = process.argv[2]
-if (!path) throw new Error('Usage: node scripts/check-pdf-extraction.mjs <fixture.pdf>')
+if (!path) {
+  throw new Error('Usage: node scripts/check-pdf-extraction.mjs <fixture.pdf>')
+}
 
 const loadingTask = getDocument({
   data: new Uint8Array(await readFile(path)),

@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
 import type { DocumentInfo } from '../../types/search'
 import {
   buildBundledDocumentTree,
@@ -69,8 +73,14 @@ describe('splitDocumentGroupsBySource', () => {
     const uploaded = document('Upload', '/uploads/123.html', 'upload')
     const audiobook = document('Audiobook', '/user-uploads/book.html', 'audiobook-upload')
     const split = splitDocumentGroupsBySource([
-      { author: 'Imported Audiobooks', docs: [audiobook] },
-      { author: 'User Uploads', docs: [uploaded] },
+      {
+        author: 'Imported Audiobooks',
+        docs: [audiobook],
+      },
+      {
+        author: 'User Uploads',
+        docs: [uploaded],
+      },
     ])
 
     expect(split.nonBundledGroups.map((group) => group.author)).toEqual([
@@ -85,5 +95,10 @@ function document(
   url: string,
   source: DocumentInfo['source'] = 'bundled',
 ): DocumentInfo {
-  return { title, url, format: 'html', source }
+  return {
+    title,
+    url,
+    format: 'html',
+    source,
+  }
 }

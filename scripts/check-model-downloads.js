@@ -1,6 +1,12 @@
 import assert from "node:assert/strict"
-import { readFile, stat } from "node:fs/promises"
-import { resolve, join } from "node:path"
+import {
+  readFile,
+  stat,
+} from "node:fs/promises"
+import {
+  resolve,
+  join,
+} from "node:path"
 import { parseArgs } from "node:util"
 import { pathToFileURL } from "node:url"
 import { downloadFile } from "./lib/download.js"
@@ -12,7 +18,9 @@ export function validatedArchives(manifest, family) {
     assert.match(modelName, /^[a-zA-Z0-9_-]+$/)
     assert.match(sha256, /^[a-f0-9]{64}$/)
     assert(Number.isSafeInteger(archiveBytes) && archiveBytes > 0)
-    for (const source of [url, fallbackUrl].filter(Boolean)) assert.equal(new URL(source).protocol, "https:")
+    for (const source of [url, fallbackUrl].filter(Boolean)) {
+      assert.equal(new URL(source).protocol, "https:")
+    }
     assert(!names.has(modelName), `Duplicate archive: ${modelName}`)
     names.add(modelName)
   }
@@ -34,11 +42,16 @@ export function assertReleaseAsset(archive, release, source) {
 }
 
 async function main() {
-  const { values } = parseArgs({ options: {
-    "download-dir": { type: "string" },
-    family: { type: "string" },
-    upstream: { type: "boolean", default: false },
-  } })
+  const { values } = parseArgs({
+    options: {
+      "download-dir": { type: "string" },
+      family: { type: "string" },
+      upstream: {
+        type: "boolean",
+        default: false,
+      },
+    },
+  })
   const manifest = JSON.parse(await readFile(new URL("../src-tauri/tts/model-manifest.json", import.meta.url), "utf8"))
   const archives = validatedArchives(manifest, values.family)
   const releases = new Map()
@@ -51,7 +64,10 @@ async function main() {
     const api = `https://api.github.com/repos/${owner}/${repo}/releases/tags/${tag}`
     if (!releases.has(api)) {
       const response = await fetch(api, {
-        headers: { Accept: "application/vnd.github+json", ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}) },
+        headers: {
+          Accept: "application/vnd.github+json",
+          ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
+        },
         signal: AbortSignal.timeout(30_000),
       })
       assert(response.ok, `${api}: HTTP ${response.status}`)
@@ -62,7 +78,13 @@ async function main() {
     if (values["download-dir"]) {
       const dest = join(resolve(values["download-dir"]), `${archive.modelName}.tar.bz2`)
       // Always exercise a fresh transfer. A warm cache would hide broken URLs.
-      await downloadFile({ url: source, dest, force: true, sha256: archive.sha256, label: archive.modelName })
+      await downloadFile({
+        url: source,
+        dest,
+        force: true,
+        sha256: archive.sha256,
+        label: archive.modelName,
+      })
       assert.equal((await stat(dest)).size, archive.archiveBytes, `${archive.modelName}: downloaded size changed`)
       console.log(`PASS download: ${archive.modelName}`)
     }
@@ -70,5 +92,8 @@ async function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  main().catch((error) => { console.error(error.message); process.exitCode = 1 })
+  main().catch((error) => {
+    console.error(error.message)
+    process.exitCode = 1
+  })
 }

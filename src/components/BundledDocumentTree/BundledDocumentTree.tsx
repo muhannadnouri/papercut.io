@@ -1,6 +1,16 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import {
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Tree, TreeItem, TreeItemContent, type Key } from 'react-aria-components'
+import {
+  Button,
+  Tree,
+  TreeItem,
+  TreeItemContent,
+  type Key,
+} from 'react-aria-components'
 import type { DocumentInfo } from '../../types/search'
 import {
   buildBundledDocumentTree,
@@ -21,8 +31,10 @@ interface BundledDocumentTreeProps {
 }
 
 type IndexedItem =
-  | { kind: 'folder'; folder: BundledDocumentFolder }
-  | { kind: 'document'; document: DocumentInfo }
+  | { kind: 'folder';
+    folder: BundledDocumentFolder }
+  | { kind: 'document';
+    document: DocumentInfo }
 
 /** Render the filesystem hierarchy shipped under `public/documents` without
  * giving static bundled folders uploaded-library editing behavior. */
@@ -56,23 +68,36 @@ export function BundledDocumentTree({
   const toggleFolderExpanded = (key: string) => {
     setExpandedKeys((current) => {
       const next = new Set(current)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
       return next
     })
   }
 
   const handleAction = (key: Key) => {
     const item = itemByKey.get(String(key))
-    if (!item) return
-    if (item.kind === 'folder') {
-      if (filterMode) onToggleAllInGroup?.(collectDocuments(item.folder))
-      else toggleFolderExpanded(String(key))
+    if (!item) {
       return
     }
-    if (documentOpening) return
-    if (filterMode) onToggleFilter?.(item.document.url)
-    else onViewDocument?.(item.document.url)
+    if (item.kind === 'folder') {
+      if (filterMode) {
+        onToggleAllInGroup?.(collectDocuments(item.folder))
+      } else {
+        toggleFolderExpanded(String(key))
+      }
+      return
+    }
+    if (documentOpening) {
+      return
+    }
+    if (filterMode) {
+      onToggleFilter?.(item.document.url)
+    } else {
+      onViewDocument?.(item.document.url)
+    }
   }
 
   const renderDocument = (document: DocumentInfo): ReactNode => {
@@ -120,7 +145,9 @@ export function BundledDocumentTree({
                   disabled={documentOpening}
                   onClick={(event) => {
                     event.stopPropagation()
-                    if (!documentOpening) onViewDocument?.(document.url)
+                    if (!documentOpening) {
+                      onViewDocument?.(document.url)
+                    }
                   }}
                 >
                   {opening ? t('common.opening') : t('common.view')}
@@ -201,7 +228,9 @@ export function BundledDocumentTree({
     )
   }
 
-  if (tree.documentCount === 0) return null
+  if (tree.documentCount === 0) {
+    return null
+  }
 
   return (
     <Tree
@@ -237,15 +266,24 @@ function indexTree(
   const visitFolder = (folder: BundledDocumentFolder) => {
     const key = folderKey(folder)
     allFolderKeys.push(key)
-    itemByKey.set(key, { kind: 'folder', folder })
+    itemByKey.set(key, {
+      kind: 'folder',
+      folder,
+    })
     folder.folders.forEach(visitFolder)
     folder.documents.forEach((document) => {
-      itemByKey.set(documentKey(document), { kind: 'document', document })
+      itemByKey.set(documentKey(document), {
+        kind: 'document',
+        document,
+      })
     })
   }
   folders.forEach(visitFolder)
   documents.forEach((document) => {
-    itemByKey.set(documentKey(document), { kind: 'document', document })
+    itemByKey.set(documentKey(document), {
+      kind: 'document',
+      document,
+    })
   })
   return {
     allFolderKeys,

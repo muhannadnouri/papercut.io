@@ -45,7 +45,9 @@ export function createAudiobookId(documentUrl: string, options: TtsOptions): str
     options.voice,
     options.speed.toFixed(2),
   ]
-  if (textPreprocessor !== TEXT_PREPROCESSOR_NONE) parts.push(textPreprocessor)
+  if (textPreprocessor !== TEXT_PREPROCESSOR_NONE) {
+    parts.push(textPreprocessor)
+  }
   const silmaNfeStep = resolveSilmaNfeStep(options)
   if (options.modelId === SILMA_MODEL_ID && silmaNfeStep !== DEFAULT_SILMA_NFE_STEP) {
     parts.push('nfe' + silmaNfeStep)

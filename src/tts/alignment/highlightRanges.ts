@@ -7,9 +7,15 @@ import {
   type ReadableDomSegmentIndex,
   type ReadableDomTextLocatorIndex,
 } from './domTextSegments'
-import { segmentWordTokens, type WordToken } from './wordTiming'
+import {
+  segmentWordTokens,
+  type WordToken,
+} from './wordTiming'
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
-import type { TtsChunk, TtsChunkSourceSpan } from '../types'
+import type {
+  TtsChunk,
+  TtsChunkSourceSpan,
+} from '../types'
 
 const TTS_HIGHLIGHT_NAME = 'tts-current'
 const TTS_WORD_HIGHLIGHT_NAME = 'tts-current-word'
@@ -64,7 +70,9 @@ export function highlightTtsChunk(
 ): { range: Range } | null {
   const doc = root?.ownerDocument
   const view = doc?.defaultView
-  if (!root || !doc || !view) return null
+  if (!root || !doc || !view) {
+    return null
+  }
 
   ensureTtsHighlightStyles(doc)
 
@@ -82,7 +90,9 @@ export function highlightTtsChunk(
 
   cache.highlight.clear()
   const range = getChunkRange(cache, chunkIndex)
-  if (!range) return null
+  if (!range) {
+    return null
+  }
 
   cache.highlight.add(range)
   view.CSS.highlights.set(TTS_HIGHLIGHT_NAME, cache.highlight)
@@ -101,7 +111,9 @@ export function highlightTtsWord(
 ): void {
   const doc = root?.ownerDocument
   const view = doc?.defaultView
-  if (!root || !doc || !view) return
+  if (!root || !doc || !view) {
+    return
+  }
 
   ensureTtsHighlightStyles(doc)
   const cache = getOrBuildAlignmentCache(
@@ -184,11 +196,17 @@ export function getOrBuildSegmentIndex(
   cacheRef: CacheRef<SegmentIndexCache | null>,
 ): ReadableDomSegmentIndex {
   const cached = cacheRef.current
-  if (cached?.root === root && cached.version === rootVersion) return cached.index
+  if (cached?.root === root && cached.version === rootVersion) {
+    return cached.index
+  }
 
   const started = performance.now()
   const index = buildReadableDomSegmentIndex(root)
-  cacheRef.current = { root, version: rootVersion, index }
+  cacheRef.current = {
+    root,
+    version: rootVersion,
+    index,
+  }
   logTtsDiagnostic('[tts-highlight] DOM segment index built', {
     segments: index.segments.length,
     elapsedMs: Math.round(performance.now() - started),
@@ -205,7 +223,9 @@ function getChunkRange(cache: AlignmentCache, chunkIndex: number): Range | null 
     cache.ranges.set(chunkIndex, cached)
     return cached
   }
-  if (cache.failedRanges.has(chunkIndex)) return null
+  if (cache.failedRanges.has(chunkIndex)) {
+    return null
+  }
 
   const chunk = cache.chunks[chunkIndex]
   const sourceSpan = chunk?.sourceSpan
@@ -222,7 +242,9 @@ function getChunkRange(cache: AlignmentCache, chunkIndex: number): Range | null 
 
   if (!range && cache.allowDomFallback) {
     range = createFallbackRange(cache, chunkIndex)
-    if (range) strategy = 'dom-fallback'
+    if (range) {
+      strategy = 'dom-fallback'
+    }
   }
 
   if (!range) {
@@ -239,7 +261,9 @@ function getChunkRange(cache: AlignmentCache, chunkIndex: number): Range | null 
   cache.ranges.set(chunkIndex, range)
   if (cache.ranges.size > MAX_CACHED_RANGES) {
     const oldestIndex = cache.ranges.keys().next().value
-    if (oldestIndex !== undefined) cache.ranges.delete(oldestIndex)
+    if (oldestIndex !== undefined) {
+      cache.ranges.delete(oldestIndex)
+    }
   }
   const elapsedMs = performance.now() - started
   if (elapsedMs >= 16) {
@@ -261,7 +285,9 @@ function getActiveWordRange(
   progress: number,
 ): Range | null {
   const tokens = getWordTokens(cache, chunkIndex)
-  if (tokens.length === 0) return null
+  if (tokens.length === 0) {
+    return null
+  }
 
   const tokenIndex = Math.min(Math.floor(progress * tokens.length), tokens.length - 1)
   let ranges = cache.wordRanges.get(chunkIndex)
@@ -271,7 +297,9 @@ function getActiveWordRange(
   }
   if (cache.wordRanges.size > MAX_CACHED_RANGES) {
     const oldestIndex = cache.wordRanges.keys().next().value
-    if (oldestIndex !== undefined) cache.wordRanges.delete(oldestIndex)
+    if (oldestIndex !== undefined) {
+      cache.wordRanges.delete(oldestIndex)
+    }
   }
 
   const range = ranges[tokenIndex]
@@ -280,7 +308,9 @@ function getActiveWordRange(
 
 function getWordTokens(cache: AlignmentCache, chunkIndex: number): WordToken[] {
   const cached = cache.wordTokens.get(chunkIndex)
-  if (cached) return cached
+  if (cached) {
+    return cached
+  }
 
   const text = cache.chunks[chunkIndex]?.text ?? ''
   const tokens = segmentWordTokens(text)
@@ -294,7 +324,9 @@ function createNormalizedWordRanges(
   tokens: WordToken[],
 ): Array<Range | null> {
   return findNormalizedWordRangePoints(parentRange, tokens).map((points) => {
-    if (!points) return null
+    if (!points) {
+      return null
+    }
 
     const range = doc.createRange()
     range.setStart(points.start.node, Math.min(points.start.offset, points.start.node.length))
@@ -312,12 +344,16 @@ function findNormalizedWordRangePoints(
   tokens: WordToken[],
 ): Array<NormalizedRangePoints | null> {
   const pointsByToken = Array<NormalizedRangePoints | null>(tokens.length).fill(null)
-  if (tokens.length === 0) return pointsByToken
+  if (tokens.length === 0) {
+    return pointsByToken
+  }
 
   const doc = range.startContainer.ownerDocument
   const root = range.commonAncestorContainer
   const walkerRoot = root.nodeType === Node.TEXT_NODE ? root.parentNode : root
-  if (!doc || !walkerRoot) return pointsByToken
+  if (!doc || !walkerRoot) {
+    return pointsByToken
+  }
 
   const walker = doc.createTreeWalker(walkerRoot, NodeFilter.SHOW_TEXT, {
     acceptNode: (node) => range.intersectsNode(node)
@@ -336,11 +372,20 @@ function findNormalizedWordRangePoints(
       start = null
     }
     const token = tokens[tokenIndex]
-    if (!token) return true
+    if (!token) {
+      return true
+    }
 
-    if (normalizedOffset === token.startOffset) start = point
+    if (normalizedOffset === token.startOffset) {
+      start = point
+    }
     if (normalizedOffset === token.endOffset - 1) {
-      if (start) pointsByToken[tokenIndex] = { start, end: point }
+      if (start) {
+        pointsByToken[tokenIndex] = {
+          start,
+          end: point,
+        }
+      }
       tokenIndex += 1
       start = null
     }
@@ -358,16 +403,28 @@ function findNormalizedWordRangePoints(
 
       for (let offset = rawStart; offset < rawEnd; offset++) {
         if (/\s/.test(node.data[offset])) {
-          if (normalizedOffset > 0) pendingWhitespace = { node, offset }
+          if (normalizedOffset > 0) {
+            pendingWhitespace = {
+              node,
+              offset,
+            }
+          }
           continue
         }
 
         if (pendingWhitespace) {
-          if (emit(pendingWhitespace)) return pointsByToken
+          if (emit(pendingWhitespace)) {
+            return pointsByToken
+          }
           pendingWhitespace = null
         }
 
-        if (emit({ node, offset })) return pointsByToken
+        if (emit({
+          node,
+          offset,
+        })) {
+          return pointsByToken
+        }
       }
     }
     current = walker.nextNode()
@@ -383,7 +440,9 @@ function findNormalizedWordRangePoints(
 // the resulting Range before allowing it to drive visible highlighting.
 function createFallbackRange(cache: AlignmentCache, chunkIndex: number): Range | null {
   const chunk = cache.chunks[chunkIndex]
-  if (!chunk?.text) return null
+  if (!chunk?.text) {
+    return null
+  }
 
   const sourceSpan = getOrBuildFallbackSourceSpan(cache, chunkIndex)
   if (!sourceSpan) {
@@ -447,7 +506,9 @@ function buildFallbackSourceSpans(cache: AlignmentCache): Map<number, TtsChunkSo
 // Build the normalized text map lazily because very large books should not pay
 // this cost merely by opening or starting playback when ordinary spans are valid.
 function getOrBuildTextLocatorIndex(cache: AlignmentCache): ReadableDomTextLocatorIndex {
-  if (cache.textLocatorIndex) return cache.textLocatorIndex
+  if (cache.textLocatorIndex) {
+    return cache.textLocatorIndex
+  }
 
   const started = performance.now()
   const locator = buildReadableDomTextLocatorIndex(cache.segmentIndex)
@@ -531,7 +592,9 @@ function isUsableAlignmentCache(
     cache.version !== rootVersion ||
     cache.chunks !== chunks ||
     cache.allowDomFallback !== allowDomFallback
-  ) return false
+  ) {
+    return false
+  }
   const range = cache.ranges.get(chunkIndex)
   return !range || Boolean(range.startContainer.isConnected && range.endContainer.isConnected)
 }
@@ -543,7 +606,9 @@ export function invalidateTtsDomCaches(
 ): void {
   segmentIndexCacheRef.current = null
   const cache = alignmentCacheRef.current
-  if (cache) clearTtsHighlight(doc ?? cache.doc, cache)
+  if (cache) {
+    clearTtsHighlight(doc ?? cache.doc, cache)
+  }
   alignmentCacheRef.current = null
 }
 
@@ -552,18 +617,24 @@ export function clearTtsHighlight(doc: Document, cache: AlignmentCache | null): 
   cache?.highlight.clear()
   cache?.wordHighlight.clear()
   clearTtsHighlightRegistry(cache?.doc)
-  if (cache?.doc !== doc) clearTtsHighlightRegistry(doc)
+  if (cache?.doc !== doc) {
+    clearTtsHighlightRegistry(doc)
+  }
 }
 
 export function clearTtsWordHighlight(doc: Document, cache: AlignmentCache | null): void {
   cache?.wordHighlight.clear()
   clearTtsWordHighlightRegistry(cache?.doc ?? doc)
-  if (cache?.doc !== doc) clearTtsWordHighlightRegistry(doc)
+  if (cache?.doc !== doc) {
+    clearTtsWordHighlightRegistry(doc)
+  }
 }
 
 function clearTtsHighlightRegistry(doc: Document | undefined): void {
   const registry = doc?.defaultView?.CSS.highlights
-  if (!registry) return
+  if (!registry) {
+    return
+  }
 
   registry.get(TTS_HIGHLIGHT_NAME)?.clear()
   registry.delete(TTS_HIGHLIGHT_NAME)
@@ -572,14 +643,18 @@ function clearTtsHighlightRegistry(doc: Document | undefined): void {
 
 function clearTtsWordHighlightRegistry(doc: Document | undefined): void {
   const registry = doc?.defaultView?.CSS.highlights
-  if (!registry) return
+  if (!registry) {
+    return
+  }
 
   registry.get(TTS_WORD_HIGHLIGHT_NAME)?.clear()
   registry.delete(TTS_WORD_HIGHLIGHT_NAME)
 }
 
 function ensureTtsHighlightStyles(doc: Document): void {
-  if (doc.getElementById('tts-current-styles')) return
+  if (doc.getElementById('tts-current-styles')) {
+    return
+  }
   const style = doc.createElement('style')
   style.id = 'tts-current-styles'
   style.textContent = `
@@ -599,8 +674,13 @@ function ensureTtsHighlightStyles(doc: Document): void {
 // Ranges now live in the app document, so their rects are already window-local.
 export function scrollRangeIntoView(range: Range): void {
   const rangeRect = range.getBoundingClientRect()
-  if (!Number.isFinite(rangeRect.top)) return
+  if (!Number.isFinite(rangeRect.top)) {
+    return
+  }
 
   const top = window.scrollY + rangeRect.top - window.innerHeight / 2
-  window.scrollTo({ top: Math.max(top, 0), behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  window.scrollTo({
+    top: Math.max(top, 0),
+    behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+  })
 }

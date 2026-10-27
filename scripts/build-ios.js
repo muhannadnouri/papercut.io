@@ -1,8 +1,20 @@
-import { existsSync, readFileSync } from "node:fs"
+import {
+  existsSync,
+  readFileSync,
+} from "node:fs"
 import { join } from "node:path"
-import { SHERPA_IOS_DEVICE_SLICE, SHERPA_IOS_SIMULATOR_ARM64_SLICE } from "./lib/ios/constants.js"
-import { ensureIosSherpaLibs, iosSherpaLibDir } from "./lib/ios/sherpa.js"
-import { exitFromResult, runSync } from "./lib/process.js"
+import {
+  SHERPA_IOS_DEVICE_SLICE,
+  SHERPA_IOS_SIMULATOR_ARM64_SLICE,
+} from "./lib/ios/constants.js"
+import {
+  ensureIosSherpaLibs,
+  iosSherpaLibDir,
+} from "./lib/ios/sherpa.js"
+import {
+  exitFromResult,
+  runSync,
+} from "./lib/process.js"
 import { SRC_TAURI_DIR } from "./lib/paths.js"
 import { tauriCommand } from "./lib/tauri.js"
 

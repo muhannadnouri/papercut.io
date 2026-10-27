@@ -1,5 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ViewerBookmarkApi, ViewerBookmarkLocation } from '../viewers/types'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
+import type {
+  ViewerBookmarkApi,
+  ViewerBookmarkLocation,
+} from '../viewers/types'
 
 const STORAGE_PREFIX = 'papercut:reader-bookmark:'
 const BOOKMARKS_CHANGED_EVENT = 'papercut:reader-bookmarks-changed'
@@ -40,9 +48,13 @@ export function readBookmarkedDocumentUrls(storage?: BookmarkStorage): Set<strin
     const source = storage ?? window.localStorage
     for (let index = 0; index < source.length; index += 1) {
       const key = source.key(index)
-      if (!key?.startsWith(STORAGE_PREFIX)) continue
+      if (!key?.startsWith(STORAGE_PREFIX)) {
+        continue
+      }
       const raw = source.getItem(key)
-      if (raw && parseReaderBookmark(raw)) urls.add(key.slice(STORAGE_PREFIX.length))
+      if (raw && parseReaderBookmark(raw)) {
+        urls.add(key.slice(STORAGE_PREFIX.length))
+      }
     }
   } catch {
     // Storage restrictions should leave the Library usable without indicators.
@@ -85,9 +97,13 @@ export function useReaderBookmark(
   const loadBookmark = useCallback((): ReaderBookmark | null => {
     try {
       const raw = window.localStorage.getItem(storageKey(url))
-      if (!raw) return null
+      if (!raw) {
+        return null
+      }
       const bookmark = parseReaderBookmark(raw)
-      if (!bookmark) window.localStorage.removeItem(storageKey(url))
+      if (!bookmark) {
+        window.localStorage.removeItem(storageKey(url))
+      }
       return bookmark
     } catch {
       return null
@@ -100,10 +116,14 @@ export function useReaderBookmark(
   }, [])
 
   const storeCurrentBookmark = useCallback((previous: ReaderBookmark | null) => {
-    if (!enabled || !viewerApi) return
+    if (!enabled || !viewerApi) {
+      return
+    }
     try {
       const viewerLocation = viewerApi.capture()
-      if (!viewerLocation) return
+      if (!viewerLocation) {
+        return
+      }
       const next: ReaderBookmark = {
         updatedAtMs: Date.now(),
         viewerLocation,
@@ -126,13 +146,17 @@ export function useReaderBookmark(
   }, [storeCurrentBookmark])
 
   const moveBookmark = useCallback(() => {
-    if (!bookmarkRef.current) return
+    if (!bookmarkRef.current) {
+      return
+    }
     storeCurrentBookmark(bookmarkRef.current)
   }, [storeCurrentBookmark])
 
   const restoreBookmark = useCallback(() => {
     const bookmark = bookmarkRef.current
-    if (!enabled || !viewerApi || !bookmark) return
+    if (!enabled || !viewerApi || !bookmark) {
+      return
+    }
     undoBookmarkRef.current = null
     viewerApi.restore(bookmark.viewerLocation)
     setIsAtBookmark(true)
@@ -141,7 +165,9 @@ export function useReaderBookmark(
 
   const removeBookmark = useCallback(() => {
     const bookmark = bookmarkRef.current
-    if (!bookmark) return
+    if (!bookmark) {
+      return
+    }
     try {
       window.localStorage.removeItem(storageKey(url))
       notifyBookmarksChanged()
@@ -157,7 +183,9 @@ export function useReaderBookmark(
 
   const undoBookmarkChange = useCallback(() => {
     const bookmark = undoBookmarkRef.current
-    if (!bookmark) return
+    if (!bookmark) {
+      return
+    }
     try {
       window.localStorage.setItem(storageKey(url), JSON.stringify(bookmark))
       notifyBookmarksChanged()
@@ -172,7 +200,9 @@ export function useReaderBookmark(
   }, [url, viewerApi])
 
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled) {
+      return
+    }
     const bookmark = loadBookmark()
     undoBookmarkRef.current = null
     bookmarkRef.current = bookmark
@@ -201,11 +231,15 @@ export function useReaderBookmark(
   }, [enabled, loadBookmark, restoreOnOpen, url, viewerApi])
 
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled) {
+      return
+    }
     let frame = 0
 
     function updateActiveState() {
-      if (frame) cancelAnimationFrame(frame)
+      if (frame) {
+        cancelAnimationFrame(frame)
+      }
       frame = requestAnimationFrame(() => {
         frame = 0
         const bookmark = bookmarkRef.current
@@ -215,16 +249,22 @@ export function useReaderBookmark(
       })
     }
 
-    if (!viewerApi) return
+    if (!viewerApi) {
+      return
+    }
     const unsubscribe = viewerApi.subscribe(updateActiveState)
     return () => {
       unsubscribe()
-      if (frame) cancelAnimationFrame(frame)
+      if (frame) {
+        cancelAnimationFrame(frame)
+      }
     }
   }, [enabled, viewerApi])
 
   useEffect(() => {
-    if (!bookmarkNotice) return
+    if (!bookmarkNotice) {
+      return
+    }
     const timer = setTimeout(dismissBookmarkNotice, NOTICE_MS)
     return () => clearTimeout(timer)
   }, [bookmarkNotice, dismissBookmarkNotice])
@@ -259,11 +299,17 @@ export function parseReaderBookmark(raw: string): ReaderBookmark | null {
   } catch {
     return null
   }
-  if (!parsed || typeof parsed !== 'object') return null
+  if (!parsed || typeof parsed !== 'object') {
+    return null
+  }
   const bookmark = parsed as Partial<ReaderBookmark>
-  if (typeof bookmark.updatedAtMs !== 'number' || !Number.isFinite(bookmark.updatedAtMs)) return null
+  if (typeof bookmark.updatedAtMs !== 'number' || !Number.isFinite(bookmark.updatedAtMs)) {
+    return null
+  }
   const location = bookmark.viewerLocation
-  if (!location || typeof location !== 'object') return null
+  if (!location || typeof location !== 'object') {
+    return null
+  }
   const pdfLocation =
     'pageNumber' in location &&
     Number.isInteger(location.pageNumber) &&
@@ -272,20 +318,22 @@ export function parseReaderBookmark(raw: string): ReaderBookmark | null {
     Number.isFinite(location.left) &&
     typeof location.top === 'number' &&
     Number.isFinite(location.top)
-    ? {
+      ? {
         pageNumber: location.pageNumber,
         left: location.left,
         top: location.top,
       }
-    : undefined
+      : undefined
   const htmlLocation =
     'textOffset' in location &&
     Number.isInteger(location.textOffset) &&
     location.textOffset >= 0
-    ? { textOffset: location.textOffset }
-    : undefined
+      ? { textOffset: location.textOffset }
+      : undefined
   const viewerLocation = pdfLocation ?? htmlLocation
-  if (!viewerLocation) return null
+  if (!viewerLocation) {
+    return null
+  }
   return {
     updatedAtMs: bookmark.updatedAtMs,
     viewerLocation,

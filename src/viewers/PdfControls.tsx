@@ -1,5 +1,12 @@
 import { useTranslation } from 'react-i18next'
-import { Button, Menu, MenuItem, MenuSection, MenuTrigger, Popover } from 'react-aria-components'
+import {
+  Button,
+  Menu,
+  MenuItem,
+  MenuSection,
+  MenuTrigger,
+  Popover,
+} from 'react-aria-components'
 import './PdfControls.css'
 import {
   clampPdfPage,
@@ -99,7 +106,9 @@ export function PdfControls({
           aria-label={t('reader.pdf.pageNumber')}
           onBlur={(event) => commitPage(event.currentTarget)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter') event.currentTarget.blur()
+            if (event.key === 'Enter') {
+              event.currentTarget.blur()
+            }
           }}
         />
         <span
@@ -153,7 +162,9 @@ export function PdfControls({
               event.currentTarget.value = String(commitZoom(event.currentTarget.value))
             }}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') event.currentTarget.blur()
+              if (event.key === 'Enter') {
+                event.currentTarget.blur()
+              }
             }}
           />
         </label>

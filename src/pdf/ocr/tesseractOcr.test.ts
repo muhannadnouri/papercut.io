@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest'
-import type { Block, Page } from 'tesseract.js'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
+import type {
+  Block,
+  Page,
+} from 'tesseract.js'
 import { ocrPageTextLayer } from './tesseractOcr'
 import {
   isPdfOcrPageImprovement,
@@ -14,8 +21,26 @@ describe('ocrPageTextLayer', () => {
         paragraphs: [{
           lines: [{
             words: [
-              { text: 'Read', confidence: 94, bbox: { x0: 20, y0: 40, x1: 100, y1: 64 } },
-              { text: 'offline', confidence: 105, bbox: { x0: 110, y0: 40, x1: 230, y1: 64 } },
+              {
+                text: 'Read',
+                confidence: 94,
+                bbox: {
+                  x0: 20,
+                  y0: 40,
+                  x1: 100,
+                  y1: 64,
+                },
+              },
+              {
+                text: 'offline',
+                confidence: 105,
+                bbox: {
+                  x0: 110,
+                  y0: 40,
+                  x1: 230,
+                  y1: 64,
+                },
+              },
             ],
           }],
         }],
@@ -28,8 +53,18 @@ describe('ocrPageTextLayer', () => {
       width: 300,
       height: 400,
       blocks: [
-        { text: 'Read ', bounds: [10, 20, 40, 12], order: 0, confidence: 0.94 },
-        { text: 'offline\n', bounds: [55, 20, 60, 12], order: 1, confidence: 1 },
+        {
+          text: 'Read ',
+          bounds: [10, 20, 40, 12],
+          order: 0,
+          confidence: 0.94,
+        },
+        {
+          text: 'offline\n',
+          bounds: [55, 20, 60, 12],
+          order: 1,
+          confidence: 1,
+        },
       ],
     })
   })
@@ -58,10 +93,23 @@ describe('pdfOcrPageQuality', () => {
       width: 100,
       height: 100,
       blocks: [
-        { text: 'long ', bounds: [0, 0, 10, 10], order: 0, confidence: 0.8 },
-        { text: 'x', bounds: [10, 0, 2, 10], order: 1, confidence: 0.3 },
+        {
+          text: 'long ',
+          bounds: [0, 0, 10, 10],
+          order: 0,
+          confidence: 0.8,
+        },
+        {
+          text: 'x',
+          bounds: [10, 0, 2, 10],
+          order: 1,
+          confidence: 0.3,
+        },
       ],
-    })).toEqual({ characters: 5, confidence: 0.7 })
+    })).toEqual({
+      characters: 5,
+      confidence: 0.7,
+    })
   })
 
   it('replaces stored OCR only when neither quality metric regresses', () => {
@@ -70,7 +118,12 @@ describe('pdfOcrPageQuality', () => {
       pageIndex: 0,
       width: 100,
       height: 100,
-      blocks: [{ text, bounds: [0, 0, 10, 10] as [number, number, number, number], order: 0, confidence }],
+      blocks: [{
+        text,
+        bounds: [0, 0, 10, 10] as [number, number, number, number],
+        order: 0,
+        confidence,
+      }],
     })
     const existing = layer('four', 0.5)
 

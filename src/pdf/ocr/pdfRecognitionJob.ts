@@ -61,22 +61,32 @@ export function clearPdfRecognitionJob(documentUrl: string): void {
 }
 
 export function parsePdfRecognitionJob(value: unknown): PdfRecognitionJob | null {
-  if (!value || typeof value !== 'object') return null
+  if (!value || typeof value !== 'object') {
+    return null
+  }
   const job = value as Partial<PdfRecognitionJob>
   if (typeof job.documentUrl !== 'string' || !isUploadedPdfDocumentUrl(job.documentUrl) ||
       (job.language !== 'eng' && job.language !== 'ara') ||
       typeof job.sessionId !== 'string' ||
-      !isRecognitionIssues(job.improveIssues)) return null
+      !isRecognitionIssues(job.improveIssues)) {
+    return null
+  }
   return job as PdfRecognitionJob
 }
 
 function isRecognitionIssues(value: unknown): value is PdfRecognitionIssues | undefined {
-  if (value === undefined) return true
-  if (!value || typeof value !== 'object') return false
+  if (value === undefined) {
+    return true
+  }
+  if (!value || typeof value !== 'object') {
+    return false
+  }
   const issues = value as Partial<PdfRecognitionIssues>
   if (!isPageList(issues.failedPages) ||
       !isPageList(issues.unrecognizedPages) ||
-      !isPageList(issues.lowConfidencePages)) return false
+      !isPageList(issues.lowConfidencePages)) {
+    return false
+  }
   return issues.failedPages.length + issues.unrecognizedPages.length +
     issues.lowConfidencePages.length <= MAX_RECOVERY_PAGES
 }

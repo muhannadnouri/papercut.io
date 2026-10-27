@@ -1,4 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from 'react'
 import {
   createReaderTextIndex,
   findReaderTextIndexMatches,
@@ -8,7 +13,10 @@ import {
 } from '../components/DocumentViewer/readerTextRanges'
 import { clearSearchTargetHighlight } from '../components/DocumentViewer/readerTarget'
 import { isIOSWebKit } from '../utils/platform'
-import type { ViewerFindApi, ViewerFindResult } from '../viewers/types'
+import type {
+  ViewerFindApi,
+  ViewerFindResult,
+} from '../viewers/types'
 
 const FIND_DEBOUNCE_MS = 180
 const FIND_HIGHLIGHT_NAME = 'find-match'
@@ -49,14 +57,18 @@ export function useFindInPage(
   const fallbackSelectionActiveRef = useRef(false)
 
   const clearPendingFind = useCallback(() => {
-    if (findTimerRef.current === null) return
+    if (findTimerRef.current === null) {
+      return
+    }
     clearTimeout(findTimerRef.current)
     findTimerRef.current = null
   }, [])
 
   const clearFindHighlights = useCallback(() => {
     const root = rootRef.current
-    if (!root) return
+    if (!root) {
+      return
+    }
     const doc = root.ownerDocument
     clearFindRegistryHighlights(doc)
     if (fallbackSelectionActiveRef.current) {
@@ -78,18 +90,28 @@ export function useFindInPage(
 
   const getReaderIndex = useCallback((root: HTMLElement): ReaderTextIndex => {
     const cached = readerIndexRef.current
-    if (cached?.root === root && cached.key === searchContextKey) return cached.index
+    if (cached?.root === root && cached.key === searchContextKey) {
+      return cached.index
+    }
 
     const index = createReaderTextIndex(root)
-    readerIndexRef.current = { root, key: searchContextKey, index }
+    readerIndexRef.current = {
+      root,
+      key: searchContextKey,
+      index,
+    }
     return index
   }, [searchContextKey])
 
   const highlightFindMatches = useCallback((searchQuery: string): number => {
     const root = rootRef.current
-    if (root) clearSearchTargetHighlight(root)
+    if (root) {
+      clearSearchTargetHighlight(root)
+    }
     clearFindHighlights()
-    if (!root || !searchQuery.trim()) return 0
+    if (!root || !searchQuery.trim()) {
+      return 0
+    }
     const doc = root.ownerDocument
 
     const index = getReaderIndex(root)
@@ -107,14 +129,20 @@ export function useFindInPage(
 
   const scrollToMatch = useCallback((index: number) => {
     const root = rootRef.current
-    if (!root) return
+    if (!root) {
+      return
+    }
     const readerIndex = readerIndexRef.current?.index
     const match = findMatchesRef.current[index]
-    if (!readerIndex || !match) return
+    if (!readerIndex || !match) {
+      return
+    }
 
     const doc = root.ownerDocument
     clearCurrentFindHighlight(doc)
-    if (fallbackSelectionActiveRef.current) doc.getSelection()?.removeAllRanges()
+    if (fallbackSelectionActiveRef.current) {
+      doc.getSelection()?.removeAllRanges()
+    }
 
     const range = rangeForReaderTextIndexMatch(readerIndex, match)
     fallbackSelectionActiveRef.current = !setFindRegistryHighlight(
@@ -129,7 +157,10 @@ export function useFindInPage(
     }
 
     const absoluteTop = window.scrollY + range.getBoundingClientRect().top
-    window.scrollTo({ top: absoluteTop - window.innerHeight / 2, behavior: findScrollBehavior() })
+    window.scrollTo({
+      top: absoluteTop - window.innerHeight / 2,
+      behavior: findScrollBehavior(),
+    })
   }, [rootRef])
 
   const closeFind = useCallback(() => {
@@ -148,7 +179,9 @@ export function useFindInPage(
     setFindMatchCount(0)
     setFindCurrentIndex(0)
     findMatchesRef.current = []
-    if (searchQuery.trim()) return
+    if (searchQuery.trim()) {
+      return
+    }
     clearPendingFind()
     viewerFindApi?.clear()
     clearFindHighlights()
@@ -171,7 +204,9 @@ export function useFindInPage(
       const count = highlightFindMatches(searchQuery)
       setFindMatchCount(count)
       setFindCurrentIndex(0)
-      if (count > 0) scrollToMatch(0)
+      if (count > 0) {
+        scrollToMatch(0)
+      }
       findTimerRef.current = null
     }, FIND_DEBOUNCE_MS)
 
@@ -179,7 +214,9 @@ export function useFindInPage(
   }, [clearFindHighlights, clearPendingFind, highlightFindMatches, scrollToMatch, findQuery, viewerFindApi])
 
   const findNext = useCallback(() => {
-    if (findMatchCount === 0) return
+    if (findMatchCount === 0) {
+      return
+    }
     if (viewerFindApi) {
       viewerFindApi.next()
       return
@@ -190,7 +227,9 @@ export function useFindInPage(
   }, [findMatchCount, findCurrentIndex, scrollToMatch, viewerFindApi])
 
   const findPrev = useCallback(() => {
-    if (findMatchCount === 0) return
+    if (findMatchCount === 0) {
+      return
+    }
     if (viewerFindApi) {
       viewerFindApi.previous()
       return
@@ -212,7 +251,9 @@ export function useFindInPage(
         setShowFind(true)
         setTimeout(() => findInputRef.current?.focus(), 0)
       }
-      if (e.key === 'Escape') closeFind()
+      if (e.key === 'Escape') {
+        closeFind()
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -243,21 +284,27 @@ export function useFindInPage(
 function setFindRegistryHighlight(doc: Document, name: string, ranges: Range[]): boolean {
   const view = doc.defaultView
   const registry = view?.CSS?.highlights
-  if (!view || !registry) return false
+  if (!view || !registry) {
+    return false
+  }
   registry.set(name, new view.Highlight(...ranges))
   return true
 }
 
 function clearCurrentFindHighlight(doc: Document): void {
   const registry = doc.defaultView?.CSS.highlights
-  if (!registry) return
+  if (!registry) {
+    return
+  }
   registry.get(FIND_CURRENT_HIGHLIGHT_NAME)?.clear()
   registry.delete(FIND_CURRENT_HIGHLIGHT_NAME)
 }
 
 function clearFindRegistryHighlights(doc: Document): void {
   const registry = doc.defaultView?.CSS.highlights
-  if (!registry) return
+  if (!registry) {
+    return
+  }
   registry.get(FIND_HIGHLIGHT_NAME)?.clear()
   registry.delete(FIND_HIGHLIGHT_NAME)
   clearCurrentFindHighlight(doc)

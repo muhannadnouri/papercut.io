@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react'
+import {
+  useEffect,
+  useState,
+} from 'react'
 import { getDocumentScannerAvailability } from './documentScanner'
 
 /** Probe once per app mount; unsupported platforms simply omit scanner UI. */
@@ -23,5 +26,8 @@ export function useDocumentScanner() {
     }
   }, [])
 
-  return { supported, photoImportSupported }
+  return {
+    supported,
+    photoImportSupported,
+  }
 }

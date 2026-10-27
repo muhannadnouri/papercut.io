@@ -1,9 +1,20 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { copyFile, mkdir, open, readFile, stat, writeFile } from 'node:fs/promises'
+import {
+  copyFile,
+  mkdir,
+  open,
+  readFile,
+  stat,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { getDocument, InvalidPDFException, PasswordException } from 'pdfjs-dist/legacy/build/pdf.mjs'
+import {
+  getDocument,
+  InvalidPDFException,
+  PasswordException,
+} from 'pdfjs-dist/legacy/build/pdf.mjs'
 
 const OUTPUT_DIR = join(tmpdir(), 'papercut-pdf-boundary-fixtures')
 const MAX_PDF_BYTES = 250 * 1024 * 1024
@@ -40,7 +51,9 @@ for (const path of [passwordPath, malformedPath, pageLimitPath, sizeLimitPath, v
 /** Download the canonical encrypted fixture and reject upstream drift. */
 async function downloadVerified(fixture, destination) {
   const response = await fetch(fixture.url)
-  if (!response.ok) throw new Error(`Failed to download ${fixture.url}: HTTP ${response.status}`)
+  if (!response.ok) {
+    throw new Error(`Failed to download ${fixture.url}: HTTP ${response.status}`)
+  }
   const bytes = Buffer.from(await response.arrayBuffer())
   const sha256 = createHash('sha256').update(bytes).digest('hex')
   assert.equal(sha256, fixture.sha256, `Unexpected SHA-256 for ${fixture.url}`)

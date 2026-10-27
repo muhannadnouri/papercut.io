@@ -1,9 +1,18 @@
 // @vitest-environment jsdom
 import { createHash } from 'node:crypto'
-import { expect, it } from 'vitest'
+import {
+  expect,
+  it,
+} from 'vitest'
 import { buildNarrationMatchIndex } from './narrationText'
 import { normalizeSegmentText } from './readableSegments'
-import { chunkAudiobookSaveHtmlWithSpans, chunkSpeechText, AUDIOBOOK_SAVE_CHUNK_PROFILE, PLAYBACK_CHUNK_PROFILE, SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE } from '../utils/text'
+import {
+  chunkAudiobookSaveHtmlWithSpans,
+  chunkSpeechText,
+  AUDIOBOOK_SAVE_CHUNK_PROFILE,
+  PLAYBACK_CHUNK_PROFILE,
+  SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE,
+} from '../utils/text'
 
 const cases = [
   'A decimal 3.14 and U.S.A. initials. Another sentence!',
@@ -20,7 +29,10 @@ const cases = [
 
 it('preserves pre-refactor narration text and spans across all shipped chunk profiles', () => {
   const result = [AUDIOBOOK_SAVE_CHUNK_PROFILE, PLAYBACK_CHUNK_PROFILE, SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE].map(profile =>
-    cases.map(text => ({ speech: chunkSpeechText(text, profile), html: chunkAudiobookSaveHtmlWithSpans(`<h2>Heading</h2><p>${text}</p><p>Final paragraph.</p>`, profile) })))
+    cases.map(text => ({
+      speech: chunkSpeechText(text, profile),
+      html: chunkAudiobookSaveHtmlWithSpans(`<h2>Heading</h2><p>${text}</p><p>Final paragraph.</p>`, profile),
+    })))
   expect(createHash('sha256').update(JSON.stringify(result)).digest('hex')).toBe('479519f91412708ae305baea2a2393a26f36adf245fdb0823e2ebda1acd7f38a')
 })
 

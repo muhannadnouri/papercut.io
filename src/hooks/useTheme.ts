@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 
 const THEME_STORAGE_KEY = 'papercut.theme.v1'
 const DARK_QUERY = '(prefers-color-scheme: dark)'
@@ -25,7 +31,9 @@ export function useTheme(): ThemeState {
     : choice
 
   useEffect(() => {
-    if (typeof document === 'undefined') return
+    if (typeof document === 'undefined') {
+      return
+    }
     document.documentElement.dataset.theme = resolved
     document.documentElement.dataset.themeChoice = choice
   }, [choice, resolved])
@@ -43,7 +51,9 @@ export function useTheme(): ThemeState {
 }
 
 function loadThemeChoice(): ThemeChoice {
-  if (typeof window === 'undefined') return 'system'
+  if (typeof window === 'undefined') {
+    return 'system'
+  }
   try {
     return parseThemeChoice(window.localStorage.getItem(THEME_STORAGE_KEY))
   } catch {
@@ -52,7 +62,9 @@ function loadThemeChoice(): ThemeChoice {
 }
 
 function saveThemeChoice(choice: ThemeChoice): void {
-  if (typeof window === 'undefined') return
+  if (typeof window === 'undefined') {
+    return
+  }
   try {
     window.localStorage.setItem(THEME_STORAGE_KEY, choice)
   } catch {
@@ -69,7 +81,9 @@ function getSystemDark(): boolean {
 }
 
 function subscribeSystemTheme(onChange: () => void): () => void {
-  if (typeof window === 'undefined') return () => {}
+  if (typeof window === 'undefined') {
+    return () => {}
+  }
   const media = window.matchMedia(DARK_QUERY)
   media.addEventListener('change', onChange)
   return () => media.removeEventListener('change', onChange)

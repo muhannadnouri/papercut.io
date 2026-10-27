@@ -1,7 +1,14 @@
 import { imageIssueReason } from '../../viewers/imageIssues'
-import { Trans, useTranslation } from 'react-i18next'
+import {
+  Trans,
+  useTranslation,
+} from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { useEffect, useState, type ReactNode } from 'react'
+import {
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
 import { PdfRecognitionStatus } from '../../pdf/ocr/PdfRecognitionStatus'
@@ -144,11 +151,16 @@ export function LibraryTab({
       .then(({ getCurrentWebview }) => getCurrentWebview().onDragDropEvent(({ payload }) => {
         const action = documentDropAction(payload, operationBusy)
         setDropActive(action.active)
-        if (action.paths) void onImportDocumentPaths(action.paths)
+        if (action.paths) {
+          void onImportDocumentPaths(action.paths)
+        }
       }))
       .then((stop) => {
-        if (disposed) stop()
-        else unlisten = stop
+        if (disposed) {
+          stop()
+        } else {
+          unlisten = stop
+        }
       })
       .catch((error) => console.warn('Unable to listen for document drops:', error))
     return () => {
@@ -292,7 +304,9 @@ function documentImportStatusMessage(
   onAcceptRecognizedDocument: (documentUrl: string) => void | Promise<boolean>,
   documents: DocumentInfo[],
 ): ReactNode {
-  if (status.status === 'idle') return null
+  if (status.status === 'idle') {
+    return null
+  }
   if (status.format === 'delete-batch') {
     return <DocumentBatchDeleteStatus status={status} t={t} documents={documents} />
   }
@@ -310,8 +324,12 @@ function documentImportStatusMessage(
       status.format === 'photos') {
     return <DocumentBatchImportStatus status={status} t={t} onCancel={onCancelBatch} />
   }
-  if (status.status === 'cancelled') return t('library.status.cancelled')
-  if (status.status === 'error') return status.message ?? null
+  if (status.status === 'cancelled') {
+    return t('library.status.cancelled')
+  }
+  if (status.status === 'error') {
+    return status.message ?? null
+  }
   if (status.status === 'importing' && status.format === 'paste') {
     return t('library.pasteText.saving')
   }
@@ -326,7 +344,10 @@ function documentImportStatusMessage(
 
   const storage = formatStorageSize(status.bytesFreed)
   return storage
-    ? <Trans i18nKey="library.status.deletedWithStorage" values={{ title, storage }} components={{ title: <bdi /> }} />
+    ? <Trans i18nKey="library.status.deletedWithStorage" values={{
+      title,
+      storage,
+    }} components={{ title: <bdi /> }} />
     : <Trans i18nKey="library.status.deleted" values={{ title }} components={{ title: <bdi /> }} />
 }
 
@@ -350,13 +371,16 @@ function DocumentBatchDeleteStatus({
 
   const message = deleting
     ? total > 0
-      ? t('library.status.deleteBatchProgress', { processed, total })
+      ? t('library.status.deleteBatchProgress', {
+        processed,
+        total,
+      })
       : t('library.status.preparingDeleteBatch')
     : result
       ? t('library.status.deleteBatchComplete', {
-          deleted: result.deleted.length,
-          failed: failures.length,
-        })
+        deleted: result.deleted.length,
+        failed: failures.length,
+      })
       : status.message
 
   return (

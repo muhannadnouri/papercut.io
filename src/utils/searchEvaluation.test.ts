@@ -1,9 +1,15 @@
 /// <reference types="node" />
-import { expect, test } from 'vitest'
+import {
+  expect,
+  test,
+} from 'vitest'
 import corpus from '../../scripts/fixtures/search-v2/corpus.json'
 import { parseSearchQuery } from './phraseSearch'
 import { normalizeForPhraseMatch } from './textUtils'
-import { readFileSync, writeFileSync } from 'node:fs'
+import {
+  readFileSync,
+  writeFileSync,
+} from 'node:fs'
 
 test('every evaluation query reaches native search with its intended clauses', () => {
   for (const query of corpus.queries) {
@@ -17,11 +23,17 @@ test('every evaluation query reaches native search with its intended clauses', (
 
 test.skipIf(!process.env.PAPERCUT_SEARCH_EVAL_QUERIES)('prepares private evaluation requests with the production query parser', () => {
   const input = process.env.PAPERCUT_SEARCH_EVAL_QUERIES
-  if (!input) throw new Error('missing private query input path')
+  if (!input) {
+    throw new Error('missing private query input path')
+  }
   const output = process.env.PAPERCUT_SEARCH_EVAL_REQUESTS
-  if (!output) throw new Error('missing private request output path')
+  if (!output) {
+    throw new Error('missing private request output path')
+  }
   const queries: unknown = JSON.parse(readFileSync(input, 'utf8'))
-  if (!Array.isArray(queries) || queries.length === 0) throw new Error('expected nonempty query array')
+  if (!Array.isArray(queries) || queries.length === 0) {
+    throw new Error('expected nonempty query array')
+  }
   const seen = new Set<string>()
   const requests = queries.map((query) => {
     if (!query || typeof query.id !== 'string' || typeof query.query !== 'string' ||
@@ -32,7 +44,9 @@ test.skipIf(!process.env.PAPERCUT_SEARCH_EVAL_QUERIES)('prepares private evaluat
     }
     seen.add(query.id)
     const parsed = parseSearchQuery(query.query)
-    if (parsed.unmatchedQuote || !parsed.providerQuery) throw new Error('invalid private query syntax')
+    if (parsed.unmatchedQuote || !parsed.providerQuery) {
+      throw new Error('invalid private query syntax')
+    }
     return {
       id: query.id,
       request: {

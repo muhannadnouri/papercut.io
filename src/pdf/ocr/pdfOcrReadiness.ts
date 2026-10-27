@@ -1,4 +1,7 @@
-import type { TextContent, TextItem } from 'pdfjs-dist/types/src/display/api'
+import type {
+  TextContent,
+  TextItem,
+} from 'pdfjs-dist/types/src/display/api'
 
 const MINIMUM_CHARACTERS = 32
 const MINIMUM_WORDS = 4
@@ -22,7 +25,9 @@ export function finalizedPdfTextStatus(
   hasUsableText: boolean,
   hasRecognitionCandidate: boolean,
 ): FinalizedPdfTextStatus {
-  if (!hasUsableText) return 'recognition-required'
+  if (!hasUsableText) {
+    return 'recognition-required'
+  }
   return hasRecognitionCandidate ? 'recognition-available' : 'ready'
 }
 
@@ -39,10 +44,14 @@ export function hasUsableNativePdfText(content: TextContent): boolean {
 /** Apply the import readiness threshold to already-rendered PDF.js text. */
 export function hasUsablePdfText(text: string): boolean {
   const characters = Array.from(text).filter((character) => !/\s/u.test(character))
-  if (characters.length < MINIMUM_CHARACTERS) return false
+  if (characters.length < MINIMUM_CHARACTERS) {
+    return false
+  }
 
   const words = text.trim().split(/\s+/u)
-  if (words.length < MINIMUM_WORDS) return false
+  if (words.length < MINIMUM_WORDS) {
+    return false
+  }
 
   const alphanumeric = characters.filter((character) => /[\p{L}\p{N}]/u.test(character)).length
   const replacements = characters.filter((character) => character === '\uFFFD').length

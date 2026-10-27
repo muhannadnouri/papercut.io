@@ -101,14 +101,20 @@ function normalizeDiagnosticValue(
   ) {
     return value
   }
-  if (value === undefined) return ''
+  if (value === undefined) {
+    return ''
+  }
   if (Array.isArray(value)) {
-    if (seen.has(value)) return '[Circular]'
+    if (seen.has(value)) {
+      return '[Circular]'
+    }
     seen.add(value)
     return value.slice(0, MAX_ARRAY_ITEMS).map((item) => normalizeDiagnosticValue(item, seen))
   }
   if (typeof value === 'object') {
-    if (seen.has(value)) return '[Circular]'
+    if (seen.has(value)) {
+      return '[Circular]'
+    }
     seen.add(value)
     const normalized: Record<string, unknown> = {}
     for (const [key, item] of Object.entries(value).slice(0, MAX_OBJECT_KEYS)) {
@@ -122,9 +128,13 @@ function normalizeDiagnosticValue(
 function loadEvents(): TtsDiagnosticEvent[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
+    if (!raw) {
+      return []
+    }
     const parsed = JSON.parse(raw) as TtsDiagnosticEvent[]
-    if (!Array.isArray(parsed)) return []
+    if (!Array.isArray(parsed)) {
+      return []
+    }
     return parsed.filter(isDiagnosticEvent).slice(0, MAX_EVENTS)
   } catch {
     return []
@@ -140,7 +150,9 @@ function persistEvents(): void {
 }
 
 function notifyListeners(): void {
-  for (const listener of listeners) listener()
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 function isDiagnosticEvent(value: TtsDiagnosticEvent): value is TtsDiagnosticEvent {

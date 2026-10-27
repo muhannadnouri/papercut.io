@@ -4,11 +4,11 @@ import { runTauriAndroidBuild } from "./lib/android/build-env.js"
 import {
   SHERPA_DEFAULT_ANDROID_ABI,
   SHERPA_DEFAULT_ANDROID_RUST_TARGET,
-  SHERPA_DEFAULT_ANDROID_TAURI_TARGET
+  SHERPA_DEFAULT_ANDROID_TAURI_TARGET,
 } from "./lib/android/constants.js"
 import {
   androidSherpaLibDir,
-  ensureAndroidSherpaLibs
+  ensureAndroidSherpaLibs,
 } from "./lib/android/sherpa.js"
 
 const nativeTts = process.argv.includes("--native-tts")

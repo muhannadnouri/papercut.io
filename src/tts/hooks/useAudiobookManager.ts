@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import i18n from '../../i18n'
 import type { DocumentInfo } from '../../types/search'
 import {
@@ -13,8 +19,15 @@ import {
   createAudiobookDownloadId,
   type AudiobookDownloadRecord,
 } from '../storage/AudiobookDownloadQueue'
-import { getAudioPreferences, saveAudioPreferences } from '../storage/audioPreferences'
-import { getTtsModel, getTtsVoiceName, suggestTtsModel } from '../models'
+import {
+  getAudioPreferences,
+  saveAudioPreferences,
+} from '../storage/audioPreferences'
+import {
+  getTtsModel,
+  getTtsVoiceName,
+  suggestTtsModel,
+} from '../models'
 import {
   formatDuration,
   formatStorageSize,
@@ -33,7 +46,10 @@ import {
   type TtsDtype,
   type TtsVoice,
 } from '../types'
-import { isUserUploadUrl, type UserUploadDocument } from '../storage/UserUploads'
+import {
+  isUserUploadUrl,
+  type UserUploadDocument,
+} from '../storage/UserUploads'
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import { useAudiobookCache } from './useAudiobookCache'
 import { usePlayAnywherePlayback } from '../playAnywhere/usePlayAnywherePlayback'
@@ -48,12 +64,16 @@ import { nativeTtsErrorDetail } from '../utils/errors'
 
 function getAiAudioExportDescription(record: SavedAudiobookRecord): string {
   const description = i18n.t('tts.confirm.exportDescription')
-  if (record.modelId !== SILMA_MODEL_ID) return description
+  if (record.modelId !== SILMA_MODEL_ID) {
+    return description
+  }
   return description + i18n.t('tts.confirm.exportReferenceDescription')
 }
 
 function getAiAudioExportDisclosure(record: SavedAudiobookRecord): string {
-  if (record.modelId === SILMA_MODEL_ID) return i18n.t('tts.confirm.disclosureReference')
+  if (record.modelId === SILMA_MODEL_ID) {
+    return i18n.t('tts.confirm.disclosureReference')
+  }
   return i18n.t('tts.confirm.disclosureAi')
 }
 
@@ -146,8 +166,12 @@ export function useAudiobookManager({
     onImportedMetadata: restoreImportedAudiobookMetadata,
   })
   const resolveTextTarget = usePreparedTextTarget({
-    documentUrl: selectedDoc, docContent, modelId: ttsModelId, chunks: preparedChunks,
-    getChunks: getCanonicalChunks, getPdfSegments,
+    documentUrl: selectedDoc,
+    docContent,
+    modelId: ttsModelId,
+    chunks: preparedChunks,
+    getChunks: getCanonicalChunks,
+    getPdfSegments,
   })
   const selectedTtsModel = getTtsModel(ttsModels, ttsModelId)
   const {
@@ -170,8 +194,15 @@ export function useAudiobookManager({
 
   const playbackTitle = selectedDoc ? getDocumentTitle(selectedDoc) : undefined
   const playbackOptions = useMemo(() => ({
-    modelId: ttsModelId, textPreprocessor: ttsTextPreprocessor, voice: ttsVoice, speed: ttsSpeed,
-    dtype: ttsDtype, threadCount: ttsThreadCount, silmaNfeStep, documentUrl: selectedDoc ?? undefined, title: playbackTitle,
+    modelId: ttsModelId,
+    textPreprocessor: ttsTextPreprocessor,
+    voice: ttsVoice,
+    speed: ttsSpeed,
+    dtype: ttsDtype,
+    threadCount: ttsThreadCount,
+    silmaNfeStep,
+    documentUrl: selectedDoc ?? undefined,
+    title: playbackTitle,
   }), [ttsModelId, ttsTextPreprocessor, ttsVoice, ttsSpeed, ttsDtype, ttsThreadCount, silmaNfeStep, selectedDoc, playbackTitle])
   const refreshSavedAudiobooks = useCallback(async () => {
     try {
@@ -246,8 +277,12 @@ export function useAudiobookManager({
 
   // Player commands supersede pending targets; option/document/readiness changes dispose the scope.
   const { playFromHere, playFromBeginning: handleReadDocument } = usePlayAnywherePlayback({
-    complete: audioControlsAudiobookState.complete, options: playbackOptions, resolve: resolveTextTarget,
-    getChunks: getCanonicalChunks, play: playTtsFromChunk, commandSignal: ttsCommandSignal,
+    complete: audioControlsAudiobookState.complete,
+    options: playbackOptions,
+    resolve: resolveTextTarget,
+    getChunks: getCanonicalChunks,
+    play: playTtsFromChunk,
+    commandSignal: ttsCommandSignal,
   })
 
   useEffect(() => {
@@ -257,9 +292,13 @@ export function useAudiobookManager({
   }, [refreshSavedAudiobooks])
 
   useEffect(() => {
-    if (!selectedDoc || !ttsSaveChunks || autoSelectedDocumentRef.current === selectedDoc) return
+    if (!selectedDoc || !ttsSaveChunks || autoSelectedDocumentRef.current === selectedDoc) {
+      return
+    }
     autoSelectedDocumentRef.current = selectedDoc
-    if (isUserUploadUrl(selectedDoc)) return
+    if (isUserUploadUrl(selectedDoc)) {
+      return
+    }
 
     const alreadySavedWithCurrentSettings = savedAudiobooks.some((record) =>
       record.documentUrl === selectedDoc &&
@@ -267,9 +306,11 @@ export function useAudiobookManager({
       record.textPreprocessor === ttsTextPreprocessor &&
       record.voice === ttsVoice &&
       record.speed === ttsSpeed &&
-      record.dtype === ttsDtype
+      record.dtype === ttsDtype,
     )
-    if (alreadySavedWithCurrentSettings) return
+    if (alreadySavedWithCurrentSettings) {
+      return
+    }
     const suggested = suggestTtsModel(ttsModels, ttsSaveChunks, ttsModelId)
     if (suggested && suggested.id !== ttsModelId) {
       // One-time per-document language suggestion; user changes remain authoritative afterward.
@@ -281,7 +322,9 @@ export function useAudiobookManager({
   }, [savedAudiobooks, selectedDoc, setTtsModelId, ttsDtype, ttsModelId, ttsModels, ttsSaveChunks, ttsSpeed, ttsTextPreprocessor, ttsVoice])
 
   useEffect(() => {
-    if (!selectedDoc || !ttsSaveChunks) return
+    if (!selectedDoc || !ttsSaveChunks) {
+      return
+    }
 
     checkSelectedAudiobook(ttsSaveChunks, {
       modelId: ttsModelId,
@@ -297,7 +340,12 @@ export function useAudiobookManager({
   }, [checkSelectedAudiobook, getDocumentTitle, selectedDoc, silmaNfeStep, ttsDtype, ttsModelId, ttsSaveChunks, ttsSpeed, ttsTextPreprocessor, ttsThreadCount, ttsVoice])
 
   useEffect(() => {
-    saveAudioPreferences({ modelId: ttsModelId, voice: ttsVoice, textPreprocessor: ttsTextPreprocessor, silmaNfeStep })
+    saveAudioPreferences({
+      modelId: ttsModelId,
+      voice: ttsVoice,
+      textPreprocessor: ttsTextPreprocessor,
+      silmaNfeStep,
+    })
   }, [silmaNfeStep, ttsModelId, ttsTextPreprocessor, ttsVoice])
 
   useEffect(() => {
@@ -313,7 +361,9 @@ export function useAudiobookManager({
   }, [audioSavedOnly])
 
   useEffect(() => {
-    if (!selectedDoc) return
+    if (!selectedDoc) {
+      return
+    }
     const timeout = window.setTimeout(() => preloadTts(), 250)
     return () => window.clearTimeout(timeout)
   }, [preloadTts, selectedDoc])
@@ -343,7 +393,9 @@ export function useAudiobookManager({
   }, [resetSelectedAudiobookState, setTtsModelId, stopTts, ttsModels])
 
   const handleSaveAudiobook = useCallback(async () => {
-    if (!selectedDoc) return
+    if (!selectedDoc) {
+      return
+    }
     const title = getDocumentTitle(selectedDoc)
     const chunks = await getSelectedAudiobookSaveChunks()
     const speakableChunks = chunks.filter((chunk) => chunk.text.trim())
@@ -366,19 +418,42 @@ export function useAudiobookManager({
       title: i18n.t('tts.confirm.saveTitle'),
       description: i18n.t('tts.confirm.saveDescription'),
       details: [
-        { label: i18n.t('tts.confirm.document'), value: title },
-        { label: i18n.t('tts.confirm.model'), value: selectedTtsModel.name },
-        { label: i18n.t('tts.confirm.voice'), value: getTtsVoiceName(ttsModels, ttsModelId, ttsVoice) },
-        { label: i18n.t('tts.confirm.processing'), value: textPreprocessorName },
-        { label: i18n.t('tts.confirm.threads'), value: ttsThreadCount },
+        {
+          label: i18n.t('tts.confirm.document'),
+          value: title,
+        },
+        {
+          label: i18n.t('tts.confirm.model'),
+          value: selectedTtsModel.name,
+        },
+        {
+          label: i18n.t('tts.confirm.voice'),
+          value: getTtsVoiceName(ttsModels, ttsModelId, ttsVoice),
+        },
+        {
+          label: i18n.t('tts.confirm.processing'),
+          value: textPreprocessorName,
+        },
+        {
+          label: i18n.t('tts.confirm.threads'),
+          value: ttsThreadCount,
+        },
         ...(selectedTtsModel.family === 'silma-f5'
-          ? [{ label: i18n.t('tts.confirm.silmaQuality'), value: 'NFE ' + silmaNfeStep }]
+          ? [{
+            label: i18n.t('tts.confirm.silmaQuality'),
+            value: 'NFE ' + silmaNfeStep,
+          }]
           : []),
-        { label: i18n.t('tts.confirm.chunks'), value: speakableChunks.length },
+        {
+          label: i18n.t('tts.confirm.chunks'),
+          value: speakableChunks.length,
+        },
       ],
       confirmLabel: i18n.t('tts.confirm.startSaving'),
     })
-    if (!confirmed) return
+    if (!confirmed) {
+      return
+    }
 
     startAudiobookSave({
       documentUrl: selectedDoc,
@@ -409,13 +484,15 @@ export function useAudiobookManager({
 
   const handleRemoveAudiobookDownload = useCallback(async (id: string) => {
     const record = audiobookDownloads.find((item) => item.id === id)
-    if (!record) return
+    if (!record) {
+      return
+    }
 
     const progress = record.totalChunks > 0
       ? i18n.t('tts.controls.chunkProgress', {
-          current: record.cachedChunks,
-          total: record.totalChunks,
-        })
+        current: record.cachedChunks,
+        total: record.totalChunks,
+      })
       : null
     const duration = record.audioDurationSec ? formatDuration(record.audioDurationSec) : null
     const storage = formatStorageSize(record.wavBytes)
@@ -423,15 +500,29 @@ export function useAudiobookManager({
       title: i18n.t('tts.confirm.removeJobTitle'),
       description: i18n.t('tts.confirm.removeJobDescription'),
       details: [
-        { label: i18n.t('tts.confirm.title'), value: record.title },
-        ...(progress ? [{ label: i18n.t('tts.confirm.progress'), value: progress }] : []),
-        ...(duration ? [{ label: i18n.t('tts.confirm.duration'), value: duration }] : []),
-        ...(storage ? [{ label: i18n.t('tts.confirm.storage'), value: storage }] : []),
+        {
+          label: i18n.t('tts.confirm.title'),
+          value: record.title,
+        },
+        ...(progress ? [{
+          label: i18n.t('tts.confirm.progress'),
+          value: progress,
+        }] : []),
+        ...(duration ? [{
+          label: i18n.t('tts.confirm.duration'),
+          value: duration,
+        }] : []),
+        ...(storage ? [{
+          label: i18n.t('tts.confirm.storage'),
+          value: storage,
+        }] : []),
       ],
       confirmLabel: i18n.t('tts.confirm.removeJob'),
       tone: 'danger',
     })
-    if (!confirmed) return
+    if (!confirmed) {
+      return
+    }
 
     removeQueuedAudiobookDownload(id)
   }, [audiobookDownloads, confirmAudiobookAction, removeQueuedAudiobookDownload])
@@ -441,21 +532,38 @@ export function useAudiobookManager({
       title: i18n.t('tts.confirm.exportTitle'),
       description: getAiAudioExportDescription(record),
       details: [
-        { label: i18n.t('tts.confirm.title'), value: record.title },
-        { label: i18n.t('tts.confirm.voice'), value: getTtsVoiceName(ttsModels, record.modelId, record.voice) },
-        { label: i18n.t('tts.confirm.format'), value: exportFormat === 'wav' ? 'WAV' : i18n.t('tts.audiobooks.exportBundle') },
-        { label: i18n.t('tts.confirm.disclosure'), value: getAiAudioExportDisclosure(record) },
+        {
+          label: i18n.t('tts.confirm.title'),
+          value: record.title,
+        },
+        {
+          label: i18n.t('tts.confirm.voice'),
+          value: getTtsVoiceName(ttsModels, record.modelId, record.voice),
+        },
+        {
+          label: i18n.t('tts.confirm.format'),
+          value: exportFormat === 'wav' ? 'WAV' : i18n.t('tts.audiobooks.exportBundle'),
+        },
+        {
+          label: i18n.t('tts.confirm.disclosure'),
+          value: getAiAudioExportDisclosure(record),
+        },
       ],
       confirmLabel: i18n.t('tts.audiobooks.export'),
     })
-    if (!confirmed) return
+    if (!confirmed) {
+      return
+    }
 
     await exportSavedAudiobook(record, exportFormat, async () => {
       const chunks = await getAudiobookSaveChunksForDocument(record.documentUrl, record.modelId)
       const sourceHtml = exportFormat === 'bundle' && !isUploadedPdfDocumentUrl(record.documentUrl)
         ? await loadHtmlDocument(record.documentUrl)
         : undefined
-      return { chunks, sourceHtml }
+      return {
+        chunks,
+        sourceHtml,
+      }
     })
   }, [confirmAudiobookAction, exportSavedAudiobook, getAudiobookSaveChunksForDocument, loadHtmlDocument, ttsModels])
 
@@ -469,14 +577,25 @@ export function useAudiobookManager({
         ? i18n.t('tts.confirm.deleteImportDescription')
         : i18n.t('tts.confirm.deleteDescription'),
       details: [
-        { label: i18n.t('tts.confirm.title'), value: record.title },
-        ...(duration ? [{ label: i18n.t('tts.confirm.duration'), value: duration }] : []),
-        ...(storage ? [{ label: i18n.t('tts.confirm.storage'), value: storage }] : []),
+        {
+          label: i18n.t('tts.confirm.title'),
+          value: record.title,
+        },
+        ...(duration ? [{
+          label: i18n.t('tts.confirm.duration'),
+          value: duration,
+        }] : []),
+        ...(storage ? [{
+          label: i18n.t('tts.confirm.storage'),
+          value: storage,
+        }] : []),
       ],
       confirmLabel: i18n.t('tts.confirm.deleteAudiobook'),
       tone: 'danger',
     })
-    if (!confirmed) return
+    if (!confirmed) {
+      return
+    }
 
     await deleteSavedAudiobook(record, (deletedUserUpload) => {
       invalidateCompletedAudiobookDownload(record.id)
@@ -581,7 +700,9 @@ export function useAudiobookManager({
       saveInProgress: downloadIsForSelectedDoc && activeDownloadIsRunning,
       onCancelSave: handleCancelAudiobookSave,
       onPause: pauseTts,
-      onRead: () => { void handleReadDocument() },
+      onRead: () => {
+        void handleReadDocument()
+      },
       onResume: resumeTts,
       onSelectSavedAudiobook: selectSavedAudiobook,
       onJumpToChunk: (index: number) => jumpTtsToChunk(index),

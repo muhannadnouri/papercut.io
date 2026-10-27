@@ -1,4 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { DocumentInfo } from '../../types/search'
@@ -123,7 +127,9 @@ export function LibraryGalleryView({
   )
 }
 
-function CategoryButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+function CategoryButton({ active, label, onClick }: { active: boolean;
+  label: string;
+  onClick: () => void }) {
   return (
     <button
       type="button"
@@ -166,25 +172,35 @@ function BookCard({
   // Avoid decoding every retained cover in a large library; nearby cards load
   // shortly before scrolling brings them into view.
   useEffect(() => {
-    if (doc.source !== 'upload' || !doc.coverMediaType) return
+    if (doc.source !== 'upload' || !doc.coverMediaType) {
+      return
+    }
     let cancelled = false
     const load = () => {
       void getUploadedDocumentCover(doc.url)
         .then((value) => {
-          if (!cancelled) setCover(value)
+          if (!cancelled) {
+            setCover(value)
+          }
         })
         .catch(() => undefined)
     }
     if (!('IntersectionObserver' in window)) {
       load()
-      return () => { cancelled = true }
+      return () => {
+        cancelled = true
+      }
     }
     const observer = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return
+      if (!entries.some((entry) => entry.isIntersecting)) {
+        return
+      }
       observer.disconnect()
       load()
     }, { rootMargin: '200px' })
-    if (coverRef.current) observer.observe(coverRef.current)
+    if (coverRef.current) {
+      observer.observe(coverRef.current)
+    }
     return () => {
       cancelled = true
       observer.disconnect()
@@ -240,12 +256,17 @@ function BookCard({
 
 function filterGroups(groups: AuthorGroup[], include: (doc: DocumentInfo) => boolean): AuthorGroup[] {
   return groups
-    .map((group) => ({ ...group, docs: group.docs.filter(include) }))
+    .map((group) => ({
+      ...group,
+      docs: group.docs.filter(include),
+    }))
     .filter((group) => group.docs.length > 0)
 }
 
 function titleColor(title: string): number {
   let hash = 0
-  for (const character of title) hash = (hash * 31 + character.codePointAt(0)!) >>> 0
+  for (const character of title) {
+    hash = (hash * 31 + character.codePointAt(0)!) >>> 0
+  }
   return hash % 6
 }

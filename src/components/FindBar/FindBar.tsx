@@ -34,16 +34,25 @@ export function FindBar({
         value={query}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose()
-          else if (e.key === 'Enter' && e.shiftKey) { e.preventDefault(); onPrev() }
-          else if (e.key === 'Enter') { e.preventDefault(); onNext() }
+          if (e.key === 'Escape') {
+            onClose()
+          } else if (e.key === 'Enter' && e.shiftKey) {
+            e.preventDefault()
+            onPrev()
+          } else if (e.key === 'Enter') {
+            e.preventDefault()
+            onNext()
+          }
         }}
       />
       {query.trim().length > 0 && (
         <span className="find-count">
           {matchCount === 0
             ? t('reader.findBar.noMatches')
-            : t('reader.findBar.matchPosition', { current: currentIndex + 1, total: matchCount })}
+            : t('reader.findBar.matchPosition', {
+              current: currentIndex + 1,
+              total: matchCount,
+            })}
         </span>
       )}
       <button className="find-nav-btn" onClick={onPrev} disabled={matchCount === 0} title={t('reader.findBar.previous')} aria-label={t('reader.findBar.previous')}>&#9650;</button>

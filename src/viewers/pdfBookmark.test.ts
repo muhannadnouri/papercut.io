@@ -1,4 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import type {
   EventBus,
   PDFViewer as PdfJsViewer,
@@ -25,7 +30,10 @@ describe('createPdfBookmarkApi', () => {
     } as unknown as PdfJsViewer
     const container = {
       scrollTop: 0,
-      getBoundingClientRect: () => ({ top: 0, bottom: 600 }),
+      getBoundingClientRect: () => ({
+        top: 0,
+        bottom: 600,
+      }),
     } as unknown as HTMLElement
     const api = createPdfBookmarkApi(pdfViewer, container, eventBus)
     const first = vi.fn()
@@ -35,13 +43,25 @@ describe('createPdfBookmarkApi', () => {
 
     unsubscribeFirst()
     listeners.get('updateviewarea')?.({
-      location: { pageNumber: 136, left: 0, top: 720 },
+      location: {
+        pageNumber: 136,
+        left: 0,
+        top: 720,
+      },
     })
 
-    expect(api.capture()).toEqual({ pageNumber: 136, left: 0, top: 720 })
+    expect(api.capture()).toEqual({
+      pageNumber: 136,
+      left: 0,
+      top: 720,
+    })
     expect(first).not.toHaveBeenCalled()
     expect(second).toHaveBeenCalledOnce()
-    expect(api.isCurrent({ pageNumber: 136, left: 0, top: 720 })).toBe(true)
+    expect(api.isCurrent({
+      pageNumber: 136,
+      left: 0,
+      top: 720,
+    })).toBe(true)
   })
 
   it('keeps a bookmark active across zoom changes while its point remains visible', () => {
@@ -60,11 +80,18 @@ describe('createPdfBookmarkApi', () => {
       pdfViewer,
       {
         scrollTop: 0,
-        getBoundingClientRect: () => ({ top: 0, bottom: 600 }),
+        getBoundingClientRect: () => ({
+          top: 0,
+          bottom: 600,
+        }),
       } as unknown as HTMLElement,
       eventBus,
     )
-    const bookmark = { pageNumber: 136, left: 0, top: 720 }
+    const bookmark = {
+      pageNumber: 136,
+      left: 0,
+      top: 720,
+    }
 
     expect(api.isCurrent(bookmark)).toBe(true)
     pageTop = -400
@@ -86,7 +113,11 @@ describe('createPdfBookmarkApi', () => {
       eventBus,
     )
 
-    api.restore({ pageNumber: 136, left: 0, top: 720 })
+    api.restore({
+      pageNumber: 136,
+      left: 0,
+      top: 720,
+    })
 
     expect(scrollPageIntoView).toHaveBeenCalledWith({
       pageNumber: 136,

@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
 import { textPointAtOffset } from './htmlBookmark'
 
 describe('HTML bookmark text offsets', () => {

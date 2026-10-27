@@ -1,8 +1,16 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it, vi } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import { FALLBACK_TTS_MODELS } from '../models'
 import { DEFAULT_SILMA_NFE_STEP } from '../types'
-import { AudioSetupPanel, type AudioSetupPanelProps } from './AudioSetupPanel'
+import {
+  AudioSetupPanel,
+  type AudioSetupPanelProps,
+} from './AudioSetupPanel'
 
 vi.mock('react-i18next', async (importOriginal) => ({
   ...await importOriginal<typeof import('react-i18next')>(),
@@ -55,7 +63,10 @@ describe('AudioSetupPanel Advanced disclosure', () => {
   })
 
   it('summarizes active non-default settings without opening the disclosure', () => {
-    const html = renderPanel({ debugEnabled: true, threadCount: 8 })
+    const html = renderPanel({
+      debugEnabled: true,
+      threadCount: 8,
+    })
 
     expect(html).toContain('audio-setup-advanced-state')
     expect(html).toContain('⚠ tts.setup.threadCount')

@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
 import { resolveUploadedDocumentAssets } from './DocumentUploads'
 
 describe('resolveUploadedDocumentAssets', () => {
@@ -7,7 +11,13 @@ describe('resolveUploadedDocumentAssets', () => {
     const html = `<img data-papercut-asset="${fileName}" loading="lazy"><img data-papercut-asset="image-${'b'.repeat(64)}.${extension}"><img data-papercut-asset="../unsafe.svg">`
 
     const resolved = resolveUploadedDocumentAssets(
-      { html, assetPaths: { [fileName]: `/app/assets/${fileName}`, '../unsafe.svg': '/unsafe.svg' } },
+      {
+        html,
+        assetPaths: {
+          [fileName]: `/app/assets/${fileName}`,
+          '../unsafe.svg': '/unsafe.svg',
+        },
+      },
       (path) => `asset://localhost/${path}?x=1&y="2"`,
     )
 

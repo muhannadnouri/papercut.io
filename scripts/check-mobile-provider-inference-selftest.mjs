@@ -1,10 +1,26 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs"
 import { spawnSync } from "node:child_process"
 import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
-import { assertInferenceCompleted, checkAndroid, checkIos, command, simulatorDevice, testExecutable } from "./check-mobile-provider-inference.mjs"
+import {
+  join,
+  resolve,
+} from "node:path"
+import {
+  assertInferenceCompleted,
+  checkAndroid,
+  checkIos,
+  command,
+  simulatorDevice,
+  testExecutable,
+} from "./check-mobile-provider-inference.mjs"
 
 const completed = [
   "lifecycle cycle complete: 1/1 Float32",
@@ -24,10 +40,19 @@ test("Android compile step supplies NDK archive tools to native dependency build
     // Capture the environment at the real Cargo boundary without needing a local NDK.
     const keys = ["CC_x86_64_linux_android", "CXX_x86_64_linux_android", "CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER", "AR_x86_64_linux_android", "RANLIB_x86_64_linux_android"]
     const stub = `cargo() { "$TASK_NODE" -e 'console.log(JSON.stringify(Object.fromEntries(${JSON.stringify(keys)}.map(key => [key, process.env[key]]))))'; }\n`
-    const env = { ...process.env, TASK_NODE: process.execPath, NDK_HOME: ndk, RUNNER_TEMP: dir }
+    const env = {
+      ...process.env,
+      TASK_NODE: process.execPath,
+      NDK_HOME: ndk,
+      RUNNER_TEMP: dir,
+    }
     delete env.AR_x86_64_linux_android
     delete env.RANLIB_x86_64_linux_android
-    const result = spawnSync("bash", ["-eu", "-c", stub + script], { env, encoding: "utf8", timeout: 5000 })
+    const result = spawnSync("bash", ["-eu", "-c", stub + script], {
+      env,
+      encoding: "utf8",
+      timeout: 5000,
+    })
     assert.equal(result.status, 0, result.stderr)
     const configured = JSON.parse(readFileSync(join(dir, "android-provider-tests.json"), "utf8"))
     const bin = join(ndk, "toolchains/llvm/prebuilt/linux-x86_64/bin")
@@ -37,7 +62,10 @@ test("Android compile step supplies NDK archive tools to native dependency build
     assert.equal(configured.AR_x86_64_linux_android, join(bin, "llvm-ar"))
     assert.equal(configured.RANLIB_x86_64_linux_android, join(bin, "llvm-ranlib"))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmSync(dir, {
+      recursive: true,
+      force: true,
+    })
   }
 })
 
@@ -50,10 +78,18 @@ test("native command wrapper preserves stderr markers and fails on exit errors a
 })
 
 test("Cargo artifact selection and completion checks reject ambiguous builds and partial runs", () => {
-  const artifact = { reason: "compiler-artifact", target: { name: "app_lib" }, profile: { test: true }, executable: "a test" }
+  const artifact = {
+    reason: "compiler-artifact",
+    target: { name: "app_lib" },
+    profile: { test: true },
+    executable: "a test",
+  }
   const log = JSON.stringify(artifact)
   assert.equal(testExecutable(log), resolve("a test"))
-  for (const invalid of ["", "not JSON", `${log}\n${log}`, JSON.stringify({ ...artifact, profile: { test: false } })]) {
+  for (const invalid of ["", "not JSON", `${log}\n${log}`, JSON.stringify({
+    ...artifact,
+    profile: { test: false },
+  })]) {
     assert.throws(() => testExecutable(invalid))
   }
   assertInferenceCompleted(completed)
@@ -69,20 +105,40 @@ test("Android preserves native failures, captures crash logs and removes only ow
       assert.equal(program, "adb")
       assert.equal(args[0], "-s")
       assert.match(args[1], /^emulator-\d+$/)
-      calls.push({ args, options })
-      if (args.includes("getprop")) return "x86_64\n"
-      if (failure === "push" && args.includes("push")) throw new Error("staging failed")
-      if (args.includes("logcat") && failure === "abort-diagnostics") throw new Error("logcat failed")
+      calls.push({
+        args,
+        options,
+      })
+      if (args.includes("getprop")) {
+        return "x86_64\n"
+      }
+      if (failure === "push" && args.includes("push")) {
+        throw new Error("staging failed")
+      }
+      if (args.includes("logcat") && failure === "abort-diagnostics") {
+        throw new Error("logcat failed")
+      }
       if (args[3]?.includes("timeout 600")) {
-        if (failure === "inference") throw new Error("ETIMEDOUT")
-        if (failure?.startsWith("abort")) throw new Error("adb exited with 134")
+        if (failure === "inference") {
+          throw new Error("ETIMEDOUT")
+        }
+        if (failure?.startsWith("abort")) {
+          throw new Error("adb exited with 134")
+        }
         return completed
       }
       return ""
     }
-    const check = () => checkAndroid({ executable: "/tmp/test' file", models: "/tmp/models", runtimeLibs: "/tmp/libs" }, run)
-    if (failure) assert.throws(check, /staging failed|ETIMEDOUT|adb exited with 134/)
-    else check()
+    const check = () => checkAndroid({
+      executable: "/tmp/test' file",
+      models: "/tmp/models",
+      runtimeLibs: "/tmp/libs",
+    }, run)
+    if (failure) {
+      assert.throws(check, /staging failed|ETIMEDOUT|adb exited with 134/)
+    } else {
+      check()
+    }
     const remote = calls.find(({ args }) => args.includes("mkdir")).args.at(-1)
     assert.match(remote, /^\/data\/local\/tmp\/papercut-provider-[0-9a-f-]{36}$/)
     assert.deepEqual(calls.at(-1).args.slice(2), ["shell", "rm", "-rf", remote])
@@ -105,10 +161,27 @@ test("Android preserves native failures, captures crash logs and removes only ow
 })
 
 test("simulator selection skips unavailable devices and other Apple platforms", () => {
-  const device = { isAvailable: true, deviceTypeIdentifier: "com.apple.CoreSimulator.SimDeviceType.iPhone-17" }
+  const device = {
+    isAvailable: true,
+    deviceTypeIdentifier: "com.apple.CoreSimulator.SimDeviceType.iPhone-17",
+  }
   const runtime = "com.apple.CoreSimulator.SimRuntime.iOS-26-2"
-  assert.deepEqual(simulatorDevice({ "com.apple.CoreSimulator.SimRuntime.tvOS-26-2": [device], [runtime]: [{ ...device, isAvailable: false }, device] }), { runtime, type: device.deviceTypeIdentifier })
-  assert.throws(() => simulatorDevice({ [runtime]: [{ ...device, isAvailable: false }] }), /No available/)
+  assert.deepEqual(simulatorDevice({
+    "com.apple.CoreSimulator.SimRuntime.tvOS-26-2": [device],
+    [runtime]: [{
+      ...device,
+      isAvailable: false,
+    }, device],
+  }), {
+    runtime,
+    type: device.deviceTypeIdentifier,
+  })
+  assert.throws(() => simulatorDevice({
+    [runtime]: [{
+      ...device,
+      isAvailable: false,
+    }],
+  }), /No available/)
 })
 
 test("iOS isolates forwarded settings and cleans its simulator/test copy after success, signing failure or timeout", () => {
@@ -124,15 +197,30 @@ test("iOS isolates forwarded settings and cleans its simulator/test copy after s
       const calls = []
       let signedTest
       const run = (program, args, options) => {
-        calls.push({ program, args, options })
-        if (args.includes("list")) return JSON.stringify({ devices: {
-          "com.apple.CoreSimulator.SimRuntime.iOS-26-2": [{ isAvailable: true, deviceTypeIdentifier: "com.apple.CoreSimulator.SimDeviceType.iPhone-17" }],
-        } })
-        if (args.includes("create")) return uuid
+        calls.push({
+          program,
+          args,
+          options,
+        })
+        if (args.includes("list")) {
+          return JSON.stringify({
+            devices: {
+              "com.apple.CoreSimulator.SimRuntime.iOS-26-2": [{
+                isAvailable: true,
+                deviceTypeIdentifier: "com.apple.CoreSimulator.SimDeviceType.iPhone-17",
+              }],
+            },
+          })
+        }
+        if (args.includes("create")) {
+          return uuid
+        }
         if (program === "codesign") {
           signedTest = args.at(-1)
           assert.ok(existsSync(signedTest))
-          if (failure === "codesign") throw new Error("sign failed")
+          if (failure === "codesign") {
+            throw new Error("sign failed")
+          }
         }
         if (args.includes("spawn")) {
           assert.equal(options.env[envKey], undefined)
@@ -142,22 +230,38 @@ test("iOS isolates forwarded settings and cleans its simulator/test copy after s
           assert.equal(join(options.env.SIMCTL_CHILD_TMPDIR, "provider-test"), signedTest)
           assert.equal(options.timeout, 660_000)
           assert.ok(args.includes("--exact"))
-          if (failure === "inference") throw new Error("ETIMEDOUT")
+          if (failure === "inference") {
+            throw new Error("ETIMEDOUT")
+          }
           return completed
         }
         return ""
       }
-      const check = () => checkIos({ executable, models: "/tmp/models with space" }, run)
-      if (failure) assert.throws(check, /sign failed|ETIMEDOUT/)
-      else check()
+      const check = () => checkIos({
+        executable,
+        models: "/tmp/models with space",
+      }, run)
+      if (failure) {
+        assert.throws(check, /sign failed|ETIMEDOUT/)
+      } else {
+        check()
+      }
       assert.deepEqual(calls.at(-1).args, ["simctl", "delete", uuid])
-      if (failure !== "codesign") assert.deepEqual(calls.at(-2).args, ["simctl", "shutdown", uuid])
+      if (failure !== "codesign") {
+        assert.deepEqual(calls.at(-2).args, ["simctl", "shutdown", uuid])
+      }
       assert.ok(!existsSync(signedTest))
     }
   } finally {
-    if (original === undefined) delete process.env[envKey]
-    else process.env[envKey] = original
-    rmSync(fixture, { recursive: true, force: true })
+    if (original === undefined) {
+      delete process.env[envKey]
+    } else {
+      process.env[envKey] = original
+    }
+    rmSync(fixture, {
+      recursive: true,
+      force: true,
+    })
   }
 })
 
@@ -177,24 +281,53 @@ test("cleanup reports secondary errors, preserves native failures and still fail
         const calls = []
         let signedTest
         const run = (program, args) => {
-          calls.push({ program, args })
-          if (args.includes("getprop")) return "x86_64"
-          if (args.includes("list")) return JSON.stringify({ devices: {
-            "com.apple.CoreSimulator.SimRuntime.iOS-26-2": [{ isAvailable: true, deviceTypeIdentifier: "com.apple.CoreSimulator.SimDeviceType.iPhone-17" }],
-          } })
-          if (args.includes("create")) return "12345678-1234-1234-1234-123456789abc"
-          if (program === "codesign") signedTest = args.at(-1)
+          calls.push({
+            program,
+            args,
+          })
+          if (args.includes("getprop")) {
+            return "x86_64"
+          }
+          if (args.includes("list")) {
+            return JSON.stringify({
+              devices: {
+                "com.apple.CoreSimulator.SimRuntime.iOS-26-2": [{
+                  isAvailable: true,
+                  deviceTypeIdentifier: "com.apple.CoreSimulator.SimDeviceType.iPhone-17",
+                }],
+              },
+            })
+          }
+          if (args.includes("create")) {
+            return "12345678-1234-1234-1234-123456789abc"
+          }
+          if (program === "codesign") {
+            signedTest = args.at(-1)
+          }
           if (args.includes("spawn") || args.some(arg => arg.includes("timeout 600"))) {
-            if (inferenceFails) throw nativeError
+            if (inferenceFails) {
+              throw nativeError
+            }
             return completed
           }
-          if (args.includes("rm") || args.includes("shutdown")) throw cleanupError
-          if (args.includes("delete")) throw new Error("delete failed too")
+          if (args.includes("rm") || args.includes("shutdown")) {
+            throw cleanupError
+          }
+          if (args.includes("delete")) {
+            throw new Error("delete failed too")
+          }
           return ""
         }
         const check = () => platform === "android"
-          ? checkAndroid({ executable, models: "/tmp/models", runtimeLibs: "/tmp/libs" }, run)
-          : checkIos({ executable, models: "/tmp/models" }, run)
+          ? checkAndroid({
+            executable,
+            models: "/tmp/models",
+            runtimeLibs: "/tmp/libs",
+          }, run)
+          : checkIos({
+            executable,
+            models: "/tmp/models",
+          }, run)
         assert.throws(check, error => error === (inferenceFails ? nativeError : cleanupError))
         assert.ok(diagnostics.some(message => message.includes("cleanup disconnected")))
         if (platform === "ios") {
@@ -206,6 +339,9 @@ test("cleanup reports secondary errors, preserves native failures and still fail
     }
   } finally {
     console.error = originalLog
-    rmSync(fixture, { recursive: true, force: true })
+    rmSync(fixture, {
+      recursive: true,
+      force: true,
+    })
   }
 })

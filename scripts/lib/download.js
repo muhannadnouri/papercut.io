@@ -1,12 +1,22 @@
 import { createHash } from "node:crypto"
-import { createReadStream, existsSync } from "node:fs"
-import { mkdir, rename, rm, writeFile } from "node:fs/promises"
+import {
+  createReadStream,
+  existsSync,
+} from "node:fs"
+import {
+  mkdir,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises"
 import { dirname } from "node:path"
 
 // Download through a temp path so interrupted fetches never poison cache.
 export async function downloadFile({ url, dest, force = false, sha256, label = "download" }) {
   if (!force && existsSync(dest)) {
-    if (sha256) await assertSha256(dest, sha256, label)
+    if (sha256) {
+      await assertSha256(dest, sha256, label)
+    }
     console.log("[" + label + "] cached archive")
     return dest
   }
@@ -23,7 +33,9 @@ export async function downloadFile({ url, dest, force = false, sha256, label = "
 
     await mkdir(dirname(dest), { recursive: true })
     await writeFile(temp, Buffer.from(await response.arrayBuffer()))
-    if (sha256) await assertSha256(temp, sha256, label)
+    if (sha256) {
+      await assertSha256(temp, sha256, label)
+    }
     await rename(temp, dest)
     return dest
   } catch (err) {

@@ -1,7 +1,21 @@
 // @vitest-environment jsdom
-import { act, StrictMode, type FormEvent, type ReactNode } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import {
+  act,
+  StrictMode,
+  type FormEvent,
+  type ReactNode,
+} from 'react'
+import {
+  createRoot,
+  type Root,
+} from 'react-dom/client'
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import { AppDialog } from './AppDialog'
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
@@ -31,18 +45,26 @@ afterEach(async () => {
   document.body.replaceChildren()
 })
 
-async function render(content: ReactNode) { await act(() => root.render(content)) }
+async function render(content: ReactNode) {
+  await act(() => root.render(content))
+}
 async function click(selector: string) {
   await act(() => container.querySelector<HTMLElement>(selector)!.click())
 }
 async function key(key: string, shiftKey = false) {
-  const event = new KeyboardEvent('keydown', { key, shiftKey, bubbles: true, cancelable: true })
+  const event = new KeyboardEvent('keydown', {
+    key,
+    shiftKey,
+    bubbles: true,
+    cancelable: true,
+  })
   await act(() => document.activeElement!.dispatchEvent(event))
   return event
 }
 
 it('keeps Back separate from Close and ignores clicks inside the dialog', async () => {
-  const back = vi.fn(), close = vi.fn()
+  const back = vi.fn()
+  const close = vi.fn()
   await render(<AppDialog title="Settings" onBack={back} showCloseButton onCancel={close}>
     <input aria-label="Name" />
   </AppDialog>)
@@ -59,7 +81,9 @@ it('keeps Back separate from Close and ignores clicks inside the dialog', async 
 })
 
 it('uses the latest busy guard and Close handler for Escape, buttons and backdrop after rerender', async () => {
-  const back = vi.fn(), oldClose = vi.fn(), close = vi.fn()
+  const back = vi.fn()
+  const oldClose = vi.fn()
+  const close = vi.fn()
   const dialog = (busy: boolean, cancel: () => void) => <AppDialog title="Transfer"
     onBack={back} showCloseButton onCancel={cancel} navigationDisabled={busy}>
     <input aria-label="Transfer Code" />
@@ -121,7 +145,8 @@ it('focuses an actionless dialog and removes Escape listeners when unmounted', a
 })
 
 it('keeps header navigation non-submitting while Save submits the form and Cancel dismisses it', async () => {
-  const close = vi.fn(), back = vi.fn()
+  const close = vi.fn()
+  const back = vi.fn()
   const submit = vi.fn((event: FormEvent) => event.preventDefault())
   await render(<AppDialog title="Edit" onCancel={close} onSubmit={submit} onBack={back} showCloseButton
     actions={<><button type="button" onClick={close}>Cancel</button><button type="submit">Save</button></>}>

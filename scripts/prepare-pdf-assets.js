@@ -1,5 +1,13 @@
-import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  rmSync,
+} from 'node:fs'
+import {
+  dirname,
+  join,
+} from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)))
@@ -14,7 +22,10 @@ function preparePdfJsAssets() {
   const directories = ['standard_fonts', 'wasm']
 
   requirePaths(directories.map((directory) => join(sourceRoot, directory)), 'PDF.js')
-  rmSync(outputRoot, { recursive: true, force: true })
+  rmSync(outputRoot, {
+    recursive: true,
+    force: true,
+  })
   for (const directory of directories) {
     cpSync(join(sourceRoot, directory), join(outputRoot, directory), { recursive: true })
   }
@@ -45,14 +56,19 @@ function prepareTesseractAssets() {
     ...languageSources,
     ...coreFiles.map((file) => join(coreRoot, file)),
   ], 'Tesseract')
-  rmSync(outputRoot, { recursive: true, force: true })
+  rmSync(outputRoot, {
+    recursive: true,
+    force: true,
+  })
   mkdirSync(join(outputRoot, 'core'), { recursive: true })
   mkdirSync(join(outputRoot, 'lang'), { recursive: true })
   cpSync(workerSource, join(outputRoot, 'worker.min.js'))
   languages.forEach((language, index) => {
     cpSync(languageSources[index], join(outputRoot, 'lang', `${language}.traineddata.gz`))
   })
-  for (const file of coreFiles) cpSync(join(coreRoot, file), join(outputRoot, 'core', file))
+  for (const file of coreFiles) {
+    cpSync(join(coreRoot, file), join(outputRoot, 'core', file))
+  }
   console.log('[tesseract] prepared worker, LSTM cores, and English/Arabic language data')
 }
 

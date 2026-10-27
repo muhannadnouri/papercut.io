@@ -190,6 +190,9 @@ npm install
 
 ### Development
 
+See [code style, private naming and editor setup](docs/development-style.md) for
+ESLint save actions, focused formatting commands and the incremental rollout.
+
 ```bash
 npm run tauri:dev
 ```

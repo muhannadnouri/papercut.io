@@ -45,9 +45,13 @@ export function createPdfBookmarkApi(
   return {
     capture: () => currentLocation,
     isCurrent: (location) => {
-      if (!isPdfLocation(location)) return false
+      if (!isPdfLocation(location)) {
+        return false
+      }
       const pageView = pdfViewer.getPageView(location.pageNumber - 1)
-      if (!pageView) return false
+      if (!pageView) {
+        return false
+      }
       const [, pointY] = pageView.viewport.convertToViewportPoint(location.left, location.top)
       const pageBounds = pageView.div.getBoundingClientRect()
       const containerBounds = container.getBoundingClientRect()
@@ -57,7 +61,9 @@ export function createPdfBookmarkApi(
     },
     isPastStart: () => pdfViewer.currentPageNumber > 1 || container.scrollTop > 180,
     restore: (location) => {
-      if (!isPdfLocation(location)) return
+      if (!isPdfLocation(location)) {
+        return
+      }
       pdfViewer.scrollPageIntoView({
         pageNumber: Math.min(pdfViewer.pagesCount, Math.max(1, location.pageNumber)),
         destArray: [null, { name: 'XYZ' }, location.left, location.top, null],
@@ -66,7 +72,10 @@ export function createPdfBookmarkApi(
     },
     scrollToTop: () => {
       pdfViewer.currentPageNumber = 1
-      container.scrollTo({ top: 0, behavior: 'smooth' })
+      container.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      })
     },
     subscribe: (listener) => {
       listeners.add(listener)

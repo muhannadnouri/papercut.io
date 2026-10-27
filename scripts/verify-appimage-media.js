@@ -1,4 +1,7 @@
-import { existsSync, readdirSync } from "node:fs"
+import {
+  existsSync,
+  readdirSync,
+} from "node:fs"
 import { join } from "node:path"
 import { ROOT } from "./lib/paths.js"
 
@@ -55,8 +58,11 @@ function collectFileNames(root) {
     const current = pending.pop()
     for (const entry of readdirSync(current, { withFileTypes: true })) {
       const path = join(current, entry.name)
-      if (entry.isDirectory()) pending.push(path)
-      else names.add(entry.name)
+      if (entry.isDirectory()) {
+        pending.push(path)
+      } else {
+        names.add(entry.name)
+      }
     }
   }
 

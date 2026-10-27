@@ -13,7 +13,11 @@ import {
   type UploadedDocumentBatchProgress,
   type UploadedDocumentBatchResult,
 } from '../uploads/DocumentUploads'
-import { loadPdfJs, pdfJsAssetRoot, pdfLoadErrorMessage } from './pdfJs'
+import {
+  loadPdfJs,
+  pdfJsAssetRoot,
+  pdfLoadErrorMessage,
+} from './pdfJs'
 import {
   finalizedPdfTextStatus,
   hasPdfPageImages,
@@ -46,7 +50,12 @@ export async function indexImportedPdfs(
     const document = pending[index]
     if (options.signal?.aborted) {
       await removePendingPdfs(pending.slice(index))
-      return { ...result, imported: completed, failures, cancelled: true }
+      return {
+        ...result,
+        imported: completed,
+        failures,
+        cancelled: true,
+      }
     }
     options.onProgress?.({
       phase: 'importing',
@@ -65,7 +74,12 @@ export async function indexImportedPdfs(
       await deleteUploadedDocument(document.url).catch(() => undefined)
       if (options.signal?.aborted) {
         await removePendingPdfs(pending.slice(index + 1))
-        return { ...result, imported: completed, failures, cancelled: true }
+        return {
+          ...result,
+          imported: completed,
+          failures,
+          cancelled: true,
+        }
       }
       failures.push({
         fileName: document.title,
@@ -74,7 +88,11 @@ export async function indexImportedPdfs(
     }
   }
 
-  return { ...result, imported: completed, failures }
+  return {
+    ...result,
+    imported: completed,
+    failures,
+  }
 }
 
 async function extractAndIndexPdf(
@@ -174,7 +192,13 @@ export function pageTextLayer(
       }
     })
 
-  return { schemaVersion: 1, pageIndex, width, height, blocks }
+  return {
+    schemaVersion: 1,
+    pageIndex,
+    width,
+    height,
+    blocks,
+  }
 }
 
 /** Fit one PDF page into the gallery's retained-cover bounds without upscaling. */
@@ -205,9 +229,15 @@ async function renderFirstPageThumbnail(page: PDFPageProxy): Promise<number[]> {
   canvas.height = size.height
 
   try {
-    await page.render({ canvas, viewport, background: '#ffffff' }).promise
+    await page.render({
+      canvas,
+      viewport,
+      background: '#ffffff',
+    }).promise
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
-    if (!blob) throw new Error('WebView could not encode the PDF thumbnail')
+    if (!blob) {
+      throw new Error('WebView could not encode the PDF thumbnail')
+    }
     return Array.from(new Uint8Array(await blob.arrayBuffer()))
   } finally {
     canvas.width = 0
@@ -216,13 +246,17 @@ async function renderFirstPageThumbnail(page: PDFPageProxy): Promise<number[]> {
 }
 
 function metadataTitle(info: unknown): string | undefined {
-  if (!info || typeof info !== 'object' || !('Title' in info)) return undefined
+  if (!info || typeof info !== 'object' || !('Title' in info)) {
+    return undefined
+  }
   const title = (info as { Title?: unknown }).Title
   return typeof title === 'string' && title.trim() ? title.trim() : undefined
 }
 
 function throwIfAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) throw new DOMException('PDF import cancelled', 'AbortError')
+  if (signal?.aborted) {
+    throw new DOMException('PDF import cancelled', 'AbortError')
+  }
 }
 
 async function removePendingPdfs(documents: UploadedDocument[]): Promise<void> {

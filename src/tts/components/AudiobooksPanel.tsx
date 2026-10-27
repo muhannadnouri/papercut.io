@@ -1,9 +1,15 @@
-import { useCallback, useState } from 'react'
+import {
+  useCallback,
+  useState,
+} from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { SavedAudiobookRecord } from '../storage/AudiobookLibrary'
 import type { AudiobookDownloadRecord } from '../storage/AudiobookDownloadQueue'
-import type { TtsDtype, TtsVoice } from '../types'
+import type {
+  TtsDtype,
+  TtsVoice,
+} from '../types'
 import type { NativeAudiobookExportFormat } from '../api/nativeTts'
 import type { AudiobookCacheState } from '../hooks/useAudiobookCache'
 import {
@@ -110,8 +116,16 @@ export function AudiobooksPanel({
   // Keep model, voice, and runtime metadata stable and LTR across UI locales.
   const setupSummary = formatAudioSetupSummary(audioSetup, i18n.getFixedT('en'))
   const exportOptions = [
-    { format: 'bundle' as const, label: t('tts.audiobooks.exportBundle'), code: '.papercut-audiobook' },
-    { format: 'wav' as const, label: t('tts.audiobooks.exportWav'), code: '.wav' },
+    {
+      format: 'bundle' as const,
+      label: t('tts.audiobooks.exportBundle'),
+      code: '.papercut-audiobook',
+    },
+    {
+      format: 'wav' as const,
+      label: t('tts.audiobooks.exportWav'),
+      code: '.wav',
+    },
   ]
   const closeSetup = useCallback(() => setSetupOpen(false), [])
 
@@ -173,114 +187,118 @@ export function AudiobooksPanel({
 
           <div className="audiobooks-list">
             {isSaving && (
-          <section className="audiobooks-section" aria-label={t('tts.audiobooks.savingAria')}>
-            <h3 className="audiobooks-section-title">{t('tts.audiobooks.savingSection')}</h3>
-            <div className="audiobook-item audiobook-item-active">
-              <div className="audiobook-row">
-                <bdi className="audiobook-title">{activeDownloadTitle}</bdi>
-                <span className="audiobook-meta" dir="ltr">{downloadState.cachedChunks}/{downloadState.totalChunks}</span>
-              </div>
-              <div className="audiobook-status-text" dir="auto">
-                {activeDownload ? formatAudiobookVoiceMeta(t, activeDownload.modelId, activeDownload.voice, activeDownload.speed, activeDownload.dtype, activeDownload.textPreprocessor, activeDownload.silmaNfeStep) + ' - ' : ''}{formatDownloadSavedStatus(t, downloadState.audioDurationSec, activePercent, downloadState.wavBytes)}
-              </div>
-              <div className="audio-progress-meter" aria-label={t('tts.audiobooks.savePercent', { percent: activePercent })}>
-                <span style={{ width: activePercent + '%' }} />
-              </div>
-              <button className="audiobook-text-action audiobook-secondary" disabled={panelBusy} onClick={onCancelSave}>{t('tts.audiobooks.pause')}</button>
-            </div>
-          </section>
-        )}
-
-            {queueCount > 0 && (
-          <section className="audiobooks-section" aria-label={t('tts.audiobooks.queueAria')}>
-            <h3 className="audiobooks-section-title">{t('tts.audiobooks.queueSection')}</h3>
-            {queuedDownloads.map((record) => {
-              const percent = getDownloadPercent(record.cachedChunks, record.totalChunks)
-              return (
-                <div key={record.id} className={'audiobook-item audiobook-item-' + record.status}>
+              <section className="audiobooks-section" aria-label={t('tts.audiobooks.savingAria')}>
+                <h3 className="audiobooks-section-title">{t('tts.audiobooks.savingSection')}</h3>
+                <div className="audiobook-item audiobook-item-active">
                   <div className="audiobook-row">
-                    <bdi className="audiobook-title">{record.title}</bdi>
-                    <span className="audiobook-meta" dir="ltr">{record.cachedChunks}/{record.totalChunks}</span>
+                    <bdi className="audiobook-title">{activeDownloadTitle}</bdi>
+                    <span className="audiobook-meta" dir="ltr">{downloadState.cachedChunks}/{downloadState.totalChunks}</span>
                   </div>
                   <div className="audiobook-status-text" dir="auto">
-                    {formatAudiobookVoiceMeta(t, record.modelId, record.voice, record.speed, record.dtype, record.textPreprocessor, record.silmaNfeStep) + ' - ' + formatDownloadSavedStatus(t, record.audioDurationSec, percent, record.wavBytes)}
+                    {activeDownload ? formatAudiobookVoiceMeta(t, activeDownload.modelId, activeDownload.voice, activeDownload.speed, activeDownload.dtype, activeDownload.textPreprocessor, activeDownload.silmaNfeStep) + ' - ' : ''}{formatDownloadSavedStatus(t, downloadState.audioDurationSec, activePercent, downloadState.wavBytes)}
                   </div>
-                  <div className="audio-progress-meter" aria-label={t('tts.audiobooks.queuePercent', { percent })}>
-                    <span style={{ width: percent + '%' }} />
+                  <div className="audio-progress-meter" aria-label={t('tts.audiobooks.savePercent', { percent: activePercent })}>
+                    <span style={{ width: activePercent + '%' }} />
                   </div>
-                  <div className="audiobook-actions">
-                    <span className="audiobook-status-text" dir="auto">{formatQueuedStatus(record, t)}</span>
-                    <button className="audiobook-text-action audiobook-resume" disabled={panelBusy} onClick={() => onResumeQueued(record)}>
-                      {record.status === 'error' ? t('tts.audiobooks.retry') : t('tts.audiobooks.resume')}
-                    </button>
-                    <button className="audiobook-text-action audiobook-secondary" disabled={panelBusy} onClick={() => onRemoveQueued(record.id)}>{t('tts.audiobooks.remove')}</button>
-                  </div>
+                  <button className="audiobook-text-action audiobook-secondary" disabled={panelBusy} onClick={onCancelSave}>{t('tts.audiobooks.pause')}</button>
                 </div>
-              )
-            })}
-          </section>
-        )}
+              </section>
+            )}
+
+            {queueCount > 0 && (
+              <section className="audiobooks-section" aria-label={t('tts.audiobooks.queueAria')}>
+                <h3 className="audiobooks-section-title">{t('tts.audiobooks.queueSection')}</h3>
+                {queuedDownloads.map((record) => {
+                  const percent = getDownloadPercent(record.cachedChunks, record.totalChunks)
+                  return (
+                    <div key={record.id} className={'audiobook-item audiobook-item-' + record.status}>
+                      <div className="audiobook-row">
+                        <bdi className="audiobook-title">{record.title}</bdi>
+                        <span className="audiobook-meta" dir="ltr">{record.cachedChunks}/{record.totalChunks}</span>
+                      </div>
+                      <div className="audiobook-status-text" dir="auto">
+                        {formatAudiobookVoiceMeta(t, record.modelId, record.voice, record.speed, record.dtype, record.textPreprocessor, record.silmaNfeStep) + ' - ' + formatDownloadSavedStatus(t, record.audioDurationSec, percent, record.wavBytes)}
+                      </div>
+                      <div className="audio-progress-meter" aria-label={t('tts.audiobooks.queuePercent', { percent })}>
+                        <span style={{ width: percent + '%' }} />
+                      </div>
+                      <div className="audiobook-actions">
+                        <span className="audiobook-status-text" dir="auto">{formatQueuedStatus(record, t)}</span>
+                        <button className="audiobook-text-action audiobook-resume" disabled={panelBusy} onClick={() => onResumeQueued(record)}>
+                          {record.status === 'error' ? t('tts.audiobooks.retry') : t('tts.audiobooks.resume')}
+                        </button>
+                        <button className="audiobook-text-action audiobook-secondary" disabled={panelBusy} onClick={() => onRemoveQueued(record.id)}>{t('tts.audiobooks.remove')}</button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </section>
+            )}
 
             {savedCount > 0 && (
-          <section className="audiobooks-section audiobooks-saved-section" aria-label={t('tts.audiobooks.savedAria')}>
-            <h3 className="audiobooks-section-title">{t('tts.audiobooks.savedSection')}</h3>
-            {savedAudiobooks.map((record) => {
-              const recordDeleteState = deleteState?.id === record.id ? deleteState : null
-              const deleting = recordDeleteState?.status === 'deleting'
-              const actionsDisabled = panelBusy || deleting
-              const savedMeta = formatSavedAudiobookMeta(
-                t,
-                record.modelId,
-                record.voice,
-                record.speed,
-                record.textPreprocessor,
-                record.audioDurationSec,
-                record.wavBytes,
-              )
-              return (
-                <div
-                  key={record.id}
-                  className={'audiobook-item audiobook-item-saved' + (actionsMenuOpen === record.id && !actionsDisabled ? ' audiobook-item-menu-open' : '')}
-                >
-                  <button
-                    className="audiobook-saved-main"
-                    disabled={documentOpening || panelBusy}
-                    onClick={() => { if (!documentOpening) onOpenSaved(record) }}
-                  >
-                    <bdi className="audiobook-title">{record.title}</bdi>
-                    <span className="audiobook-meta" dir="auto" title={savedMeta}>
-                      {savedMeta}
-                    </span>
-                  </button>
-                  <AudiobookActionsMenu
-                    t={t}
-                    record={record}
-                    options={exportOptions}
-                    open={actionsMenuOpen === record.id && !actionsDisabled}
-                    disabled={actionsDisabled}
-                    onOpenChange={(open) => setActionsMenuOpen(open ? record.id : null)}
-                    onExport={(format) => {
-                      setActionsMenuOpen(null)
-                      onExportSaved(record, format)
-                    }}
-                    onDelete={() => {
-                      setActionsMenuOpen(null)
-                      onDeleteSaved(record)
-                    }}
-                  />
-                  {recordDeleteState && (
+              <section className="audiobooks-section audiobooks-saved-section" aria-label={t('tts.audiobooks.savedAria')}>
+                <h3 className="audiobooks-section-title">{t('tts.audiobooks.savedSection')}</h3>
+                {savedAudiobooks.map((record) => {
+                  const recordDeleteState = deleteState?.id === record.id ? deleteState : null
+                  const deleting = recordDeleteState?.status === 'deleting'
+                  const actionsDisabled = panelBusy || deleting
+                  const savedMeta = formatSavedAudiobookMeta(
+                    t,
+                    record.modelId,
+                    record.voice,
+                    record.speed,
+                    record.textPreprocessor,
+                    record.audioDurationSec,
+                    record.wavBytes,
+                  )
+                  return (
                     <div
-                      className={'audiobook-status-text audiobook-operation-status audiobook-delete-' + recordDeleteState.status}
-                      title={recordDeleteState.message}
-                      dir="auto"
+                      key={record.id}
+                      className={'audiobook-item audiobook-item-saved' + (actionsMenuOpen === record.id && !actionsDisabled ? ' audiobook-item-menu-open' : '')}
                     >
-                      {recordDeleteState.message}
+                      <button
+                        className="audiobook-saved-main"
+                        disabled={documentOpening || panelBusy}
+                        onClick={() => {
+                          if (!documentOpening) {
+                            onOpenSaved(record)
+                          }
+                        }}
+                      >
+                        <bdi className="audiobook-title">{record.title}</bdi>
+                        <span className="audiobook-meta" dir="auto" title={savedMeta}>
+                          {savedMeta}
+                        </span>
+                      </button>
+                      <AudiobookActionsMenu
+                        t={t}
+                        record={record}
+                        options={exportOptions}
+                        open={actionsMenuOpen === record.id && !actionsDisabled}
+                        disabled={actionsDisabled}
+                        onOpenChange={(open) => setActionsMenuOpen(open ? record.id : null)}
+                        onExport={(format) => {
+                          setActionsMenuOpen(null)
+                          onExportSaved(record, format)
+                        }}
+                        onDelete={() => {
+                          setActionsMenuOpen(null)
+                          onDeleteSaved(record)
+                        }}
+                      />
+                      {recordDeleteState && (
+                        <div
+                          className={'audiobook-status-text audiobook-operation-status audiobook-delete-' + recordDeleteState.status}
+                          title={recordDeleteState.message}
+                          dir="auto"
+                        >
+                          {recordDeleteState.message}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )
-            })}
-          </section>
+                  )
+                })}
+              </section>
             )}
           </div>
         </div>
@@ -341,14 +359,22 @@ function formatAudiobookMeta(
   t: TFunction,
 ): string | undefined {
   const parts: string[] = []
-  if (isSaving) parts.push(t('tts.audiobooks.metaSaving'))
-  if (queueCount > 0) parts.push(t('tts.audiobooks.metaQueued', { count: queueCount }))
-  if (savedCount > 0) parts.push(t('tts.audiobooks.metaSaved', { count: savedCount }))
+  if (isSaving) {
+    parts.push(t('tts.audiobooks.metaSaving'))
+  }
+  if (queueCount > 0) {
+    parts.push(t('tts.audiobooks.metaQueued', { count: queueCount }))
+  }
+  if (savedCount > 0) {
+    parts.push(t('tts.audiobooks.metaSaved', { count: savedCount }))
+  }
   return parts.length > 0 ? parts.join(' / ') : undefined
 }
 
 function getDownloadPercent(cachedChunks: number, totalChunks: number): number {
-  if (totalChunks <= 0) return 0
+  if (totalChunks <= 0) {
+    return 0
+  }
   return Math.round((cachedChunks / totalChunks) * 100)
 }
 
@@ -359,7 +385,9 @@ function formatAudioSetupSummary(audioSetup: AudioSetupPanelProps, t: TFunction)
     '🤖 ' + (model?.name ?? t('tts.audiobooks.modelFallback')),
     '🔊 ' + formatVoiceSummary(voice?.name ?? audioSetup.voice),
   ]
-  if (model?.family === 'silma-f5') pieces.push('🎚️ NFE ' + audioSetup.silmaNfeStep)
+  if (model?.family === 'silma-f5') {
+    pieces.push('🎚️ NFE ' + audioSetup.silmaNfeStep)
+  }
 
   const installSummary = formatModelInstallSummary(audioSetup.modelInstallProgress, t)
   if (installSummary) {
@@ -386,17 +414,33 @@ function formatModelInstallSummary(
   progress: AudioSetupPanelProps['modelInstallProgress'],
   t: TFunction,
 ): string | undefined {
-  if (!progress || progress.status === 'installed') return undefined
-  if (progress.status === 'error') return t('tts.audiobooks.installFailed')
-  if (progress.status === 'extracting') return t('tts.audiobooks.extracting')
-  if (progress.status === 'starting') return t('tts.audiobooks.startingDownload')
-  if (progress.status === 'downloading') return t('tts.audiobooks.downloadingPercent', { percent: progress.percent })
+  if (!progress || progress.status === 'installed') {
+    return undefined
+  }
+  if (progress.status === 'error') {
+    return t('tts.audiobooks.installFailed')
+  }
+  if (progress.status === 'extracting') {
+    return t('tts.audiobooks.extracting')
+  }
+  if (progress.status === 'starting') {
+    return t('tts.audiobooks.startingDownload')
+  }
+  if (progress.status === 'downloading') {
+    return t('tts.audiobooks.downloadingPercent', { percent: progress.percent })
+  }
   return progress.message || progress.status
 }
 
 function formatQueuedStatus(record: AudiobookDownloadRecord, t: TFunction): string {
-  if (record.status === 'error') return record.message || record.status
-  if (record.status === 'paused') return t('tts.status.readyToResume')
-  if (record.status === 'saving') return t('tts.audiobooks.metaSaving')
+  if (record.status === 'error') {
+    return record.message || record.status
+  }
+  if (record.status === 'paused') {
+    return t('tts.status.readyToResume')
+  }
+  if (record.status === 'saving') {
+    return t('tts.audiobooks.metaSaving')
+  }
   return t('tts.status.queued')
 }
