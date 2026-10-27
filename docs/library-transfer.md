@@ -627,8 +627,8 @@ Internet relay or firewall mutation. Optional nearby discovery is implemented
 through Linux Avahi, Android 14/API 34+ NSD, Apple Bonjour (macOS and iOS),
 and Windows DNS-SD. Manual address/code entry remains available on every
 platform; Android API 26–33 reports discovery as unsupported. Both
-devices need v4-capable builds: the unchanged **1.9.2** app label alone does not
-prove compatibility with an older released 1.9.2 build. Transfer-file formats
+devices need **v1.10.0 or later**, the first release using `PCLAN004`; released
+1.9.x builds use `PCLAN003` and cannot pair with it. Transfer-file formats
 and existing libraries/audiobooks are unchanged.
 
 1. The sender prepares an app-owned temporary package, closes its writable
