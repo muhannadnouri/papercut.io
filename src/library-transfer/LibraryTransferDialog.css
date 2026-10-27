@@ -675,6 +675,7 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
 .library-transfer-diagnostic-events:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 3px; }
 @media (pointer: coarse) {
   .library-transfer-diagnostics button { min-height: 2.75rem; }
+  .library-transfer-alternate .library-transfer-network-row button { min-width: 2.75rem; }
 }
 
 .library-transfer-network {
@@ -685,6 +686,46 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
   overflow-wrap: anywhere;
 }
 
+/* Refresh sits beside the list it reloads; the dropdown takes the remaining width. */
+.library-transfer-network-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.library-transfer-alternate .library-transfer-network-row button {
+  display: grid;
+  place-items: center;
+  width: auto;
+  min-width: 2.35rem;
+  padding-inline: 0.6rem;
+}
+
+.library-transfer-network-row svg,
+.library-transfer-network-row .spinner {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.library-transfer-network-row svg {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Label and field share a row; the range hint sits under the field. */
+.library-transfer-port {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0.75rem;
+}
+
 .library-transfer-port input {
-  max-width: 10rem;
+  width: 8rem;
+}
+
+.library-transfer-port small {
+  grid-column: 2;
 }

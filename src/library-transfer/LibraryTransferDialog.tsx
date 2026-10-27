@@ -610,28 +610,38 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
         <details className="library-transfer-alternate" open={!networkId || networkError}>
           <summary>{t('libraryTransfer.networkSettings')}</summary>
           <div className="library-transfer-alternate-content">
-            <AppSelect
-              ariaLabel={t('libraryTransfer.network')}
-              value={networkId}
-              options={[{
-                value: '',
-                label: t('libraryTransfer.chooseNetwork'),
-                disabled: true,
-              }, ...networks.map(network => ({
-                value: network.id,
-                label: `${network.name} · ${network.addresses.join(', ')}`,
-              }))]}
-              disabled={busy || !networks.length}
-              onChange={id => {
-                setNetworkId(id)
-                setSourceAddress('')
-                setPairingCode('')
-                setPeerName('')
-              }}
-            />
-            <button type="button" disabled={busy || networksLoading} onClick={() => {
-              void loadNetworks()
-            }}>{t('libraryTransfer.refreshNetworks')}</button>
+            <div className="library-transfer-network-row">
+              <AppSelect
+                ariaLabel={t('libraryTransfer.network')}
+                value={networkId}
+                options={[{
+                  value: '',
+                  label: t('libraryTransfer.chooseNetwork'),
+                  disabled: true,
+                }, ...networks.map(network => ({
+                  value: network.id,
+                  label: `${network.name} · ${network.addresses.join(', ')}`,
+                }))]}
+                disabled={busy || !networks.length}
+                onChange={id => {
+                  setNetworkId(id)
+                  setSourceAddress('')
+                  setPairingCode('')
+                  setPeerName('')
+                }}
+              />
+              <button type="button" aria-label={t('libraryTransfer.refreshNetworks')} title={t('libraryTransfer.refreshNetworks')}
+                aria-busy={networksLoading || undefined} disabled={busy || networksLoading} onClick={() => {
+                  void loadNetworks()
+                }}>
+                {networksLoading
+                  ? <span className="spinner" aria-hidden="true" />
+                  : <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M21 12a9 9 0 1 1-2.64-6.36L21 8" />
+                    <path d="M21 3v5h-5" />
+                  </svg>}
+              </button>
+            </div>
             {networkError && <p role="alert">{t('libraryTransfer.networkUnavailable')}</p>}
             {listening && <label className="library-transfer-pairing-fields library-transfer-port">
               <span>{t('libraryTransfer.port')}</span>

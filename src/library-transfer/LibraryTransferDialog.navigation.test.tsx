@@ -178,7 +178,7 @@ async function mount() {
   await act(() => root.render(<LibraryTransferDialog onBack={back} onClose={close} onImported={imported} />))
 }
 function button(label: string) {
-  return Array.from(container.querySelectorAll('button')).find(b => b.textContent === label)!
+  return Array.from(container.querySelectorAll('button')).find(b => b.textContent === label || b.getAttribute('aria-label') === label)!
 }
 async function click(label: string) {
   await act(() => button(label).click())
