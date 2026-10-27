@@ -17,6 +17,7 @@ import {
   retryNetworkTransfer,
   startNetworkTransfer,
   isNetworkTransferActive,
+  formatPairingCode,
   getTransferInterfaces,
   type TransferInterface,
   type TransferConnectionMode,
@@ -679,7 +680,7 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
           </details>
           {sourceAddress.trim() && <label className="library-transfer-pairing-fields"><span>{t('libraryTransfer.pairingCode')}</span>
             <input type="text" dir="ltr" value={pairingCode} disabled={busy} autoCapitalize="characters" autoCorrect="off" spellCheck={false}
-              placeholder="ABCD-EFGH-JKLM" onChange={event => setPairingCode(event.target.value)} />
+              placeholder="ABCD-EFGH-JKLM" onChange={event => setPairingCode(formatPairingCode(event.target.value))} />
           </label>}
         </>}
       </section>}

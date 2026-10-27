@@ -1091,3 +1091,21 @@ it('keeps manual sending available when system discovery is unsupported', async 
     }),
   }))
 })
+
+it('groups the pairing code as it is typed', async () => {
+  await mount()
+  await openSender()
+  const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+  const type = async (placeholder: string, text: string) => {
+    for (const character of text) {
+      await act(() => {
+        const input = container.querySelector<HTMLInputElement>(`[placeholder="${placeholder}"]`)!
+        set.call(input, input.value + character)
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+    }
+    return container.querySelector<HTMLInputElement>(`[placeholder="${placeholder}"]`)!.value
+  }
+  await type('192.168.1.20:53318', '192.168.1.20')
+  expect(await type('ABCD-EFGH-JKLM', '2345abcdghjk')).toBe('2345-ABCD-GHJK')
+})

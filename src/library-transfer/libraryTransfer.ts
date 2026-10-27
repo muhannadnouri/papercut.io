@@ -117,6 +117,12 @@ export interface NetworkTransferRequest {
     audiobookIds: string[] }
 }
 
+/** Group a typed or pasted pairing code as XXXX-XXXX-XXXX so nobody has to type the dashes. */
+export function formatPairingCode(value: string): string {
+  const symbols = value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 12)
+  return symbols.match(/.{1,4}/g)?.join('-') ?? ''
+}
+
 export function isNetworkTransferActive(status: LibraryTransferNetworkStatus | null): boolean {
   return Boolean(status && !['complete', 'cancelled', 'expired', 'failed', 'outcomeUnknown'].includes(status.state))
 }
