@@ -578,6 +578,7 @@
     "sourceAddress": "源地址",
     "pairingCode": "配对代码",
     "receive": "接收资料库",
+    "receiveNeedsPeer": "请选择附近的会话或输入地址，然后输入其配对码。",
     "receiving": "正在接收...",
     "waitingForReceiver": "正在等待另一台设备…",
     "waitingToResume": "连接已中断。请在输入地址和配对码的设备上重试。",

@@ -5,11 +5,12 @@
 }
 
 @media (max-width: 767px) {
-  .app-dialog.library-transfer-dialog {
+  /* Full height only once a task is chosen, so the Send/Receive choice stays compact. */
+  .app-dialog.library-transfer-dialog-task {
     height: 100%;
   }
 
-  .library-transfer-dialog .app-dialog-body {
+  .library-transfer-dialog-task .app-dialog-body {
     flex: 1;
   }
 }
@@ -421,6 +422,19 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
   margin-top: 0.65rem;
 }
 
+.library-transfer-method {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.library-transfer-method h4 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.library-transfer-method button,
 .library-transfer-alternate-content button {
   justify-self: start;
 }
@@ -671,18 +685,6 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
   overflow-wrap: anywhere;
 }
 
-.library-transfer-port {
-  display: grid;
-  gap: 0.4rem;
-  padding-block: 0.5rem;
-}
-
 .library-transfer-port input {
   max-width: 10rem;
-  padding: 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--control-surface);
-  color: var(--text-body);
-  font: inherit;
 }

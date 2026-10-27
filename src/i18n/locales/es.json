@@ -592,6 +592,7 @@
     "sourceAddress": "Dirección de origen",
     "pairingCode": "Código de vinculación",
     "receive": "Recibir biblioteca",
+    "receiveNeedsPeer": "Elige una sesión cercana o introduce una dirección y, después, su código de emparejamiento.",
     "receiving": "Recibiendo...",
     "waitingForReceiver": "Esperando al otro dispositivo…",
     "waitingToResume": "Conexión interrumpida. Reintenta en el dispositivo donde introdujiste la dirección y el código.",

@@ -585,6 +585,7 @@
     "sourceAddress": "Source address",
     "pairingCode": "Pairing code",
     "receive": "Receive Library",
+    "receiveNeedsPeer": "Choose a nearby session or enter an address, then enter its pairing code.",
     "receiving": "Receiving...",
     "waitingForReceiver": "Waiting for the other device…",
     "waitingToResume": "Connection interrupted. Retry on the device that entered the address and code.",

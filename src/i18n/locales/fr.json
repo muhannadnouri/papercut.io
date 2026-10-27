@@ -592,6 +592,7 @@
     "sourceAddress": "Adresse source",
     "pairingCode": "Code d’association",
     "receive": "Recevoir la bibliothèque",
+    "receiveNeedsPeer": "Choisissez une session à proximité ou saisissez une adresse, puis saisissez son code d’appairage.",
     "receiving": "Réception...",
     "waitingForReceiver": "En attente de l’autre appareil…",
     "waitingToResume": "Connexion interrompue. Réessayez sur l’appareil où vous avez saisi l’adresse et le code.",

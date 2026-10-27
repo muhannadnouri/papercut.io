@@ -592,6 +592,7 @@
     "sourceAddress": "Endereço de origem",
     "pairingCode": "Código de pareamento",
     "receive": "Receber biblioteca",
+    "receiveNeedsPeer": "Escolha uma sessão próxima ou digite um endereço e, em seguida, o código de pareamento.",
     "receiving": "Recebendo...",
     "waitingForReceiver": "Aguardando o outro dispositivo…",
     "waitingToResume": "Conexão interrompida. Tente novamente no dispositivo onde digitou o endereço e o código.",

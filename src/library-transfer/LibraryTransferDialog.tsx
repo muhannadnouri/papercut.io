@@ -104,7 +104,7 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
   const stepHeading = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     stepHeading.current?.focus()
-  }, [mode, showConnection])
+  }, [mode, showConnection, connectionMode])
   const validPort = /^\d+$/.test(port) && Number(port) >= 1024 && Number(port) <= 65535
   const listening = (mode === 'receive') === (connectionMode === 'push')
   const portHelpId = useId()
@@ -113,6 +113,7 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
   const validConnection = Boolean(networkId) && (listening ? validPort : Boolean(sourceAddress.trim() && pairingCode.trim()))
   const selectionHelpId = useId()
   const exportPrivacyId = useId()
+  const receiveHelpId = useId()
   const operationBusy = ['exporting', 'importing'].includes(status.state)
   const networkActive = isNetworkTransferActive(networkStatus)
   const networkSessionId = networkStatus?.id
@@ -552,9 +553,20 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
     }
   }
 
+  // Fallback pairing method sits right under the primary action it changes.
+  const connectionMethod = <section className="library-transfer-alternate library-transfer-method">
+    <h4>{t('libraryTransfer.otherConnectionMethod')}</h4>
+    <p>{t('libraryTransfer.otherConnectionHelp')}</p>
+    <button type="button" disabled={busy} onClick={() => {
+      void selectConnectionMode(connectionMode === 'push' ? 'pull' : 'push')
+    }}>
+      {t(listening ? 'libraryTransfer.useOtherCode' : 'libraryTransfer.showCodeHere')}
+    </button>
+  </section>
+
   return (
     <AppDialog
-      className="library-transfer-dialog"
+      className={mode ? 'library-transfer-dialog library-transfer-dialog-task' : 'library-transfer-dialog'}
       title={t(!mode ? 'libraryTransfer.title' : mode === 'send' ? 'libraryTransfer.modeSend' : 'libraryTransfer.modeReceive')}
       description={!mode ? t('libraryTransfer.description') : undefined}
       showCloseButton
@@ -621,7 +633,7 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
               void loadNetworks()
             }}>{t('libraryTransfer.refreshNetworks')}</button>
             {networkError && <p role="alert">{t('libraryTransfer.networkUnavailable')}</p>}
-            {listening && <label className="library-transfer-port">
+            {listening && <label className="library-transfer-pairing-fields library-transfer-port">
               <span>{t('libraryTransfer.port')}</span>
               <input type="number" min="1024" max="65535" value={port} disabled={busy} aria-invalid={!validPort} aria-describedby={portHelpId}
                 onChange={event => setPort(event.target.value)} />
@@ -653,17 +665,6 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
               placeholder="ABCD-EFGH-JKLM" onChange={event => setPairingCode(event.target.value)} />
           </label>}
         </>}
-        <details className="library-transfer-alternate">
-          <summary>{t('libraryTransfer.otherConnectionMethod')}</summary>
-          <div className="library-transfer-alternate-content">
-            <p>{t('libraryTransfer.otherConnectionHelp')}</p>
-            <button type="button" disabled={busy} onClick={() => {
-              void selectConnectionMode(connectionMode === 'push' ? 'pull' : 'push')
-            }}>
-              {t(listening ? 'libraryTransfer.useOtherCode' : 'libraryTransfer.showCodeHere')}
-            </button>
-          </div>
-        </details>
       </section>}
       {mode && <div className="library-transfer-actions">
         {status.state === 'imported' ? <LibraryTransferCompletion kind="receive" result={status.result} />
@@ -907,6 +908,7 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
                         </button>
                       </>}
                     </section>
+                    {showConnection && connectionMethod}
 
                     {!showConnection && <details className="library-transfer-alternate">
                       <summary>{t('libraryTransfer.exportTitle')}</summary>
@@ -938,12 +940,16 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
                 ) : (
                   <>
                     <section className="library-transfer-primary-section">
-                      <button type="button" className="library-transfer-primary" disabled={busy || !validConnection} onClick={() => {
-                        void handleStartNetwork()
-                      }}>
+                      {!listening && !validConnection && <p id={receiveHelpId} role="status">{t('libraryTransfer.receiveNeedsPeer')}</p>}
+                      <button type="button" className="library-transfer-primary" disabled={busy || !validConnection}
+                        aria-describedby={!listening && !validConnection ? receiveHelpId : undefined}
+                        onClick={() => {
+                          void handleStartNetwork()
+                        }}>
                         {t(listening ? 'libraryTransfer.showPairingDetails' : 'libraryTransfer.receive')}
                       </button>
                     </section>
+                    {connectionMethod}
 
                     <details className="library-transfer-alternate">
                       <summary>{t('libraryTransfer.importTitle')}</summary>

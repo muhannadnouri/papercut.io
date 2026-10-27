@@ -101,6 +101,7 @@ body.replaceChildren(document.querySelector('#flow-content').content.cloneNode(t
 const content = [...body.children].filter(element => element.id !== 'task-mode');
 document.querySelector('.app-dialog-header h2').textContent = 'Send';
 document.querySelector('.app-dialog-header p').style.display = 'none';
+dialog.classList.add('library-transfer-dialog-task');
 const modes = () => ['task-mode'].map(id => {
   const group = document.getElementById(id);
   return {group:rect(group).height,button:rect(group.querySelector('button')).height};
@@ -131,7 +132,7 @@ document.querySelector('#expanding-content').style.height = '0';
 body.scrollTop = 0;
 const completion = bounds();
 content.forEach(element => element.style.display = 'none');
-dialog.classList.remove('library-transfer-dialog');
+dialog.classList.remove('library-transfer-dialog', 'library-transfer-dialog-task');
 const ordinaryDialog = rect(dialog);
 parent.postMessage({type:'papercut-layout',result:{width:innerWidth,height:innerHeight,compact,expanded,collapsed:modes(),header,overflowing,reachable,horizontalOverflow,buttons,entry,selection,connection,scrolled,completion,ordinaryDialog}},'*');
 `
@@ -217,13 +218,15 @@ describe.skipIf(!browser)('transfer dialog browser layout', () => {
         expect(result.entry.dialog.width).toBeCloseTo(Math.min(viewport.width - 2 * viewport.font, (viewport.width <= 767 ? 24 : 32) * viewport.font), 0)
         expect(result.ordinaryDialog.width).toBeCloseTo(Math.min(viewport.width - 2 * viewport.font, 24 * viewport.font), 0)
         if (viewport.width <= 767) {
-          expect(result.entry.dialog.height).toBeCloseTo(viewport.height - 3.35 * viewport.font - 22, 0)
-          for (const stage of ['selection', 'connection', 'scrolled', 'completion']) {
-            expect(result[stage].dialog).toEqual(result.entry.dialog)
-            expect(result[stage].navigation).toEqual(result.entry.navigation)
+          // The Send/Receive choice stays compact; once a task is chosen every step keeps one full height.
+          expect(result.entry.dialog.height).toBeLessThan(result.selection.dialog.height)
+          expect(result.selection.dialog.height).toBeCloseTo(viewport.height - 3.35 * viewport.font - 22, 0)
+          for (const stage of ['connection', 'scrolled', 'completion']) {
+            expect(result[stage].dialog).toEqual(result.selection.dialog)
+            expect(result[stage].navigation).toEqual(result.selection.navigation)
           }
-          expect(result.entry.dialog.top).toBeGreaterThanOrEqual(2.35 * viewport.font - 0.5)
-          expect(result.entry.dialog.bottom).toBeLessThanOrEqual(viewport.height - viewport.font - 22 + 0.5)
+          expect(result.selection.dialog.top).toBeGreaterThanOrEqual(2.35 * viewport.font - 0.5)
+          expect(result.selection.dialog.bottom).toBeLessThanOrEqual(viewport.height - viewport.font - 22 + 0.5)
         } else {
           expect(result.entry.dialog.height).toBeLessThan(result.selection.dialog.height)
           expect(result.selection.dialog.height).toBeLessThanOrEqual(result.connection.dialog.height)

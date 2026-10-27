@@ -994,6 +994,7 @@ html[dir="rtl"] .audiobook-action-toast {
 
   .audiobook-resume,
   .audiobook-secondary {
+    justify-self: stretch;
     min-height: 2.25rem;
   }
 }

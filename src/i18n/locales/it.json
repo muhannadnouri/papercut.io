@@ -592,6 +592,7 @@
     "sourceAddress": "Indirizzo sorgente",
     "pairingCode": "Codice di abbinamento",
     "receive": "Ricevi libreria",
+    "receiveNeedsPeer": "Scegli una sessione vicina o inserisci un indirizzo, poi inserisci il suo codice di abbinamento.",
     "receiving": "Ricezione...",
     "waitingForReceiver": "In attesa dell’altro dispositivo…",
     "waitingToResume": "Connessione interrotta. Riprova sul dispositivo dove hai inserito indirizzo e codice.",
