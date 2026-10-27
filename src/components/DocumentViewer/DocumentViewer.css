@@ -827,6 +827,23 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   }
 }
 
+/* Icon-only Find keeps every reader control on Back's row; the label stays for screen readers. */
+@media (max-width: 600px) {
+  .find-btn {
+    width: 2.5rem;
+    padding: 0;
+  }
+
+  .find-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 @media (max-width: 440px) {
   .doc-header {
     align-items: start;
