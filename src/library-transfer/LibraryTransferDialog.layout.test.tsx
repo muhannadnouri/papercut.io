@@ -97,6 +97,7 @@ const rect = element => { const r = element.getBoundingClientRect(); return {top
 const dialog = document.querySelector('.app-dialog'), navigation = document.querySelector('.app-dialog-navigation');
 const bounds = () => ({dialog:rect(dialog),navigation:rect(navigation)});
 const entry = bounds();
+const entryOverflowing = body.scrollHeight > body.clientHeight;
 body.replaceChildren(document.querySelector('#flow-content').content.cloneNode(true));
 const content = [...body.children].filter(element => element.id !== 'task-mode');
 document.querySelector('.app-dialog-header h2').textContent = 'Send';
@@ -134,7 +135,7 @@ const completion = bounds();
 content.forEach(element => element.style.display = 'none');
 dialog.classList.remove('library-transfer-dialog', 'library-transfer-dialog-task');
 const ordinaryDialog = rect(dialog);
-parent.postMessage({type:'papercut-layout',result:{width:innerWidth,height:innerHeight,compact,expanded,collapsed:modes(),header,overflowing,reachable,horizontalOverflow,buttons,entry,selection,connection,scrolled,completion,ordinaryDialog}},'*');
+parent.postMessage({type:'papercut-layout',result:{width:innerWidth,height:innerHeight,entryOverflowing,compact,expanded,collapsed:modes(),header,overflowing,reachable,horizontalOverflow,buttons,entry,selection,connection,scrolled,completion,ordinaryDialog}},'*');
 `
 
 describe.skipIf(!browser)('transfer dialog browser layout', () => {
@@ -218,8 +219,12 @@ describe.skipIf(!browser)('transfer dialog browser layout', () => {
         expect(result.entry.dialog.width).toBeCloseTo(Math.min(viewport.width - 2 * viewport.font, (viewport.width <= 767 ? 24 : 32) * viewport.font), 0)
         expect(result.ordinaryDialog.width).toBeCloseTo(Math.min(viewport.width - 2 * viewport.font, 24 * viewport.font), 0)
         if (viewport.width <= 767) {
-          // The Send/Receive choice stays compact; once a task is chosen every step keeps one full height.
-          expect(result.entry.dialog.height).toBeLessThan(result.selection.dialog.height)
+          // The Send/Receive choice stays compact unless its own content already fills the height limit
+          // (e.g. 390×500 at 24px); once a task is chosen every step keeps one full height.
+          expect(result.entry.dialog.height).toBeLessThanOrEqual(result.selection.dialog.height)
+          if (!result.entryOverflowing) {
+            expect(result.entry.dialog.height).toBeLessThan(result.selection.dialog.height)
+          }
           expect(result.selection.dialog.height).toBeCloseTo(viewport.height - 3.35 * viewport.font - 22, 0)
           for (const stage of ['connection', 'scrolled', 'completion']) {
             expect(result[stage].dialog).toEqual(result.selection.dialog)
