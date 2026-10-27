@@ -48,6 +48,15 @@ export function TransferDiagnostics({ active, revision }: { active: boolean;
     }
   }, [active, revision, retry])
 
+  // The button shows "Copied" briefly, then returns to "Copy".
+  useEffect(() => {
+    if (copy !== 'copied') {
+      return
+    }
+    const timer = window.setTimeout(() => setCopy(''), 2000)
+    return () => window.clearTimeout(timer)
+  }, [copy])
+
   async function copyReport() {
     if (!snapshot || unavailable) {
       return
@@ -65,8 +74,18 @@ export function TransferDiagnostics({ active, revision }: { active: boolean;
     }
   }
 
-  return <details className="library-transfer-diagnostics">
+  return <details className="library-transfer-alternate library-transfer-diagnostics">
     <summary>{t('libraryTransfer.diagnostics.showDetails')}</summary>
+    {/* Sits across from the summary (CSS), so copying needs no scroll past the events. */}
+    <button type="button" className="library-transfer-copy-report" disabled={!snapshot || unavailable}
+      aria-label={t('libraryTransfer.diagnostics.copy')} title={t('libraryTransfer.diagnostics.copy')} onClick={() => {
+        void copyReport()
+      }}>
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 9h11v11H9zM15 5V3H3v12h2" /></svg>
+      <span aria-hidden="true">{t(copy === 'copied' ? 'libraryTransfer.diagnostics.copied' : 'libraryTransfer.diagnostics.copyShort')}</span>
+    </button>
+    {/* Success shows on the button; screen readers hear it here. Failure needs the full sentence. */}
+    {copy && <p role="status" className={copy === 'copied' ? 'library-transfer-sr-only' : undefined}>{t(`libraryTransfer.diagnostics.${copy}`)}</p>}
     <p>{t('libraryTransfer.diagnostics.privacy')}</p>
     {unavailable && <p role="alert">{t('libraryTransfer.diagnostics.unavailable')} <button type="button"
       onClick={() => setRetry(value => value + 1)}>{t('common.retry')}</button></p>}
@@ -76,8 +95,9 @@ export function TransferDiagnostics({ active, revision }: { active: boolean;
         count: snapshot.events.length,
         dropped: snapshot.dropped,
       })}</p>
-      <ol className="library-transfer-diagnostic-events" dir="ltr" tabIndex={0} aria-label={t('libraryTransfer.diagnostics.events')}>
-        {snapshot.events.map((event, index) => <li key={`${event.attempt}:${event.timestampMs}:${index}`}>
+      {/* Newest first so live activity shows at the top; reversed keeps each event's chronological number. */}
+      <ol className="library-transfer-diagnostic-events" dir="ltr" tabIndex={0} aria-label={t('libraryTransfer.diagnostics.events')} reversed>
+        {[...snapshot.events].reverse().map((event, index) => <li key={`${event.attempt}:${event.timestampMs}:${index}`}>
           <time>{new Date(event.timestampMs).toISOString()}</time>{' '}
           <strong>{event.level.toUpperCase()}</strong>{' '}
           #{event.attempt} {event.role} +{event.elapsedMs}ms · {event.phase} · {event.code}
@@ -91,12 +111,5 @@ export function TransferDiagnostics({ active, revision }: { active: boolean;
       </ol>
     </>}
     {!snapshot && !unavailable && <p>{t('libraryTransfer.diagnostics.loading')}</p>}
-    <button type="button" className="library-transfer-copy-report" disabled={!snapshot || unavailable} onClick={() => {
-      void copyReport()
-    }}>
-      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 9h11v11H9zM15 5V3H3v12h2" /></svg>
-      {t('libraryTransfer.diagnostics.copy')}
-    </button>
-    {copy && <p role="status">{t(`libraryTransfer.diagnostics.${copy}`)}</p>}
   </details>
 }

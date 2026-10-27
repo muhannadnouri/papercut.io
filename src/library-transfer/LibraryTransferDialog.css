@@ -640,22 +640,27 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
   }
 }
 
+/* Styled like the dialog's other disclosures; Copy sits across from the summary when open. */
 .library-transfer-diagnostics {
-  margin-top: 1rem;
-  padding: 0.75rem;
-  border-radius: var(--radius-control);
-  background: var(--surface-muted);
+  position: relative;
   text-align: start;
   overflow-wrap: anywhere;
 }
 
-.library-transfer-diagnostics summary { cursor: pointer; font-weight: 600; }
+.library-transfer-diagnostics summary { line-height: 2.35rem; }
+.library-transfer-alternate .library-transfer-copy-report {
+  position: absolute;
+  top: 0.8rem;
+  inset-inline-end: 0;
+  width: auto;
+}
 .library-transfer-diagnostics summary:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 3px; }
 .library-transfer-diagnostics p { font-size: 0.8rem; }
 .library-transfer-diagnostic-events {
   max-height: 16rem;
   overflow: auto;
-  padding-inline-start: 1.5rem;
+  /* Room for up to "200." markers in the list's monospace font. */
+  padding-inline-start: 5ch;
   font-family: monospace;
   font-size: 0.75rem;
   line-height: 1.6;
@@ -675,7 +680,7 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
 .library-transfer-diagnostic-events:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 3px; }
 @media (pointer: coarse) {
   .library-transfer-diagnostics button { min-height: 2.75rem; }
-  .library-transfer-alternate .library-transfer-network-row button { min-width: 2.75rem; }
+  .library-transfer-alternate .library-transfer-network-row > button { min-width: 2.75rem; }
 }
 
 .library-transfer-network {
@@ -693,7 +698,7 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
   gap: 0.5rem;
 }
 
-.library-transfer-alternate .library-transfer-network-row button {
+.library-transfer-alternate .library-transfer-network-row > button {
   display: grid;
   place-items: center;
   width: auto;
@@ -715,11 +720,15 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
   stroke-linejoin: round;
 }
 
-/* Label and field share a row; the range hint sits under the field. */
+/* Label on top (scans fastest); the range hint sits beside the field instead of under it. */
 .library-transfer-port {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   column-gap: 0.75rem;
+}
+
+.library-transfer-port span {
+  grid-column: 1 / -1;
 }
 
 .library-transfer-port input {
@@ -727,5 +736,14 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
 }
 
 .library-transfer-port small {
-  grid-column: 2;
+  font-weight: 500;
+}
+
+.library-transfer-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

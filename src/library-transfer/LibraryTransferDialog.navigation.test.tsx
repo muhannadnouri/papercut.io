@@ -438,10 +438,13 @@ it('keeps manual and alternate setup secondary and discards credentials on metho
   await enterPeer()
   await click('libraryTransfer.showCodeHere')
   expect(container.querySelector('[placeholder="192.168.1.20:53318"]')).toBeNull()
-  await click('libraryTransfer.useOtherCode')
+  await click('libraryTransfer.useReceiverCode')
   expect(container.querySelector<HTMLInputElement>('[placeholder="192.168.1.20:53318"]')?.value).toBe('')
   await enterPeer()
+  details('libraryTransfer.networkSettings').open = true
   await click('libraryTransfer.refreshNetworks')
+  // Refresh briefly clears the network; the disclosure the user opened must stay open.
+  expect(details('libraryTransfer.networkSettings').open).toBe(true)
   expect(container.querySelector<HTMLInputElement>('[placeholder="192.168.1.20:53318"]')?.value).toBe('')
   expect(container.querySelector('[placeholder="ABCD-EFGH-JKLM"]')).toBeNull()
   expect(ipc.invoke.mock.calls.some(([command]) => command === 'library_transfer_network_start')).toBe(false)
@@ -520,7 +523,7 @@ it.each(['send', 'receive'] as const)('offers the explicit alternate for %s and 
   if (role === 'receive') {
     await click('libraryTransfer.modeReceive')
   }
-  await click(role === 'send' ? 'libraryTransfer.showCodeHere' : 'libraryTransfer.useOtherCode')
+  await click(role === 'send' ? 'libraryTransfer.showCodeHere' : 'libraryTransfer.useSenderCode')
   if (role === 'receive') {
     await enterPeer()
   } else {

@@ -102,6 +102,13 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
   const appliedResult = useRef<number | null>(null)
   const alive = useRef(true)
   const stepHeading = useRef<HTMLHeadingElement>(null)
+  const networkSettings = useRef<HTMLDetailsElement>(null)
+  // Open Network Settings when there is nothing usable, but never close it: Refresh briefly clears the network.
+  useEffect(() => {
+    if ((!networkId && !networksLoading) || networkError) {
+      networkSettings.current?.setAttribute('open', '')
+    }
+  })
   useEffect(() => {
     stepHeading.current?.focus()
   }, [mode, showConnection, connectionMode])
@@ -560,7 +567,7 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
     <button type="button" disabled={busy} onClick={() => {
       void selectConnectionMode(connectionMode === 'push' ? 'pull' : 'push')
     }}>
-      {t(listening ? 'libraryTransfer.useOtherCode' : 'libraryTransfer.showCodeHere')}
+      {t(!listening ? 'libraryTransfer.showCodeHere' : mode === 'receive' ? 'libraryTransfer.useSenderCode' : 'libraryTransfer.useReceiverCode')}
     </button>
   </section>
 
@@ -607,7 +614,7 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
             : listening ? 'libraryTransfer.receiveDescription' : 'libraryTransfer.receiverConnectsDescription')}</p>
         </header>
         {networkId && !networkError && <p>{t('libraryTransfer.network')}: <bdi>{networks.find(network => network.id === networkId)?.name}</bdi></p>}
-        <details className="library-transfer-alternate" open={!networkId || networkError}>
+        <details ref={networkSettings} className="library-transfer-alternate">
           <summary>{t('libraryTransfer.networkSettings')}</summary>
           <div className="library-transfer-alternate-content">
             <div className="library-transfer-network-row">
