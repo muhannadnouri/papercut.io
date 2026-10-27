@@ -552,8 +552,9 @@ html[dir="rtl"] .back-icon {
   fill: currentcolor;
 }
 
+/* Match the playback dock's top layer; the popover portals later in the DOM, so it paints above the dock. */
 .reader-bookmark-popover {
-  z-index: 200;
+  z-index: 2147483647;
   min-width: min(13rem, calc(100vw - 2rem));
 }
 
