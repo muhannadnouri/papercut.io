@@ -1,10 +1,11 @@
 import {
+  useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type Ref,
 } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Popover } from 'react-aria-components'
 import {
   FONT_FAMILY_OPTIONS,
   READER_PAGE_THEMES,
@@ -57,9 +58,83 @@ function EnabledReaderSettings({
 }: Omit<ReaderSettingsProps, 'disabled'>) {
   const { t } = useTranslation()
   const buttonRef = useRef<HTMLButtonElement | null>(null)
+  const panelRef = useRef<HTMLElement | null>(null)
+  const pointerInPanel = useRef(false)
   const [open, setOpen] = useState(false)
   const applyingFontOption = FONT_FAMILY_OPTIONS.find((option) => option.value === applyingFontFamily)
   const applyingFontLabel = applyingFontOption ? t(applyingFontOption.labelKey) : applyingFontFamily
+
+  // Pin the panel under the button when it opens, so the page can scroll under it.
+  const place = () => {
+    const button = buttonRef.current
+    const panel = panelRef.current
+    if (!button || !panel) {
+      return
+    }
+    const rect = button.getBoundingClientRect()
+    const width = panel.offsetWidth
+    const top = Math.max(8, rect.bottom + 8)
+    // Line up with the button's end edge, but keep the whole panel on screen.
+    const start = getComputedStyle(button).direction === 'rtl' ? rect.left : rect.right - width
+    const left = Math.min(Math.max(8, start), document.documentElement.clientWidth - width - 8)
+    Object.assign(panel.style, {
+      top: `${top}px`,
+      left: `${Math.max(8, left)}px`,
+      maxHeight: `calc(100dvh - ${top + 8}px)`,
+    })
+  }
+
+  useLayoutEffect(() => {
+    if (open) {
+      place()
+      panelRef.current?.focus()
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+    // Close only on a completed press that started outside the panel's React tree (including
+    // AppSelect's portaled list). A touch scroll ends in pointercancel, not pointerup, so it keeps the panel open.
+    let pressStartedOutside = false
+    const startPress = (event: PointerEvent) => {
+      pressStartedOutside = !pointerInPanel.current && !buttonRef.current?.contains(event.target as Node)
+      pointerInPanel.current = false
+    }
+    const endPress = () => {
+      if (pressStartedOutside) {
+        setOpen(false)
+      }
+    }
+    const cancelPress = () => {
+      pressStartedOutside = false
+    }
+    // Non-modal, so focus can leave the panel; Escape still closes it unless something else
+    // (e.g. AppSelect's open list or the Find bar) already handled the key.
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) {
+        return
+      }
+      const focusInside = panelRef.current?.contains(document.activeElement)
+      setOpen(false)
+      if (focusInside) {
+        buttonRef.current?.focus()
+      }
+    }
+    document.addEventListener('pointerdown', startPress)
+    document.addEventListener('pointerup', endPress)
+    document.addEventListener('pointercancel', cancelPress)
+    document.addEventListener('keydown', closeOnEscape)
+    window.addEventListener('resize', place)
+    return () => {
+      document.removeEventListener('pointerdown', startPress)
+      document.removeEventListener('pointerup', endPress)
+      document.removeEventListener('pointercancel', cancelPress)
+      document.removeEventListener('keydown', closeOnEscape)
+      window.removeEventListener('resize', place)
+    }
+  }, [open])
 
   return (
     <div className="reader-settings">
@@ -67,18 +142,17 @@ function EnabledReaderSettings({
         buttonRef={buttonRef}
         busy={Boolean(applyingFontFamily)}
         open={open}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => setOpen(!open)}
       />
-      <Popover
+      {open && <section
+        ref={panelRef}
         className="reader-settings-popover"
-        isOpen={open}
-        onOpenChange={setOpen}
-        triggerRef={buttonRef}
-        placement="bottom end"
-        offset={8}
-        containerPadding={8}
-        shouldFlip
+        role="dialog"
         aria-label={t('reader.settings.dialogLabel')}
+        tabIndex={-1}
+        onPointerDownCapture={() => {
+          pointerInPanel.current = true
+        }}
       >
         <div className="reader-setting-row">
           <span id="reader-setting-font">{t('reader.settings.font')}</span>
@@ -146,7 +220,7 @@ function EnabledReaderSettings({
         />
 
         <button className="reader-settings-reset" type="button" onClick={onReset}>{t('reader.settings.reset')}</button>
-      </Popover>
+      </section>}
     </div>
   )
 }

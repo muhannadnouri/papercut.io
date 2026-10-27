@@ -107,6 +107,11 @@ it('recovers native history on open, polls only while active, reports clipboard 
   await act(() => button.click())
   expect(JSON.parse(writeText.mock.calls[0][0]).redacted).toBe(true)
   expect(container.querySelector('[role="status"]')?.textContent).toBe('libraryTransfer.diagnostics.copied')
+  // "Copied" shows on the button itself and reverts to "Copy" after two seconds.
+  expect(button.textContent).toBe('libraryTransfer.diagnostics.copied')
+  expect(button.getAttribute('aria-label')).toBe('libraryTransfer.diagnostics.copy')
+  await act(() => vi.advanceTimersByTimeAsync(2000))
+  expect(button.textContent).toBe('libraryTransfer.diagnostics.copyShort')
   vi.mocked(invoke).mockResolvedValue({
     ...initial,
     events: [{
@@ -127,7 +132,10 @@ it('recovers native history on open, polls only while active, reports clipboard 
     }],
   })
   await act(() => vi.advanceTimersByTimeAsync(1000))
-  expect(container.textContent).toContain('pairing')
+  // Newest event first, numbered chronologically; Copy comes before the event list.
+  expect(container.querySelector('ol li')?.textContent).toContain('pairing')
+  expect(container.querySelector('ol')?.hasAttribute('reversed')).toBe(true)
+  expect(button.compareDocumentPosition(container.querySelector('ol')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   await act(() => root.render(<TransferDiagnostics active={false} revision="error" />))
   const count = vi.mocked(invoke).mock.calls.length
   await act(() => vi.advanceTimersByTimeAsync(3000))

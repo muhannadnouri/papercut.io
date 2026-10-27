@@ -581,7 +581,7 @@ export function DocumentViewer({
               <path d="M19 12H5" />
               <path d="m12 19-7-7 7-7" />
             </svg>
-            {t('reader.back')}
+            <span className="back-label">{t('reader.back')}</span>
           </button>
         </div>
         <div className="header-right">
@@ -597,6 +597,7 @@ export function DocumentViewer({
             )}
             <button
               className="find-btn"
+              title={t('reader.find')}
               disabled={loading || Boolean(loadError)}
               onClick={() => {
                 setShowFind(true)
@@ -607,7 +608,7 @@ export function DocumentViewer({
                 <circle cx="11" cy="11" r="7" />
                 <path d="m16 16 5 5" />
               </svg>
-              {t('reader.find')}
+              <span className="find-label">{t('reader.find')}</span>
             </button>
           </div>
         </div>

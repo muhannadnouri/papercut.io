@@ -178,7 +178,7 @@ async function mount() {
   await act(() => root.render(<LibraryTransferDialog onBack={back} onClose={close} onImported={imported} />))
 }
 function button(label: string) {
-  return Array.from(container.querySelectorAll('button')).find(b => b.textContent === label)!
+  return Array.from(container.querySelectorAll('button')).find(b => b.textContent === label || b.getAttribute('aria-label') === label)!
 }
 async function click(label: string) {
   await act(() => button(label).click())
@@ -426,17 +426,25 @@ it('keeps manual and alternate setup secondary and discards credentials on metho
   await mount()
   await openSender()
   const details = (key: string) => Array.from(container.querySelectorAll('details')).find(d => d.querySelector('summary')?.textContent === key)!
-  for (const key of ['libraryTransfer.manualAddress', 'libraryTransfer.otherConnectionMethod', 'libraryTransfer.networkSettings']) {
+  for (const key of ['libraryTransfer.manualAddress', 'libraryTransfer.networkSettings']) {
     expect(details(key).open).toBe(false)
   }
+  // The fallback method stays visible below the primary action instead of hidden in a disclosure.
+  const method = container.querySelector('.library-transfer-method')!
+  expect(method.querySelector('h4')?.textContent).toBe('libraryTransfer.otherConnectionMethod')
+  expect(method.closest('details')).toBeNull()
+  expect(method.previousElementSibling?.querySelector('.library-transfer-primary')).not.toBeNull()
   expect(container.querySelector('[placeholder="ABCD-EFGH-JKLM"]')).toBeNull()
   await enterPeer()
   await click('libraryTransfer.showCodeHere')
   expect(container.querySelector('[placeholder="192.168.1.20:53318"]')).toBeNull()
-  await click('libraryTransfer.useOtherCode')
+  await click('libraryTransfer.useReceiverCode')
   expect(container.querySelector<HTMLInputElement>('[placeholder="192.168.1.20:53318"]')?.value).toBe('')
   await enterPeer()
+  details('libraryTransfer.networkSettings').open = true
   await click('libraryTransfer.refreshNetworks')
+  // Refresh briefly clears the network; the disclosure the user opened must stay open.
+  expect(details('libraryTransfer.networkSettings').open).toBe(true)
   expect(container.querySelector<HTMLInputElement>('[placeholder="192.168.1.20:53318"]')?.value).toBe('')
   expect(container.querySelector('[placeholder="ABCD-EFGH-JKLM"]')).toBeNull()
   expect(ipc.invoke.mock.calls.some(([command]) => command === 'library_transfer_network_start')).toBe(false)
@@ -492,7 +500,7 @@ it('shows the explicitly selected unverified peer name and requires its code bef
 it('listens by default on Receive and shows credentials and instructions for the sender', async () => {
   await mount()
   await click('libraryTransfer.modeReceive')
-  expect(container.querySelector('.library-transfer-pairing-fields')).toBeNull()
+  expect(container.querySelector('[placeholder="ABCD-EFGH-JKLM"], [placeholder="192.168.1.20:53318"]')).toBeNull()
   await click('libraryTransfer.showPairingDetails')
   expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_network_start', {
     request: {
@@ -515,11 +523,11 @@ it.each(['send', 'receive'] as const)('offers the explicit alternate for %s and 
   if (role === 'receive') {
     await click('libraryTransfer.modeReceive')
   }
-  await click(role === 'send' ? 'libraryTransfer.showCodeHere' : 'libraryTransfer.useOtherCode')
+  await click(role === 'send' ? 'libraryTransfer.showCodeHere' : 'libraryTransfer.useSenderCode')
   if (role === 'receive') {
     await enterPeer()
   } else {
-    expect(container.querySelector('.library-transfer-pairing-fields')).toBeNull()
+    expect(container.querySelector('[placeholder="ABCD-EFGH-JKLM"], [placeholder="192.168.1.20:53318"]')).toBeNull()
   }
   await click(role === 'send' ? 'libraryTransfer.startSending' : 'libraryTransfer.receive')
   expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_network_start', {
@@ -1082,4 +1090,22 @@ it('keeps manual sending available when system discovery is unsupported', async 
       address: '192.168.1.21:53318',
     }),
   }))
+})
+
+it('groups the pairing code as it is typed', async () => {
+  await mount()
+  await openSender()
+  const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+  const type = async (placeholder: string, text: string) => {
+    for (const character of text) {
+      await act(() => {
+        const input = container.querySelector<HTMLInputElement>(`[placeholder="${placeholder}"]`)!
+        set.call(input, input.value + character)
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+    }
+    return container.querySelector<HTMLInputElement>(`[placeholder="${placeholder}"]`)!.value
+  }
+  await type('192.168.1.20:53318', '192.168.1.20')
+  expect(await type('ABCD-EFGH-JKLM', '2345abcdghjk')).toBe('2345-ABCD-GHJK')
 })

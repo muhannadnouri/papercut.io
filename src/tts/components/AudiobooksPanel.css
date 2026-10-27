@@ -715,7 +715,8 @@ html[dir="rtl"] .audiobooks-setup-button-summary {
   max-width: min(34rem, calc(100vw - 2rem));
   padding-block: 0.6rem;
   padding-inline: 0.8rem 0.6rem;
-  border: 1px solid var(--success-border);
+  /* Tonal: the fill says what kind of message it is; the shadow lifts it off the page. */
+  border: 1px solid transparent;
   border-radius: var(--radius-surface);
   background: var(--surface-success);
   color: var(--success-strong);
@@ -726,14 +727,12 @@ html[dir="rtl"] .audiobooks-setup-button-summary {
 }
 
 .audiobook-action-toast-error {
-  border-color: var(--danger-border);
   background: var(--surface-danger);
   color: var(--danger-strong);
 }
 
 .audiobook-action-toast-cancelled {
-  border-color: var(--border-strong);
-  background: var(--surface);
+  background: var(--surface-strong);
   color: var(--text-body);
 }
 
@@ -743,9 +742,9 @@ html[dir="rtl"] .audiobooks-setup-button-summary {
   place-items: center;
   width: 1.85rem;
   height: 1.85rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
-  background: var(--surface-muted);
+  background: var(--control-surface);
   color: var(--text-muted);
   font: inherit;
   font-size: 1.25rem;
@@ -754,9 +753,9 @@ html[dir="rtl"] .audiobooks-setup-button-summary {
 }
 
 .audiobook-action-toast-dismiss:focus-visible {
-  border-color: currentcolor;
   color: var(--text-heading);
   outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 html[dir="rtl"] .tts-select {
@@ -809,7 +808,7 @@ html[dir="rtl"] .audiobook-action-toast {
   }
 
   .audiobook-action-toast-dismiss:hover {
-    border-color: currentcolor;
+    background: var(--surface-accent);
     color: var(--text-heading);
   }
 
@@ -994,6 +993,7 @@ html[dir="rtl"] .audiobook-action-toast {
 
   .audiobook-resume,
   .audiobook-secondary {
+    justify-self: stretch;
     min-height: 2.25rem;
   }
 }

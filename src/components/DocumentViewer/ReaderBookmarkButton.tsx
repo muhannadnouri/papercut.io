@@ -52,6 +52,8 @@ export function ReaderBookmarkButton({
         offset={8}
         containerPadding={8}
         shouldFlip
+        // React Aria sets an inline z-index of 100000; match the playback dock's top layer instead.
+        style={{ zIndex: 2147483647 }}
       >
         <Menu className="reader-bookmark-menu" aria-label={label}>
           {!isAtBookmark && (
@@ -62,7 +64,7 @@ export function ReaderBookmarkButton({
           )}
           {!isAtBookmark && (
             <MenuItem className="reader-bookmark-menu-item" onAction={onMove}>
-              <MoveBookmarkIcon />
+              <UpdateBookmarkIcon />
               <span>{t('reader.moveBookmarkHere')}</span>
             </MenuItem>
           )}
@@ -98,11 +100,11 @@ function GoToBookmarkIcon() {
   )
 }
 
-function MoveBookmarkIcon() {
+function UpdateBookmarkIcon() {
   return (
     <svg className="reader-bookmark-menu-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M6 4.75A2.75 2.75 0 0 1 8.75 2h6.5A2.75 2.75 0 0 1 18 4.75V21l-6-3.5L6 21z" />
-      <path d="M12 6v7m-3-3 3 3 3-3" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" />
+      <path d="m15 5 4 4" />
     </svg>
   )
 }

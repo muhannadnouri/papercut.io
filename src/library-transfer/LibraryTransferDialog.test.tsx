@@ -29,10 +29,10 @@ it.each(Object.entries(locales))('uses the actual pairing-action labels in %s in
   const copy = locale.libraryTransfer
   for (const [instruction, labels] of [
     ['sendDescription', ['modeReceive', 'showPairingDetails']],
-    ['senderListensDescription', ['modeReceive', 'otherConnectionMethod', 'useOtherCode']],
+    ['senderListensDescription', ['modeReceive', 'otherConnectionMethod', 'useSenderCode']],
     ['receiverConnectsDescription', ['modeSend', 'continueToConnection', 'otherConnectionMethod', 'showCodeHere']],
     ['receiverPairingStep', ['modeSend', 'continueToConnection']],
-    ['senderPairingStep', ['modeReceive', 'otherConnectionMethod', 'useOtherCode']],
+    ['senderPairingStep', ['modeReceive', 'otherConnectionMethod', 'useSenderCode']],
   ] as const) {
     for (const label of labels) {
       expect(copy[instruction]).toContain(copy[label])

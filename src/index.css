@@ -214,7 +214,8 @@ html[data-theme="dark"] {
   --text-muted: #abb3bd;
   --text-soft: #8f99a6;
   --text-inverse: #ffffff;
-  --border: #3c4550;
+  /* ~1.5:1 on dark surfaces, matching the light theme's divider contrast. */
+  --border: #313740;
   --border-strong: #626d7b;
   --row-divider: var(--border);
   --accent: #4f46e5;

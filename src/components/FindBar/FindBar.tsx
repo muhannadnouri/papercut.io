@@ -35,6 +35,8 @@ export function FindBar({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
+            // Handled here, so document-level Escape listeners (e.g. the Aa panel) leave it alone.
+            e.preventDefault()
             onClose()
           } else if (e.key === 'Enter' && e.shiftKey) {
             e.preventDefault()
