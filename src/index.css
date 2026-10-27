@@ -258,6 +258,8 @@ html[data-theme="dark"] {
 html {
   background: var(--app-bg);
   color: var(--text);
+  /* Reserve the scrollbar's space so locking scroll under a dialog doesn't shift the page. */
+  scrollbar-gutter: stable;
 }
 
 html[lang="ar"] {

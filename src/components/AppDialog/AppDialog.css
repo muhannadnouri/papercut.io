@@ -1,3 +1,8 @@
+/* A modal dialog blocks the page behind it, so wheel and touch scrolling must not reach the document. */
+html:has(.app-dialog-backdrop) {
+  overflow: hidden;
+}
+
 .app-dialog-backdrop {
   --dialog-safe-top: env(safe-area-inset-top, 0px);
   --dialog-safe-bottom: env(safe-area-inset-bottom, 0px);
