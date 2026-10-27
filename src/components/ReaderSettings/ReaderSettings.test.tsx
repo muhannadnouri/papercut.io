@@ -80,6 +80,28 @@ it('closes on Escape and returns focus to the button', async () => {
   expect(document.activeElement).toBe(button())
 })
 
+it('closes on Escape after focus has left the panel, unless the key was already handled', async () => {
+  await act(() => button().click())
+  const outside = document.createElement('button')
+  document.body.append(outside)
+  outside.focus()
+  const handled = new KeyboardEvent('keydown', {
+    key: 'Escape',
+    bubbles: true,
+    cancelable: true,
+  })
+  handled.preventDefault()
+  await act(() => outside.dispatchEvent(handled))
+  expect(panel()).not.toBeNull()
+  await act(() => outside.dispatchEvent(new KeyboardEvent('keydown', {
+    key: 'Escape',
+    bubbles: true,
+  })))
+  expect(panel()).toBeNull()
+  // Focus stays where the user moved it instead of jumping back to Aa.
+  expect(document.activeElement).toBe(outside)
+})
+
 it('stays open for presses in the font list, which renders outside the panel', async () => {
   // jsdom has no layout, so AppSelect's scroll-to-active-option call needs a stub.
   Element.prototype.scrollIntoView = vi.fn()

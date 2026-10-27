@@ -110,14 +110,28 @@ function EnabledReaderSettings({
     const cancelPress = () => {
       pressStartedOutside = false
     }
+    // Non-modal, so focus can leave the panel; Escape still closes it unless something else
+    // (e.g. AppSelect's open list or the Find bar) already handled the key.
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) {
+        return
+      }
+      const focusInside = panelRef.current?.contains(document.activeElement)
+      setOpen(false)
+      if (focusInside) {
+        buttonRef.current?.focus()
+      }
+    }
     document.addEventListener('pointerdown', startPress)
     document.addEventListener('pointerup', endPress)
     document.addEventListener('pointercancel', cancelPress)
+    document.addEventListener('keydown', closeOnEscape)
     window.addEventListener('resize', place)
     return () => {
       document.removeEventListener('pointerdown', startPress)
       document.removeEventListener('pointerup', endPress)
       document.removeEventListener('pointercancel', cancelPress)
+      document.removeEventListener('keydown', closeOnEscape)
       window.removeEventListener('resize', place)
     }
   }, [open])
@@ -138,13 +152,6 @@ function EnabledReaderSettings({
         tabIndex={-1}
         onPointerDownCapture={() => {
           pointerInPanel.current = true
-        }}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape' && !event.defaultPrevented) {
-            event.stopPropagation()
-            setOpen(false)
-            buttonRef.current?.focus()
-          }
         }}
       >
         <div className="reader-setting-row">
