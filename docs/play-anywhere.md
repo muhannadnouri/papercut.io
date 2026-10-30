@@ -167,8 +167,8 @@ and performance acceptance remains pending.
 | Resolver result | `resolved` with canonical chunk index/id, or `unavailable` with `not-ready`, `unmapped`, `ambiguous`, `invalid-source` or `invalid-point`. Capture/coordinator additionally own `no-visible-text`, `no-selection` and `stale`; the pure resolver does not inspect DOM or session identity. Unexpected errors remain errors rather than successful fallbacks. Degraded books: chunks whose saved span is missing, out of bounds, or unverifiable against the live text drop out of matching alone (the verified pipeline advances its coverage cursor past a dropped span so one bad span cannot cascade); identity, ordering and overlap defects still fail globally, and dropped ranges resolve `unmapped` instead of guessing audio. Ordered text-search recovery runs for every HTML book when saved spans fail first, and fully recovered spans stay strict. |
 | Prepared target boundary | `useAudiobookManager.preparedChunks` exposes canonical chunks without active playback. `resolveTextTarget(documentUrl, capture, signal?)` returns a Promise of a verified canonical index/ID plus original full chunks, document URL and `isCurrent()`, or typed unavailable. It never starts audio. Commit-time document/content/model/chunk changes and unmount dispose preparation caches. The Stage 3 coordinator additionally guards action/options changes and synchronous cancellation before dispatch. |
 | Player initial start | `speak(chunks, options, startIndex = 0)` validates a safe integer in the canonical nonempty sequence before changing audio. Pass the complete sequence, never a sliced tail. It returns whether dispatch was accepted, not whether sound was heard. |
-| Player active target | `playFromChunk(fullChunks, options, index)` returns `Promise<PlaybackStart> \| null`: `null` rejects before any audio change; the Promise settles once with `started` (Play acknowledged), `superseded` (a later command) or `failed` (player error). It reuses an active session only for matching canonical IDs/text/hashes and options. It uses `jumpToChunk(index, true)` for explicit seek-and-play, otherwise starts the existing player at that index. Ordinary mobile jump keeps paused state; Resume keeps time on both platforms. Desktop ordinary jump retains its prior play behavior. |
-| Target playback action | `usePlayAnywherePlayback` owns newest action identity until dispatch, within an immutable audio-option/document scope, and follows the player's `commandSignal()`. Manager exposes `playFromHere(viewerApi)`; existing Read uses `playFromBeginning()`. Results are `dispatched { started }`, `cancelled { superseded \| disposed }`, typed `unavailable`, or `error` with the original error. The reader hook presents loading/failure results and never reports `cancelled`. `started` follows the transport Play Promise; it is not acoustic confirmation. An acknowledged viewport or selection start restores following even when browsing landed during preparation, so the reader reveals the passage playback began from (chunk starts sit above the viewport and mobile playback shows nothing else); beginning resolves to no passage and keeps the browse-won guard. |
+| Player active target | `playFromChunk(fullChunks, options, index, withinChunkFraction?)` returns `Promise<PlaybackStart> \| null`: `null` rejects before any audio change; the Promise settles once with `started` (Play acknowledged), `superseded` (a later command) or `failed` (player error). It reuses an active session only for matching canonical IDs/text/hashes and options. It uses `jumpToChunk(index, true)` for explicit seek-and-play, otherwise starts the existing player at that index. An optional within-chunk character fraction seeks proportionally into the chunk's narration: desktop sets `currentTime` once the chunk metadata is ready, mobile seeks to `chunk start + fraction × duration` on the track; the pending offset clears whenever any other navigation targets a different chunk. Ordinary mobile jump keeps paused state; Resume keeps time on both platforms. Desktop ordinary jump retains its prior play behavior. |
+| Target playback action | `usePlayAnywherePlayback` owns newest action identity until dispatch, within an immutable audio-option/document scope, and follows the player's `commandSignal()`. Manager exposes `playFromHere(viewerApi)`; existing Read uses `playFromBeginning()`. Results are `dispatched { started }`, `cancelled { superseded \| disposed }`, typed `unavailable`, or `error` with the original error. The reader hook presents loading/failure results and never reports `cancelled`. `started` follows the transport Play Promise; it is not acoustic confirmation. An acknowledged viewport or selection start restores following even when browsing landed during preparation, so the reader reveals the passage playback began from (chunk starts sit above the viewport and mobile playback shows nothing else); beginning resolves to no passage and keeps the browse-won guard. HTML resolves also carry the captured point's character fraction inside the resolved chunk (gated at 15%), passed to the player for a proportional in-chunk start; beginning and PDF resolve none and start at the boundary. |
 | Follow policy | Optional `AudioFollowPolicy { allowsReveal(), revision, active? }` preserves automatic following when omitted. `allowsReveal()` reads synchronous reader intent at actual reveal execution; revision makes Return reveal even the same paused chunk; active scopes input listener lifetime. HTML timers and PDF page/range reveals use it; highlighting remains independent. |
 
 At the coordinator boundary bind each request to selected document, current view
@@ -2561,6 +2561,33 @@ Owner checklist (pending):
 - [ ] Android first-play notification-permission dialog: startup continues
   after Allow or Block.
 - [ ] Dev build (StrictMode): Play from here starts on first use.
+
+### 2026-10-29 — Proportional in-chunk start for play-anywhere
+
+Owner feedback after the unmapped fix shipped: playback starts at the
+containing chunk's boundary, a few seconds above the viewport position,
+because saved books carry only chunk-level timing (estimated chunk
+timestamps remain unbuilt). Pre-rendered audio can only start at recorded
+boundaries; industry peers either use production-time word/sentence
+timestamps (Whispersync-class forced alignment) or live TTS, which has
+infinite resolution but is a different mode.
+
+Shipped compromise (commit follows): HTML resolves now compute the
+captured point's character fraction inside the resolved chunk
+(`withinSpanFraction`, exposed via `resolver.spanAt`), gated at 15% —
+boundary clicks stay boundary starts. The fraction travels with the
+dispatch and the player seeks proportionally: desktop sets `currentTime`
+after the chunk's metadata loads; mobile seeks to
+`chunk start + fraction × duration` on the merged track. Accuracy is
+proportional-estimate grade (±1–2s around pauses); it degrades to
+"slightly off", never to the wrong chunk, needs no regeneration, and
+covers existing books and bundles. Play-from-selection remains the
+precision mechanism; PDF keeps boundary starts this stage. Forced
+alignment stays the long-term option if proportional still feels loose.
+
+Evidence: play-anywhere suites 212 passed with new fraction/gating/
+spanAt/passthrough tests; tts hooks and playback suites green; four
+existing play-call assertions gained the new argument.
 
 ### 2026-10-29 — Unmapped-book triage and per-chunk play-from-here degradation
 

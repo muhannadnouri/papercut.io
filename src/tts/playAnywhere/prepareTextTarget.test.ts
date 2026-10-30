@@ -204,6 +204,31 @@ describe('source-only target preparation', () => {
     expect((await second.resolve('/book.html', htmlCapture())).status).toBe('resolved')
   })
 
+  it('reports the within-chunk fraction only when the point sits deep enough for a seek', async () => {
+    const preparation = createTextTargetPreparation(options())
+    // Default capture point is segment 1 offset 2 of 'Second.' (7 chars): 2/7 is deep enough.
+    const deep = await preparation.resolve('/book.html', htmlCapture())
+    expect(deep).toMatchObject({
+      status: 'resolved',
+      chunkId: 'b',
+      withinChunkFraction: 2 / 7,
+    })
+    // A point at the chunk start stays a boundary start.
+    const near = htmlCapture()
+    if (near.status === 'captured') {
+      near.point = {
+        format: 'html',
+        segmentIndex: 1,
+        offset: 0,
+      }
+    }
+    expect(await preparation.resolve('/book.html', near)).toMatchObject({
+      status: 'resolved',
+      chunkId: 'b',
+      withinChunkFraction: undefined,
+    })
+  })
+
   it('requires live text identity, not equal lengths; rejects wrong documents, unavailable and stale views', async () => {
     const preparation = createTextTargetPreparation(options())
     expect(await preparation.resolve('/book.html', htmlCapture(['First.', 'Changed']))).toMatchObject({ reason: 'unmapped' })

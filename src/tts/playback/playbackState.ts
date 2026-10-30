@@ -34,6 +34,18 @@ export function findPlaybackChunk(
   return currentTime < chunks[0].startSec ? chunks[0] : chunks[chunks.length - 1]
 }
 
+/** Clock position for a proportional start inside one chunk's narration. */
+export function chunkSeekSeconds(
+  timing: { startSec: number;
+    durationSec: number },
+  fraction: number,
+): number {
+  return Math.min(
+    timing.startSec + fraction * timing.durationSec,
+    timing.startSec + timing.durationSec - 0.05,
+  )
+}
+
 export function normalizePlaybackRate(rate: number): number {
   if (!Number.isFinite(rate) || rate <= 0) {
     return DEFAULT_PLAYBACK_RATE

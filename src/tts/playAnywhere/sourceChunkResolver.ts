@@ -25,8 +25,51 @@ interface ChunkSourceEntry {
 
 type ChunkSourceResolver =
   | { status: 'ready';
-    resolve: (point: SourceTextPoint) => ChunkTargetResult }
+    resolve: (point: SourceTextPoint) => ChunkTargetResult
+    spanAt: (chunkIndex: number) => { start: SourceTextPoint;
+      end: SourceTextPoint } | null }
   | UnavailableTarget
+
+/**
+ * Where `point` sits inside the `start..end` span as a 0..1 character
+ * fraction, or null when the point lies outside the span or the span is
+ * empty. Points are compared over cumulative segment lengths.
+ */
+export function withinSpanFraction(
+  point: SourceTextPoint,
+  start: SourceTextPoint,
+  end: SourceTextPoint,
+  lengths: readonly number[],
+): number | null {
+  // Chunk spans use half-open ends, so the end offset may equal its segment
+  // length; only the start needs the strict inside-the-segment check.
+  if (!isTextPoint(start, lengths)) {
+    return null
+  }
+  const endValid = Number.isSafeInteger(end.segmentIndex) && end.segmentIndex >= 0 &&
+    Number.isSafeInteger(end.offset) && end.offset > 0 &&
+    end.offset <= (lengths[end.segmentIndex] ?? -1)
+  if (!endValid) {
+    return null
+  }
+  const globalOffset = (value: SourceTextPoint) => {
+    let total = 0
+    for (let index = 0; index < value.segmentIndex && index < lengths.length; index++) {
+      total += lengths[index]
+    }
+    return total + value.offset
+  }
+  const spanStart = globalOffset(start)
+  const spanLength = globalOffset(end) - spanStart
+  if (spanLength <= 0) {
+    return null
+  }
+  const fraction = (globalOffset(point) - spanStart) / spanLength
+  if (!Number.isFinite(fraction) || fraction < 0 || fraction >= 1) {
+    return null
+  }
+  return fraction
+}
 
 /** Index validated/recovered spans once; points and lengths use normalized UTF-16. */
 export function createChunkSourceResolver(
@@ -111,6 +154,16 @@ export function createChunkSourceResolver(
 
   return {
     status: 'ready',
+    spanAt: (chunkIndex) => {
+      const entry = entries[chunkIndex]
+      if (!entry) {
+        return null
+      }
+      return {
+        start: entry.start,
+        end: entry.end,
+      }
+    },
     resolve(point) {
       if (!isTextPoint(point, lengths)) {
         return {

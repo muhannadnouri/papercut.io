@@ -31,6 +31,7 @@ import {
 import { BrowserAudioCache } from '../playback/browserAudioCache'
 import {
   DEFAULT_PLAYBACK_RATE,
+  chunkSeekSeconds,
   findPlaybackChunk,
   isNativeMobilePlatform,
   isTransientPlaybackInterruption,
@@ -154,6 +155,10 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
   const commandRef = useRef(new AbortController())
   const startRef = useRef<{ signal: AbortSignal;
     settle: (start: PlaybackStart) => void } | null>(null)
+  // Proportional in-chunk start from play-anywhere: consumed once by the
+  // navigation targeting the same chunk index, cleared on any other target.
+  const withinChunkOffsetRef = useRef<{ index: number;
+    fraction: number } | null>(null)
 
   const beginCommand = useCallback(() => {
     commandRef.current.abort()
@@ -406,6 +411,11 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     if (!item) {
       return false
     }
+    let withinChunkFraction: number | null = null
+    if (withinChunkOffsetRef.current?.index === index) {
+      withinChunkFraction = withinChunkOffsetRef.current.fraction
+      withinChunkOffsetRef.current = null
+    }
 
     const playJobId = jobIdRef.current
     const playNavigationIntent = navigationIntentRef.current
@@ -452,29 +462,53 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
         message: i18n.t('tts.status.preparingPlayback'),
         pendingChunkIndex: index,
       }))
-      audio.play().then(() => {
-        if (!currentAttempt()) {
-          return
+      const begin = () => {
+        audio.play().then(() => {
+          if (!currentAttempt()) {
+            return
+          }
+          playingRef.current = true
+          pendingTargetIndexRef.current = null
+          const duration = Number.isFinite(audio.duration) ? audio.duration : 0
+          const time = Number.isFinite(audio.currentTime) ? audio.currentTime : 0
+          setState(prev => ({
+            ...prev,
+            status: 'playing',
+            message: '',
+            chunksPlayed: index,
+            currentText: item.text,
+            currentChunkIndex: index,
+            pendingChunkIndex: null,
+            currentChunkId: item.chunkId,
+            currentChunkTime: time,
+            currentChunkDuration: duration,
+            currentChunkProgress: duration > 0 ? Math.min(time / duration, 1) : 0,
+          }))
+          settleStart('started')
+        }).catch(fail)
+      }
+      if (withinChunkFraction !== null && !resumeCurrent) {
+        // The duration is only known once metadata is in; start from the
+        // proportional position instead of the chunk boundary. Superseded
+        // attempts drop out through the same currentAttempt fence.
+        const seekAndBegin = () => {
+          if (!currentAttempt()) {
+            return
+          }
+          const duration = Number.isFinite(audio.duration) ? audio.duration : 0
+          if (duration > 0) {
+            audio.currentTime = Math.min(withinChunkFraction * duration, Math.max(duration - 0.05, 0))
+          }
+          begin()
         }
-        playingRef.current = true
-        pendingTargetIndexRef.current = null
-        const duration = Number.isFinite(audio.duration) ? audio.duration : 0
-        const time = Number.isFinite(audio.currentTime) ? audio.currentTime : 0
-        setState(prev => ({
-          ...prev,
-          status: 'playing',
-          message: '',
-          chunksPlayed: index,
-          currentText: item.text,
-          currentChunkIndex: index,
-          pendingChunkIndex: null,
-          currentChunkId: item.chunkId,
-          currentChunkTime: time,
-          currentChunkDuration: duration,
-          currentChunkProgress: duration > 0 ? Math.min(time / duration, 1) : 0,
-        }))
-        settleStart('started')
-      }).catch(fail)
+        if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) {
+          seekAndBegin()
+        } else {
+          audio.addEventListener('loadedmetadata', seekAndBegin, { once: true })
+        }
+      } else {
+        begin()
+      }
       return true
     } catch (err) {
       fail(err)
@@ -630,7 +664,12 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
           pendingChunkIndex: targetIndex,
         }))
         try {
-          const nativeState = await seekNativeAudio(timing.startSec, current)
+          let seekSeconds = timing.startSec
+          if (withinChunkOffsetRef.current?.index === targetIndex) {
+            seekSeconds = chunkSeekSeconds(timing, withinChunkOffsetRef.current.fraction)
+            withinChunkOffsetRef.current = null
+          }
+          const nativeState = await seekNativeAudio(seekSeconds, current)
           if (!current()) {
             continue
           }
@@ -676,6 +715,9 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
   const seekMobileToChunk = useCallback((index: number, playAfterSeek = false) => {
     if (!mobileModeRef.current || totalChunksRef.current === 0) {
       return
+    }
+    if (withinChunkOffsetRef.current && withinChunkOffsetRef.current.index !== index) {
+      withinChunkOffsetRef.current = null
     }
     mobileQueuedIndexRef.current = clampChunkIndex(index)
     mobileQueuedPlayRef.current = playAfterSeek
@@ -785,6 +827,9 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
   const startPlaybackAt = useCallback((index: number) => {
     if (totalChunksRef.current === 0) {
       return
+    }
+    if (withinChunkOffsetRef.current && withinChunkOffsetRef.current.index !== index) {
+      withinChunkOffsetRef.current = null
     }
     queuedTargetIndexRef.current = clampChunkIndex(index)
     navigationIntentRef.current += 1
@@ -984,7 +1029,12 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     if (!current()) {
       return
     }
-    const target = await seekNativeAudio(playback.chunks[startIndex].startSec, current)
+    let seekSeconds = playback.chunks[startIndex].startSec
+    if (withinChunkOffsetRef.current?.index === startIndex) {
+      seekSeconds = chunkSeekSeconds(playback.chunks[startIndex], withinChunkOffsetRef.current.fraction)
+      withinChunkOffsetRef.current = null
+    }
+    const target = await seekNativeAudio(seekSeconds, current)
     if (!current()) {
       return
     }
@@ -1253,11 +1303,19 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     }
   }, [beginCommand, isCurrentJob, seekMobileToChunk, startPlaybackAt, syncMobileForegroundState])
 
-  /** Start at a canonical index; the returned promise reports that start once, or null if rejected before any change. */
-  const playFromChunk = useCallback((chunks: readonly TtsChunk[], options: TtsOptions, index: number): Promise<PlaybackStart> | null => {
+  /** Start at a canonical index; the returned promise reports that start once, or null if rejected before any change.
+   * An optional within-chunk fraction seeks proportionally into the chunk's narration (play-anywhere). */
+  const playFromChunk = useCallback((chunks: readonly TtsChunk[], options: TtsOptions, index: number, withinChunkFraction?: number): Promise<PlaybackStart> | null => {
     if (!Number.isSafeInteger(index) || index < 0) {
       return null
     }
+    const offset = typeof withinChunkFraction === 'number' &&
+      Number.isFinite(withinChunkFraction) && withinChunkFraction > 0 && withinChunkFraction < 1
+      ? {
+        index,
+        fraction: withinChunkFraction,
+      }
+      : null
     const canonical = sourceChunksRef.current === chunks ? chunksRef.current : chunks.filter(chunk => chunk.text.trim())
     if (index >= canonical.length) {
       return null
@@ -1265,9 +1323,13 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     if (currentPlayingIndexRef.current !== null && optionsRef.current && samePlaybackOptions(optionsRef.current, options) &&
       (sourceChunksRef.current === chunks || canonical.length === chunksRef.current.length &&
         canonical.every((chunk, position) => chunk.id === chunksRef.current[position].id && chunk.text === chunksRef.current[position].text && chunk.textHash === chunksRef.current[position].textHash))) {
+      withinChunkOffsetRef.current = offset
       jumpToChunk(index, true)
     } else if (!speak(chunks, options, index)) {
       return null
+    } else {
+      // Consumption happens in the async navigation the speak chain starts.
+      withinChunkOffsetRef.current = offset
     }
     // The dispatch began this epoch; any later command aborts it and supersedes the start.
     const signal = commandRef.current.signal

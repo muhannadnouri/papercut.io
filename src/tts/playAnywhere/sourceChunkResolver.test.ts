@@ -11,7 +11,10 @@ import type {
 import { graftImportedSourceSpans } from '../alignment/importedSourceSpans'
 import { normalizeSegmentText } from '../alignment/readableSegments'
 import { chunkReadableSegmentsWithSpans } from '../utils/text'
-import { createChunkSourceResolver } from './sourceChunkResolver'
+import {
+  createChunkSourceResolver,
+  withinSpanFraction,
+} from './sourceChunkResolver'
 
 vi.mock('../diagnostics/TtsDiagnostics', () => ({ logTtsDiagnostic: vi.fn() }))
 
@@ -36,6 +39,84 @@ function ready(chunks: readonly TtsChunk[], lengths: readonly number[]) {
   }
   return resolver
 }
+
+describe('withinSpanFraction', () => {
+  it('maps a point to its character fraction inside the span, cross-segment included', () => {
+    expect(withinSpanFraction({
+      segmentIndex: 0,
+      offset: 2,
+    }, {
+      segmentIndex: 0,
+      offset: 0,
+    }, {
+      segmentIndex: 0,
+      offset: 8,
+    }, [8])).toBe(0.25)
+    expect(withinSpanFraction({
+      segmentIndex: 0,
+      offset: 0,
+    }, {
+      segmentIndex: 0,
+      offset: 0,
+    }, {
+      segmentIndex: 0,
+      offset: 8,
+    }, [8])).toBe(0)
+    expect(withinSpanFraction({
+      segmentIndex: 1,
+      offset: 2,
+    }, {
+      segmentIndex: 0,
+      offset: 5,
+    }, {
+      segmentIndex: 1,
+      offset: 5,
+    }, [6, 9])).toBe(0.5)
+  })
+
+  it('rejects points outside the span and empty spans', () => {
+    expect(withinSpanFraction({
+      segmentIndex: 0,
+      offset: 8,
+    }, {
+      segmentIndex: 0,
+      offset: 0,
+    }, {
+      segmentIndex: 0,
+      offset: 8,
+    }, [8])).toBeNull()
+    expect(withinSpanFraction({
+      segmentIndex: 0,
+      offset: 1,
+    }, {
+      segmentIndex: 0,
+      offset: 4,
+    }, {
+      segmentIndex: 0,
+      offset: 8,
+    }, [8])).toBeNull()
+    expect(withinSpanFraction({
+      segmentIndex: 0,
+      offset: 2,
+    }, {
+      segmentIndex: 0,
+      offset: 4,
+    }, {
+      segmentIndex: 0,
+      offset: 4,
+    }, [8])).toBeNull()
+    expect(withinSpanFraction({
+      segmentIndex: 0,
+      offset: 0,
+    }, {
+      segmentIndex: 0,
+      offset: 0,
+    }, {
+      segmentIndex: 0,
+      offset: 8,
+    }, [-1])).toBeNull()
+  })
+})
 
 describe('play-anywhere source chunk resolver', () => {
   it('chooses the containing canonical chunk at half-open boundaries', () => {
@@ -467,5 +548,20 @@ describe('play-anywhere source chunk resolver', () => {
       }
     })
     expect(JSON.stringify(chunks)).toBe(before)
+  })
+
+  it('exposes accepted chunk spans for proportional seeking', () => {
+    const resolver = ready([chunk('first', 0, 5), chunk('second', 5, 10)], [12])
+    expect(resolver.spanAt(1)).toEqual({
+      start: {
+        segmentIndex: 0,
+        offset: 5,
+      },
+      end: {
+        segmentIndex: 0,
+        offset: 10,
+      },
+    })
+    expect(resolver.spanAt(9)).toBeNull()
   })
 })
