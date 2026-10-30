@@ -12,10 +12,6 @@ import type {
 const STORAGE_PREFIX = 'papercut:reader-bookmark:'
 const BOOKMARKS_CHANGED_EVENT = 'papercut:reader-bookmarks-changed'
 const NOTICE_MS = 6000
-// Must stay in sync with the .document-restoring-surface animation delay in
-// DocumentViewer.css: the surface becomes visible at this delay, so the seek
-// may only block from this moment on or the indicator never paints.
-const RESTORING_SURFACE_REVEAL_MS = 180
 
 type BookmarkNotice = 'restored' | 'saved' | 'updated' | 'removed' | 'changeUndone' | null
 
@@ -160,25 +156,26 @@ export function useReaderBookmark(
   }, [storeCurrentBookmark])
 
   // Resolving a bookmark anchor walks every text node and forces layout, so
-  // large books block the main thread for the whole seek. Paint the restoring
-  // surface and hold through its reveal delay before that work starts, or the
-  // seek blocks first and the indicator never becomes visible.
+  // large books block the main thread for the whole seek. The restoring
+  // surface is visible from mount (no reveal delay: any seek that can start
+  // before a paint races the reveal and hides the indicator forever), and the
+  // double rAF guarantees one painted frame of it before the seek blocks.
   const runRestore = useCallback((bookmark: ReaderBookmark) => {
     setRestoringBookmark(true)
-    let seekTimer = 0
-    const frame = requestAnimationFrame(() => {
-      seekTimer = window.setTimeout(() => {
-        seekTimer = 0
+    let innerFrame = 0
+    const outerFrame = requestAnimationFrame(() => {
+      innerFrame = requestAnimationFrame(() => {
+        innerFrame = 0
         viewerApi?.restore(bookmark.viewerLocation)
         setIsAtBookmark(true)
         setBookmarkNotice('restored')
         setRestoringBookmark(false)
-      }, RESTORING_SURFACE_REVEAL_MS)
+      })
     })
     cancelRestoreRef.current = () => {
-      cancelAnimationFrame(frame)
-      if (seekTimer) {
-        window.clearTimeout(seekTimer)
+      cancelAnimationFrame(outerFrame)
+      if (innerFrame) {
+        cancelAnimationFrame(innerFrame)
       }
     }
   }, [viewerApi])
