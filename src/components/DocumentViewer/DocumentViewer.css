@@ -325,6 +325,23 @@ html[dir="rtl"] .back-icon {
   }
 }
 
+/* Bookmark restore keeps the mounted reader underneath and covers the
+ * viewport instead. Quick restores finish before the reveal delay, so small
+ * documents never flash the surface. */
+.document-restoring-surface {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  visibility: hidden;
+  animation: reveal-document-restoring-surface 0s 180ms forwards;
+}
+
+@keyframes reveal-document-restoring-surface {
+  to {
+    visibility: visible;
+  }
+}
+
 .document-load-error {
   flex-direction: column;
   color: var(--danger-strong);

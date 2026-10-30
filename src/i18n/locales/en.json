@@ -641,6 +641,7 @@
     "preparingDocument": "Preparing document...",
     "preparingBook": "Preparing chapters and illustrations...",
     "largeDocumentDelay": "Large documents can take a little longer.",
+    "restoringBookmark": "Restoring bookmark...",
     "unableToOpen": "Unable to open document.",
     "bookmarkRestored": "Jumped to bookmark.",
     "bookmarkRemoved": "Bookmark removed.",

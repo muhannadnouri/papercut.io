@@ -634,6 +634,7 @@
     "preparingDocument": "正在准备文档...",
     "preparingBook": "正在准备章节和插图...",
     "largeDocumentDelay": "大型文档可能需要更长时间。",
+    "restoringBookmark": "正在恢复书签...",
     "unableToOpen": "无法打开文档。",
     "bookmarkRestored": "已跳转到书签。",
     "bookmarkRemoved": "书签已删除。",

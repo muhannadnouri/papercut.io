@@ -31,6 +31,7 @@ interface UseReaderBookmarkReturn {
   canUndoBookmarkChange: boolean
   hasBookmark: boolean
   isAtBookmark: boolean
+  restoringBookmark: boolean
   dismissBookmarkNotice: () => void
   moveBookmark: () => void
   removeBookmark: () => void
@@ -90,9 +91,11 @@ export function useReaderBookmark(
   const [bookmarkNotice, setBookmarkNotice] = useState<BookmarkNotice>(null)
   const [hasBookmark, setHasBookmark] = useState(false)
   const [isAtBookmark, setIsAtBookmark] = useState(false)
+  const [restoringBookmark, setRestoringBookmark] = useState(false)
   const bookmarkRef = useRef<ReaderBookmark | null>(null)
   const undoBookmarkRef = useRef<ReaderBookmark | null>(null)
   const restoredKeyRef = useRef('')
+  const cancelRestoreRef = useRef<() => void>(() => {})
 
   const loadBookmark = useCallback((): ReaderBookmark | null => {
     try {
@@ -152,16 +155,38 @@ export function useReaderBookmark(
     storeCurrentBookmark(bookmarkRef.current)
   }, [storeCurrentBookmark])
 
+  // Resolving a bookmark anchor walks every text node and forces layout, so
+  // large books block the main thread for the whole seek. Show the restoring
+  // surface for a frame before that work starts so the wait reads as progress
+  // rather than a frozen reader.
+  const runRestore = useCallback((bookmark: ReaderBookmark) => {
+    setRestoringBookmark(true)
+    let innerFrame = 0
+    const outerFrame = requestAnimationFrame(() => {
+      innerFrame = requestAnimationFrame(() => {
+        innerFrame = 0
+        viewerApi?.restore(bookmark.viewerLocation)
+        setIsAtBookmark(true)
+        setBookmarkNotice('restored')
+        setRestoringBookmark(false)
+      })
+    })
+    cancelRestoreRef.current = () => {
+      cancelAnimationFrame(outerFrame)
+      if (innerFrame) {
+        cancelAnimationFrame(innerFrame)
+      }
+    }
+  }, [viewerApi])
+
   const restoreBookmark = useCallback(() => {
     const bookmark = bookmarkRef.current
     if (!enabled || !viewerApi || !bookmark) {
       return
     }
     undoBookmarkRef.current = null
-    viewerApi.restore(bookmark.viewerLocation)
-    setIsAtBookmark(true)
-    setBookmarkNotice('restored')
-  }, [enabled, viewerApi])
+    runRestore(bookmark)
+  }, [enabled, runRestore, viewerApi])
 
   const removeBookmark = useCallback(() => {
     const bookmark = bookmarkRef.current
@@ -216,9 +241,7 @@ export function useReaderBookmark(
         viewerApi
       ) {
         restoredKeyRef.current = storageKey(url)
-        viewerApi.restore(bookmark.viewerLocation)
-        setIsAtBookmark(true)
-        setBookmarkNotice('restored')
+        runRestore(bookmark)
         return
       }
       setIsAtBookmark(bookmark && viewerApi
@@ -227,8 +250,12 @@ export function useReaderBookmark(
       setBookmarkNotice(null)
     })
 
-    return () => cancelAnimationFrame(frame)
-  }, [enabled, loadBookmark, restoreOnOpen, url, viewerApi])
+    return () => {
+      cancelAnimationFrame(frame)
+      cancelRestoreRef.current()
+      setRestoringBookmark(false)
+    }
+  }, [enabled, loadBookmark, restoreOnOpen, runRestore, url, viewerApi])
 
   useEffect(() => {
     if (!enabled) {
@@ -275,6 +302,7 @@ export function useReaderBookmark(
     dismissBookmarkNotice,
     hasBookmark,
     isAtBookmark,
+    restoringBookmark,
     moveBookmark,
     removeBookmark,
     restoreBookmark,

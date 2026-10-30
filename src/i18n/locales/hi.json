@@ -641,6 +641,7 @@
     "preparingDocument": "दस्तावेज़ तैयार किया जा रहा है...",
     "preparingBook": "अध्याय और चित्र तैयार किए जा रहे हैं...",
     "largeDocumentDelay": "बड़े दस्तावेज़ों में थोड़ा अधिक समय लग सकता है।",
+    "restoringBookmark": "बुकमार्क पुनर्स्थापित हो रहा है...",
     "unableToOpen": "दस्तावेज़ खोलने में असमर्थ.",
     "bookmarkRestored": "बुकमार्क पर पहुँच गए।",
     "bookmarkRemoved": "बुकमार्क हटा दिया गया.",

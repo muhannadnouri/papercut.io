@@ -648,6 +648,7 @@
     "preparingDocument": "Préparation du document...",
     "preparingBook": "Préparation des chapitres et illustrations...",
     "largeDocumentDelay": "Les documents volumineux peuvent prendre un peu plus de temps.",
+    "restoringBookmark": "Restauration du signet...",
     "unableToOpen": "Impossible d'ouvrir le document.",
     "bookmarkRestored": "Retour au signet.",
     "bookmarkRemoved": "Signet supprimé.",

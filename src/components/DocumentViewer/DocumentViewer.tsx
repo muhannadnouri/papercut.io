@@ -149,6 +149,7 @@ export function DocumentViewer({
     dismissBookmarkNotice,
     hasBookmark,
     isAtBookmark,
+    restoringBookmark,
     moveBookmark,
     removeBookmark,
     restoreBookmark: returnToBookmark,
@@ -686,6 +687,22 @@ export function DocumentViewer({
             getTextTargetViewport={onTextTargetApiChange ? getTextTargetViewport : undefined}
             onFullscreenChange={togglePdfFullscreen}
           />
+        )}
+
+        {restoringBookmark && (
+          <div
+            className="document-html-surface document-loading-surface document-restoring-surface"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="spinner" aria-hidden="true" />
+            <span className="document-loading-message">
+              <span>{t('reader.restoringBookmark')}</span>
+              <span className="document-loading-detail">
+                {t('reader.largeDocumentDelay')}
+              </span>
+            </span>
+          </div>
         )}
       </main>
 

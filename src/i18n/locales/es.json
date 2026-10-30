@@ -648,6 +648,7 @@
     "preparingDocument": "Preparando el documento...",
     "preparingBook": "Preparando capítulos e ilustraciones...",
     "largeDocumentDelay": "Los documentos grandes pueden tardar un poco más.",
+    "restoringBookmark": "Restaurando marcador...",
     "unableToOpen": "No se puede abrir el documento.",
     "bookmarkRestored": "Se saltó al marcador.",
     "bookmarkRemoved": "Marcador eliminado.",

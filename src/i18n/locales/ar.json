@@ -669,6 +669,7 @@
     "preparingDocument": "جارٍ تحضير المستند...",
     "preparingBook": "جارٍ تحضير الفصول والصور...",
     "largeDocumentDelay": "قد تستغرق المستندات الكبيرة وقتًا أطول قليلًا.",
+    "restoringBookmark": "جارٍ استعادة العلامة المرجعية...",
     "unableToOpen": "تعذّر فتح المستند.",
     "bookmarkRestored": "تم الانتقال إلى العلامة المرجعية.",
     "bookmarkRemoved": "تمت إزالة العلامة المرجعية.",

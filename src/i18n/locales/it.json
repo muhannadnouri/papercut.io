@@ -648,6 +648,7 @@
     "preparingDocument": "Preparazione del documento...",
     "preparingBook": "Preparazione di capitoli e illustrazioni...",
     "largeDocumentDelay": "I documenti di grandi dimensioni possono richiedere più tempo.",
+    "restoringBookmark": "Ripristino del segnalibro...",
     "unableToOpen": "Impossibile aprire il documento.",
     "bookmarkRestored": "Passato al segnalibro.",
     "bookmarkRemoved": "Segnalibro rimosso.",
