@@ -246,6 +246,12 @@ export function createHtmlTextTargetApi(
             return
           }
           pending = null
+          // Anchor the reading position at the visual focus band (upper third
+          // of the viewport) instead of the top edge: the topmost text often
+          // belongs to the previous passage, which made play-from-here start
+          // audibly above where the user was actually looking.
+          const anchorTop = bounds.top + (bounds.bottom - bounds.top) * 0.3
+          let fallback: ViewerTextTargetResult | null = null
           const candidates = [...built.visible.keys()]
             .flatMap((owner) => built.owners.get(owner) ?? [])
             .sort((a, b) => a - b)
@@ -255,12 +261,41 @@ export function createHtmlTextTargetApi(
             if (!clip) {
               continue
             }
+            const bandClip = {
+              ...clip,
+              top: Math.max(clip.top, anchorTop),
+            }
             for (const node of segment.textNodes) {
               if (!visibleText(node, root)) {
                 continue
               }
-              const offset = firstVisibleTextOffset(node, clip)
-              const point = offset === null ? null : normalizeDomTextPoint(segment.textNodes, node, offset)
+              const offset = firstVisibleTextOffset(node, bandClip)
+              if (offset === null) {
+                if (!fallback) {
+                  // Remember the topmost visible text for viewports whose
+                  // text all sits above the anchor band (end of book, short
+                  // screens, image gaps).
+                  const topOffset = firstVisibleTextOffset(node, clip)
+                  const topPoint = topOffset === null
+                    ? null
+                    : normalizeDomTextPoint(segment.textNodes, node, topOffset)
+                  fallback = topPoint
+                    ? {
+                      status: 'captured',
+                      point: {
+                        format: 'html',
+                        segmentIndex,
+                        offset: topPoint.normalizedOffset,
+                      },
+                      segmentLengths: built.lengths,
+                      segmentTexts: built.texts,
+                      isCurrent: () => isCurrent(version),
+                    }
+                    : null
+                }
+                continue
+              }
+              const point = normalizeDomTextPoint(segment.textNodes, node, offset)
               if (!point) {
                 continue
               }
@@ -277,6 +312,10 @@ export function createHtmlTextTargetApi(
               })
               return
             }
+          }
+          if (fallback) {
+            resolve(fallback)
+            return
           }
           const canHitTest = typeof doc.caretPositionFromPoint === 'function' || typeof doc.caretRangeFromPoint === 'function'
           resolve({

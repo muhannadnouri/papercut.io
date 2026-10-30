@@ -11,6 +11,7 @@ import type {
   TtsChunk,
   TtsOptions,
 } from '../types'
+import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import type { PlaybackStart } from '../hooks/useTtsPlayer'
 import type { PreparedTextTargetResult } from './prepareTextTarget'
 
@@ -100,6 +101,10 @@ export function createPlayAnywherePlayback(scope: PlaybackTargetOptions) {
       if (!valid()) {
         return unavailable('stale')
       }
+      logTtsDiagnostic('[play-anywhere] start target', {
+        chunkIndex: index,
+        withinChunkFraction: withinChunkFraction ?? null,
+      })
       const started = scope.play(chunks, scope.options, index, withinChunkFraction)
       return started ? {
         status: 'dispatched',

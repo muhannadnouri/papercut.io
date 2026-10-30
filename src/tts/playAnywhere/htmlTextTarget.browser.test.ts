@@ -82,6 +82,8 @@ function visible(node) {
 function expected() {
   const box=bounds(), index=HtmlTargets.buildReadableDomSegmentIndex(root);
   if(!box)return null;
+  const anchor=box.top+(box.bottom-box.top)*0.3;
+  let first=null;
   for(let segmentIndex=0;segmentIndex<index.segments.length;segmentIndex++) {
     const segment=index.segments[segmentIndex];
     const text=HtmlTargets.normalizeSegmentText(segment.textNodes.map(n=>n.data).join(''));
@@ -89,11 +91,14 @@ function expected() {
       if(/\\s/.test(text[offset]))continue;
       const range=HtmlTargets.createRangeForSourceSpan(document,index,{startSegmentIndex:segmentIndex,endSegmentIndex:segmentIndex,startOffset:offset,endOffset:offset+1});
       if(!range||!visible(range.startContainer))continue;
-      if([...range.getClientRects()].some(r=>r.bottom>box.top&&r.top<box.bottom&&r.right>box.left&&r.left<box.right))
-        return {format:'html',segmentIndex,offset};
+      const rects=[...range.getClientRects()].filter(r=>r.bottom>box.top&&r.top<box.bottom&&r.right>box.left&&r.left<box.right);
+      if(!rects.length)continue;
+      const point={format:'html',segmentIndex,offset};
+      if(rects.some(r=>r.bottom>anchor))return point;
+      if(!first)first=point;
     }
   }
-  return null;
+  return first;
 }
 function plain(result) { return result.status==='captured'
   ? {status:result.status,point:result.point,current:result.isCurrent()}

@@ -162,7 +162,7 @@ and performance acceptance remains pending.
 | Contract | Input/output and lifetime |
 | --- | --- |
 | Optional reader target API | `onTextTargetApiChange` registers/unregisters `ViewerTextTargetApi`. Its implemented `captureViewport()` returns a Promise of a captured HTML or PDF point or typed unavailable reason. Optional synchronous `captureSelection()` returns the same result type from the normalized Range start; absent capabilities remain compatible. No audio side effects. |
-| Target snapshot | HTML capture snapshots viewport geometry synchronously, then yields at least two animation frames for browser visibility delivery (up to 500 ms for initial observations). Source/view mutations, scroll or reflow before completion return stale rather than retargeting. HTML output includes frozen normalized `segmentTexts` and `segmentLengths` arrays reused for the lifetime of its source index; PDF includes the original item/word `sourceText`. Both provide `isCurrent()` for source/view lifetime validation. PDF captures already-rendered geometry synchronously inside the Promise method, with no animation-frame wait or page rendering. No DOM references are serialized. Selection snapshots its actual DOM point before menu focus loss. Both endpoints must belong to the current reader. The snapshot survives native collapse during Tab/button focus changes, but rejects a different live range; a reader input epoch invalidates pending targets on fresh non-audio pointer input or non-Tab key input. |
+| Target snapshot | HTML capture snapshots viewport geometry synchronously, anchors the reading position at the visual focus band (30% of the viewport height) rather than the top edge — falling back to the topmost visible text when nothing sits in the band — then yields at least two animation frames for browser visibility delivery (up to 500 ms for initial observations). Source/view mutations, scroll or reflow before completion return stale rather than retargeting. HTML output includes frozen normalized `segmentTexts` and `segmentLengths` arrays reused for the lifetime of its source index; PDF includes the original item/word `sourceText`. Both provide `isCurrent()` for source/view lifetime validation. PDF captures already-rendered geometry synchronously inside the Promise method, with no animation-frame wait or page rendering. No DOM references are serialized. Selection snapshots its actual DOM point before menu focus loss. Both endpoints must belong to the current reader. The snapshot survives native collapse during Tab/button focus changes, but rejects a different live range; a reader input epoch invalidates pending targets on fresh non-audio pointer input or non-Tab key input. |
 | Normalized source point | HTML: readable segment index + normalized UTF-16 offset. PDF: page index + original text-item/block order + source offset. Do not conflate the two coordinate systems. |
 | Resolver result | `resolved` with canonical chunk index/id, or `unavailable` with `not-ready`, `unmapped`, `ambiguous`, `invalid-source` or `invalid-point`. Capture/coordinator additionally own `no-visible-text`, `no-selection` and `stale`; the pure resolver does not inspect DOM or session identity. Unexpected errors remain errors rather than successful fallbacks. Degraded books: chunks whose saved span is missing, out of bounds, or unverifiable against the live text drop out of matching alone (the verified pipeline advances its coverage cursor past a dropped span so one bad span cannot cascade); identity, ordering and overlap defects still fail globally, and dropped ranges resolve `unmapped` instead of guessing audio. Ordered text-search recovery runs for every HTML book when saved spans fail first, and fully recovered spans stay strict. |
 | Prepared target boundary | `useAudiobookManager.preparedChunks` exposes canonical chunks without active playback. `resolveTextTarget(documentUrl, capture, signal?)` returns a Promise of a verified canonical index/ID plus original full chunks, document URL and `isCurrent()`, or typed unavailable. It never starts audio. Commit-time document/content/model/chunk changes and unmount dispose preparation caches. The Stage 3 coordinator additionally guards action/options changes and synchronous cancellation before dispatch. |
@@ -2561,6 +2561,36 @@ Owner checklist (pending):
 - [ ] Android first-play notification-permission dialog: startup continues
   after Allow or Block.
 - [ ] Dev build (StrictMode): Play from here starts on first use.
+
+### 2026-10-29 — Reading-focus capture anchor, restore instrumentation, unfrozen bookmark seek
+
+Owner Android QA after the proportional-seek build: playback still began
+a chunk or two above the reading position, and the restoring-bookmark
+surface still never appeared (content opens, seconds pass, then the
+jump). Investigation, no guessing:
+
+- The viewport capture anchored at `firstVisibleTextOffset` — the top
+  edge — so the resolved chunk was the one containing the topmost text,
+  often the previous passage. The capture now anchors at the visual
+  focus band (30% of the viewport height, below tool occlusion), with
+  the topmost visible text kept as fallback for viewports whose text
+  sits entirely above the band. The browser oracle mirrors the band.
+- Playback-start diagnostics: `[play-anywhere] start target` logs the
+  resolved chunk and fraction; `[tts-playback] native start seek` /
+  `proportional start` log the computed seek seconds on each transport.
+  The next Android run shows definitively whether the fraction applied.
+- The bookmark restore blocked for seconds inside a synchronous
+  full-book text walk, and the surface lost the paint race on Android's
+  slower raster. The html bookmark API now builds its text-node index in
+  12 ms yielding slices (started at viewer mount) and `restore` awaits
+  the finished index; `ViewerBookmarkApi.restore` may return a promise
+  and the reader keeps the surface up until the seek settles, with a
+  supersede guard for document switches. Reader diagnostics: restore
+  seek started/finished with duration — armed-without-finished is the
+  invisible-indicator signature.
+
+Evidence: play-anywhere 212 + readers 11 + htmlTextTarget browser 12
+all green; full suite 716 passed. Owner acceptance pending on Android.
 
 ### 2026-10-29 — Proportional in-chunk start for play-anywhere
 

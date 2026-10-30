@@ -498,6 +498,12 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
           const duration = Number.isFinite(audio.duration) ? audio.duration : 0
           if (duration > 0) {
             audio.currentTime = Math.min(withinChunkFraction * duration, Math.max(duration - 0.05, 0))
+            logTtsDiagnostic('[tts-playback] proportional start', {
+              chunkId: item.chunkId,
+              fraction: Math.round(withinChunkFraction * 100) / 100,
+              seconds: Math.round(audio.currentTime * 100) / 100,
+              duration: Math.round(duration * 100) / 100,
+            })
           }
           begin()
         }
@@ -1034,6 +1040,10 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
       seekSeconds = chunkSeekSeconds(playback.chunks[startIndex], withinChunkOffsetRef.current.fraction)
       withinChunkOffsetRef.current = null
     }
+    logTtsDiagnostic('[tts-playback] native start seek', {
+      chunkIndex: startIndex,
+      seekSeconds: Math.round(seekSeconds * 100) / 100,
+    })
     const target = await seekNativeAudio(seekSeconds, current)
     if (!current()) {
       return
