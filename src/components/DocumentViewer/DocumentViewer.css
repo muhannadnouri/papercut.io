@@ -327,7 +327,8 @@ html[dir="rtl"] .back-icon {
 
 /* Bookmark restore keeps the mounted reader underneath and covers the
  * viewport instead. Quick restores finish before the reveal delay, so small
- * documents never flash the surface. */
+ * documents never flash the surface. The seek itself waits out this delay in
+ * useReaderBookmark (RESTORING_SURFACE_REVEAL_MS) — keep the two in sync. */
 .document-restoring-surface {
   position: fixed;
   inset: 0;

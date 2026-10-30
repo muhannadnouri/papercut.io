@@ -118,35 +118,67 @@ function createBookmarkApiStub() {
   }
 }
 
-function stubAnimationFrames() {
-  const pending = new Map<number, () => void>()
+function stubPendingWork() {
+  const frames = new Map<number, () => void>()
+  const timers = new Map<number, () => void>()
   let nextId = 1
   vi.stubGlobal('requestAnimationFrame', (callback: () => void) => {
     const id = nextId
     nextId += 1
-    pending.set(id, callback)
+    frames.set(id, callback)
     return id
   })
   vi.stubGlobal('cancelAnimationFrame', (id: number) => {
-    pending.delete(id)
+    frames.delete(id)
+  })
+  vi.stubGlobal('setTimeout', (callback: () => void) => {
+    const id = nextId
+    nextId += 1
+    timers.set(id, callback)
+    return id
+  })
+  vi.stubGlobal('clearTimeout', (id: number) => {
+    timers.delete(id)
   })
   return {
-    flush(times = 1) {
+    flushFrames(times = 1) {
       for (let run = 0; run < times; run += 1) {
-        const next = pending.entries().next()
+        const next = frames.entries().next()
         if (next.done) {
           return
         }
-        pending.delete(next.value[0])
+        frames.delete(next.value[0])
         next.value[1]()
+      }
+    },
+    runTimers() {
+      // Drain the timers queued at call time. React's scheduler may interleave
+      // its own render timers ahead of the seek timer, so an exact count never
+      // lands on the seek; timers scheduled during the drain (the post-restore
+      // notice timer) are left queued.
+      let remaining = timers.size
+      while (remaining > 0 && timers.size > 0) {
+        const next = timers.entries().next()
+        if (next.done) {
+          return
+        }
+        timers.delete(next.value[0])
+        next.value[1]()
+        remaining -= 1
       }
     },
   }
 }
 
-function flushAnimationFrames(frames: ReturnType<typeof stubAnimationFrames>, times = 1) {
+function flushAnimationFrames(work: ReturnType<typeof stubPendingWork>, times = 1) {
   act(() => {
-    frames.flush(times)
+    work.flushFrames(times)
+  })
+}
+
+function runPendingTimers(work: ReturnType<typeof stubPendingWork>) {
+  act(() => {
+    work.runTimers()
   })
 }
 
@@ -202,7 +234,7 @@ describe('useReaderBookmark restore indicator', () => {
   })
 
   it('keeps the restoring indicator up while restore-on-open seeks, then completes it', () => {
-    const frames = stubAnimationFrames()
+    const work = stubPendingWork()
     const viewerApi = createBookmarkApiStub()
     seedBookmark('/book.html', 240)
     const harness = createBookmarkHarness()
@@ -212,11 +244,13 @@ describe('useReaderBookmark restore indicator', () => {
       enabled: true,
       viewerApi,
     })
-    flushAnimationFrames(frames)
+    flushAnimationFrames(work)
+    // The indicator is up and the seek waits out the surface reveal delay.
     expect(harness.state.restoringBookmark).toBe(true)
     expect(viewerApi.restore).not.toHaveBeenCalled()
 
-    flushAnimationFrames(frames, 2)
+    flushAnimationFrames(work)
+    runPendingTimers(work)
     expect(viewerApi.restore).toHaveBeenCalledWith({ textOffset: 240 })
     expect(harness.state.restoringBookmark).toBe(false)
     expect(harness.state.bookmarkNotice).toBe('restored')
@@ -226,7 +260,7 @@ describe('useReaderBookmark restore indicator', () => {
   })
 
   it('shows the restoring indicator for an explicit return to the bookmark too', () => {
-    const frames = stubAnimationFrames()
+    const work = stubPendingWork()
     const viewerApi = createBookmarkApiStub()
     seedBookmark('/book.html', 240)
     const harness = createBookmarkHarness()
@@ -237,7 +271,7 @@ describe('useReaderBookmark restore indicator', () => {
       restoreOnOpen: false,
       viewerApi,
     })
-    flushAnimationFrames(frames)
+    flushAnimationFrames(work)
     expect(viewerApi.restore).not.toHaveBeenCalled()
 
     act(() => {
@@ -245,7 +279,8 @@ describe('useReaderBookmark restore indicator', () => {
     })
     expect(harness.state.restoringBookmark).toBe(true)
 
-    flushAnimationFrames(frames, 2)
+    flushAnimationFrames(work)
+    runPendingTimers(work)
     expect(viewerApi.restore).toHaveBeenCalledTimes(1)
     expect(harness.state.restoringBookmark).toBe(false)
     expect(harness.state.bookmarkNotice).toBe('restored')
@@ -254,7 +289,7 @@ describe('useReaderBookmark restore indicator', () => {
   })
 
   it('drops a pending restore when the document changes mid-restore', () => {
-    const frames = stubAnimationFrames()
+    const work = stubPendingWork()
     const viewerApi = createBookmarkApiStub()
     seedBookmark('/book.html', 240)
     const harness = createBookmarkHarness()
@@ -264,7 +299,7 @@ describe('useReaderBookmark restore indicator', () => {
       enabled: true,
       viewerApi,
     })
-    flushAnimationFrames(frames)
+    flushAnimationFrames(work)
     expect(harness.state.restoringBookmark).toBe(true)
 
     harness.render({
@@ -274,7 +309,8 @@ describe('useReaderBookmark restore indicator', () => {
     })
     expect(harness.state.restoringBookmark).toBe(false)
 
-    flushAnimationFrames(frames, 2)
+    flushAnimationFrames(work)
+    runPendingTimers(work)
     expect(viewerApi.restore).not.toHaveBeenCalled()
 
     harness.unmount()
