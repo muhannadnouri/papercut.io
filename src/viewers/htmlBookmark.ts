@@ -21,8 +21,49 @@ export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi {
   const view = root.ownerDocument.defaultView ?? window
   let cached: { location: HtmlBookmarkLocation;
     range: Range } | null = null
+  let nodeIndex: Text[] | null = null
+  let nodeIndexPromise: Promise<Text[]> | null = null
 
-  const resolve = (location: ViewerBookmarkLocation): Range | null => {
+  // The full-book text walk blocks long enough to freeze the reader on large
+  // documents, so build it in yielding slices and consume the finished index
+  // from resolve/restore. Capture keeps its own synchronous walk.
+  const buildNodeIndex = (): Promise<Text[]> => {
+    if (nodeIndexPromise) {
+      return nodeIndexPromise
+    }
+    nodeIndexPromise = new Promise((resolve) => {
+      const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+      const nodes: Text[] = []
+      const step = () => {
+        const sliceStartedAt = view.performance.now()
+        let current: Node | null
+        while ((current = walker.nextNode())) {
+          const node = current as Text
+          const parent = node.parentElement
+          if (
+            parent &&
+            !parent.closest(READER_TEXT_SKIP_SELECTOR) &&
+            /\S/u.test(node.data)
+          ) {
+            nodes.push(node)
+          }
+          if (view.performance.now() - sliceStartedAt > 12) {
+            view.setTimeout(step, 0)
+            return
+          }
+        }
+        nodeIndex = nodes
+        resolve(nodes)
+        indexListeners.forEach((listener) => listener())
+        indexListeners.clear()
+      }
+      step()
+    })
+    return nodeIndexPromise
+  }
+  const indexListeners = new Set<() => void>()
+
+  const resolveWithNodes = (nodes: Text[], location: ViewerBookmarkLocation): Range | null => {
     if (!isHtmlLocation(location)) {
       return null
     }
@@ -32,7 +73,6 @@ export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi {
     ) {
       return cached.range
     }
-    const nodes = readerTextNodes(root)
     const point = textPointAtOffset(
       nodes.map((node) => node.data.length),
       location.textOffset,
@@ -40,8 +80,10 @@ export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi {
     if (!point) {
       return null
     }
-
     const node = nodes[point.partIndex]
+    if (!node || !root.contains(node)) {
+      return null
+    }
     const range = root.ownerDocument.createRange()
     range.setStart(node, point.offset)
     range.setEnd(node, Math.min(node.length, point.offset + 1))
@@ -52,10 +94,15 @@ export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi {
     return range
   }
 
+  void buildNodeIndex()
+
   return {
     capture: () => captureTextLocation(root),
     isCurrent: (location) => {
-      const range = resolve(location)
+      if (!nodeIndex) {
+        return false
+      }
+      const range = resolveWithNodes(nodeIndex, location)
       if (!range) {
         return false
       }
@@ -65,14 +112,18 @@ export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi {
     },
     isPastStart: () => view.scrollY > 180,
     restore: (location) => {
-      const range = resolve(location)
-      if (!range) {
-        return
-      }
-      const bounds = range.getBoundingClientRect()
-      view.scrollTo({
-        top: Math.max(0, view.scrollY + bounds.top),
-        behavior: 'auto',
+      // The yielding index build keeps the reader responsive on large books;
+      // the restoring surface stays up until the seek completes.
+      return buildNodeIndex().then((nodes) => {
+        const range = resolveWithNodes(nodes, location)
+        if (!range) {
+          return
+        }
+        const bounds = range.getBoundingClientRect()
+        view.scrollTo({
+          top: Math.max(0, view.scrollY + bounds.top),
+          behavior: 'auto',
+        })
       })
     },
     scrollToTop: () => view.scrollTo({
@@ -80,6 +131,7 @@ export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi {
       behavior: 'smooth',
     }),
     subscribe: (listener) => {
+      indexListeners.add(listener)
       view.addEventListener('scroll', listener, { passive: true })
       view.addEventListener('resize', listener)
       const observer = typeof ResizeObserver === 'undefined'
@@ -87,6 +139,7 @@ export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi {
         : new ResizeObserver(listener)
       observer?.observe(root)
       return () => {
+        indexListeners.delete(listener)
         view.removeEventListener('scroll', listener)
         view.removeEventListener('resize', listener)
         observer?.disconnect()

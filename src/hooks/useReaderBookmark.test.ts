@@ -201,7 +201,7 @@ describe('useReaderBookmark restore indicator', () => {
     document.body.replaceChildren()
   })
 
-  it('keeps the restoring indicator up while restore-on-open seeks, then completes it', () => {
+  it('keeps the restoring indicator up while restore-on-open seeks, then completes it', async () => {
     const frames = stubAnimationFrames()
     const viewerApi = createBookmarkApiStub()
     seedBookmark('/book.html', 240)
@@ -218,8 +218,9 @@ describe('useReaderBookmark restore indicator', () => {
     expect(harness.state.restoringBookmark).toBe(true)
     expect(viewerApi.restore).not.toHaveBeenCalled()
 
-    // Frame 2 is runRestore's paint slot; frame 3 runs the seek.
+    // Frame 2 is runRestore's paint slot; frame 3 starts the async seek.
     flushAnimationFrames(frames, 2)
+    await act(async () => {})
     expect(viewerApi.restore).toHaveBeenCalledWith({ textOffset: 240 })
     expect(harness.state.restoringBookmark).toBe(false)
     expect(harness.state.bookmarkNotice).toBe('restored')
@@ -228,7 +229,7 @@ describe('useReaderBookmark restore indicator', () => {
     harness.unmount()
   })
 
-  it('shows the restoring indicator for an explicit return to the bookmark too', () => {
+  it('shows the restoring indicator for an explicit return to the bookmark too', async () => {
     const frames = stubAnimationFrames()
     const viewerApi = createBookmarkApiStub()
     seedBookmark('/book.html', 240)
@@ -249,6 +250,7 @@ describe('useReaderBookmark restore indicator', () => {
     expect(harness.state.restoringBookmark).toBe(true)
 
     flushAnimationFrames(frames, 2)
+    await act(async () => {})
     expect(viewerApi.restore).toHaveBeenCalledTimes(1)
     expect(harness.state.restoringBookmark).toBe(false)
     expect(harness.state.bookmarkNotice).toBe('restored')
@@ -256,7 +258,7 @@ describe('useReaderBookmark restore indicator', () => {
     harness.unmount()
   })
 
-  it('drops a pending restore when the document changes mid-restore', () => {
+  it('drops a pending restore when the document changes mid-restore', async () => {
     const frames = stubAnimationFrames()
     const viewerApi = createBookmarkApiStub()
     seedBookmark('/book.html', 240)
@@ -278,6 +280,7 @@ describe('useReaderBookmark restore indicator', () => {
     expect(harness.state.restoringBookmark).toBe(false)
 
     flushAnimationFrames(frames, 2)
+    await act(async () => {})
     expect(viewerApi.restore).not.toHaveBeenCalled()
 
     harness.unmount()

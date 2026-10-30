@@ -8,6 +8,7 @@ import type {
   ViewerBookmarkApi,
   ViewerBookmarkLocation,
 } from '../viewers/types'
+import { logTtsDiagnostic } from '../tts/diagnostics/TtsDiagnostics'
 
 const STORAGE_PREFIX = 'papercut:reader-bookmark:'
 const BOOKMARKS_CHANGED_EVENT = 'papercut:reader-bookmarks-changed'
@@ -155,24 +156,35 @@ export function useReaderBookmark(
     storeCurrentBookmark(bookmarkRef.current)
   }, [storeCurrentBookmark])
 
-  // Resolving a bookmark anchor walks every text node and forces layout, so
-  // large books block the main thread for the whole seek. The restoring
-  // surface is visible from mount (no reveal delay: any seek that can start
-  // before a paint races the reveal and hides the indicator forever), and the
-  // double rAF guarantees one painted frame of it before the seek blocks.
+  // Resolving a bookmark anchor needs the full-book text index, which viewers
+  // build in yielding slices (large books take seconds), so the restoring
+  // surface stays up from mount until the seek actually completes. The
+  // surface is visible from mount: no reveal delay to race, and the double
+  // rAF guarantees one painted frame of it before any blocking work.
   const runRestore = useCallback((bookmark: ReaderBookmark) => {
+    logTtsDiagnostic('[reader-bookmark] restore seek started', {})
     setRestoringBookmark(true)
+    let superseded = false
     let innerFrame = 0
-    const outerFrame = requestAnimationFrame(() => {
-      innerFrame = requestAnimationFrame(() => {
-        innerFrame = 0
-        viewerApi?.restore(bookmark.viewerLocation)
+    const finish = () => {
+      const seekStartedAt = performance.now()
+      void Promise.resolve(viewerApi?.restore(bookmark.viewerLocation)).then(() => {
+        logTtsDiagnostic('[reader-bookmark] restore seek finished', {
+          durationMs: Math.round(performance.now() - seekStartedAt),
+        })
+        if (superseded) {
+          return
+        }
         setIsAtBookmark(true)
         setBookmarkNotice('restored')
         setRestoringBookmark(false)
       })
+    }
+    const outerFrame = requestAnimationFrame(() => {
+      innerFrame = requestAnimationFrame(finish)
     })
     cancelRestoreRef.current = () => {
+      superseded = true
       cancelAnimationFrame(outerFrame)
       if (innerFrame) {
         cancelAnimationFrame(innerFrame)
