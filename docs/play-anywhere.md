@@ -164,7 +164,7 @@ and performance acceptance remains pending.
 | Optional reader target API | `onTextTargetApiChange` registers/unregisters `ViewerTextTargetApi`. Its implemented `captureViewport()` returns a Promise of a captured HTML or PDF point or typed unavailable reason. Optional synchronous `captureSelection()` returns the same result type from the normalized Range start; absent capabilities remain compatible. No audio side effects. |
 | Target snapshot | HTML capture snapshots viewport geometry synchronously, then yields at least two animation frames for browser visibility delivery (up to 500 ms for initial observations). Source/view mutations, scroll or reflow before completion return stale rather than retargeting. HTML output includes frozen normalized `segmentTexts` and `segmentLengths` arrays reused for the lifetime of its source index; PDF includes the original item/word `sourceText`. Both provide `isCurrent()` for source/view lifetime validation. PDF captures already-rendered geometry synchronously inside the Promise method, with no animation-frame wait or page rendering. No DOM references are serialized. Selection snapshots its actual DOM point before menu focus loss. Both endpoints must belong to the current reader. The snapshot survives native collapse during Tab/button focus changes, but rejects a different live range; a reader input epoch invalidates pending targets on fresh non-audio pointer input or non-Tab key input. |
 | Normalized source point | HTML: readable segment index + normalized UTF-16 offset. PDF: page index + original text-item/block order + source offset. Do not conflate the two coordinate systems. |
-| Resolver result | `resolved` with canonical chunk index/id, or `unavailable` with `not-ready`, `unmapped`, `ambiguous`, `invalid-source` or `invalid-point`. Capture/coordinator additionally own `no-visible-text`, `no-selection` and `stale`; the pure resolver does not inspect DOM or session identity. Unexpected errors remain errors rather than successful fallbacks. |
+| Resolver result | `resolved` with canonical chunk index/id, or `unavailable` with `not-ready`, `unmapped`, `ambiguous`, `invalid-source` or `invalid-point`. Capture/coordinator additionally own `no-visible-text`, `no-selection` and `stale`; the pure resolver does not inspect DOM or session identity. Unexpected errors remain errors rather than successful fallbacks. Degraded books: chunks whose saved span is missing, out of bounds, or unverifiable against the live text drop out of matching alone (the verified pipeline advances its coverage cursor past a dropped span so one bad span cannot cascade); identity, ordering and overlap defects still fail globally, and dropped ranges resolve `unmapped` instead of guessing audio. Ordered text-search recovery runs for every HTML book when saved spans fail first, and fully recovered spans stay strict. |
 | Prepared target boundary | `useAudiobookManager.preparedChunks` exposes canonical chunks without active playback. `resolveTextTarget(documentUrl, capture, signal?)` returns a Promise of a verified canonical index/ID plus original full chunks, document URL and `isCurrent()`, or typed unavailable. It never starts audio. Commit-time document/content/model/chunk changes and unmount dispose preparation caches. The Stage 3 coordinator additionally guards action/options changes and synchronous cancellation before dispatch. |
 | Player initial start | `speak(chunks, options, startIndex = 0)` validates a safe integer in the canonical nonempty sequence before changing audio. Pass the complete sequence, never a sliced tail. It returns whether dispatch was accepted, not whether sound was heard. |
 | Player active target | `playFromChunk(fullChunks, options, index)` returns `Promise<PlaybackStart> \| null`: `null` rejects before any audio change; the Promise settles once with `started` (Play acknowledged), `superseded` (a later command) or `failed` (player error). It reuses an active session only for matching canonical IDs/text/hashes and options. It uses `jumpToChunk(index, true)` for explicit seek-and-play, otherwise starts the existing player at that index. Ordinary mobile jump keeps paused state; Resume keeps time on both platforms. Desktop ordinary jump retains its prior play behavior. |
@@ -440,13 +440,15 @@ view/session validation belongs to the adapter/coordinator in Stages 2–3.
 Implemented contract: `createChunkSourceResolver(chunks, segmentLengths)` takes
 the complete source chunk list and normalized UTF-16 segment lengths. It returns
 `ready` with `resolve({segmentIndex, offset})` or typed `unavailable`. Construction
-snapshots bounds/id/index, filters blank chunks in playback order, and rejects
-missing, out-of-bounds, unsorted, overlapping or duplicate-id spans. Normal lookup
-uses binary search. It does not verify live text identity, normalize DOM points,
-skip whitespace or detect staleness: adapters must supply validated/recovered
-spans and normalized points, and rebuild on source/view revision changes.
-Partial span coverage intentionally remains unavailable until recovery succeeds.
-No production caller imports the resolver yet.
+snapshots bounds/id/index and filters blank chunks in playback order. Chunks with
+missing or out-of-bounds spans are excluded from matching instead of failing the
+book; identity defects (blank/duplicate ids), unsorted and overlapping spans still
+fail globally, and points inside an excluded chunk stay `unmapped` rather than
+guessing audio. Normal lookup uses binary search. It does not verify live text
+identity, normalize DOM points, skip whitespace or detect staleness: adapters must
+supply validated/recovered spans and normalized points, and rebuild on source/view
+revision changes. Partial span coverage degrades to the accepted prefix (see the
+2026-10-29 evidence entry); it no longer waits unavailable for recovery.
 
 ### Stage 2 — Viewer capture and PDF/OCR mapping
 
@@ -2559,6 +2561,38 @@ Owner checklist (pending):
 - [ ] Android first-play notification-permission dialog: startup continues
   after Allow or Block.
 - [ ] Dev build (StrictMode): Play from here starts on first use.
+
+### 2026-10-29 — Unmapped-book triage and per-chunk play-from-here degradation
+
+Owner reported the unmapped-passage notice on every non-beginning position of a
+~13-hour audiobook, on both the generating machine and an exported bundle, after
+a save with multiple stop/resume/app-restart cycles. TTS diagnostics captured the
+stage: `chunk-verification`, reason `unmapped`, 3,588 chunks, source and view
+segments equal (1,573) — so text identity held and resume was exonerated; one
+unverifiable span failed resolver construction for the whole book.
+
+Fix (task/bug-squash, commit `ed44de9b`):
+
+- Ordered text-search recovery now runs for every HTML book; it was previously
+  limited to imported bundles, so locally generated books with drifted spans
+  never got the repair pass. This is the primary fix and needs no regeneration.
+- Durable-path degradation: a span that fails text verification or creates a
+  coverage discontinuity drops only its own chunk; the cursor still advances
+  past the dropped span so one bad span cannot cascade into its neighbours, and
+  the trailing coverage guard applies only while no span was distrusted.
+  Recovered spans stay strict — when text search repairs every chunk, their
+  validation keeps all-or-nothing rigor so wrong-book drift still fails.
+- Resolver: missing/out-of-bounds spans exclude their chunk; blank/duplicate
+  identity, unsorted and overlapping spans still fail globally.
+- Saves warn in TTS diagnostics when chunks lack source spans; playback
+  feedback gives `invalid-source`, `ambiguous` and `invalid-point` their own
+  localized messages instead of sharing the `unmapped` text.
+
+Evidence: play-anywhere suite 207 passed including new no-cascade, localized-gap
+and duplicate-identity tests; full frontend suite 711 passed. Four assertions
+moved to the new semantics; existing drift-detection cases (trailing punctuation,
+wrong-book replacement, recovered-span strictness) still pass unchanged. Owner
+manual acceptance on the affected book: pending.
 
 ## 7. Standards and design rationale
 
