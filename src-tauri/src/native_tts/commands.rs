@@ -22,20 +22,20 @@ use super::types::{
 
 #[cfg(feature = "native-tts-core")]
 use super::engine::{
-    cancel_audiobook_save, delete_audiobook_native, export_audiobook_native,
-    get_imported_audiobook_metadata, get_imported_audiobook_source, get_native_audiobook_chunk,
-    import_audiobook_native, install_model, list_saved_audiobooks, model_status,
-    native_audiobook_status, native_capabilities, prepare_native_audiobook_playback, preview_voice,
-    probe_silma_sidecar, save_audiobook_native,
+    audiobook_source_is_bundle, cancel_audiobook_save, delete_audiobook_native,
+    export_audiobook_native, get_imported_audiobook_metadata, get_imported_audiobook_source,
+    get_native_audiobook_chunk, import_audiobook_native, install_model, list_saved_audiobooks,
+    model_status, native_audiobook_status, native_capabilities, prepare_native_audiobook_playback,
+    preview_voice, probe_silma_sidecar, save_audiobook_native,
 };
 
 #[cfg(not(feature = "native-tts-core"))]
 use super::stub::{
-    cancel_audiobook_save, delete_audiobook_native, export_audiobook_native,
-    get_imported_audiobook_metadata, get_imported_audiobook_source, get_native_audiobook_chunk,
-    import_audiobook_native, install_model, list_saved_audiobooks, model_status,
-    native_audiobook_status, native_capabilities, prepare_native_audiobook_playback, preview_voice,
-    probe_silma_sidecar, save_audiobook_native,
+    audiobook_source_is_bundle, cancel_audiobook_save, delete_audiobook_native,
+    export_audiobook_native, get_imported_audiobook_metadata, get_imported_audiobook_source,
+    get_native_audiobook_chunk, import_audiobook_native, install_model, list_saved_audiobooks,
+    model_status, native_audiobook_status, native_capabilities, prepare_native_audiobook_playback,
+    preview_voice, probe_silma_sidecar, save_audiobook_native,
 };
 
 /// Is native TTS usable on this build/device, and is the voice model installed?
@@ -161,15 +161,35 @@ pub async fn tts_export_audiobook_native(
 }
 
 /// Import a `.papercut-audiobook` bundle and restore it into app data.
+/// A queued open-with source imports directly; without one the native
+/// file dialog asks for a bundle.
 #[tauri::command]
 pub async fn tts_import_audiobook_native(
     app: tauri::AppHandle,
+    source: Option<tauri_plugin_dialog::FilePath>,
 ) -> Result<NativeAudiobookImportResponse, NativeTtsCommandError> {
-    let result = tauri::async_runtime::spawn_blocking(move || import_audiobook_native(app))
+    let result = tauri::async_runtime::spawn_blocking(move || import_audiobook_native(app, source))
         .await
         .map_err(|err| {
             NativeTtsCommandError::new(format!("Native audiobook import task failed: {err}"))
         })?;
+    result.map_err(Into::into)
+}
+
+/// Route open-with sources before document import: opaque mobile provider
+/// URLs can only be recognized by reading the bundle magic.
+#[tauri::command]
+pub async fn tts_audiobook_source_is_bundle(
+    app: tauri::AppHandle,
+    source: tauri_plugin_dialog::FilePath,
+) -> Result<bool, NativeTtsCommandError> {
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        audiobook_source_is_bundle(app, source)
+    })
+    .await
+    .map_err(|err| {
+        NativeTtsCommandError::new(format!("Native audiobook source probe task failed: {err}"))
+    })?;
     result.map_err(Into::into)
 }
 

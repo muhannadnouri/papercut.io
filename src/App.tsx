@@ -48,7 +48,10 @@ import {
 import { AudioControls } from './tts/components/AudioControls'
 import { AudioSetupDialog } from './tts/components/AudioSetupDialog'
 import { TtsDiagnosticsPanel } from './tts/components/TtsDiagnosticsPanel'
-import { getImportedAudiobookSource } from './tts/api/nativeTts'
+import {
+  getImportedAudiobookSource,
+  partitionOpenDocumentSources,
+} from './tts/api/nativeTts'
 import {
   getUserUploads,
   isUserUploadUrl,
@@ -399,16 +402,25 @@ function App() {
       if (disposed || sources.length === 0) {
         return
       }
-      handleCloseDocument()
-      setActiveTab('library')
-      setShowDocuments(true)
-      await finishDocumentFileImport(await importDocumentPaths(sources, 'open'))
+      const { bundles, documents } = await partitionOpenDocumentSources(sources)
+      if (documents.length > 0) {
+        handleCloseDocument()
+        setActiveTab('library')
+        setShowDocuments(true)
+        await finishDocumentFileImport(await importDocumentPaths(documents, 'open'))
+      }
+      for (const bundle of bundles) {
+        if (disposed) {
+          return
+        }
+        await importAudiobookBundle(handleViewDocument, bundle)
+      }
     }).catch((error) => console.warn('Unable to import document open request:', error))
     return () => {
       disposed = true
     }
-  }, [openDocumentRequest, finishDocumentFileImport, handleCloseDocument, importDocumentPaths,
-    libraryOperationBusy, setShowDocuments])
+  }, [openDocumentRequest, finishDocumentFileImport, handleCloseDocument, handleViewDocument,
+    importAudiobookBundle, importDocumentPaths, libraryOperationBusy, setShowDocuments])
 
   const handleImportDocumentFolder = useCallback(async () => {
     const result = await importDocumentFolder()

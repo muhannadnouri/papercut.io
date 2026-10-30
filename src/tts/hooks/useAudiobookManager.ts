@@ -610,7 +610,10 @@ export function useAudiobookManager({
     })
   }, [confirmAudiobookAction, deleteSavedAudiobook, invalidateCompletedAudiobookDownload, onClearDocument, resetAudiobookDocument, resetSelectedAudiobookState, selectedDoc, stopTts])
 
-  const importAudiobook = useCallback(async (openDocument: (url: string) => Promise<void>) => {
+  const importAudiobook = useCallback(async (
+    openDocument: (url: string) => Promise<void>,
+    source?: string,
+  ) => {
     await importSavedAudiobook(openDocument, (result) => {
       autoSelectedDocumentRef.current = result.documentUrl
       preserveGeneratedSpeedOnOpenRef.current = true
@@ -619,7 +622,7 @@ export function useAudiobookManager({
       setTtsTextPreprocessor(result.textPreprocessor)
       setTtsSpeed(result.speed)
       setSilmaNfeStep(resolveSilmaNfeStep({ silmaNfeStep: result.silmaNfeStep }))
-    })
+    }, source)
   }, [importSavedAudiobook, setTtsModelId])
 
   const selectSavedAudiobook = useCallback((record: SavedAudiobookRecord) => {

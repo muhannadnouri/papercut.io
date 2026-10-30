@@ -23,7 +23,7 @@ mod manage;
 mod wav;
 
 pub(crate) use export::export_audiobook_native;
-pub(crate) use import::import_audiobook_native;
+pub(crate) use import::{audiobook_source_is_bundle, import_audiobook_native};
 pub(crate) use manage::{
     delete_audiobook_native, get_imported_audiobook_metadata, get_imported_audiobook_source,
 };

@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
-use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::{DialogExt, FilePath};
 use tauri_plugin_fs::{FsExt, OpenOptions};
 
 use super::super::config::{BUNDLE_MAGIC, CACHE_VERSION};
@@ -29,6 +29,7 @@ use super::super::paths::{
     playback_track_path, speakable_chunks, stable_hex_hash,
 };
 use super::super::silma_sidecar::DEFAULT_SILMA_NFE_STEP;
+use crate::document_uploads::release_source_access;
 use crate::document_uploads::{restore_audiobook_pdf, sanitize_html};
 use crate::native_tts::types::{
     NativeAudiobookImportResponse, NativeAudiobookSaveRequest, NativeTtsInputChunk,
@@ -105,20 +106,25 @@ impl Drop for ImportWorkDir {
 
 /// Top-level import entry point.
 ///
-/// Prompts for a bundle file, reads/validates its manifest, derives a stable
+/// Prompts for a bundle file when no source was handed over (the open-with
+/// route passes one), reads/validates its manifest, derives a stable
 /// upload id (so re-importing the same content reuses the same slot), restores
 /// the payloads, and writes a save manifest. Returns metadata for the UI.
 pub(crate) fn import_audiobook_native(
     app: tauri::AppHandle,
+    source: Option<FilePath>,
 ) -> Result<NativeAudiobookImportResponse, String> {
-    // Native "Open File" dialog; None means the user cancelled.
-    let source = app
-        .dialog()
-        .file()
-        .set_title("Import Audiobook Bundle")
-        .add_filter("Papercut Audiobook", &["papercut-audiobook"])
-        .blocking_pick_file()
-        .ok_or_else(|| "Audiobook import cancelled".to_string())?;
+    let source = match source {
+        Some(source) => source,
+        // Native "Open File" dialog; None means the user cancelled.
+        None => app
+            .dialog()
+            .file()
+            .set_title("Import Audiobook Bundle")
+            .add_filter("Papercut Audiobook", &["papercut-audiobook"])
+            .blocking_pick_file()
+            .ok_or_else(|| "Audiobook import cancelled".to_string())?,
+    };
 
     let mut options = OpenOptions::new();
     options.read(true);
@@ -128,7 +134,50 @@ pub(crate) fn import_audiobook_native(
         .map_err(|err| format!("Failed to open selected audiobook bundle: {err}"))?;
     // Wrap the file in a BufReader so we can read the header, then stream
     // payloads sequentially from the same cursor position.
-    let mut reader = BufReader::new(file);
+    let reader = BufReader::new(file);
+    import_audiobook_core(app, reader)
+}
+
+/// Report whether an open-with source starts with the bundle magic, so opaque
+/// mobile provider URLs (which may carry no `.papercut-audiobook` extension)
+/// can be routed before document import rejects them. The read is bounded to
+/// the magic length and the source access is released immediately afterwards,
+/// matching the document importer's inspection pattern.
+pub(crate) fn audiobook_source_is_bundle(
+    app: tauri::AppHandle,
+    source: FilePath,
+) -> Result<bool, String> {
+    let read_result: Result<bool, String> = (|| {
+        let mut options = OpenOptions::new();
+        options.read(true);
+        let mut file = app
+            .fs()
+            .open(source.clone(), options)
+            .map_err(|err| format!("Failed to inspect audiobook source: {err}"))?;
+        let mut magic = [0u8; BUNDLE_MAGIC.len()];
+        let mut read = 0usize;
+        while read < magic.len() {
+            let count = file
+                .read(&mut magic[read..])
+                .map_err(|err| format!("Failed to inspect audiobook source: {err}"))?;
+            if count == 0 {
+                break;
+            }
+            read += count;
+        }
+        Ok(&magic[..read] == BUNDLE_MAGIC)
+    })();
+    let release_result = release_source_access(&app, source);
+    let is_bundle = read_result?;
+    release_result?;
+    Ok(is_bundle)
+}
+
+/// Shared validation/restore pipeline behind dialog and open-with imports.
+fn import_audiobook_core<R: Read>(
+    app: tauri::AppHandle,
+    mut reader: BufReader<R>,
+) -> Result<NativeAudiobookImportResponse, String> {
     let manifest = read_bundle_manifest(&mut reader)?;
     validate_bundle_manifest(&manifest)?;
 

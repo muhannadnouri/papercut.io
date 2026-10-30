@@ -131,7 +131,7 @@ fn is_supported_open_file(path: &Path) -> bool {
                 .and_then(|extension| extension.to_str())
                 .map(str::to_ascii_lowercase)
                 .as_deref(),
-            Some("html" | "htm" | "epub" | "pdf" | "txt" | "md" | "markdown")
+            Some("html" | "htm" | "epub" | "pdf" | "txt" | "md" | "markdown" | "papercut-audiobook")
         )
 }
 
@@ -143,12 +143,15 @@ mod tests {
     fn open_requests_keep_only_supported_existing_files() {
         let root = std::env::temp_dir().join(format!("papercut-open-test-{}", std::process::id()));
         let supported = root.join("book.EPUB");
+        let bundle = root.join("novel.papercut-audiobook");
         let unsupported = root.join("notes.docx");
         std::fs::create_dir_all(&root).expect("create test directory");
         std::fs::write(&supported, b"epub").expect("write supported file");
+        std::fs::write(&bundle, b"bundle").expect("write bundle file");
         std::fs::write(&unsupported, b"docx").expect("write unsupported file");
 
         assert!(is_supported_open_file(&supported));
+        assert!(is_supported_open_file(&bundle));
         assert!(!is_supported_open_file(&unsupported));
         assert!(!is_supported_open_file(&root.join("missing.pdf")));
 
