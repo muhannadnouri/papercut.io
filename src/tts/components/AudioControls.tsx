@@ -205,7 +205,11 @@ export function AudioControls({
       : playAnywhere.feedback === 'no-visible-text' ? 'tts.playAnywhere.noText'
         : playAnywhere.feedback === 'no-selection' ? 'tts.playAnywhere.noSelection'
           : playAnywhere.feedback === 'stale' ? 'tts.playAnywhere.stale'
-            : playAnywhere.feedback === 'failed' ? 'tts.playAnywhere.failed' : 'tts.playAnywhere.unmapped')
+            : playAnywhere.feedback === 'failed' ? 'tts.playAnywhere.failed'
+              : playAnywhere.feedback === 'invalid-source' ? 'tts.playAnywhere.invalidSource'
+                : playAnywhere.feedback === 'ambiguous' ? 'tts.playAnywhere.ambiguous'
+                  : playAnywhere.feedback === 'invalid-point' ? 'tts.playAnywhere.invalidPoint'
+                    : 'tts.playAnywhere.unmapped')
   }
 
   useLayoutEffect(() => {

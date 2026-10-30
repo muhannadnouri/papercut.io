@@ -1,7 +1,6 @@
 import type { ViewerTextTargetResult } from '../../viewers/types'
 import { extractReadableSegmentsFromHtml } from '../alignment/readableSegments'
 import type { TtsChunk } from '../types'
-import { isUserUploadUrl } from '../storage/UserUploads'
 import {
   isUploadedPdfDocumentUrl,
   type PdfPageTextLayer,
@@ -76,8 +75,11 @@ export function createTextTargetPreparation(options: TextTargetPreparationOption
       chunks,
       texts,
       sourceMatches: matches,
+      // Recovery re-derives spans by ordered text search for every book, not
+      // only imported bundles: generated books hit the same sanitizer and
+      // chunker drift, and the pass only runs when saved spans fail first.
       resolver: matches
-        ? yield* htmlResolverSteps(chunks, texts, isUserUploadUrl(options.documentUrl!)) : {
+        ? yield* htmlResolverSteps(chunks, texts, true) : {
           status: 'unavailable',
           reason: 'unmapped',
         },

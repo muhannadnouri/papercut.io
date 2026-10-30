@@ -232,15 +232,27 @@ describe('source-only target preparation', () => {
       sourceSegments: 2,
       viewSegments: 2,
     })
+    // One stale span degrades to a localized gap; the rest of the book resolves.
     await createTextTargetPreparation(options({
       chunks: [{
         ...chunks[0],
         text: 'Changed',
       }, chunks[1]],
     })).resolve('/book.html', htmlCapture())
+    expect(logTtsDiagnostic).toHaveBeenLastCalledWith('[play-anywhere] preparation completed', expect.anything())
+    // With no verifiable span left, the whole book is rejected again.
+    await createTextTargetPreparation(options({
+      chunks: [{
+        ...chunks[0],
+        text: 'Changed',
+      }, {
+        ...chunks[1],
+        text: 'Rewritten',
+      }],
+    })).resolve('/book.html', htmlCapture())
     expect(logTtsDiagnostic).toHaveBeenLastCalledWith('[play-anywhere] HTML target rejected', {
       stage: 'chunk-verification',
-      reason: 'unmapped',
+      reason: 'not-ready',
       chunks: 2,
       sourceSegments: 2,
       viewSegments: 2,

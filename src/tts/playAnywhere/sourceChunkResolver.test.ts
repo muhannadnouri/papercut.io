@@ -145,17 +145,19 @@ describe('play-anywhere source chunk resolver', () => {
     }
   })
 
-  it('requires recovery of every missing span without changing saved chunks', () => {
+  it('skips spanless chunks and keeps the accepted neighbours playable', () => {
     const imported = [{
       id: 'legacy',
       text: 'Saved narration',
       textHash: 'saved-hash',
     }]
     const before = JSON.stringify(imported)
+    // Durable path: a spanless chunk is excluded from matching instead of
+    // disabling the book, so a spanless-only list has nothing to play from.
     expect(createChunkSourceResolver(imported, [15]))
       .toEqual({
         status: 'unavailable',
-        reason: 'unmapped',
+        reason: 'not-ready',
       })
     const recovered = [{
       ...imported[0],
@@ -172,7 +174,21 @@ describe('play-anywhere source chunk resolver', () => {
       })
     expect(JSON.stringify(imported)).toBe(before)
     expect(recovered[0].textHash).toBe(imported[0].textHash)
-    expect(createChunkSourceResolver([chunk('first', 0, 4), ...imported], [15]))
+    const partial = ready([chunk('first', 0, 4), ...imported], [15])
+    expect(partial.resolve({
+      segmentIndex: 0,
+      offset: 2,
+    }))
+      .toEqual({
+        status: 'resolved',
+        chunkIndex: 0,
+        chunkId: 'first',
+      })
+    // Points inside the skipped chunk stay unmapped: never guess audio.
+    expect(partial.resolve({
+      segmentIndex: 0,
+      offset: 8,
+    }))
       .toEqual({
         status: 'unavailable',
         reason: 'unmapped',
@@ -301,7 +317,7 @@ describe('play-anywhere source chunk resolver', () => {
       startOffset: 2,
       endOffset: 2,
     },
-  ] satisfies Partial<TtsChunkSourceSpan>[])('rejects invalid source bounds: %j', (patch) => {
+  ] satisfies Partial<TtsChunkSourceSpan>[])('excludes chunks with invalid source bounds: %j', (patch) => {
     const source = chunk('one', 0, 5)
     source.sourceSpan = {
       ...source.sourceSpan!,
@@ -310,7 +326,7 @@ describe('play-anywhere source chunk resolver', () => {
     expect(createChunkSourceResolver([source], [5]))
       .toEqual({
         status: 'unavailable',
-        reason: 'invalid-source',
+        reason: 'not-ready',
       })
   })
 
@@ -346,6 +362,15 @@ describe('play-anywhere source chunk resolver', () => {
         reason: 'invalid-source',
       })
     expect(createChunkSourceResolver([chunk('', 0, 5)], [5]))
+      .toEqual({
+        status: 'unavailable',
+        reason: 'invalid-source',
+      })
+    // Duplicate identity stays a global defect even on an otherwise skippable chunk.
+    expect(createChunkSourceResolver([chunk('one', 0, 4), {
+      ...chunk('one', 4, 8),
+      sourceSpan: undefined,
+    }], [8]))
       .toEqual({
         status: 'unavailable',
         reason: 'invalid-source',

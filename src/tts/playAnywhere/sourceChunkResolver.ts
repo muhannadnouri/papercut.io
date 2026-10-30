@@ -47,13 +47,18 @@ export function createChunkSourceResolver(
     if (!chunk.text.trim()) {
       continue
     }
-    const span = chunk.sourceSpan
-    // shortcut: require complete spans; allow partial coverage only with explicit gap metadata.
-    if (!span) {
+    if (!chunk.id.trim() || ids.has(chunk.id)) {
       return {
         status: 'unavailable',
-        reason: 'unmapped',
+        reason: 'invalid-source',
       }
+    }
+    const span = chunk.sourceSpan
+    // Degraded books keep playing: a chunk with no usable span is excluded
+    // from play-from-here matching instead of disabling the whole book.
+    // Structural defects (identity, ordering, overlap) still fail globally.
+    if (!span) {
+      continue
     }
 
     const start = {
@@ -70,13 +75,9 @@ export function createChunkSourceResolver(
       !Number.isSafeInteger(end.offset) ||
       end.offset <= 0 ||
       end.offset > (lengths[end.segmentIndex] ?? -1) ||
-      comparePoints(start, end) >= 0 ||
-      !chunk.id.trim() || ids.has(chunk.id)
+      comparePoints(start, end) >= 0
     ) {
-      return {
-        status: 'unavailable',
-        reason: 'invalid-source',
-      }
+      continue
     }
 
     const previous = entries.at(-1)

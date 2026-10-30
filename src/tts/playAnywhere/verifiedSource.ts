@@ -32,12 +32,14 @@ export function* htmlResolverSteps(chunks: readonly TtsChunk[], texts: readonly 
   const locator = yield* textLocatorIndexSteps(texts)
   yield* locator.prepareMatchIndex()
   const lengths = texts.map(text => text.length)
-  function* validate(mapped: readonly TtsChunk[]): Generator<void, HtmlResolver> {
+  function* validate(mapped: readonly TtsChunk[], strict: boolean): Generator<void, HtmlResolver> {
     const resolver = createChunkSourceResolver(mapped, lengths)
     if (resolver.status !== 'ready') {
       return resolver
     }
     let cursor = 0
+    let dropped = false
+    const accepted: TtsChunk[] = []
     for (const chunk of mapped) {
       yield
       if (!chunk.text.trim()) {
@@ -48,13 +50,29 @@ export function* htmlResolverSteps(chunks: readonly TtsChunk[], texts: readonly 
       const end = sourceSpanEndGlobalOffset(locator, span)
       const matches = locatorTextsMatch(locator.text.slice(start, end), chunk.text) ||
         (span.startSegmentIndex !== span.endSegmentIndex && locatorTextsMatch(narratedSpanText(texts, span), chunk.text))
-      if (!locatorRangeIsIgnorable(locator, cursor, start) || !matches) {
+      if (strict && (!locatorRangeIsIgnorable(locator, cursor, start) || !matches)) {
         return {
           status: 'unavailable',
           reason: 'unmapped',
         } as const
       }
+      if (!matches || !locatorRangeIsIgnorable(locator, cursor, start)) {
+        // One unverifiable span drops only its own chunk from play-from-here;
+        // the cursor still advances so a single bad span cannot cascade into
+        // its neighbours. Recovery has already had its chance to repair the
+        // book; fully recovered spans stay strict because their failure means
+        // the audio does not belong to this text at all.
+        dropped = true
+        cursor = end
+        continue
+      }
       cursor = end
+      accepted.push(chunk)
+    }
+    if (dropped) {
+      // Degraded coverage: the trailing guard is meaningless once spans were
+      // distrusted, so ship the accepted prefix as-is.
+      return createChunkSourceResolver(accepted, lengths)
     }
     return locatorRangeIsIgnorable(locator, cursor, locator.text.length) ? resolver
       : {
@@ -62,7 +80,7 @@ export function* htmlResolverSteps(chunks: readonly TtsChunk[], texts: readonly 
         reason: 'unmapped',
       } as const
   }
-  const durable = yield* validate(chunks)
+  const durable = yield* validate(chunks, false)
   if (durable.status === 'ready' || !allowRecovery) {
     return durable
   }
@@ -73,7 +91,7 @@ export function* htmlResolverSteps(chunks: readonly TtsChunk[], texts: readonly 
   return yield* validate(chunks.map((chunk, index) => ({
     ...chunk,
     sourceSpan: recovered.get(index),
-  })))
+  })), true)
 }
 
 /** Generation splits paragraphs before merging; a leading terminator may be omitted in each paragraph. */

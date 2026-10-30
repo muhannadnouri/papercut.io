@@ -54,7 +54,27 @@ describe('verified source lookup', () => {
         chunkId: 'second',
       })
     }
-    expect(verifiedHtmlResolver(chunks, ['One. Bad.'], false).status).toBe('unavailable')
+    expect(verifiedHtmlResolver(chunks, ['One. Bad.'], false).status).toBe('ready')
+    // The unverifiable span degrades to a localized gap: its own text cannot
+    // start audio, but the rest of the book keeps playing.
+    const degraded = verifiedHtmlResolver(chunks, ['One. Bad.'], false)
+    if (degraded.status === 'ready') {
+      expect(degraded.resolve({
+        segmentIndex: 0,
+        offset: 1,
+      })).toEqual({
+        status: 'resolved',
+        chunkIndex: 0,
+        chunkId: 'first',
+      })
+      expect(degraded.resolve({
+        segmentIndex: 0,
+        offset: 6,
+      })).toEqual({
+        status: 'unavailable',
+        reason: 'unmapped',
+      })
+    }
     expect(verifiedHtmlResolver([chunks[1]], ['One. Two.'], false).status).toBe('unavailable')
     expect(verifiedHtmlResolver([chunks[0], {
       ...chunks[1],
@@ -90,9 +110,9 @@ describe('verified source lookup', () => {
     }
     expect(chunks).toEqual(original)
     expect(verifiedHtmlResolver(chunks, ['Repeat.', 'Repeat.', 'Repeat.'], true).status).toBe('unavailable')
-    expect(verifiedHtmlResolver(chunks, ['Repeat.'], true).status).toBe('unavailable')
+    expect(verifiedHtmlResolver(chunks, ['Repeat.'], true)).toMatchObject({ reason: 'not-ready' })
     expect(verifiedHtmlResolver(chunks, ['Repeat.', 'Other.', 'Repeat.'], true).status).toBe('unavailable')
-    expect(verifiedHtmlResolver(chunks, ['Repeat.', 'Repeat.'], false)).toMatchObject({ reason: 'unmapped' })
+    expect(verifiedHtmlResolver(chunks, ['Repeat.', 'Repeat.'], false)).toMatchObject({ reason: 'not-ready' })
   })
 
   it('recovers stale locators only for allowed legacy bundles', () => {
@@ -158,7 +178,20 @@ describe('verified source lookup', () => {
     expect(locatorTextsMatch('one,two', 'one two')).toBe(false)
     expect(locatorTextsMatch('one-two', 'one- two')).toBe(false)
     expect(locatorTextsMatch('Keep,all words.', 'Keep, other words.')).toBe(false)
-    expect(verifiedHtmlResolver(chunks, [text.replace('Another', 'Changed')], true).status).toBe('unavailable')
+    // The one stale span becomes a localized gap; the same-length replacement
+    // keeps every later span aligned, so only the changed word cannot play.
+    const driftedText = text.replace('Another', 'Changed')
+    const drifted = verifiedHtmlResolver(chunks, [driftedText], true)
+    expect(drifted.status).toBe('ready')
+    if (drifted.status === 'ready') {
+      expect(drifted.resolve({
+        segmentIndex: 0,
+        offset: driftedText.indexOf('Changed'),
+      })).toEqual({
+        status: 'unavailable',
+        reason: 'unmapped',
+      })
+    }
   })
 
   it.each(['.', '?', '!', '؟', '。', '！', '？', '।', '॥'])('matches production sentence punctuation after a closer: %s', terminator => {
@@ -328,6 +361,58 @@ it('never treats the end-of-index sentinel as permission to discard independent 
       endOffset: 5,
     },
   }], ['First.'], false).status).toBe('unavailable')
+})
+
+it('drops one unverifiable span without cascading into its neighbours', () => {
+  const texts = ['Alpha passage. Beta passage. Gamma passage.']
+  const chunks: TtsChunk[] = [{
+    id: 'first',
+    text: 'Alpha passage.',
+    sourceSpan: span(0, 14),
+  }, {
+    id: 'second',
+    text: 'Stale narration.',
+    sourceSpan: span(15, 28),
+  }, {
+    id: 'third',
+    text: 'Gamma passage.',
+    sourceSpan: span(29, 43),
+  }]
+  const resolver = verifiedHtmlResolver(chunks, texts, false)
+  expect(resolver.status).toBe('ready')
+  if (resolver.status === 'ready') {
+    expect(resolver.resolve({
+      segmentIndex: 0,
+      offset: 2,
+    })).toEqual({
+      status: 'resolved',
+      chunkIndex: 0,
+      chunkId: 'first',
+    })
+    // The dropped chunk's own range never guesses audio.
+    expect(resolver.resolve({
+      segmentIndex: 0,
+      offset: 20,
+    })).toEqual({
+      status: 'unavailable',
+      reason: 'unmapped',
+    })
+    // The cursor advanced past the dropped span, so the chunk after it stays playable.
+    expect(resolver.resolve({
+      segmentIndex: 0,
+      offset: 33,
+    })).toEqual({
+      status: 'resolved',
+      chunkIndex: 1,
+      chunkId: 'third',
+    })
+  }
+  // Fully stale spans still fail: nothing left to play from.
+  expect(verifiedHtmlResolver(chunks, ['Nothing narrated here matches.'], false))
+    .toEqual({
+      status: 'unavailable',
+      reason: 'not-ready',
+    })
 })
 
 it('verifies merged PDF paragraphs using generation grammar at each source boundary', () => {
