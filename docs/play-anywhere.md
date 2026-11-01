@@ -2562,6 +2562,27 @@ Owner checklist (pending):
   after Allow or Block.
 - [ ] Dev build (StrictMode): Play from here starts on first use.
 
+### 2026-10-30 — Restoring opens paint the destination (Plan A)
+
+Owner desktop diagnostics confirmed the seek itself is instant
+(`restore seek finished durationMs: 0` — the yielding index was already
+built), so all perceived waiting is the index build plus the giant
+first paint of the injected book. The video also showed the restoring
+overlay can never win: it is committed inside the same multi-second
+paint as the book itself, so old loading tiles and new content tiles
+mix and no clean frame of the overlay reaches the screen.
+
+Restoring opens now paint the destination: `useDocumentViewerState`
+holds the open in a `restoring` phase (gated on a bookmark existing,
+with a 20 s failsafe), DocumentViewer keeps the loading surface up with
+the swapped "Restoring bookmark…" label and mounts the viewer inside a
+`visibility: hidden` wrapper (bookmark API registered, geometry
+measurable, raster skipped), the yielding build and seek run against
+the hidden viewer, and `completeRestoringDocument` reveals the content
+already scrolled — one paint, at the destination, identical on
+Android/iOS/desktop. The fixed restoring overlay now only covers
+manual Return-to-bookmark. Owner acceptance pending on Android.
+
 ### 2026-10-29 — Reading-focus capture anchor, restore instrumentation, unfrozen bookmark seek
 
 Owner Android QA after the proportional-seek build: playback still began

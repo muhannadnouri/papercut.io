@@ -82,6 +82,9 @@ interface DocumentViewerProps {
   searchTarget?: SearchOpenTarget | null
   restoreBookmark?: boolean
   loading?: boolean
+  /** Restore-flagged open: the viewer mounts hidden behind the restoring surface. */
+  restoringDocument?: boolean
+  onRestoringDocumentComplete?: () => void
   loadError?: string
   onClose: () => void
   onTextTargetApiChange?: (api: ViewerTextTargetApi | null) => void
@@ -103,6 +106,8 @@ export function DocumentViewer({
   searchTarget,
   restoreBookmark = false,
   loading = false,
+  restoringDocument = false,
+  onRestoringDocumentComplete,
   loadError,
   onClose,
   onTextTargetApiChange,
@@ -161,6 +166,7 @@ export function DocumentViewer({
       Boolean(viewerBookmarkApi),
     restoreOnOpen: restoreBookmark,
     viewerApi: viewerBookmarkApi,
+    onRestoringDocumentComplete,
   })
 
   const {
@@ -650,7 +656,47 @@ export function DocumentViewer({
         style={readerSettingsStyle}
         aria-busy={Boolean(applyingFontFamily) || undefined}
       >
-        {loading ? (
+        {loadError ? (
+          <div className="document-html-surface document-loading-surface document-load-error" role="alert">
+            <strong>{t('reader.unableToOpen')}</strong>
+            <span dir="auto">{loadError}</span>
+          </div>
+        ) : restoringDocument ? (
+          <>
+            <div className="document-html-surface document-loading-surface" role="status" aria-live="polite">
+              <span className="spinner" aria-hidden="true" />
+              <span className="document-loading-message">
+                <span>{t('reader.restoringBookmark')}</span>
+                <span className="document-loading-detail">
+                  {t('reader.largeDocumentDelay')}
+                </span>
+              </span>
+            </div>
+            {/* Mount hidden so the anchor index builds and the seek lands
+             * before the book is ever rasterized: one paint, at the
+             * destination. */}
+            <div className="document-viewer-hidden">
+              <ViewerComponent
+                url={url}
+                format={format}
+                content={content}
+                contentRef={readerRef}
+                toolbarTarget={viewerToolbarTarget}
+                searchTarget={searchTarget}
+                pdfTtsHighlightSpans={pdfTtsHighlightSpans}
+                audioFollowPolicy={audioFollowPolicy}
+                onReaderBrowse={onReaderBrowse}
+                fullscreen={pdfFullscreen}
+                onBookmarkApiChange={setViewerBookmarkApi}
+                onFindApiChange={setViewerFindApi}
+                onFindResult={handleViewerFindResult}
+                onTextTargetApiChange={onTextTargetApiChange}
+                getTextTargetViewport={onTextTargetApiChange ? getTextTargetViewport : undefined}
+                onFullscreenChange={togglePdfFullscreen}
+              />
+            </div>
+          </>
+        ) : loading ? (
           <div className="document-html-surface document-loading-surface" role="status" aria-live="polite">
             <span className="spinner" aria-hidden="true" />
             <span className="document-loading-message">
@@ -662,11 +708,6 @@ export function DocumentViewer({
                 {t('reader.largeDocumentDelay')}
               </span>
             </span>
-          </div>
-        ) : loadError ? (
-          <div className="document-html-surface document-loading-surface document-load-error" role="alert">
-            <strong>{t('reader.unableToOpen')}</strong>
-            <span dir="auto">{loadError}</span>
           </div>
         ) : (
           <ViewerComponent
@@ -689,7 +730,7 @@ export function DocumentViewer({
           />
         )}
 
-        {restoringBookmark && (
+        {restoringBookmark && !restoringDocument && (
           <div
             className="document-html-surface document-loading-surface document-restoring-surface"
             role="status"

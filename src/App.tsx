@@ -155,6 +155,7 @@ function App() {
 
   const {
     clearSelectedDocument,
+    completeRestoringDocument,
     docContent,
     documentLoad,
     documentOpening,
@@ -615,6 +616,8 @@ function App() {
             searchTarget={searchOpenTarget}
             restoreBookmark={restoreBookmark}
             loading={documentLoad.status === 'loading' && documentLoad.url === selectedDoc}
+            restoringDocument={documentLoad.status === 'restoring' && documentLoad.url === selectedDoc}
+            onRestoringDocumentComplete={completeRestoringDocument}
             loadError={documentLoad.status === 'error' && documentLoad.url === selectedDoc ? documentLoad.message : undefined}
             onClose={handleCloseDocument}
           />

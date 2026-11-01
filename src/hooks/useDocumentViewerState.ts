@@ -5,10 +5,14 @@ import {
   useState,
 } from 'react'
 import type { SearchOpenTarget } from '../types/search'
+import { readReaderBookmark } from './useReaderBookmark'
 
 type DocumentLoadState =
   | { status: 'idle' }
   | { status: 'loading';
+    url: string;
+    message: string }
+  | { status: 'restoring';
     url: string;
     message: string }
   | { status: 'error';
@@ -137,7 +141,24 @@ export function useDocumentViewerState({
       }
       documentOpeningRef.current = false
       setDocContent(html)
-      setDocumentLoad({ status: 'idle' })
+      if (options?.restoreBookmark && readReaderBookmark(url)) {
+        // Paint the destination, not the top: the viewer mounts hidden while
+        // the bookmark anchor index builds and the seek completes, then the
+        // content reveals already scrolled. The failsafe unwedges a viewer
+        // that never registers its bookmark API.
+        setDocumentLoad({
+          status: 'restoring',
+          url,
+          message: 'Restoring bookmark...',
+        })
+        window.setTimeout(() => {
+          setDocumentLoad((prev) => prev.status === 'restoring' && prev.url === url
+            ? { status: 'idle' }
+            : prev)
+        }, 20000)
+      } else {
+        setDocumentLoad({ status: 'idle' })
+      }
     } catch (err) {
       if (openDocumentRequestRef.current !== requestId) {
         return
@@ -154,8 +175,13 @@ export function useDocumentViewerState({
     }
   }, [activeTab, loadHtmlDocument])
 
+  const completeRestoringDocument = useCallback(() => {
+    setDocumentLoad((prev) => prev.status === 'restoring' ? { status: 'idle' } : prev)
+  }, [])
+
   return {
     clearSelectedDocument,
+    completeRestoringDocument,
     docContent,
     documentLoad,
     documentOpening: documentLoad.status === 'loading',

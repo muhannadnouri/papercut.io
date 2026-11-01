@@ -25,6 +25,8 @@ interface UseReaderBookmarkOptions {
   enabled: boolean
   restoreOnOpen?: boolean
   viewerApi?: ViewerBookmarkApi | null
+  /** Invoked when a restore seek settles (open-with-restoring phase teardown). */
+  onRestoringDocumentComplete?: () => void
 }
 
 interface UseReaderBookmarkReturn {
@@ -77,6 +79,19 @@ export function useBookmarkedDocumentUrls(): ReadonlySet<string> {
   return urls
 }
 
+/** Read one valid bookmark for a document URL, or null. */
+export function readReaderBookmark(
+  url: string,
+  storage?: BookmarkStorage,
+): ReaderBookmark | null {
+  try {
+    const raw = (storage ?? window.localStorage).getItem(storageKey(url))
+    return raw ? parseReaderBookmark(raw) : null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Stores one explicit bookmark per document in localStorage.
  *
@@ -87,7 +102,7 @@ export function useBookmarkedDocumentUrls(): ReadonlySet<string> {
  */
 export function useReaderBookmark(
   url: string,
-  { enabled, restoreOnOpen = true, viewerApi }: UseReaderBookmarkOptions,
+  { enabled, restoreOnOpen = true, viewerApi, onRestoringDocumentComplete }: UseReaderBookmarkOptions,
 ): UseReaderBookmarkReturn {
   const [bookmarkNotice, setBookmarkNotice] = useState<BookmarkNotice>(null)
   const [hasBookmark, setHasBookmark] = useState(false)
@@ -178,6 +193,7 @@ export function useReaderBookmark(
         setIsAtBookmark(true)
         setBookmarkNotice('restored')
         setRestoringBookmark(false)
+        onRestoringDocumentComplete?.()
       })
     }
     const outerFrame = requestAnimationFrame(() => {
@@ -190,7 +206,7 @@ export function useReaderBookmark(
         cancelAnimationFrame(innerFrame)
       }
     }
-  }, [viewerApi])
+  }, [viewerApi, onRestoringDocumentComplete])
 
   const restoreBookmark = useCallback(() => {
     const bookmark = bookmarkRef.current

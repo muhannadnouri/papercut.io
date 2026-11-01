@@ -105,6 +105,7 @@ interface BookmarkHarnessProps {
   enabled: boolean
   restoreOnOpen?: boolean
   viewerApi: ViewerBookmarkApi
+  onRestoringDocumentComplete?: () => void
 }
 
 function createBookmarkApiStub() {
@@ -161,6 +162,7 @@ function createBookmarkHarness() {
       enabled: props.enabled,
       restoreOnOpen: props.restoreOnOpen,
       viewerApi: props.viewerApi,
+      onRestoringDocumentComplete: props.onRestoringDocumentComplete,
     })
     useEffect(() => {
       latest = state
@@ -207,21 +209,25 @@ describe('useReaderBookmark restore indicator', () => {
     seedBookmark('/book.html', 240)
     const harness = createBookmarkHarness()
 
+    const onRestoringDocumentComplete = vi.fn()
     harness.render({
       url: '/book.html',
       enabled: true,
       viewerApi,
+      onRestoringDocumentComplete,
     })
     // Frame 1 mounts the visible surface; the seek only runs after the next
     // frame, so at least one painted frame of the indicator is guaranteed.
     flushAnimationFrames(frames)
     expect(harness.state.restoringBookmark).toBe(true)
     expect(viewerApi.restore).not.toHaveBeenCalled()
+    expect(onRestoringDocumentComplete).not.toHaveBeenCalled()
 
     // Frame 2 is runRestore's paint slot; frame 3 starts the async seek.
     flushAnimationFrames(frames, 2)
     await act(async () => {})
     expect(viewerApi.restore).toHaveBeenCalledWith({ textOffset: 240 })
+    expect(onRestoringDocumentComplete).toHaveBeenCalledOnce()
     expect(harness.state.restoringBookmark).toBe(false)
     expect(harness.state.bookmarkNotice).toBe('restored')
     expect(harness.state.isAtBookmark).toBe(true)
