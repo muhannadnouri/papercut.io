@@ -84,6 +84,7 @@ const nativeState = () => ({
 }) as native.NativeAudioState
 class FakeAudio extends EventTarget {
   src = ''; currentTime = 0; duration = 5; playbackRate = 1; preload = ''; ended = false
+  readyState: number = HTMLMediaElement.HAVE_NOTHING
   pause = vi.fn()
   play = vi.fn(async () => {})
   constructor() {
@@ -205,6 +206,78 @@ afterEach(async () => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
   document.body.replaceChildren()
+})
+
+describe('proportional start ownership', () => {
+  it.each(['linux', 'android'])('lets an ordinary same-index jump replace a pending fraction on %s', async platform => {
+    await mount(platform)
+    await start(1)
+    await act(async () => {
+      void player.playFromChunk(chunks, options, 4, 0.5)
+      player.jumpToChunk(4, true)
+    })
+    await frame()
+    if (platform === 'linux') {
+      await act(async () => audio.dispatchEvent(new Event('loadedmetadata')))
+      expect(audio.currentTime).toBe(0)
+    } else {
+      expect(native.seekNativeAudio).toHaveBeenLastCalledWith(10, expect.any(Function))
+    }
+    expect(player.state.currentChunkIndex).toBe(4)
+  })
+
+  it.each(['linux', 'android'])('clears a cancelled fraction before a fresh boundary start on %s', async platform => {
+    await mount(platform)
+    const pending = deferred<api.NativeTtsCapabilities>()
+    vi.mocked(api.getNativeTtsCapabilities).mockReturnValueOnce(pending.promise)
+    await act(async () => {
+      void player.playFromChunk(chunks, options, 4, 0.5)
+    })
+    await act(async () => player.stop())
+    await act(async () => {
+      player.speak(chunks, options, 4)
+    })
+    await frame()
+    await act(async () => {
+      pending.resolve({ platform } as api.NativeTtsCapabilities)
+      audio.dispatchEvent(new Event('loadedmetadata'))
+    })
+    if (platform === 'linux') {
+      expect(audio.currentTime).toBe(0)
+    } else {
+      expect(native.seekNativeAudio).toHaveBeenLastCalledWith(10, expect.any(Function))
+    }
+    expect(player.state.currentChunkIndex).toBe(4)
+  })
+
+  it.each(['linux', 'android'])('applies cold and warm fractions once while Resume preserves time on %s', async platform => {
+    await mount(platform)
+    for (const fraction of [0.5, 0.25]) {
+      audio.readyState = HTMLMediaElement.HAVE_NOTHING
+      audio.play.mockClear()
+      let ticket!: ReturnType<typeof player.playFromChunk>
+      await act(async () => {
+        ticket = player.playFromChunk(chunks, options, 4, fraction)
+      })
+      await frame()
+      if (platform === 'linux') {
+        expect(audio.play).not.toHaveBeenCalled()
+        await act(async () => {
+          audio.readyState = HTMLMediaElement.HAVE_METADATA
+          audio.dispatchEvent(new Event('loadedmetadata'))
+        })
+      }
+      expect(await ticket).toBe('started')
+      const withinChunkTime = () => platform === 'linux' ? audio.currentTime : position - 10
+      expect(withinChunkTime()).toBe(5 * fraction)
+      await act(async () => player.pause())
+      await act(async () => player.resume())
+      expect(withinChunkTime()).toBe(5 * fraction)
+      await act(async () => player.jumpToChunk(4, true))
+      await frame()
+      expect(withinChunkTime()).toBe(0)
+    }
+  })
 })
 
 it.each([

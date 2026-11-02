@@ -155,12 +155,12 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
   const commandRef = useRef(new AbortController())
   const startRef = useRef<{ signal: AbortSignal;
     settle: (start: PlaybackStart) => void } | null>(null)
-  // Proportional in-chunk start from play-anywhere: consumed once by the
-  // navigation targeting the same chunk index, cleared on any other target.
+  // Consumed once by its explicit start; every later command clears it.
   const withinChunkOffsetRef = useRef<{ index: number;
     fraction: number } | null>(null)
 
   const beginCommand = useCallback(() => {
+    withinChunkOffsetRef.current = null
     commandRef.current.abort()
     commandRef.current = new AbortController()
   }, [])
@@ -1333,14 +1333,12 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     if (currentPlayingIndexRef.current !== null && optionsRef.current && samePlaybackOptions(optionsRef.current, options) &&
       (sourceChunksRef.current === chunks || canonical.length === chunksRef.current.length &&
         canonical.every((chunk, position) => chunk.id === chunksRef.current[position].id && chunk.text === chunksRef.current[position].text && chunk.textHash === chunksRef.current[position].textHash))) {
-      withinChunkOffsetRef.current = offset
       jumpToChunk(index, true)
     } else if (!speak(chunks, options, index)) {
       return null
-    } else {
-      // Consumption happens in the async navigation the speak chain starts.
-      withinChunkOffsetRef.current = offset
     }
+    // Install after dispatch creates its epoch; navigation consumes it asynchronously.
+    withinChunkOffsetRef.current = offset
     // The dispatch began this epoch; any later command aborts it and supersedes the start.
     const signal = commandRef.current.signal
     return new Promise(resolve => {

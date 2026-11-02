@@ -40,9 +40,9 @@ export function chunkSeekSeconds(
     durationSec: number },
   fraction: number,
 ): number {
-  return Math.min(
-    timing.startSec + fraction * timing.durationSec,
-    timing.startSec + timing.durationSec - 0.05,
+  return timing.startSec + Math.min(
+    fraction * timing.durationSec,
+    Math.max(timing.durationSec - 0.05, 0),
   )
 }
 
