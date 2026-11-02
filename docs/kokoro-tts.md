@@ -35,12 +35,19 @@ The boundary is intentionally small:
 - `src/tts/hooks/useAudiobookDocument.ts` owns document save-chunk preparation, imported bundle metadata restoration, and legacy source-span reconstruction for highlighting.
 - `src/tts/hooks/useAudiobookCache.ts` checks native audiobook files and starts long-running native save jobs.
 - `src/tts/hooks/useAudiobookDownloadQueue.ts` owns the active native save, resumable queue records, throttled progress persistence, cancellation, and completed-job cleanup. Successful deletion invalidates the matching completed save instance; delayed deletion cannot clear a replacement's readiness, and cache reset rejects late save responses.
-- `src/tts/hooks/useSavedAudiobookActions.ts` owns native saved-audiobook import, export, and delete execution plus their busy states and transient notices.
+- `src/tts/hooks/useSavedAudiobookActions.ts` owns native saved-audiobook import, export, and delete execution plus their busy states and transient notices. The app shell renders one notice on the active Library, Search, Audiobooks, or reader surface, preserving the existing dismissal behavior without navigating away on an external import failure.
+- `src/hooks/useOpenDocumentRequests.ts` subscribes before draining queued file-open requests, retains unfinished sources through busy-state changes, and serializes document and audiobook imports. It waits for both Library and audiobook actions, uses the latest committed import callbacks, and checks for later native requests after each retained batch. Unmount prevents further queued imports and releases the listener.
 - `src/tts/hooks/useAudiobookManager.ts` coordinates playback actions, model suggestions, confirmations, reader updates after saved-audiobook actions, and the prop bundles consumed by the audio UI components. Saved audiobooks can export either a re-importable `.papercut-audiobook` bundle or a plain stitched `.wav` file for use outside Papercut. The app registers as a viewer for `.papercut-audiobook` files, so opening one from a file manager (desktop open-with or an Android tap) routes through the same import flow, notices, and post-import steps as the in-app dialog.
 - `src/components/DocumentViewer/DocumentViewer.tsx` hosts the reader shell and exposes slots for TTS controls/diagnostics while owning Find, scroll-to-top, same-document link scrolling, and current-chunk highlighting.
 - `src/tts/components/AudioControls.tsx`, `src/tts/components/AudiobooksPanel.tsx`, `src/tts/hooks/useTtsHighlight.ts`, `src/tts/alignment/highlightRanges.ts`, and `src/tts/utils/format.ts` keep document playback controls, saved-download UI, React highlight lifecycle, DOM range mapping, and audiobook display formatting out of `App.tsx`.
 
 This keeps expensive inference and large WAV writes out of the WebView while preserving the existing React UI, highlighting contract, portable bundle format, and offline cache metadata.
+
+Dialog and open-with bundle imports share the same validation/restore core. On
+iOS, each source open is paired with access release after the core's reader drops,
+on success or failure, including open errors. The earlier magic probe releases its
+own access separately. Cleanup preserves the original import error when both the
+import and access release fail. Bundle formats and saved-audio identities are unchanged.
 
 ## Model Catalog And Download
 

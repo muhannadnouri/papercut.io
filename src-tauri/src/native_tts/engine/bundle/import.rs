@@ -126,16 +126,20 @@ pub(crate) fn import_audiobook_native(
             .ok_or_else(|| "Audiobook import cancelled".to_string())?,
     };
 
-    let mut options = OpenOptions::new();
-    options.read(true);
-    let file = app
-        .fs()
-        .open(source, options)
-        .map_err(|err| format!("Failed to open selected audiobook bundle: {err}"))?;
-    // Wrap the file in a BufReader so we can read the header, then stream
-    // payloads sequentially from the same cursor position.
-    let reader = BufReader::new(file);
-    import_audiobook_core(app, reader)
+    let import_result = (|| {
+        let mut options = OpenOptions::new();
+        options.read(true);
+        let file = app
+            .fs()
+            .open(source.clone(), options)
+            .map_err(|err| format!("Failed to open selected audiobook bundle: {err}"))?;
+        import_audiobook_core(app.clone(), BufReader::new(file))
+    })();
+    // The core owns its reader, so it drops before access is released on either outcome.
+    let release_result = release_source_access(&app, source);
+    let imported = import_result?;
+    release_result?;
+    Ok(imported)
 }
 
 /// Report whether an open-with source starts with the bundle magic, so opaque

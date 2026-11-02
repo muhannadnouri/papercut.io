@@ -2746,6 +2746,33 @@ Verification: 28 focused hook/viewer/cache tests, the Chromium restoration check
 and the full frontend suite (738 passed, one existing skip, 90 files); TypeScript,
 whole-repo strict ESLint, locale parity, and diff whitespace checks pass.
 
+### 2026-11-02 — PR review follow-up: open-with import lifecycle
+
+The third review-fix stage retains drained mixed document/bundle requests across
+React effect cleanup and busy-state changes. A single consumer waits for Library
+and audiobook actions, resumes retained sources with current callbacks, and checks
+the native queue again after each batch so later requests cannot lose their wake-up.
+Listener cleanup and unmount stop further queued imports. The existing importers,
+validation, PDF indexing, and post-import document behavior are reused.
+
+Audiobook action notices now render once in the app shell on every active surface,
+including Library and the reader, using the existing styles, translation keys,
+timeout, and dismissal. Invalid external bundles therefore leave a visible error
+without forcing navigation to Audiobooks. Native bundle import releases iOS source
+access after the reader drops on both success and failure, using the document
+importer's existing cleanup pattern; the magic probe releases its own access.
+
+Regression tests cover retained mixed batches, latest handlers, serialized imports,
+later native requests, late drain results, and unmount cleanup under StrictMode.
+App tests check one dismissible error on Library, Search, Audiobooks, and reader
+surfaces. Fresh iOS provider/device acceptance remains pending. The final planned
+stage is player offset lifetime and the short native clip clamp.
+
+Verification: 15 focused queue/app/manager tests and the full frontend suite
+(745 passed, one existing skip, 92 files); native-tts-core Rust tests (315 passed,
+five existing ignores), default-feature Rust check, TypeScript, whole-repo strict
+ESLint, locale parity, scoped Rust formatting, and diff whitespace checks pass.
+
 ## 7. Standards and design rationale
 
 This plan applies separation of concerns, explicit capability contracts,
