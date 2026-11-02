@@ -62,9 +62,10 @@ The primary play button needs an accessible name and tooltip. The idle floating
 shortcut stays icon-only inside the compact reader-tools capsule, including after
 Stop; its accessible name still identifies the viewport/selection action. Labeled
 passage commands remain in Options. “Chunk” is unnecessary
-in primary UI copy. Supporting description: “Starts at the beginning of the audio
-segment containing this passage.” Keep selection, hyperlinks, and current
-fullscreen toolbar gestures working normally. No new global shortcut is needed.
+in primary UI copy. Supporting description: “Starts near this passage in the saved
+audio.” HTML uses an approximate in-segment seek; PDF starts at the segment boundary.
+Keep selection, hyperlinks, and current fullscreen toolbar gestures working normally.
+No new global shortcut is needed.
 The external playback disclosure uses icon-only sliders, matching the Options tab;
 its full accessible name and tooltip are Playback options. Reader tools and player share a bottom edge when measured
 widths fit; otherwise the capsule stacks above the player at the same end edge.
@@ -74,13 +75,17 @@ soft yellow with a warning marker when generation setup is needed.
 
 ### Which passage counts as “here”
 
-1. Viewport actions use the **first visible narratable text in reading order**
-   within the unobscured reader area. Exclude the fixed header, PDF toolbar,
+1. HTML viewport actions use the **first narratable text in reading order at or
+   below the 30% reading-focus band** within the unobscured reader area. If all
+   eligible text sits above the band, fall back to the topmost visible text.
+   PDF uses its first visible narratable text. Exclude the fixed header, PDF toolbar,
    floating player, clipped regions, hidden content, and non-narrated references.
    Do not use the window bounds for a PDF's nested scroll container.
-2. If the top visible line cuts through a paragraph or a chunk, use a text point
-   on that visible line, not the paragraph's potentially distant beginning. Map
-   that point to the containing saved chunk and start the whole chunk.
+2. Capture a text point on the chosen visible line, not the paragraph's potentially
+   distant beginning. Map that point to the containing saved chunk. HTML seeks
+   proportionally within its audio when the character fraction is at least 15%;
+   shallower points and PDF start at the chunk boundary. This is approximate
+   timing, not word-level alignment.
 3. For multiple columns and RTL, use the existing narration/source order to
    choose among visible candidates. Screen x/y order alone is insufficient.
 4. Images and margins are skipped in favor of narratable text still in view.
@@ -440,15 +445,22 @@ view/session validation belongs to the adapter/coordinator in Stages 2–3.
 Implemented contract: `createChunkSourceResolver(chunks, segmentLengths)` takes
 the complete source chunk list and normalized UTF-16 segment lengths. It returns
 `ready` with `resolve({segmentIndex, offset})` or typed `unavailable`. Construction
-snapshots bounds/id/index and filters blank chunks in playback order. Chunks with
-missing or out-of-bounds spans are excluded from matching instead of failing the
+snapshots bounds/id/index and filters blank chunks in playback order. Every
+nonblank chunk retains its canonical playback index even when its mapping is
+excluded; `spanAt(index)` uses that same index and returns null for excluded spans.
+Chunks with missing or out-of-bounds spans are excluded from matching instead of failing the
 book; identity defects (blank/duplicate ids), unsorted and overlapping spans still
 fail globally, and points inside an excluded chunk stay `unmapped` rather than
 guessing audio. Normal lookup uses binary search. It does not verify live text
 identity, normalize DOM points, skip whitespace or detect staleness: adapters must
 supply validated/recovered spans and normalized points, and rebuild on source/view
-revision changes. Partial span coverage degrades to the accepted prefix (see the
-2026-10-29 evidence entry); it no longer waits unavailable for recovery.
+revision changes. HTML verification first checks complete durable coverage, then
+attempts ordered text-search recovery when allowed. Complete recovery stays strict;
+if recovery cannot repair the book, individually verified durable mappings remain
+usable without filtering or rewriting the saved playback sequence. A missing or
+out-of-bounds span has no trusted coverage end, so verification resumes at the next
+usable span instead of discarding that neighbour. Structural defects fail before
+recovery. PDF retains its existing source-projection checks.
 
 ### Stage 2 — Viewer capture and PDF/OCR mapping
 
@@ -2671,6 +2683,32 @@ and duplicate-identity tests; full frontend suite 711 passed. Four assertions
 moved to the new semantics; existing drift-detection cases (trailing punctuation,
 wrong-book replacement, recovered-span strictness) still pass unchanged. Owner
 manual acceptance on the affected book: pending.
+
+### 2026-11-02 — PR review follow-up: canonical mapping and recovery
+
+The first review-fix stage corrects play-from-here mapping without changing saved
+audio, chunk IDs/text/hashes, bundle formats, or the full chunk list passed to the
+player. Skipped mappings keep their canonical nonblank indices, including the
+span lookup used for proportional seeks. Validation shares the resolver's bounds
+checks, so mixed spanless/invalid and valid chunks cannot crash verification.
+Duplicate identities, ordering defects, and overlaps remain global failures.
+
+Recovery now runs before accepting partial durable coverage. Repairable spans
+resolve normally; an unrecoverable span leaves only a local gap, and its neighbours
+keep their original playback indices. Complete recovered coverage still rejects
+wrong-book gaps and trailing unnarrated content. The normative viewport rules now
+also describe the existing focus band and proportional seek accurately.
+
+Regression coverage includes skipped/blank canonical positions, `spanAt` gaps,
+missing and invalid cross-segment bounds, recovery before degradation, structural
+failures with recovery enabled, unchanged input chunks, and prepared-target identity
+and fractions after a dropped predecessor. Bookmark lifecycle, open-with batching,
+import notices/access cleanup, and player offset ownership remain later stages.
+
+Verification: 111 focused resolver/verification/preparation tests and the full
+frontend suite (729 passed, one existing skip, 89 files); TypeScript, whole-repo
+strict ESLint, locale parity, and diff whitespace checks pass. Device acceptance
+remains pending.
 
 ## 7. Standards and design rationale
 

@@ -292,6 +292,47 @@ describe('play-anywhere source chunk resolver', () => {
       })
   })
 
+  it('keeps canonical indices and span lookup across unusable and blank chunks', () => {
+    const chunks = [chunk('invalid', -1, 2), {
+      id: 'blank',
+      text: ' ',
+    }, chunk('first', 0, 4), {
+      id: 'missing',
+      text: 'Unmapped narration',
+    }, chunk('last', 8, 12)]
+    const original = structuredClone(chunks)
+    const resolver = ready(chunks, [12])
+    expect(resolver.resolve({
+      segmentIndex: 0,
+      offset: 1,
+    })).toEqual({
+      status: 'resolved',
+      chunkIndex: 1,
+      chunkId: 'first',
+    })
+    expect(resolver.resolve({
+      segmentIndex: 0,
+      offset: 9,
+    })).toEqual({
+      status: 'resolved',
+      chunkIndex: 3,
+      chunkId: 'last',
+    })
+    expect(resolver.spanAt(0)).toBeNull()
+    expect(resolver.spanAt(2)).toBeNull()
+    expect(resolver.spanAt(3)).toEqual({
+      start: {
+        segmentIndex: 0,
+        offset: 8,
+      },
+      end: {
+        segmentIndex: 0,
+        offset: 12,
+      },
+    })
+    expect(chunks).toEqual(original)
+  })
+
   it('accepts the existing legacy graft without rewriting saved narration or hashes', () => {
     const rebuilt = [
       {
@@ -452,6 +493,14 @@ describe('play-anywhere source chunk resolver', () => {
       ...chunk('one', 4, 8),
       sourceSpan: undefined,
     }], [8]))
+      .toEqual({
+        status: 'unavailable',
+        reason: 'invalid-source',
+      })
+    expect(createChunkSourceResolver([{
+      ...chunk('one', 0, 4),
+      sourceSpan: undefined,
+    }, chunk('one', 4, 8)], [8]))
       .toEqual({
         status: 'unavailable',
         reason: 'invalid-source',

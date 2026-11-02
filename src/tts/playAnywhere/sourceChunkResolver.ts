@@ -85,17 +85,21 @@ export function createChunkSourceResolver(
   }
 
   const entries: ChunkSourceEntry[] = []
+  const entriesByIndex: Array<ChunkSourceEntry | undefined> = []
   const ids = new Set<string>()
+  let canonicalIndex = 0
   for (const chunk of chunks) {
     if (!chunk.text.trim()) {
       continue
     }
+    const chunkIndex = canonicalIndex++
     if (!chunk.id.trim() || ids.has(chunk.id)) {
       return {
         status: 'unavailable',
         reason: 'invalid-source',
       }
     }
+    ids.add(chunk.id)
     const span = chunk.sourceSpan
     // Degraded books keep playing: a chunk with no usable span is excluded
     // from play-from-here matching instead of disabling the whole book.
@@ -136,13 +140,14 @@ export function createChunkSourceResolver(
         reason: 'ambiguous',
       }
     }
-    ids.add(chunk.id)
-    entries.push({
+    const entry = {
       start,
       end,
-      chunkIndex: entries.length,
+      chunkIndex,
       chunkId: chunk.id,
-    })
+    }
+    entries.push(entry)
+    entriesByIndex[chunkIndex] = entry
   }
 
   if (entries.length === 0) {
@@ -155,7 +160,7 @@ export function createChunkSourceResolver(
   return {
     status: 'ready',
     spanAt: (chunkIndex) => {
-      const entry = entries[chunkIndex]
+      const entry = entriesByIndex[chunkIndex]
       if (!entry) {
         return null
       }

@@ -39,39 +39,54 @@ export function* htmlResolverSteps(chunks: readonly TtsChunk[], texts: readonly 
     }
     let cursor = 0
     let dropped = false
-    const accepted: TtsChunk[] = []
-    for (const chunk of mapped) {
+    let chunkIndex = 0
+    const accepted = [...mapped]
+    for (const [index, chunk] of mapped.entries()) {
       yield
       if (!chunk.text.trim()) {
         continue
       }
-      const span = chunk.sourceSpan!
+      const span = chunk.sourceSpan
+      if (!resolver.spanAt(chunkIndex++) || !span) {
+        if (strict) {
+          return {
+            status: 'unavailable',
+            reason: 'unmapped',
+          } as const
+        }
+        dropped = true
+        // Without usable bounds, resume coverage at the next verified span.
+        cursor = -1
+        accepted[index] = {
+          ...chunk,
+          sourceSpan: undefined,
+        }
+        continue
+      }
       const start = sourceSpanStartGlobalOffset(locator, span)
       const end = sourceSpanEndGlobalOffset(locator, span)
       const matches = locatorTextsMatch(locator.text.slice(start, end), chunk.text) ||
         (span.startSegmentIndex !== span.endSegmentIndex && locatorTextsMatch(narratedSpanText(texts, span), chunk.text))
-      if (strict && (!locatorRangeIsIgnorable(locator, cursor, start) || !matches)) {
+      const contiguous = cursor < 0 || locatorRangeIsIgnorable(locator, cursor, start)
+      if (strict && (!contiguous || !matches)) {
         return {
           status: 'unavailable',
           reason: 'unmapped',
         } as const
       }
-      if (!matches || !locatorRangeIsIgnorable(locator, cursor, start)) {
-        // One unverifiable span drops only its own chunk from play-from-here;
-        // the cursor still advances so a single bad span cannot cascade into
-        // its neighbours. Recovery has already had its chance to repair the
-        // book; fully recovered spans stay strict because their failure means
-        // the audio does not belong to this text at all.
+      if (!matches || !contiguous) {
+        // Keep canonical positions; exclude only the mapping, never its audio.
         dropped = true
         cursor = end
+        accepted[index] = {
+          ...chunk,
+          sourceSpan: undefined,
+        }
         continue
       }
       cursor = end
-      accepted.push(chunk)
     }
     if (dropped) {
-      // Degraded coverage: the trailing guard is meaningless once spans were
-      // distrusted, so ship the accepted prefix as-is.
       return createChunkSourceResolver(accepted, lengths)
     }
     return locatorRangeIsIgnorable(locator, cursor, locator.text.length) ? resolver
@@ -80,18 +95,20 @@ export function* htmlResolverSteps(chunks: readonly TtsChunk[], texts: readonly 
         reason: 'unmapped',
       } as const
   }
-  const durable = yield* validate(chunks, false)
-  if (durable.status === 'ready' || !allowRecovery) {
+  const durable = yield* validate(chunks, true)
+  if (durable.status === 'ready' || durable.reason === 'invalid-source' || durable.reason === 'ambiguous') {
     return durable
   }
-  const recovered = yield* orderedSourceSpanSteps(locator, chunks)
-  if (chunks.some((chunk, index) => chunk.text.trim() && !recovered.has(index))) {
-    return durable
+  if (allowRecovery) {
+    const recovered = yield* orderedSourceSpanSteps(locator, chunks)
+    if (chunks.every((chunk, index) => !chunk.text.trim() || recovered.has(index))) {
+      return yield* validate(chunks.map((chunk, index) => ({
+        ...chunk,
+        sourceSpan: recovered.get(index),
+      })), true)
+    }
   }
-  return yield* validate(chunks.map((chunk, index) => ({
-    ...chunk,
-    sourceSpan: recovered.get(index),
-  })), true)
+  return yield* validate(chunks, false)
 }
 
 /** Generation splits paragraphs before merging; a leading terminator may be omitted in each paragraph. */

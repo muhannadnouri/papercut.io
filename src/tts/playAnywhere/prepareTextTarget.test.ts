@@ -229,6 +229,26 @@ describe('source-only target preparation', () => {
     })
   })
 
+  it('preserves the full playback sequence and fraction after a dropped predecessor', async () => {
+    const degradedChunks = [{
+      ...chunks[0],
+      text: 'Changed',
+    }, chunks[1]]
+    const preparation = createTextTargetPreparation(options({ chunks: degradedChunks }))
+    const target = await preparation.resolve('/book.html', htmlCapture())
+    expect(target).toMatchObject({
+      status: 'resolved',
+      chunkIndex: 1,
+      chunkId: 'b',
+      withinChunkFraction: 2 / 7,
+    })
+    if (target.status === 'resolved') {
+      expect(target.chunks).toBe(degradedChunks)
+      expect(target.chunks[target.chunkIndex].id).toBe(target.chunkId)
+    }
+    preparation.dispose()
+  })
+
   it('requires live text identity, not equal lengths; rejects wrong documents, unavailable and stale views', async () => {
     const preparation = createTextTargetPreparation(options())
     expect(await preparation.resolve('/book.html', htmlCapture(['First.', 'Changed']))).toMatchObject({ reason: 'unmapped' })

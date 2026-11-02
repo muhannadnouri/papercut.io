@@ -115,7 +115,7 @@ describe('verified source lookup', () => {
     expect(verifiedHtmlResolver(chunks, ['Repeat.', 'Repeat.'], false)).toMatchObject({ reason: 'not-ready' })
   })
 
-  it('recovers stale locators only for allowed legacy bundles', () => {
+  it('recovers stale locators only when recovery is allowed', () => {
     const chunks = [{
       id: 'a',
       text: 'First.',
@@ -403,7 +403,7 @@ it('drops one unverifiable span without cascading into its neighbours', () => {
       offset: 33,
     })).toEqual({
       status: 'resolved',
-      chunkIndex: 1,
+      chunkIndex: 2,
       chunkId: 'third',
     })
   }
@@ -412,6 +412,121 @@ it('drops one unverifiable span without cascading into its neighbours', () => {
     .toEqual({
       status: 'unavailable',
       reason: 'not-ready',
+    })
+})
+
+it.each([false, true])('keeps neighbours playable around unusable spans (recovery=%s)', allowRecovery => {
+  const texts = ['Alpha passage. Beta passage. Gamma passage.']
+  for (const sourceSpan of [undefined, {
+    ...span(15, 28),
+    endSegmentIndex: 3,
+  }]) {
+    const chunks: TtsChunk[] = [{
+      id: 'first',
+      text: 'Alpha passage.',
+      sourceSpan: span(0, 14),
+    }, {
+      id: 'missing',
+      text: 'Stale narration.',
+      sourceSpan,
+    }, {
+      id: 'third',
+      text: 'Gamma passage.',
+      sourceSpan: span(29, 43),
+    }]
+    const original = structuredClone(chunks)
+    const resolver = verifiedHtmlResolver(chunks, texts, allowRecovery)
+    expect(resolver.status).toBe('ready')
+    if (resolver.status !== 'ready') {
+      throw new Error(resolver.reason)
+    }
+    expect(resolver.resolve({
+      segmentIndex: 0,
+      offset: 33,
+    })).toEqual({
+      status: 'resolved',
+      chunkIndex: 2,
+      chunkId: 'third',
+    })
+    expect(resolver.resolve({
+      segmentIndex: 0,
+      offset: 20,
+    })).toEqual({
+      status: 'unavailable',
+      reason: 'unmapped',
+    })
+    expect(chunks).toEqual(original)
+  }
+})
+
+it.each([span(7, 11), undefined, {
+  ...span(7, 12),
+  endSegmentIndex: 3,
+}])(
+  'repairs an unusable span before accepting partial coverage: %j', sourceSpan => {
+    const texts = ['Alpha. Beta. Gamma.']
+    const chunks: TtsChunk[] = [{
+      id: 'first',
+      text: 'Alpha.',
+      sourceSpan: span(0, 6),
+    }, {
+      id: 'second',
+      text: 'Beta.',
+      sourceSpan,
+    }, {
+      id: 'third',
+      text: 'Gamma.',
+      sourceSpan: span(13, 19),
+    }]
+    const original = structuredClone(chunks)
+    const resolver = verifiedHtmlResolver(chunks, texts, true)
+    expect(resolver.status).toBe('ready')
+    if (resolver.status !== 'ready') {
+      throw new Error(resolver.reason)
+    }
+    expect(resolver.resolve({
+      segmentIndex: 0,
+      offset: 9,
+    })).toEqual({
+      status: 'resolved',
+      chunkIndex: 1,
+      chunkId: 'second',
+    })
+    expect(chunks).toEqual(original)
+  },
+)
+
+it.each([false, true])('does not recover structural defects (recovery=%s)', allowRecovery => {
+  const first = {
+    id: 'first',
+    text: 'Alpha.',
+    sourceSpan: span(0, 6),
+  }
+  const second = {
+    id: 'second',
+    text: 'Beta.',
+    sourceSpan: span(7, 12),
+  }
+  expect(verifiedHtmlResolver([first, {
+    ...second,
+    id: first.id,
+  }], ['Alpha. Beta.'], allowRecovery))
+    .toEqual({
+      status: 'unavailable',
+      reason: 'invalid-source',
+    })
+  expect(verifiedHtmlResolver([second, first], ['Alpha. Beta.'], allowRecovery))
+    .toEqual({
+      status: 'unavailable',
+      reason: 'invalid-source',
+    })
+  expect(verifiedHtmlResolver([first, {
+    ...second,
+    sourceSpan: span(5, 12),
+  }], ['Alpha. Beta.'], allowRecovery))
+    .toEqual({
+      status: 'unavailable',
+      reason: 'ambiguous',
     })
 })
 
