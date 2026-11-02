@@ -17,24 +17,55 @@ type CaretDocument = Document & {
  * Anchor HTML and generated EPUB bookmarks to rendered text instead of page
  * height, so typography and viewport changes do not move the saved passage.
  */
-export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi {
+export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi & { dispose: () => void } {
   const view = root.ownerDocument.defaultView ?? window
   let cached: { location: HtmlBookmarkLocation;
     range: Range } | null = null
   let nodeIndex: Text[] | null = null
   let nodeIndexPromise: Promise<Text[]> | null = null
+  let revision = 0
+  let disposed = false
+  const indexListeners = new Set<() => void>()
+  const invalidate = () => {
+    revision++
+    cached = null
+    nodeIndex = null
+    nodeIndexPromise = null
+  }
+  const mutations = new view.MutationObserver(invalidate)
+  mutations.observe(root, {
+    subtree: true,
+    childList: true,
+    characterData: true,
+  })
+  const refresh = () => {
+    if (mutations.takeRecords().length) {
+      invalidate()
+    }
+  }
 
   // The full-book text walk blocks long enough to freeze the reader on large
   // documents, so build it in yielding slices and consume the finished index
   // from resolve/restore. Capture keeps its own synchronous walk.
   const buildNodeIndex = (): Promise<Text[]> => {
+    refresh()
     if (nodeIndexPromise) {
       return nodeIndexPromise
     }
+    const version = revision
     nodeIndexPromise = new Promise((resolve) => {
       const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
       const nodes: Text[] = []
       const step = () => {
+        refresh()
+        if (disposed) {
+          resolve([])
+          return
+        }
+        if (version !== revision) {
+          resolve(buildNodeIndex())
+          return
+        }
         const sliceStartedAt = view.performance.now()
         let current: Node | null
         while ((current = walker.nextNode())) {
@@ -55,13 +86,11 @@ export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi {
         nodeIndex = nodes
         resolve(nodes)
         indexListeners.forEach((listener) => listener())
-        indexListeners.clear()
       }
       step()
     })
     return nodeIndexPromise
   }
-  const indexListeners = new Set<() => void>()
 
   const resolveWithNodes = (nodes: Text[], location: ViewerBookmarkLocation): Range | null => {
     if (!isHtmlLocation(location)) {
@@ -99,7 +128,12 @@ export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi {
   return {
     capture: () => captureTextLocation(root),
     isCurrent: (location) => {
+      refresh()
+      if (disposed) {
+        return false
+      }
       if (!nodeIndex) {
+        void buildNodeIndex()
         return false
       }
       const range = resolveWithNodes(nodeIndex, location)
@@ -111,25 +145,37 @@ export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi {
         bounds.top <= view.innerHeight + BOOKMARK_VISIBILITY_MARGIN_PX
     },
     isPastStart: () => view.scrollY > 180,
-    restore: (location) => {
+    restore: async (location) => {
       // The yielding index build keeps the reader responsive on large books;
       // the restoring surface stays up until the seek completes.
-      return buildNodeIndex().then((nodes) => {
-        const range = resolveWithNodes(nodes, location)
-        if (!range) {
-          return
-        }
-        const bounds = range.getBoundingClientRect()
-        view.scrollTo({
-          top: Math.max(0, view.scrollY + bounds.top),
-          behavior: 'auto',
-        })
+      let nodes: Text[]
+      do {
+        nodes = await buildNodeIndex()
+        refresh()
+      } while (!disposed && nodes !== nodeIndex)
+      if (disposed || !root.isConnected) {
+        return
+      }
+      const range = resolveWithNodes(nodes, location)
+      if (!range) {
+        return
+      }
+      const bounds = range.getBoundingClientRect()
+      view.scrollTo({
+        top: Math.max(0, view.scrollY + bounds.top),
+        behavior: 'auto',
       })
     },
     scrollToTop: () => view.scrollTo({
       top: 0,
       behavior: 'smooth',
     }),
+    dispose: () => {
+      disposed = true
+      mutations.disconnect()
+      invalidate()
+      indexListeners.clear()
+    },
     subscribe: (listener) => {
       indexListeners.add(listener)
       view.addEventListener('scroll', listener, { passive: true })

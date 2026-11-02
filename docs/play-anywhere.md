@@ -2710,6 +2710,42 @@ frontend suite (729 passed, one existing skip, 89 files); TypeScript, whole-repo
 strict ESLint, locale parity, and diff whitespace checks pass. Device acceptance
 remains pending.
 
+### 2026-11-02 — PR review follow-up: bookmark restoration lifecycle
+
+The second review-fix stage keeps one viewer mounted through bookmark restoration.
+Its wrapper uses `display: contents` in both states; only visibility changes after
+the seek. A fixed restoring surface stays outside document flow, so revealing the
+book neither remounts HTML/PDF nor removes a loading block above the destination.
+The hidden-book paint strategy from the October QA rounds is preserved.
+
+The 20-second fallback is owned by its restoring phase, cleared on replacement,
+close, completion, and unmount, and cannot dismiss a later restore of the same URL.
+Completion callbacks also belong to their phase, so an old callback cannot finish
+a replacement restore even before the old hook's cleanup runs.
+Restore throws/rejections settle busy state without reporting success. Unfinished
+attempts are not marked complete, so effect cleanup followed by an API replacement
+can retry; superseded completions cannot notify the parent. Manual Return-to-bookmark
+keeps the existing paint-before-seek behavior.
+
+HTML bookmark text-node indices, pending builds, and cached ranges invalidate on
+child/text changes, including the non-iOS search-highlight fallback. Stale yielding
+builds restart against the current DOM; viewer cleanup disconnects observation and
+prevents disposed/detached restores from scrolling. Without a bookmark capability
+consumer, HtmlViewer creates no bookmark observer or index.
+
+Regression coverage includes reopening the same URL before its old timeout,
+failsafe expiry/cleanup, synchronous and asynchronous seek failure, API replacement
+with a late old completion, fallback highlight insertion/removal, mutations during
+a yielding build, disposal, and stable HTML viewer identity/success notices. A real
+Chromium restore confirms the hidden book, fixed surface, preserved destination,
+and same reader node after reveal. Packaged Android/iOS device acceptance remains
+pending. Open-with batching/notices/iOS access and player offset ownership remain
+the next stages.
+
+Verification: 28 focused hook/viewer/cache tests, the Chromium restoration check,
+and the full frontend suite (738 passed, one existing skip, 90 files); TypeScript,
+whole-repo strict ESLint, locale parity, and diff whitespace checks pass.
+
 ## 7. Standards and design rationale
 
 This plan applies separation of concerns, explicit capability contracts,
@@ -2750,7 +2786,7 @@ coverage. These are engineering design choices, not a claim of certification.
 | Build/measure a DOM Range for every chunk on each action | Unnecessary book-sized layout work and poor fit for PDF virtualization. |
 | Start at zero, then call jump | Can play the opening fragment and move the reader before the intended seek. |
 | Slice chunks before calling the player | Changes canonical indices/signature and breaks saved-audio identity. |
-| Approximate word timing or forced alignment | Unneeded for the accepted chunk-start behavior. |
+| Word-level timestamps or forced alignment | Separate from the accepted approximate proportional seek; no regeneration is needed for this change. |
 | New player, global event bus, feature-flag framework or persistent settings | Duplicates ownership and makes debugging/removal harder. |
 | Keep the cancellation wrappers and add comments naming each other (2026-10-26) | Documents the hazard but keeps opt-in cancellation and the false `stale` feedback. |
 | One manager helper that wraps every transport/settings handler | Still opt-in at a single list, and still polls the guard after dispatch. Supersession belongs where commands are ordered, in the player. |

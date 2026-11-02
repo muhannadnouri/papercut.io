@@ -661,41 +661,6 @@ export function DocumentViewer({
             <strong>{t('reader.unableToOpen')}</strong>
             <span dir="auto">{loadError}</span>
           </div>
-        ) : restoringDocument ? (
-          <>
-            <div className="document-html-surface document-loading-surface" role="status" aria-live="polite">
-              <span className="spinner" aria-hidden="true" />
-              <span className="document-loading-message">
-                <span>{t('reader.restoringBookmark')}</span>
-                <span className="document-loading-detail">
-                  {t('reader.largeDocumentDelay')}
-                </span>
-              </span>
-            </div>
-            {/* Mount hidden so the anchor index builds and the seek lands
-             * before the book is ever rasterized: one paint, at the
-             * destination. */}
-            <div className="document-viewer-hidden">
-              <ViewerComponent
-                url={url}
-                format={format}
-                content={content}
-                contentRef={readerRef}
-                toolbarTarget={viewerToolbarTarget}
-                searchTarget={searchTarget}
-                pdfTtsHighlightSpans={pdfTtsHighlightSpans}
-                audioFollowPolicy={audioFollowPolicy}
-                onReaderBrowse={onReaderBrowse}
-                fullscreen={pdfFullscreen}
-                onBookmarkApiChange={setViewerBookmarkApi}
-                onFindApiChange={setViewerFindApi}
-                onFindResult={handleViewerFindResult}
-                onTextTargetApiChange={onTextTargetApiChange}
-                getTextTargetViewport={onTextTargetApiChange ? getTextTargetViewport : undefined}
-                onFullscreenChange={togglePdfFullscreen}
-              />
-            </div>
-          </>
         ) : loading ? (
           <div className="document-html-surface document-loading-surface" role="status" aria-live="polite">
             <span className="spinner" aria-hidden="true" />
@@ -710,27 +675,29 @@ export function DocumentViewer({
             </span>
           </div>
         ) : (
-          <ViewerComponent
-            url={url}
-            format={format}
-            content={content}
-            contentRef={readerRef}
-            toolbarTarget={viewerToolbarTarget}
-            searchTarget={searchTarget}
-            pdfTtsHighlightSpans={pdfTtsHighlightSpans}
-            audioFollowPolicy={audioFollowPolicy}
-            onReaderBrowse={onReaderBrowse}
-            fullscreen={pdfFullscreen}
-            onBookmarkApiChange={setViewerBookmarkApi}
-            onFindApiChange={setViewerFindApi}
-            onFindResult={handleViewerFindResult}
-            onTextTargetApiChange={onTextTargetApiChange}
-            getTextTargetViewport={onTextTargetApiChange ? getTextTargetViewport : undefined}
-            onFullscreenChange={togglePdfFullscreen}
-          />
+          <div className={restoringDocument ? 'document-viewer-hidden' : 'document-viewer-shown'}>
+            <ViewerComponent
+              url={url}
+              format={format}
+              content={content}
+              contentRef={readerRef}
+              toolbarTarget={viewerToolbarTarget}
+              searchTarget={searchTarget}
+              pdfTtsHighlightSpans={pdfTtsHighlightSpans}
+              audioFollowPolicy={audioFollowPolicy}
+              onReaderBrowse={onReaderBrowse}
+              fullscreen={pdfFullscreen}
+              onBookmarkApiChange={setViewerBookmarkApi}
+              onFindApiChange={setViewerFindApi}
+              onFindResult={handleViewerFindResult}
+              onTextTargetApiChange={onTextTargetApiChange}
+              getTextTargetViewport={onTextTargetApiChange ? getTextTargetViewport : undefined}
+              onFullscreenChange={togglePdfFullscreen}
+            />
+          </div>
         )}
 
-        {restoringBookmark && !restoringDocument && (
+        {(restoringBookmark || restoringDocument) && !loading && !loadError && (
           <div
             className="document-html-surface document-loading-surface document-restoring-surface"
             role="status"

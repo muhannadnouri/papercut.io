@@ -31,11 +31,15 @@ export const HtmlViewer = memo(function HtmlViewer({
 
   useEffect(() => {
     const root = contentRef?.current
-    if (!root) {
+    if (!root || !onBookmarkApiChange) {
       return
     }
-    onBookmarkApiChange?.(createHtmlBookmarkApi(root))
-    return () => onBookmarkApiChange?.(null)
+    const bookmark = createHtmlBookmarkApi(root)
+    onBookmarkApiChange(bookmark)
+    return () => {
+      bookmark.dispose()
+      onBookmarkApiChange(null)
+    }
   }, [content, contentRef, onBookmarkApiChange])
 
   useEffect(() => {

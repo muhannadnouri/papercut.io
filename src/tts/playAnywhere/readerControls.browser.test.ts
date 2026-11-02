@@ -79,6 +79,26 @@ beforeAll(async () => {
       }
       createRoot(document.getElementById('header-fixture')).render(<Reader/>);
     }
+    export async function mountBookmarkRestore() {
+      await i18n.changeLanguage('en');
+      const texts=Array.from({length:80},(_,index)=>'Passage '+index+'. Readable bookmark text continues through this long book.');
+      localStorage.setItem('papercut:reader-bookmark:/restore.html',JSON.stringify({updatedAtMs:1,viewerLocation:{textOffset:texts.slice(0,30).join('').length}}));
+      function Reader() {
+        const [restoring,setRestoring]=React.useState(true);
+        const complete=React.useCallback(()=>{
+          const article=document.querySelector('article'),before=scrollY;
+          const status=document.querySelector('.document-restoring-surface');
+          const hidden=getComputedStyle(article).visibility==='hidden',fixed=getComputedStyle(status).position==='fixed';
+          setRestoring(false);
+          requestAnimationFrame(()=>requestAnimationFrame(()=>{
+            const target=document.createRange();target.setStart(article.querySelectorAll('p')[30].firstChild,0);target.collapse(true);
+            parent.postMessage({type:'capture-result',result:{same:document.querySelector('article')===article,before,after:scrollY,top:target.getBoundingClientRect().top,hidden,fixed,notice:document.querySelector('.reader-bookmark-notice')?.textContent,overlay:!!document.querySelector('.document-restoring-surface')}},'*');
+          }));
+        },[]);
+        return <DocumentViewer url="/restore.html" content={texts.map(text=>'<p>'+text+'</p>').join('')} restoreBookmark restoringDocument={restoring} onRestoringDocumentComplete={complete} onClose={()=>{}}/>;
+      }
+      createRoot(document.getElementById('header-fixture')).render(<Reader/>);
+    }
     export async function mount(locale,captureMode=false,playbackStatus='idle',legacy=false,priorFeedback=null) {
       await i18n.changeLanguage(locale);document.documentElement.dir=locale==='ar'?'rtl':'ltr';
       const noop=()=>{};
@@ -158,6 +178,24 @@ afterAll(() => {
   }
 })
 describe.skipIf(!browser)('Reader controls in Chromium', () => {
+  it('reveals the same bookmarked reader without shifting its destination', async () => {
+    const frame = join(directory, 'bookmark-restore.html')
+    writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>${css}body{margin:0}.document-html-content{font-family:Arial!important}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script>
+      <script>localStorage.clear();ReaderControls.mountBookmarkRestore();</script>`)
+    const result = await runBrowserFixture(directory, frame, 390)
+    expect(result).toMatchObject({
+      same: true,
+      hidden: true,
+      fixed: true,
+      overlay: false,
+    })
+    expect(result.before).toBeGreaterThan(600)
+    expect(result.after).toBeCloseTo(result.before, 0)
+    expect(Math.abs(Number(result.top))).toBeLessThan(2)
+    expect(result.notice).toContain('Jumped to bookmark.')
+  }, 30_000)
+
   it.each([
     {
       width: 620,

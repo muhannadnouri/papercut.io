@@ -203,6 +203,75 @@ describe('useReaderBookmark restore indicator', () => {
     document.body.replaceChildren()
   })
 
+  it.each(['throw', 'reject'])('settles a failed restore without success after %s', async failure => {
+    const frames = stubAnimationFrames()
+    const viewerApi = createBookmarkApiStub()
+    viewerApi.restore.mockImplementation(() => {
+      if (failure === 'throw') {
+        throw new Error('Seek failed')
+      }
+      return Promise.reject(new Error('Seek failed'))
+    })
+    seedBookmark('/book.html', 240)
+    const harness = createBookmarkHarness()
+    const done = vi.fn()
+    try {
+      harness.render({
+        url: '/book.html',
+        enabled: true,
+        viewerApi,
+        onRestoringDocumentComplete: done,
+      })
+      flushAnimationFrames(frames, 3)
+      await act(async () => {})
+      expect(harness.state.restoringBookmark).toBe(false)
+      expect(harness.state.isAtBookmark).toBe(false)
+      expect(harness.state.bookmarkNotice).toBeNull()
+      expect(done).toHaveBeenCalledOnce()
+    } finally {
+      harness.unmount()
+    }
+  })
+
+  it('retries an API replacement and ignores the superseded completion', async () => {
+    const frames = stubAnimationFrames()
+    const first = createBookmarkApiStub()
+    const second = createBookmarkApiStub()
+    let resolveFirst!: () => void
+    first.restore.mockReturnValue(new Promise<void>(resolve => {
+      resolveFirst = resolve
+    }))
+    seedBookmark('/book.html', 240)
+    const harness = createBookmarkHarness()
+    const done = vi.fn()
+    try {
+      harness.render({
+        url: '/book.html',
+        enabled: true,
+        viewerApi: first,
+        onRestoringDocumentComplete: done,
+      })
+      flushAnimationFrames(frames, 3)
+      harness.render({
+        url: '/book.html',
+        enabled: true,
+        viewerApi: second,
+        onRestoringDocumentComplete: done,
+      })
+      await act(async () => {
+        resolveFirst()
+      })
+      expect(done).not.toHaveBeenCalled()
+      flushAnimationFrames(frames, 3)
+      await act(async () => {})
+      expect(second.restore).toHaveBeenCalledOnce()
+      expect(done).toHaveBeenCalledOnce()
+      expect(harness.state.bookmarkNotice).toBe('restored')
+    } finally {
+      harness.unmount()
+    }
+  })
+
   it('keeps the restoring indicator up while restore-on-open seeks, then completes it', async () => {
     const frames = stubAnimationFrames()
     const viewerApi = createBookmarkApiStub()

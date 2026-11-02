@@ -60,6 +60,16 @@ export function useDocumentViewerState({
   const documentOpeningRef = useRef(false)
   const browseScrollRef = useRef<BrowseScrollSnapshot | null>(null)
 
+  useEffect(() => {
+    if (documentLoad.status !== 'restoring') {
+      return
+    }
+    const timer = window.setTimeout(() => {
+      setDocumentLoad(current => current === documentLoad ? { status: 'idle' } : current)
+    }, 20000)
+    return () => window.clearTimeout(timer)
+  }, [documentLoad])
+
   const clearSelectedDocument = useCallback((options?: { restoreBrowseScroll?: boolean }) => {
     if (options?.restoreBrowseScroll === false) {
       browseScrollRef.current = null
@@ -151,11 +161,6 @@ export function useDocumentViewerState({
           url,
           message: 'Restoring bookmark...',
         })
-        window.setTimeout(() => {
-          setDocumentLoad((prev) => prev.status === 'restoring' && prev.url === url
-            ? { status: 'idle' }
-            : prev)
-        }, 20000)
       } else {
         setDocumentLoad({ status: 'idle' })
       }
@@ -176,8 +181,8 @@ export function useDocumentViewerState({
   }, [activeTab, loadHtmlDocument])
 
   const completeRestoringDocument = useCallback(() => {
-    setDocumentLoad((prev) => prev.status === 'restoring' ? { status: 'idle' } : prev)
-  }, [])
+    setDocumentLoad((prev) => prev === documentLoad && prev.status === 'restoring' ? { status: 'idle' } : prev)
+  }, [documentLoad])
 
   return {
     clearSelectedDocument,

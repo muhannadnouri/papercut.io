@@ -177,24 +177,37 @@ export function useReaderBookmark(
   // surface is visible from mount: no reveal delay to race, and the double
   // rAF guarantees one painted frame of it before any blocking work.
   const runRestore = useCallback((bookmark: ReaderBookmark) => {
+    cancelRestoreRef.current()
     logTtsDiagnostic('[reader-bookmark] restore seek started', {})
     setRestoringBookmark(true)
     let superseded = false
     let innerFrame = 0
-    const finish = () => {
+    const finish = async () => {
       const seekStartedAt = performance.now()
-      void Promise.resolve(viewerApi?.restore(bookmark.viewerLocation)).then(() => {
-        logTtsDiagnostic('[reader-bookmark] restore seek finished', {
-          durationMs: Math.round(performance.now() - seekStartedAt),
-        })
+      try {
+        await viewerApi?.restore(bookmark.viewerLocation)
         if (superseded) {
           return
         }
+        logTtsDiagnostic('[reader-bookmark] restore seek finished', {
+          durationMs: Math.round(performance.now() - seekStartedAt),
+        })
         setIsAtBookmark(true)
         setBookmarkNotice('restored')
-        setRestoringBookmark(false)
-        onRestoringDocumentComplete?.()
-      })
+      } catch {
+        if (superseded) {
+          return
+        }
+        logTtsDiagnostic('[reader-bookmark] restore seek failed', {}, 'warn')
+        setIsAtBookmark(false)
+        setBookmarkNotice(null)
+      } finally {
+        if (!superseded) {
+          restoredKeyRef.current = storageKey(url)
+          setRestoringBookmark(false)
+          onRestoringDocumentComplete?.()
+        }
+      }
     }
     const outerFrame = requestAnimationFrame(() => {
       innerFrame = requestAnimationFrame(finish)
@@ -206,7 +219,7 @@ export function useReaderBookmark(
         cancelAnimationFrame(innerFrame)
       }
     }
-  }, [viewerApi, onRestoringDocumentComplete])
+  }, [viewerApi, onRestoringDocumentComplete, url])
 
   const restoreBookmark = useCallback(() => {
     const bookmark = bookmarkRef.current
@@ -269,14 +282,15 @@ export function useReaderBookmark(
         bookmark &&
         viewerApi
       ) {
-        restoredKeyRef.current = storageKey(url)
         runRestore(bookmark)
         return
       }
       setIsAtBookmark(bookmark && viewerApi
         ? viewerApi.isCurrent(bookmark.viewerLocation)
         : false)
-      setBookmarkNotice(null)
+      if (restoredKeyRef.current !== storageKey(url)) {
+        setBookmarkNotice(null)
+      }
     })
 
     return () => {
