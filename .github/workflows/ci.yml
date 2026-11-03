@@ -390,7 +390,6 @@ jobs:
         with:
           workspaces: src-tauri
           shared-key: desktop
-          cache-on-failure: true
 
       - name: Install dependencies
         run: npm ci
@@ -546,7 +545,6 @@ jobs:
         with:
           workspaces: src-tauri
           shared-key: android
-          cache-on-failure: true
 
       - name: Install dependencies
         run: npm ci
@@ -669,7 +667,6 @@ jobs:
         with:
           workspaces: src-tauri
           key: ios
-          cache-on-failure: true
 
       - name: Install CocoaPods
         run: |

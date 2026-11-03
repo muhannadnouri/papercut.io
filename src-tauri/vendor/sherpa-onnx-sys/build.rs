@@ -119,7 +119,7 @@ fn resolve_lib_dir(
 // Cache cleaners can strip files while keeping directory trees; an empty lib dir must re-download.
 fn dir_has_entries(path: &Path) -> bool {
     fs::read_dir(path)
-        .map(|mut entries| entries.next().is_some())
+        .map(|mut entries| matches!(entries.next(), Some(Ok(_))))
         .unwrap_or(false)
 }
 
