@@ -405,7 +405,7 @@ fn preflight_archive<R: Read + Seek>(reader: &mut R) -> Result<u64, String> {
 
 pub(super) fn open_archive<R: Read + Seek>(mut reader: R) -> Result<ZipArchive<R>, String> {
     let entries = preflight_archive(&mut reader)?;
-    let archive = ZipArchive::with_config(
+    let mut archive = ZipArchive::with_config(
         Config {
             archive_offset: ArchiveOffset::Known(0),
         },
@@ -418,6 +418,9 @@ pub(super) fn open_archive<R: Read + Seek>(mut reader: R) -> Result<ZipArchive<R
             "Library-transfer archive contains duplicate entries or inconsistent metadata".into(),
         );
     }
+    archive
+        .validate_header_consistency()
+        .map_err(|err| format!("Library-transfer archive is inconsistent: {err}"))?;
     Ok(archive)
 }
 
@@ -1016,6 +1019,64 @@ mod tests {
                 .unwrap();
             assert_eq!(source, "<p>Archive compatibility: مرحبا</p>");
         }
+    }
+
+    #[test]
+    fn package_accepts_streamed_unicode_entries_with_data_descriptors() {
+        let mut writer = ZipWriter::new_stream(Vec::new());
+        writer
+            .start_file(
+                "مرحبا.html",
+                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated),
+            )
+            .unwrap();
+        writer.write_all("<p>مرحبا</p>".as_bytes()).unwrap();
+        let bytes = writer.finish().unwrap().into_inner();
+        assert_ne!(read_u16(&bytes, 6) & 8, 0, "fixture uses a data descriptor");
+        let mut archive = open_archive(Cursor::new(bytes)).expect("valid streamed ZIP");
+        let mut text = String::new();
+        archive
+            .by_name("مرحبا.html")
+            .unwrap()
+            .read_to_string(&mut text)
+            .unwrap();
+        assert_eq!(text, "<p>مرحبا</p>");
+    }
+
+    #[test]
+    fn package_rejects_inconsistent_local_headers_before_import() {
+        let original = package_directory_fixture(2, false, b"");
+        for (field, offset) in [
+            ("filename", 30),
+            ("encryption flag", 6),
+            ("compression method", 8),
+            ("CRC", 14),
+            ("compressed size", 18),
+            ("uncompressed size", 22),
+        ] {
+            let mut bytes = original.clone();
+            bytes[offset] ^= 1;
+            assert!(
+                open_archive(Cursor::new(bytes))
+                    .expect_err(field)
+                    .contains("header inconsistency"),
+                "{field} must be checked before manifest or payload import"
+            );
+        }
+    }
+
+    #[test]
+    fn package_rejects_payloads_overlapping_the_central_directory() {
+        let mut bytes = package_directory_fixture(2, false, b"");
+        let directory = read_u32(&bytes, bytes.len() - ZIP_END_BYTES + 16) as usize;
+        let payload = 30 + read_u16(&bytes, 26) as usize + read_u16(&bytes, 28) as usize;
+        let size = (directory - payload + 1) as u32;
+        // Both headers agree, but the advertised payload extends into the directory.
+        bytes[18..22].copy_from_slice(&size.to_le_bytes());
+        bytes[directory + 20..directory + 24].copy_from_slice(&size.to_le_bytes());
+        assert!(open_archive(Cursor::new(bytes))
+            .unwrap_err()
+            .contains("overlapping entries"));
     }
 
     #[test]

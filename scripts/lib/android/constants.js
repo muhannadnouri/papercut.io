@@ -16,7 +16,7 @@ export const JDK_ROOT = fromRuntime("jdk")
 export const JDK_HOME = join(JDK_ROOT, "temurin-" + JDK_VERSION)
 export const JDK_ARCHIVE_NAME = "OpenJDK17U-jdk_x64_linux_hotspot_17.0.19_10.tar.gz"
 export const JDK_ARCHIVE = join(JDK_ROOT, JDK_ARCHIVE_NAME)
-export const JDK_RELEASE_TAG = "jdk-" + JDK_RELEASE.replace("+", "%2B")
+export const JDK_RELEASE_TAG = "jdk-" + encodeURIComponent(JDK_RELEASE)
 export const JDK_DOWNLOAD_URL = "https://github.com/adoptium/temurin17-binaries/releases/download/" +
   JDK_RELEASE_TAG +
   "/" +
