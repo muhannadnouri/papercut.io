@@ -389,7 +389,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          key: desktop
+          shared-key: desktop
           cache-on-failure: true
 
       - name: Install dependencies
@@ -545,7 +545,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          key: android
+          shared-key: android
           cache-on-failure: true
 
       - name: Install dependencies
