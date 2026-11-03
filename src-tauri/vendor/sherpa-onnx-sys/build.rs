@@ -116,6 +116,13 @@ fn resolve_lib_dir(
     download_prebuilt_libs(link_mode, target_os, target_arch)
 }
 
+// Cache cleaners can strip files while keeping directory trees; an empty lib dir must re-download.
+fn dir_has_entries(path: &Path) -> bool {
+    fs::read_dir(path)
+        .map(|mut entries| entries.next().is_some())
+        .unwrap_or(false)
+}
+
 fn download_prebuilt_libs(
     link_mode: LinkMode,
     target_os: &str,
@@ -129,7 +136,7 @@ fn download_prebuilt_libs(
     let extracted_dir = cache_root.join(archive_stem);
     let lib_dir = extracted_dir.join("lib");
 
-    if lib_dir.is_dir() {
+    if lib_dir.is_dir() && dir_has_entries(&lib_dir) {
         return Ok(lib_dir);
     }
 

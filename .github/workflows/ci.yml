@@ -246,7 +246,7 @@ jobs:
             librsvg2-dev
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.98.1
 
       - name: Verify waived Rust dependency is inactive
         run: |
@@ -267,7 +267,9 @@ jobs:
           fi
 
       - name: Install Rust audit tool
-        run: cargo install cargo-audit --version 0.22.2 --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit@0.22.2
 
       - name: Audit Rust dependencies
         # Use the CLI exit status; audit-check's secondary Check API update can fail.
@@ -381,14 +383,14 @@ jobs:
           cache: npm
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.98.1
 
       - name: Cache Rust build artifacts
-        uses: actions/cache@v5
+        uses: Swatinem/rust-cache@v2
         with:
-          path: src-tauri/target
-          key: ${{ runner.os }}${{ matrix.cache_suffix }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}${{ matrix.cache_suffix }}-cargo-
+          workspaces: src-tauri
+          shared-key: desktop
+          cache-on-failure: true
 
       - name: Install dependencies
         run: npm ci
@@ -535,16 +537,16 @@ jobs:
           cache: npm
 
       - name: Setup Rust with Android targets
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.98.1
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
       - name: Cache Rust build artifacts
-        uses: actions/cache@v5
+        uses: Swatinem/rust-cache@v2
         with:
-          path: src-tauri/target
-          key: android-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: android-cargo-
+          workspaces: src-tauri
+          shared-key: android
+          cache-on-failure: true
 
       - name: Install dependencies
         run: npm ci
@@ -658,16 +660,16 @@ jobs:
           cache: npm
 
       - name: Setup Rust with iOS targets
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.98.1
         with:
           targets: aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim
 
       - name: Cache Rust build artifacts
-        uses: actions/cache@v5
+        uses: Swatinem/rust-cache@v2
         with:
-          path: src-tauri/target
-          key: ios-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: ios-cargo-
+          workspaces: src-tauri
+          key: ios
+          cache-on-failure: true
 
       - name: Install CocoaPods
         run: |
