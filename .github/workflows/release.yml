@@ -87,14 +87,13 @@ jobs:
           cache: npm
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.98.1
 
       - name: Cache Rust build artifacts
-        uses: actions/cache@v5
+        uses: Swatinem/rust-cache@v2
         with:
-          path: src-tauri/target
-          key: release-${{ runner.os }}${{ matrix.cache_suffix }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: release-${{ runner.os }}${{ matrix.cache_suffix }}-cargo-
+          workspaces: src-tauri
+          key: desktop
 
       - name: Install dependencies
         run: npm ci
@@ -157,7 +156,7 @@ jobs:
           node-version: 22
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.98.1
 
       - name: Install dependencies
         run: npm ci
@@ -287,16 +286,15 @@ jobs:
           cache: npm
 
       - name: Setup Rust with Android targets
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.98.1
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
       - name: Cache Rust build artifacts
-        uses: actions/cache@v5
+        uses: Swatinem/rust-cache@v2
         with:
-          path: src-tauri/target
-          key: release-android-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: release-android-cargo-
+          workspaces: src-tauri
+          key: android
 
       - name: Install dependencies
         run: npm ci
@@ -363,7 +361,7 @@ jobs:
           node-version: 22
 
       - name: Setup Rust with iOS targets
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.98.1
         with:
           targets: aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim
 

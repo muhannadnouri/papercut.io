@@ -58,11 +58,11 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/cache@v5
+      - uses: dtolnay/rust-toolchain@1.98.1
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: src-tauri/target
-          key: model-smoke-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          workspaces: src-tauri
+          key: model-smoke
       - name: Install native test dependencies
         run: |
           sudo apt-get update
