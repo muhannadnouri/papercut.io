@@ -217,6 +217,11 @@ changes under `docs/` or `site/`, Markdown-only changes, release notes, and
 funding metadata skip that runner-heavy job; the lightweight change detector
 still reports so required checks do not remain pending.
 
+The [dependency alert triage](docs/library-transfer.md#remaining-dependency-alerts)
+records the remaining minimatch, GLib and rand findings, their actual dependency
+paths, and the conditions for revisiting them. Passing CI is not a claim that all
+security alerts are resolved.
+
 <details>
 <summary><strong>Production, release, Android, TTS, and browser builds</strong></summary>
 

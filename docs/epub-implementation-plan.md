@@ -47,6 +47,16 @@ The MVP path is implemented with generated reading HTML, SQLite FTS indexing, Li
 
 The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite, and render helpers. It uses crate-backed percent/base64 decoding plus DOM-based fragment rewriting. Current EPUB image retention covers supported local raster and external SVG images referenced by `img[src]` in retained reader content, plus supported inline SVG compositions converted to external images before sanitization, including image-only spine sections, under 5 MB per-image and 100 MB per-book limits. Older imports with inline raster data are upgraded non-destructively when opened. Newly imported EPUBs also resolve EPUB 3 `cover-image` properties and EPUB 2 `meta name="cover"` references, retain a declared raster cover under the existing 5 MB image cap, persist nullable cover media metadata, and generate a bounded gallery thumbnail. Existing imports remain valid without cover metadata; retained covers from earlier versions are thumbnailed lazily when first displayed.
 
+EPUB import validates all ZIP local headers against the central directory before
+reading the mimetype, container or book content. It uses ZIP 9.0.5's explicit
+`validate_header_consistency()` API: merely upgrading the crate does not enable
+this check for ordinary member reads. Conflicting header metadata, duplicate-name
+shadowing and overlapping entries reject the import with an archive error.
+Previously stored books are unaffected; malformed source archives that older
+versions tolerated may need to be repaired before importing. Existing EPUB 2/3,
+image, navigation, sanitization and size-limit tests remain active alongside
+malformed-header and duplicate-name regressions.
+
 ## Image fidelity: staged repair
 
 Stage 1 retains external SVG illustrations through the existing content-hashed
