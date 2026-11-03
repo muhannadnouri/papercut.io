@@ -1,0 +1,36 @@
+/* Android-style reveal: app-colored full screen, logo pops in with a slight overshoot. */
+.easter-egg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  background: var(--app-bg);
+  animation: easter-egg-fade 0.25s ease-out;
+}
+
+.easter-egg-logo {
+  width: min(70vmin, 1024px);
+  height: auto;
+  animation: easter-egg-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes easter-egg-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes easter-egg-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .easter-egg-overlay,
+  .easter-egg-logo {
+    animation: none;
+  }
+}

@@ -21,6 +21,8 @@ import { openExternalUrl } from '../../utils/openExternalUrl'
 import { isMobileUserAgent } from '../../utils/platform'
 import { AppDialog } from '../AppDialog/AppDialog'
 import { AppSelect } from '../AppSelect/AppSelect'
+import { EasterEggOverlay } from '../EasterEgg/EasterEggOverlay'
+import { useEasterEgg } from '../EasterEgg/useEasterEgg'
 import { SettingsIcon } from '../SettingsIcon/SettingsIcon'
 import { SearchModelSetup } from './SearchModelSetup'
 import { SearchActivity } from '../../search-semantic/SearchActivity'
@@ -100,6 +102,8 @@ export function AppSettings({
       .then(setVersion)
       .catch(() => setVersion(''))
   }, [open, tauriRuntime, version])
+
+  const versionEasterEgg = useEasterEgg()
 
   const versionLabel = version === null
     ? t('settings.versionLoading')
@@ -309,7 +313,7 @@ export function AppSettings({
             </button>
           </section>
 
-          <div className="app-settings-version">
+          <div className="app-settings-version" onClick={versionEasterEgg.registerTap}>
             <span>{t('settings.version')}</span>
             <strong>{versionLabel}</strong>
           </div>
@@ -329,6 +333,7 @@ export function AppSettings({
           onImported={onLibraryImported}
         />
       )}
+      <EasterEggOverlay open={versionEasterEgg.revealed} onDismiss={versionEasterEgg.dismiss} />
     </div>
   )
 }
