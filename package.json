@@ -30,6 +30,7 @@
     "verify:appimage-media": "node scripts/verify-appimage-media.js",
     "android:apk": "node scripts/build-android.js",
     "android:apk:native-tts": "node scripts/build-android.js --native-tts",
+    "android:apk:release": "node scripts/build-android.js --native-tts --production",
     "prepare:jdk": "node scripts/prepare-local-jdk.js",
     "prepare:jdk:force": "node scripts/prepare-local-jdk.js --force",
     "prepare:pdf-assets": "node scripts/prepare-pdf-assets.js",

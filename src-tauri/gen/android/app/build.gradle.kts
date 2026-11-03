@@ -15,6 +15,7 @@ val tauriProperties = Properties().apply {
 
 android {
     compileSdk = 36
+    buildToolsVersion = "35.0.0"
     namespace = "io.papercut.desktop"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
@@ -37,6 +38,7 @@ android {
             }
         }
         getByName("release") {
+            ndk.abiFilters.add("arm64-v8a")
             isMinifyEnabled = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }

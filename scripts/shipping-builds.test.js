@@ -108,9 +108,24 @@ it("keeps the explicit no-native Android build and custom native arguments", asy
   await build("build-android.js", "linux")
   expect(calls.android).toHaveBeenLastCalledWith(["android", "build", "--apk", "--debug"])
   vi.resetModules()
-  const args = ["android", "build", "--apk", "--release", "--target", "aarch64", "--features", "native-tts-shared,experimental-search-embeddings"]
+  const args = ["android", "build", "--apk", "--target", "aarch64", "--features", "native-tts-shared,experimental-search-embeddings"]
   await build("build-android.js", "linux", ["--native-tts", ...args])
   expect(calls.android.mock.calls.at(-1)[0]).toEqual(args)
+})
+it("production Android builds retain native TTS/search and omit debug mode", async () => {
+  await build("build-android.js", "linux", ["--native-tts", "--production"])
+  expect(calls.android).toHaveBeenCalledWith(["android", "build", "--apk", "--target", "aarch64", "--features", "native-tts-shared,experimental-search-embeddings"], {
+    SHERPA_ONNX_LIB_DIR: "/prepared/android",
+    ORT_LIB_LOCATION: "/prepared/android",
+  })
+})
+it.each([
+  ["--production"],
+  ["--native-tts", "--production", "android", "build", "--debug"],
+])("rejects production arguments that could drop shipping features: %j", async (...args) => {
+  await expect(build("build-android.js", "linux", args)).rejects.toThrow("fixed arm64 shipping features")
+  expect(calls.android).not.toHaveBeenCalled()
+  expect(calls.androidLibs).not.toHaveBeenCalled()
 })
 it.each([{ args: [] }, { args: ["--ci-check"] }])("iOS native export/archive uses the linked provider with $args", async ({ args }) => {
   await build("build-ios.js", "darwin", ["--native-tts", ...args])

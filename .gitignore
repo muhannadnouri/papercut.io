@@ -53,3 +53,9 @@ private_keys/
 *.p8
 *.mobileprovision
 *.provisionprofile
+
+# Android release signing material stays local or in GitHub Environment secrets.
+*.jks
+*.keystore
+*.jks.base64
+keystore.properties

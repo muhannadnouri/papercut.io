@@ -38,12 +38,6 @@ export const SHERPA_ANDROID_ABIS = ["arm64-v8a", "armeabi-v7a", "x86", "x86_64"]
 export const SHERPA_DEFAULT_ANDROID_ABI = "arm64-v8a"
 export const SHERPA_DEFAULT_ANDROID_RUST_TARGET = "aarch64-linux-android"
 export const SHERPA_DEFAULT_ANDROID_TAURI_TARGET = "aarch64"
-export const SHERPA_ANDROID_COPY_LIBS = [
-  "libsherpa-onnx-c-api.so",
-  "libsherpa-onnx-cxx-api.so",
-  "libonnxruntime.so",
-  "libsherpa-onnx-jni.so",
-]
 export const SHERPA_GENERATED_ANDROID_JNI_LIBS = join(
   SRC_TAURI_DIR,
   "gen",

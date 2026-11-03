@@ -344,7 +344,14 @@ The APK is output to:
 src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
 ```
 
-The `--debug` flag signs the APK automatically with a debug keystore, which is required for sideloading. Unsigned release APKs are silently rejected by Android at install time.
+The `--debug` flag signs the APK automatically with a development keystore.
+Android requires a signed APK for installation.
+
+For production packaging, use `npm run android:apk:release`. It retains native
+TTS/search and builds arm64 for Android API 26+. See the
+[Android packaging guide](docs/android-production-packaging.md) for production key
+setup, signing/verification, source and license evidence, security review,
+F-Droid submission and release updates.
 
 To sideload on an Android device, enable **Install unknown apps** in Settings and transfer the `.apk` file directly (via USB, ADB, or file share).
 

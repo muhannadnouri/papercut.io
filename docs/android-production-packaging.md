@@ -1,223 +1,322 @@
-# Android production packaging and F-Droid plan
+# Android production packaging and F-Droid
 
-Investigation: 2026-11-03. Branch: `task/android-production-packaging`, based on
-`main` at `a4f9a1ef`. Status: report and plan only; implementation has not started.
+Updated 2026-11-03 on task/android-production-packaging. Production packaging is
+implemented and locally checked; the F-Droid publication gates remain below.
+No production release or F-Droid submission has been made.
 
-## 1. Report before implementation
+## Agreed scope
 
-Papercut looks suitable for an F-Droid submission, but **signing alone will not
-make the current build ready**. Production APK packaging is the smaller task;
-native-library and WebAssembly provenance are the larger feasibility gates.
-Acceptance remains F-Droid's decision.
+- Shared Papercut signature across GitHub and F-Droid; prove reproducibility first.
+- Retain io.papercut.desktop, arm64/API 26+, TTS, Arabic preprocessing, conceptual
+  search, OCR, scanning and the existing reading/library features.
+- The owner creates and backs up the production key. Existing debug installations
+  are test-only and may be reset/reinstalled.
+- Device acceptance uses Google Pixels, including Pixel 6.
+- Draft English/Arabic listings with GitHub Issues support. Texts and the existing
+  icon are under fastlane/metadata/android/; screenshots await device testing.
+- GPL notices/source inventory are prepared for review. Papercut's root MIT license
+  declaration has not been changed or approved for replacement.
+- Repository-owned packaging scripts and tests use JavaScript.
 
-| Area | Verified current state | Work needed |
+## 1. What changed, and what remains
+
+| Area | This pass | Remaining gate |
 | --- | --- | --- |
-| Android releases | `release.yml` calls `android:apk:native-tts`; its default arguments include `--debug`. The workflow copies the debug output into GitHub Releases. | Build and verify a release APK; persist a production signing identity for GitHub downloads. |
-| Identity/version | Application ID is `io.papercut.desktop`; app version is `1.10.0`. Gradle obtains Android versions from generated `tauri.properties`. | Keep the ID unless there is a specific reason to change it; commit an authoritative Android version code that F-Droid can read. |
-| Native inference | SHA-256-pinned Sherpa 1.13.4 Android archive supplies `.so` files. Four ABI directories are staged, while the default Rust app target is arm64. | Establish an acceptable source-build path and make APK contents match the supported ABI set. |
-| PDF/OCR | `prepare-pdf-assets.js` copies PDF.js and Tesseract WASM from npm packages, plus English/Arabic recognition data. | Inventory these compiled assets and their source recipes; obtain reviewer agreement on their treatment or build them from source. |
-| Models | Voice and embedding downloads are optional runtime operations. A separate 4,788,213-byte Libtashkeel model is embedded in preprocessing builds. | Audit each model/data license and provenance separately from engine code. |
-| Scanner | CameraX and platform graphics; documentation explicitly rejects ML Kit's Play Services requirement. | Retain this design and verify the resolved release dependencies. |
+| Production command | npm run android:apk:release keeps the shipping TTS/search features and omits debug mode; real unsigned APK checked | Pixel acceptance |
+| Signing | Build/check unsigned APK first; sign with SDK apksigner on a fresh runner in the protected android-release environment | Owner creates key and GitHub secrets; validate the actual production certificate |
+| Versioning | Committed Android code 1010000 matches the inspected 1.10.0 debug test APK | Choose the first new production version/tag with the owner; test increasing-code updates |
+| Native staging | Source-provided SHERPA_ONNX_LIB_DIR is honored without a prebuilt fallback; unused C++/JNI wrappers removed; source-built ORT/Sherpa pair also packaged and checked | Device inference and complete source-build integration |
+| APK checks | JS verifier checks identity/version, non-debuggable manifest, certificate, arm64 contents, required libraries, license presence and 16 KB ELF/ZIP alignment; disposable-key signing passes | Production certificate and clean-build reproduction |
+| F-Droid | Listing drafts, policy investigation and source/license evidence | Complete dependency closure, tested fdroiddata recipe, review and publication |
 
-Evidence: [release workflow](../.github/workflows/release.yml),
-[Android builder](../scripts/build-android.js),
-[native staging](../scripts/lib/android/sherpa.js),
-[Android constants](../scripts/lib/android/constants.js),
-[Gradle app](../src-tauri/gen/android/app/build.gradle.kts),
-[PDF assets](../scripts/prepare-pdf-assets.js), and
-[bundled model provenance](../src-tauri/tts/libtashkeel-1.5.0/README.md).
+Ordinary CI retains debug APKs and additionally checks an unsigned production APK.
+The release workflow requires the signed production APK and expected certificate;
+its download filename remains Papercut_vX.Y.Z_android-arm64-v8a.apk.
 
-### F-Droid compliance requirements
+## 2. Owner: create and configure the signing key
 
-The official repository requires FLOSS application code and compatible dependency
-licenses, public source, a free build toolchain, a unique application ID, a working
-maintained app, and disclosed anti-features. Dependencies must be source-built or
-come from permitted binary sources; a checksum does not make an arbitrary GitHub
-native archive acceptable. Proprietary SDKs cannot be excused by an anti-feature
-label. Executable downloads require explicit informed opt-in. Asset redistribution
-rights also matter. [Inclusion policy](https://f-droid.org/en/docs/Inclusion_Policy/)
+Run once with a JDK installed. Keep the keystore outside the repository, make an
+encrypted recovery backup, and retain passwords in your password manager. This is
+the application signing key for direct APK/F-Droid distribution.
 
-Review model downloads and any network/update behavior with packagers; do not
-predeclare all ONNX graphs to be either harmless data or prohibited executables.
-Optional functionality does not by itself settle licensing or labeling. Non-free
-assets/add-ons/services and tracking have distinct labels; there is no confirmed
-Papercut labeling verdict yet. [Anti-features](https://f-droid.org/en/docs/Anti-Features/)
+~~~bash
+mkdir -p ~/.local/share/papercut-signing
+chmod 700 ~/.local/share/papercut-signing
+keytool -genkeypair -v -storetype JKS \
+  -keystore ~/.local/share/papercut-signing/papercut-release.jks \
+  -alias papercut -keyalg RSA -keysize 4096 -validity 10000
+keytool -list -v \
+  -keystore ~/.local/share/papercut-signing/papercut-release.jks -alias papercut
+umask 077
+base64 -w 0 ~/.local/share/papercut-signing/papercut-release.jks \
+  > ~/.local/share/papercut-signing/papercut-release.jks.base64
+~~~
 
-MIT licensing of Papercut's own code is a good starting point, not a complete APK
-license audit. Trace native transitive components, including phonemization,
-models, fonts, PDF codecs and OCR data; preserve notices and check any copyleft
-source obligations before choosing the listing's overall license expression.
-[Developer licensing guidance](https://f-droid.org/en/docs/FAQ_-_App_Developers/)
+Choose the certificate details when prompted. Record the store and key passwords;
+both GitHub entries below are required even if the passwords are identical.
+Record the public certificate's SHA-256 fingerprint without colons.
 
-### What is needed from the owner
+In GitHub repository **Settings → Environments**, create **android-release**.
+Restrict it to trusted workflow refs/release tags and enable required reviewers
+where available. Manual dispatch runs the selected workflow ref while checking
+out the requested release tag: approve both the workflow and tag contents.
 
-1. **Signing decision:** prioritize interchangeable GitHub/F-Droid updates, or
-   accept separate signing identities to simplify initial F-Droid publication.
-   Choose who holds the production keystore and its recovery backup. Put secrets
-   in GitHub's protected release environment, never in chat or source control.
-2. **Existing-user decision:** identify deployed APK versions/certificates and
-   accept a tested migration plan from debug installs. A new production key will
-   normally require reinstalling those installs; uninstalling can delete local
-   documents, bookmarks and audiobooks. Verify backup/restore coverage first.
-3. **Initial support:** confirm arm64/API 26+ as the first production target, or
-   request additional architectures and their device coverage. Full native TTS,
-   Arabic preprocessing, conceptual search and OCR remain the proposed scope.
-4. **Listing/maintenance:** provide or approve descriptions, screenshots, support
-   contact, privacy/download explanation and any donation links. A GitLab account
-   is useful for maintaining the submission; no Play Console account or Apple
-   signing certificate is needed for F-Droid.
-5. **Acceptance testing:** an Android device, preferably also a de-Googled device,
-   and time for install/update, OCR, TTS, search and background-playback checks.
-
-## 2. Why the packaging was done this way
-
-| Evidence | Historical reason and implication |
+| Environment secret | Value |
 | --- | --- |
-| [PR #2: Create Android Build](https://github.com/muhannadnouri/papercut.io/pull/2) | Explicitly introduced debug-signed APKs for sideloading. The present release path inherited a development distribution mechanism. |
-| [PR #5: Papercut 1.0](https://github.com/muhannadnouri/papercut.io/pull/5), commit [`9201947f`](https://github.com/muhannadnouri/papercut.io/commit/9201947f55ee3c259e657aa2e73a672c256d6d47) | Added checked upstream Sherpa downloads and `jniLibs` staging alongside consolidated build helpers. Rust needs an ABI-specific link directory; Gradle separately needs the runtime libraries to include in the APK. |
-| Commit [`e532670a`](https://github.com/muhannadnouri/papercut.io/commit/e532670a58590a04828a4d5c02849be381ab7bd1) | Aligned Rust, desktop, Android and iOS on Sherpa 1.13.4 and refreshed mobile checksums. The pin is a cross-platform compatibility choice. |
-| Commit [`8085cf5c`](https://github.com/muhannadnouri/papercut.io/commit/8085cf5c4e2d5951f127fcad9ba11a18d47b20ea), [PR #79](https://github.com/muhannadnouri/papercut.io/pull/79) | Shared ONNX Runtime through the official Libtashkeel interface and later added embeddings through the same runtime. This avoided maintaining a Libtashkeel fork or loading competing ORT copies. |
-| [TTS architecture](kokoro-tts.md), [scanner decision log](pdf-ocr-scanning.md) | Native TTS replaced a browser inference path that was too slow on Android. Offline model downloads keep large voice assets out of installers. CameraX was chosen to support offline/de-Googled Android. |
+| ANDROID_KEYSTORE_BASE64 | Contents of papercut-release.jks.base64 |
+| ANDROID_KEY_ALIAS | papercut |
+| ANDROID_KEYSTORE_PASSWORD | Keystore password |
+| ANDROID_KEY_PASSWORD | Key password |
 
-MemSearch searches and expanded records from `2026-10-07.md` corroborate the
-no-fork adapter, unchanged embedded model and one-runtime tests. Records from
-`2026-11-02.md` explain later cache fixes, not the original architecture.
-Memory is supporting evidence; the commits and current code establish what shipped.
+Add the environment **variable** ANDROID_SIGNING_CERT_SHA256 with the public
+certificate's 64 hexadecimal SHA-256 digits. Do not put the private key/passwords
+in chat, source control or F-Droid metadata. Keep using this key for later updates.
 
-**Interpretation:** this was pragmatic native packaging for an offline reader,
-not a recorded decision against F-Droid. No evidence was found that the existing
-archive path was designed or approved for official F-Droid inclusion. Preserve the
-shared runtime and change how its libraries are produced.
+The build job uploads an unsigned input artifact. A separate protected signing
+job uses a fresh runner with no npm install, compilation or restored build cache.
+It verifies the input before creating the temporary keystore, supplies passwords
+to apksigner through environment variables, removes the key even on failure,
+then verifies the public certificate. Only the verified signed artifact matches
+the publisher's artifact selection; the publisher waits for signing to succeed.
+Prepare the key now, but do not publish until the license, reproducibility and
+device acceptance gates below are complete.
+[Android signing](https://developer.android.com/studio/publish/app-signing),
+[Tauri signing](https://v2.tauri.app/distribute/sign/android/)
 
-An important upstream trap: Sherpa's own
-[1.13.4 Android build script](https://github.com/k2-fsa/sherpa-onnx/blob/v1.13.4/build-android-arm64-v8a.sh)
-downloads prebuilt ONNX Runtime by default. Merely compiling Sherpa is insufficient.
-It accepts external ORT headers/libraries, so a source-built ORT can be supplied
-without redesigning Papercut's inference layer.
-[ORT Android source-build instructions](https://onnxruntime.ai/docs/build/android.html)
+## 3. Build, verify and update
 
-## 3. Recommended path and signing choice
+The existing npm run android:apk:native-tts remains a development/debug build.
 
-**First make GitHub Android releases production-ready; then prove F-Droid
-buildability while retaining the current features.** Keep one Android packaging
-path where possible. Do not start by deleting TTS/OCR, forking dependencies,
-upgrading Sherpa, adding a second runtime, or operating a custom repository.
+~~~bash
+npm run android:apk:release
+node scripts/verify-android-apk.js --unsigned \
+  src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+~~~
 
-| Signing route | Benefit | Cost |
-| --- | --- | --- |
-| F-Droid builds and signs | No upstream private key needed by F-Droid; byte-identical upstream reproduction is not required for this route. | Its APK and a Papercut-signed GitHub APK cannot normally update one another. Choose this split deliberately before launch. |
-| Papercut signs; F-Droid independently reproduces | Same application ID and signing certificate can support updates across channels. | F-Droid must reproduce the upstream APK; native code, WASM, toolchains and archive ordering make this additional work. A mismatch blocks publication. |
+The verifier uses Node, Cargo, unzip, Android SDK Build Tools 35.0.0 and
+ANDROID_HOME or ANDROID_SDK_ROOT. It adds no npm dependency. Unsigned APKs are
+validation inputs, not installable release downloads.
 
-Aim for the second route, but run a bounded reproducibility check before
-committing to its release cadence. If it fails, present the measured remaining
-work and choose the first route or delay launch. Do not promise a seamless later
-key switch. F-Droid receives the signed APK/public certificate, **not the private
-key**, for upstream-signed verification.
-[Reproducible builds and signing modes](https://f-droid.org/en/docs/Reproducible_Builds/)
+For local signing, set ANDROID_KEYSTORE_PATH to the absolute keystore path,
+ANDROID_KEY_ALIAS, ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_PASSWORD. Read
+passwords interactively rather than entering them in shell history. Set
+ANDROID_SIGNING_CERT_SHA256 to verify the result:
 
-A separately hosted F-Droid-compatible repository is an optional distribution
-alternative, not an official listing. It adds hosting/index-signing maintenance
-and is unnecessary unless earlier F-Droid-client distribution is a priority.
-[Developer FAQ](https://f-droid.org/en/docs/FAQ_-_App_Developers/)
+~~~bash
+"$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" sign \
+  --ks "$ANDROID_KEYSTORE_PATH" --ks-key-alias "$ANDROID_KEY_ALIAS" \
+  --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD \
+  --out src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk \
+  src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+node scripts/verify-android-apk.js \
+  src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
+~~~
 
-## 4. Implementation sequence on this branch
+Do not modify/realign an APK after signing. The unsigned build must pass alignment
+checks first. [apksigner](https://developer.android.com/tools/apksigner)
 
-Each unchecked step is future work. No key generation, build changes or submission
-is included in this documentation commit.
+For every public update:
 
-1. [ ] **Record identity and migration.** Inspect actual published APK certificates
-   and version codes; confirm ID, architecture, key custody and backup/restore
-   coverage. Use a distinct debug ID for future development installs if useful.
-   **Pass:** no existing-user upgrade/data-loss assumptions remain untested.
+1. Synchronize npm/package lock, Cargo and Tauri versions; increase the committed
+   bundle.android.versionCode in tauri.android.conf.json. Avoid per-build counters.
+2. Add fastlane/metadata/android/en-US/changelogs/<versionCode>.txt and the Arabic
+   counterpart. Commit before creating the stable vX.Y.Z tag; never move it.
+3. Publish the verified APK using the same key and stable asset filename.
+4. F-Droid's recipe detects stable tags, rebuilds source and compares against that
+   exact signed APK. A mismatch blocks publication for the shared-signature route.
+   Configure UpdateCheckData for committed Tauri version/code rather than ignored
+   generated tauri.properties; maintain the recipe when toolchains change.
+5. Monitor F-Droid build/publication results and test the installed update.
+   Publication is asynchronous; no new in-app updater is needed.
 
-2. [ ] **Produce a real release APK.** Update `scripts/build-android.js`,
-   `package.json`, tracked Android Gradle configuration and the Android portion of
-   `release.yml`. Preserve explicit `native-tts-shared,experimental-search-embeddings`
-   features: custom builder arguments currently replace defaults. Add conditional
-   signing for trusted release jobs, with unsigned release output available to
-   F-Droid. Keep signing secrets outside ordinary PR CI. Update artifact paths and
-   README's debug-install instructions; ignore keystores and local signing
-   properties in `.gitignore`. Keep CI's debug artifacts separate from production
-   release artifacts. Follow
-   [Tauri signing](https://v2.tauri.app/distribute/sign/android/).
-   **Pass:** APK signature/certificate verified with `apksigner`, expected ID and
-   versions, `debuggable=false`, and release install/smoke succeeds.
+F-Droid's own signing is an alternative, but has not been selected. Independently
+signed APKs cannot normally update one another. F-Droid needs the upstream signed
+APK/public certificate for reproduction, not the private key.
+[Reproducible builds](https://f-droid.org/en/docs/Reproducible_Builds/),
+[update metadata](https://f-droid.org/en/docs/Build_Metadata_Reference/)
 
-3. [ ] **Make versioning inspectable.** Commit `bundle.android.versionCode` in
-   `tauri.android.conf.json` and include it in release version checks. Keep
-   `versionName`, npm/Cargo/Tauri versions and tags consistent. Tauri's current
-   default formula gives `1.10.0` code `1010000`; inspect deployed APKs before
-   selecting the first explicit code. Avoid per-build counters. Configure
-   F-Droid to read committed config rather than ignored `tauri.properties`.
-   **Pass:** two clean builds of one tag report the same code; the next release's
-   code is greater. [Tauri Android config](https://v2.tauri.app/reference/config/#androidconfig)
+## 4. Why the existing packaging looked this way
 
-4. [ ] **Prove dependency provenance before building a full matrix.** Inventory
-   Android `.so`, WASM and model/data inputs plus npm/Cargo/Gradle transitive
-   dependencies. First source-build compatible ORT and Sherpa for arm64 using
-   pinned commits/free toolchains; pass external ORT headers/libs upstream, then
-   reuse `SHERPA_ONNX_LIB_DIR`, `ORT_LIB_LOCATION` and existing JNI staging.
-   Resolve OCR/PDF WASM source recipes or an explicitly accepted packaging route.
-   Respect the provided JDK; the existing helper already accepts `JAVA_HOME`.
-   Trace transitive downloads and licenses, including phonemization dependencies.
-   **Pass:** clean source-build logs explain every shipped compiled asset; no
-   hidden prebuilt fallback. Full feature scope works with one ORT per ABI.
+[PR #2](https://github.com/muhannadnouri/papercut.io/pull/2) deliberately introduced
+debug-signed sideloading.
+[PR #5](https://github.com/muhannadnouri/papercut.io/pull/5) and commit
+[9201947f](https://github.com/muhannadnouri/papercut.io/commit/9201947f55ee3c259e657aa2e73a672c256d6d47)
+added checked Sherpa downloads/JNI staging: Rust needs an ABI-specific link
+directory, while Gradle separately needs runtime libraries to package.
 
-5. [ ] **Validate APK contents and reproducibility.** Stage only the intended
-   ABIs; inspect native `DT_NEEDED` dependencies before removing copied C++/JNI
-   libraries. Check ELF and ZIP alignment, including 16 KB page compatibility,
-   as production compatibility work. Build twice in matching clean Linux
-   environments; compare APKs/signature-copy verification if using the upstream
-   signature route. Add only focused checks for feature preservation, artifact
-   verification and source-only behavior. **Pass:** packaged English/Arabic TTS,
-   preprocessing, semantic search, PDF/OCR and background playback succeed; an
-   update preserves documents, bookmarks and saved audio. Include de-Googled
-   Android and release minification in acceptance.
+Commit [e532670a](https://github.com/muhannadnouri/papercut.io/commit/e532670a58590a04828a4d5c02849be381ab7bd1)
+aligned platforms on Sherpa 1.13.4. Commit
+[8085cf5c](https://github.com/muhannadnouri/papercut.io/commit/8085cf5c4e2d5951f127fcad9ba11a18d47b20ea)
+and [PR #79](https://github.com/muhannadnouri/papercut.io/pull/79) established the
+shared ORT path without a Libtashkeel fork. MemSearch records from 2026-10-07
+corroborate those decisions. Native TTS replaced slow browser inference; large
+voice models remained optional downloads. CameraX was chosen to support
+offline/de-Googled Android, avoiding Play Services.
 
-6. [ ] **Prepare and submit F-Droid metadata.** Add manually maintained
-   `fastlane/metadata/android/en-US/` descriptions, images and version-code-named
-   changelogs; Fastlane itself need not be installed.
-   [Listing format](https://f-droid.org/en/docs/All_About_Descriptions_Graphics_and_Screenshots/)
-   Create `metadata/io.papercut.desktop.yml` in an `fdroiddata` fork with pinned
-   toolchains/source revisions, build/output commands, update checks and agreed
-   anti-feature disclosures. The recipe belongs there; only shared build helpers
-   and listing assets belong here. Run lint, scanner and a clean F-Droid build;
-   submit a merge request and address review. Do not broadly ignore binaries to
-   bypass provenance checks. **Pass:** recipe builds in F-Droid's environment and
-   reviewers accept it. [Submission guide](https://f-droid.org/en/docs/Submitting_to_F-Droid_Quick_Start_Guide/),
-   [build metadata reference](https://f-droid.org/en/docs/Build_Metadata_Reference/)
+There is no evidence that the archive path was designed or approved for F-Droid.
+The proposed change preserves the shared runtime and changes build provenance.
+[TTS details](kokoro-tts.md), [scanner decisions](pdf-ocr-scanning.md)
 
-7. [ ] **Rehearse an update before announcing availability.** Publish the next
-   higher version through the chosen signing route and test updating an installed
-   previous production release. **Pass:** certificate continuity and user-data
-   preservation are verified, not inferred from a successful compile.
+## 5. Source and license evidence
 
-## 5. Handling every later release
+F-Droid requires FLOSS code, compatible dependency licenses, public source, a free
+toolchain, a unique ID, a maintained working app and appropriate disclosures.
+Binary dependencies need acceptable source-build or permitted repository
+provenance; checksums alone do not approve arbitrary GitHub binaries. Proprietary
+SDKs cannot be excused by anti-feature labels. Executable downloads require
+informed opt-in. Assets also need redistribution rights.
+[Inclusion policy](https://f-droid.org/en/docs/Inclusion_Policy/)
 
-1. Bump app versions and the committed Android code; add
-   `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`. Commit everything
-   before creating the stable `vX.Y.Z` tag; do not move published tags.
-2. Run release validation and publish the verified, consistently named APK to
-   GitHub. Keep using the same production key. For upstream-signed F-Droid builds,
-   make that exact APK available at the recipe's versioned binary URL.
-3. Configure F-Droid tag checking and automatic build metadata updates, with
-   custom `UpdateCheckData` for the committed Tauri version/code if needed.
-   Recipe/toolchain changes still need maintenance. This is F-Droid pulling and
-   rebuilding releases, not GitHub Actions uploading APKs to the official store.
-4. Monitor F-Droid update/build/publication status. Investigate source-build,
-   scanner or reproducibility failures and submit recipe changes when necessary.
-   Publication is asynchronous; don't promise simultaneous GitHub/F-Droid updates.
-5. Users receive update availability through their F-Droid client, subject to its
-   settings and Android installation permissions. No new in-app updater is needed.
+| Source | Pinned revision/evidence |
+| --- | --- |
+| Sherpa 1.13.4 | 142807252687d81b40d6315f23470a1512a00de3 |
+| ORT 1.27.0 | 8f0278c77bf44b0cc83c098c6c722b92a36ac4b5 |
+| Tesseract.js core 7.0.0 | acffef2b66eb44a31df297e11d905f4b39001068 and pinned submodules |
+| PDF.js 6.2.108 | 0365cbde028bd92e58f2dab1bb70cd30ac7acfd7 |
+| Piper phonemization | f3ff95afc03640bc1399e113e83361192a2fafb4, MIT |
+| eSpeak NG | ed530aa113046142eb5115cf2fc9157854d0ffe1, GPLv3 with later-version grants in source headers |
 
-Sources: [F-Droid version/update FAQ](https://f-droid.org/en/docs/FAQ_-_App_Developers/),
-[update metadata](https://f-droid.org/en/docs/Build_Metadata_Reference/), and
-[Android signing/upgrade rules](https://developer.android.com/studio/publish/app-signing).
+**Native probe:** ORT and Sherpa's C API compiled for arm64/API 26 with NDK 29.0.13846066,
+TTS enabled, JNI/executables/tests/PortAudio/WebSockets/diarization disabled.
+Both pass 16 KB ELF alignment. Sherpa was relinked against the source-built ORT;
+its only non-system dependency is libonnxruntime.so, which needs only Android
+system libraries. This is a source-built native pair, not yet an inference result
+or proof that every executable dependency in the APK is built from source.
 
-## Investigation limits
+Sherpa's own Android script downloads prebuilt ORT by default. Supply external
+ORT headers/libraries instead. Current ORT probe: Release/shared, full CPU operator
+set, API 26, two workers, no tests/proprietary provider. Local commands, fetched
+sources and logs are in ignored .cache/android-production/.
+The stripped pair is in source-arm64/ beneath that cache. Its receipt.json records
+the local output hashes; these are probe results, not approved reproducibility
+reference hashes. Staging with SHERPA_ONNX_LIB_DIR pointing there and repackaging
+produces an APK that passes verification; both packaged native libraries exactly
+match the source-built inputs. That probe reused the compiled app library and
+current WASM assets. The ordinary release path still uses the existing
+checksum-pinned archive pending device inference and complete source integration.
+[Sherpa Android script](https://github.com/k2-fsa/sherpa-onnx/blob/v1.13.4/build-android-arm64-v8a.sh),
+[ORT source builds](https://onnxruntime.ai/docs/build/android.html)
 
-Reviewed current code, docs, relevant commits/PR descriptions, MemSearch records
-and official requirements. No exhaustive resolved-dependency/license audit,
-source rebuild, APK certificate inspection, reproducibility comparison or device
-test was performed. Signing is bounded work; native/WASM source builds are the
-main engineering uncertainty, and external review has no promised completion date.
+**WASM:** Tesseract's upstream build uses Emscripten 4.0.15. The probe uses an
+isolated local installation because Docker's daemon is unavailable. CMake 4
+requires CMAKE_POLICY_VERSION_MINIMUM=3.5; Sherpa also uses
+CMAKE_POLICY_DEFAULT_CMP0169=OLD. No upstream source fork was needed. Rebuild and
+replace paired LSTM/SIMD/relaxed-SIMD WASM loaders together, then test English/Arabic
+OCR. Source outputs have not silently replaced the app's npm assets.
+All three shipping LSTM cores (plain, SIMD, relaxed SIMD) initialize the installed
+English/Arabic data and correctly recognize upstream's English small-image OCR
+fixture and a synthetic Arabic line rendered with the repository's Noto Naskh
+font. That smoke test does not establish general recognition quality or Android
+browser compatibility. The extra legacy variant was stopped after the three
+shipping outputs completed.
+
+PDF.js has separate OpenJPEG/QCMS/JBIG2/QuickJS builds. QCMS history identifies
+wrapper revision 2ae4ee72334782928210ba4050e3e77d9b2d35be, but its Dockerfile uses
+rust:latest, unversioned helpers and cargo update. Pin those inputs and trace the
+other wrappers; ordinary PDF.js bundling only copies their existing binaries.
+No PDF codec rebuild/rendering acceptance is established.
+
+**GPL review:** Sherpa's TTS core statically incorporates Piper phonemization and
+eSpeak NG. Shared linking of Papercut to Sherpa does not remove that incorporated
+GPL code. Upstream pins the eSpeak/Piper archives and their hashes in
+[espeak-ng-for-piper.cmake](https://github.com/k2-fsa/sherpa-onnx/blob/v1.13.4/cmake/espeak-ng-for-piper.cmake)
+and [piper-phonemize.cmake](https://github.com/k2-fsa/sherpa-onnx/blob/v1.13.4/cmake/piper-phonemize.cmake).
+This also merits review for existing distributions using the same engine.
+
+Proposed notice, **for owner review before shipping**:
+
+> This Android application incorporates eSpeak NG and Unicode tools through
+> Sherpa ONNX/Piper phonemization. These components carry GPLv3 terms, with
+> later-version permission where granted. The combined distribution must satisfy
+> applicable GPL terms. Papercut's original source retains MIT notices; other
+> dependencies retain their notices. Matching corresponding source and build
+> instructions will accompany each release.
+
+The source package/notices must actually exist before publication. Preserve exact
+Papercut/native/transitive revisions, build scripts, locks, patches and relevant
+copyright/license texts; review Eigen/MPL, OpenFst/Kaldi, KissFFT and other linked
+code. Do not infer “MIT only” from the root license or approve an overall F-Droid
+license expression before that review.
+
+| Model/data | Evidence and remaining issue |
+| --- | --- |
+| Supertonic 3 | The exact pinned archive's README distinguishes MIT sample code from OpenRAIL-M weights, despite an MIT LICENSE file. The [model license](https://huggingface.co/Supertone/supertonic-3/blob/main/LICENSE) has use restrictions; agree F-Droid disclosure/anti-feature treatment. Feature retained |
+| Kokoro | [Model card](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/README.md) declares Apache-2.0; converted artifacts/voice/data notices still need closure |
+| Piper Kareem | [Model card](https://huggingface.co/rhasspy/piper-voices/blob/main/ar/ar_JO/kareem/medium/MODEL_CARD) points dataset licensing to AliMokhammad/arabicttstrain, which could not be retrieved |
+| Libtashkeel | Embedded 4,788,213-byte unchanged model with checksum/MIT provenance in [its record](../src-tauri/tts/libtashkeel-1.5.0/README.md) |
+| E5 embeddings | Pinned Small model card declares MIT; audit every offered variant/tokenizer/converted asset |
+| OCR data/fonts | Check underlying trained-data terms separately from npm wrapper licenses; retain existing OFL/Apache font notices |
+
+Model downloads being optional does not settle licensing or F-Droid labeling.
+[Anti-features](https://f-droid.org/en/docs/Anti-Features/)
+
+## 6. Security review for this pass
+
+- Production signing uses a separate protected job on a fresh runner. Ordinary
+  CI and build processes never share its runner or signing environment. No npm
+  install, compilation or build cache runs in the signing job. The key is created
+  after input verification, stored with restrictive permissions and removed
+  before signed-output verification, including on signing failure. This closes
+  the background-process exposure possible with build/sign on the same runner.
+- Android build checkout explicitly names refs/tags/; signing checks out the
+  build's resolved commit to avoid a moved tag changing its verification code.
+  GitHub Environment
+  reviewers/ref restrictions remain owner configuration; repository code cannot
+  make an untrusted workflow safe merely by adding signature checks.
+- Verifier subprocesses use argument arrays without a shell. Duplicate APK
+  entries, wrong ABI, malformed ELF headers, unexpected certificate and debug
+  builds fail. Native ZIP entry names exclude paths/wildcards before unzip.
+- Android archive SHA-256 checking is retained; an invalid external library
+  directory fails without downloading an unrequested fallback. Complete source
+  provenance and reproducibility still need independent validation.
+- Actions in the Android signing job are pinned to their resolved immutable
+  commits, with matching pins for shared actions in CI. Other references retain
+  their existing versions.
+- No application network permissions, telemetry, user-data formats or npm/Rust
+  dependencies are added.
+
+Artifact checks verify expected packaging/identity, not the absence of malicious
+code. The fresh npm audit reports no high/critical findings and 14 moderate package
+reports tracing to a minimatch denial-of-service advisory in the lint dependency
+chain. That is an existing development-tool issue; this pass adds no dependency
+or lockfile change. No local Cargo advisory rerun is claimed.
+[GitHub Actions secure use](https://docs.github.com/en/actions/reference/security/secure-use)
+
+## 7. Remaining acceptance sequence
+
+1. [ ] Owner configures the real key and validates its certificate; unsigned APK
+   checks and disposable-key signing verification already pass. Choose the first
+   production version/tag before publication.
+2. [ ] Complete native/WASM source builds, transitive license/source inventory and
+   owner review of proposed GPL compliance. Retain the current feature scope.
+3. [ ] Build matching clean Linux environments and verify upstream APK
+   reproduction/signature copying. A repeated packaging run with reused native
+   objects alone does not prove a complete reproducible build.
+4. [ ] On Pixel 6 and another Pixel: install after resetting the debug test app;
+   test import/open-with, bookmarks, English/Arabic OCR, scanner, voice
+   download/preview, Arabic preprocessing, conceptual search, audiobook generation
+   and background/lock-screen playback.
+5. [ ] Install a higher-code production candidate with the same key; verify
+   documents/bookmarks/audio survive. Include de-Googled Android and a 16 KB
+   environment, plus an API 26 emulator when available; Pixel 6 alone does not
+   establish those results.
+6. [ ] Add screenshots/changelogs; prepare metadata/io.papercut.desktop.yml in an
+   fdroiddata fork, with pinned build inputs, output path, binary URL, expected
+   signing key and update checks. Run lint/scanner/clean build, then submit and
+   address review. Do not hide runtime binaries with broad scanner ignores.
+7. [ ] Rehearse the next update through F-Droid before announcing availability.
+
+Validation: 14 shipping/staging regression checks and four APK verifier self-tests
+pass; targeted ESLint, whitespace, workflow YAML, document links and metadata
+length checks pass. A full production APK build succeeds. Its cleaned APK passes
+unsigned verification, post-build signing and certificate verification with a
+disposable key; wrong-certificate and signed-as-unsigned checks reject as expected.
+The test key/password file was deleted. The source-built native pair packages
+correctly, and all three source-built OCR cores pass English/Arabic smoke tests.
+Two packaging runs with the normal cleaned libraries produce byte-identical APKs;
+they reuse compiled objects and do not prove complete clean-build reproduction.
+Production-key validation, complete reproducibility and device results remain
+explicit gates.
+
+[Submission guide](https://f-droid.org/en/docs/Submitting_to_F-Droid_Quick_Start_Guide/),
+[listing format](https://f-droid.org/en/docs/All_About_Descriptions_Graphics_and_Screenshots/)

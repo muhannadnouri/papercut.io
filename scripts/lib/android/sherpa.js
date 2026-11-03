@@ -1,15 +1,16 @@
-import { existsSync } from "node:fs"
 import {
   cp,
   mkdir,
   rm,
   stat,
 } from "node:fs/promises"
-import { join } from "node:path"
+import {
+  join,
+  resolve,
+} from "node:path"
 import {
   SHERPA_ANDROID_ABIS,
   SHERPA_ANDROID_ARCHIVE,
-  SHERPA_ANDROID_COPY_LIBS,
   SHERPA_ANDROID_RUNTIME_ROOT,
   SHERPA_ANDROID_SHA256,
   SHERPA_ANDROID_URL,
@@ -20,13 +21,23 @@ import {
 import { downloadFile } from "../download.js"
 import { extractTar } from "../archive.js"
 
-// Rust build needs ABI-specific native library directory via SHERPA_ONNX_LIB_DIR.
+// Source builds supply one flat arm64 directory; archive ABIs also support the separate emulator inference checks.
 export function androidSherpaLibDir(abi = SHERPA_DEFAULT_ANDROID_ABI) {
+  if (process.env.SHERPA_ONNX_LIB_DIR) {
+    return resolve(process.env.SHERPA_ONNX_LIB_DIR)
+  }
   return join(SHERPA_ANDROID_RUNTIME_ROOT, "jniLibs", abi)
 }
 
-// Prepare official Android shared libs once, then sync them into Tauri's Gradle tree.
+// An explicit source directory must fail closed: falling back would silently put prebuilt binaries in an F-Droid build.
 export async function ensureAndroidSherpaLibs({ force = false } = {}) {
+  if (process.env.SHERPA_ONNX_LIB_DIR) {
+    if (!await hasRequiredLibs(androidSherpaLibDir())) {
+      throw new Error("SHERPA_ONNX_LIB_DIR is missing required Android libraries; refusing a prebuilt fallback")
+    }
+    await syncGeneratedJniLibs([SHERPA_DEFAULT_ANDROID_ABI])
+    return
+  }
   await mkdir(SHERPA_ANDROID_RUNTIME_ROOT, { recursive: true })
   if (force) {
     await rm(join(SHERPA_ANDROID_RUNTIME_ROOT, "jniLibs"), {
@@ -55,23 +66,32 @@ export async function ensureAndroidSherpaLibs({ force = false } = {}) {
   console.log("[sherpa-android-libs] ready " + join(SHERPA_ANDROID_RUNTIME_ROOT, "jniLibs"))
 }
 
-// Verify every supported ABI has libs needed by native TTS before building.
+// Keep emulator ABIs cached even though production APKs are filtered to arm64.
 async function hasAllAndroidRuntimeLibs() {
   for (const abi of SHERPA_ANDROID_ABIS) {
-    for (const lib of SHERPA_REQUIRED_LIBS) {
-      try {
-        const info = await stat(join(SHERPA_ANDROID_RUNTIME_ROOT, "jniLibs", abi, lib))
-        if (!info.isFile()) {
-          return false
-        }
-      } catch {
-        return false
-      }
+    if (!await hasRequiredLibs(androidSherpaLibDir(abi))) {
+      return false
     }
   }
   return true
 }
 
+// Restored caches can retain empty files/directories; existence alone is not a usable native link input.
+async function hasRequiredLibs(directory) {
+  for (const lib of SHERPA_REQUIRED_LIBS) {
+    try {
+      const info = await stat(join(directory, lib))
+      if (!info.isFile() || info.size === 0) {
+        return false
+      }
+    } catch {
+      return false
+    }
+  }
+  return true
+}
+
+// The upstream archive already starts at jniLibs/; stripping its first component breaks Gradle's ABI layout.
 async function extractAndroidArchive() {
   console.log("[sherpa-android-libs] extracting " + SHERPA_ANDROID_ARCHIVE)
   await extractTar({
@@ -81,17 +101,18 @@ async function extractAndroidArchive() {
   })
 }
 
-// Tauri's generated Android project is what Gradle packages into the APK.
-async function syncGeneratedJniLibs() {
-  for (const abi of SHERPA_ANDROID_ABIS) {
-    const source = join(SHERPA_ANDROID_RUNTIME_ROOT, "jniLibs", abi)
+// Gradle packages these files separately from Rust linking, so both paths must receive the same runtime bytes.
+async function syncGeneratedJniLibs(abis = SHERPA_ANDROID_ABIS) {
+  for (const abi of abis) {
+    const source = androidSherpaLibDir(abi)
     const target = join(SHERPA_GENERATED_ANDROID_JNI_LIBS, abi)
     await mkdir(target, { recursive: true })
-    for (const lib of SHERPA_ANDROID_COPY_LIBS) {
-      const sourceFile = join(source, lib)
-      if (existsSync(sourceFile)) {
-        await cp(sourceFile, join(target, lib), { force: true })
-      }
+    // Papercut calls the C API; neither it nor ORT links Sherpa's C++/JNI wrappers.
+    for (const unused of ["libsherpa-onnx-cxx-api.so", "libsherpa-onnx-jni.so"]) {
+      await rm(join(target, unused), { force: true })
+    }
+    for (const lib of SHERPA_REQUIRED_LIBS) {
+      await cp(join(source, lib), join(target, lib), { force: true })
     }
   }
 }

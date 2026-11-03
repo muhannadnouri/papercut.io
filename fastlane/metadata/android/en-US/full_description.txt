@@ -1,0 +1,15 @@
+Papercut helps you read, search and listen to documents on your device.
+
+• Import HTML, EPUB, PDF, TXT and Markdown files.
+• Find words and passages across your library, or enable optional conceptual search.
+• Read with bookmarks, adjustable fonts and reading preferences.
+• Recognize English and Arabic text in scanned PDFs using local OCR.
+• Scan pages with your camera and review them before importing.
+• Generate audiobooks locally, listen in the background, and import or export saved audio.
+• Transfer library content between your devices over your local network.
+
+Reading, keyword search and OCR work offline. Voice generation and conceptual search require optional model downloads; after downloading, inference runs on your device. Model availability, languages and download sizes are shown in the app. Voice and embedding models have their own licenses.
+
+Papercut supports English and Arabic reading and audio workflows, alongside additional interface and voice languages. Android 8.0 or later and a 64-bit ARM device are required.
+
+Report problems and request features at https://github.com/muhannadnouri/papercut.io/issues
