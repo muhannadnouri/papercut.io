@@ -334,6 +334,68 @@ Document ids come from the manifest rather than a hash of normalized HTML;
 otherwise transferred EPUBs would get new URLs because their original archive
 bytes are not retained by Papercut.
 
+### Remaining Dependency Alerts
+
+The November 2, 2026 review used `task/patch-vuln-warnings` at `dedd3a66`.
+The branch includes Dependabot #86's exact ZIP lockfile commit followed by the
+application validation fix; this does not merge the dependency PR into `main`.
+The separate [ZIP #86](https://github.com/muhannadnouri/papercut.io/pull/86) and
+[serde_with #87](https://github.com/muhannadnouri/papercut.io/pull/87) checks jobs
+passed. Both PRs were still open at review. Alert closure needs verification on
+the merged revision; neither passing CI nor a local fix establishes closure.
+
+| Alert | Verified scope | Recommended disposition |
+| --- | --- | --- |
+| [#47, minimatch](https://github.com/advisories/GHSA-g3hv-75wg-m249) | `3.1.5` through ESLint and `10.2.4` through typescript-eslint; all affected npm nodes are development dependencies. | Leave open pending a compatible parent upgrade/backport or corrected advisory range. No forced downgrade or global minimatch 11 override. |
+| [#17, GLib](https://rustsec.org/advisories/RUSTSEC-2024-0429.html) | `0.18.5` through Tauri's Linux GTK/WebKit stack; no direct application `VariantStrIter` use found. | Track the upstream compatibility blocker. No demonstrated complete backend reachability proof, compatible published fix, or accepted risk dismissal. |
+| [#18, rand](https://rustsec.org/advisories/RUSTSEC-2026-0097.html) | The affected `0.7.3` copy is parser build tooling; its optional `log` feature is disabled across Papercut's complete feature/target graph. | Eligible for a narrowly explained "vulnerable code not used" dismissal after confirming the alert's exact dependency instance. No dismissal performed by this review. |
+
+Fresh npm audit reports 14 moderate affected dependency entries from the single
+minimatch advisory, with zero production-only findings. The advisory's database
+range is `<11.0.1`, but its described amplification requires
+`optimizationLevel >= 2`. The installed v3 matcher has no affected preprocessing
+routine. The sole inspected v10 caller in typescript-estree passes `{ dot: true }`,
+which retains the default optimization level 1; this repository does not enable
+the caller's project-service parser option. An isolated instrumented check
+confirmed that default/dot-only matching bypasses the affected routine while a
+small level-2 control reaches it. This is scope evidence, not a patched-package
+claim or a reason to dismiss every development dependency warning.
+
+Registry metadata still has ESLint `10.14.0` requiring minimatch `^10.2.6` and
+typescript-estree `8.72.1` requiring `^10.2.2`; upgrading those parents alone does
+not remove the advisory. The legacy-v3 release remains `3.1.5`. npm's suggested
+typescript-eslint/Stylistic downgrades and overrides across the incompatible v3
+and v11 APIs are not a verified fix for this toolchain.
+
+GLib's advisory fixes the affected iterator in `>=0.20.0`; crates.io still ends
+the compatible `0.18` line at `0.18.5`. Adding a newer direct GLib dependency does
+not replace the GTK stack's older API generation. A compatible maintained backport
+or upstream stack migration needs its own validation before changing this status.
+
+The rand advisory also covers the older `thread_rng()` API, not only `rng()`.
+The affected copy enters through `kuchikiki`/`selectors` build tooling and
+`phf_codegen`/`phf_generator`, whose generator uses a seeded `SmallRng`.
+The other locked rand versions (`0.8.6`, `0.9.4`, `0.10.3`) meet the advisory's
+patched ranges. Recheck logging features and call paths when that graph changes.
+
+Reproduce the scope checks without updating dependency versions:
+
+```bash
+npm audit --json
+npm audit --omit=dev --json
+npm ls minimatch --all
+cargo tree --manifest-path src-tauri/Cargo.toml --locked --all-features \
+  --target all --edges normal,build --prefix none --format '{p} {f}'
+```
+
+The rand 0.7 feature list must not contain `log` for the recorded rationale to
+remain valid. Changes to parser options, pattern inputs, dependency versions or
+the GTK backend also require reassessment. No new audit ignore, dependency
+override, scan exclusion or CI threshold change was added for these findings.
+The existing guarded inactive-rkyv waiver remains separate. The two Android build
+script CodeQL fixes also need a fresh scan of the updated revision before their
+alerts can be called resolved.
+
 ## Package Versions
 
 Version 1 remains the document-only format:
