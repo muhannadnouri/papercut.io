@@ -111,6 +111,15 @@
         "role": "Viewer",
         "rank": "Alternate",
         "androidIntentActionFilters": ["view"]
+      },
+      {
+        "ext": ["papercut-audiobook"],
+        "name": "Papercut audiobook",
+        "description": "Papercut audiobook bundle",
+        "mimeType": "application/octet-stream",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
       }
     ]
   }

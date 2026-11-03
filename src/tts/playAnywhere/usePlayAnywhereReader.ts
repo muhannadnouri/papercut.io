@@ -25,8 +25,10 @@ interface ReaderPlaybackOptions {
 
 /**
  * Browsing suspends reveals without pausing audio; Return restores reveals without seeking.
- * Explicit starts restore following after audio acknowledgement only if newer browsing has not won.
- * This hook presents results only: cancellation belongs to the playback scope and the player.
+ * Viewport and selection starts always restore following after audio acknowledgement, so the
+ * reader shows where playback began even when browsing landed during preparation; beginning
+ * keeps the browse-won guard. This hook presents results only: cancellation belongs to the
+ * playback scope and the player.
  */
 export function usePlayAnywhereReader({
   documentUrl,
@@ -233,7 +235,11 @@ export function usePlayAnywhereReader({
         return
       }
       setPending(false)
-      if (start === 'started' && current.browse === browseVersion) {
+      // An explicit start means "play from here", so the reader always shows
+      // where "here" resolved to — chunk starts sit above the viewport and on
+      // mobile nothing else exposes the playing position. Beginning has no
+      // resolved position, so it keeps the browse-won guard.
+      if (start === 'started' && (action !== 'beginning' || current.browse === browseVersion)) {
         restore()
       }
       return

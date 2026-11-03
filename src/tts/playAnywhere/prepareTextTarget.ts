@@ -1,13 +1,16 @@
 import type { ViewerTextTargetResult } from '../../viewers/types'
 import { extractReadableSegmentsFromHtml } from '../alignment/readableSegments'
 import type { TtsChunk } from '../types'
-import { isUserUploadUrl } from '../storage/UserUploads'
 import {
   isUploadedPdfDocumentUrl,
   type PdfPageTextLayer,
 } from '../../uploads/DocumentUploads'
 import type { PdfReadableSegment } from '../../pdf/pdfTts'
-import type { ChunkTargetResult } from './sourceChunkResolver'
+import type {
+  ChunkTargetResult,
+  SourceTextPoint,
+} from './sourceChunkResolver'
+import { withinSpanFraction } from './sourceChunkResolver'
 import {
   htmlResolverSteps,
   pdfResolverSteps,
@@ -31,9 +34,31 @@ export type PreparedTextTargetResult =
     documentUrl: string
     chunks: readonly TtsChunk[]
     isCurrent: () => boolean
+    /** Character fraction of the captured point inside the resolved chunk; set when deep enough to seek. */
+    withinChunkFraction?: number
   })
   | Extract<ChunkTargetResult, { status: 'unavailable' }>
   | Extract<ViewerTextTargetResult, { status: 'unavailable' }>
+
+/** Below this fraction a boundary start is already closer to the reader than a mid-word seek. */
+const WITHIN_CHUNK_FRACTION_THRESHOLD = 0.15
+
+function withinChunkFractionAt(
+  resolver: { spanAt?: (chunkIndex: number) => { start: SourceTextPoint;
+    end: SourceTextPoint } | null },
+  chunkIndex: number,
+  point: SourceTextPoint,
+  lengths: readonly number[],
+): number | undefined {
+  const span = resolver.spanAt?.(chunkIndex)
+  if (!span) {
+    return undefined
+  }
+  const fraction = withinSpanFraction(point, span.start, span.end, lengths)
+  return fraction !== null && fraction >= WITHIN_CHUNK_FRACTION_THRESHOLD
+    ? fraction
+    : undefined
+}
 
 /** Source-only boundary: no player, audio loading, settings, native playback or DOM mutations. */
 export function createTextTargetPreparation(options: TextTargetPreparationOptions) {
@@ -76,8 +101,11 @@ export function createTextTargetPreparation(options: TextTargetPreparationOption
       chunks,
       texts,
       sourceMatches: matches,
+      // Recovery re-derives spans by ordered text search for every book, not
+      // only imported bundles: generated books hit the same sanitizer and
+      // chunker drift, and the pass only runs when saved spans fail first.
       resolver: matches
-        ? yield* htmlResolverSteps(chunks, texts, isUserUploadUrl(options.documentUrl!)) : {
+        ? yield* htmlResolverSteps(chunks, texts, true) : {
           status: 'unavailable',
           reason: 'unmapped',
         },
@@ -123,6 +151,7 @@ export function createTextTargetPreparation(options: TextTargetPreparationOption
           return unavailable('stale')
         }
         let result: ChunkTargetResult
+        let withinChunkFraction: number | undefined
         if ('segmentTexts' in capture) {
           if (isUploadedPdfDocumentUrl(documentUrl)) {
             return unavailable('unmapped')
@@ -159,7 +188,7 @@ export function createTextTargetPreparation(options: TextTargetPreparationOption
           }
           const cache = htmlCache!
           result = cache.resolver.status === 'ready' ? cache.resolver.resolve(capture.point) : cache.resolver
-          if (result.status === 'unavailable') {
+          if (result.status !== 'resolved') {
             logTtsDiagnostic('[play-anywhere] HTML target rejected', {
               stage: !cache.sourceMatches ? 'source-identity' : cache.resolver.status !== 'ready' ? 'chunk-verification' : 'point-lookup',
               reason: result.reason,
@@ -167,6 +196,17 @@ export function createTextTargetPreparation(options: TextTargetPreparationOption
               sourceSegments: expectedHtml!.length,
               viewSegments: capture.segmentTexts.length,
             })
+          } else if (cache.resolver.status === 'ready') {
+            // Pre-rendered chunks only start at recorded boundaries; the char
+            // fraction lets the player seek proportionally into the chunk's
+            // audio so playback begins near the reader instead of at the
+            // chunk start.
+            withinChunkFraction = withinChunkFractionAt(
+              cache.resolver,
+              result.chunkIndex,
+              capture.point,
+              capture.segmentLengths,
+            )
           }
         } else {
           if (!isUploadedPdfDocumentUrl(documentUrl)) {
@@ -246,6 +286,7 @@ export function createTextTargetPreparation(options: TextTargetPreparationOption
         }
         return result.status === 'resolved' ? {
           ...result,
+          withinChunkFraction,
           chunks,
           documentUrl,
           isCurrent,

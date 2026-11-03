@@ -325,6 +325,24 @@ html[dir="rtl"] .back-icon {
   }
 }
 
+/* Stay outside document flow so removing the status cannot shift the seek. */
+.document-restoring-surface {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+/* Restore-flagged opens mount the viewer hidden behind the loading surface
+ * so the book is rasterized once, already scrolled to the bookmark. */
+.document-viewer-hidden,
+.document-viewer-shown {
+  display: contents;
+}
+
+.document-viewer-hidden {
+  visibility: hidden;
+}
+
 .document-load-error {
   flex-direction: column;
   color: var(--danger-strong);

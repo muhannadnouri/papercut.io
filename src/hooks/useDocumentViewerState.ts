@@ -5,10 +5,14 @@ import {
   useState,
 } from 'react'
 import type { SearchOpenTarget } from '../types/search'
+import { readReaderBookmark } from './useReaderBookmark'
 
 type DocumentLoadState =
   | { status: 'idle' }
   | { status: 'loading';
+    url: string;
+    message: string }
+  | { status: 'restoring';
     url: string;
     message: string }
   | { status: 'error';
@@ -55,6 +59,16 @@ export function useDocumentViewerState({
   const openDocumentRequestRef = useRef(0)
   const documentOpeningRef = useRef(false)
   const browseScrollRef = useRef<BrowseScrollSnapshot | null>(null)
+
+  useEffect(() => {
+    if (documentLoad.status !== 'restoring') {
+      return
+    }
+    const timer = window.setTimeout(() => {
+      setDocumentLoad(current => current === documentLoad ? { status: 'idle' } : current)
+    }, 20000)
+    return () => window.clearTimeout(timer)
+  }, [documentLoad])
 
   const clearSelectedDocument = useCallback((options?: { restoreBrowseScroll?: boolean }) => {
     if (options?.restoreBrowseScroll === false) {
@@ -137,7 +151,19 @@ export function useDocumentViewerState({
       }
       documentOpeningRef.current = false
       setDocContent(html)
-      setDocumentLoad({ status: 'idle' })
+      if (options?.restoreBookmark && readReaderBookmark(url)) {
+        // Paint the destination, not the top: the viewer mounts hidden while
+        // the bookmark anchor index builds and the seek completes, then the
+        // content reveals already scrolled. The failsafe unwedges a viewer
+        // that never registers its bookmark API.
+        setDocumentLoad({
+          status: 'restoring',
+          url,
+          message: 'Restoring bookmark...',
+        })
+      } else {
+        setDocumentLoad({ status: 'idle' })
+      }
     } catch (err) {
       if (openDocumentRequestRef.current !== requestId) {
         return
@@ -154,8 +180,13 @@ export function useDocumentViewerState({
     }
   }, [activeTab, loadHtmlDocument])
 
+  const completeRestoringDocument = useCallback(() => {
+    setDocumentLoad((prev) => prev === documentLoad && prev.status === 'restoring' ? { status: 'idle' } : prev)
+  }, [documentLoad])
+
   return {
     clearSelectedDocument,
+    completeRestoringDocument,
     docContent,
     documentLoad,
     documentOpening: documentLoad.status === 'loading',

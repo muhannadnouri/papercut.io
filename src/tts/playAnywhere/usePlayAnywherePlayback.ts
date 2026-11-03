@@ -11,6 +11,7 @@ import type {
   TtsChunk,
   TtsOptions,
 } from '../types'
+import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import type { PlaybackStart } from '../hooks/useTtsPlayer'
 import type { PreparedTextTargetResult } from './prepareTextTarget'
 
@@ -19,7 +20,7 @@ interface PlaybackTargetOptions {
   options: TtsOptions
   resolve: (url: string, capture: ViewerTextTargetResult, signal?: AbortSignal) => Promise<PreparedTextTargetResult>
   getChunks: () => Promise<readonly TtsChunk[]>
-  play: (chunks: readonly TtsChunk[], options: TtsOptions, index: number) => Promise<PlaybackStart> | null
+  play: (chunks: readonly TtsChunk[], options: TtsOptions, index: number, withinChunkFraction?: number) => Promise<PlaybackStart> | null
   /** The player's command epoch; any later playback command aborts it. */
   commandSignal: () => AbortSignal
 }
@@ -67,6 +68,7 @@ export function createPlayAnywherePlayback(scope: PlaybackTargetOptions) {
     try {
       let chunks: readonly TtsChunk[]
       let index = 0
+      let withinChunkFraction: number | undefined
       let valid = () => true
       if (api) {
         const capture = await api.captureViewport()
@@ -88,6 +90,7 @@ export function createPlayAnywherePlayback(scope: PlaybackTargetOptions) {
         }
         chunks = target.chunks
         index = target.chunkIndex
+        withinChunkFraction = target.withinChunkFraction
         valid = target.isCurrent
       } else {
         chunks = await scope.getChunks()
@@ -98,7 +101,11 @@ export function createPlayAnywherePlayback(scope: PlaybackTargetOptions) {
       if (!valid()) {
         return unavailable('stale')
       }
-      const started = scope.play(chunks, scope.options, index)
+      logTtsDiagnostic('[play-anywhere] start target', {
+        chunkIndex: index,
+        withinChunkFraction: withinChunkFraction ?? null,
+      })
+      const started = scope.play(chunks, scope.options, index, withinChunkFraction)
       return started ? {
         status: 'dispatched',
         started,

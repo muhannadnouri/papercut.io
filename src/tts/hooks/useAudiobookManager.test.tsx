@@ -202,7 +202,7 @@ it.each(['beginning', 'passage'])('admits %s after the matching save finalizes w
       expect.objectContaining({
         documentUrl: '/book.html',
         voice: 'af_heart',
-      }), 0)
+      }), 0, undefined)
   } finally {
     await harness.dispose()
   }

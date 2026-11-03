@@ -204,6 +204,51 @@ describe('source-only target preparation', () => {
     expect((await second.resolve('/book.html', htmlCapture())).status).toBe('resolved')
   })
 
+  it('reports the within-chunk fraction only when the point sits deep enough for a seek', async () => {
+    const preparation = createTextTargetPreparation(options())
+    // Default capture point is segment 1 offset 2 of 'Second.' (7 chars): 2/7 is deep enough.
+    const deep = await preparation.resolve('/book.html', htmlCapture())
+    expect(deep).toMatchObject({
+      status: 'resolved',
+      chunkId: 'b',
+      withinChunkFraction: 2 / 7,
+    })
+    // A point at the chunk start stays a boundary start.
+    const near = htmlCapture()
+    if (near.status === 'captured') {
+      near.point = {
+        format: 'html',
+        segmentIndex: 1,
+        offset: 0,
+      }
+    }
+    expect(await preparation.resolve('/book.html', near)).toMatchObject({
+      status: 'resolved',
+      chunkId: 'b',
+      withinChunkFraction: undefined,
+    })
+  })
+
+  it('preserves the full playback sequence and fraction after a dropped predecessor', async () => {
+    const degradedChunks = [{
+      ...chunks[0],
+      text: 'Changed',
+    }, chunks[1]]
+    const preparation = createTextTargetPreparation(options({ chunks: degradedChunks }))
+    const target = await preparation.resolve('/book.html', htmlCapture())
+    expect(target).toMatchObject({
+      status: 'resolved',
+      chunkIndex: 1,
+      chunkId: 'b',
+      withinChunkFraction: 2 / 7,
+    })
+    if (target.status === 'resolved') {
+      expect(target.chunks).toBe(degradedChunks)
+      expect(target.chunks[target.chunkIndex].id).toBe(target.chunkId)
+    }
+    preparation.dispose()
+  })
+
   it('requires live text identity, not equal lengths; rejects wrong documents, unavailable and stale views', async () => {
     const preparation = createTextTargetPreparation(options())
     expect(await preparation.resolve('/book.html', htmlCapture(['First.', 'Changed']))).toMatchObject({ reason: 'unmapped' })
@@ -232,15 +277,27 @@ describe('source-only target preparation', () => {
       sourceSegments: 2,
       viewSegments: 2,
     })
+    // One stale span degrades to a localized gap; the rest of the book resolves.
     await createTextTargetPreparation(options({
       chunks: [{
         ...chunks[0],
         text: 'Changed',
       }, chunks[1]],
     })).resolve('/book.html', htmlCapture())
+    expect(logTtsDiagnostic).toHaveBeenLastCalledWith('[play-anywhere] preparation completed', expect.anything())
+    // With no verifiable span left, the whole book is rejected again.
+    await createTextTargetPreparation(options({
+      chunks: [{
+        ...chunks[0],
+        text: 'Changed',
+      }, {
+        ...chunks[1],
+        text: 'Rewritten',
+      }],
+    })).resolve('/book.html', htmlCapture())
     expect(logTtsDiagnostic).toHaveBeenLastCalledWith('[play-anywhere] HTML target rejected', {
       stage: 'chunk-verification',
-      reason: 'unmapped',
+      reason: 'not-ready',
       chunks: 2,
       sourceSegments: 2,
       viewSegments: 2,

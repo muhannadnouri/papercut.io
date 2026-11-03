@@ -35,6 +35,7 @@ import { useDocumentViewerState } from './hooks/useDocumentViewerState'
 import { useTheme } from './hooks/useTheme'
 import { useBookmarkedDocumentUrls } from './hooks/useReaderBookmark'
 import { useUploadedLibrary } from './hooks/useUploadedLibrary'
+import { useOpenDocumentRequests } from './hooks/useOpenDocumentRequests'
 import type {
   DocumentInfo,
   SearchMode,
@@ -61,8 +62,6 @@ import {
   getUploadedDocumentSource,
   isUploadedHtmlDocumentUrl,
   isUploadedPdfDocumentUrl,
-  listenOpenDocumentRequests,
-  takeOpenDocumentSources,
   type UploadedDocumentDeleteBatchResult,
 } from './uploads/DocumentUploads'
 
@@ -92,7 +91,6 @@ function App() {
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
   const [scanSetupSource, setScanSetupSource] = useState<'camera' | 'photos' | null>(null)
   const [readerAudioSetupOpen, setReaderAudioSetupOpen] = useState(false)
-  const [openDocumentRequest, setOpenDocumentRequest] = useState(0)
   const { pagefindRef, pagefindReady, allDocuments, documentsLoading } = usePagefind()
   const { confirm: confirmDocumentAction, dialog: documentConfirmationDialog } = useAppConfirmation()
   const {
@@ -152,6 +150,7 @@ function App() {
 
   const {
     clearSelectedDocument,
+    completeRestoringDocument,
     docContent,
     documentLoad,
     documentOpening,
@@ -182,6 +181,8 @@ function App() {
     audiobookActionBusy,
     audiobookActionMessage,
     audiobookImport,
+    audiobookNotice,
+    dismissAudiobookNotice,
     audioSavedOnly,
     closeDocumentAudio,
     audiobooksPanelProps,
@@ -363,52 +364,19 @@ function App() {
     await finishDocumentFileImport(await importDocumentPaths(paths))
   }, [finishDocumentFileImport, importDocumentPaths])
 
-  /** Subscribe before draining the native queue so desktop and mobile cold or
-   * warm file-open requests share one race-free path into the Library importer. */
-  useEffect(() => {
-    if (!('__TAURI_INTERNALS__' in window)) {
-      return
-    }
-    let disposed = false
-    let unlisten: (() => void) | undefined
-    void listenOpenDocumentRequests(() => setOpenDocumentRequest((value) => value + 1))
-      .then((stop) => {
-        if (disposed) {
-          stop()
-        } else {
-          unlisten = stop
-          setOpenDocumentRequest((value) => value + 1)
-        }
-      })
-      .catch((error) => console.warn('Unable to listen for document open requests:', error))
-    return () => {
-      disposed = true
-      unlisten?.()
-    }
-  }, [])
-
   const libraryOperationBusy = documentImport.status === 'importing' ||
     documentImport.status === 'recognizing' || documentImport.status === 'deleting'
 
-  useEffect(() => {
-    if (openDocumentRequest === 0 || libraryOperationBusy) {
-      return
-    }
-    let disposed = false
-    void takeOpenDocumentSources().then(async (sources) => {
-      if (disposed || sources.length === 0) {
-        return
-      }
+  useOpenDocumentRequests({
+    busy: libraryOperationBusy || audiobookActionBusy,
+    onDocuments: async sources => {
       handleCloseDocument()
       setActiveTab('library')
       setShowDocuments(true)
       await finishDocumentFileImport(await importDocumentPaths(sources, 'open'))
-    }).catch((error) => console.warn('Unable to import document open request:', error))
-    return () => {
-      disposed = true
-    }
-  }, [openDocumentRequest, finishDocumentFileImport, handleCloseDocument, importDocumentPaths,
-    libraryOperationBusy, setShowDocuments])
+    },
+    onBundle: source => importAudiobookBundle(handleViewDocument, source),
+  })
 
   const handleImportDocumentFolder = useCallback(async () => {
     const result = await importDocumentFolder()
@@ -603,11 +571,14 @@ function App() {
             searchTarget={searchOpenTarget}
             restoreBookmark={restoreBookmark}
             loading={documentLoad.status === 'loading' && documentLoad.url === selectedDoc}
+            restoringDocument={documentLoad.status === 'restoring' && documentLoad.url === selectedDoc}
+            onRestoringDocumentComplete={completeRestoringDocument}
             loadError={documentLoad.status === 'error' && documentLoad.url === selectedDoc ? documentLoad.message : undefined}
             onClose={handleCloseDocument}
           />
         </div>
         {audiobookActionBusy && <AppBusyOverlay message={audiobookActionMessage} />}
+        <AudiobookActionNotice notice={audiobookNotice} onDismiss={dismissAudiobookNotice} />
         {readerAudioSetupOpen && (
           <AudioSetupDialog
             audioSetup={{
@@ -766,6 +737,7 @@ function App() {
         )}
       </div>
       {audiobookActionBusy && <AppBusyOverlay message={audiobookActionMessage} />}
+      <AudiobookActionNotice notice={audiobookNotice} onDismiss={dismissAudiobookNotice} />
       {scanSetupSource && (
         <ScanSetupDialog
           source={scanSetupSource}
@@ -777,6 +749,22 @@ function App() {
       )}
       {documentConfirmationDialog}
       {audiobook.confirmationDialog}
+    </div>
+  )
+}
+
+function AudiobookActionNotice({ notice, onDismiss }: {
+  notice: { status: 'success' | 'cancelled' | 'error';
+    message: string } | null
+  onDismiss: () => void
+}) {
+  const { t } = useTranslation()
+  return notice && (
+    <div className={'audiobook-action-toast audiobook-action-toast-' + notice.status}
+      role={notice.status === 'error' ? 'alert' : 'status'} aria-live="polite">
+      <span dir="auto">{notice.message}</span>
+      <button type="button" className="audiobook-action-toast-dismiss"
+        aria-label={t('tts.audiobooks.dismissNotice')} onClick={onDismiss}>×</button>
     </div>
   )
 }

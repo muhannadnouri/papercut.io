@@ -83,7 +83,7 @@ it('keeps browsing independent of playback and Return reveals without dispatchin
     await app.unmount()
   }
 })
-it('restores follow only after play succeeds and lets later browse input win', async () => {
+it('restores follow after play succeeds; explicit starts ignore interim browsing, beginning does not', async () => {
   const app = await setup()
   try {
     await act(async () => app.reader.browse())
@@ -97,10 +97,15 @@ it('restores follow only after play succeeds and lets later browse input win', a
     await act(async () => app.reader.playFromHere())
     await act(async () => app.reader.browse())
     await act(async () => app.started())
-    expect(app.reader.browsing).toBe(true)
-    await act(async () => app.reader.playFromBeginning())
-    await act(async () => app.started())
+    // Viewport play means "play from here": the reader always returns to the
+    // passage playback began from, even when browsing landed during preparation.
     expect(app.reader.browsing).toBe(false)
+    await act(async () => app.reader.browse())
+    await act(async () => app.reader.playFromBeginning())
+    await act(async () => app.reader.browse())
+    await act(async () => app.started())
+    // Beginning resolves to no passage, so newer browsing still wins.
+    expect(app.reader.browsing).toBe(true)
   } finally {
     await app.unmount()
   }

@@ -262,7 +262,10 @@ function scheduleImportedHighlightBuild(task: () => void): () => void {
 
 function audiobookSaveChunksFromHtml(html: string, modelId: string): TtsChunk[] {
   const profile = modelId === SILMA_MODEL_ID ? SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE : undefined
-  return buildRuntimeChunks(chunkAudiobookSaveHtmlWithSpans(html, profile), 'save-c')
+  return warnMissingSourceSpans(
+    buildRuntimeChunks(chunkAudiobookSaveHtmlWithSpans(html, profile), 'save-c'),
+    'html',
+  )
 }
 
 function audiobookSaveChunksFromSegments(
@@ -271,10 +274,24 @@ function audiobookSaveChunksFromSegments(
 ): TtsChunk[] {
   const profile = modelId === SILMA_MODEL_ID ? SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE : undefined
   const sourceChunks = chunkAudiobookSaveSegmentsWithSpans(segments, profile)
-  return buildRuntimeChunks(sourceChunks, 'save-c').map((chunk, index) => ({
+  return warnMissingSourceSpans(buildRuntimeChunks(sourceChunks, 'save-c').map((chunk, index) => ({
     ...chunk,
     pdfSourceSpans: pdfSourceSpansForChunk(segments, sourceChunks[index].sourceSpan),
-  }))
+  })), 'pdf')
+}
+
+/** Spanless chunks narrate fine but cannot route play-from-here; say so while
+ * the book is being saved instead of failing silently at playback time. */
+function warnMissingSourceSpans(chunks: TtsChunk[], source: 'html' | 'pdf'): TtsChunk[] {
+  const missing = chunks.filter(chunk => chunk.text.trim() && !chunk.sourceSpan).length
+  if (missing > 0) {
+    logTtsDiagnostic('[tts-save] chunks without source spans degrade play-from-here', {
+      chunks: chunks.length,
+      missing,
+      source,
+    }, 'warn')
+  }
+  return chunks
 }
 
 function buildRuntimeChunks(sourceChunks: SpeechChunk[], prefix: string): TtsChunk[] {

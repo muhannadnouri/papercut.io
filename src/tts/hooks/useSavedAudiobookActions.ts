@@ -9,6 +9,7 @@ import {
   deleteNativeAudiobook,
   exportNativeAudiobook,
   importNativeAudiobook,
+  importNativeAudiobookFrom,
   type NativeAudiobookExportFormat,
   type NativeAudiobookImportResult,
 } from '../api/nativeTts'
@@ -199,6 +200,7 @@ export function useSavedAudiobookActions({
   const importSaved = useCallback(async (
     openDocument: (url: string) => Promise<void>,
     onImported: (result: NativeAudiobookImportResult) => void | Promise<void>,
+    source?: string,
   ) => {
     dismissNotice()
     setImportState({
@@ -206,7 +208,9 @@ export function useSavedAudiobookActions({
       message: i18n.t('tts.audiobooks.importingAction'),
     })
     try {
-      const result = await importNativeAudiobook()
+      const result = await (source
+        ? importNativeAudiobookFrom(source)
+        : importNativeAudiobook())
       if (result.sourceKind === 'pdf') {
         try {
           const document = (await listUploadedDocuments())

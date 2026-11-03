@@ -5,6 +5,7 @@ import {
 } from 'vitest'
 import type { NativeAudiobookPlayback } from '../api/nativeTts'
 import {
+  chunkSeekSeconds,
   findPlaybackChunk,
   isNativeMobilePlatform,
   isTransientPlaybackInterruption,
@@ -42,6 +43,29 @@ const playback: NativeAudiobookPlayback = {
 }
 
 describe('playback state helpers', () => {
+  it('bounds proportional seeks inside short clips and retains normal end padding', () => {
+    expect(chunkSeekSeconds({
+      startSec: 10,
+      durationSec: 0.02,
+    }, 0.5)).toBe(10)
+    expect(chunkSeekSeconds({
+      startSec: 0,
+      durationSec: 0.02,
+    }, 0.5)).toBe(0)
+    expect(chunkSeekSeconds({
+      startSec: 10,
+      durationSec: 0.05,
+    }, 0.5)).toBe(10)
+    expect(chunkSeekSeconds({
+      startSec: 10,
+      durationSec: 5,
+    }, 0.5)).toBe(12.5)
+    expect(chunkSeekSeconds({
+      startSec: 10,
+      durationSec: 5,
+    }, 0.999)).toBe(14.95)
+  })
+
   it('finds chunk boundaries and clamps timestamps outside the audiobook', () => {
     expect(findPlaybackChunk(playback, -1)?.chunkId).toBe('one')
     expect(findPlaybackChunk(playback, 1.99)?.chunkId).toBe('one')

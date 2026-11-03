@@ -44,8 +44,8 @@ mod wav_sink;
 pub(crate) use synth::{preview_voice, LoadedTtsEngine};
 
 pub(crate) use bundle::{
-    delete_audiobook_native, export_audiobook_native, get_imported_audiobook_metadata,
-    get_imported_audiobook_source, import_audiobook_native,
+    audiobook_source_is_bundle, delete_audiobook_native, export_audiobook_native,
+    get_imported_audiobook_metadata, get_imported_audiobook_source, import_audiobook_native,
 };
 pub(crate) use cache::{get_native_audiobook_chunk, native_audiobook_status};
 pub(crate) use manifest::{

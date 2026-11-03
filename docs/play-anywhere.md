@@ -62,9 +62,10 @@ The primary play button needs an accessible name and tooltip. The idle floating
 shortcut stays icon-only inside the compact reader-tools capsule, including after
 Stop; its accessible name still identifies the viewport/selection action. Labeled
 passage commands remain in Options. “Chunk” is unnecessary
-in primary UI copy. Supporting description: “Starts at the beginning of the audio
-segment containing this passage.” Keep selection, hyperlinks, and current
-fullscreen toolbar gestures working normally. No new global shortcut is needed.
+in primary UI copy. Supporting description: “Starts near this passage in the saved
+audio.” HTML uses an approximate in-segment seek; PDF starts at the segment boundary.
+Keep selection, hyperlinks, and current fullscreen toolbar gestures working normally.
+No new global shortcut is needed.
 The external playback disclosure uses icon-only sliders, matching the Options tab;
 its full accessible name and tooltip are Playback options. Reader tools and player share a bottom edge when measured
 widths fit; otherwise the capsule stacks above the player at the same end edge.
@@ -74,13 +75,17 @@ soft yellow with a warning marker when generation setup is needed.
 
 ### Which passage counts as “here”
 
-1. Viewport actions use the **first visible narratable text in reading order**
-   within the unobscured reader area. Exclude the fixed header, PDF toolbar,
+1. HTML viewport actions use the **first narratable text in reading order at or
+   below the 30% reading-focus band** within the unobscured reader area. If all
+   eligible text sits above the band, fall back to the topmost visible text.
+   PDF uses its first visible narratable text. Exclude the fixed header, PDF toolbar,
    floating player, clipped regions, hidden content, and non-narrated references.
    Do not use the window bounds for a PDF's nested scroll container.
-2. If the top visible line cuts through a paragraph or a chunk, use a text point
-   on that visible line, not the paragraph's potentially distant beginning. Map
-   that point to the containing saved chunk and start the whole chunk.
+2. Capture a text point on the chosen visible line, not the paragraph's potentially
+   distant beginning. Map that point to the containing saved chunk. HTML seeks
+   proportionally within its audio when the character fraction is at least 15%;
+   shallower points and PDF start at the chunk boundary. This is approximate
+   timing, not word-level alignment.
 3. For multiple columns and RTL, use the existing narration/source order to
    choose among visible candidates. Screen x/y order alone is insufficient.
 4. Images and margins are skipped in favor of narratable text still in view.
@@ -162,13 +167,13 @@ and performance acceptance remains pending.
 | Contract | Input/output and lifetime |
 | --- | --- |
 | Optional reader target API | `onTextTargetApiChange` registers/unregisters `ViewerTextTargetApi`. Its implemented `captureViewport()` returns a Promise of a captured HTML or PDF point or typed unavailable reason. Optional synchronous `captureSelection()` returns the same result type from the normalized Range start; absent capabilities remain compatible. No audio side effects. |
-| Target snapshot | HTML capture snapshots viewport geometry synchronously, then yields at least two animation frames for browser visibility delivery (up to 500 ms for initial observations). Source/view mutations, scroll or reflow before completion return stale rather than retargeting. HTML output includes frozen normalized `segmentTexts` and `segmentLengths` arrays reused for the lifetime of its source index; PDF includes the original item/word `sourceText`. Both provide `isCurrent()` for source/view lifetime validation. PDF captures already-rendered geometry synchronously inside the Promise method, with no animation-frame wait or page rendering. No DOM references are serialized. Selection snapshots its actual DOM point before menu focus loss. Both endpoints must belong to the current reader. The snapshot survives native collapse during Tab/button focus changes, but rejects a different live range; a reader input epoch invalidates pending targets on fresh non-audio pointer input or non-Tab key input. |
+| Target snapshot | HTML capture snapshots viewport geometry synchronously, anchors the reading position at the visual focus band (30% of the viewport height) rather than the top edge — falling back to the topmost visible text when nothing sits in the band — then yields at least two animation frames for browser visibility delivery (up to 500 ms for initial observations). Source/view mutations, scroll or reflow before completion return stale rather than retargeting. HTML output includes frozen normalized `segmentTexts` and `segmentLengths` arrays reused for the lifetime of its source index; PDF includes the original item/word `sourceText`. Both provide `isCurrent()` for source/view lifetime validation. PDF captures already-rendered geometry synchronously inside the Promise method, with no animation-frame wait or page rendering. No DOM references are serialized. Selection snapshots its actual DOM point before menu focus loss. Both endpoints must belong to the current reader. The snapshot survives native collapse during Tab/button focus changes, but rejects a different live range; a reader input epoch invalidates pending targets on fresh non-audio pointer input or non-Tab key input. |
 | Normalized source point | HTML: readable segment index + normalized UTF-16 offset. PDF: page index + original text-item/block order + source offset. Do not conflate the two coordinate systems. |
-| Resolver result | `resolved` with canonical chunk index/id, or `unavailable` with `not-ready`, `unmapped`, `ambiguous`, `invalid-source` or `invalid-point`. Capture/coordinator additionally own `no-visible-text`, `no-selection` and `stale`; the pure resolver does not inspect DOM or session identity. Unexpected errors remain errors rather than successful fallbacks. |
+| Resolver result | `resolved` with canonical chunk index/id, or `unavailable` with `not-ready`, `unmapped`, `ambiguous`, `invalid-source` or `invalid-point`. Capture/coordinator additionally own `no-visible-text`, `no-selection` and `stale`; the pure resolver does not inspect DOM or session identity. Unexpected errors remain errors rather than successful fallbacks. Degraded books: chunks whose saved span is missing, out of bounds, or unverifiable against the live text drop out of matching alone (the verified pipeline advances its coverage cursor past a dropped span so one bad span cannot cascade); identity, ordering and overlap defects still fail globally, and dropped ranges resolve `unmapped` instead of guessing audio. Ordered text-search recovery runs for every HTML book when saved spans fail first, and fully recovered spans stay strict. |
 | Prepared target boundary | `useAudiobookManager.preparedChunks` exposes canonical chunks without active playback. `resolveTextTarget(documentUrl, capture, signal?)` returns a Promise of a verified canonical index/ID plus original full chunks, document URL and `isCurrent()`, or typed unavailable. It never starts audio. Commit-time document/content/model/chunk changes and unmount dispose preparation caches. The Stage 3 coordinator additionally guards action/options changes and synchronous cancellation before dispatch. |
 | Player initial start | `speak(chunks, options, startIndex = 0)` validates a safe integer in the canonical nonempty sequence before changing audio. Pass the complete sequence, never a sliced tail. It returns whether dispatch was accepted, not whether sound was heard. |
-| Player active target | `playFromChunk(fullChunks, options, index)` returns `Promise<PlaybackStart> \| null`: `null` rejects before any audio change; the Promise settles once with `started` (Play acknowledged), `superseded` (a later command) or `failed` (player error). It reuses an active session only for matching canonical IDs/text/hashes and options. It uses `jumpToChunk(index, true)` for explicit seek-and-play, otherwise starts the existing player at that index. Ordinary mobile jump keeps paused state; Resume keeps time on both platforms. Desktop ordinary jump retains its prior play behavior. |
-| Target playback action | `usePlayAnywherePlayback` owns newest action identity until dispatch, within an immutable audio-option/document scope, and follows the player's `commandSignal()`. Manager exposes `playFromHere(viewerApi)`; existing Read uses `playFromBeginning()`. Results are `dispatched { started }`, `cancelled { superseded \| disposed }`, typed `unavailable`, or `error` with the original error. The reader hook presents loading/failure results and never reports `cancelled`. `started` follows the transport Play Promise; it is not acoustic confirmation. |
+| Player active target | `playFromChunk(fullChunks, options, index, withinChunkFraction?)` returns `Promise<PlaybackStart> \| null`: `null` rejects before any audio change; the Promise settles once with `started` (Play acknowledged), `superseded` (a later command) or `failed` (player error). It reuses an active session only for matching canonical IDs/text/hashes and options. It uses `jumpToChunk(index, true)` for explicit seek-and-play, otherwise starts the existing player at that index. An optional within-chunk character fraction seeks proportionally into the chunk's narration: desktop sets `currentTime` once the chunk metadata is ready, mobile seeks to `chunk start + fraction × duration` on the track. The offset belongs to that accepted command, is installed after dispatch creates its command epoch, and is consumed once; any later player command clears it, including a same-index jump, Pause, Stop, or fresh start. Both transports clamp end padding at the chunk start, including clips shorter than 50 ms. Ordinary mobile jump keeps paused state; Resume keeps time on both platforms. Desktop ordinary jump retains its prior play behavior. |
+| Target playback action | `usePlayAnywherePlayback` owns newest action identity until dispatch, within an immutable audio-option/document scope, and follows the player's `commandSignal()`. Manager exposes `playFromHere(viewerApi)`; existing Read uses `playFromBeginning()`. Results are `dispatched { started }`, `cancelled { superseded \| disposed }`, typed `unavailable`, or `error` with the original error. The reader hook presents loading/failure results and never reports `cancelled`. `started` follows the transport Play Promise; it is not acoustic confirmation. An acknowledged viewport or selection start restores following even when browsing landed during preparation, so the reader reveals the passage playback began from (chunk starts sit above the viewport and mobile playback shows nothing else); beginning resolves to no passage and keeps the browse-won guard. HTML resolves also carry the captured point's character fraction inside the resolved chunk (gated at 15%), passed to the player for a proportional in-chunk start; beginning and PDF resolve none and start at the boundary. |
 | Follow policy | Optional `AudioFollowPolicy { allowsReveal(), revision, active? }` preserves automatic following when omitted. `allowsReveal()` reads synchronous reader intent at actual reveal execution; revision makes Return reveal even the same paused chunk; active scopes input listener lifetime. HTML timers and PDF page/range reveals use it; highlighting remains independent. |
 
 At the coordinator boundary bind each request to selected document, current view
@@ -440,13 +445,22 @@ view/session validation belongs to the adapter/coordinator in Stages 2–3.
 Implemented contract: `createChunkSourceResolver(chunks, segmentLengths)` takes
 the complete source chunk list and normalized UTF-16 segment lengths. It returns
 `ready` with `resolve({segmentIndex, offset})` or typed `unavailable`. Construction
-snapshots bounds/id/index, filters blank chunks in playback order, and rejects
-missing, out-of-bounds, unsorted, overlapping or duplicate-id spans. Normal lookup
-uses binary search. It does not verify live text identity, normalize DOM points,
-skip whitespace or detect staleness: adapters must supply validated/recovered
-spans and normalized points, and rebuild on source/view revision changes.
-Partial span coverage intentionally remains unavailable until recovery succeeds.
-No production caller imports the resolver yet.
+snapshots bounds/id/index and filters blank chunks in playback order. Every
+nonblank chunk retains its canonical playback index even when its mapping is
+excluded; `spanAt(index)` uses that same index and returns null for excluded spans.
+Chunks with missing or out-of-bounds spans are excluded from matching instead of failing the
+book; identity defects (blank/duplicate ids), unsorted and overlapping spans still
+fail globally, and points inside an excluded chunk stay `unmapped` rather than
+guessing audio. Normal lookup uses binary search. It does not verify live text
+identity, normalize DOM points, skip whitespace or detect staleness: adapters must
+supply validated/recovered spans and normalized points, and rebuild on source/view
+revision changes. HTML verification first checks complete durable coverage, then
+attempts ordered text-search recovery when allowed. Complete recovery stays strict;
+if recovery cannot repair the book, individually verified durable mappings remain
+usable without filtering or rewriting the saved playback sequence. A missing or
+out-of-bounds span has no trusted coverage end, so verification resumes at the next
+usable span instead of discarding that neighbour. Structural defects fail before
+recovery. PDF retains its existing source-projection checks.
 
 ### Stage 2 — Viewer capture and PDF/OCR mapping
 
@@ -2560,6 +2574,231 @@ Owner checklist (pending):
   after Allow or Block.
 - [ ] Dev build (StrictMode): Play from here starts on first use.
 
+### 2026-10-30 — Restoring opens paint the destination (Plan A)
+
+Owner desktop diagnostics confirmed the seek itself is instant
+(`restore seek finished durationMs: 0` — the yielding index was already
+built), so all perceived waiting is the index build plus the giant
+first paint of the injected book. The video also showed the restoring
+overlay can never win: it is committed inside the same multi-second
+paint as the book itself, so old loading tiles and new content tiles
+mix and no clean frame of the overlay reaches the screen.
+
+Restoring opens now paint the destination: `useDocumentViewerState`
+holds the open in a `restoring` phase (gated on a bookmark existing,
+with a 20 s failsafe), DocumentViewer keeps the loading surface up with
+the swapped "Restoring bookmark…" label and mounts the viewer inside a
+`visibility: hidden` wrapper (bookmark API registered, geometry
+measurable, raster skipped), the yielding build and seek run against
+the hidden viewer, and `completeRestoringDocument` reveals the content
+already scrolled — one paint, at the destination, identical on
+Android/iOS/desktop. The fixed restoring overlay now only covers
+manual Return-to-bookmark. Owner acceptance pending on Android.
+
+### 2026-10-29 — Reading-focus capture anchor, restore instrumentation, unfrozen bookmark seek
+
+Owner Android QA after the proportional-seek build: playback still began
+a chunk or two above the reading position, and the restoring-bookmark
+surface still never appeared (content opens, seconds pass, then the
+jump). Investigation, no guessing:
+
+- The viewport capture anchored at `firstVisibleTextOffset` — the top
+  edge — so the resolved chunk was the one containing the topmost text,
+  often the previous passage. The capture now anchors at the visual
+  focus band (30% of the viewport height, below tool occlusion), with
+  the topmost visible text kept as fallback for viewports whose text
+  sits entirely above the band. The browser oracle mirrors the band.
+- Playback-start diagnostics: `[play-anywhere] start target` logs the
+  resolved chunk and fraction; `[tts-playback] native start seek` /
+  `proportional start` log the computed seek seconds on each transport.
+  The next Android run shows definitively whether the fraction applied.
+- The bookmark restore blocked for seconds inside a synchronous
+  full-book text walk, and the surface lost the paint race on Android's
+  slower raster. The html bookmark API now builds its text-node index in
+  12 ms yielding slices (started at viewer mount) and `restore` awaits
+  the finished index; `ViewerBookmarkApi.restore` may return a promise
+  and the reader keeps the surface up until the seek settles, with a
+  supersede guard for document switches. Reader diagnostics: restore
+  seek started/finished with duration — armed-without-finished is the
+  invisible-indicator signature.
+
+Evidence: play-anywhere 212 + readers 11 + htmlTextTarget browser 12
+all green; full suite 716 passed. Owner acceptance pending on Android.
+
+### 2026-10-29 — Proportional in-chunk start for play-anywhere
+
+Owner feedback after the unmapped fix shipped: playback starts at the
+containing chunk's boundary, a few seconds above the viewport position,
+because saved books carry only chunk-level timing (estimated chunk
+timestamps remain unbuilt). Pre-rendered audio can only start at recorded
+boundaries; industry peers either use production-time word/sentence
+timestamps (Whispersync-class forced alignment) or live TTS, which has
+infinite resolution but is a different mode.
+
+Shipped compromise (commit follows): HTML resolves now compute the
+captured point's character fraction inside the resolved chunk
+(`withinSpanFraction`, exposed via `resolver.spanAt`), gated at 15% —
+boundary clicks stay boundary starts. The fraction travels with the
+dispatch and the player seeks proportionally: desktop sets `currentTime`
+after the chunk's metadata loads; mobile seeks to
+`chunk start + fraction × duration` on the merged track. Accuracy is
+proportional-estimate grade (±1–2s around pauses); it degrades to
+"slightly off", never to the wrong chunk, needs no regeneration, and
+covers existing books and bundles. Play-from-selection remains the
+precision mechanism; PDF keeps boundary starts this stage. Forced
+alignment stays the long-term option if proportional still feels loose.
+
+Evidence: play-anywhere suites 212 passed with new fraction/gating/
+spanAt/passthrough tests; tts hooks and playback suites green; four
+existing play-call assertions gained the new argument.
+
+### 2026-10-29 — Unmapped-book triage and per-chunk play-from-here degradation
+
+Owner reported the unmapped-passage notice on every non-beginning position of a
+~13-hour audiobook, on both the generating machine and an exported bundle, after
+a save with multiple stop/resume/app-restart cycles. TTS diagnostics captured the
+stage: `chunk-verification`, reason `unmapped`, 3,588 chunks, source and view
+segments equal (1,573) — so text identity held and resume was exonerated; one
+unverifiable span failed resolver construction for the whole book.
+
+Fix (task/bug-squash, commit `ed44de9b`):
+
+- Ordered text-search recovery now runs for every HTML book; it was previously
+  limited to imported bundles, so locally generated books with drifted spans
+  never got the repair pass. This is the primary fix and needs no regeneration.
+- Durable-path degradation: a span that fails text verification or creates a
+  coverage discontinuity drops only its own chunk; the cursor still advances
+  past the dropped span so one bad span cannot cascade into its neighbours, and
+  the trailing coverage guard applies only while no span was distrusted.
+  Recovered spans stay strict — when text search repairs every chunk, their
+  validation keeps all-or-nothing rigor so wrong-book drift still fails.
+- Resolver: missing/out-of-bounds spans exclude their chunk; blank/duplicate
+  identity, unsorted and overlapping spans still fail globally.
+- Saves warn in TTS diagnostics when chunks lack source spans; playback
+  feedback gives `invalid-source`, `ambiguous` and `invalid-point` their own
+  localized messages instead of sharing the `unmapped` text.
+
+Evidence: play-anywhere suite 207 passed including new no-cascade, localized-gap
+and duplicate-identity tests; full frontend suite 711 passed. Four assertions
+moved to the new semantics; existing drift-detection cases (trailing punctuation,
+wrong-book replacement, recovered-span strictness) still pass unchanged. Owner
+manual acceptance on the affected book: pending.
+
+### 2026-11-02 — PR review follow-up: canonical mapping and recovery
+
+The first review-fix stage corrects play-from-here mapping without changing saved
+audio, chunk IDs/text/hashes, bundle formats, or the full chunk list passed to the
+player. Skipped mappings keep their canonical nonblank indices, including the
+span lookup used for proportional seeks. Validation shares the resolver's bounds
+checks, so mixed spanless/invalid and valid chunks cannot crash verification.
+Duplicate identities, ordering defects, and overlaps remain global failures.
+
+Recovery now runs before accepting partial durable coverage. Repairable spans
+resolve normally; an unrecoverable span leaves only a local gap, and its neighbours
+keep their original playback indices. Complete recovered coverage still rejects
+wrong-book gaps and trailing unnarrated content. The normative viewport rules now
+also describe the existing focus band and proportional seek accurately.
+
+Regression coverage includes skipped/blank canonical positions, `spanAt` gaps,
+missing and invalid cross-segment bounds, recovery before degradation, structural
+failures with recovery enabled, unchanged input chunks, and prepared-target identity
+and fractions after a dropped predecessor. Bookmark lifecycle, open-with batching,
+import notices/access cleanup, and player offset ownership remain later stages.
+
+Verification: 111 focused resolver/verification/preparation tests and the full
+frontend suite (729 passed, one existing skip, 89 files); TypeScript, whole-repo
+strict ESLint, locale parity, and diff whitespace checks pass. Device acceptance
+remains pending.
+
+### 2026-11-02 — PR review follow-up: bookmark restoration lifecycle
+
+The second review-fix stage keeps one viewer mounted through bookmark restoration.
+Its wrapper uses `display: contents` in both states; only visibility changes after
+the seek. A fixed restoring surface stays outside document flow, so revealing the
+book neither remounts HTML/PDF nor removes a loading block above the destination.
+The hidden-book paint strategy from the October QA rounds is preserved.
+
+The 20-second fallback is owned by its restoring phase, cleared on replacement,
+close, completion, and unmount, and cannot dismiss a later restore of the same URL.
+Completion callbacks also belong to their phase, so an old callback cannot finish
+a replacement restore even before the old hook's cleanup runs.
+Restore throws/rejections settle busy state without reporting success. Unfinished
+attempts are not marked complete, so effect cleanup followed by an API replacement
+can retry; superseded completions cannot notify the parent. Manual Return-to-bookmark
+keeps the existing paint-before-seek behavior.
+
+HTML bookmark text-node indices, pending builds, and cached ranges invalidate on
+child/text changes, including the non-iOS search-highlight fallback. Stale yielding
+builds restart against the current DOM; viewer cleanup disconnects observation and
+prevents disposed/detached restores from scrolling. Without a bookmark capability
+consumer, HtmlViewer creates no bookmark observer or index.
+
+Regression coverage includes reopening the same URL before its old timeout,
+failsafe expiry/cleanup, synchronous and asynchronous seek failure, API replacement
+with a late old completion, fallback highlight insertion/removal, mutations during
+a yielding build, disposal, and stable HTML viewer identity/success notices. A real
+Chromium restore confirms the hidden book, fixed surface, preserved destination,
+and same reader node after reveal. Packaged Android/iOS device acceptance remains
+pending. Open-with batching/notices/iOS access and player offset ownership remain
+the next stages.
+
+Verification: 28 focused hook/viewer/cache tests, the Chromium restoration check,
+and the full frontend suite (738 passed, one existing skip, 90 files); TypeScript,
+whole-repo strict ESLint, locale parity, and diff whitespace checks pass.
+
+### 2026-11-02 — PR review follow-up: open-with import lifecycle
+
+The third review-fix stage retains drained mixed document/bundle requests across
+React effect cleanup and busy-state changes. A single consumer waits for Library
+and audiobook actions, resumes retained sources with current callbacks, and checks
+the native queue again after each batch so later requests cannot lose their wake-up.
+Listener cleanup and unmount stop further queued imports. The existing importers,
+validation, PDF indexing, and post-import document behavior are reused.
+
+Audiobook action notices now render once in the app shell on every active surface,
+including Library and the reader, using the existing styles, translation keys,
+timeout, and dismissal. Invalid external bundles therefore leave a visible error
+without forcing navigation to Audiobooks. Native bundle import releases iOS source
+access after the reader drops on both success and failure, using the document
+importer's existing cleanup pattern; the magic probe releases its own access.
+
+Regression tests cover retained mixed batches, latest handlers, serialized imports,
+later native requests, late drain results, and unmount cleanup under StrictMode.
+App tests check one dismissible error on Library, Search, Audiobooks, and reader
+surfaces. Fresh iOS provider/device acceptance remains pending. The final planned
+stage is player offset lifetime and the short native clip clamp.
+
+Verification: 15 focused queue/app/manager tests and the full frontend suite
+(745 passed, one existing skip, 92 files); native-tts-core Rust tests (315 passed,
+five existing ignores), default-feature Rust check, TypeScript, whole-repo strict
+ESLint, locale parity, scoped Rust formatting, and diff whitespace checks pass.
+
+### 2026-11-02 — PR review follow-up: proportional start ownership
+
+The final review-fix stage clears a pending proportional offset in the existing
+player command boundary. An accepted Play from here installs its new offset after
+dispatch creates that command's epoch, so cold and warm starts still consume it
+once. A later command cannot inherit it, even when an ordinary jump targets the
+same chunk or Stop is followed by a new start. Resume after playback begins keeps
+the current position. Native seeks now clamp the 50 ms end padding at the chunk
+start, matching desktop behavior for very short clips.
+
+Regression tests cover same-index replacement, Stop/fresh-start cancellation with
+a late capabilities response, and cold/warm proportional starts plus Pause/Resume
+on both player paths. A timing-helper regression covers 20 ms and 50 ms clips,
+ordinary fractional seeks, and end padding. These close review findings 5 and 11;
+all thirteen findings from this review now have implementation/documentation
+follow-ups. No schema change, audio regeneration, or dependency was needed.
+
+Verification: 70 focused player/timing tests and the full frontend suite
+(752 passed, one existing skip, 92 files); TypeScript, whole-repo strict ESLint,
+locale parity, and diff whitespace checks pass. No Rust source changed in this
+stage; the preceding stage's native test results remain recorded above.
+
+The consolidated [review smoke checklist](bug-squash-smoke-tests.md) covers all four
+fix stages. Packaged-device, listening, and assistive-technology acceptance remain
+pending; automated checks do not replace those gates.
+
 ## 7. Standards and design rationale
 
 This plan applies separation of concerns, explicit capability contracts,
@@ -2600,7 +2839,7 @@ coverage. These are engineering design choices, not a claim of certification.
 | Build/measure a DOM Range for every chunk on each action | Unnecessary book-sized layout work and poor fit for PDF virtualization. |
 | Start at zero, then call jump | Can play the opening fragment and move the reader before the intended seek. |
 | Slice chunks before calling the player | Changes canonical indices/signature and breaks saved-audio identity. |
-| Approximate word timing or forced alignment | Unneeded for the accepted chunk-start behavior. |
+| Word-level timestamps or forced alignment | Separate from the accepted approximate proportional seek; no regeneration is needed for this change. |
 | New player, global event bus, feature-flag framework or persistent settings | Duplicates ownership and makes debugging/removal harder. |
 | Keep the cancellation wrappers and add comments naming each other (2026-10-26) | Documents the hazard but keeps opt-in cancellation and the false `stale` feedback. |
 | One manager helper that wraps every transport/settings handler | Still opt-in at a single list, and still polls the guard after dispatch. Supersession belongs where commands are ordered, in the player. |

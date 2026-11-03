@@ -51,11 +51,6 @@ interface AudiobookImportState {
   message: string
 }
 
-interface AudiobookNoticeState {
-  status: 'success' | 'cancelled' | 'error'
-  message: string
-}
-
 interface AudiobooksPanelProps {
   activeDownload: ActiveAudiobookSave | null
   audioSetup: AudioSetupPanelProps
@@ -64,14 +59,12 @@ interface AudiobooksPanelProps {
   downloadState: AudiobookCacheState
   exportState: AudiobookExportState | null
   importState: AudiobookImportState
-  noticeState: AudiobookNoticeState | null
   documentOpening?: boolean
   isSaving: boolean
   queuedDownloads: AudiobookDownloadRecord[]
   savedAudiobooks: SavedAudiobookRecord[]
   onCancelSave: () => void
   onDeleteSaved: (record: SavedAudiobookRecord) => void
-  onDismissNotice: () => void
   onExportSaved: (record: SavedAudiobookRecord, format: NativeAudiobookExportFormat) => void
   onImportAudiobook: () => void
   onOpenSaved: (record: SavedAudiobookRecord) => void
@@ -87,14 +80,12 @@ export function AudiobooksPanel({
   downloadState,
   exportState,
   importState,
-  noticeState,
   documentOpening = false,
   isSaving,
   queuedDownloads,
   savedAudiobooks,
   onCancelSave,
   onDeleteSaved,
-  onDismissNotice,
   onExportSaved,
   onImportAudiobook,
   onOpenSaved,
@@ -303,23 +294,6 @@ export function AudiobooksPanel({
           </div>
         </div>
       </div>
-      {noticeState && (
-        <div
-          className={'audiobook-action-toast audiobook-action-toast-' + noticeState.status}
-          role={noticeState.status === 'error' ? 'alert' : 'status'}
-          aria-live="polite"
-        >
-          <span dir="auto">{noticeState.message}</span>
-          <button
-            type="button"
-            className="audiobook-action-toast-dismiss"
-            aria-label={t('tts.audiobooks.dismissNotice')}
-            onClick={onDismissNotice}
-          >
-            ×
-          </button>
-        </div>
-      )}
     </Panel>
   )
 }

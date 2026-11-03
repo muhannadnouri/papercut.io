@@ -255,8 +255,8 @@ export async function takeOpenDocumentSources(): Promise<string[]> {
   return invoke<string[]>('open_documents_take_sources')
 }
 
-/** The event is only a wake-up signal; the native queue remains authoritative
- * so startup races and requests received during an import cannot lose paths. */
+/** The event only wakes the consumer. Native sources wait for a drain;
+ * useOpenDocumentRequests retains unfinished sources after that handoff. */
 export async function listenOpenDocumentRequests(handler: () => void): Promise<() => void> {
   if (!isTauriRuntime()) {
     return () => {}

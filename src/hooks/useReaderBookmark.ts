@@ -8,6 +8,7 @@ import type {
   ViewerBookmarkApi,
   ViewerBookmarkLocation,
 } from '../viewers/types'
+import { logTtsDiagnostic } from '../tts/diagnostics/TtsDiagnostics'
 
 const STORAGE_PREFIX = 'papercut:reader-bookmark:'
 const BOOKMARKS_CHANGED_EVENT = 'papercut:reader-bookmarks-changed'
@@ -24,6 +25,8 @@ interface UseReaderBookmarkOptions {
   enabled: boolean
   restoreOnOpen?: boolean
   viewerApi?: ViewerBookmarkApi | null
+  /** Invoked when a restore seek settles (open-with-restoring phase teardown). */
+  onRestoringDocumentComplete?: () => void
 }
 
 interface UseReaderBookmarkReturn {
@@ -31,6 +34,7 @@ interface UseReaderBookmarkReturn {
   canUndoBookmarkChange: boolean
   hasBookmark: boolean
   isAtBookmark: boolean
+  restoringBookmark: boolean
   dismissBookmarkNotice: () => void
   moveBookmark: () => void
   removeBookmark: () => void
@@ -75,6 +79,19 @@ export function useBookmarkedDocumentUrls(): ReadonlySet<string> {
   return urls
 }
 
+/** Read one valid bookmark for a document URL, or null. */
+export function readReaderBookmark(
+  url: string,
+  storage?: BookmarkStorage,
+): ReaderBookmark | null {
+  try {
+    const raw = (storage ?? window.localStorage).getItem(storageKey(url))
+    return raw ? parseReaderBookmark(raw) : null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Stores one explicit bookmark per document in localStorage.
  *
@@ -85,14 +102,16 @@ export function useBookmarkedDocumentUrls(): ReadonlySet<string> {
  */
 export function useReaderBookmark(
   url: string,
-  { enabled, restoreOnOpen = true, viewerApi }: UseReaderBookmarkOptions,
+  { enabled, restoreOnOpen = true, viewerApi, onRestoringDocumentComplete }: UseReaderBookmarkOptions,
 ): UseReaderBookmarkReturn {
   const [bookmarkNotice, setBookmarkNotice] = useState<BookmarkNotice>(null)
   const [hasBookmark, setHasBookmark] = useState(false)
   const [isAtBookmark, setIsAtBookmark] = useState(false)
+  const [restoringBookmark, setRestoringBookmark] = useState(false)
   const bookmarkRef = useRef<ReaderBookmark | null>(null)
   const undoBookmarkRef = useRef<ReaderBookmark | null>(null)
   const restoredKeyRef = useRef('')
+  const cancelRestoreRef = useRef<() => void>(() => {})
 
   const loadBookmark = useCallback((): ReaderBookmark | null => {
     try {
@@ -152,16 +171,64 @@ export function useReaderBookmark(
     storeCurrentBookmark(bookmarkRef.current)
   }, [storeCurrentBookmark])
 
+  // Resolving a bookmark anchor needs the full-book text index, which viewers
+  // build in yielding slices (large books take seconds), so the restoring
+  // surface stays up from mount until the seek actually completes. The
+  // surface is visible from mount: no reveal delay to race, and the double
+  // rAF guarantees one painted frame of it before any blocking work.
+  const runRestore = useCallback((bookmark: ReaderBookmark) => {
+    cancelRestoreRef.current()
+    logTtsDiagnostic('[reader-bookmark] restore seek started', {})
+    setRestoringBookmark(true)
+    let superseded = false
+    let innerFrame = 0
+    const finish = async () => {
+      const seekStartedAt = performance.now()
+      try {
+        await viewerApi?.restore(bookmark.viewerLocation)
+        if (superseded) {
+          return
+        }
+        logTtsDiagnostic('[reader-bookmark] restore seek finished', {
+          durationMs: Math.round(performance.now() - seekStartedAt),
+        })
+        setIsAtBookmark(true)
+        setBookmarkNotice('restored')
+      } catch {
+        if (superseded) {
+          return
+        }
+        logTtsDiagnostic('[reader-bookmark] restore seek failed', {}, 'warn')
+        setIsAtBookmark(false)
+        setBookmarkNotice(null)
+      } finally {
+        if (!superseded) {
+          restoredKeyRef.current = storageKey(url)
+          setRestoringBookmark(false)
+          onRestoringDocumentComplete?.()
+        }
+      }
+    }
+    const outerFrame = requestAnimationFrame(() => {
+      innerFrame = requestAnimationFrame(finish)
+    })
+    cancelRestoreRef.current = () => {
+      superseded = true
+      cancelAnimationFrame(outerFrame)
+      if (innerFrame) {
+        cancelAnimationFrame(innerFrame)
+      }
+    }
+  }, [viewerApi, onRestoringDocumentComplete, url])
+
   const restoreBookmark = useCallback(() => {
     const bookmark = bookmarkRef.current
     if (!enabled || !viewerApi || !bookmark) {
       return
     }
     undoBookmarkRef.current = null
-    viewerApi.restore(bookmark.viewerLocation)
-    setIsAtBookmark(true)
-    setBookmarkNotice('restored')
-  }, [enabled, viewerApi])
+    runRestore(bookmark)
+  }, [enabled, runRestore, viewerApi])
 
   const removeBookmark = useCallback(() => {
     const bookmark = bookmarkRef.current
@@ -215,20 +282,23 @@ export function useReaderBookmark(
         bookmark &&
         viewerApi
       ) {
-        restoredKeyRef.current = storageKey(url)
-        viewerApi.restore(bookmark.viewerLocation)
-        setIsAtBookmark(true)
-        setBookmarkNotice('restored')
+        runRestore(bookmark)
         return
       }
       setIsAtBookmark(bookmark && viewerApi
         ? viewerApi.isCurrent(bookmark.viewerLocation)
         : false)
-      setBookmarkNotice(null)
+      if (restoredKeyRef.current !== storageKey(url)) {
+        setBookmarkNotice(null)
+      }
     })
 
-    return () => cancelAnimationFrame(frame)
-  }, [enabled, loadBookmark, restoreOnOpen, url, viewerApi])
+    return () => {
+      cancelAnimationFrame(frame)
+      cancelRestoreRef.current()
+      setRestoringBookmark(false)
+    }
+  }, [enabled, loadBookmark, restoreOnOpen, runRestore, url, viewerApi])
 
   useEffect(() => {
     if (!enabled) {
@@ -275,6 +345,7 @@ export function useReaderBookmark(
     dismissBookmarkNotice,
     hasBookmark,
     isAtBookmark,
+    restoringBookmark,
     moveBookmark,
     removeBookmark,
     restoreBookmark,

@@ -124,8 +124,18 @@ pub(super) fn export_audiobook_native(
 
 pub(super) fn import_audiobook_native(
     _app: tauri::AppHandle,
+    _source: Option<tauri_plugin_dialog::FilePath>,
 ) -> Result<NativeAudiobookImportResponse, String> {
     Err(NOT_COMPILED.into())
+}
+
+/// Routing probe for open-with sources; nothing is native without the core
+/// feature, so no source can be a bundle here.
+pub(super) fn audiobook_source_is_bundle(
+    _app: tauri::AppHandle,
+    _source: tauri_plugin_dialog::FilePath,
+) -> Result<bool, String> {
+    Ok(false)
 }
 
 pub(super) fn get_imported_audiobook_source(

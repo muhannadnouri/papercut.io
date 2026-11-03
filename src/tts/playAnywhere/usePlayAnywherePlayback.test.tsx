@@ -80,9 +80,9 @@ it('dispatches verified chunk boundaries with the original full sequence; beginn
   const scope = createPlayAnywherePlayback(config)
   const api = { captureViewport: vi.fn(async () => capture) }
   expect(await scope.playFromHere(api)).toMatchObject({ status: 'dispatched' })
-  expect(config.play).toHaveBeenCalledWith(chunks, options, 1)
+  expect(config.play).toHaveBeenCalledWith(chunks, options, 1, undefined)
   await scope.playFromBeginning()
-  expect(config.play).toHaveBeenLastCalledWith(chunks, options, 0)
+  expect(config.play).toHaveBeenLastCalledWith(chunks, options, 0, undefined)
 })
 it('requires completed saved audio and never changes playback when capture or resolution fails', async () => {
   const config = setup()
@@ -140,7 +140,7 @@ it('targets imported saved chunks after playing from the beginning despite claus
   }
   const scope = createPlayAnywherePlayback(config)
   expect(await scope.playFromBeginning()).toMatchObject({ status: 'dispatched' })
-  expect(config.play).toHaveBeenLastCalledWith(saved, config.options, 0)
+  expect(config.play).toHaveBeenLastCalledWith(saved, config.options, 0, undefined)
   const visible: ViewerTextTargetResult = {
     status: 'captured',
     point: {
@@ -153,7 +153,7 @@ it('targets imported saved chunks after playing from the beginning despite claus
     isCurrent: () => true,
   }
   expect(await scope.playFromHere({ captureViewport: async () => visible })).toMatchObject({ status: 'dispatched' })
-  expect(config.play).toHaveBeenLastCalledWith(saved, config.options, saved.length - 1)
+  expect(config.play).toHaveBeenLastCalledWith(saved, config.options, saved.length - 1, undefined)
   expect(saved).toEqual(original)
   scope.dispose()
   preparation.dispose()
@@ -229,7 +229,20 @@ it('checks passage validity once before dispatch and returns the player start ti
     status: 'dispatched',
     started,
   })
-  expect(config.play).toHaveBeenCalledWith(chunks, options, 1)
+  expect(config.play).toHaveBeenCalledWith(chunks, options, 1, undefined)
+})
+it('passes the resolved within-chunk fraction to the player', async () => {
+  const config = setup()
+  config.resolve.mockResolvedValue({
+    ...target,
+    withinChunkFraction: 0.42,
+  })
+  const scope = createPlayAnywherePlayback(config)
+  const api = { captureViewport: vi.fn(async () => capture) }
+  expect(await scope.playFromHere(api)).toMatchObject({ status: 'dispatched' })
+  expect(config.play).toHaveBeenCalledWith(chunks, options, 1, 0.42)
+  await scope.playFromBeginning()
+  expect(config.play).toHaveBeenLastCalledWith(chunks, options, 0, undefined)
 })
 it('contains errors and rejects stale or cross-document resolved targets', async () => {
   const config = setup()

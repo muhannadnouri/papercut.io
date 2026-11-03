@@ -32,29 +32,62 @@ export function* htmlResolverSteps(chunks: readonly TtsChunk[], texts: readonly 
   const locator = yield* textLocatorIndexSteps(texts)
   yield* locator.prepareMatchIndex()
   const lengths = texts.map(text => text.length)
-  function* validate(mapped: readonly TtsChunk[]): Generator<void, HtmlResolver> {
+  function* validate(mapped: readonly TtsChunk[], strict: boolean): Generator<void, HtmlResolver> {
     const resolver = createChunkSourceResolver(mapped, lengths)
     if (resolver.status !== 'ready') {
       return resolver
     }
     let cursor = 0
-    for (const chunk of mapped) {
+    let dropped = false
+    let chunkIndex = 0
+    const accepted = [...mapped]
+    for (const [index, chunk] of mapped.entries()) {
       yield
       if (!chunk.text.trim()) {
         continue
       }
-      const span = chunk.sourceSpan!
+      const span = chunk.sourceSpan
+      if (!resolver.spanAt(chunkIndex++) || !span) {
+        if (strict) {
+          return {
+            status: 'unavailable',
+            reason: 'unmapped',
+          } as const
+        }
+        dropped = true
+        // Without usable bounds, resume coverage at the next verified span.
+        cursor = -1
+        accepted[index] = {
+          ...chunk,
+          sourceSpan: undefined,
+        }
+        continue
+      }
       const start = sourceSpanStartGlobalOffset(locator, span)
       const end = sourceSpanEndGlobalOffset(locator, span)
       const matches = locatorTextsMatch(locator.text.slice(start, end), chunk.text) ||
         (span.startSegmentIndex !== span.endSegmentIndex && locatorTextsMatch(narratedSpanText(texts, span), chunk.text))
-      if (!locatorRangeIsIgnorable(locator, cursor, start) || !matches) {
+      const contiguous = cursor < 0 || locatorRangeIsIgnorable(locator, cursor, start)
+      if (strict && (!contiguous || !matches)) {
         return {
           status: 'unavailable',
           reason: 'unmapped',
         } as const
       }
+      if (!matches || !contiguous) {
+        // Keep canonical positions; exclude only the mapping, never its audio.
+        dropped = true
+        cursor = end
+        accepted[index] = {
+          ...chunk,
+          sourceSpan: undefined,
+        }
+        continue
+      }
       cursor = end
+    }
+    if (dropped) {
+      return createChunkSourceResolver(accepted, lengths)
     }
     return locatorRangeIsIgnorable(locator, cursor, locator.text.length) ? resolver
       : {
@@ -62,18 +95,20 @@ export function* htmlResolverSteps(chunks: readonly TtsChunk[], texts: readonly 
         reason: 'unmapped',
       } as const
   }
-  const durable = yield* validate(chunks)
-  if (durable.status === 'ready' || !allowRecovery) {
+  const durable = yield* validate(chunks, true)
+  if (durable.status === 'ready' || durable.reason === 'invalid-source' || durable.reason === 'ambiguous') {
     return durable
   }
-  const recovered = yield* orderedSourceSpanSteps(locator, chunks)
-  if (chunks.some((chunk, index) => chunk.text.trim() && !recovered.has(index))) {
-    return durable
+  if (allowRecovery) {
+    const recovered = yield* orderedSourceSpanSteps(locator, chunks)
+    if (chunks.every((chunk, index) => !chunk.text.trim() || recovered.has(index))) {
+      return yield* validate(chunks.map((chunk, index) => ({
+        ...chunk,
+        sourceSpan: recovered.get(index),
+      })), true)
+    }
   }
-  return yield* validate(chunks.map((chunk, index) => ({
-    ...chunk,
-    sourceSpan: recovered.get(index),
-  })))
+  return yield* validate(chunks, false)
 }
 
 /** Generation splits paragraphs before merging; a leading terminator may be omitted in each paragraph. */

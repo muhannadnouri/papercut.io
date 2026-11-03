@@ -63,7 +63,8 @@ export interface ViewerBookmarkApi {
   capture: () => ViewerBookmarkLocation | null
   isCurrent: (location: ViewerBookmarkLocation) => boolean
   isPastStart: () => boolean
-  restore: (location: ViewerBookmarkLocation) => void
+  /** May return a promise on viewers that build their anchor index asynchronously. */
+  restore: (location: ViewerBookmarkLocation) => void | Promise<void>
   scrollToTop: () => void
   subscribe: (listener: () => void) => () => void
 }

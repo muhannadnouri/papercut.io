@@ -11,7 +11,10 @@ import type {
 import { graftImportedSourceSpans } from '../alignment/importedSourceSpans'
 import { normalizeSegmentText } from '../alignment/readableSegments'
 import { chunkReadableSegmentsWithSpans } from '../utils/text'
-import { createChunkSourceResolver } from './sourceChunkResolver'
+import {
+  createChunkSourceResolver,
+  withinSpanFraction,
+} from './sourceChunkResolver'
 
 vi.mock('../diagnostics/TtsDiagnostics', () => ({ logTtsDiagnostic: vi.fn() }))
 
@@ -36,6 +39,84 @@ function ready(chunks: readonly TtsChunk[], lengths: readonly number[]) {
   }
   return resolver
 }
+
+describe('withinSpanFraction', () => {
+  it('maps a point to its character fraction inside the span, cross-segment included', () => {
+    expect(withinSpanFraction({
+      segmentIndex: 0,
+      offset: 2,
+    }, {
+      segmentIndex: 0,
+      offset: 0,
+    }, {
+      segmentIndex: 0,
+      offset: 8,
+    }, [8])).toBe(0.25)
+    expect(withinSpanFraction({
+      segmentIndex: 0,
+      offset: 0,
+    }, {
+      segmentIndex: 0,
+      offset: 0,
+    }, {
+      segmentIndex: 0,
+      offset: 8,
+    }, [8])).toBe(0)
+    expect(withinSpanFraction({
+      segmentIndex: 1,
+      offset: 2,
+    }, {
+      segmentIndex: 0,
+      offset: 5,
+    }, {
+      segmentIndex: 1,
+      offset: 5,
+    }, [6, 9])).toBe(0.5)
+  })
+
+  it('rejects points outside the span and empty spans', () => {
+    expect(withinSpanFraction({
+      segmentIndex: 0,
+      offset: 8,
+    }, {
+      segmentIndex: 0,
+      offset: 0,
+    }, {
+      segmentIndex: 0,
+      offset: 8,
+    }, [8])).toBeNull()
+    expect(withinSpanFraction({
+      segmentIndex: 0,
+      offset: 1,
+    }, {
+      segmentIndex: 0,
+      offset: 4,
+    }, {
+      segmentIndex: 0,
+      offset: 8,
+    }, [8])).toBeNull()
+    expect(withinSpanFraction({
+      segmentIndex: 0,
+      offset: 2,
+    }, {
+      segmentIndex: 0,
+      offset: 4,
+    }, {
+      segmentIndex: 0,
+      offset: 4,
+    }, [8])).toBeNull()
+    expect(withinSpanFraction({
+      segmentIndex: 0,
+      offset: 0,
+    }, {
+      segmentIndex: 0,
+      offset: 0,
+    }, {
+      segmentIndex: 0,
+      offset: 8,
+    }, [-1])).toBeNull()
+  })
+})
 
 describe('play-anywhere source chunk resolver', () => {
   it('chooses the containing canonical chunk at half-open boundaries', () => {
@@ -145,17 +226,19 @@ describe('play-anywhere source chunk resolver', () => {
     }
   })
 
-  it('requires recovery of every missing span without changing saved chunks', () => {
+  it('skips spanless chunks and keeps the accepted neighbours playable', () => {
     const imported = [{
       id: 'legacy',
       text: 'Saved narration',
       textHash: 'saved-hash',
     }]
     const before = JSON.stringify(imported)
+    // Durable path: a spanless chunk is excluded from matching instead of
+    // disabling the book, so a spanless-only list has nothing to play from.
     expect(createChunkSourceResolver(imported, [15]))
       .toEqual({
         status: 'unavailable',
-        reason: 'unmapped',
+        reason: 'not-ready',
       })
     const recovered = [{
       ...imported[0],
@@ -172,7 +255,21 @@ describe('play-anywhere source chunk resolver', () => {
       })
     expect(JSON.stringify(imported)).toBe(before)
     expect(recovered[0].textHash).toBe(imported[0].textHash)
-    expect(createChunkSourceResolver([chunk('first', 0, 4), ...imported], [15]))
+    const partial = ready([chunk('first', 0, 4), ...imported], [15])
+    expect(partial.resolve({
+      segmentIndex: 0,
+      offset: 2,
+    }))
+      .toEqual({
+        status: 'resolved',
+        chunkIndex: 0,
+        chunkId: 'first',
+      })
+    // Points inside the skipped chunk stay unmapped: never guess audio.
+    expect(partial.resolve({
+      segmentIndex: 0,
+      offset: 8,
+    }))
       .toEqual({
         status: 'unavailable',
         reason: 'unmapped',
@@ -193,6 +290,47 @@ describe('play-anywhere source chunk resolver', () => {
         status: 'unavailable',
         reason: 'not-ready',
       })
+  })
+
+  it('keeps canonical indices and span lookup across unusable and blank chunks', () => {
+    const chunks = [chunk('invalid', -1, 2), {
+      id: 'blank',
+      text: ' ',
+    }, chunk('first', 0, 4), {
+      id: 'missing',
+      text: 'Unmapped narration',
+    }, chunk('last', 8, 12)]
+    const original = structuredClone(chunks)
+    const resolver = ready(chunks, [12])
+    expect(resolver.resolve({
+      segmentIndex: 0,
+      offset: 1,
+    })).toEqual({
+      status: 'resolved',
+      chunkIndex: 1,
+      chunkId: 'first',
+    })
+    expect(resolver.resolve({
+      segmentIndex: 0,
+      offset: 9,
+    })).toEqual({
+      status: 'resolved',
+      chunkIndex: 3,
+      chunkId: 'last',
+    })
+    expect(resolver.spanAt(0)).toBeNull()
+    expect(resolver.spanAt(2)).toBeNull()
+    expect(resolver.spanAt(3)).toEqual({
+      start: {
+        segmentIndex: 0,
+        offset: 8,
+      },
+      end: {
+        segmentIndex: 0,
+        offset: 12,
+      },
+    })
+    expect(chunks).toEqual(original)
   })
 
   it('accepts the existing legacy graft without rewriting saved narration or hashes', () => {
@@ -301,7 +439,7 @@ describe('play-anywhere source chunk resolver', () => {
       startOffset: 2,
       endOffset: 2,
     },
-  ] satisfies Partial<TtsChunkSourceSpan>[])('rejects invalid source bounds: %j', (patch) => {
+  ] satisfies Partial<TtsChunkSourceSpan>[])('excludes chunks with invalid source bounds: %j', (patch) => {
     const source = chunk('one', 0, 5)
     source.sourceSpan = {
       ...source.sourceSpan!,
@@ -310,7 +448,7 @@ describe('play-anywhere source chunk resolver', () => {
     expect(createChunkSourceResolver([source], [5]))
       .toEqual({
         status: 'unavailable',
-        reason: 'invalid-source',
+        reason: 'not-ready',
       })
   })
 
@@ -346,6 +484,23 @@ describe('play-anywhere source chunk resolver', () => {
         reason: 'invalid-source',
       })
     expect(createChunkSourceResolver([chunk('', 0, 5)], [5]))
+      .toEqual({
+        status: 'unavailable',
+        reason: 'invalid-source',
+      })
+    // Duplicate identity stays a global defect even on an otherwise skippable chunk.
+    expect(createChunkSourceResolver([chunk('one', 0, 4), {
+      ...chunk('one', 4, 8),
+      sourceSpan: undefined,
+    }], [8]))
+      .toEqual({
+        status: 'unavailable',
+        reason: 'invalid-source',
+      })
+    expect(createChunkSourceResolver([{
+      ...chunk('one', 0, 4),
+      sourceSpan: undefined,
+    }, chunk('one', 4, 8)], [8]))
       .toEqual({
         status: 'unavailable',
         reason: 'invalid-source',
@@ -442,5 +597,20 @@ describe('play-anywhere source chunk resolver', () => {
       }
     })
     expect(JSON.stringify(chunks)).toBe(before)
+  })
+
+  it('exposes accepted chunk spans for proportional seeking', () => {
+    const resolver = ready([chunk('first', 0, 5), chunk('second', 5, 10)], [12])
+    expect(resolver.spanAt(1)).toEqual({
+      start: {
+        segmentIndex: 0,
+        offset: 5,
+      },
+      end: {
+        segmentIndex: 0,
+        offset: 10,
+      },
+    })
+    expect(resolver.spanAt(9)).toBeNull()
   })
 })

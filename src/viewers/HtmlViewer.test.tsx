@@ -11,7 +11,10 @@ import {
   vi,
 } from 'vitest'
 import { HtmlViewer } from './HtmlViewer'
-import type { ViewerTextTargetApi } from './types'
+import type {
+  ViewerBookmarkApi,
+  ViewerTextTargetApi,
+} from './types'
 import { createHtmlTextTargetApi } from '../tts/playAnywhere/htmlTextTarget'
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
@@ -64,6 +67,25 @@ it('registers the optional API and invalidates old capabilities on URL replaceme
       await act(async () => app.unmount())
     }
   }
+})
+
+it('disposes the bookmark observer and prevents a detached reader from scrolling', async () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const app = createRoot(container)
+  const register = vi.fn<(api: ViewerBookmarkApi | null) => void>()
+  const disconnect = vi.spyOn(window.MutationObserver.prototype, 'disconnect')
+  const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+  await act(async () => app.render(
+    <HtmlViewer url="one" content="<p>Bookmark text</p>" contentRef={createRef()} onBookmarkApiChange={register} />,
+  ))
+  const api = register.mock.calls.at(-1)![0]!
+  await act(async () => app.unmount())
+  expect(register.mock.calls.at(-1)![0]).toBeNull()
+  expect(disconnect).toHaveBeenCalled()
+  await api.restore({ textOffset: 1 })
+  expect(scroll).not.toHaveBeenCalled()
+  expect(api.isCurrent({ textOffset: 1 })).toBe(false)
 })
 
 it('returns a rejected Promise when the viewport provider unexpectedly fails', async () => {
