@@ -164,8 +164,26 @@ The receiver parses and sanitizes every transferred reflowable document again, t
 rebuilds SQLite metadata, sections, and FTS rows with its installed app version.
 Sanitizer regressions cover active content, encoded script URLs, and known
 SVG/MathML mutation-XSS structures. CI audits both committed Rust and npm
-dependency lockfiles on pull requests and weekly so newly published vulnerability
-advisories fail closed even when application code has not changed.
+dependency lockfiles on pull requests and weekly. Blocking advisories fail closed
+even when application code has not changed; moderate development-only npm alerts
+and upstream Rust maintenance/unsoundness warnings still require triage.
+
+Library and EPUB imports require `zip` 9.0.5 or newer and explicitly call its
+`validate_header_consistency()` before reading imported content. The dependency
+upgrade alone leaves ordinary member reads in legacy compatibility mode. The
+validator rejects conflicting local/central filenames, flags, methods, checksums
+and sizes, duplicate-name shadowing, and overlapping entries. Library imports
+retain their bounded directory preflight and original-entry-count check before
+this validation, followed by the existing manifest, canonical-path and payload
+checksum checks. No ZIP-provided path is automatically extracted to storage.
+See [GHSA-m665-v7pm-7grj](https://github.com/advisories/GHSA-m665-v7pm-7grj).
+
+Malformed archives that older readers tolerated now fail import without changing
+existing library contents. Regressions cover mismatched headers at both import
+boundaries, duplicate EPUB entries and overlapping package payloads; valid legacy
+stored/deflated Unicode payloads, ZIP64/comments, streamed data descriptors, and
+current package/EPUB round trips remain covered. This does not change the package
+schema, LAN protocol, document storage or app version.
 
 The Tauri WebView uses a default-deny Content Security Policy. It permits
 only bundled application resources, Tauri IPC, the narrowly scoped local asset

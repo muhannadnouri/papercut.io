@@ -24,7 +24,6 @@ export async function androidBuildEnv(extra = {}) {
 export async function runTauriAndroidBuild(args, extraEnv = {}) {
   const env = await androidBuildEnv(extraEnv)
   const tauri = tauriCommand(args)
-  console.log("[android-build] JAVA_HOME=" + env.JAVA_HOME)
   await run(tauri.command, tauri.args, {
     cwd: ROOT,
     env,

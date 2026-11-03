@@ -45,6 +45,9 @@ pub(crate) fn parse_epub_document(
 ) -> Result<ParsedDocument, String> {
     let mut archive = ZipArchive::new(Cursor::new(bytes))
         .map_err(|err| format!("EPUB is not a readable ZIP archive: {err}"))?;
+    archive
+        .validate_header_consistency()
+        .map_err(|err| format!("EPUB ZIP archive is inconsistent: {err}"))?;
     validate_mimetype(&mut archive)?;
 
     let container = read_zip_text_limited(&mut archive, CONTAINER_PATH, MAX_CONTAINER_XML_BYTES)?;
@@ -672,6 +675,39 @@ mod tests {
         );
         assert!(html.contains(r#"<html lang="ar" dir="rtl">"#));
         assert!(html.contains(r#"<section class="epub-chapter" id="chapter-0" data-source="chapter.xhtml" lang="ar" dir="rtl">"#));
+    }
+
+    #[test]
+    fn epub_rejects_inconsistent_local_headers_before_parsing() {
+        let original = fixture_epub();
+        for (field, offset) in [
+            ("filename", 30),
+            ("encryption flag", 6),
+            ("compression method", 8),
+            ("CRC", 14),
+            ("compressed size", 18),
+            ("uncompressed size", 22),
+        ] {
+            let mut bytes = original.clone();
+            bytes[offset] ^= 1;
+            let error = parse_epub_document(&bytes, "Fallback").err().expect(field);
+            assert!(error.contains("header inconsistency"), "{field}: {error}");
+        }
+    }
+
+    #[test]
+    fn epub_rejects_duplicate_names_hidden_by_the_archive_index() {
+        let mut bytes = fixture_epub();
+        let name = b"OPS/text/chapter2.xhtml";
+        let offset = bytes
+            .windows(name.len())
+            .rposition(|part| part == name)
+            .unwrap();
+        bytes[offset..offset + name.len()].copy_from_slice(b"OPS/text/chapter1.xhtml");
+        let error = parse_epub_document(&bytes, "Fallback")
+            .err()
+            .expect("duplicate central-directory name");
+        assert!(error.contains("duplicate file names"), "{error}");
     }
 
     #[test]
