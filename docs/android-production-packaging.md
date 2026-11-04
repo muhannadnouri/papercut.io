@@ -1,6 +1,6 @@
 # Android production packaging and F-Droid
 
-Updated 2026-11-03 on task/android-production-packaging. Production packaging is
+Updated 2026-11-04 on task/android-production-packaging. Production packaging is
 implemented and locally checked; the F-Droid publication gates remain below.
 No production release or F-Droid submission has been made.
 
@@ -8,9 +8,9 @@ For command discovery, start with the [script command map](../scripts/README.md)
 Android entry scripts are in scripts/android/; optional source-build investigation
 is in scripts/fdroid/. Tests sit in adjacent __tests__/ folders. Existing npm
 command names, build flags, CI selection and isolated signing are unchanged.
-The inventory and dependency-source simplification discussed with the owner
-remain a separate review. The organization pass changes paths only; its approved
-follow-up excludes source-build caches from ordinary Vitest test discovery.
+Source-build caches are excluded from ordinary Vitest test discovery. The
+owner-approved Maven ORT route, source inventory and reproducibility work are
+documented below.
 
 ## Agreed scope
 
@@ -588,8 +588,7 @@ minutes; it is not part of CI.
 Reference environment for the comparison (record what you actually use when
 it changes): Linux x86-64, Node 24, rustc/cargo 1.98.1 with the committed
 lockfiles, NDK 29.0.13846066, OpenJDK 17, CMake 4.4.5, Gradle wrapper as
-committed. The baseline profile entries in the APK are checked like any other
-entry; they have been byte-stable across builds so far.
+committed. Baseline profiles are disabled as described below.
 
 The first runs of this check caught real non-determinism, all fixed:
 
@@ -605,6 +604,37 @@ The first runs of this check caught real non-determinism, all fixed:
   `assets/dexopt/baseline.prof` (upstream sherpa-onnx documents the same). The
   art/baseline profile tasks are disabled in the Gradle config; first-launch
   optimization is the trade-off. Revisit if AGP makes the merge deterministic.
+- `tauri-codegen` embedded CSP hashes in filesystem traversal order. The
+  owner-approved upgrade to 2.7.4 uses upstream's sorted script/style hash
+  lists; the local 2.6.3 vendor patch and its Cargo override are removed.
+  Commit `99aa9a23` retains that patch as a fallback if a future rollback is
+  needed; do not combine it with the upgrade.
+
+The 2.7.4 upgrade also changes runtime dependencies through `tauri-utils`
+2.9.3 → 2.10.2: Brotli 8.0.2 → 9.1.1 (decompressor 5.0.0 → 6.2.0),
+`cfb` 0.7.3 → 0.14.0 / `infer` 0.19.0 → 0.22.0, `ctor` 0.8.0 →
+1.0.13 and `urlpattern` 0.3.0 → 0.6.0. The graph adds `dom_query` 0.28.0,
+`html5ever` 0.39.0, `markup5ever` 0.39.0, `selectors` 0.38.0,
+`cssparser` 0.37.0 and `cssparser-macros` 0.7.1 alongside existing versions.
+Other changes include `alloc-no-stdlib` 3.0.0, `alloc-stdlib` 0.3.0,
+`ico` 0.6.0, `base64` 0.23.1, `json-patch` 4.2.0, `jsonptr` 0.7.1 and
+`swift-rs` 1.0.9; the old ctor/dtor proc-macro packages and `unic-*` packages
+are removed. `Cargo.lock` records the complete resolution. Regenerated
+notices retain the same license groups with updated package attribution;
+the corresponding-source archive now includes eleven MPL crate trees.
+
+Post-upgrade proof on 2026-11-04 passed in the reference environment above:
+both fresh unsigned APKs have SHA-256
+`71b0da02bfc88b8679f9263f10810914355128a0a0d66343823d315f4db4ed49`.
+The packaged Sherpa library matches the source receipt; the resulting APK
+passes the unsigned production verifier and contains the current notices
+byte-for-byte. This remains a one-environment proof.
+
+After the owner pushes this upgrade, run full CI (`validation_scope=full`,
+`provider_inference=false`) and reset the debug install before Pixel testing:
+HTML/EPUB import and styled rendering, PDF, English/Arabic OCR, TTS voice
+download/preview, conceptual search and library transfer. These runtime checks
+remain required even when local compilation and reproducibility pass.
 
 Completing gate 5 needs a production key and three more steps, run by the
 owner when that key exists (F-Droid rebuilds and compares the same way):
@@ -677,9 +707,10 @@ advisory scan. Build-tool environments have separate dependencies.
    regenerate with `npm run prepare:license-notices`), and the
    corresponding-source archive tooling is in place: `npm run
    prepare:source-archive` bundles the pinned eSpeak NG/Piper archives,
-   the eight MPL-2.0 Rust crate trees, the shipped notices and a manifest
-   naming the release commit (deterministic output). Remaining at release
-   time: owner attaches the archive to the release, tracks the upstream
+   the eleven MPL-2.0 Rust crate trees, the shipped notices and a manifest
+   naming the release commit (deterministic output). Regenerate after the final
+   release commit so its manifest identifies the source actually being released.
+   Remaining at release time: owner attaches the archive, tracks the upstream
    Kareem reply, and reconciles the QCMS notice if rebuilt PDF assets ever
    ship. Retain current features until any remaining licensing trade-off is
    decided.
@@ -712,8 +743,9 @@ advisory scan. Build-tool environments have separate dependencies.
    runtime binaries with broad scanner ignores.
 9. [ ] Rehearse the next update through F-Droid before announcing availability.
 
-Validation: 14 shipping/staging regression checks and four APK verifier self-tests
-pass; targeted ESLint, whitespace, workflow YAML, document links and metadata
+Earlier packaging/source-probe validation: 14 shipping/staging regression checks
+and four APK verifier self-tests pass; targeted ESLint, whitespace, workflow YAML,
+document links and metadata
 length checks pass. A full production APK build succeeds. Its cleaned APK passes
 unsigned verification, post-build signing and certificate verification with a
 disposable key; wrong-certificate and signed-as-unsigned checks reject as expected.
@@ -723,10 +755,16 @@ The current source-recipe stage additionally passes its revision/edit rejection
 self-test, targeted zero-warning ESLint, a fresh disposable-tree OCR rebuild and
 all four PDF codec builds with a matching worker. Three PDF rendering fixtures,
 QCMS conversions and QuickJS initialization pass against the pinned reference.
-Two packaging runs with the normal cleaned libraries produce byte-identical APKs;
-they reuse compiled objects and do not prove complete clean-build reproduction.
-Production-key validation, complete reproducibility and device results remain
-explicit gates.
+
+The 2026-11-04 codegen upgrade passes full `npm test` (96 files, 765 passed,
+one skipped), `npm run build`, script ESLint with zero warnings, four APK
+verifier self-tests, and ten targeted Sherpa/reproducibility/notices/archive
+tests. Notices `--check` passes; the regenerated source archive contains all
+eleven expected MPL crate trees and matching lockfiles/notices. Two fresh
+source-only APK builds pass the byte comparison described above; the unsigned
+production verifier passes. The earlier OCR/PDF source probes were not rerun
+for this upgrade. Production-key validation, second-environment/signature-copy
+proof, full CI and Pixel runtime results remain explicit gates.
 
 [Submission guide](https://f-droid.org/en/docs/Submitting_to_F-Droid_Quick_Start_Guide/),
 [listing format](https://f-droid.org/en/docs/All_About_Descriptions_Graphics_and_Screenshots/)
