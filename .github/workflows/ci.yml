@@ -555,22 +555,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Android APK
-        run: npm run android:apk:native-tts
-        env:
-          NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/29.0.13846066
-
-      - name: Test Android transfer discovery callbacks
-        working-directory: src-tauri/gen/android
-        run: ./gradlew :tauri-plugin-library-transfer:testDebugUnitTest --no-daemon
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: papercut-android-native-tts-apk
-          path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
-          retention-days: 7
-
       - name: Build unsigned Android release APK
         run: npm run android:apk:release
         env:
@@ -578,6 +562,11 @@ jobs:
 
       - name: Verify unsigned Android release APK
         run: node scripts/verify-android-apk.js --unsigned src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+
+      # The release build generates Gradle plugin paths; these JVM tests need no debug APK.
+      - name: Test Android transfer discovery callbacks
+        working-directory: src-tauri/gen/android
+        run: ./gradlew :tauri-plugin-library-transfer:testDebugUnitTest --no-daemon
 
       - name: Upload unsigned Android release artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

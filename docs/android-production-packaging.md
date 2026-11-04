@@ -29,9 +29,41 @@ No production release or F-Droid submission has been made.
 | APK checks | JS verifier checks identity/version, non-debuggable manifest, certificate, arm64 contents, required libraries, license presence and 16 KB ELF/ZIP alignment; disposable-key signing passes | Production certificate and clean-build reproduction |
 | F-Droid | Listing drafts, policy investigation and source/license evidence | Complete dependency closure, tested fdroiddata recipe, review and publication |
 
-Ordinary CI retains debug APKs and additionally checks an unsigned production APK.
+Ordinary Android CI builds and verifies one unsigned production APK, runs the
+transfer plugin's JVM tests, then uploads that APK. It does not assemble a debug APK.
 The release workflow requires the signed production APK and expected certificate;
 its download filename remains Papercut_vX.Y.Z_android-arm64-v8a.apk.
+
+### CI scope and timing
+
+The [mobile-scope baseline run](https://github.com/muhannadnouri/papercut.io/actions/runs/41739896570/job/126282579237)
+at 5126597f passed shared checks, Android and iOS. Android took 20m17s: debug APK
+7m26s, unsigned release APK 10m06s, plugin tests 39s and release verification 2s.
+Rust's cache missed; optional emulator inference was skipped. These results do
+not establish installed-app acceptance or a release-only timing improvement.
+
+Routine CI keeps the production feature set and APK checks. The existing
+testDebugUnitTest task compiles/tests the library-transfer plugin on the JVM;
+its name does not imply that the app's debug APK must be built. Run it after
+the release build, which generates the ignored tauri.settings.gradle and plugin
+paths that Gradle needs on a fresh checkout. Local development keeps
+npm run android:apk:native-tts for a debug APK. Provider inference remains an
+explicit workflow_dispatch option with its existing model-artifact dependency.
+
+Local validation: the standalone unit-test task graph contains no app/Rust build
+or debug APK assembly tasks; all nine tests executed and passed with no skips.
+The generated project metadata was present for that local test. Workflow checks
+confirm one APK build/upload and preserve the remaining jobs, filters and optional
+inference steps. The revised workflow has not yet run on GitHub.
+
+Next, compare two release-only GitHub runs: confirm one APK artifact, tests
+and verifier passing, and record cache hits plus job/step durations, identifying
+whether each run is cold or warm rather than clearing shared caches. Do not
+subtract 7m26s as a promised saving: the former debug build also prepared shared
+inputs. Keep current cache settings and job dependencies during this measurement.
+Parallelizing packaging with shared checks is a separate proposal because it
+trades faster feedback for extra work on failing changes and must preserve the
+optional inference-model handoff. Signing remains isolated in the release workflow.
 
 ## 2. Owner: create and configure the signing key
 

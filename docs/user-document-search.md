@@ -294,7 +294,7 @@ The feature uses existing upload storage and reader targets, not a second import
 | Target | Existing shipping command | Provider feature |
 | --- | --- | --- |
 | Linux, Windows, macOS | `npm run desktop` | `native-tts-shared,experimental-search-embeddings` |
-| Android arm64 | `npm run android:apk:native-tts` | Same shared/dynamic features |
+| Android arm64 (unsigned release) | `npm run android:apk:release` | Same shared/dynamic features |
 | iOS signed export on macOS | `npm run ios:ipa:native-tts` | `native-tts-ios,experimental-search-embeddings-linked` |
 | Unsigned iOS simulator/device checks on macOS | `npm run ios:ci -- --native-tts` / `npm run ios:ci:device` | Linked provider with the prepared static archives |
 
