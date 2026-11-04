@@ -57,6 +57,7 @@ export function checkEntries(names) {
     assert(libraries.includes(`lib/arm64-v8a/${required}`), `APK is missing ${required}`)
   }
   assert(names.includes("assets/licenses/libtashkeel-1.5.0.txt"), "APK is missing the Arabic preprocessing license")
+  assert(names.includes("assets/licenses/android-third-party-notices.md"), "APK is missing the third-party notices")
   return libraries
 }
 

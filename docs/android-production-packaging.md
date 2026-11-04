@@ -483,7 +483,12 @@ shipped or licensed correctly. The two local Rust plugins inherit the
 repository's original-code MIT scope but do not declare a license in their own
 Cargo manifests.
 
-Proposed notice/source bundle contents, **for review before implementation**:
+Notice bundle contents, as shipped in every APK since this stage
+(owner-approved 2026-11-03). `assets/licenses/android-third-party-notices.md`
+carries the combined-work statement, verbatim license texts from pinned
+sources, the Kareem model card and per-package attribution; regenerate with
+`npm run prepare:license-notices` (the committed output is what builds package;
+`--check` verifies it is current):
 
 | Group | Retain with each release |
 | --- | --- |
@@ -516,10 +521,10 @@ and [piper-phonemize.cmake](https://github.com/k2-fsa/sherpa-onnx/blob/v1.13.4/c
 This also merits review for existing distributions using the same engine.
 
 Decided 2026-11-03: the F-Droid metadata declares **GPL-3.0-only** for the
-combined Android build; the repository root LICENSE.md stays MIT. The working
-combined-notice draft lives in
-[licensing/android-notice-draft.md](licensing/android-notice-draft.md) for
-owner review before any release ships it:
+combined Android build; the repository root LICENSE.md stays MIT. The shipped
+combined notice is [android-third-party-notices.md](../src-tauri/licensing/android-third-party-notices.md),
+generated from pinned sources by `npm run prepare:license-notices`; its
+combined-work statement reads:
 
 > This Android application incorporates eSpeak NG and Unicode tools through
 > Sherpa ONNX/Piper phonemization. These components carry GPLv3 terms, with
@@ -597,11 +602,13 @@ advisory scan. Build-tool environments have separate dependencies.
 3. [ ] Licensing decisions recorded 2026-11-03: GPL-3.0-only declaration for the
    combined Android build (root LICENSE stays MIT), Kareem kept with disclosure
    pending an upstream rights statement, Supertonic kept with NonFreeAssets.
-   Remaining: owner reads and approves
-   [licensing/android-notice-draft.md](licensing/android-notice-draft.md),
-   assemble the notice/source bundle (including the Kokoro data mapping and the
-   QCMS notice reconciliation), and produce the corresponding-source archive.
-   Retain current features until any remaining licensing trade-off is decided.
+   The notice bundle is assembled and ships in every APK
+   (`assets/licenses/android-third-party-notices.md`, verifier-enforced;
+   regenerate with `npm run prepare:license-notices`). Remaining: produce the
+   corresponding-source archive per release, track the upstream Kareem reply,
+   reconcile the QCMS notice if rebuilt PDF assets ever ship, and provide the
+   MPL-covered Rust sources through that archive. Retain current features
+   until any remaining licensing trade-off is decided.
 4. [ ] Source-only native wiring is proven locally (2026-11-03): the recipe
    links the pinned Maven AAR, SHERPA_REQUIRE_SOURCE=1 fails closed, and an
    F-Droid-style build produced a verifier-passing unsigned APK whose ORT bytes

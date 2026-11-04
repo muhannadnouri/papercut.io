@@ -65,6 +65,7 @@ test("checks native architecture, header bounds and 16 KB segment alignment", ()
 test("rejects missing runtime, extra ABIs, duplicates and wildcard/path names", () => {
   const names = ["libapp_lib.so", "libsherpa-onnx-c-api.so", "libonnxruntime.so"].map(name => `lib/arm64-v8a/${name}`)
   names.push("assets/licenses/libtashkeel-1.5.0.txt")
+  names.push("assets/licenses/android-third-party-notices.md")
   assert.equal(checkEntries(names).length, 3)
   for (const bad of [
     names.slice(1),
