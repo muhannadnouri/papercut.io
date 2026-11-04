@@ -310,10 +310,25 @@ the local output hashes; these are probe results, not approved reproducibility
 reference hashes. Staging with SHERPA_ONNX_LIB_DIR pointing there and repackaging
 produces an APK that passes verification; both packaged native libraries exactly
 match the source-built inputs. That probe reused the compiled app library and
-current WASM assets. The ordinary release path still uses the existing
-checksum-pinned archive pending device inference and complete source integration.
+current WASM assets. The ordinary release path still uses the checksum-pinned
+Sherpa archive for libsherpa-onnx-c-api.so and the Maven artifact for ORT,
+pending device inference and source-built Sherpa integration.
 [Sherpa Android script](https://github.com/k2-fsa/sherpa-onnx/blob/v1.13.4/build-android-arm64-v8a.sh),
 [ORT source builds](https://onnxruntime.ai/docs/build/android.html)
+
+**Production ORT provisioning (approved 2026-11-03):** Gradle supplies
+libonnxruntime.so from the pinned Apache-2.0 Maven artifact
+`com.microsoft.onnxruntime:onnxruntime-android:1.27.0`; F-Droid permits
+appropriate FLOSS artifacts from trusted Maven repositories, and this app
+already ships 100+ resolved Maven dependencies. Verified against that exact
+artifact: arm64 16 KB ELF alignment, embedded version string 1.27.0 identical
+to the archive-bundled ORT, and libsherpa-onnx-c-api.so's only non-system
+dependency being libonnxruntime.so. Sherpa staging now copies only
+libsherpa-onnx-c-api.so and deletes stale libonnxruntime.so copies that would
+collide with the AAR at packaging time; the AAR's unused libonnxruntime4j_jni.so
+Java-binding glue is excluded. Release builds keep the arm64-only ABI filter;
+debug/emulator builds merge all four AAR ABIs. The source-built ORT recipe
+remains the investigation/fallback path.
 
 **WASM:** Tesseract's upstream build uses Emscripten 4.0.15. The probe uses an
 isolated local installation because Docker's daemon is unavailable. CMake 4
@@ -436,16 +451,18 @@ cache products, upstream downloads and host versions are not hermetic yet.
 
 ### Dependency and notice inventory for review
 
-[android-source-inventory.json](android-source-inventory.json) records the current
-Android feature graph and input lockfile hashes: 457 runtime Rust packages,
-275 build-time packages (overlap allowed), 53 npm production-lock candidates and
-104 resolved Maven candidates from universalReleaseRuntimeClasspath. It includes
-source/license hashes for the native/WASM projects, Sherpa's fetched subprojects,
-OCR submodule pins, model archives and font/data evidence. These are declarations
-and review candidates, not a claim that every package/file is shipped or licensed
-correctly. Refresh the snapshot after dependencies change; it is not a scanner.
-The two local Rust plugins inherit the repository's original-code MIT scope but
-do not declare a license in their own Cargo manifests.
+[android-source-inventory.json](android-source-inventory.json) keeps the
+hand-gathered review evidence standard tools cannot regenerate: source/license
+hashes for the native/WASM projects, Sherpa's fetched subprojects, OCR submodule
+pins, model archives and font/data evidence, plus the reviewed lockfile hashes.
+Its former bulk Rust/npm/Maven package listings were replaced on 2026-11-03 by
+the standardRefresh commands stored in the file: cargo metadata for the resolved
+Android graph, npm sbom for CycloneDX npm output, and gradle dependencies for
+Maven candidates from universalReleaseRuntimeClasspath. Regenerated listings are
+declarations and review candidates, not a claim that every package/file is
+shipped or licensed correctly. The two local Rust plugins inherit the
+repository's original-code MIT scope but do not declare a license in their own
+Cargo manifests.
 
 Proposed notice/source bundle contents, **for review before implementation**:
 
@@ -557,9 +574,11 @@ advisory scan. Build-tool environments have separate dependencies.
 3. [ ] Owner reviews GPL distribution/notice proposal and the unresolved
    Kareem/Supertonic/Kokoro evidence. Assemble the matching source/notices bundle;
    retain current features until the owner decides any licensing trade-off.
-4. [ ] After reviewing the integration plan, wire source-built native/OCR/PDF
-   inputs into production preparation, preserving matched API/worker/loader
-   pairs and current versions. Freeze F-Droid-compatible build tools and inputs.
+4. [ ] After reviewing the integration plan, wire the source-built Sherpa/OCR/PDF
+   inputs into production preparation; ORT ships from the pinned Maven artifact
+   (approved 2026-11-03), so native source wiring covers Sherpa only. Preserve
+   matched API/worker/loader pairs and current versions. Freeze
+   F-Droid-compatible build tools and inputs.
 5. [ ] Build matching clean Linux environments and verify upstream APK
    reproduction/signature copying. A repeated packaging run with reused native
    objects alone does not prove a complete reproducible build.
