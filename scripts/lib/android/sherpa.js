@@ -14,14 +14,15 @@ import {
   SHERPA_ANDROID_RUNTIME_ROOT,
   SHERPA_ANDROID_SHA256,
   SHERPA_ANDROID_URL,
+  SHERPA_ANDROID_STAGED_LIBS,
   SHERPA_DEFAULT_ANDROID_ABI,
   SHERPA_GENERATED_ANDROID_JNI_LIBS,
-  SHERPA_REQUIRED_LIBS,
 } from "./constants.js"
 import { downloadFile } from "../download.js"
 import { extractTar } from "../archive.js"
 
 // Source builds supply one flat arm64 directory; archive ABIs also support the separate emulator inference checks.
+// Only Sherpa's own library is staged: libonnxruntime.so comes from the Gradle Maven dependency instead.
 export function androidSherpaLibDir(abi = SHERPA_DEFAULT_ANDROID_ABI) {
   if (process.env.SHERPA_ONNX_LIB_DIR) {
     return resolve(process.env.SHERPA_ONNX_LIB_DIR)
@@ -78,7 +79,7 @@ async function hasAllAndroidRuntimeLibs() {
 
 // Restored caches can retain empty files/directories; existence alone is not a usable native link input.
 async function hasRequiredLibs(directory) {
-  for (const lib of SHERPA_REQUIRED_LIBS) {
+  for (const lib of SHERPA_ANDROID_STAGED_LIBS) {
     try {
       const info = await stat(join(directory, lib))
       if (!info.isFile() || info.size === 0) {
@@ -108,10 +109,11 @@ async function syncGeneratedJniLibs(abis = SHERPA_ANDROID_ABIS) {
     const target = join(SHERPA_GENERATED_ANDROID_JNI_LIBS, abi)
     await mkdir(target, { recursive: true })
     // Papercut calls the C API; neither it nor ORT links Sherpa's C++/JNI wrappers.
-    for (const unused of ["libsherpa-onnx-cxx-api.so", "libsherpa-onnx-jni.so"]) {
+    // A stale archive-era libonnxruntime.so would collide with the Gradle AAR copy at packaging time.
+    for (const unused of ["libsherpa-onnx-cxx-api.so", "libsherpa-onnx-jni.so", "libonnxruntime.so"]) {
       await rm(join(target, unused), { force: true })
     }
-    for (const lib of SHERPA_REQUIRED_LIBS) {
+    for (const lib of SHERPA_ANDROID_STAGED_LIBS) {
       await cp(join(source, lib), join(target, lib), { force: true })
     }
   }

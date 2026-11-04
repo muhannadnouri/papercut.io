@@ -1,6 +1,5 @@
 import { join } from "node:path"
 import {
-  SHERPA_REQUIRED_LIBS,
   SHERPA_VERSION,
 } from "../constants.js"
 import {
@@ -8,7 +7,10 @@ import {
   SRC_TAURI_DIR,
 } from "../paths.js"
 
-export { SHERPA_REQUIRED_LIBS, SHERPA_VERSION }
+export { SHERPA_VERSION }
+
+// Gradle supplies libonnxruntime.so from the pinned Maven AAR; only Sherpa's own library is staged.
+export const SHERPA_ANDROID_STAGED_LIBS = ["libsherpa-onnx-c-api.so"]
 
 export const JDK_VERSION = "17"
 export const JDK_RELEASE = "17.0.19+10"

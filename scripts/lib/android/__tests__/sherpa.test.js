@@ -42,20 +42,23 @@ afterEach(async () => {
   })
 })
 
-it("stages source-provided libraries for arm64 without downloading or including unused wrappers", async () => {
+it("stages source-provided libraries for arm64 without downloading, staging ORT, or keeping unused wrappers", async () => {
   const source = process.env.SHERPA_ONNX_LIB_DIR
   const target = join(state.stage, "arm64-v8a")
   await mkdir(target, { recursive: true })
   await writeFile(join(target, "libsherpa-onnx-jni.so"), "stale wrapper")
+  await writeFile(join(target, "libonnxruntime.so"), "stale archive copy")
   for (const lib of ["libsherpa-onnx-c-api.so", "libonnxruntime.so"]) {
     await writeFile(join(source, lib), lib)
   }
   const { androidSherpaLibDir, ensureAndroidSherpaLibs } = await import("../sherpa.js")
   expect(androidSherpaLibDir()).toBe(source)
   await ensureAndroidSherpaLibs({ force: true })
-  expect(await readFile(join(target, "libonnxruntime.so"), "utf8")).toBe("libonnxruntime.so")
+  expect(await readFile(join(target, "libsherpa-onnx-c-api.so"), "utf8")).toBe("libsherpa-onnx-c-api.so")
+  // ORT ships from the Gradle Maven AAR; staging must not copy or keep a second copy.
+  await expect(readFile(join(target, "libonnxruntime.so"))).rejects.toThrow()
   await expect(readFile(join(target, "libsherpa-onnx-jni.so"))).rejects.toThrow()
-  await expect(readFile(join(state.stage, "x86_64/libonnxruntime.so"))).rejects.toThrow()
+  await expect(readFile(join(state.stage, "x86_64/libsherpa-onnx-c-api.so"))).rejects.toThrow()
   expect(state.download).not.toHaveBeenCalled()
 })
 

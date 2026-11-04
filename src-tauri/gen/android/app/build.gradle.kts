@@ -25,6 +25,10 @@ android {
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
+    packaging {
+        // Papercut links ORT through the Rust/C API; the AAR's Java-binding glue is dead weight.
+        jniLibs.excludes.add("**/libonnxruntime4j_jni.so")
+    }
     buildTypes {
         getByName("debug") {
             manifestPlaceholders["usesCleartextTraffic"] = "true"
@@ -60,6 +64,8 @@ rust {
 }
 
 dependencies {
+    // Pinned ORT trusted artifact; staging must not add a second libonnxruntime.so alongside it.
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.27.0")
     implementation("androidx.webkit:webkit:1.14.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.activity:activity-ktx:1.10.1")
