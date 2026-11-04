@@ -1,0 +1,42 @@
+# F-Droid metadata DRAFT for papercut.io.
+# Copy into an fdroiddata fork as metadata/io.papercut.desktop.yml and run
+# fdroid lint, the scanner and a clean build there before submitting.
+# Localized name/summary/description and changelogs are supplied by the
+# fastlane/metadata/android/ directory in this repository (English and Arabic).
+Categories:
+  - Reading
+License: GPL-3.0-only
+AntiFeatures:
+  - NonFreeAssets
+AuthorName: Muhannad Nouri
+AuthorWebSite: https://github.com/muhannadnouri
+WebSite: https://github.com/muhannadnouri/papercut.io
+SourceCode: https://github.com/muhannadnouri/papercut.io
+IssueTracker: https://github.com/muhannadnouri/papercut.io/issues
+RepoType: git
+Repo: https://github.com/muhannadnouri/papercut.io
+Binaries: https://github.com/muhannadnouri/papercut.io/releases/download/v%v/Papercut_v%v_android-arm64-v8a.apk
+# Uncomment with the production certificate SHA-256 once the signing key is
+# validated (guide section 2):
+# AllowedAPKSigningKeys: <64 hex chars>
+
+Builds:
+  - versionName: 1.10.0
+    versionCode: 1010000
+    # TODO(owner): the first F-Droid release tag; must exist before fdroid build.
+    commit: v1.10.0
+    output: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+    ndk: r29
+    prebuild: |-
+      npm ci
+      rustup target add aarch64-linux-android
+    build: |-
+      node scripts/fdroid/build-android-source-libs.js
+      export SHERPA_ONNX_LIB_DIR="$PWD/.cache/android-production/source-arm64"
+      export SHERPA_REQUIRE_SOURCE=1
+      npm run android:apk:release
+
+AutoUpdateMode: Version v%v
+UpdateCheckMode: Tags
+CurrentVersion: 1.10.0
+CurrentVersionCode: 1010000

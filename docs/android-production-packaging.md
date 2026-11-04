@@ -36,7 +36,7 @@ follow-up excludes source-build caches from ordinary Vitest test discovery.
 | Native staging | Source-provided SHERPA_ONNX_LIB_DIR is honored without a prebuilt fallback and SHERPA_REQUIRE_SOURCE=1 refuses the archive; unused C++/JNI wrappers removed; source-built Sherpa linked against the pinned Maven ORT AAR packaged and checked | Device inference and complete source-build integration |
 | APK checks | JS verifier checks identity/version, non-debuggable manifest, certificate, arm64 contents, required libraries, license presence and 16 KB ELF/ZIP alignment; disposable-key signing passes | Production certificate and clean-build reproduction |
 | Source recipes | Pinned JS recipes build the Sherpa library against the pinned Maven ORT AAR, three OCR cores and four PDF codecs with a matching PDF.js worker; local compatibility checks pass | Integrate approved source outputs, freeze the complete environment and prove clean APK reproduction |
-| F-Droid | Listing drafts, dependency/source inventory and proposed notices for review | Resolve model rights, assemble corresponding source/notices, test fdroiddata recipe and submit |
+| F-Droid | Licensing decisions recorded; notices shipped in APK; corresponding-source archive tooling and fdroiddata metadata draft in repo | Owner attaches source archive per release; fdroiddata lint/scanner/clean build; submit and address review |
 
 Ordinary Android CI builds and verifies one unsigned production APK, runs the
 transfer plugin's JVM tests, then uploads that APK. It does not assemble a debug APK.
@@ -551,6 +551,30 @@ license expression before that review.
 Model downloads being optional does not settle licensing or F-Droid labeling.
 [Anti-features](https://f-droid.org/en/docs/Anti-Features/)
 
+### F-Droid metadata draft
+
+[fdroid/metadata/io.papercut.desktop.yml](fdroid/metadata/io.papercut.desktop.yml)
+is a draft for an fdroiddata fork: License GPL-3.0-only, the NonFreeAssets
+anti-feature for restricted/unclear model weights, the release binary URL, and
+a build recipe that runs the real production pipeline — the Sherpa-only source
+recipe, `SHERPA_REQUIRE_SOURCE=1`, then `npm run android:apk:release` — with
+the unsigned APK as fdroidserver's `output`. Localized name, summaries,
+descriptions and future changelogs come from the committed
+`fastlane/metadata/android/` directory (English and Arabic), so the metadata
+carries no duplicated listing text.
+
+Owner steps before submission, in an fdroiddata fork:
+
+1. Set `commit` to the first F-Droid release tag and, after signing-key
+   validation, `AllowedAPKSigningKeys` to the certificate SHA-256.
+2. Verify against the actual buildserver image: NDK `r29` availability (our
+   recipe asserts exactly 29.0.13846066), Node/npm and Rust
+   aarch64-linux-android target availability, build-tools 35.0.0 for the
+   verifier, and that gradle/maven/network fetches work under fdroidserver.
+3. Run `fdroid lint`, the scanner and a clean build. Do not hide runtime
+   binaries with broad scanner ignores; resolve findings instead.
+4. Add screenshots and per-version changelogs under `fastlane/metadata/`.
+
 ## 6. Security review for this pass
 
 - Production signing uses a separate protected job on a fresh runner. Ordinary
@@ -631,10 +655,12 @@ advisory scan. Build-tool environments have separate dependencies.
    documents/bookmarks/audio survive. Include de-Googled Android and a 16 KB
    environment, plus an API 26 emulator when available; Pixel 6 alone does not
    establish those results.
-8. [ ] Add screenshots/changelogs; prepare metadata/io.papercut.desktop.yml in an
-   fdroiddata fork, with pinned build inputs, output path, binary URL, expected
-   signing key and update checks. Run lint/scanner/clean build, then submit and
-   address review. Do not hide runtime binaries with broad scanner ignores.
+8. [ ] Metadata draft ready at
+   [fdroid/metadata/io.papercut.desktop.yml](fdroid/metadata/io.papercut.desktop.yml).
+   Remaining: add screenshots/changelogs, set the release tag and signing-key
+   fingerprint, copy into an fdroiddata fork, verify buildserver assumptions,
+   then run lint/scanner/clean build, submit and address review. Do not hide
+   runtime binaries with broad scanner ignores.
 9. [ ] Rehearse the next update through F-Droid before announcing availability.
 
 Validation: 14 shipping/staging regression checks and four APK verifier self-tests
