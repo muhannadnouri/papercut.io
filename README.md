@@ -182,6 +182,9 @@ Refer to the Tauri [Windows prerequisites](https://v2.tauri.app/start/prerequisi
 
 ## Getting Started
 
+See the [script command map](scripts/README.md) for build/check entry points,
+when to use them and their toolchain requirements.
+
 ### Install dependencies
 
 ```bash
@@ -560,7 +563,7 @@ papercut.io/
 │   ├── tauri.conf.json            # Base Tauri config
 │   ├── tauri.ios.conf.json        # iOS Bundle ID / App Store config
 │   └── tauri.linux.conf.json      # Linux shared-library bundle config
-├── scripts/                       # Desktop and mobile build orchestration
+├── scripts/                       # Commands grouped by purpose; see scripts/README.md
 │   └── lib/                       # Shared and platform-specific script helpers
 ├── site/                          # Generated multilingual static website
 ├── docs/                          # Feature and architecture notes

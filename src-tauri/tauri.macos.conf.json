@@ -1,6 +1,6 @@
 {
   "build": {
-    "beforeBundleCommand": "node scripts/copy-sherpa-macos-libs.js"
+    "beforeBundleCommand": "node scripts/desktop/copy-sherpa-macos-libs.js"
   },
   "bundle": {
     "macOS": {

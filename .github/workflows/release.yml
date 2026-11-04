@@ -37,7 +37,7 @@ jobs:
       - name: Require published, checksum-matching model assets
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/check-model-downloads.js
+        run: node scripts/checks/check-model-downloads.js
 
   build-desktop:
     needs: model-assets
@@ -216,7 +216,7 @@ jobs:
           APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
 
       - name: Verify macOS bundled runtime libraries
-        run: node scripts/verify-macos-bundle-libs.js --require-signatures
+        run: node scripts/desktop/verify-macos-bundle-libs.js --require-signatures
 
       - name: Notarize and staple macOS DMG
         env:
@@ -311,7 +311,7 @@ jobs:
           NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/29.0.13846066
 
       - name: Verify unsigned Android release APK
-        run: node scripts/verify-android-apk.js --unsigned src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+        run: node scripts/android/verify-android-apk.js --unsigned src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
 
       # Keep this name outside publish-release's papercut-* artifact selection.
       - name: Upload unsigned Android signing input
@@ -371,7 +371,7 @@ jobs:
           path: src-tauri/gen/android/app/build/outputs/apk/universal/release
 
       - name: Verify unsigned Android signing input
-        run: node scripts/verify-android-apk.js --unsigned src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+        run: node scripts/android/verify-android-apk.js --unsigned src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
 
       - name: Prepare Android signing key
         env:
@@ -402,7 +402,7 @@ jobs:
       - name: Verify signed Android release APK
         env:
           ANDROID_SIGNING_CERT_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 }}
-        run: node scripts/verify-android-apk.js src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
+        run: node scripts/android/verify-android-apk.js src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
 
       - name: Rename Android APK
         run: |

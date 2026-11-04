@@ -77,7 +77,7 @@ jobs:
 
       - name: Build packaged worker
         run: |
-          node scripts/prepare-silma-sidecar.js \
+          node scripts/silma/prepare-silma-sidecar.js \
             --target "${{ matrix.target }}" \
             --clean \
             --self-test \
@@ -107,7 +107,7 @@ jobs:
           if [ -n "$runtime_url" ]; then
             args+=(--url "$runtime_url")
           fi
-          node scripts/package-silma-runtime-pack.js "${args[@]}"
+          node scripts/silma/package-silma-runtime-pack.js "${args[@]}"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v7

@@ -140,20 +140,23 @@ jobs:
               src-tauri/src/* | \
               src-tauri/tts/* | \
               src-tauri/vendor/sherpa-onnx-sys/* | \
-              scripts/lib/*)
+              scripts/lib/* | \
+              scripts/fdroid/source-build.js)
                 android_packaging=true
                 desktop_packaging=true
                 ios_packaging=true
                 ;;
             esac
+            # Preserve the old verify-* glob's desktop coverage of the APK verifier during this path-only move.
             case "$path" in
               src-tauri/tauri.linux.conf.json | \
               src-tauri/tauri.macos.conf.json | \
               src-tauri/Entitlements.plist | \
               src-tauri/icons/* | \
-              scripts/build-desktop.js | \
-              scripts/copy-* | \
-              scripts/verify-* | \
+              scripts/desktop/build-desktop.js | \
+              scripts/desktop/copy-* | \
+              scripts/desktop/verify-* | \
+              scripts/android/verify-android-apk.js | \
               scripts/lib/desktop/* | \
               scripts/lib/linux/* | \
               scripts/lib/macos/*)
@@ -161,11 +164,12 @@ jobs:
                 ;;
             esac
             case "$path" in
-              scripts/build-android.js | \
-              scripts/verify-android-apk.js | \
+              scripts/android/build-android.js | \
+              scripts/android/verify-android-apk.js | \
               src-tauri/tauri.android.conf.json | \
               src-tauri/gen/android/* | \
-              scripts/check-mobile-provider-inference*.mjs | \
+              scripts/checks/check-mobile-provider-inference*.mjs | \
+              scripts/checks/__tests__/check-mobile-provider-inference*.mjs | \
               scripts/lib/android/*)
                 android_packaging=true
                 ;;
@@ -174,17 +178,18 @@ jobs:
               src-tauri/tauri.ios.conf.json | \
               src-tauri/gen/apple/* | \
               src-tauri/icons/ios/* | \
-              scripts/build-ios.js | \
-              scripts/check-ios-device-build.js | \
-              scripts/check-mobile-provider-inference*.mjs | \
+              scripts/ios/build-ios.js | \
+              scripts/ios/check-ios-device-build.js | \
+              scripts/checks/check-mobile-provider-inference*.mjs | \
+              scripts/checks/__tests__/check-mobile-provider-inference*.mjs | \
               scripts/lib/ios/*)
                 ios_packaging=true
                 ;;
             esac
             case "$path" in
               sidecars/silma/* | \
-              scripts/prepare-silma-sidecar.js | \
-              scripts/package-silma-runtime-pack.js | \
+              scripts/silma/prepare-silma-sidecar.js | \
+              scripts/silma/package-silma-runtime-pack.js | \
               src-tauri/tts/silma-runtime-packs.json | \
               .github/workflows/ci.yml | \
               .github/workflows/silma-runtime.yml)
@@ -227,13 +232,13 @@ jobs:
         run: npm test
 
       - name: Model download monitor regression check
-        run: node --test scripts/check-model-downloads-selftest.js
+        run: node --test scripts/checks/__tests__/check-model-downloads-selftest.js
 
       - name: Mobile provider runner regression check
-        run: node --test scripts/check-mobile-provider-inference-selftest.mjs
+        run: node --test scripts/checks/__tests__/check-mobile-provider-inference-selftest.mjs
 
       - name: Android production packaging regression check
-        run: node --test scripts/check-android-packaging-selftest.js
+        run: node --test scripts/android/__tests__/check-android-packaging-selftest.js
 
       - name: Build frontend + Pagefind index
         run: npm run build
@@ -296,7 +301,7 @@ jobs:
       - name: Opt-in search provider regressions
         run: |
           # Reuse Cargo's prepared runtime; cached-model inference checks remain explicit.
-          node scripts/copy-sherpa-linux-libs.js
+          node scripts/desktop/copy-sherpa-linux-libs.js
           task_shared_dir="$PWD/src-tauri/tts/runtime/linux-x64-shared-libs"
           LD_LIBRARY_PATH="$task_shared_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
             cargo test --manifest-path src-tauri/Cargo.toml --locked --lib \
@@ -413,7 +418,7 @@ jobs:
 
       - name: Verify macOS bundled runtime libraries
         if: matrix.platform == 'macos'
-        run: node scripts/verify-macos-bundle-libs.js
+        run: node scripts/desktop/verify-macos-bundle-libs.js
 
       - name: Upload AppImage artifact (Linux)
         if: matrix.platform == 'linux'
@@ -561,7 +566,7 @@ jobs:
           NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/29.0.13846066
 
       - name: Verify unsigned Android release APK
-        run: node scripts/verify-android-apk.js --unsigned src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+        run: node scripts/android/verify-android-apk.js --unsigned src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
 
       # The release build generates Gradle plugin paths; these JVM tests need no debug APK.
       - name: Test Android transfer discovery callbacks
@@ -619,7 +624,7 @@ jobs:
           ram-size: 4096M
           disable-animations: true
           script: >-
-            node scripts/check-mobile-provider-inference.mjs --platform android
+            node scripts/checks/check-mobile-provider-inference.mjs --platform android
             --build-log "$RUNNER_TEMP/android-provider-tests.json"
             --models "$RUNNER_TEMP/search-provider-models"
             --runtime-libs "$PWD/src-tauri/tts/runtime/sherpa-onnx-android/jniLibs/x86_64"
@@ -726,7 +731,7 @@ jobs:
       - name: Provider initialization and model inference (iOS simulator)
         if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
         run: >-
-          node scripts/check-mobile-provider-inference.mjs --platform ios
+          node scripts/checks/check-mobile-provider-inference.mjs --platform ios
           --build-log "$RUNNER_TEMP/ios-provider-tests.json"
           --models "$RUNNER_TEMP/search-provider-models"
 
@@ -785,7 +790,7 @@ jobs:
 
       - name: Build packaged SILMA worker
         run: |
-          node scripts/prepare-silma-sidecar.js \
+          node scripts/silma/prepare-silma-sidecar.js \
             --target "${{ matrix.target }}" \
             --clean \
             --self-test \
@@ -794,7 +799,7 @@ jobs:
 
       - name: Package SILMA runtime archive
         run: |
-          node scripts/package-silma-runtime-pack.js \
+          node scripts/silma/package-silma-runtime-pack.js \
             --target "${{ matrix.target }}" \
             --runtime-id "${{ matrix.runtime_id }}" \
             --archive-name "${{ matrix.archive }}"

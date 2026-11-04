@@ -4,6 +4,13 @@ Updated 2026-11-03 on task/android-production-packaging. Production packaging is
 implemented and locally checked; the F-Droid publication gates remain below.
 No production release or F-Droid submission has been made.
 
+For command discovery, start with the [script command map](../scripts/README.md).
+Android entry scripts are in scripts/android/; optional source-build investigation
+is in scripts/fdroid/. Tests sit in adjacent __tests__/ folders. Existing npm
+command names, build flags, CI selection and isolated signing are unchanged.
+The inventory and dependency-source simplification discussed with the owner
+remain a separate review; this organization pass changes paths only.
+
 ## Agreed scope
 
 - Shared Papercut signature across GitHub and F-Droid; prove reproducibility first.
@@ -199,7 +206,7 @@ The existing npm run android:apk:native-tts remains a development/debug build.
 
 ~~~bash
 npm run android:apk:release
-node scripts/verify-android-apk.js --unsigned \
+node scripts/android/verify-android-apk.js --unsigned \
   src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
 ~~~
 
@@ -218,7 +225,7 @@ ANDROID_SIGNING_CERT_SHA256 to verify the result:
   --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD \
   --out src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk \
   src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
-node scripts/verify-android-apk.js \
+node scripts/android/verify-android-apk.js \
   src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
 ~~~
 
@@ -352,14 +359,14 @@ cargo +1.98.1 install wasm-bindgen-cli --version 0.2.100 --locked \
   --root "$PWD/.cache/android-production/wasm-tools" \
   --target-dir "$PWD/.cache/android-production/wasm-tools-target"
 
-node scripts/build-android-source-libs.js
-node scripts/build-source-ocr.js
-node scripts/build-source-pdf-codecs.js
+node scripts/fdroid/build-android-source-libs.js
+node scripts/fdroid/build-source-ocr.js
+node scripts/fdroid/build-source-pdf-codecs.js
 
 # Recheck already-built outputs without recompiling.
-node --test scripts/check-source-build-selftest.js
-node scripts/check-source-ocr.js
-node scripts/check-source-pdf.js
+node --test scripts/fdroid/__tests__/check-source-build-selftest.js
+node scripts/fdroid/__tests__/check-source-ocr.js
+node scripts/fdroid/__tests__/check-source-pdf.js
 ~~~
 
 The native recipe uses an isolated Python venv with exact flatbuffers/numpy/

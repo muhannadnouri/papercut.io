@@ -36,11 +36,11 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-      - run: node --test scripts/check-model-downloads-selftest.js
+      - run: node --test scripts/checks/__tests__/check-model-downloads-selftest.js
       - name: Check production asset identities and immutability
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/check-model-downloads.js
+        run: node scripts/checks/check-model-downloads.js
 
   smoke:
     needs: metadata
@@ -77,7 +77,7 @@ jobs:
           if [ "$MODE" = prepare-mirror ]; then
             args+=(--upstream --family kokoro)
           fi
-          node scripts/check-model-downloads.js "${args[@]}"
+          node scripts/checks/check-model-downloads.js "${args[@]}"
       - name: Test the production verifier, extractor, voice mappings, and synthesis
         env:
           PAPERCUT_MODEL_ARCHIVE_DIR: ${{ runner.temp }}/model-archives
