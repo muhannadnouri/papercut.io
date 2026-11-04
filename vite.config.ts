@@ -1,4 +1,7 @@
-import { defineConfig } from 'vite'
+import {
+  configDefaults,
+  defineConfig,
+} from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import {
   relative,
@@ -16,6 +19,10 @@ function isRootHtmlFixture(path: string): boolean {
 
 export default defineConfig({
   plugins: [react()],
+  test: {
+    // Source-build checkouts contain upstream tests that are not part of Papercut's suite.
+    exclude: [...configDefaults.exclude, '**/.cache/**'],
+  },
   server: {
     watch: {
       ignored: [

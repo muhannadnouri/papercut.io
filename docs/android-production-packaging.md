@@ -9,7 +9,8 @@ Android entry scripts are in scripts/android/; optional source-build investigati
 is in scripts/fdroid/. Tests sit in adjacent __tests__/ folders. Existing npm
 command names, build flags, CI selection and isolated signing are unchanged.
 The inventory and dependency-source simplification discussed with the owner
-remain a separate review; this organization pass changes paths only.
+remain a separate review. The organization pass changes paths only; its approved
+follow-up excludes source-build caches from ordinary Vitest test discovery.
 
 ## Agreed scope
 

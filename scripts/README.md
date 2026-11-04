@@ -63,9 +63,9 @@ node --test scripts/android/__tests__/check-android-packaging-selftest.js
 npm run test:lint-policy
 ```
 
-On a workspace containing source probes, `npm test -- src scripts` limits
-discovery to project tests. Plain `npm test` currently also discovers upstream
-tests in `.cache/`; excluding that cache is a separate pending test-config fix.
+Plain `npm test` excludes `.cache/`, retaining Vitest's default exclusions too.
+Source-build checkouts therefore do not add upstream tests to the project suite.
+Use `npm test -- src scripts` when you want an explicitly scoped project run.
 
 The [fdroid](fdroid/) recipes require additional native/WASM compilers and write
 only to the ignored `.cache/android-production/` tree. Their OCR/PDF checks use
