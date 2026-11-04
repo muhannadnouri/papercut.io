@@ -515,7 +515,11 @@ GPL code. Upstream pins the eSpeak/Piper archives and their hashes in
 and [piper-phonemize.cmake](https://github.com/k2-fsa/sherpa-onnx/blob/v1.13.4/cmake/piper-phonemize.cmake).
 This also merits review for existing distributions using the same engine.
 
-Proposed notice, **for owner review before shipping**:
+Decided 2026-11-03: the F-Droid metadata declares **GPL-3.0-only** for the
+combined Android build; the repository root LICENSE.md stays MIT. The working
+combined-notice draft lives in
+[licensing/android-notice-draft.md](licensing/android-notice-draft.md) for
+owner review before any release ships it:
 
 > This Android application incorporates eSpeak NG and Unicode tools through
 > Sherpa ONNX/Piper phonemization. These components carry GPLv3 terms, with
@@ -532,9 +536,9 @@ license expression before that review.
 
 | Model/data | Evidence and remaining issue |
 | --- | --- |
-| Supertonic 3 | The exact pinned archive's README distinguishes MIT sample code from OpenRAIL-M weights, despite an MIT LICENSE file. The [model license](https://huggingface.co/Supertone/supertonic-3/blob/main/LICENSE) has use restrictions; agree F-Droid disclosure/anti-feature treatment. Feature retained |
-| Kokoro | Exact manifest-pinned archive contains an Apache-2.0 LICENSE. Converted model/voice notices, included dictionaries and eSpeak linguistic-data source/license mapping still need closure |
-| Piper Kareem | Exact manifest-pinned archive's MODEL_CARD points dataset licensing to AliMokhammad/arabicttstrain, which could not be retrieved, and records fine-tuning from lessac. MIT repository metadata does not settle these rights |
+| Supertonic 3 | The exact pinned archive's README distinguishes MIT sample code from OpenRAIL-M weights, despite an MIT LICENSE file. The [model license](https://huggingface.co/Supertone/supertonic-3/blob/main/LICENSE) has use restrictions. Kept 2026-11-03 as an optional download with the F-Droid NonFreeAssets anti-feature declared; the MIT-code/OpenRAIL-M-weights distinction stays in notices |
+| Kokoro | Exact manifest-pinned archive contains an Apache-2.0 LICENSE. Kept 2026-11-03; its bundled eSpeak data/dictionaries and CppJieba dictionaries are in scope for the notice/source bundle mapping |
+| Piper Kareem | Exact manifest-pinned archive's MODEL_CARD points dataset licensing to AliMokhammad/arabicttstrain, which could not be retrieved, and records fine-tuning from lessac. MIT repository metadata does not settle these rights. Kept 2026-11-03 as an optional download with the status disclosed in the listing, pending an upstream rights statement (owner action: ask AliMokhammad for a license declaration) |
 | Libtashkeel | Embedded 4,788,213-byte unchanged model with checksum/MIT provenance in [its record](../src-tauri/tts/libtashkeel-1.5.0/README.md) |
 | E5 embeddings | All three pinned [Small](https://huggingface.co/intfloat/multilingual-e5-small/raw/614241f622f53c4eeff9890bdc4f31cfecc418b3/README.md), [Base](https://huggingface.co/intfloat/multilingual-e5-base/raw/d128750597153bb5987e10b1c3493a34e5a4502a/README.md) and [Large](https://huggingface.co/intfloat/multilingual-e5-large/raw/3d7cfbdacd47fdda877c5cd8a79fbcc4f2a574f3/README.md) cards declare MIT. Retain notices for the hash-pinned ONNX/tokenizer assets; no model retraining/quantization reproduction is claimed |
 | OCR data/fonts | Both installed English/Arabic data files byte-match [naptha/tessdata at 806cd9a](https://github.com/naptha/tessdata/tree/806cd9adc8c6e8abc11c782db1818c990576bebc), whose source LICENSE is Apache-2.0. Preserve that independently of npm wrapper MIT metadata, plus existing OFL/Apache font and Foxit/Liberation notices |
@@ -590,9 +594,14 @@ advisory scan. Build-tool environments have separate dependencies.
    production version/tag before publication.
 2. [x] Codify native/WASM source recipes and focused local checks; prepare a
    transitive declaration/source inventory and proposed notices for review.
-3. [ ] Owner reviews GPL distribution/notice proposal and the unresolved
-   Kareem/Supertonic/Kokoro evidence. Assemble the matching source/notices bundle;
-   retain current features until the owner decides any licensing trade-off.
+3. [ ] Licensing decisions recorded 2026-11-03: GPL-3.0-only declaration for the
+   combined Android build (root LICENSE stays MIT), Kareem kept with disclosure
+   pending an upstream rights statement, Supertonic kept with NonFreeAssets.
+   Remaining: owner reads and approves
+   [licensing/android-notice-draft.md](licensing/android-notice-draft.md),
+   assemble the notice/source bundle (including the Kokoro data mapping and the
+   QCMS notice reconciliation), and produce the corresponding-source archive.
+   Retain current features until any remaining licensing trade-off is decided.
 4. [ ] Source-only native wiring is proven locally (2026-11-03): the recipe
    links the pinned Maven AAR, SHERPA_REQUIRE_SOURCE=1 fails closed, and an
    F-Droid-style build produced a verifier-passing unsigned APK whose ORT bytes

@@ -586,10 +586,11 @@
     ]
   },
   "pendingReview": [
-    "Combined GPL distribution declaration remains unapproved; root MIT unchanged.",
-    "Source/notices archive and APK-visible notice retention are not implemented by this inventory.",
-    "Kareem dataset/lineage rights and Supertonic restrictions remain open.",
-    "Kokoro eSpeak data/dictionary source/license mapping remains open.",
+    "Decided 2026-11-03: F-Droid metadata declares GPL-3.0-only for the combined Android build; root MIT unchanged.",
+    "Source/notices archive and APK-visible notice retention are not implemented by this inventory; the working notice draft is docs/licensing/android-notice-draft.md.",
+    "Kareem kept 2026-11-03 with listing disclosure; upstream dataset-rights statement from AliMokhammad still pending.",
+    "Supertonic kept 2026-11-03 with the NonFreeAssets anti-feature; MIT-code/OpenRAIL-M distinction retained in notices.",
+    "Kokoro eSpeak/CppJieba data/dictionary source and license mapping remains open, in scope for the bundle.",
     "QCMS source MIT versus published BSD notice discrepancy must be resolved when staging rebuilt assets; preserve source notice.",
     "Ignored cache products and host tools are not a hermetic/clean-build guarantee. Final F-Droid scanner and clean reproducibility checks remain pending."
   ],
