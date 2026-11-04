@@ -8,7 +8,7 @@ are implied by this directory layout.
 
 | Folder | Purpose | Used by |
 | --- | --- | --- |
-| [android](android/) | APK builds, JDK/native library preparation, APK verification, license notice assembly | Local Android development, CI and releases |
+| [android](android/) | APK builds, JDK/native library preparation, APK verification, license notice and corresponding-source assembly | Local Android development, CI and releases |
 | [desktop](desktop/) | Desktop development/builds, native library staging, bundle verification | Local desktop development, CI and releases |
 | [ios](ios/) | iOS builds, native library preparation, unsigned device build check | Local Apple development, CI and releases |
 | [pdf](pdf/) | Stage installed PDF/OCR assets; generate manual PDF boundary fixtures | Frontend development/builds; optional diagnostics |
@@ -34,6 +34,7 @@ a unit test: model monitoring and installed-device inference are executable chec
 | `npm run android:apk:native-tts` | Development APK with shipping native features | Android SDK/NDK, Rust target and JDK; [Android guide](../docs/android-production-packaging.md) |
 | `npm run android:apk:release` | Unsigned arm64 production APK | Same Android toolchain; signing is a separate release job |
 | `npm run prepare:license-notices` | Regenerate the shipped Android third-party notices from pinned sources | Ignored `.cache/android-production` source checkouts and local npm/cargo state; `--check` verifies currency |
+| `npm run prepare:source-archive` | Build the per-release corresponding-source archive (GPL archives, MPL crate sources, notices, manifest) | Same checkouts plus cargo registry state; attach the output to the release |
 | `npm run ios:ci` / `npm run ios:ci:device` | Simulator / unsigned device build checks | macOS, Xcode and iOS Rust targets; [Apple guide](../docs/apple-distribution.md) |
 | `npm run check:i18n` | Validate localization keys and plural forms | Installed npm dependencies |
 | `npm run test:pdf-extraction` | Check the fixed PDF extraction fixture | Installed npm dependencies |

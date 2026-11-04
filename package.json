@@ -32,6 +32,7 @@
     "android:apk:native-tts": "node scripts/android/build-android.js --native-tts",
     "android:apk:release": "node scripts/android/build-android.js --native-tts --production",
     "prepare:license-notices": "node scripts/android/prepare-license-notices.js",
+    "prepare:source-archive": "node scripts/android/assemble-source-archive.js",
     "prepare:jdk": "node scripts/android/prepare-local-jdk.js",
     "prepare:jdk:force": "node scripts/android/prepare-local-jdk.js --force",
     "prepare:pdf-assets": "node scripts/pdf/prepare-pdf-assets.js",

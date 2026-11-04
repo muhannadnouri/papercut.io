@@ -604,11 +604,15 @@ advisory scan. Build-tool environments have separate dependencies.
    pending an upstream rights statement, Supertonic kept with NonFreeAssets.
    The notice bundle is assembled and ships in every APK
    (`assets/licenses/android-third-party-notices.md`, verifier-enforced;
-   regenerate with `npm run prepare:license-notices`). Remaining: produce the
-   corresponding-source archive per release, track the upstream Kareem reply,
-   reconcile the QCMS notice if rebuilt PDF assets ever ship, and provide the
-   MPL-covered Rust sources through that archive. Retain current features
-   until any remaining licensing trade-off is decided.
+   regenerate with `npm run prepare:license-notices`), and the
+   corresponding-source archive tooling is in place: `npm run
+   prepare:source-archive` bundles the pinned eSpeak NG/Piper archives,
+   the eight MPL-2.0 Rust crate trees, the shipped notices and a manifest
+   naming the release commit (deterministic output). Remaining at release
+   time: owner attaches the archive to the release, tracks the upstream
+   Kareem reply, and reconciles the QCMS notice if rebuilt PDF assets ever
+   ship. Retain current features until any remaining licensing trade-off is
+   decided.
 4. [ ] Source-only native wiring is proven locally (2026-11-03): the recipe
    links the pinned Maven AAR, SHERPA_REQUIRE_SOURCE=1 fails closed, and an
    F-Droid-style build produced a verifier-passing unsigned APK whose ORT bytes
