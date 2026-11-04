@@ -27,7 +27,8 @@ No production release or F-Droid submission has been made.
 | Versioning | Committed Android code 1010000 matches the inspected 1.10.0 debug test APK | Choose the first new production version/tag with the owner; test increasing-code updates |
 | Native staging | Source-provided SHERPA_ONNX_LIB_DIR is honored without a prebuilt fallback; unused C++/JNI wrappers removed; source-built ORT/Sherpa pair also packaged and checked | Device inference and complete source-build integration |
 | APK checks | JS verifier checks identity/version, non-debuggable manifest, certificate, arm64 contents, required libraries, license presence and 16 KB ELF/ZIP alignment; disposable-key signing passes | Production certificate and clean-build reproduction |
-| F-Droid | Listing drafts, policy investigation and source/license evidence | Complete dependency closure, tested fdroiddata recipe, review and publication |
+| Source recipes | Pinned JS recipes build the native pair, three OCR cores and four PDF codecs with a matching PDF.js worker; local compatibility checks pass | Integrate approved source outputs, freeze the complete environment and prove clean APK reproduction |
+| F-Droid | Listing drafts, dependency/source inventory and proposed notices for review | Resolve model rights, assemble corresponding source/notices, test fdroiddata recipe and submit |
 
 Ordinary Android CI builds and verifies one unsigned production APK, runs the
 transfer plugin's JVM tests, then uploads that APK. It does not assemble a debug APK.
@@ -81,6 +82,66 @@ about 6m07s and 7m18s respectively before Android could start. Assess paralleliz
 packaging with shared checks as a separate proposal: it trades faster feedback
 for extra work on failing changes and must preserve required checks and the
 optional inference-model handoff. Signing remains isolated in the release workflow.
+
+### Deferred: parallel mobile CI
+
+Shelved at the owner's request while F-Droid preparation resumes. The design
+below is retained for later review; implementation is not approved. The owner's
+agreement to require CI result applies only if that future check is implemented,
+and is not a prerequisite for continuing F-Droid preparation.
+
+Start Android/iOS packaging alongside checks after change detection. Keep the
+desktop matrix and SILMA packaging behind checks for this first stage. The
+measured mobile checks barrier was 6-7 minutes; overlapping it can reduce waiting,
+but runner queues and resource variation prevent a guaranteed time saving.
+Packaging will consume runner time even when checks subsequently fail.
+
+| Job | Proposed prerequisites | Purpose |
+| --- | --- | --- |
+| checks | changes | Existing tests/audits and optional verified model upload |
+| build-android, build-ios | changes | Existing selected mobile packaging checks |
+| New Android/iOS inference jobs | changes, checks, matching platform build | Only explicit mobile/full provider_inference runs |
+| New CI result job | changes, checks, all packaging/inference jobs | Validate expected outcomes, including skipped jobs |
+
+Implementation sequence after approval:
+
+1. Move the existing mobile inference steps into two optional platform jobs.
+   Retain the same-run verified model artifact and existing native test harness.
+   Prepare native libraries through the existing Android/iOS preparation commands
+   on each fresh runner; compile the provider tests without rebuilding an APK or
+   iOS app there. These are native-provider tests, not installed-app smoke tests.
+2. Remove the checks dependency from the two mobile packaging jobs. Keep their
+   job IDs, path/scope filters, production features and APK verification. Desktop
+   and SILMA keep their current sequencing.
+3. Share dependency caches between each platform's packaging/inference jobs.
+   Android retains shared-key: android. Use shared-key: ios in both iOS jobs;
+   replacing the current job-derived key creates a one-time cold iOS namespace.
+   Keep failure caching off and leave protected release signing untouched.
+4. Add an always-evaluated CI result job and a small JS checker/self-test. Change
+   detection must succeed; every requested job must succeed. Reject failures,
+   cancellation and unexpected skips. Accept skips only for work that was not
+   selected, including documentation-only PRs and disabled inference. Existing
+   checks remain visible; the result job also covers the desktop matrix/SILMA
+   whenever their scopes select them.
+5. Review main's required-check configuration separately. The branch endpoint
+   currently reports protected: false with checks enforcement off, and the
+   ruleset collection is empty. Detailed protection reads returned 403, so these
+   findings need owner confirmation. The owner approved requiring CI result before merging;
+   a workflow status alone does not configure merge enforcement. No repository
+   setting change is authorized by this proposal.
+6. Validate documentation-only, cheap, mobile and full scopes; both inference
+   settings; and checker cases for failure, cancellation and unexpected skips.
+   Then have the owner push and run mobile CI with inference off and on. Confirm
+   parallel starts, same-run model availability, complete result reporting and
+   one unsigned Android APK. Once CI result has appeared, the owner can select
+   it as a required check before merging, as agreed. Compare
+   timing and runner use before expanding to
+   desktop/SILMA parallelism.
+
+Proposed scope: ci.yml, one JS result checker with self-tests, and this guide.
+No implementation or settings change has been made for this proposal.
+[Job prerequisites](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-jobs),
+[required status checks](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches)
 
 ## 2. Owner: create and configure the signing key
 
@@ -236,7 +297,7 @@ Sherpa's own Android script downloads prebuilt ORT by default. Supply external
 ORT headers/libraries instead. Current ORT probe: Release/shared, full CPU operator
 set, API 26, two workers, no tests/proprietary provider. Local commands, fetched
 sources and logs are in ignored .cache/android-production/.
-The stripped pair is in source-arm64/ beneath that cache. Its receipt.json records
+The stripped pair is in source-arm64/ beneath that cache. Its source-receipt.json records
 the local output hashes; these are probe results, not approved reproducibility
 reference hashes. Staging with SHERPA_ONNX_LIB_DIR pointing there and repackaging
 produces an APK that passes verification; both packaged native libraries exactly
@@ -256,14 +317,152 @@ All three shipping LSTM cores (plain, SIMD, relaxed SIMD) initialize the install
 English/Arabic data and correctly recognize upstream's English small-image OCR
 fixture and a synthetic Arabic line rendered with the repository's Noto Naskh
 font. That smoke test does not establish general recognition quality or Android
-browser compatibility. The extra legacy variant was stopped after the three
-shipping outputs completed.
+browser compatibility. The committed recipe builds only these three shipping
+LSTM variants, omitting upstream's unused legacy variants.
 
-PDF.js has separate OpenJPEG/QCMS/JBIG2/QuickJS builds. QCMS history identifies
-wrapper revision 2ae4ee72334782928210ba4050e3e77d9b2d35be, but its Dockerfile uses
-rust:latest, unversioned helpers and cargo update. Pin those inputs and trace the
-other wrappers; ordinary PDF.js bundling only copies their existing binaries.
-No PDF codec rebuild/rendering acceptance is established.
+### Repeatable source recipes (approved local investigation)
+
+Run from the repository root on Linux x86-64. These are investigation recipes;
+the ordinary app/release asset paths are unchanged. All generated files stay in
+ignored .cache/android-production/. The scripts reject a wrong source revision,
+tracked edits and untracked files outside upstream ignore rules. Existing source
+checkouts are never reset. Named *-work directories are disposable and replaced
+on each OCR/PDF run. Do not store personal work there.
+
+Prerequisites: npm ci for the application; Node 24, Git, Python 3/venv/pip,
+OpenJDK 17, CMake (tested 4.4.5), make, patch, autoconf, automake, libtool,
+pkg-config, a host C/C++ compiler and Android SDK/NDK 29.0.13846066.
+Use two build workers as encoded in the recipes. Install Emscripten 4.0.15 in
+an isolated directory and set EMSDK to its absolute path. The local probe used
+emsdk installer commit c0bb220cb6e6f4e0fabb6f6db9efd53390ef5e56:
+
+~~~bash
+# A new directory; skip this bootstrap if an isolated, activated 4.0.15 SDK exists.
+git init .cache/android-production/emsdk
+git -C .cache/android-production/emsdk remote add origin https://github.com/emscripten-core/emsdk.git
+git -C .cache/android-production/emsdk fetch --depth=1 origin c0bb220cb6e6f4e0fabb6f6db9efd53390ef5e56
+git -C .cache/android-production/emsdk checkout --detach FETCH_HEAD
+.cache/android-production/emsdk/emsdk install 4.0.15
+.cache/android-production/emsdk/emsdk activate 4.0.15
+export EMSDK="$PWD/.cache/android-production/emsdk"
+
+# Named toolchain only; do not change the machine's default Rust toolchain.
+rustup toolchain install 1.98.1 --profile minimal --target wasm32-unknown-unknown
+cargo +1.98.1 install wasm-bindgen-cli --version 0.2.100 --locked \
+  --root "$PWD/.cache/android-production/wasm-tools" \
+  --target-dir "$PWD/.cache/android-production/wasm-tools-target"
+
+node scripts/build-android-source-libs.js
+node scripts/build-source-ocr.js
+node scripts/build-source-pdf-codecs.js
+
+# Recheck already-built outputs without recompiling.
+node --test scripts/check-source-build-selftest.js
+node scripts/check-source-ocr.js
+node scripts/check-source-pdf.js
+~~~
+
+The native recipe uses an isolated Python venv with exact flatbuffers/numpy/
+packaging/protobuf versions, builds full CPU/shared ORT, passes its headers/library
+to Sherpa, strips both arm64 libraries and checks ELF alignment. Source archive
+hashes remain governed by the pinned upstream CMake/dependency files. The OCR
+recipe uses upstream's pinned image libraries and compiler flags, with only a
+two-worker limit and selection of the three LSTM targets. It does not run the
+upstream dependency installer against the host OS. Generated loaders and WASM
+must move together.
+
+PDF.js's normal build copies already-built codecs. Its separate wrapper
+Dockerfiles use floating Emscripten/Rust tags; QCMS additionally runs cargo update.
+Our recipe pins Emscripten, Rust, QCMS's existing Cargo.lock and wasm-bindgen CLI,
+applies the pinned upstream patches, and keeps compiler caches inside the project.
+It builds the JS fallbacks too. It then rebuilds PDF.js's API, worker and sandbox
+with the matching glue using its own npm lock and npm ci --ignore-scripts.
+The PDF checkout includes enough history for Gulp to generate version 6.2.108;
+a one-commit checkout silently reports 6.2.0 and is rejected. No application npm
+or Cargo dependencies were upgraded.
+
+| PDF component | Wrapper pin | Underlying input |
+| --- | --- | --- |
+| OpenJPEG | 8bb19dc1aeecb104ce2ed3493d41fe131fc681e0 | OpenJPEG 6c4a29b00211eb0430fa0e5e890f1ce5c80f409f plus upstream buffer-stream patch |
+| QCMS | 2ae4ee72334782928210ba4050e3e77d9b2d35be | qcms 0.3.0 and wasm-bindgen 0.2.100 from wrapper Cargo.lock |
+| JBIG2/CCITT | 0b32db6d0eaf94844d46e38828ad4e0b7e36cb55 | PDFium 0455e822ded1a5537d826703988e986a33d2d4a1 |
+| QuickJS | b62f7cd527363ca2c1fe7467f274bc9acbf78c24 | QuickJS 3d5e064e9dd67c70f7962836505a7fa067bf0a4e plus upstream sandbox patch |
+
+The JBIG2 wrapper includes build-only fixes made after PDF.js's binary update;
+decoder sources are unchanged. This is a tested replacement candidate, not a
+claim that the original binary was produced from this exact wrapper/toolchain.
+Other pins were traced through the PDF.js binary-update history and wrapper
+Dockerfiles. Full pins, source URLs and license evidence are in the inventory.
+
+Outputs: source-arm64/ holds the stripped native pair; source-ocr/ holds six
+LSTM loader/WASM files; source-pdf/ holds four codec pairs and fallbacks;
+pdf-worker-work/build/generic/ holds the matching PDF.js bundles and resources.
+Each output directory has source-receipt.json with source pins and output hashes.
+Those hashes describe a local build, not an independently reproduced reference.
+
+Validation in this stage:
+
+- Native recipe passes using existing compiled objects; both libraries pass
+  arm64/16 KB ELF checks. This is not a second clean native build.
+- OCR recipe rebuilds its disposable work tree from source. All three variants
+  recognize the English and Arabic fixtures correctly. The Arabic fixture is
+  our synthetic line, “مرحبا بكم في عالم القراءة”, rendered with the repository's
+  OFL Noto Naskh font; no user document is involved. Upstream LSTM link steps emit
+  warnings for exported legacy/orientation/SSE symbols. The exercised LSTM APIs
+  pass; this does not validate those unused APIs or Android worker loading.
+- All four PDF codecs and matching worker build. JPEG2000, JBIG2 and CMYK fixtures
+  from the pinned PDF.js checkout render pixel-identically to the current npm
+  package using the same Node rasterizer. Tests assert the new JPEG2000/JBIG2
+  WASM decoders actually load, compare QCMS ICC color conversions, and initialize
+  QuickJS with an arithmetic assertion. These are focused compatibility checks,
+  not a full PDF corpus or Android sandbox test. Node-only browser API polyfills
+  come from PDF.js's existing locked core-js dependency.
+
+Remaining technical boundary: stage the rebuilt PDF API/worker/glue as a set;
+replacing only WASM under the npm worker can break its import ABI. Integration
+requires a separate reviewed change to asset preparation and native build inputs.
+The local emsdk bootstrap uses upstream prebuilt FLOSS tools; this is not an
+accepted F-Droid toolchain declaration. Select F-Droid-supported/source-built
+tools and freeze host packages/environment in the clean-build stage. Ignored
+cache products, upstream downloads and host versions are not hermetic yet.
+
+### Dependency and notice inventory for review
+
+[android-source-inventory.json](android-source-inventory.json) records the current
+Android feature graph and input lockfile hashes: 457 runtime Rust packages,
+275 build-time packages (overlap allowed), 53 npm production-lock candidates and
+104 resolved Maven candidates from universalReleaseRuntimeClasspath. It includes
+source/license hashes for the native/WASM projects, Sherpa's fetched subprojects,
+OCR submodule pins, model archives and font/data evidence. These are declarations
+and review candidates, not a claim that every package/file is shipped or licensed
+correctly. Refresh the snapshot after dependencies change; it is not a scanner.
+The two local Rust plugins inherit the repository's original-code MIT scope but
+do not declare a license in their own Cargo manifests.
+
+Proposed notice/source bundle contents, **for review before implementation**:
+
+| Group | Retain with each release |
+| --- | --- |
+| Papercut/eSpeak/Piper | Original MIT notices, eSpeak/ucd GPLv3 texts and source-header grants, Unicode data notices, Piper MIT/uni-algo notices; exact corresponding source, patches and build instructions for the combined application |
+| Sherpa/ORT | Apache/MIT texts and ORT ThirdPartyNotices plus cmake/deps.txt; Eigen MPL2 and per-file BSD/Apache/MINPACK notices, OpenFst/Kaldi Apache notices, KissFFT BSD, JSON MIT, sentencepiece notices and exact fetched archives |
+| Rust/JS/Maven | Per-package copyright/license texts from pinned packages, including MPL-covered source files, Unicode/CDLA data terms and Apache notices; use the resolved inventory to audit final artifact contents |
+| OCR | Tesseract Apache, Leptonica BSD-style, IJG JPEG, giflib MIT, libpng/libtiff/libwebp, openlibm's MIT/BSD/ISC/FDLIBM/public-domain and LGPL test notices, and zlib texts; English/Arabic trained-data Apache source license separately from MIT npm wrapper metadata |
+| PDF | PDF.js/JBIG2 wrapper Apache, OpenJPEG BSD, PDFium BSD-3-Clause, QuickJS MIT and QCMS MIT source notices; retain existing published notices pending reconciliation, not a blanket Apache label |
+| Fonts/data/models | Existing OFL/Apache font notices, PDF standard-font Foxit/Liberation notices and Libtashkeel MIT; model/voice/dictionary notices separately from inference-engine code |
+
+PDFium's actual source LICENSE is BSD-3-Clause even though the JBIG2 wrapper
+README links to it as Apache. QCMS's pinned source is MIT while the published
+PDF.js notice is BSD-style; retain both evidence sets for review when staging
+rebuilt assets. CameraX 1.5.3 camera-core's official Google Maven AAR supplies
+libimage_processing_util_jni.so and libsurface_util_jni.so, with Apache and libyuv
+BSD notices. F-Droid permits appropriate FLOSS artifacts from trusted Maven
+repositories; that does not waive license/notice review. Four Maven candidates
+inherit license declarations through parent POMs rather than direct license
+elements; the inventory records that distinction instead of guessing.
+
+The inventory is not the corresponding-source archive or an APK-visible license
+screen. Assemble and verify both source and notice delivery before shipping;
+choosing a release-wide GPL expression remains an owner review decision.
 
 **GPL review:** Sherpa's TTS core statically incorporates Piper phonemization and
 eSpeak NG. Shared linking of Papercut to Sherpa does not remove that incorporated
@@ -290,11 +489,11 @@ license expression before that review.
 | Model/data | Evidence and remaining issue |
 | --- | --- |
 | Supertonic 3 | The exact pinned archive's README distinguishes MIT sample code from OpenRAIL-M weights, despite an MIT LICENSE file. The [model license](https://huggingface.co/Supertone/supertonic-3/blob/main/LICENSE) has use restrictions; agree F-Droid disclosure/anti-feature treatment. Feature retained |
-| Kokoro | [Model card](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/README.md) declares Apache-2.0; converted artifacts/voice/data notices still need closure |
-| Piper Kareem | [Model card](https://huggingface.co/rhasspy/piper-voices/blob/main/ar/ar_JO/kareem/medium/MODEL_CARD) points dataset licensing to AliMokhammad/arabicttstrain, which could not be retrieved |
+| Kokoro | Exact manifest-pinned archive contains an Apache-2.0 LICENSE. Converted model/voice notices, included dictionaries and eSpeak linguistic-data source/license mapping still need closure |
+| Piper Kareem | Exact manifest-pinned archive's MODEL_CARD points dataset licensing to AliMokhammad/arabicttstrain, which could not be retrieved, and records fine-tuning from lessac. MIT repository metadata does not settle these rights |
 | Libtashkeel | Embedded 4,788,213-byte unchanged model with checksum/MIT provenance in [its record](../src-tauri/tts/libtashkeel-1.5.0/README.md) |
-| E5 embeddings | Pinned Small model card declares MIT; audit every offered variant/tokenizer/converted asset |
-| OCR data/fonts | Check underlying trained-data terms separately from npm wrapper licenses; retain existing OFL/Apache font notices |
+| E5 embeddings | All three pinned [Small](https://huggingface.co/intfloat/multilingual-e5-small/raw/614241f622f53c4eeff9890bdc4f31cfecc418b3/README.md), [Base](https://huggingface.co/intfloat/multilingual-e5-base/raw/d128750597153bb5987e10b1c3493a34e5a4502a/README.md) and [Large](https://huggingface.co/intfloat/multilingual-e5-large/raw/3d7cfbdacd47fdda877c5cd8a79fbcc4f2a574f3/README.md) cards declare MIT. Retain notices for the hash-pinned ONNX/tokenizer assets; no model retraining/quantization reproduction is claimed |
+| OCR data/fonts | Both installed English/Arabic data files byte-match [naptha/tessdata at 806cd9a](https://github.com/naptha/tessdata/tree/806cd9adc8c6e8abc11c782db1818c990576bebc), whose source LICENSE is Apache-2.0. Preserve that independently of npm wrapper MIT metadata, plus existing OFL/Apache font and Foxit/Liberation notices |
 
 Model downloads being optional does not settle licensing or F-Droid labeling.
 [Anti-features](https://f-droid.org/en/docs/Anti-Features/)
@@ -323,12 +522,21 @@ Model downloads being optional does not settle licensing or F-Droid labeling.
   their existing versions.
 - No application network permissions, telemetry, user-data formats or npm/Rust
   dependencies are added.
+- Source recipes use full Git pins, tracked/untracked source checks and existing
+  lockfiles. Subprocess arguments do not invoke a shell; upstream build scripts
+  still execute trusted source/build dependencies. PDF npm lifecycle hooks are
+  disabled. Disposable work trees and the changed Emscripten compiler-cache
+  location stay in the ignored project cache; they never stage files into the
+  app automatically or use signing secrets. Build output receipts are evidence
+  of what ran, not a security attestation. Final clean environments and dependency
+  vulnerability/scanner checks remain release gates.
 
 Artifact checks verify expected packaging/identity, not the absence of malicious
-code. The fresh npm audit reports no high/critical findings and 14 moderate package
+code. The earlier packaging pass's npm audit reported no high/critical findings and 14 moderate package
 reports tracing to a minimatch denial-of-service advisory in the lint dependency
-chain. That is an existing development-tool issue; this pass adds no dependency
-or lockfile change. No local Cargo advisory rerun is claimed.
+chain. That was an existing development-tool issue; this source-recipe pass adds
+no application dependency or lockfile change and does not claim a fresh npm/Cargo
+advisory scan. Build-tool environments have separate dependencies.
 [GitHub Actions secure use](https://docs.github.com/en/actions/reference/security/secure-use)
 
 ## 7. Remaining acceptance sequence
@@ -336,24 +544,30 @@ or lockfile change. No local Cargo advisory rerun is claimed.
 1. [ ] Owner configures the real key and validates its certificate; unsigned APK
    checks and disposable-key signing verification already pass. Choose the first
    production version/tag before publication.
-2. [ ] Complete native/WASM source builds, transitive license/source inventory and
-   owner review of proposed GPL compliance. Retain the current feature scope.
-3. [ ] Build matching clean Linux environments and verify upstream APK
+2. [x] Codify native/WASM source recipes and focused local checks; prepare a
+   transitive declaration/source inventory and proposed notices for review.
+3. [ ] Owner reviews GPL distribution/notice proposal and the unresolved
+   Kareem/Supertonic/Kokoro evidence. Assemble the matching source/notices bundle;
+   retain current features until the owner decides any licensing trade-off.
+4. [ ] After reviewing the integration plan, wire source-built native/OCR/PDF
+   inputs into production preparation, preserving matched API/worker/loader
+   pairs and current versions. Freeze F-Droid-compatible build tools and inputs.
+5. [ ] Build matching clean Linux environments and verify upstream APK
    reproduction/signature copying. A repeated packaging run with reused native
    objects alone does not prove a complete reproducible build.
-4. [ ] On Pixel 6 and another Pixel: install after resetting the debug test app;
+6. [ ] On Pixel 6 and another Pixel: install after resetting the debug test app;
    test import/open-with, bookmarks, English/Arabic OCR, scanner, voice
    download/preview, Arabic preprocessing, conceptual search, audiobook generation
    and background/lock-screen playback.
-5. [ ] Install a higher-code production candidate with the same key; verify
+7. [ ] Install a higher-code production candidate with the same key; verify
    documents/bookmarks/audio survive. Include de-Googled Android and a 16 KB
    environment, plus an API 26 emulator when available; Pixel 6 alone does not
    establish those results.
-6. [ ] Add screenshots/changelogs; prepare metadata/io.papercut.desktop.yml in an
+8. [ ] Add screenshots/changelogs; prepare metadata/io.papercut.desktop.yml in an
    fdroiddata fork, with pinned build inputs, output path, binary URL, expected
    signing key and update checks. Run lint/scanner/clean build, then submit and
    address review. Do not hide runtime binaries with broad scanner ignores.
-7. [ ] Rehearse the next update through F-Droid before announcing availability.
+9. [ ] Rehearse the next update through F-Droid before announcing availability.
 
 Validation: 14 shipping/staging regression checks and four APK verifier self-tests
 pass; targeted ESLint, whitespace, workflow YAML, document links and metadata
@@ -362,6 +576,10 @@ unsigned verification, post-build signing and certificate verification with a
 disposable key; wrong-certificate and signed-as-unsigned checks reject as expected.
 The test key/password file was deleted. The source-built native pair packages
 correctly, and all three source-built OCR cores pass English/Arabic smoke tests.
+The current source-recipe stage additionally passes its revision/edit rejection
+self-test, targeted zero-warning ESLint, a fresh disposable-tree OCR rebuild and
+all four PDF codec builds with a matching worker. Three PDF rendering fixtures,
+QCMS conversions and QuickJS initialization pass against the pinned reference.
 Two packaging runs with the normal cleaned libraries produce byte-identical APKs;
 they reuse compiled objects and do not prove complete clean-build reproduction.
 Production-key validation, complete reproducibility and device results remain
