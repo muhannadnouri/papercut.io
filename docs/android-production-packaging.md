@@ -54,15 +54,32 @@ Local validation: the standalone unit-test task graph contains no app/Rust build
 or debug APK assembly tasks; all nine tests executed and passed with no skips.
 The generated project metadata was present for that local test. Workflow checks
 confirm one APK build/upload and preserve the remaining jobs, filters and optional
-inference steps. The revised workflow has not yet run on GitHub.
+inference steps.
 
-Next, compare two release-only GitHub runs: confirm one APK artifact, tests
-and verifier passing, and record cache hits plus job/step durations, identifying
-whether each run is cold or warm rather than clearing shared caches. Do not
-subtract 7m26s as a promised saving: the former debug build also prepared shared
-inputs. Keep current cache settings and job dependencies during this measurement.
-Parallelizing packaging with shared checks is a separate proposal because it
-trades faster feedback for extra work on failing changes and must preserve the
+Release-only CI is now verified in two runs at 3d7692a8. Both Android jobs passed
+release verification and the executed plugin unit-test task, and each run uploaded
+exactly one artifact, papercut-android-release-unsigned-apk. Emulator inference
+remained skipped. Durations below are approximate, measured from job log timestamps.
+
+| Android job | Total | APK build step(s) | Plugin tests | Rust cache |
+| --- | --- | --- | --- | --- |
+| Baseline above, debug + release | 20m17s | 7m26s + 10m06s | 39s | Miss |
+| [Release-only run 1](https://github.com/muhannadnouri/papercut.io/actions/runs/41750102273/job/126315238787) | 12m24s | 9m45s | 42s | Exact hit |
+| [Release-only run 2](https://github.com/muhannadnouri/papercut.io/actions/runs/41752729236/job/126324396071) | 7m45s | 5m30s | 29s | Exact hit |
+
+Both new runs restored the same approximately 1.25 GiB Rust cache with key
+v0-rust-android-Linux-x64-ade52a28-81f06068 and reported it up to date afterward.
+They also hit the same npm cache. This is not a cold/warm comparison: the second
+run's improvement cannot be attributed to a cache newly saved by the first.
+Other steps varied too (npm ci: 37s versus 18s); the logs do not establish the
+cause. The observed job reductions of about 39% and 62% combine the workflow
+change, cache state and run variability, rather than isolating one cause or
+establishing a guaranteed duration. No release-only cold-cache run was forced.
+
+Retain the single release build and current cache policy. Shared checks took
+about 6m07s and 7m18s respectively before Android could start. Assess parallelizing
+packaging with shared checks as a separate proposal: it trades faster feedback
+for extra work on failing changes and must preserve required checks and the
 optional inference-model handoff. Signing remains isolated in the release workflow.
 
 ## 2. Owner: create and configure the signing key
