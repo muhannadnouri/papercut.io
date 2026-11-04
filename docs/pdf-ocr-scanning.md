@@ -251,7 +251,7 @@ Android, and iOS. The configured minimums relevant to this work are:
 | Android | API 26; universal release builds currently cover arm64, armv7, x86, and x86_64 |
 | iOS | iOS 14 |
 | macOS | macOS 10.13 |
-| Rust | 1.88 declared minimum; CI builds with stable |
+| Rust | 1.90 declared minimum for Tauri 2.12.5; CI uses 1.98.1 |
 | Frontend | React 19, Tauri 2, and the platform WebView |
 
 Passing desktop development tests alone is insufficient. Every Stage 1
@@ -477,7 +477,7 @@ The costs are material but bounded:
   1.77.2 minimum. Raising the minimum later did not change its RTL and
   coordinate limitations.
 
-Papercut now declares Rust 1.88 for unrelated production dependencies. The
+Papercut now declares Rust 1.90 for Tauri 2.12.5. The
 rejected native spike still does not justify carrying a second PDF parser.
 
 The native probe was fast and produced finite bounds, but throughput did not

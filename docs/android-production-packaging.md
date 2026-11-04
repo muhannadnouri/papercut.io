@@ -235,6 +235,10 @@ checks first. [apksigner](https://developer.android.com/tools/apksigner)
 
 For every public update:
 
+The planned next public release is **v1.10.1**, after this branch is tested and
+merged. Current APK candidates still identify as 1.10.0; the final version bump,
+changelogs and release-specific evidence belong to the later release stage.
+
 1. Synchronize npm/package lock, Cargo and Tauri versions; increase the committed
    bundle.android.versionCode in tauri.android.conf.json. Avoid per-build counters.
 2. Add fastlane/metadata/android/en-US/changelogs/<versionCode>.txt and the Arabic
@@ -620,12 +624,46 @@ Other changes include `alloc-no-stdlib` 3.0.0, `alloc-stdlib` 0.3.0,
 `ico` 0.6.0, `base64` 0.23.1, `json-patch` 4.2.0, `jsonptr` 0.7.1 and
 `swift-rs` 1.0.9; the old ctor/dtor proc-macro packages and `unic-*` packages
 are removed. `Cargo.lock` records the complete resolution. Regenerated
-notices retain the same license groups with updated package attribution;
-the corresponding-source archive now includes eleven MPL crate trees.
+notices retain the same license groups with updated package attribution.
 
-Post-upgrade proof on 2026-11-04 passed in the reference environment above:
+PR #91 exposed a compatibility gap in that initial update: `tauri` 2.11.5's
+test helper omits the new `AppConfig.app_directories_override` field from
+`tauri-utils` 2.10.2. Production APK builds and `npm test` do not compile that
+helper. The fix aligns both runtime and test dependencies to `tauri` 2.12.5,
+`tauri-build`/`tauri-macros` 2.7.4, `tauri-runtime` 2.12.2 and
+`tauri-runtime-wry` 2.12.3. The Android CLI also requires the matching minor
+of `@tauri-apps/api`, now exactly 2.12.4. The existing CLI remains unchanged.
+Rust/Cargo 1.90 is now the declared minimum; CI already uses 1.98.1.
+
+The runtime update also moves Wry 0.55.1 → 0.57.1, Tao 0.35.3 → 0.37.2,
+Muda 0.19.3 → 0.20.0, dirs 6 → 7, keyboard-types 0.7 → 0.8.3,
+window-vibrancy 0.6.0 → 0.8.1 and the Windows WebView bindings 0.38.2 →
+0.39.1. `Cargo.lock` records the build/TOML/Windows support changes too.
+Removing the older duplicate `dom_query` 0.27 chain also removes
+`cssparser` 0.36.0 and `selectors` 0.36.1; the current Android graph contains
+489 package candidates and nine MPL crate trees. Notices and corresponding
+source must be refreshed with this resolution. Full platform CI and device
+acceptance remain necessary after these runtime changes.
+
+Dependency validation must include the actual Rust suites, independently of
+the frontend suite. On Linux, use CI's native-library preparation and loader
+path for the shipping-feature suite:
+
+~~~bash
+mkdir -p src-tauri/tts/runtime/linux-x64-shared-libs
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
+cargo build --manifest-path src-tauri/Cargo.toml --locked --lib \
+  --features native-tts-shared,experimental-search-embeddings
+node scripts/desktop/copy-sherpa-linux-libs.js
+task_shared_dir="$PWD/src-tauri/tts/runtime/linux-x64-shared-libs"
+LD_LIBRARY_PATH="$task_shared_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+  cargo test --manifest-path src-tauri/Cargo.toml --locked --lib \
+  --features native-tts-shared,experimental-search-embeddings
+~~~
+
+Post-alignment proof on 2026-11-04 passed in the reference environment above:
 both fresh unsigned APKs have SHA-256
-`71b0da02bfc88b8679f9263f10810914355128a0a0d66343823d315f4db4ed49`.
+`f5730bc3b5765b920719760a40c12e79f321e7bff9728a79ff11412ceee761f9`.
 The packaged Sherpa library matches the source receipt; the resulting APK
 passes the unsigned production verifier and contains the current notices
 byte-for-byte. This remains a one-environment proof.
@@ -636,16 +674,26 @@ HTML/EPUB import and styled rendering, PDF, English/Arabic OCR, TTS voice
 download/preview, conceptual search and library transfer. These runtime checks
 remain required even when local compilation and reproducibility pass.
 
+The release workflow still uses the default prebuilt Sherpa path, while this
+proof uses source-built Sherpa. Equality between those actual release and
+F-Droid outputs has not been established. The next stage must compare them
+under aligned inputs and review any required release-workflow change before
+shared-signature publication.
+
 Completing gate 5 needs a production key and three more steps, run by the
 owner when that key exists (F-Droid rebuilds and compares the same way):
 
 ~~~bash
 pip install apksigcopier reproducible-apk-tools
-apksigcopier extract released.apk sig/
-apksigcopier copy sig/ repro-1of2.apk rebuilt-signed.apk
+apksigcopier copy released.apk repro-1of2.apk rebuilt-signed.apk
 "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --print-certs rebuilt-signed.apk
 node scripts/android/verify-android-apk.js rebuilt-signed.apk
+cmp released.apk rebuilt-signed.apk
 ~~~
+
+`copy` takes the signed APK directly. If signatures were extracted into a
+directory instead, use `apksigcopier patch sig/ repro-1of2.apk rebuilt-signed.apk`.
+See [apksigcopier's command examples](https://github.com/obfusk/apksigcopier#copy-extract--patch).
 
 If comparison tools report differences only in ZIP padding, align with
 reproducible-apk-tools' zipalign `--pad-like-apksigner` and 16 KiB page size
@@ -673,8 +721,9 @@ before copying. A mismatch blocks publication for the shared-signature route.
 - Actions in the Android signing job are pinned to their resolved immutable
   commits, with matching pins for shared actions in CI. Other references retain
   their existing versions.
-- No application network permissions, telemetry, user-data formats or npm/Rust
-  dependencies are added.
+- Packaging changes add no application network permissions, telemetry or
+  user-data formats. The approved Tauri alignment changes npm/Rust dependencies
+  as recorded above; it does not enable `appDirectoriesOverride`.
 - Source recipes use full Git pins, tracked/untracked source checks and existing
   lockfiles. Subprocess arguments do not invoke a shell; upstream build scripts
   still execute trusted source/build dependencies. PDF npm lifecycle hooks are
@@ -687,9 +736,13 @@ before copying. A mismatch blocks publication for the shared-signature route.
 Artifact checks verify expected packaging/identity, not the absence of malicious
 code. The earlier packaging pass's npm audit reported no high/critical findings and 14 moderate package
 reports tracing to a minimatch denial-of-service advisory in the lint dependency
-chain. That was an existing development-tool issue; this source-recipe pass adds
-no application dependency or lockfile change and does not claim a fresh npm/Cargo
-advisory scan. Build-tool environments have separate dependencies.
+chain. That was an existing development-tool issue. The Tauri alignment was
+audited separately with CI's cargo-audit 0.22.2 policy: zero blocking findings,
+with the same ten nonblocking warnings as the previous lockfile against the
+same RustSec snapshot. The existing RUSTSEC-2026-0235 waiver is unchanged;
+the all-features/all-targets guard confirms its rkyv 0.7 edge remains inactive.
+This is not a warning-free dependency graph or a fresh npm audit claim.
+Build-tool environments have separate dependencies.
 [GitHub Actions secure use](https://docs.github.com/en/actions/reference/security/secure-use)
 
 ## 7. Remaining acceptance sequence
@@ -707,7 +760,7 @@ advisory scan. Build-tool environments have separate dependencies.
    regenerate with `npm run prepare:license-notices`), and the
    corresponding-source archive tooling is in place: `npm run
    prepare:source-archive` bundles the pinned eSpeak NG/Piper archives,
-   the eleven MPL-2.0 Rust crate trees, the shipped notices and a manifest
+   the nine MPL-2.0 Rust crate trees, the shipped notices and a manifest
    naming the release commit (deterministic output). Regenerate after the final
    release commit so its manifest identifies the source actually being released.
    Remaining at release time: owner attaches the archive, tracks the upstream
@@ -756,15 +809,22 @@ self-test, targeted zero-warning ESLint, a fresh disposable-tree OCR rebuild and
 all four PDF codec builds with a matching worker. Three PDF rendering fixtures,
 QCMS conversions and QuickJS initialization pass against the pinned reference.
 
-The 2026-11-04 codegen upgrade passes full `npm test` (96 files, 765 passed,
-one skipped), `npm run build`, script ESLint with zero warnings, four APK
-verifier self-tests, and ten targeted Sherpa/reproducibility/notices/archive
-tests. Notices `--check` passes; the regenerated source archive contains all
-eleven expected MPL crate trees and matching lockfiles/notices. Two fresh
-source-only APK builds pass the byte comparison described above; the unsigned
-production verifier passes. The earlier OCR/PDF source probes were not rerun
-for this upgrade. Production-key validation, second-environment/signature-copy
-proof, full CI and Pixel runtime results remain explicit gates.
+The 2026-11-04 Tauri alignment passes the default Rust suite (274 passed,
+four ignored) and shipping-feature suite (332 passed, nine ignored), plus full
+`npm test` (96 files, 765 passed, one skipped), `npm run build`, script ESLint
+with zero warnings, four APK verifier self-tests and ten targeted
+Sherpa/reproducibility/notices/archive tests. All nine Android library-transfer
+Robolectric tests pass against the upgraded Tauri Android library. Notices
+`--check` passes.
+Two review source-archive runs are byte-identical, with all nine MPL crate
+trees and matching lockfiles/notices verified. The review archive is
+`papercut-android-1.10.0-tauri-align-review-sources.tar.bz2`; regenerate the
+release archive after the final source commit so its manifest points to the
+committed inputs. Two fresh source-only APK builds pass the byte comparison
+described above; the unsigned production verifier and packaged notice-byte
+checks pass. The earlier OCR/PDF source probes were not rerun for this
+upgrade. Production-key validation, second-environment/signature-copy proof,
+full platform CI and Pixel runtime results remain explicit gates.
 
 [Submission guide](https://f-droid.org/en/docs/Submitting_to_F-Droid_Quick_Start_Guide/),
 [listing format](https://f-droid.org/en/docs/All_About_Descriptions_Graphics_and_Screenshots/)

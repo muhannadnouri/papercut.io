@@ -9,7 +9,7 @@
 | Latest Release | [![Latest release](https://img.shields.io/github/v/release/muhannadnouri/papercut.io?logo=github&color=6366f1)](https://github.com/muhannadnouri/papercut.io/releases/latest) |
 | CI Build | [![CI](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml/badge.svg)](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml) |
 | UI | [![React](https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB)](https://react.dev/) |
-| Application Framework | [![Tauri + Rust](https://img.shields.io/badge/Tauri_+_Rust-2.x_\|_1.88+-24C8DB?logo=tauri&logoColor=white)](https://v2.tauri.app/) |
+| Application Framework | [![Tauri + Rust](https://img.shields.io/badge/Tauri_+_Rust-2.x_\|_1.90+-24C8DB?logo=tauri&logoColor=white)](https://v2.tauri.app/) |
 | License | [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md) |
 | Dependency License Compliance | [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_shield&issueType=license) |
 | Security Analysis | [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=shield&issueType=security)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_shield&issueType=security) |
@@ -45,8 +45,8 @@ Bundled starter HTML documents are indexed at build time with Pagefind. User-imp
 |-------|-----------------|---------------------|
 | Node  | >= 22.13.0      | 22.22.1             |
 | npm   | >= 10.9.0       | 10.9.4              |
-| Rust  | >= 1.88         | Current stable      |
-| Cargo | >= 1.88         | Current stable      |
+| Rust  | >= 1.90         | Current stable      |
+| Cargo | >= 1.90         | Current stable      |
 
 <details>
 <summary><strong>Platform setup details</strong></summary>
