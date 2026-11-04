@@ -35,6 +35,7 @@ a unit test: model monitoring and installed-device inference are executable chec
 | `npm run android:apk:release` | Unsigned arm64 production APK | Same Android toolchain; signing is a separate release job |
 | `npm run prepare:license-notices` | Regenerate the shipped Android third-party notices from pinned sources | Ignored `.cache/android-production` source checkouts and local npm/cargo state; `--check` verifies currency |
 | `npm run prepare:source-archive` | Build the per-release corresponding-source archive (GPL archives, MPL crate sources, notices, manifest) | Same checkouts plus cargo registry state; attach the output to the release |
+| `npm run check:android-reproducibility` | Prove two fresh source-only builds produce byte-identical unsigned APKs | Full Android toolchain; wipes Rust/Gradle outputs and rebuilds everything, 30-60 minutes |
 | `npm run ios:ci` / `npm run ios:ci:device` | Simulator / unsigned device build checks | macOS, Xcode and iOS Rust targets; [Apple guide](../docs/apple-distribution.md) |
 | `npm run check:i18n` | Validate localization keys and plural forms | Installed npm dependencies |
 | `npm run test:pdf-extraction` | Check the fixed PDF extraction fixture | Installed npm dependencies |

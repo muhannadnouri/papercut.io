@@ -13,6 +13,14 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Merged dependency art profiles produce non-deterministic baseline.prof content,
+// which breaks byte-identical rebuilds; upstream sherpa-onnx disables them the same way.
+tasks.whenTaskAdded {
+    if (name.contains("artprofile", ignoreCase = true) || name.contains("baselineprofile", ignoreCase = true)) {
+        enabled = false
+    }
+}
+
 android {
     compileSdk = 36
     buildToolsVersion = "35.0.0"

@@ -575,6 +575,52 @@ Owner steps before submission, in an fdroiddata fork:
    binaries with broad scanner ignores; resolve findings instead.
 4. Add screenshots and per-version changelogs under `fastlane/metadata/`.
 
+### Reproducibility protocol
+
+`npm run check:android-reproducibility` is the developer-side gate-5 proof:
+two builds of the source-only release path, each after wiping the Rust target
+and Gradle build outputs, must produce byte-identical unsigned APKs. It also
+checks the packaged Sherpa library against the source recipe's recorded
+hash, prints a per-entry CRC report when anything differs, and keeps both APK
+copies under `.cache/android-production/reproducibility/`. Expect 30-60
+minutes; it is not part of CI.
+
+Reference environment for the comparison (record what you actually use when
+it changes): Linux x86-64, Node 24, rustc/cargo 1.98.1 with the committed
+lockfiles, NDK 29.0.13846066, OpenJDK 17, CMake 4.4.5, Gradle wrapper as
+committed. The baseline profile entries in the APK are checked like any other
+entry; they have been byte-stable across builds so far.
+
+The first runs of this check caught real non-determinism, all fixed:
+
+- Tauri serializes the config's CSP *object* form through a `HashMap`, randomizing
+  directive order into the embedded config and the Rust library. The CSP is a
+  single string in `tauri.conf.json` — same directives, one deterministic order.
+  Keep it a string.
+- The `bundle.resources` *map* form has the same problem with more than one
+  entry. Resources are staged through one directory mapping: `licensing/` is
+  packaged as `licenses/`, holding the notices file and a copy of the vendored
+  libtashkeel license (canonical file: `src-tauri/tts/libtashkeel-1.5.0/LICENSE`).
+- Merged dependency art profiles produced a non-deterministic
+  `assets/dexopt/baseline.prof` (upstream sherpa-onnx documents the same). The
+  art/baseline profile tasks are disabled in the Gradle config; first-launch
+  optimization is the trade-off. Revisit if AGP makes the merge deterministic.
+
+Completing gate 5 needs a production key and three more steps, run by the
+owner when that key exists (F-Droid rebuilds and compares the same way):
+
+~~~bash
+pip install apksigcopier reproducible-apk-tools
+apksigcopier extract released.apk sig/
+apksigcopier copy sig/ repro-1of2.apk rebuilt-signed.apk
+"$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --print-certs rebuilt-signed.apk
+node scripts/android/verify-android-apk.js rebuilt-signed.apk
+~~~
+
+If comparison tools report differences only in ZIP padding, align with
+reproducible-apk-tools' zipalign `--pad-like-apksigner` and 16 KiB page size
+before copying. A mismatch blocks publication for the shared-signature route.
+
 ## 6. Security review for this pass
 
 - Production signing uses a separate protected job on a fresh runner. Ordinary
@@ -644,9 +690,12 @@ advisory scan. Build-tool environments have separate dependencies.
    repeat the proof in a frozen, hermetic environment, and add OCR/PDF source
    inputs only if review objects to npm WASM. Preserve matched API/worker/loader
    pairs and current versions.
-5. [ ] Build matching clean Linux environments and verify upstream APK
-   reproduction/signature copying. A repeated packaging run with reused native
-   objects alone does not prove a complete reproducible build.
+5. [ ] Reproducibility protocol in place (see the section above):
+   `npm run check:android-reproducibility` proves fresh-compile reproducibility
+   on one environment, with both APK copies retained. Remaining: repeat the
+   proof in a frozen second environment, then complete signature copying with
+   the production key and confirm fdroidserver's rebuild matches the published
+   APK.
 6. [ ] On Pixel 6 and another Pixel: install after resetting the debug test app;
    test import/open-with, bookmarks, English/Arabic OCR, scanner, voice
    download/preview, Arabic preprocessing, conceptual search, audiobook generation

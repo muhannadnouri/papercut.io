@@ -108,5 +108,14 @@ opt-level = 2
 [profile.dev.package.zune-jpeg]
 opt-level = 2
 
+# LLVM bakes its process-global counter into cloned-symbol `.llvm.<id>` names,
+# which differ between fresh builds; strip symbol tables so the shipped
+# artifacts stay byte-identical (the check: npm run check:android-reproducibility).
+[profile.release]
+strip = "symbols"
+
 [patch.crates-io]
 sherpa-onnx-sys = { path = "vendor/sherpa-onnx-sys" }
+# Carries one upstream-equivalent fix (sorted asset walk) so the CSP hash list
+# is deterministic; drop when tauri-codegen >= 2.7.4 reaches our dependency graph.
+tauri-codegen = { path = "vendor/tauri-codegen-2.6.3" }
