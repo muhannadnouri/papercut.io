@@ -1,5 +1,4 @@
 import assert from "node:assert/strict"
-import { existsSync } from "node:fs"
 import {
   copyFile,
   mkdir,
@@ -7,6 +6,7 @@ import {
 } from "node:fs/promises"
 import { join } from "node:path"
 import { run } from "../lib/process.js"
+import { downloadFile } from "../lib/download.js"
 import {
   source,
   output,
@@ -15,9 +15,14 @@ import {
 } from "./source-build.js"
 import { checkElf } from "../android/verify-android-apk.js"
 
-const revisions = {
-  onnxruntime: "8f0278c77bf44b0cc83c098c6c722b92a36ac4b5",
-  sherpa: "142807252687d81b40d6315f23470a1512a00de3",
+// Only Sherpa is compiled from source. ORT ships from the trusted Maven AAR the app
+// already links at runtime; its source-commit history lives in earlier recipe
+// revisions if an independent ORT build is ever needed again.
+const sherpaRevision = "142807252687d81b40d6315f23470a1512a00de3"
+const ortAar = {
+  version: "1.27.0",
+  url: "https://repo1.maven.org/maven2/com/microsoft/onnxruntime/onnxruntime-android/1.27.0/onnxruntime-android-1.27.0.aar",
+  sha256: "077dec5e2d821234c7dc0aba584bec8f999854b546c754cab93a90741c56fbeb",
 }
 const ndkVersion = "29.0.13846066"
 const sdk = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT
@@ -25,30 +30,25 @@ assert(sdk, "Set ANDROID_HOME or ANDROID_SDK_ROOT")
 const ndk = process.env.NDK_HOME || join(sdk, "ndk", ndkVersion)
 assert((await readFile(join(ndk, "source.properties"), "utf8")).includes("Pkg.Revision = " + ndkVersion), "Expected NDK " + ndkVersion)
 
-const ort = await source("onnxruntime", "https://github.com/microsoft/onnxruntime.git", revisions.onnxruntime, true)
-const sherpa = await source("sherpa-onnx", "https://github.com/k2-fsa/sherpa-onnx.git", revisions.sherpa)
-const venv = join(SOURCE_CACHE, "ort-venv")
-const python = join(venv, "bin/python")
-if (!existsSync(python)) {
-  await run("python3", ["-m", "venv", venv])
-}
-// Pin the small build-only Python set; do not let ORT's helper install floating requirements.
-const pythonPackages = ["flatbuffers==25.12.19", "numpy==2.5.4", "packaging==26.3", "protobuf==7.36.2"]
-await run(python, ["-m", "pip", "install", "--disable-pip-version-check", ...pythonPackages])
-const ortBuild = join(SOURCE_CACHE, "ort-build")
-await run(python, [join(ort, "tools/ci_build/build.py"),
-  "--config", "Release", "--android", "--android_abi", "arm64-v8a", "--android_api", "26",
-  "--android_sdk_path", sdk, "--android_ndk_path", ndk,
-  "--build_shared_lib", "--skip_tests", "--skip_pip_install", "--skip_submodule_sync", "--parallel", "2",
-  "--cmake_generator", "Unix Makefiles", "--build_dir", ortBuild,
-  "--cmake_extra_defines", "onnxruntime_BUILD_UNIT_TESTS=OFF",
-])
+const sherpa = await source("sherpa-onnx", "https://github.com/k2-fsa/sherpa-onnx.git", sherpaRevision)
+
+// The AAR is a ZIP; only the C/C++ API headers and the arm64 runtime are link inputs.
+const ortDir = join(SOURCE_CACHE, "ort-aar-" + ortAar.version)
+const ortArchive = join(ortDir, "onnxruntime-android-" + ortAar.version + ".aar")
+await mkdir(ortDir, { recursive: true })
+await downloadFile({
+  url: ortAar.url,
+  dest: ortArchive,
+  sha256: ortAar.sha256,
+  label: "ort-aar",
+})
+await run("unzip", ["-o", ortArchive, "headers/*", "jni/arm64-v8a/libonnxruntime.so", "-d", ortDir])
 
 // External headers/library prevent Sherpa's default Android path from downloading prebuilt ORT.
 const env = {
   ...process.env,
-  SHERPA_ONNXRUNTIME_INCLUDE_DIR: join(ort, "include/onnxruntime/core/session"),
-  SHERPA_ONNXRUNTIME_LIB_DIR: join(ortBuild, "Release"),
+  SHERPA_ONNXRUNTIME_INCLUDE_DIR: join(ortDir, "headers"),
+  SHERPA_ONNXRUNTIME_LIB_DIR: join(ortDir, "jni/arm64-v8a"),
 }
 const build = join(SOURCE_CACHE, "sherpa-build")
 await run("cmake", ["-S", sherpa, "-B", build,
@@ -62,19 +62,22 @@ await run("cmake", ["--build", build, "--target", "sherpa-onnx-c-api", "--parall
 
 const destination = join(SOURCE_CACHE, "source-arm64")
 await mkdir(destination, { recursive: true })
-for (const [name, origin] of [
-  ["libonnxruntime.so", join(ortBuild, "Release/libonnxruntime.so")],
-  ["libsherpa-onnx-c-api.so", join(build, "lib/libsherpa-onnx-c-api.so")],
-]) {
-  const target = join(destination, name)
-  await copyFile(origin, target)
-  await run(join(ndk, "toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"), ["--strip-unneeded", target])
-  checkElf(await readFile(target), name)
-}
-await receipt(destination, revisions, ["libonnxruntime.so", "libsherpa-onnx-c-api.so"], {
+// sherpa-onnx-sys links both libraries from SHERPA_ONNX_LIB_DIR, so this directory doubles
+// as the Rust link-input set. Staging never copies the AAR runtime; Gradle packages it.
+const target = join(destination, "libsherpa-onnx-c-api.so")
+await copyFile(join(build, "lib/libsherpa-onnx-c-api.so"), target)
+await run(join(ndk, "toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"), ["--strip-unneeded", target])
+checkElf(await readFile(target), "libsherpa-onnx-c-api.so")
+// Kept byte-identical to the pinned artifact; its packaged copy comes from the same AAR.
+const ortRuntime = join(destination, "libonnxruntime.so")
+await copyFile(join(ortDir, "jni/arm64-v8a/libonnxruntime.so"), ortRuntime)
+checkElf(await readFile(ortRuntime), "libonnxruntime.so")
+await receipt(destination, {
+  sherpa: sherpaRevision,
+  ortAar,
+}, ["libsherpa-onnx-c-api.so", "libonnxruntime.so"], {
   ndk: ndkVersion,
   api: 26,
   cmake: output("cmake", ["--version"]).split("\n")[0],
-  pythonPackages,
 })
 console.log("Source-built arm64 runtime (not automatically staged into the app): " + destination)

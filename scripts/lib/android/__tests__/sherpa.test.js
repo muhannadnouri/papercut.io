@@ -69,3 +69,11 @@ it("rejects missing/empty external libraries without silently falling back to pr
   await expect(ensureAndroidSherpaLibs()).rejects.toThrow("refusing a prebuilt fallback")
   expect(state.download).not.toHaveBeenCalled()
 })
+
+it("refuses the prebuilt archive when source-only mode has no source directory", async () => {
+  vi.stubEnv("SHERPA_ONNX_LIB_DIR", undefined)
+  vi.stubEnv("SHERPA_REQUIRE_SOURCE", "1")
+  const { ensureAndroidSherpaLibs } = await import("../sherpa.js")
+  await expect(ensureAndroidSherpaLibs()).rejects.toThrow("SHERPA_REQUIRE_SOURCE is set")
+  expect(state.download).not.toHaveBeenCalled()
+})

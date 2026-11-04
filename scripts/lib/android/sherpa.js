@@ -32,6 +32,9 @@ export function androidSherpaLibDir(abi = SHERPA_DEFAULT_ANDROID_ABI) {
 
 // An explicit source directory must fail closed: falling back would silently put prebuilt binaries in an F-Droid build.
 export async function ensureAndroidSherpaLibs({ force = false } = {}) {
+  if (!process.env.SHERPA_ONNX_LIB_DIR && process.env.SHERPA_REQUIRE_SOURCE === "1") {
+    throw new Error("SHERPA_REQUIRE_SOURCE is set; stage the source-built Sherpa library via SHERPA_ONNX_LIB_DIR instead of downloading the prebuilt archive")
+  }
   if (process.env.SHERPA_ONNX_LIB_DIR) {
     if (!await hasRequiredLibs(androidSherpaLibDir())) {
       throw new Error("SHERPA_ONNX_LIB_DIR is missing required Android libraries; refusing a prebuilt fallback")

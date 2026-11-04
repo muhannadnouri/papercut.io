@@ -33,9 +33,9 @@ follow-up excludes source-build caches from ordinary Vitest test discovery.
 | Production command | npm run android:apk:release keeps the shipping TTS/search features and omits debug mode; real unsigned APK checked | Pixel acceptance |
 | Signing | Build/check unsigned APK first; sign with SDK apksigner on a fresh runner in the protected android-release environment | Owner creates key and GitHub secrets; validate the actual production certificate |
 | Versioning | Committed Android code 1010000 matches the inspected 1.10.0 debug test APK | Choose the first new production version/tag with the owner; test increasing-code updates |
-| Native staging | Source-provided SHERPA_ONNX_LIB_DIR is honored without a prebuilt fallback; unused C++/JNI wrappers removed; source-built ORT/Sherpa pair also packaged and checked | Device inference and complete source-build integration |
+| Native staging | Source-provided SHERPA_ONNX_LIB_DIR is honored without a prebuilt fallback and SHERPA_REQUIRE_SOURCE=1 refuses the archive; unused C++/JNI wrappers removed; source-built Sherpa linked against the pinned Maven ORT AAR packaged and checked | Device inference and complete source-build integration |
 | APK checks | JS verifier checks identity/version, non-debuggable manifest, certificate, arm64 contents, required libraries, license presence and 16 KB ELF/ZIP alignment; disposable-key signing passes | Production certificate and clean-build reproduction |
-| Source recipes | Pinned JS recipes build the native pair, three OCR cores and four PDF codecs with a matching PDF.js worker; local compatibility checks pass | Integrate approved source outputs, freeze the complete environment and prove clean APK reproduction |
+| Source recipes | Pinned JS recipes build the Sherpa library against the pinned Maven ORT AAR, three OCR cores and four PDF codecs with a matching PDF.js worker; local compatibility checks pass | Integrate approved source outputs, freeze the complete environment and prove clean APK reproduction |
 | F-Droid | Listing drafts, dependency/source inventory and proposed notices for review | Resolve model rights, assemble corresponding source/notices, test fdroiddata recipe and submit |
 
 Ordinary Android CI builds and verifies one unsigned production APK, runs the
@@ -288,7 +288,7 @@ informed opt-in. Assets also need redistribution rights.
 | Source | Pinned revision/evidence |
 | --- | --- |
 | Sherpa 1.13.4 | 142807252687d81b40d6315f23470a1512a00de3 |
-| ORT 1.27.0 | 8f0278c77bf44b0cc83c098c6c722b92a36ac4b5 |
+| ORT 1.27.0 | Maven Central AAR SHA-256 077dec5e2d821234c7dc0aba584bec8f999854b546c754cab93a90741c56fbeb; source-probe commit 8f0278c77bf44b0cc83c098c6c722b92a36ac4b5 retained in history |
 | Tesseract.js core 7.0.0 | acffef2b66eb44a31df297e11d905f4b39001068 and pinned submodules |
 | PDF.js 6.2.108 | 0365cbde028bd92e58f2dab1bb70cd30ac7acfd7 |
 | Piper phonemization | f3ff95afc03640bc1399e113e83361192a2fafb4, MIT |
@@ -305,14 +305,19 @@ Sherpa's own Android script downloads prebuilt ORT by default. Supply external
 ORT headers/libraries instead. Current ORT probe: Release/shared, full CPU operator
 set, API 26, two workers, no tests/proprietary provider. Local commands, fetched
 sources and logs are in ignored .cache/android-production/.
-The stripped pair is in source-arm64/ beneath that cache. Its source-receipt.json records
+The stripped source-built Sherpa library is in source-arm64/ beneath that cache;
+the recipe now links it against the Maven AAR's ORT inputs (see the provisioning
+paragraph below). Its source-receipt.json records
 the local output hashes; these are probe results, not approved reproducibility
 reference hashes. Staging with SHERPA_ONNX_LIB_DIR pointing there and repackaging
-produces an APK that passes verification; both packaged native libraries exactly
-match the source-built inputs. That probe reused the compiled app library and
+produces an APK that passes verification; in the earlier probe both packaged
+native libraries exactly matched the source-built inputs. The current output
+provides the same link inputs to the Rust build, with the packaged ORT always
+coming from the AAR.
+That probe reused the compiled app library and
 current WASM assets. The ordinary release path still uses the checksum-pinned
 Sherpa archive for libsherpa-onnx-c-api.so and the Maven artifact for ORT,
-pending device inference and source-built Sherpa integration.
+pending device inference and an F-Droid-style build through this source path.
 [Sherpa Android script](https://github.com/k2-fsa/sherpa-onnx/blob/v1.13.4/build-android-arm64-v8a.sh),
 [ORT source builds](https://onnxruntime.ai/docs/build/android.html)
 
@@ -327,8 +332,11 @@ dependency being libonnxruntime.so. Sherpa staging now copies only
 libsherpa-onnx-c-api.so and deletes stale libonnxruntime.so copies that would
 collide with the AAR at packaging time; the AAR's unused libonnxruntime4j_jni.so
 Java-binding glue is excluded. Release builds keep the arm64-only ABI filter;
-debug/emulator builds merge all four AAR ABIs. The source-built ORT recipe
-remains the investigation/fallback path.
+debug/emulator builds merge all four AAR ABIs. The source recipe now links this
+same AAR for Sherpa's build-time ORT, and staging honors
+SHERPA_REQUIRE_SOURCE=1 to refuse the prebuilt archive in source-only builds.
+The earlier full ORT source-build recipe remains in git history as the
+investigation/fallback path.
 
 **WASM:** Tesseract's upstream build uses Emscripten 4.0.15. The probe uses an
 isolated local installation because Docker's daemon is unavailable. CMake 4
@@ -352,7 +360,7 @@ tracked edits and untracked files outside upstream ignore rules. Existing source
 checkouts are never reset. Named *-work directories are disposable and replaced
 on each OCR/PDF run. Do not store personal work there.
 
-Prerequisites: npm ci for the application; Node 24, Git, Python 3/venv/pip,
+Prerequisites: npm ci for the application; Node 24, Git,
 OpenJDK 17, CMake (tested 4.4.5), make, patch, autoconf, automake, libtool,
 pkg-config, a host C/C++ compiler and Android SDK/NDK 29.0.13846066.
 Use two build workers as encoded in the recipes. Install Emscripten 4.0.15 in
@@ -385,9 +393,11 @@ node scripts/fdroid/__tests__/check-source-ocr.js
 node scripts/fdroid/__tests__/check-source-pdf.js
 ~~~
 
-The native recipe uses an isolated Python venv with exact flatbuffers/numpy/
-packaging/protobuf versions, builds full CPU/shared ORT, passes its headers/library
-to Sherpa, strips both arm64 libraries and checks ELF alignment. Source archive
+The native recipe downloads the pinned Maven ORT AAR, re-verifying its
+SHA-256 even on cached copies, extracts the C/C++ headers and arm64 runtime,
+builds Sherpa's C API against them, strips the Sherpa library and checks ELF
+alignment, and copies the AAR runtime beside it as the Rust link input. It no
+longer compiles ORT. Source archive
 hashes remain governed by the pinned upstream CMake/dependency files. The OCR
 recipe uses upstream's pinned image libraries and compiler flags, with only a
 two-worker limit and selection of the three LSTM targets. It does not run the
@@ -417,7 +427,9 @@ claim that the original binary was produced from this exact wrapper/toolchain.
 Other pins were traced through the PDF.js binary-update history and wrapper
 Dockerfiles. Full pins, source URLs and license evidence are in the inventory.
 
-Outputs: source-arm64/ holds the stripped native pair; source-ocr/ holds six
+Outputs: source-arm64/ holds the stripped source-built Sherpa library plus the
+AAR's arm64 runtime; sherpa-onnx-sys resolves both Rust link inputs from this
+one SHERPA_ONNX_LIB_DIR directory. source-ocr/ holds six
 LSTM loader/WASM files; source-pdf/ holds four codec pairs and fallbacks;
 pdf-worker-work/build/generic/ holds the matching PDF.js bundles and resources.
 Each output directory has source-receipt.json with source pins and output hashes.
@@ -425,8 +437,15 @@ Those hashes describe a local build, not an independently reproduced reference.
 
 Validation in this stage:
 
-- Native recipe passes using existing compiled objects; both libraries pass
-  arm64/16 KB ELF checks. This is not a second clean native build.
+- Native recipe rebuilt Sherpa against the pinned AAR's headers and runtime —
+  the changed headers recompiled the core, so this is not a bare relink, but it
+  reuses the existing checkout and toolchain and is not a second clean native
+  build. The stripped library passes arm64/16 KB ELF checks. An F-Droid-style
+  build with SHERPA_REQUIRE_SOURCE=1 and SHERPA_ONNX_LIB_DIR produced an
+  unsigned APK that passes verification; its packaged ORT bytes match the
+  pinned Maven artifact and its Sherpa bytes match the source-built output.
+  The host environment remains non-hermetic; clean-room reproduction stays a
+  later gate.
 - OCR recipe rebuilds its disposable work tree from source. All three variants
   recognize the English and Arabic fixtures correctly. The Arabic fixture is
   our synthetic line, “مرحبا بكم في عالم القراءة”, rendered with the repository's
@@ -574,11 +593,13 @@ advisory scan. Build-tool environments have separate dependencies.
 3. [ ] Owner reviews GPL distribution/notice proposal and the unresolved
    Kareem/Supertonic/Kokoro evidence. Assemble the matching source/notices bundle;
    retain current features until the owner decides any licensing trade-off.
-4. [ ] After reviewing the integration plan, wire the source-built Sherpa/OCR/PDF
-   inputs into production preparation; ORT ships from the pinned Maven artifact
-   (approved 2026-11-03), so native source wiring covers Sherpa only. Preserve
-   matched API/worker/loader pairs and current versions. Freeze
-   F-Droid-compatible build tools and inputs.
+4. [ ] Source-only native wiring is proven locally (2026-11-03): the recipe
+   links the pinned Maven AAR, SHERPA_REQUIRE_SOURCE=1 fails closed, and an
+   F-Droid-style build produced a verifier-passing unsigned APK whose ORT bytes
+   match the artifact and whose Sherpa bytes match the source build. Remaining:
+   repeat the proof in a frozen, hermetic environment, and add OCR/PDF source
+   inputs only if review objects to npm WASM. Preserve matched API/worker/loader
+   pairs and current versions.
 5. [ ] Build matching clean Linux environments and verify upstream APK
    reproduction/signature copying. A repeated packaging run with reused native
    objects alone does not prove a complete reproducible build.
