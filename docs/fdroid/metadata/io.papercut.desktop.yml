@@ -29,7 +29,7 @@ Builds:
     ndk: r29
     prebuild: |-
       npm ci
-      rustup target add aarch64-linux-android
+      rustup toolchain install 1.98.1 --profile minimal --target aarch64-linux-android
     build: |-
       node scripts/fdroid/build-android-source-libs.js
       export SHERPA_ONNX_LIB_DIR="$PWD/.cache/android-production/source-arm64"

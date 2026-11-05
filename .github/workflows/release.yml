@@ -306,7 +306,11 @@ jobs:
         run: npm ci
 
       - name: Build unsigned Android release APK
-        run: npm run android:apk:release
+        run: |
+          node scripts/fdroid/build-android-source-libs.js
+          export SHERPA_ONNX_LIB_DIR="$PWD/.cache/android-production/source-arm64"
+          export SHERPA_REQUIRE_SOURCE=1
+          npm run android:apk:release
         env:
           NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/29.0.13846066
 

@@ -206,6 +206,9 @@ device acceptance gates below are complete.
 The existing npm run android:apk:native-tts remains a development/debug build.
 
 ~~~bash
+node scripts/fdroid/build-android-source-libs.js
+export SHERPA_ONNX_LIB_DIR="$PWD/.cache/android-production/source-arm64"
+export SHERPA_REQUIRE_SOURCE=1
 npm run android:apk:release
 node scripts/android/verify-android-apk.js --unsigned \
   src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
@@ -318,10 +321,11 @@ produces an APK that passes verification; in the earlier probe both packaged
 native libraries exactly matched the source-built inputs. The current output
 provides the same link inputs to the Rust build, with the packaged ORT always
 coming from the AAR.
-That probe reused the compiled app library and
-current WASM assets. The ordinary release path still uses the checksum-pinned
-Sherpa archive for libsherpa-onnx-c-api.so and the Maven artifact for ORT,
-pending device inference and an F-Droid-style build through this source path.
+That earlier probe reused the compiled app library and current WASM assets.
+Android CI and the Release workflow now run the same source Sherpa recipe as
+the F-Droid draft, require its output without a prebuilt fallback, and keep
+the Maven artifact for ORT. The developer/debug archive route remains available.
+Updated CI binary equality and device inference remain acceptance gates.
 [Sherpa Android script](https://github.com/k2-fsa/sherpa-onnx/blob/v1.13.4/build-android-arm64-v8a.sh),
 [ORT source builds](https://onnxruntime.ai/docs/build/android.html)
 
@@ -355,18 +359,22 @@ font. That smoke test does not establish general recognition quality or Android
 browser compatibility. The committed recipe builds only these three shipping
 LSTM variants, omitting upstream's unused legacy variants.
 
-### Repeatable source recipes (approved local investigation)
+### Repeatable source recipes
 
-Run from the repository root on Linux x86-64. These are investigation recipes;
-the ordinary app/release asset paths are unchanged. All generated files stay in
+Run from the repository root on Linux x86-64. The native Sherpa recipe is now
+used by Android CI/releases and the F-Droid draft. OCR/PDF recipes remain
+investigation tools; their production npm asset paths are unchanged. All generated files stay in
 ignored .cache/android-production/. The scripts reject a wrong source revision,
 tracked edits and untracked files outside upstream ignore rules. Existing source
 checkouts are never reset. Named *-work directories are disposable and replaced
 on each OCR/PDF run. Do not store personal work there.
 
-Prerequisites: npm ci for the application; Node 24, Git,
+Prerequisites: npm ci for the application; Node 22 in CI (local checks use 24), Git,
 OpenJDK 17, CMake (tested 4.4.5), make, patch, autoconf, automake, libtool,
 pkg-config, a host C/C++ compiler and Android SDK/NDK 29.0.13846066.
+Production Rust builds select the named 1.98.1 toolchain, not the floating
+stable alias; install its Android target with
+`rustup target add --toolchain 1.98.1 aarch64-linux-android`.
 Use two build workers as encoded in the recipes. Install Emscripten 4.0.15 in
 an isolated directory and set EMSDK to its absolute path. The local probe used
 emsdk installer commit c0bb220cb6e6f4e0fabb6f6db9efd53390ef5e56:
@@ -594,7 +602,7 @@ it changes): Linux x86-64, Node 24, rustc/cargo 1.98.1 with the committed
 lockfiles, NDK 29.0.13846066, OpenJDK 17, CMake 4.4.5, Gradle wrapper as
 committed. Baseline profiles are disabled as described below.
 
-The first runs of this check caught real non-determinism, all fixed:
+Earlier runs of this check caught the following non-determinism, now fixed:
 
 - Tauri serializes the config's CSP *object* form through a `HashMap`, randomizing
   directive order into the embedded config and the Rust library. The CSP is a
@@ -661,12 +669,14 @@ LD_LIBRARY_PATH="$task_shared_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
   --features native-tts-shared,experimental-search-embeddings
 ~~~
 
-Post-alignment proof on 2026-11-04 passed in the reference environment above:
-both fresh unsigned APKs have SHA-256
-`f5730bc3b5765b920719760a40c12e79f321e7bff9728a79ff11412ceee761f9`.
-The packaged Sherpa library matches the source receipt; the resulting APK
-passes the unsigned production verifier and contains the current notices
-byte-for-byte. This remains a one-environment proof.
+The source-build alignment on 2026-11-04 passes two fresh Rust/Gradle builds
+in the same checkout. Both unsigned APKs have SHA-256
+`64ebe81dffa99db60ae9a16cb1ad96599359fe187798524dfc9037750354a1f0`.
+The APK passes the unsigned production verifier and contains the current notices
+byte-for-byte. Sherpa matches its receipt and a separate clean native rebuild:
+`b50049cb13e3280c9ec58be0fc1c2040edb9850a0428629067e5cff01a7a1928`.
+This remains a one-environment proof; relocation testing below exposes an
+additional frontend blocker.
 
 PR [#91](https://github.com/muhannadnouri/papercut.io/pull/91)'s
 [CI run 41923862017](https://github.com/muhannadnouri/papercut.io/actions/runs/41923862017)
@@ -676,10 +686,11 @@ HTML/EPUB import and styled rendering, PDF, English/Arabic OCR, TTS voice
 download/preview, conceptual search and library transfer. These runtime checks
 remain required even when local compilation and reproducibility pass.
 
-The release workflow still uses the default prebuilt Sherpa path, while this
-proof uses source-built Sherpa. Comparing the owner's downloaded CI APK from
-that run with the retained source-only APK found the same 1,723 entry names
-and order, with exactly two differing entry contents:
+Historical baseline, before this source-build alignment: CI/release used the
+prebuilt Sherpa archive, while the local proof used source-built Sherpa.
+Comparing the owner's downloaded CI APK from that run with the retained
+source-only APK found the same 1,723 entry names and order, with exactly two
+differing entry contents:
 
 | Entry | CI bytes | Source-only bytes | Finding |
 | --- | ---: | ---: | --- |
@@ -694,13 +705,38 @@ the unsigned production verifier, but the APKs are **not byte-identical**:
 - CI SHA-256: `c353a6c16cfac79a10c2843765f7b2f59bd2571d7913375e6eeaafae0edbaa84`
 - Source-only SHA-256: `f5730bc3b5765b920719760a40c12e79f321e7bff9728a79ff11412ceee761f9`
 
-The proposed next stage is to use the existing source Sherpa recipe for upstream
-Android production builds too, normalize Rust/C/C++ source paths, align actual
-toolchain/source inputs and repeat the cross-environment comparison. Cold build
-time will increase. Review the workflow change before implementation and preserve
-the isolated signing job. Path differences are confirmed; additional native
-differences have not yet been excluded. Signing secrets are not needed for this
-unsigned comparison; production signing and signature copying remain later gates.
+CI/release Android build steps now run the existing pinned source Sherpa recipe
+and set `SHERPA_REQUIRE_SOURCE=1` before the fixed production build, matching the
+F-Droid draft's build commands. Cold builds take longer. The isolated signing
+job is unchanged. The production helper selects Rust 1.98.1 and normalizes
+checkout, Cargo, Rustup/standard-library and NDK paths; C/C++ compilation uses
+matching file-prefix maps. `CARGO_ENCODED_RUSTFLAGS` preserves caller flags and
+the three Android system-library link flags normally supplied by cargo-mobile.
+Developer/debug builds retain their existing route. Unsupported platforms return
+before SILMA's development-checkout fallback, allowing Android to omit that
+absolute path without changing Linux behavior.
+
+A fresh checkout at a different path still produces a different APK:
+`3b2cd353b2b1aac1c32014e2b335a0e34a177ef050757957d8746a4fe176368a`.
+Only `libapp_lib.so` differs among the 1,723 entries. Its embedded frontend
+includes different Pagefind 1.4.0 search-index bytes, despite identical source
+HTML and other frontend assets. Both app libraries and the rebuilt Sherpa omit
+the tested original checkout/home/SDK paths. Removing visible paths alone does
+not establish reproducibility. A controlled rebuild in the relocated checkout,
+reusing the first checkout's identical frontend output and normalized native
+inputs, produces the exact same `64ebe81d…` APK with all 1,723 entry contents
+matching. That isolates the observed mismatch to frontend index generation;
+it does not replace a complete relocated build or an independent native rebuild.
+
+The owner selected an upstream Pagefind upgrade review as the next stage. Review
+both upstream [deterministic-index PR #1104](https://github.com/Pagefind/pagefind/pull/1104)
+and its [completion #1124](https://github.com/Pagefind/pagefind/pull/1124), their
+released coverage, API/behavior and license changes before choosing a version.
+No Pagefind dependency change is included in this pass. After fixing the index,
+repeat full relocated builds and compare a new owner-run CI artifact; the old
+artifact cannot validate this changed pipeline. Signing secrets are not needed
+for unsigned comparison. Production signing and signature copying remain later
+gates.
 
 Completing gate 5 needs a production key and three more steps, run by the
 owner when that key exists (F-Droid rebuilds and compares the same way):
@@ -789,7 +825,8 @@ Build-tool environments have separate dependencies.
    Kareem reply, and reconciles the QCMS notice if rebuilt PDF assets ever
    ship. Retain current features until any remaining licensing trade-off is
    decided.
-4. [ ] Source-only native wiring is proven locally (2026-11-03): the recipe
+4. [ ] Source-only native wiring is proven locally (2026-11-03) and now wired into
+   CI/release Android builds (2026-11-04): the recipe
    links the pinned Maven AAR, SHERPA_REQUIRE_SOURCE=1 fails closed, and an
    F-Droid-style build produced a verifier-passing unsigned APK whose ORT bytes
    match the artifact and whose Sherpa bytes match the source build. Remaining:
@@ -799,7 +836,8 @@ Build-tool environments have separate dependencies.
 5. [ ] Reproducibility protocol in place (see the section above):
    `npm run check:android-reproducibility` proves fresh-compile reproducibility
    on one environment, with both APK copies retained. Remaining: repeat the
-   proof in a frozen second environment, then complete signature copying with
+   proof after the Pagefind fix in a relocated checkout and frozen second
+   environment, compare the new CI artifact, then complete signature copying with
    the production key and confirm fdroidserver's rebuild matches the published
    APK.
 6. [ ] On Pixel 6 and another Pixel: install after resetting the debug test app;
@@ -846,7 +884,17 @@ committed inputs. Two fresh source-only APK builds pass the byte comparison
 described above; the unsigned production verifier and packaged notice-byte
 checks pass. The earlier OCR/PDF source probes were not rerun for this
 upgrade. Production-key validation, second-environment/signature-copy proof,
-full platform CI and Pixel runtime results remain explicit gates.
+new-pipeline CI and Pixel runtime results remain explicit gates.
 
 [Submission guide](https://f-droid.org/en/docs/Submitting_to_F-Droid_Quick_Start_Guide/),
 [listing format](https://f-droid.org/en/docs/All_About_Descriptions_Graphics_and_Screenshots/)
+
+The 2026-11-04 native build-alignment pass additionally passes full frontend tests
+(97 files, 769 passed, one skipped), frontend production build, zero-warning
+script ESLint, packaging/source self-tests, and the full shipping-feature Rust
+suite (332 passed, nine existing ignores). Workflow YAML, unchanged signing/job
+structure, Android path selection and identical CI/release/F-Droid build commands
+were checked. The clean Sherpa rebuild and two fresh same-checkout APK builds
+pass; full relocation does not yet pass because of the Pagefind evidence above.
+No new remote CI run, production signing or physical-device testing was performed
+in this pass. The dependency graph/notices are unchanged; notices `--check` passes.

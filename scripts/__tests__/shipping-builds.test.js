@@ -35,7 +35,13 @@ vi.mock("../lib/desktop/platform.js", () => ({
   desktopBuildEnv: (_platform, env) => env,
   prepareDesktopBundleResources: calls.resources,
 }))
-vi.mock("../lib/android/build-env.js", () => ({ runTauriAndroidBuild: calls.android }))
+vi.mock("../lib/android/build-env.js", () => ({
+  runTauriAndroidBuild: calls.android,
+  androidProductionEnv: () => ({
+    RUSTUP_TOOLCHAIN: "1.98.1",
+    CARGO_ENCODED_RUSTFLAGS: "production remaps",
+  }),
+}))
 vi.mock("../lib/android/sherpa.js", () => ({
   androidSherpaLibDir: () => "/prepared/android",
   ensureAndroidSherpaLibs: calls.androidLibs,
@@ -115,6 +121,8 @@ it("keeps the explicit no-native Android build and custom native arguments", asy
 it("production Android builds retain native TTS/search and omit debug mode", async () => {
   await build("android/build-android.js", "linux", ["--native-tts", "--production"])
   expect(calls.android).toHaveBeenCalledWith(["android", "build", "--apk", "--target", "aarch64", "--features", "native-tts-shared,experimental-search-embeddings"], {
+    RUSTUP_TOOLCHAIN: "1.98.1",
+    CARGO_ENCODED_RUSTFLAGS: "production remaps",
     SHERPA_ONNX_LIB_DIR: "/prepared/android",
     ORT_LIB_LOCATION: "/prepared/android",
   })

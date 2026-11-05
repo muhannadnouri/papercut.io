@@ -13,7 +13,7 @@ are implied by this directory layout.
 | [ios](ios/) | iOS builds, native library preparation, unsigned device build check | Local Apple development, CI and releases |
 | [pdf](pdf/) | Stage installed PDF/OCR assets; generate manual PDF boundary fixtures | Frontend development/builds; optional diagnostics |
 | [checks](checks/) | Localization, model-download monitoring, mobile provider runner | Shared checks and explicit CI inference runs |
-| [fdroid](fdroid/) | Optional source-build investigation and its cache/receipt helper | Manual F-Droid preparation; not ordinary releases |
+| [fdroid](fdroid/) | Native source build and optional OCR/PDF probes, with cached inputs/receipts | Android CI/releases and manual F-Droid preparation |
 | [search](search/) | Search evaluation against the existing fixed corpus/baseline | Explicit evaluation runs |
 | [silma](silma/) | SILMA sidecar/runtime packaging and optional CUDA installation | SILMA workflows and explicit local setup |
 | [lib](lib/) | Shared process, path, download and platform helpers | Imported by entry scripts |
@@ -32,7 +32,7 @@ a unit test: model monitoring and installed-device inference are executable chec
 | `npm run dev` / `npm run build` | Frontend development / production assets | Installed npm dependencies; asset preparation runs automatically |
 | `npm run tauri:dev` / `npm run desktop` | Desktop development / packaging | Matching OS desktop toolchain; [build instructions](../README.md) |
 | `npm run android:apk:native-tts` | Development APK with shipping native features | Android SDK/NDK, Rust target and JDK; [Android guide](../docs/android-production-packaging.md) |
-| `npm run android:apk:release` | Unsigned arm64 production APK | Same Android toolchain; signing is a separate release job |
+| `npm run android:apk:release` | Unsigned arm64 production APK | Public CI/releases first run the native source recipe and export its source-required environment; see the Android guide; signing is a separate release job |
 | `npm run prepare:license-notices` | Regenerate the shipped Android third-party notices from pinned sources | Ignored `.cache/android-production` source checkouts and local npm/cargo state; `--check` verifies currency |
 | `npm run prepare:source-archive` | Build the per-release corresponding-source archive (GPL archives, MPL crate sources, notices, manifest) | Same checkouts plus cargo registry state; run at the final release commit and attach the output to that release |
 | `npm run check:android-reproducibility` | Prove two fresh source-only builds produce byte-identical unsigned APKs | Full Android toolchain; wipes Rust/Gradle outputs and rebuilds everything, 30-60 minutes |
@@ -70,9 +70,10 @@ Plain `npm test` excludes `.cache/`, retaining Vitest's default exclusions too.
 Source-build checkouts therefore do not add upstream tests to the project suite.
 Use `npm test -- src scripts` when you want an explicitly scoped project run.
 
-The [fdroid](fdroid/) recipes require additional native/WASM compilers and write
-only to the ignored `.cache/android-production/` tree. Their OCR/PDF checks use
-already-built probe outputs and are under `fdroid/__tests__/`. They are not run
-by ordinary packaging CI and do not prove clean APK reproducibility. Follow the
+The [fdroid](fdroid/) recipes write only to the ignored
+`.cache/android-production/` tree. Android CI/releases use the native Sherpa
+recipe; the OCR/PDF recipes and checks remain optional investigations requiring
+WASM compilers. Their checks use already-built probe outputs and are under
+`fdroid/__tests__/`. Those probes do not prove clean APK reproducibility. Follow the
 [single Android guide](../docs/android-production-packaging.md) for those commands,
 their prerequisites and the unresolved source/licensing decisions.

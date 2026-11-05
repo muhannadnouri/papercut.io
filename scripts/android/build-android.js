@@ -1,6 +1,9 @@
 import { existsSync } from "node:fs"
 import { join } from "node:path"
-import { runTauriAndroidBuild } from "../lib/android/build-env.js"
+import {
+  androidProductionEnv,
+  runTauriAndroidBuild,
+} from "../lib/android/build-env.js"
 import {
   SHERPA_DEFAULT_ANDROID_ABI,
   SHERPA_DEFAULT_ANDROID_RUST_TARGET,
@@ -49,6 +52,7 @@ async function runNativeTtsAndroidBuild(extraArgs) {
   console.log("[sherpa-android-build] voice and embedding models are downloaded on demand; Arabic preprocessing is embedded")
   console.log("[sherpa-android-build] target=" + rustTarget)
   await runTauriAndroidBuild(args, {
+    ...(production ? androidProductionEnv() : {}),
     SHERPA_ONNX_LIB_DIR: libDir,
     ORT_LIB_LOCATION: libDir,
   })
