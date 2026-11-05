@@ -7,6 +7,8 @@ Papercut has two search-indexing paths on purpose:
 
 This avoids the trap of trying to rebuild Pagefind on a user's device every time they add a document. Pagefind remains the starter-document engine, while SQLite FTS gives us incremental offline search for user-owned content.
 
+`npm run build:search-index` feeds the bundled HTML to Pagefind sequentially in sorted relative-path order. This makes assigned page numbers independent of filesystem traversal order; the build preserves Pagefind's URL normalization. See the [Android reproducibility protocol](android-production-packaging.md#reproducibility-protocol) for the APK comparison evidence and remaining release gates.
+
 ## Current Scope
 
 Keyword search is the default. Native shipping builds also compile an optional,

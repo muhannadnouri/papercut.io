@@ -14,7 +14,7 @@ are implied by this directory layout.
 | [pdf](pdf/) | Stage installed PDF/OCR assets; generate manual PDF boundary fixtures | Frontend development/builds; optional diagnostics |
 | [checks](checks/) | Localization, model-download monitoring, mobile provider runner | Shared checks and explicit CI inference runs |
 | [fdroid](fdroid/) | Native source build and optional OCR/PDF probes, with cached inputs/receipts | Android CI/releases and manual F-Droid preparation |
-| [search](search/) | Search evaluation against the existing fixed corpus/baseline | Explicit evaluation runs |
+| [search](search/) | Deterministic bundled search-index build and fixed-corpus search evaluation | Frontend builds and explicit evaluation runs |
 | [silma](silma/) | SILMA sidecar/runtime packaging and optional CUDA installation | SILMA workflows and explicit local setup |
 | [lib](lib/) | Shared process, path, download and platform helpers | Imported by entry scripts |
 | [fixtures](fixtures/) | Shared fixed inputs used by script, frontend and Rust checks | Tests and diagnostics |
@@ -30,6 +30,7 @@ a unit test: model monitoring and installed-device inference are executable chec
 | Command | When to use it | Requirements |
 | --- | --- | --- |
 | `npm run dev` / `npm run build` | Frontend development / production assets | Installed npm dependencies; asset preparation runs automatically |
+| `npm run build:search-index` | Index bundled HTML documents in fixed relative-path order | Existing `dist/documents/**/*.html`; uses locked Pagefind's Node API and writes `dist/pagefind` |
 | `npm run tauri:dev` / `npm run desktop` | Desktop development / packaging | Matching OS desktop toolchain; [build instructions](../README.md) |
 | `npm run android:apk:native-tts` | Development APK with shipping native features | Android SDK/NDK, Rust target and JDK; [Android guide](../docs/android-production-packaging.md) |
 | `npm run android:apk:release` | Unsigned arm64 production APK | Public CI/releases first run the native source recipe and export its source-required environment; see the Android guide; signing is a separate release job |

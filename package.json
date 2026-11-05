@@ -12,7 +12,7 @@
     "check:i18n": "node scripts/checks/check-i18n.mjs",
     "build:typecheck": "tsc -b",
     "build:vite": "npm run prepare:pdf-assets && vite build",
-    "build:search-index": "npx pagefind --site dist --glob \"documents/**/*.html\"",
+    "build:search-index": "node scripts/search/build-search-index.js",
     "browser": "npm run build && vite preview",
     "preview": "vite preview",
     "test": "vitest run",

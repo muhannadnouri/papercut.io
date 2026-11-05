@@ -141,6 +141,7 @@ jobs:
               src-tauri/tts/* | \
               src-tauri/vendor/sherpa-onnx-sys/* | \
               scripts/lib/* | \
+              scripts/search/build-search-index.js | \
               scripts/fdroid/source-build.js)
                 android_packaging=true
                 desktop_packaging=true

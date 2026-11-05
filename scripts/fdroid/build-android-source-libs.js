@@ -62,6 +62,8 @@ await run("cmake", ["-S", sherpa, "-B", build,
   "-DCMAKE_TOOLCHAIN_FILE=" + join(ndk, "build/cmake/android.toolchain.cmake"),
   "-DANDROID_ABI=arm64-v8a", "-DANDROID_PLATFORM=android-26", "-DCMAKE_BUILD_TYPE=Release",
   "-DCMAKE_C_FLAGS=" + prefixMaps, "-DCMAKE_CXX_FLAGS=" + prefixMaps,
+  // Strip shipping symbols before the linker hashes them into the retained build ID.
+  "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,--strip-all",
   "-DBUILD_SHARED_LIBS=ON", "-DSHERPA_ONNX_ENABLE_TTS=ON", "-DSHERPA_ONNX_ENABLE_C_API=ON",
   "-DCMAKE_POLICY_VERSION_MINIMUM=3.5", "-DCMAKE_POLICY_DEFAULT_CMP0169=OLD",
   ...["PYTHON", "TESTS", "CHECK", "PORTAUDIO", "JNI", "WEBSOCKET", "BINARY", "SPEAKER_DIARIZATION"].map(flag => "-DSHERPA_ONNX_ENABLE_" + flag + "=OFF"),

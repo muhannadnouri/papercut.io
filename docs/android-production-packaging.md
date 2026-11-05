@@ -5,9 +5,10 @@ implemented and locally checked; the F-Droid publication gates remain below.
 No production release or F-Droid submission has been made.
 
 For command discovery, start with the [script command map](../scripts/README.md).
-Android entry scripts are in scripts/android/; optional source-build investigation
-is in scripts/fdroid/. Tests sit in adjacent __tests__/ folders. Existing npm
-command names, build flags, CI selection and isolated signing are unchanged.
+Android entry scripts are in scripts/android/; the native source recipe and
+optional OCR/PDF probes are in scripts/fdroid/. Tests sit in adjacent __tests__/
+folders. Public npm command names, shipping features and isolated signing remain
+stable; CI selection includes the shared build inputs described below.
 Source-build caches are excluded from ordinary Vitest test discovery. The
 owner-approved Maven ORT route, source inventory and reproducibility work are
 documented below.
@@ -26,6 +27,13 @@ documented below.
   declaration has not been changed or approved for replacement.
 - Repository-owned packaging scripts and tests use JavaScript.
 
+Byte-for-byte matching against the developer's APK is required for the agreed
+shared-signature route, rather than for every F-Droid inclusion. F-Droid can
+otherwise build and sign an app with its own key; that creates a separate update
+identity. Independent matching connects the released APK to the declared source
+and build inputs. It does not replace source/security review, licensing checks
+or device tests. See F-Droid's [submission guide](https://f-droid.org/en/docs/Submitting_to_F-Droid_Quick_Start_Guide/#setup-reproducible-build).
+
 ## 1. What changed, and what remains
 
 | Area | This pass | Remaining gate |
@@ -33,7 +41,7 @@ documented below.
 | Production command | npm run android:apk:release keeps the shipping TTS/search features and omits debug mode; real unsigned APK checked | Pixel acceptance |
 | Signing | Build/check unsigned APK first; sign with SDK apksigner on a fresh runner in the protected android-release environment | Owner creates key and GitHub secrets; validate the actual production certificate |
 | Versioning | Committed Android code 1010000 matches the inspected 1.10.0 debug test APK | Choose the first new production version/tag with the owner; test increasing-code updates |
-| Native staging | Source-provided SHERPA_ONNX_LIB_DIR is honored without a prebuilt fallback and SHERPA_REQUIRE_SOURCE=1 refuses the archive; unused C++/JNI wrappers removed; source-built Sherpa linked against the pinned Maven ORT AAR packaged and checked | Device inference and complete source-build integration |
+| Native staging | Source-provided SHERPA_ONNX_LIB_DIR is honored without a prebuilt fallback and SHERPA_REQUIRE_SOURCE=1 refuses the archive; unused C++/JNI wrappers removed; source-built Sherpa linked against the pinned Maven ORT AAR packaged and checked | Independent build and device inference |
 | APK checks | JS verifier checks identity/version, non-debuggable manifest, certificate, arm64 contents, required libraries, license presence and 16 KB ELF/ZIP alignment; disposable-key signing passes | Production certificate and clean-build reproduction |
 | Source recipes | Pinned JS recipes build the Sherpa library against the pinned Maven ORT AAR, three OCR cores and four PDF codecs with a matching PDF.js worker; local compatibility checks pass | Integrate approved source outputs, freeze the complete environment and prove clean APK reproduction |
 | F-Droid | Licensing decisions recorded; notices shipped in APK; corresponding-source archive tooling and fdroiddata metadata draft in repo | Owner attaches source archive per release; fdroiddata lint/scanner/clean build; submit and address review |
@@ -669,14 +677,14 @@ LD_LIBRARY_PATH="$task_shared_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
   --features native-tts-shared,experimental-search-embeddings
 ~~~
 
-The source-build alignment on 2026-11-04 passes two fresh Rust/Gradle builds
-in the same checkout. Both unsigned APKs have SHA-256
+The native-only alignment baseline on 2026-11-04, before sorted Pagefind
+ingestion, passed two fresh Rust/Gradle builds in the same checkout. Both unsigned APKs have SHA-256
 `64ebe81dffa99db60ae9a16cb1ad96599359fe187798524dfc9037750354a1f0`.
 The APK passes the unsigned production verifier and contains the current notices
 byte-for-byte. Sherpa matches its receipt and a separate clean native rebuild:
 `b50049cb13e3280c9ec58be0fc1c2040edb9850a0428629067e5cff01a7a1928`.
-This remains a one-environment proof; relocation testing below exposes an
-additional frontend blocker.
+That was a one-environment proof; initial relocation testing exposed the
+frontend blocker resolved by the later implementation/proof below.
 
 PR [#91](https://github.com/muhannadnouri/papercut.io/pull/91)'s
 [CI run 41923862017](https://github.com/muhannadnouri/papercut.io/actions/runs/41923862017)
@@ -716,7 +724,7 @@ Developer/debug builds retain their existing route. Unsupported platforms return
 before SILMA's development-checkout fallback, allowing Android to omit that
 absolute path without changing Linux behavior.
 
-A fresh checkout at a different path still produces a different APK:
+Before sorted ingestion, a fresh checkout at a different path produced a different APK:
 `3b2cd353b2b1aac1c32014e2b335a0e34a177ef050757957d8746a4fe176368a`.
 Only `libapp_lib.so` differs among the 1,723 entries. Its embedded frontend
 includes different Pagefind 1.4.0 search-index bytes, despite identical source
@@ -728,15 +736,150 @@ inputs, produces the exact same `64ebe81d…` APK with all 1,723 entry contents
 matching. That isolates the observed mismatch to frontend index generation;
 it does not replace a complete relocated build or an independent native rebuild.
 
-The owner selected an upstream Pagefind upgrade review as the next stage. Review
-both upstream [deterministic-index PR #1104](https://github.com/Pagefind/pagefind/pull/1104)
-and its [completion #1124](https://github.com/Pagefind/pagefind/pull/1124), their
-released coverage, API/behavior and license changes before choosing a version.
-No Pagefind dependency change is included in this pass. After fixing the index,
-repeat full relocated builds and compare a new owner-run CI artifact; the old
-artifact cannot validate this changed pipeline. Signing secrets are not needed
-for unsigned comparison. Production signing and signature copying remain later
-gates.
+### Pagefind upgrade review (2026-11-04)
+
+The native alignment is committed as `be6a2d9`. The following review used
+isolated experiments before the owner approved the build-only implementation
+described below. Pagefind remains locked at 1.4.0; no dependency upgrade was made.
+
+The upstream [1.5.2 release](https://github.com/Pagefind/pagefind/releases/tag/v1.5.2)
+includes [PR #1104](https://github.com/Pagefind/pagefind/pull/1104), but not its
+later [completion #1124](https://github.com/Pagefind/pagefind/pull/1124).
+The published [1.6.0 release](https://github.com/Pagefind/pagefind/releases/tag/v1.6.0)
+(November 1, 2026) includes the completion. Both versions were installed only in
+temporary review directories, leaving the repository lockfiles/node_modules
+unchanged.
+
+Neither upgrade alone fixes the observed problem. The tagged 1.6.0
+[`walk_for_files` implementation](https://github.com/Pagefind/pagefind/blob/v1.6.0/pagefind/src/lib.rs)
+collects the directory walk without sorting, and
+[`build_indexes`](https://github.com/Pagefind/pagefind/blob/v1.6.0/pagefind/src/index/mod.rs)
+assigns page numbers from input order. Controlled CLI builds on identical HTML,
+created in opposite file orders under fresh roots, change index bytes in all
+three tested versions.
+
+| Version | Existing CLI, reversed file creation order | Sorted sequential Node API: starter documents | Sorted API: English diacritics/filters/sorts and Arabic fixture |
+| --- | --- | --- | --- |
+| Locked 1.4.0 | Different bytes | 8/8 identical | 8/8 identical |
+| 1.5.2 | Different bytes | 8/8 identical | Different bytes |
+| 1.6.0 | Different bytes | 8/8 identical | 8/8 identical |
+
+Each CLI corpus used four fresh directories; each sorted-API corpus used eight
+fresh Pagefind processes, alternating the source directory/file creation order.
+Output filenames and every output file's SHA-256 were compared, excluding logs.
+These bounded checks do not establish determinism for every possible corpus.
+
+The review recommended retaining locked 1.4.0 and replacing only
+`build:search-index`'s directory-walking CLI invocation with a small script using the existing [Node API](https://pagefind.app/docs/node-api/).
+Enumerate the same `dist/documents/**/*.html` inputs, sort canonical relative
+paths in a fixed order, `await addHTMLFile` one at a time, preserve the existing
+`/documents/...html` URLs and write to `dist/pagefind`. Check every API error and
+close the service on success or failure. Retain the public npm command name.
+Reach: `package.json`, the new script and focused regression checks, the shared
+CI packaging selector, the script command map and this guide. No runtime search
+hook, imported-document index or dependency upgrade is needed for that change.
+
+The isolated 1.4.0 prototype preserves all three starter fragments byte-for-byte
+after excluding their assigned `page_number`. Real JS/WASM API smoke checks for
+1.4.0 and 1.6.0 exercised the empty query/fallback, word, quoted term, quoted
+phrase and bookmarks queries, including result `id`, `data()`, URL, title and
+excerpt shapes. The six query result sets match; the fallback `a` ordering
+changes between versions. These are Node main-thread checks, not WebView/worker
+or general search-quality acceptance.
+
+An upgrade remains an optional separate change: the
+[tagged changelog](https://github.com/Pagefind/pagefind/blob/v1.6.0/CHANGELOG.md)
+describes metadata/title ranking, diacritic/phrase matching, stemming/segmentation
+and automatic worker changes across 1.5/1.6. The package and upstream project
+still declare MIT, and the three tagged root LICENSE files are byte-identical.
+The wrapper has no ordinary dependencies; its platform binary packages change
+version and newer releases add Windows arm64. This is not a transitive WASM
+license/source clearance. If an upgrade is selected later, review that graph,
+refresh the shipped notices/inventory and test Android/iOS worker/CSP and search
+behavior before adoption. The build-only implementation keeps that graph.
+
+Ignored evidence is retained under
+`.cache/android-production/parity-review/pagefind-review/`: CLI and sorted-API
+hash manifests, source-file hashes, package metadata, query results and the
+experimental harnesses. The review itself did not rebuild an APK; the following
+implementation stage repeats that proof. A new owner-run CI artifact is still
+needed; the old artifact cannot validate the changed pipeline. Signing secrets
+are not needed for unsigned comparison. Production signing and signature copying
+remain later gates.
+
+### Deterministic starter-document index build
+
+`npm run build:search-index` now invokes `scripts/search/build-search-index.js`.
+It enumerates the existing `dist/documents/**/*.html` scope, sorts relative paths
+with a fixed string ordering and awaits each `addHTMLFile` call before the next.
+Relative `sourcePath` values let Pagefind retain its own URL normalization,
+including nested `index.html` handling. Every API error fails the build and the
+service closes in a `finally` block. Output remains `dist/pagefind`; the existing
+frontend, Android, iOS and desktop build commands all use this entry point.
+
+The shared CI packaging selector includes this script. The change does not alter
+runtime search hooks, imported-document FTS data, app version, dependency locks,
+license decisions or signing isolation. Pagefind's internal page numbers and
+content hashes can change once as ordering becomes stable; canonical starter
+URLs/content are retained. Check tied-result ordering during device acceptance.
+
+The focused regression checks use four fresh processes/directories with opposite
+file creation orders and compare every generated index file's SHA-256. They also
+compare real CLI/API fragments, excluding assigned page numbers, for nested index
+pages and filenames with spaces/Unicode. Other checks cover sequential ingestion,
+empty input, API-reported errors/rejections and service cleanup. Full frontend
+validation passes (98 files, 776 tests passed, one existing skip), the production
+frontend build passes, and targeted ESLint has zero warnings. The actual Bash CI
+selector passes new-script routing and three controls; only its shared path list
+changes. Final APK results follow.
+
+Rebuilding native inputs in the relocated checkout exposed a second blocker:
+the shipped Sherpa sections matched, except for `.note.gnu.build-id`. Before
+stripping, the symbol/debug metadata differed, including ThinLTO symbol suffixes;
+the linker had already included those differences in its build ID. The source
+recipe now passes `-Wl,--strip-all` at shared-library link time, before build-ID
+calculation, rather than relying only on post-link stripping. A build ID is still
+retained. This production recipe also leaves its intermediate shared library
+stripped; separate unstripped debug artifacts are not produced. Comparing the
+final library's sections to the earlier shipping output
+shows that only the build-ID section changes; other section bytes, including
+executable code, dynamic symbols and unwind data, are preserved. Link probes
+from both checkout locations produce identical outputs. Final recipe/APK proof
+below uses the actual post-strip outputs, not those probes. See
+[LLD's ELF writer](https://github.com/llvm/llvm-project/blob/llvmorg-21.1.0/lld/ELF/Writer.cpp)
+for the build-ID calculation over linker output.
+
+Final proof on 2026-11-04: two fresh Rust/Gradle builds in the original checkout
+and one fresh Rust/Gradle build in a relocated checkout produce byte-identical
+unsigned APKs, SHA-256
+`4cf48620c35f6949030525178b79574a0c5c611668e930d94f2a06472d161c20`.
+All 1,723 APK entry names/order/contents match; all 84 frontend file hashes,
+including 14 Pagefind files, match. The relocated checkout regenerated its own
+frontend and rebuilt Sherpa from the pinned sources with fresh native build
+outputs, then used the final linker setting. No compiled native library or
+frontend output was copied from the original checkout for this final proof.
+
+The actual source recipes in both locations produce Sherpa SHA-256
+`3936e1f978f0294ef488f2494dcb95cd19f81d9191912753a21bf7c5ba825fb8`.
+The packaged library matches that receipt; the pinned Maven ORT bytes are
+unchanged. The unsigned production verifier passes 1.10.0 / 1010000 and the APK
+contains the current notices byte-for-byte. Five packaging/source-state
+self-tests pass. Report and relocated APK:
+`.cache/android-production/parity-review/sorted-index-proof/`; the original two
+APKs remain under `.cache/android-production/reproducibility/`.
+
+This is a same-host, same-toolchain relocation proof. Both checkouts share the
+Cargo/Rustup/SDK homes and the installed npm dependencies; verified source/archive
+inputs were reused, rather than downloaded independently. It does not establish
+CI/F-Droid buildserver parity or production-signature reproducibility. Owner next:
+commit/push these changes to PR #91, let its new CI build complete, and retain its
+unsigned APK for comparison against this hash. No duplicate unchanged-commit
+manual dispatch is needed if the PR run covers the platform jobs. Then validate
+the actual fdroiddata/buildserver recipe and complete production signing/device
+acceptance. Regenerate evidence for v1.10.1 after the planned testing/merge and
+version bump; this proof is still for 1.10.0.
+
+### Production signature comparison
 
 Completing gate 5 needs a production key and three more steps, run by the
 owner when that key exists (F-Droid rebuilds and compares the same way):
@@ -835,9 +978,10 @@ Build-tool environments have separate dependencies.
    pairs and current versions.
 5. [ ] Reproducibility protocol in place (see the section above):
    `npm run check:android-reproducibility` proves fresh-compile reproducibility
-   on one environment, with both APK copies retained. Remaining: repeat the
-   proof after the Pagefind fix in a relocated checkout and frozen second
-   environment, compare the new CI artifact, then complete signature copying with
+   on one environment, with both APK copies retained. Sorted Pagefind ingestion
+   and link-time native stripping now also pass a fresh relocated-checkout proof.
+   Remaining: repeat in a frozen second environment, compare the new CI artifact,
+   then complete signature copying with
    the production key and confirm fdroidserver's rebuild matches the published
    APK.
 6. [ ] On Pixel 6 and another Pixel: install after resetting the debug test app;
@@ -895,6 +1039,6 @@ script ESLint, packaging/source self-tests, and the full shipping-feature Rust
 suite (332 passed, nine existing ignores). Workflow YAML, unchanged signing/job
 structure, Android path selection and identical CI/release/F-Droid build commands
 were checked. The clean Sherpa rebuild and two fresh same-checkout APK builds
-pass; full relocation does not yet pass because of the Pagefind evidence above.
-No new remote CI run, production signing or physical-device testing was performed
-in this pass. The dependency graph/notices are unchanged; notices `--check` passes.
+pass. That native-only pass's failed relocation was superseded by the sorted
+Pagefind/link-time stripping proof above. No new remote CI run, production signing
+or physical-device testing was performed in these local passes. The dependency graph/notices are unchanged; notices `--check` passes.
