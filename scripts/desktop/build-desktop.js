@@ -9,6 +9,7 @@ import {
   exitFromResult,
 } from "../lib/process.js"
 import { tauriCommand } from "../lib/tauri.js"
+import { productionBuildRevision } from "../lib/build-revision.js"
 
 const isStatic = process.argv.includes("--static")
 const bundles = desktopBundles()
@@ -20,6 +21,7 @@ const platform = currentDesktopPlatform()
 prepareDesktopBuild(platform, { isStatic })
 const env = desktopBuildEnv(platform, {
   ...process.env,
+  PAPERCUT_BUILD_REVISION: productionBuildRevision(),
   PAPERCUT_NATIVE_TTS_LINK: linkMode,
 })
 

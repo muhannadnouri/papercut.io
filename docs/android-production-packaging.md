@@ -910,18 +910,95 @@ original two clean reference APKs are retained separately. The GitHub artifact
 metadata was checked, but the artifact ZIP was not independently downloaded;
 the binary comparison uses the owner's supplied APK.
 
-Next implementation review: make the diagnostic revision an explicit,
-deterministic source input in the shared production/F-Droid build path, rather
-than depending on whether the caller happens to be GitHub Actions. Preserve the
-useful revision information and define how a checkout/release revision is
-supplied, including source exports without Git metadata, before changing it.
-No builder or diagnostics code was changed in this verification pass. A repeated
-unchanged-commit CI run is unnecessary. After the stamp contract is implemented,
-validate the real fdroiddata/buildserver recipe and complete production signing,
-Pixel acceptance and the release-specific metadata/source archive work.
+That verification pass changed no builder or diagnostics code and is committed
+as `ef16d94c`. The owner then approved the revision contract below. The old CI APK
+remains useful historical evidence; a new CI run is needed for the implementation,
+which also reaches the desktop/iOS packaging wrappers. After that, validate the
+real fdroiddata/buildserver recipe and complete production signing, Pixel
+acceptance and the release-specific metadata/source archive work.
 
 Ignored report, run metadata and matched-stamp APK:
 `.cache/android-production/parity-review/ci-41964028402/`.
+
+### Production source-revision contract
+
+The transfer diagnostic `build` field now reads `PAPERCUT_BUILD_REVISION`.
+`scripts/lib/build-revision.js` supplies that input through Android production,
+desktop packaging, iOS archive/export and unsigned iOS device-check wrappers.
+Local production commands, CI/release jobs and the F-Droid draft therefore use
+the same resolver without changing the public npm command names. No GitHub
+variable is needed to construct the diagnostic revision.
+
+- A checkout with a root `.git` directory or worktree `.git` file uses the full
+  checked-out commit ID. Parent repositories and inherited `GIT_DIR`,
+  `GIT_WORK_TREE` or `GIT_COMMON_DIR` do not select a different source identity.
+- An explicitly supplied `PAPERCUT_BUILD_REVISION` must be a full 40-character
+  hexadecimal revision for this SHA-1 repository. It is canonicalized to lowercase
+  and must match the checkout when Git metadata is present. A broken checkout
+  fails rather than silently accepting an override.
+- An exported source tree without `.git` requires that explicit revision from
+  the verified release's source metadata. The corresponding-source archive's
+  `MANIFEST.md` already names the application commit; use the metadata matching
+  the actual exported application source, rather than an unrelated tag/history.
+- Official production wrappers fail when the required revision is missing or
+  invalid. Direct developer Cargo/Tauri/debug builds can omit it; their diagnostic
+  field is then null. The runtime JSON shape, app version and transfer protocol
+  are unchanged.
+
+For a source export, set the value before the existing production command:
+
+~~~bash
+# Replace this placeholder with the full application commit from the release metadata.
+export PAPERCUT_BUILD_REVISION='<full-40-character-application-commit>'
+node scripts/fdroid/build-android-source-libs.js
+export SHERPA_ONNX_LIB_DIR="$PWD/.cache/android-production/source-arm64"
+export SHERPA_REQUIRE_SOURCE=1
+npm run android:apk:release
+~~~
+
+A Git checkout needs no export: the resolver supplies its actual `HEAD`. For PR
+builds that can be GitHub's temporary merge commit. Do not substitute the branch
+head when different code was checked out. Builds with different embedded commit
+IDs can legitimately have different APK hashes even when their file trees match.
+Compare the same revision for reproduction, especially the final v1.10.1 release
+tag. The stamp describes the checkout base; it does not certify uncommitted
+changes. Official releases still use clean tagged source. An export's supplied
+label is not a substitute for verifying source/archive integrity.
+
+Validation includes real temporary Git checkouts, detached worktrees, exports
+inside parent repositories, inherited Git path variables, malformed/mismatched
+values and missing export metadata. Packaging-boundary checks cover all callers.
+Full frontend tests pass (99 files, 785 passed, one existing skip), the production
+frontend build and targeted ESLint pass, and the shipping-feature Rust suite
+passes (332 passed, nine existing ignores). The final focused resolver/caller
+checks pass (25 tests), including the refined Git-marker detection.
+
+Two fresh Git-checkout Rust/Gradle APK builds and one fresh source-export
+Rust/Gradle build without `.git` are byte-identical, SHA-256
+`2e81c7678e0152a7fa3ae08cbd8003282e6ebf77a59990079b5a57e9adac26a6`.
+All 1,723 APK entries, 84 frontend files and 14 Pagefind files match. The Git
+builds used ambient `GITHUB_SHA=a5f4d82…`; the export used a different GitHub
+value and supplied the same project revision explicitly. The APK embeds project
+revision `ef16d94ca266457fb2d9e72fdbc9b40144a957db`, excludes those ambient GitHub
+stamps, matches the current notices and passes unsigned production verification.
+The verified Sherpa/ORT pair was reused unchanged; no C++ rebuild was needed.
+
+These are uncommitted working-tree review candidates based on checkout
+`ef16d94c`, not published releases or proof that that commit alone contains the
+implementation. The export was assembled from that base plus the same reviewed
+changes. Both builds share the host/toolchain/dependency homes; an independent
+CI/F-Droid/signature check is still needed. Report and retained export APK:
+`.cache/android-production/parity-review/revision-contract/`; the two clean Git
+APKs remain in `.cache/android-production/reproducibility/`.
+
+Committing changes updates the embedded checkout revision and therefore the APK
+hash. Owner next: commit/push this implementation and inspect the new full PR CI
+run. For an exact CI comparison, build the actual checked-out CI commit (including
+a PR merge commit), or use its matching source export and declared revision.
+A checkout override naming another commit is deliberately rejected even when
+both commits have the same tree. Final release reproduction uses the v1.10.1
+release commit after the planned testing/merge/version bump. The actual F-Droid
+buildserver, production key/signature and Pixel acceptance gates remain open.
 
 ### Production signature comparison
 
@@ -1025,9 +1102,10 @@ Build-tool environments have separate dependencies.
    on one environment, with both APK copies retained. Sorted Pagefind ingestion
    and link-time native stripping now also pass a fresh relocated-checkout proof.
    CI/local APK bytes also match when the same diagnostic revision stamp is
-   supplied. Remaining: declare that stamp consistently, validate the frozen
-   fdroidserver environment, then complete signature copying with the production
-   key and confirm its rebuild matches the published APK.
+   supplied. The shared production resolver now declares that stamp consistently
+   and passes Git/source-export APK comparison. Remaining: new implementation CI,
+   the frozen fdroidserver environment, then signature copying with the production
+   key and confirmation that its rebuild matches the published APK.
 6. [ ] On Pixel 6 and another Pixel: install after resetting the debug test app;
    test import/open-with, bookmarks, English/Arabic OCR, scanner, voice
    download/preview, Arabic preprocessing, conceptual search, audiobook generation

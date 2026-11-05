@@ -362,6 +362,11 @@ In protected `apple-release` environment:
 
 ## iOS: Repo Work After Apple Work
 
+The macOS desktop, iOS archive/export and unsigned device-check wrappers use the
+shared source-revision resolver for diagnostic metadata. Git checkouts need no
+extra variable; exported sources must supply `PAPERCUT_BUILD_REVISION` from the
+matching release metadata. See the [source-revision contract](android-production-packaging.md#production-source-revision-contract).
+
 ### 1. Commit generated Tauri iOS project
 
 `src-tauri/gen/apple` has now been generated and extracted into the repo. Review and commit these files because Tauri expects the generated Apple project to exist in source control before `npm run ios:ipa` can build on CI.

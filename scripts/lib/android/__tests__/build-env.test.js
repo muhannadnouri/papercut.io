@@ -14,6 +14,7 @@ import {
 
 const compiler = vi.hoisted(() => vi.fn())
 vi.mock("node:child_process", () => ({ execFileSync: compiler }))
+vi.mock("../../build-revision.js", () => ({ productionBuildRevision: () => "cd".repeat(20) }))
 
 beforeEach(() => {
   compiler.mockImplementation((_file, args) => args[0] === "-vV"
@@ -32,6 +33,7 @@ it("pins production Rust, preserves flags and keeps nested paths/spaces intact",
   const env = androidProductionEnv()
   const flags = env.CARGO_ENCODED_RUSTFLAGS.split("\x1f")
   expect(env.RUSTUP_TOOLCHAIN).toBe("1.98.1")
+  expect(env.PAPERCUT_BUILD_REVISION).toBe("cd".repeat(20))
   expect(flags.slice(0, 2)).toEqual(["-C", "opt-level=2"])
   expect(flags).toContain("-Clink-arg=-landroid")
   expect(flags).toContain("-Clink-arg=-llog")

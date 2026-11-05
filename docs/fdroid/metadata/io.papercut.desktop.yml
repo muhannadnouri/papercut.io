@@ -30,6 +30,7 @@ Builds:
     prebuild: |-
       npm ci
       rustup toolchain install 1.98.1 --profile minimal --target aarch64-linux-android
+    # The production wrapper derives PAPERCUT_BUILD_REVISION from this checkout.
     build: |-
       node scripts/fdroid/build-android-source-libs.js
       export SHERPA_ONNX_LIB_DIR="$PWD/.cache/android-production/source-arm64"

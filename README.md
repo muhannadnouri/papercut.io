@@ -234,6 +234,10 @@ security alerts are resolved.
 npm run desktop
 ```
 
+Production packaging derives its diagnostic build revision from the checkout.
+For exported sources without `.git`, supply `PAPERCUT_BUILD_REVISION` from the
+matching release metadata; see the [source-revision contract](docs/android-production-packaging.md#production-source-revision-contract).
+
 When this command is run from a Flatpak-hosted editor terminal, the script automatically delegates the desktop build to the host OS with `flatpak-spawn --host`. That keeps the command the same while letting Tauri and `linuxdeploy` see the real host WebKitGTK/GTK libraries needed for `.deb`, `.rpm`, and AppImage bundling. You do not need to source `tauri-env.sh` before `npm run desktop`; if it has already been sourced, the desktop wrapper removes the Flatpak pkg-config variables before running the host build.
 
 This runs the full pipeline:

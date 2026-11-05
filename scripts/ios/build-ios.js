@@ -17,6 +17,7 @@ import {
 } from "../lib/process.js"
 import { SRC_TAURI_DIR } from "../lib/paths.js"
 import { tauriCommand } from "../lib/tauri.js"
+import { productionBuildRevision } from "../lib/build-revision.js"
 
 const initProject = process.argv.includes("--init")
 const nativeTts = process.argv.includes("--native-tts")
@@ -51,7 +52,10 @@ if (initProject) {
     fail("Missing " + appleProjectDir + ". Run npm run ios:init on macOS, commit src-tauri/gen/apple, then rerun npm run ios:ipa.")
   }
 
-  const env = { ...process.env }
+  const env = {
+    ...process.env,
+    PAPERCUT_BUILD_REVISION: productionBuildRevision(),
+  }
   const featureArgs = []
   if (nativeTts) {
     const slice = sherpaSliceForTarget(effectiveTarget)

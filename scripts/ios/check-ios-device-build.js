@@ -15,6 +15,7 @@ import {
   iosSherpaLibDir,
 } from "../lib/ios/sherpa.js"
 import { runSync } from "../lib/process.js"
+import { productionBuildRevision } from "../lib/build-revision.js"
 import {
   ROOT,
   SRC_TAURI_DIR,
@@ -84,6 +85,7 @@ async function ensureAssets() {
 async function buildRustDeviceLib() {
   const env = {
     ...process.env,
+    PAPERCUT_BUILD_REVISION: productionBuildRevision(),
     IPHONEOS_DEPLOYMENT_TARGET: iosDeploymentTarget,
     SHERPA_ONNX_LIB_DIR: iosSherpaLibDir(SHERPA_IOS_DEVICE_SLICE),
     ORT_LIB_LOCATION: iosSherpaLibDir(SHERPA_IOS_DEVICE_SLICE),

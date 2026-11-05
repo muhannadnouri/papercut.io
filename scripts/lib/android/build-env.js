@@ -13,6 +13,7 @@ import {
 } from "../process.js"
 import { ROOT } from "../paths.js"
 import { tauriCommand } from "../tauri.js"
+import { productionBuildRevision } from "../build-revision.js"
 
 export { ensureLocalJdk }
 
@@ -51,6 +52,7 @@ export function androidProductionEnv() {
     ?? process.env.RUSTFLAGS?.split(/\s+/) ?? []
   return {
     RUSTUP_TOOLCHAIN: ANDROID_RUST_TOOLCHAIN,
+    PAPERCUT_BUILD_REVISION: productionBuildRevision(),
     CARGO_ENCODED_RUSTFLAGS: [
       ...flags.filter(Boolean),
       // shortcut: encoded flags replace cargo-mobile's link flags; recheck these libraries on CLI upgrades.

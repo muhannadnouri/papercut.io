@@ -15,6 +15,7 @@ const calls = vi.hoisted(() => ({
   prepare: vi.fn(),
   resources: vi.fn(),
 }))
+vi.mock("../lib/build-revision.js", () => ({ productionBuildRevision: () => "cd".repeat(20) }))
 vi.mock("../lib/process.js", () => ({
   runSync: calls.runSync,
   exitFromResult: calls.exitFromResult,
@@ -39,6 +40,7 @@ vi.mock("../lib/android/build-env.js", () => ({
   runTauriAndroidBuild: calls.android,
   androidProductionEnv: () => ({
     RUSTUP_TOOLCHAIN: "1.98.1",
+    PAPERCUT_BUILD_REVISION: "cd".repeat(20),
     CARGO_ENCODED_RUSTFLAGS: "production remaps",
   }),
 }))
@@ -97,6 +99,7 @@ it.each(["linux", "win32", "darwin"])("desktop ships the shared provider on %s w
   expect(calls.resources.mock.calls[0][1].feature).toBe(features)
   expect(calls.runSync.mock.calls[0][1]).toEqual(["build", "--features", features, ...bundles])
   expect(calls.runSync.mock.calls[0][2].env.PAPERCUT_NATIVE_TTS_LINK).toBe("shared")
+  expect(calls.runSync.mock.calls[0][2].env.PAPERCUT_BUILD_REVISION).toBe("cd".repeat(20))
 })
 it("keeps the explicit static desktop alternative separate", async () => {
   await build("desktop/build-desktop.js", "linux", ["--static"])
@@ -122,6 +125,7 @@ it("production Android builds retain native TTS/search and omit debug mode", asy
   await build("android/build-android.js", "linux", ["--native-tts", "--production"])
   expect(calls.android).toHaveBeenCalledWith(["android", "build", "--apk", "--target", "aarch64", "--features", "native-tts-shared,experimental-search-embeddings"], {
     RUSTUP_TOOLCHAIN: "1.98.1",
+    PAPERCUT_BUILD_REVISION: "cd".repeat(20),
     CARGO_ENCODED_RUSTFLAGS: "production remaps",
     SHERPA_ONNX_LIB_DIR: "/prepared/android",
     ORT_LIB_LOCATION: "/prepared/android",
@@ -138,6 +142,7 @@ it.each([
 it.each([{ args: [] }, { args: ["--ci-check"] }])("iOS native export/archive uses the linked provider with $args", async ({ args }) => {
   await build("ios/build-ios.js", "darwin", ["--native-tts", ...args])
   const call = calls.runSync.mock.calls[0]
+  expect(call[2].env.PAPERCUT_BUILD_REVISION).toBe("cd".repeat(20))
   expect(call[1]).toContain("native-tts-ios,experimental-search-embeddings-linked")
   expect(call[1]).not.toContain("experimental-search-embeddings")
   expect(call[2].env.ORT_LIB_LOCATION).toEqual(call[2].env.SHERPA_ONNX_LIB_DIR)
@@ -150,6 +155,7 @@ it.each([{ args: [] }, { args: ["--ci-check"] }])("iOS native export/archive use
 it("unsigned iOS device validation checks the same linked provider and packaged protocol", async () => {
   await build("ios/check-ios-device-build.js", "darwin")
   const cargo = calls.runSync.mock.calls.find(([command]) => command === "cargo")
+  expect(cargo[2].env.PAPERCUT_BUILD_REVISION).toBe("cd".repeat(20))
   expect(cargo[1][cargo[1].indexOf("--features") + 1]).toBe("native-tts-ios,experimental-search-embeddings-linked,tauri/custom-protocol")
   expect(calls.runSync.mock.calls.find(([command]) => command === "xcodebuild")[1]).toContain("CODE_SIGNING_ALLOWED=NO")
 })

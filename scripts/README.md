@@ -44,6 +44,12 @@ a unit test: model monitoring and installed-device inference are executable chec
 | `npm run prepare:silma-sidecar` / `npm run package:silma-runtime` | Explicit SILMA runtime packaging | Platform/Python setup in the [SILMA guide](../docs/silma-tts-sidecar.md) |
 | `npm run install:silma-cuda-runtime` | Install an optional local CUDA runtime into app data | Linux x64/NVIDIA; explicit setup, not routine packaging |
 
+Production packaging commands resolve the checked-out commit with
+[lib/build-revision.js](lib/build-revision.js) and pass it as
+`PAPERCUT_BUILD_REVISION` for transfer diagnostics. Source exports without `.git`
+must supply that full revision from their release metadata; mismatched checkout
+overrides fail. See the [revision contract](../docs/android-production-packaging.md#production-source-revision-contract).
+
 Use `npm run` to list all existing commands, including platform preparation and
 force-refresh variants. CI-only commands remain explicit in their workflows:
 
