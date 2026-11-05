@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs"
 import { join } from "node:path"
+import { ROOT } from "../lib/paths.js"
 import {
   androidProductionEnv,
   runTauriAndroidBuild,
@@ -11,6 +12,7 @@ import {
 } from "../lib/android/constants.js"
 import {
   androidSherpaLibDir,
+  clearAndroidSherpaLibs,
   ensureAndroidSherpaLibs,
 } from "../lib/android/sherpa.js"
 
@@ -25,6 +27,7 @@ if (production && (!nativeTts || extraArgs.length > 0)) {
 if (nativeTts) {
   await runNativeTtsAndroidBuild(extraArgs)
 } else {
+  await clearAndroidSherpaLibs()
   const args = extraArgs.length > 0
     ? extraArgs
     : ["android", "build", "--apk", "--debug"]
@@ -33,6 +36,8 @@ if (nativeTts) {
 
 // Production uses fixed arm64/TTS/search arguments; custom Tauri args replace defaults and can otherwise drop features.
 async function runNativeTtsAndroidBuild(extraArgs) {
+  process.env.SHERPA_ONNX_LIB_DIR ||= join(ROOT, ".cache/android-production/source-arm64")
+  process.env.SHERPA_REQUIRE_SOURCE = "1"
   const abi = SHERPA_DEFAULT_ANDROID_ABI
   const rustTarget = SHERPA_DEFAULT_ANDROID_RUST_TARGET
   const tauriTarget = SHERPA_DEFAULT_ANDROID_TAURI_TARGET

@@ -41,7 +41,7 @@ or device tests. See F-Droid's [submission guide](https://f-droid.org/en/docs/Su
 | Production command | npm run android:apk:release keeps the shipping TTS/search features and omits debug mode; real unsigned APK checked | Pixel acceptance |
 | Signing | Build/check unsigned APK first; sign with SDK apksigner on a fresh runner in the protected android-release environment | Owner creates key and GitHub secrets; validate the actual production certificate |
 | Versioning | Committed Android code 1010000 matches the inspected 1.10.0 debug test APK | Choose the first new production version/tag with the owner; test increasing-code updates |
-| Native staging | Source-provided SHERPA_ONNX_LIB_DIR is honored without a prebuilt fallback and SHERPA_REQUIRE_SOURCE=1 refuses the archive; unused C++/JNI wrappers removed; source-built Sherpa linked against the pinned Maven ORT AAR packaged and checked | Independent build and device inference |
+| Native staging | Native TTS debug and release use source-built r30 Sherpa; receipt and link-input hashes checked; stale archive ABI copies removed; ORT comes from the pinned Maven AAR | Independent CI/buildserver proof and device inference |
 | APK checks | JS verifier checks identity/version, non-debuggable manifest, certificate, arm64 contents, required libraries, license presence and 16 KB ELF/ZIP alignment; disposable-key signing passes | Production certificate and clean-build reproduction |
 | Source recipes | Pinned JS recipes build the Sherpa library against the pinned Maven ORT AAR, three OCR cores and four PDF codecs with a matching PDF.js worker; local compatibility checks pass | Integrate approved source outputs, freeze the complete environment and prove clean APK reproduction |
 | F-Droid | Licensing decisions recorded; notices shipped in APK; corresponding-source tooling and metadata draft; exact NDK installed through F-Droid tooling, source/APK preflight recorded | Resolve 17 npm source-scan findings and Gradle-wrapper removal; production certificate, clean buildserver/signature proof and submission review |
@@ -211,12 +211,15 @@ device acceptance gates below are complete.
 
 ## 3. Build, verify and update
 
-The existing npm run android:apk:native-tts remains a development/debug build.
+`npm run android:apk:native-tts` remains a development/debug build. It uses the
+same source runtime as release. On Linux prepare it with the first command
+below. On macOS/Windows, copy the complete Linux-built `source-arm64` directory
+including its receipt and both shared libraries, and install r30 locally for
+compiling the app. Both wrappers default to `.cache/android-production/source-arm64`;
+`SHERPA_ONNX_LIB_DIR` can select another prepared directory.
 
 ~~~bash
 node scripts/fdroid/build-android-source-libs.js
-export SHERPA_ONNX_LIB_DIR="$PWD/.cache/android-production/source-arm64"
-export SHERPA_REQUIRE_SOURCE=1
 npm run android:apk:release
 node scripts/android/verify-android-apk.js --unsigned \
   src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
@@ -332,7 +335,8 @@ coming from the AAR.
 That earlier probe reused the compiled app library and current WASM assets.
 Android CI and the Release workflow now run the same source Sherpa recipe as
 the F-Droid draft, require its output without a prebuilt fallback, and keep
-the Maven artifact for ORT. The developer/debug archive route remains available.
+the Maven artifact for ORT. Native TTS development now uses that source recipe
+too; the upstream archive remains an optional emulator inference fixture.
 Updated CI binary equality and device inference remain acceptance gates.
 [Sherpa Android script](https://github.com/k2-fsa/sherpa-onnx/blob/v1.13.4/build-android-arm64-v8a.sh),
 [ORT source builds](https://onnxruntime.ai/docs/build/android.html)
@@ -379,7 +383,7 @@ on each OCR/PDF run. Do not store personal work there.
 
 Prerequisites: npm ci for the application; Node 22 in CI (local checks use 24), Git,
 OpenJDK 17, CMake (tested 4.4.5), make, patch, autoconf, automake, libtool,
-pkg-config, a host C/C++ compiler and Android SDK/NDK 29.0.13846066.
+pkg-config, a host C/C++ compiler and Android SDK/NDK 30.0.16248370.
 Production Rust builds select the named 1.98.1 toolchain, not the floating
 stable alias; install its Android target with
 `rustup target add --toolchain 1.98.1 aarch64-linux-android`.
@@ -590,9 +594,8 @@ Owner steps before submission, in an fdroiddata fork:
 
 1. Set `commit` to the first F-Droid release tag and, after signing-key
    validation, `AllowedAPKSigningKeys` to the certificate SHA-256.
-2. The numeric NDK `29.0.13846066` pin is now installed/resolved through F-Droid's
-   tooling. It is r29 beta3; the `r29` alias instead installs r29 final. Review a
-   separate r30 LTS migration before production release. Verify against the
+2. The shared numeric NDK `30.0.16248370` pin is installed/resolved through
+   F-Droid's tooling. Verify against the
    actual buildserver image: Node/npm and Rust
    aarch64-linux-android target availability, build-tools 35.0.0 for the
    verifier, and that gradle/maven/network fetches work under fdroidserver.
@@ -614,7 +617,7 @@ minutes; it is not part of CI.
 
 Reference environment for the comparison (record what you actually use when
 it changes): Linux x86-64, Node 24, rustc/cargo 1.98.1 with the committed
-lockfiles, NDK 29.0.13846066, OpenJDK 17, CMake 4.4.5, Gradle wrapper as
+lockfiles, NDK 30.0.16248370, OpenJDK 17, CMake 4.4.5, Gradle wrapper as
 committed. Baseline profiles are disabled as described below.
 
 Earlier runs of this check caught the following non-determinism, now fixed:
@@ -1048,17 +1051,72 @@ pin and choose the matching metadata before a real scanner/buildserver run; do
 not upgrade the app toolchain merely to make an alias look consistent. No NDK
 or metadata build-setting change is included in this verification pass.
 
-**Follow-up preflight (2026-11-05):** exact-pin installation and fdroidserver
-resolution now pass, and the draft requests `29.0.13846066` explicitly. This
-retains the proven beta3 toolchain; it does not upgrade production builds.
-Google currently lists r30 LTS (`30.0.16248370`), also available in F-Droid's
-catalog; a reviewed migration needs fresh native/APK and device checks.
+**Earlier preflight (2026-11-05):** exact-pin installation and fdroidserver
+resolution passed, and the draft then requested `29.0.13846066` explicitly.
+That check retained the proven beta3 toolchain.
+The subsequent r30 migration is recorded below.
 With real fdroiddata configuration, metadata formatting passes and only the
 missing `AllowedAPKSigningKeys` gate remains in lint. The clean source export
 passes scanning, but `npm ci` adds 17 fatal binary/archive findings. Scanner
 removal of the Gradle wrapper also needs integration work. The verified CI APK
 passes the known-class/signing-block scan, which does not clear those source
 findings. See [preflight evidence and execution gates](fdroid/README.md).
+
+### Shared r30 toolchain (2026-11-05)
+
+All app-owned Android builds select `30.0.16248370`. CI/release install the
+revision from the shared script constant and key their Rust caches by it.
+The Android wrapper and Sherpa recipe check the exact installed revision,
+including when the directory comes from F-Droid's environment. The Gradle and
+F-Droid declarations are checked against the same constant. The SDK platform,
+API 26 minimum, Rust version, Gradle version and shipping features are unchanged.
+
+Sherpa builds in an NDK-specific CMake directory so it cannot reuse the old
+compiler cache. Native TTS debug and release validate the r30/API 26 receipt and
+both link-input hashes before staging. They clear older Sherpa copies for other
+ABIs from the generated app inputs. The standalone archive setup command is
+for the optional x86_64 emulator inference fixture; it is not an APK build
+fallback. The pinned Maven ORT runtime retains its upstream compiler provenance.
+
+The Linux r30 archive SHA-256 is
+`753611f410d002cfcd3f3dc2ef49aad532089d3180b436c060a90bf0fcb64df2`.
+It matched F-Droid's signed catalog and Google's published SHA-1 before
+installation. `fdroidserver` resolved the updated metadata to that installation.
+See [Google's r30 downloads](https://developer.android.com/ndk/downloads) and the
+[F-Droid preflight](fdroid/README.md) for the remaining recipe gates.
+
+Local build evidence:
+
+- Gradle resolved the installed r30 directory and all nine transfer callback
+  tests passed. Both arm64 debug APKs verified their development signatures and
+  carried an r30/API 26 app library. The native TTS APK carried the receipt's
+  arm64 Sherpa library; the plain APK carried no Sherpa library.
+- The release verifier passed manifest, arm64 and 16 KB ELF/ZIP checks. The
+  packaged app and Sherpa ELF notes identify r30 build `16248370` and API 26.
+  Maven ORT remains byte-identical to the pinned AAR (its own ELF note is r28,
+  API 24).
+- Fresh Sherpa builds in the original and relocated directories matched:
+  `9f5d00a96b8b8fe87377bd251a6b845787e3baabba90e681cfdbe5c1a2d78f07`.
+- Two fresh Rust/Gradle release builds and one relocated no-Git build with its
+  own native rebuild produced identical unsigned APKs (1,723 entries,
+  82,021,140 bytes):
+  `a574f35ccdc757176edc0c8f98306ac768a771a3996cef66c7a2cf8a0134debc`.
+
+The two local builds are in `.cache/android-production/reproducibility/`;
+the relocated APK, native/toolchain evidence and debug reports are in
+`.cache/android-production/r30-migration/`. These builds used the uncommitted
+migration with checkout-base revision `b1b4d219`, the same Linux host and
+shared toolchain/dependency caches. The relocated export declared that same
+revision explicitly. The eventual commit changes the embedded revision; compare
+the next CI artifact against its actual checkout. These are local proofs, not
+F-Droid buildserver, production-signature or device acceptance.
+
+The final serial frontend/script suite passed 795 tests with one existing skip.
+An earlier run alongside the native builds failed the existing Pagefind
+reproducibility test once: one fixture's `pagefind-entry.json` was empty. The
+serial rerun passed, and the compared APKs matched with a populated index
+manifest. Investigate that intermittent write result before changing the
+packaged PDF/OCR inputs.
 
 Owner signing-key/`android-release` setup can proceed in parallel using section 2.
 A signed candidate is required for Pixel installation; file-transfer installation
@@ -1105,9 +1163,10 @@ before copying. A mismatch blocks publication for the shared-signature route.
 - Verifier subprocesses use argument arrays without a shell. Duplicate APK
   entries, wrong ABI, malformed ELF headers, unexpected certificate and debug
   builds fail. Native ZIP entry names exclude paths/wildcards before unzip.
-- Android archive SHA-256 checking is retained; an invalid external library
-  directory fails without downloading an unrequested fallback. Complete source
-  provenance and reproducibility still need independent validation.
+- Android archive SHA-256 checking is retained for the emulator fixture. APK
+  builds reject stale source receipts or changed native inputs before staging.
+  Complete source provenance and reproducibility still need independent
+  validation.
 - Actions in the Android signing job are pinned to their resolved immutable
   commits, with matching pins for shared actions in CI. Other references retain
   their existing versions.
@@ -1174,9 +1233,9 @@ Build-tool environments have separate dependencies.
    supplied. The shared production resolver now declares that stamp consistently
    and passes Git/source-export APK comparison. The committed implementation also
    passes full CI and byte-identical local reproduction of the actual CI commit.
-   Exact F-Droid NDK installation/resolution is now verified with the numeric
-   pin. Remaining: reviewed toolchain/source changes and a frozen fdroidserver
-   environment,
+   Exact F-Droid r30 installation/resolution is now verified with the numeric
+   pin. Remaining: committed r30 CI comparison, source changes and a frozen
+   fdroidserver environment,
    then signature copying with the production key and confirmation that its
    rebuild matches the published APK.
 6. [ ] On Pixel 6 and another Pixel: install after resetting the debug test app;

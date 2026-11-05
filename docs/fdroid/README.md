@@ -60,9 +60,9 @@ Local reports, tool versions, signature data and the disposable export are under
 `.cache/android-production/fdroid-preflight/` (ignored; not release artifacts).
 The root sample APK and owner files were left untouched.
 
-## NDK decision
+## NDK selection
 
-The tested pin is **r29 beta3**, not r29 final. F-Droid's signed catalog resolves:
+The initial preflight tested **r29 beta3**, not r29 final. F-Droid's signed catalog resolves:
 
 | Metadata request | Installed revision |
 | --- | --- |
@@ -73,24 +73,21 @@ The tested pin is **r29 beta3**, not r29 final. F-Droid's signed catalog resolve
 The beta3 Linux ZIP SHA-256 is
 `ca0eaac8f992635a4a74c2927e2e76d788f18b8ba52c668ddc7f675fe6265d48`.
 
-The draft now requests the exact numeric pin, which F-Droid
-[supports](https://f-droid.org/en/docs/Build_Metadata_Reference/).
-This preserves the existing CI/local reproducibility baseline. The pin is also
-the default in the installed [Tauri CLI 2.11.4 source](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.11.4/crates/tauri-cli/src/mobile/android/mod.rs).
+The subsequent migration pins [r30 LTS](https://developer.android.com/ndk/downloads)
+(`30.0.16248370`) across local Android builds, CI, release and this draft. F-Droid
+[supports exact numeric pins](https://f-droid.org/en/docs/Build_Metadata_Reference/).
+Its installer catalog and fdroidserver resolution were checked against the exact
+r30 installation. Local native TTS debug and release require the same prepared
+arm64 runtime. See the [r30 evidence](../android-production-packaging.md#shared-r30-toolchain-2026-11-05).
 
-Google currently lists [r30 LTS](https://developer.android.com/ndk/downloads)
-(`30.0.16248370`) as its current LTS release. Prefer a separately reviewed and
-tested migration before production publication, rather than silently treating the
-old beta as a long-term choice. New compiler/linker/libc++ inputs can change APK
-bytes: update source/CI/release/metadata pins together, rebuild Sherpa and Rust
-outputs, recheck arm64/API 26/16 KB compatibility, repeat fresh/relocated APK
-comparison and exact-commit CI reproduction, then device acceptance. A different
-APK hash across NDK versions is expected; two builds of the new pinned environment
-must match each other. No production NDK upgrade was performed in this preflight.
+The table above describes the historical installer comparison. The earlier CI
+artifact and source-scan reports still describe the beta3 preflight; they are
+not a buildserver or signature comparison of the r30 candidate.
 
 ## Next execution gates
 
-1. Review the r30 migration, then resolve the scanner findings and Gradle bridge.
+1. Review and validate the committed r30 migration in CI, then resolve the
+   scanner findings and Gradle bridge.
    Provision the actual buildserver's Node/npm, Rust 1.98.1 Android target,
    Java 17, CMake and SDK/build-tools inputs explicitly; the host preflight did
    not prove their availability in that image. Source PDF/OCR wiring will also

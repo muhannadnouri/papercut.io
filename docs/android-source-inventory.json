@@ -599,7 +599,7 @@
       "linuxArchiveSha256": "ca0eaac8f992635a4a74c2927e2e76d788f18b8ba52c668ddc7f675fe6265d48",
       "archiveIntegrity": "Independently checked against signed catalog; all 9655 regular archive files match installation.",
       "r29AliasRevision": "29.0.14206865",
-      "reviewNext": "r30 LTS 30.0.16248370 migration; production toolchain unchanged in this pass"
+      "supersededBy": "androidNdkMigration records the subsequent r30 pin and proof."
     },
     "lint": "Canonical formatting passes; missing AllowedAPKSigningKeys with Binaries remains an expected failure. No fake fingerprint used.",
     "sourceScanner": {
@@ -615,6 +615,25 @@
     },
     "apkScanner": "Known non-free DEX classes and extra signing blocks: passed on CI41987142956 APK 2cf33d0acdd9c4c05a069eb03ed96c13c630e9195bc04d4c699effcce470a752. Not source/license/reproducibility/signing/device clearance.",
     "remaining": "Review NDK migration and runtime source staging, resolve scanner findings and Gradle integration, provision clean buildserver, set real release tag/version and public certificate, compare production signature, complete device/update and licensing/listing gates. Not ready for submission."
+  },
+  "androidNdkMigration": {
+    "checkedOn": "2026-11-05",
+    "details": "docs/android-production-packaging.md#shared-r30-toolchain-2026-11-05",
+    "version": "30.0.16248370",
+    "linuxArchiveSha256": "753611f410d002cfcd3f3dc2ef49aad532089d3180b436c060a90bf0fcb64df2",
+    "installerEvidence": "Google stable SDK catalog and F-Droid signed catalog contain the pin. Linux ZIP checked before installation; fdroidserver and Gradle resolved the exact installation.",
+    "scope": "Local Linux working-tree proof with the migration overlay on checkout base b1b4d219f7f72f1dade0f955d27caeb46eea312d; same host/toolchain and shared dependency caches. Commit changes the embedded APK source revision.",
+    "sherpaSha256": "9f5d00a96b8b8fe87377bd251a6b845787e3baabba90e681cfdbe5c1a2d78f07",
+    "ortSha256": "12c870ee77349d0e80e0d85eb293849ebe8f56717a81eec62b53ecb1446e7de8",
+    "nativeEvidence": "Fresh original and relocated Sherpa builds match; packaged app and Sherpa ELF notes are r30/API 26, pinned Maven ORT unchanged (r28/API 24). Release APK passes arm64/16 KB verification. Both arm64 debug APKs use r30; only native TTS debug contains Sherpa.",
+    "unsignedApk": {
+      "sha256": "a574f35ccdc757176edc0c8f98306ac768a771a3996cef66c7a2cf8a0134debc",
+      "bytes": 82021140,
+      "entries": 1723,
+      "matchingBuilds": "Two fresh Rust/Gradle builds plus one relocated no-Git build with independently rebuilt native inputs"
+    },
+    "tests": "795 frontend/script tests passed, one existing skip; nine Android transfer callbacks passed. One prior concurrent test run encountered an empty Pagefind fixture manifest; serial rerun passed.",
+    "remaining": "Exact-commit CI reproduction, intermittent Pagefind output investigation, PDF/OCR source staging and scanner/Gradle resolution, clean F-Droid buildserver, production signature and device acceptance."
   },
   "pendingReview": [
     "Decided 2026-11-03: F-Droid metadata declares GPL-3.0-only for the combined Android build; root MIT unchanged.",

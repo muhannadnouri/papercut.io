@@ -1,6 +1,9 @@
+import assert from "node:assert/strict"
+import { createHash } from "node:crypto"
 import {
   cp,
   mkdir,
+  readFile,
   rm,
   stat,
 } from "node:fs/promises"
@@ -9,6 +12,7 @@ import {
   resolve,
 } from "node:path"
 import {
+  ANDROID_NDK_VERSION,
   SHERPA_ANDROID_ABIS,
   SHERPA_ANDROID_ARCHIVE,
   SHERPA_ANDROID_RUNTIME_ROOT,
@@ -18,10 +22,11 @@ import {
   SHERPA_DEFAULT_ANDROID_ABI,
   SHERPA_GENERATED_ANDROID_JNI_LIBS,
 } from "./constants.js"
+import { SHERPA_REQUIRED_LIBS } from "../constants.js"
 import { downloadFile } from "../download.js"
 import { extractTar } from "../archive.js"
 
-// Source builds supply one flat arm64 directory; archive ABIs also support the separate emulator inference checks.
+// App builds supply a flat arm64 directory; the archive cache serves the optional emulator fixture.
 // Only Sherpa's own library is staged: libonnxruntime.so comes from the Gradle Maven dependency instead.
 export function androidSherpaLibDir(abi = SHERPA_DEFAULT_ANDROID_ABI) {
   if (process.env.SHERPA_ONNX_LIB_DIR) {
@@ -36,10 +41,21 @@ export async function ensureAndroidSherpaLibs({ force = false } = {}) {
     throw new Error("SHERPA_REQUIRE_SOURCE is set; stage the source-built Sherpa library via SHERPA_ONNX_LIB_DIR instead of downloading the prebuilt archive")
   }
   if (process.env.SHERPA_ONNX_LIB_DIR) {
-    if (!await hasRequiredLibs(androidSherpaLibDir())) {
-      throw new Error("SHERPA_ONNX_LIB_DIR is missing required Android libraries; refusing a prebuilt fallback")
+    const directory = androidSherpaLibDir()
+    if (!await hasRequiredLibs(directory)) {
+      throw new Error("SHERPA_ONNX_LIB_DIR is missing required Android libraries; run scripts/fdroid/build-android-source-libs.js on Linux; refusing a prebuilt fallback")
     }
-    await syncGeneratedJniLibs([SHERPA_DEFAULT_ANDROID_ABI])
+    const receipt = JSON.parse(await readFile(join(directory, "source-receipt.json"), "utf8"))
+    assert.equal(receipt.tools?.ndk, ANDROID_NDK_VERSION,
+      "Rebuild the Android source libraries with NDK " + ANDROID_NDK_VERSION)
+    assert.equal(receipt.tools?.api, 26, "Android source libraries require API 26")
+    for (const lib of SHERPA_REQUIRED_LIBS) {
+      const bytes = await readFile(join(directory, lib))
+      assert(bytes.length > 0, "Empty Android source library: " + lib)
+      assert.equal(createHash("sha256").update(bytes).digest("hex"), receipt.artifacts?.[lib]?.sha256,
+        "Android source library differs from its receipt: " + lib)
+    }
+    await syncGeneratedJniLibs(SHERPA_DEFAULT_ANDROID_ABI)
     return
   }
   await mkdir(SHERPA_ANDROID_RUNTIME_ROOT, { recursive: true })
@@ -66,8 +82,11 @@ export async function ensureAndroidSherpaLibs({ force = false } = {}) {
     throw new Error("Downloaded sherpa-onnx Android archive is missing required shared libraries")
   }
 
-  await syncGeneratedJniLibs()
   console.log("[sherpa-android-libs] ready " + join(SHERPA_ANDROID_RUNTIME_ROOT, "jniLibs"))
+}
+
+export async function clearAndroidSherpaLibs() {
+  await syncGeneratedJniLibs()
 }
 
 // Keep emulator ABIs cached even though production APKs are filtered to arm64.
@@ -106,18 +125,22 @@ async function extractAndroidArchive() {
 }
 
 // Gradle packages these files separately from Rust linking, so both paths must receive the same runtime bytes.
-async function syncGeneratedJniLibs(abis = SHERPA_ANDROID_ABIS) {
-  for (const abi of abis) {
+async function syncGeneratedJniLibs(stagedAbi) {
+  for (const abi of SHERPA_ANDROID_ABIS) {
     const source = androidSherpaLibDir(abi)
     const target = join(SHERPA_GENERATED_ANDROID_JNI_LIBS, abi)
-    await mkdir(target, { recursive: true })
     // Papercut calls the C API; neither it nor ORT links Sherpa's C++/JNI wrappers.
     // A stale archive-era libonnxruntime.so would collide with the Gradle AAR copy at packaging time.
     for (const unused of ["libsherpa-onnx-cxx-api.so", "libsherpa-onnx-jni.so", "libonnxruntime.so"]) {
       await rm(join(target, unused), { force: true })
     }
     for (const lib of SHERPA_ANDROID_STAGED_LIBS) {
-      await cp(join(source, lib), join(target, lib), { force: true })
+      if (abi === stagedAbi) {
+        await mkdir(target, { recursive: true })
+        await cp(join(source, lib), join(target, lib), { force: true })
+      } else {
+        await rm(join(target, lib), { force: true })
+      }
     }
   }
 }

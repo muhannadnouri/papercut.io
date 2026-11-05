@@ -5,12 +5,15 @@ import {
   it,
   vi,
 } from "vitest"
+import { ROOT } from "../lib/paths.js"
+import { join } from "node:path"
 
 const calls = vi.hoisted(() => ({
   runSync: vi.fn(() => ({ status: 0 })),
   exitFromResult: vi.fn(),
   android: vi.fn(),
   androidLibs: vi.fn(),
+  clearAndroidLibs: vi.fn(),
   iosLibs: vi.fn(),
   prepare: vi.fn(),
   resources: vi.fn(),
@@ -46,6 +49,7 @@ vi.mock("../lib/android/build-env.js", () => ({
 }))
 vi.mock("../lib/android/sherpa.js", () => ({
   androidSherpaLibDir: () => "/prepared/android",
+  clearAndroidSherpaLibs: calls.clearAndroidLibs,
   ensureAndroidSherpaLibs: calls.androidLibs,
 }))
 vi.mock("../lib/ios/sherpa.js", () => ({
@@ -68,6 +72,8 @@ vi.mock("node:fs/promises", () => ({
 const platform = Object.getOwnPropertyDescriptor(process, "platform")
 const argv = process.argv
 beforeEach(() => {
+  vi.stubEnv("SHERPA_ONNX_LIB_DIR", undefined)
+  vi.stubEnv("SHERPA_REQUIRE_SOURCE", undefined)
   vi.resetModules()
   vi.clearAllMocks()
   vi.stubEnv("PAPERCUT_DESKTOP_BUNDLES", "")
@@ -108,6 +114,8 @@ it("keeps the explicit static desktop alternative separate", async () => {
 it("Android's shipping native APK includes the provider and its prepared runtime", async () => {
   await build("android/build-android.js", "linux", ["--native-tts"])
   expect(calls.androidLibs).toHaveBeenCalledOnce()
+  expect(process.env.SHERPA_REQUIRE_SOURCE).toBe("1")
+  expect(process.env.SHERPA_ONNX_LIB_DIR).toBe(join(ROOT, ".cache/android-production/source-arm64"))
   expect(calls.android).toHaveBeenCalledWith(["android", "build", "--apk", "--debug", "--target", "aarch64", "--features", "native-tts-shared,experimental-search-embeddings"], {
     SHERPA_ONNX_LIB_DIR: "/prepared/android",
     ORT_LIB_LOCATION: "/prepared/android",
@@ -115,6 +123,8 @@ it("Android's shipping native APK includes the provider and its prepared runtime
 })
 it("keeps the explicit no-native Android build and custom native arguments", async () => {
   await build("android/build-android.js", "linux")
+  expect(calls.clearAndroidLibs).toHaveBeenCalledOnce()
+  expect(calls.androidLibs).not.toHaveBeenCalled()
   expect(calls.android).toHaveBeenLastCalledWith(["android", "build", "--apk", "--debug"])
   vi.resetModules()
   const args = ["android", "build", "--apk", "--target", "aarch64", "--features", "native-tts-shared,experimental-search-embeddings"]

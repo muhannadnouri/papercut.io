@@ -1,4 +1,3 @@
-import assert from "node:assert/strict"
 import {
   copyFile,
   mkdir,
@@ -9,7 +8,10 @@ import {
   run,
   shQuote,
 } from "../lib/process.js"
-import { androidBuildPathMaps } from "../lib/android/build-env.js"
+import {
+  androidBuildPathMaps,
+  androidNdkDir,
+} from "../lib/android/build-env.js"
 import { ANDROID_NDK_VERSION } from "../lib/android/constants.js"
 import { downloadFile } from "../lib/download.js"
 import {
@@ -30,10 +32,7 @@ const ortAar = {
   sha256: "077dec5e2d821234c7dc0aba584bec8f999854b546c754cab93a90741c56fbeb",
 }
 const ndkVersion = ANDROID_NDK_VERSION
-const sdk = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT
-assert(sdk, "Set ANDROID_HOME or ANDROID_SDK_ROOT")
-const ndk = process.env.NDK_HOME || join(sdk, "ndk", ndkVersion)
-assert((await readFile(join(ndk, "source.properties"), "utf8")).includes("Pkg.Revision = " + ndkVersion), "Expected NDK " + ndkVersion)
+const ndk = androidNdkDir()
 
 const sherpa = await source("sherpa-onnx", "https://github.com/k2-fsa/sherpa-onnx.git", sherpaRevision)
 
@@ -55,7 +54,8 @@ const env = {
   SHERPA_ONNXRUNTIME_INCLUDE_DIR: join(ortDir, "headers"),
   SHERPA_ONNXRUNTIME_LIB_DIR: join(ortDir, "jni/arm64-v8a"),
 }
-const build = join(SOURCE_CACHE, "sherpa-build")
+// CMake caches absolute compiler paths; another NDK must start with a fresh build tree.
+const build = join(SOURCE_CACHE, "sherpa-build-" + ndkVersion)
 const prefixMaps = androidBuildPathMaps()
   .map(([from, to]) => "-ffile-prefix-map=" + shQuote(`${from}=${to}`)).join(" ")
 await run("cmake", ["-S", sherpa, "-B", build,

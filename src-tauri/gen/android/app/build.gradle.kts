@@ -22,6 +22,8 @@ tasks.whenTaskAdded {
 }
 
 android {
+    ndkVersion = "30.0.16248370"
+    System.getenv("NDK_HOME")?.let { ndkPath = it }
     compileSdk = 36
     buildToolsVersion = "35.0.0"
     namespace = "io.papercut.desktop"

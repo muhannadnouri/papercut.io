@@ -10,7 +10,7 @@ import {
 export { SHERPA_VERSION }
 
 export const ANDROID_RUST_TOOLCHAIN = "1.98.1"
-export const ANDROID_NDK_VERSION = "29.0.13846066"
+export const ANDROID_NDK_VERSION = "30.0.16248370"
 
 // Gradle supplies libonnxruntime.so from the pinned Maven AAR; only Sherpa's own library is staged.
 export const SHERPA_ANDROID_STAGED_LIBS = ["libsherpa-onnx-c-api.so"]

@@ -539,14 +539,18 @@ jobs:
         with:
           packages: platform-tools
 
-      - name: Install Android NDK
-        run: sdkmanager "ndk;29.0.13846066" "platforms;android-36" "build-tools;35.0.0"
-
       - name: Setup Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
           cache: npm
+
+      - name: Install Android NDK
+        run: |
+          task_ndk_version=$(node --input-type=module -e 'import { ANDROID_NDK_VERSION } from "./scripts/lib/android/constants.js"; process.stdout.write(ANDROID_NDK_VERSION)')
+          sdkmanager "ndk;$task_ndk_version" "platforms;android-36" "build-tools;35.0.0"
+          echo "ANDROID_NDK_VERSION=$task_ndk_version" >> "$GITHUB_ENV"
+          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/$task_ndk_version" >> "$GITHUB_ENV"
 
       - name: Setup Rust with Android targets
         uses: dtolnay/rust-toolchain@18f0487477426dce244608110aa2660c2893deb7 # 1.98.1
@@ -557,7 +561,7 @@ jobs:
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: src-tauri
-          shared-key: android
+          shared-key: android-${{ env.ANDROID_NDK_VERSION }}
 
       - name: Install dependencies
         run: npm ci
@@ -568,8 +572,6 @@ jobs:
           export SHERPA_ONNX_LIB_DIR="$PWD/.cache/android-production/source-arm64"
           export SHERPA_REQUIRE_SOURCE=1
           npm run android:apk:release
-        env:
-          NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/29.0.13846066
 
       - name: Verify unsigned Android release APK
         run: node scripts/android/verify-android-apk.js --unsigned src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
@@ -596,9 +598,9 @@ jobs:
 
       - name: Compile Android emulator provider regression
         if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
-        env:
-          NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/29.0.13846066
         run: |
+          # Upstream x86_64 fixture only; application APKs require the r30 source runtime.
+          npm run prepare:sherpa-android-libs
           task_toolchain="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
           export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="$task_toolchain/x86_64-linux-android26-clang"
           export CC_x86_64_linux_android="$CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER"

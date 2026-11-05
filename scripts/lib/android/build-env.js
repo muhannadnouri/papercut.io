@@ -1,7 +1,11 @@
 import assert from "node:assert/strict"
 import { execFileSync } from "node:child_process"
+import { readFileSync } from "node:fs"
 import { homedir } from "node:os"
-import { join } from "node:path"
+import {
+  join,
+  resolve,
+} from "node:path"
 import {
   ANDROID_NDK_VERSION,
   ANDROID_RUST_TOOLCHAIN,
@@ -17,15 +21,25 @@ import { productionBuildRevision } from "../build-revision.js"
 
 export { ensureLocalJdk }
 
+// Tauri otherwise selects its own default NDK; every Android entry point uses this pin.
+export function androidNdkDir(env = process.env) {
+  const sdk = env.ANDROID_HOME || env.ANDROID_SDK_ROOT
+  assert(sdk, "Set ANDROID_HOME or ANDROID_SDK_ROOT")
+  const directory = resolve(env.NDK_HOME || env.ANDROID_NDK_HOME || env.ANDROID_NDK
+    || join(sdk, "ndk", ANDROID_NDK_VERSION))
+  const revision = readFileSync(join(directory, "source.properties"), "utf8")
+    .match(/^Pkg\.Revision\s*=\s*(.+)$/m)?.[1].trim()
+  assert.equal(revision, ANDROID_NDK_VERSION, "Android builds require NDK " + ANDROID_NDK_VERSION)
+  return directory
+}
+
 // More specific paths must win when Cargo caches or the NDK live inside the checkout.
 export function androidBuildPathMaps() {
-  const sdk = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT
-  assert(sdk, "Set ANDROID_HOME or ANDROID_SDK_ROOT")
   return [
     [ROOT, "/build/papercut"],
     [process.env.CARGO_HOME || join(homedir(), ".cargo"), "/cargo"],
     [process.env.RUSTUP_HOME || join(homedir(), ".rustup"), "/rustup"],
-    [process.env.NDK_HOME || join(sdk, "ndk", ANDROID_NDK_VERSION), "/android-ndk"],
+    [androidNdkDir(), "/android-ndk"],
   ].sort(([a], [b]) => a.length - b.length)
 }
 
@@ -64,12 +78,19 @@ export function androidProductionEnv() {
 
 // Force Android builds onto a known JDK while still allowing extra native env.
 export async function androidBuildEnv(extra = {}) {
+  const ndk = androidNdkDir({
+    ...process.env,
+    ...extra,
+  })
   const javaHome = await ensureLocalJdk()
   return {
     ...process.env,
     JAVA_HOME: javaHome,
     PATH: join(javaHome, "bin") + pathSeparator() + process.env.PATH,
     ...extra,
+    NDK_HOME: ndk,
+    ANDROID_NDK_HOME: ndk,
+    ANDROID_NDK: ndk,
   }
 }
 
