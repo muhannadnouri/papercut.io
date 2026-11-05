@@ -44,7 +44,7 @@ or device tests. See F-Droid's [submission guide](https://f-droid.org/en/docs/Su
 | Native staging | Source-provided SHERPA_ONNX_LIB_DIR is honored without a prebuilt fallback and SHERPA_REQUIRE_SOURCE=1 refuses the archive; unused C++/JNI wrappers removed; source-built Sherpa linked against the pinned Maven ORT AAR packaged and checked | Independent build and device inference |
 | APK checks | JS verifier checks identity/version, non-debuggable manifest, certificate, arm64 contents, required libraries, license presence and 16 KB ELF/ZIP alignment; disposable-key signing passes | Production certificate and clean-build reproduction |
 | Source recipes | Pinned JS recipes build the Sherpa library against the pinned Maven ORT AAR, three OCR cores and four PDF codecs with a matching PDF.js worker; local compatibility checks pass | Integrate approved source outputs, freeze the complete environment and prove clean APK reproduction |
-| F-Droid | Licensing decisions recorded; notices shipped in APK; corresponding-source archive tooling and fdroiddata metadata draft in repo | Owner attaches source archive per release; fdroiddata lint/scanner/clean build; submit and address review |
+| F-Droid | Licensing decisions recorded; notices shipped in APK; corresponding-source tooling and metadata draft; exact NDK installed through F-Droid tooling, source/APK preflight recorded | Resolve 17 npm source-scan findings and Gradle-wrapper removal; production certificate, clean buildserver/signature proof and submission review |
 
 Ordinary Android CI builds and verifies one unsigned production APK, runs the
 transfer plugin's JVM tests, then uploads that APK. It does not assemble a debug APK.
@@ -581,18 +581,25 @@ recipe, `SHERPA_REQUIRE_SOURCE=1`, then `npm run android:apk:release` — with
 the unsigned APK as fdroidserver's `output`. Localized name, summaries,
 descriptions and future changelogs come from the committed
 `fastlane/metadata/android/` directory (English and Arabic), so the metadata
-carries no duplicated listing text.
+carries no duplicated listing text. The draft uses fdroidserver's canonical
+format; owner placeholders and the detailed preflight are in
+[fdroid/README.md](fdroid/README.md). The retained `v1.10.0` tag is historical and
+does not contain this branch's packaging work; replace it for the actual release.
 
 Owner steps before submission, in an fdroiddata fork:
 
 1. Set `commit` to the first F-Droid release tag and, after signing-key
    validation, `AllowedAPKSigningKeys` to the certificate SHA-256.
-2. Verify against the actual buildserver image: NDK `r29` availability (our
-   recipe asserts exactly 29.0.13846066), Node/npm and Rust
+2. The numeric NDK `29.0.13846066` pin is now installed/resolved through F-Droid's
+   tooling. It is r29 beta3; the `r29` alias instead installs r29 final. Review a
+   separate r30 LTS migration before production release. Verify against the
+   actual buildserver image: Node/npm and Rust
    aarch64-linux-android target availability, build-tools 35.0.0 for the
    verifier, and that gradle/maven/network fetches work under fdroidserver.
-3. Run `fdroid lint`, the scanner and a clean build. Do not hide runtime
-   binaries with broad scanner ignores; resolve findings instead.
+3. Resolve the preflight's 17 npm binary/archive findings and F-Droid's removal
+   of the Gradle wrapper. Then repeat `fdroid lint`, scanner and clean build.
+   Lint currently reports the missing public signing certificate fingerprint;
+   do not hide runtime binaries with broad scanner ignores.
 4. Add screenshots and per-version changelogs under `fastlane/metadata/`.
 
 ### Reproducibility protocol
@@ -1041,6 +1048,18 @@ pin and choose the matching metadata before a real scanner/buildserver run; do
 not upgrade the app toolchain merely to make an alias look consistent. No NDK
 or metadata build-setting change is included in this verification pass.
 
+**Follow-up preflight (2026-11-05):** exact-pin installation and fdroidserver
+resolution now pass, and the draft requests `29.0.13846066` explicitly. This
+retains the proven beta3 toolchain; it does not upgrade production builds.
+Google currently lists r30 LTS (`30.0.16248370`), also available in F-Droid's
+catalog; a reviewed migration needs fresh native/APK and device checks.
+With real fdroiddata configuration, metadata formatting passes and only the
+missing `AllowedAPKSigningKeys` gate remains in lint. The clean source export
+passes scanning, but `npm ci` adds 17 fatal binary/archive findings. Scanner
+removal of the Gradle wrapper also needs integration work. The verified CI APK
+passes the known-class/signing-block scan, which does not clear those source
+findings. See [preflight evidence and execution gates](fdroid/README.md).
+
 Owner signing-key/`android-release` setup can proceed in parallel using section 2.
 A signed candidate is required for Pixel installation; file-transfer installation
 remains supported and ADB is optional. Complete runtime and increasing-version
@@ -1143,9 +1162,10 @@ Build-tool environments have separate dependencies.
    links the pinned Maven AAR, SHERPA_REQUIRE_SOURCE=1 fails closed, and an
    F-Droid-style build produced a verifier-passing unsigned APK whose ORT bytes
    match the artifact and whose Sherpa bytes match the source build. Remaining:
-   repeat the proof in a frozen, hermetic environment, and add OCR/PDF source
-   inputs only if review objects to npm WASM. Preserve matched API/worker/loader
-   pairs and current versions.
+   repeat the proof in a frozen environment and resolve the npm scanner findings,
+   including the proposed use of existing OCR/PDF source probes. Review staging
+   before changing shipped inputs; preserve matched API/worker/loader pairs and
+   current versions. Source probes alone do not clear the scanner gate.
 5. [ ] Reproducibility protocol in place (see the section above):
    `npm run check:android-reproducibility` proves fresh-compile reproducibility
    on one environment, with both APK copies retained. Sorted Pagefind ingestion
@@ -1154,7 +1174,9 @@ Build-tool environments have separate dependencies.
    supplied. The shared production resolver now declares that stamp consistently
    and passes Git/source-export APK comparison. The committed implementation also
    passes full CI and byte-identical local reproduction of the actual CI commit.
-   Remaining: the exact F-Droid NDK setup and frozen fdroidserver environment,
+   Exact F-Droid NDK installation/resolution is now verified with the numeric
+   pin. Remaining: reviewed toolchain/source changes and a frozen fdroidserver
+   environment,
    then signature copying with the production key and confirmation that its
    rebuild matches the published APK.
 6. [ ] On Pixel 6 and another Pixel: install after resetting the debug test app;
@@ -1168,9 +1190,10 @@ Build-tool environments have separate dependencies.
 8. [ ] Metadata draft ready at
    [fdroid/metadata/io.papercut.desktop.yml](fdroid/metadata/io.papercut.desktop.yml).
    Remaining: add screenshots/changelogs, set the release tag and signing-key
-   fingerprint, copy into an fdroiddata fork, verify buildserver assumptions,
-   then run lint/scanner/clean build, submit and address review. Do not hide
-   runtime binaries with broad scanner ignores.
+   fingerprint, resolve the [preflight findings](fdroid/README.md), copy into an
+   fdroiddata fork, verify buildserver assumptions, then repeat lint/scanner/clean
+   build, submit and address review. Do not hide runtime binaries with broad
+   scanner ignores.
 9. [ ] Rehearse the next update through F-Droid before announcing availability.
 
 Earlier packaging/source-probe validation: 14 shipping/staging regression checks
