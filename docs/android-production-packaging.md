@@ -1115,8 +1115,41 @@ The final serial frontend/script suite passed 795 tests with one existing skip.
 An earlier run alongside the native builds failed the existing Pagefind
 reproducibility test once: one fixture's `pagefind-entry.json` was empty. The
 serial rerun passed, and the compared APKs matched with a populated index
-manifest. Investigate that intermittent write result before changing the
-packaged PDF/OCR inputs.
+manifest.
+
+[PR #91 CI](https://github.com/muhannadnouri/papercut.io/actions/runs/42097081987)
+passed all nine jobs for `d06270b5`. A local rebuild of the Android job's
+actual merge checkout `a34dd962` reproduced its complete unsigned APK, SHA-256
+`e4010e3756cb1b41e9a1b868a32c269edf271742e643cad1b273e4f80b4d0838`.
+Both APKs passed the unsigned verifier. The local rebuild reused the verified
+r30 native inputs, whose bytes matched the independently built CI inputs.
+
+### Pagefind bundle write race (2026-11-05)
+
+The pinned Pagefind 1.4.0 service can acknowledge `writeFiles()` while writes
+are pending. Closing the service immediately can interrupt those writes.
+[Pagefind issue #1271](https://github.com/Pagefind/pagefind/issues/1271)
+describes the race, and [the 1.4.0 writer](https://github.com/Pagefind/pagefind/blob/v1.4.0/pagefind/src/output/mod.rs)
+has the same missing flush.
+
+Papercut now retrieves bytes with `getFiles()`, checks the manifest and file
+paths, and awaits every Node write in a temporary directory before replacing
+`dist/pagefind`. A rejected bundle or staging write leaves the previous output
+in place. The regression checks cover empty and escaping output and compare
+the real bundle and normalized URLs across fresh directories.
+
+With eight concurrent fresh processes pinned to one CPU, the old path returned
+success with two empty manifests and one empty `pagefind-ui.js` across 512 builds
+of starter documents and test fixtures. Under the same settings all 512 fixed
+builds matched their healthy reference by filename, size and SHA-256. Local
+reports are under `.cache/android-production/parity-review/pagefind-write-race/`.
+
+The full suite passed 797 tests with one existing skip, and the nine focused
+tests passed on Node 22. A fresh production APK build with the writer patch
+applied to `a34dd962` passed the unsigned verifier and matched the r30 CI APK
+byte-for-byte at that revision stamp.
+
+After review, run CI for the writer fix and continue with PDF/OCR source staging.
 
 Owner signing-key/`android-release` setup can proceed in parallel using section 2.
 A signed candidate is required for Pixel installation; file-transfer installation

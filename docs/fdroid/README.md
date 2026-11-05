@@ -86,8 +86,8 @@ not a buildserver or signature comparison of the r30 candidate.
 
 ## Next execution gates
 
-1. Review and validate the committed r30 migration in CI, then resolve the
-   scanner findings and Gradle bridge.
+1. Run CI for the Pagefind writer fix, then stage the source-built PDF/OCR
+   assets and resolve the scanner findings and Gradle bridge.
    Provision the actual buildserver's Node/npm, Rust 1.98.1 Android target,
    Java 17, CMake and SDK/build-tools inputs explicitly; the host preflight did
    not prove their availability in that image. Source PDF/OCR wiring will also

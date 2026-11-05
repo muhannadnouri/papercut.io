@@ -29,7 +29,7 @@ import { buildSearchIndex } from "../build-search-index.js"
 const api = vi.hoisted(() => ({
   createIndex: vi.fn(),
   addHTMLFile: vi.fn(),
-  writeFiles: vi.fn(),
+  getFiles: vi.fn(),
   close: vi.fn(),
 }))
 vi.mock("pagefind", () => ({
@@ -52,7 +52,13 @@ beforeEach(async () => {
     errors: [],
   })
   api.addHTMLFile.mockResolvedValue({ errors: [] })
-  api.writeFiles.mockResolvedValue({ errors: [] })
+  api.getFiles.mockResolvedValue({
+    errors: [],
+    files: [{
+      path: "pagefind-entry.json",
+      content: Buffer.from("{}"),
+    }],
+  })
 })
 afterEach(async () => await rm(site, {
   recursive: true,
@@ -77,16 +83,16 @@ it("sorts relative HTML paths and awaits each file before indexing the next", as
     .toEqual(["documents/a.html", "documents/folder/a space.html", "documents/z.html"])
   expect(api.addHTMLFile.mock.calls[0][0].content).toContain("Reading books")
   expect(peak).toBe(1)
-  expect(api.writeFiles).toHaveBeenCalledWith({ outputPath: join(site, "pagefind") })
+  expect(await readFile(join(site, "pagefind/pagefind-entry.json"), "utf8")).toBe("{}")
   expect(api.close).toHaveBeenCalledOnce()
 })
 
-it.each(["createIndex", "addHTMLFile", "writeFiles"])("fails on %s errors and closes the service", async method => {
+it.each(["createIndex", "addHTMLFile", "getFiles"])("fails on %s errors and closes the service", async method => {
   await html("a.html")
   api[method].mockResolvedValue({ errors: ["indexing failed"] })
   await expect(buildSearchIndex(site)).rejects.toThrow("indexing failed")
-  if (method !== "writeFiles") {
-    expect(api.writeFiles).not.toHaveBeenCalled()
+  if (method !== "getFiles") {
+    expect(api.getFiles).not.toHaveBeenCalled()
   }
   expect(api.close).toHaveBeenCalledOnce()
 })
@@ -95,7 +101,7 @@ it("closes the service when indexing rejects", async () => {
   await html("a.html")
   api.addHTMLFile.mockRejectedValue(new Error("backend stopped"))
   await expect(buildSearchIndex(site)).rejects.toThrow("backend stopped")
-  expect(api.writeFiles).not.toHaveBeenCalled()
+  expect(api.getFiles).not.toHaveBeenCalled()
   expect(api.close).toHaveBeenCalledOnce()
 })
 
@@ -104,6 +110,32 @@ it("rejects an empty bundled-document input", async () => {
   await expect(buildSearchIndex(site)).rejects.toThrow("No bundled HTML")
   expect(api.createIndex).not.toHaveBeenCalled()
   expect(api.close).toHaveBeenCalledOnce()
+})
+
+it.each([
+  {
+    path: "pagefind-entry.json",
+    content: Buffer.alloc(0),
+  },
+  {
+    path: "../outside",
+    content: Buffer.from("escape"),
+  },
+])("rejects an invalid bundle and keeps the previous output ($path)", async invalid => {
+  await html("a.html")
+  await buildSearchIndex(site)
+  const valid = {
+    path: "pagefind-entry.json",
+    content: Buffer.from('{"new":true}'),
+  }
+  api.getFiles.mockResolvedValue({
+    errors: [],
+    files: invalid.path === valid.path ? [invalid] : [valid, invalid],
+  })
+  await expect(buildSearchIndex(site)).rejects.toThrow(/Empty Pagefind output|Invalid Pagefind output path/)
+  expect(await readFile(join(site, "pagefind/pagefind-entry.json"), "utf8")).toBe("{}")
+  expect((await readdir(site)).sort()).toEqual(["documents", "pagefind"])
+  expect(api.close).toHaveBeenCalledTimes(2)
 })
 
 it("produces identical real indexes across fresh roots/file orders and preserves CLI URLs/content", async () => {
@@ -119,6 +151,7 @@ it("produces identical real indexes across fresh roots/file orders and preserves
     execFileSync(process.execPath, ["--input-type=module", "-e",
       `import { buildSearchIndex } from ${JSON.stringify(script)}; await buildSearchIndex(${JSON.stringify(root)})`], { cwd: ROOT })
     const output = join(root, "pagefind")
+    expect(JSON.parse(await readFile(join(output, "pagefind-entry.json"), "utf8")).languages.en).toBeDefined()
     const entries = await readdir(output, {
       recursive: true,
       withFileTypes: true,

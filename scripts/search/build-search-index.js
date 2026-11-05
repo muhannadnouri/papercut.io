@@ -1,11 +1,19 @@
 import assert from "node:assert/strict"
 import {
+  mkdir,
+  mkdtemp,
   readFile,
   readdir,
+  rename,
+  rm,
+  writeFile,
 } from "node:fs/promises"
 import {
+  dirname,
+  isAbsolute,
   join,
   relative,
+  resolve,
   sep,
 } from "node:path"
 import * as pagefind from "pagefind"
@@ -34,8 +42,35 @@ export async function buildSearchIndex(site = join(ROOT, "dist")) {
       })
       assert(!result.errors.length, result.errors.join("\n"))
     }
-    const result = await index.writeFiles({ outputPath: join(site, "pagefind") })
+    // Pagefind 1.4 can acknowledge writeFiles before its service flushes the bytes (#1271).
+    const result = await index.getFiles()
     assert(!result.errors.length, result.errors.join("\n"))
+    assert(result.files.some(file => file.path === "pagefind-entry.json"), "Pagefind did not return its manifest")
+
+    const output = join(site, "pagefind")
+    const staging = await mkdtemp(join(site, ".pagefind-"))
+    try {
+      const bundle = join(staging, "pagefind")
+      for (const file of result.files) {
+        const target = resolve(bundle, file.path)
+        const rel = relative(bundle, target)
+        assert(rel && !isAbsolute(file.path) && !isAbsolute(rel) && rel !== ".." && !rel.startsWith(".." + sep),
+          "Invalid Pagefind output path: " + file.path)
+        assert(file.content.length, "Empty Pagefind output: " + file.path)
+        await mkdir(dirname(target), { recursive: true })
+        await writeFile(target, file.content, { flag: "wx" })
+      }
+      await rm(output, {
+        recursive: true,
+        force: true,
+      })
+      await rename(bundle, output)
+    } finally {
+      await rm(staging, {
+        recursive: true,
+        force: true,
+      })
+    }
     console.log(`[pagefind] indexed ${paths.length} bundled HTML documents in path order`)
   } finally {
     await pagefind.close()
