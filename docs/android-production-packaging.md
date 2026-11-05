@@ -668,17 +668,39 @@ The packaged Sherpa library matches the source receipt; the resulting APK
 passes the unsigned production verifier and contains the current notices
 byte-for-byte. This remains a one-environment proof.
 
-After the owner pushes this upgrade, run full CI (`validation_scope=full`,
-`provider_inference=false`) and reset the debug install before Pixel testing:
+PR [#91](https://github.com/muhannadnouri/papercut.io/pull/91)'s
+[CI run 41923862017](https://github.com/muhannadnouri/papercut.io/actions/runs/41923862017)
+passes all nine jobs at `83be8497`, covering the full build/test surface with
+optional provider inference skipped. Reset the debug install before Pixel testing:
 HTML/EPUB import and styled rendering, PDF, English/Arabic OCR, TTS voice
 download/preview, conceptual search and library transfer. These runtime checks
 remain required even when local compilation and reproducibility pass.
 
 The release workflow still uses the default prebuilt Sherpa path, while this
-proof uses source-built Sherpa. Equality between those actual release and
-F-Droid outputs has not been established. The next stage must compare them
-under aligned inputs and review any required release-workflow change before
-shared-signature publication.
+proof uses source-built Sherpa. Comparing the owner's downloaded CI APK from
+that run with the retained source-only APK found the same 1,723 entry names
+and order, with exactly two differing entry contents:
+
+| Entry | CI bytes | Source-only bytes | Finding |
+| --- | ---: | ---: | --- |
+| `lib/arm64-v8a/libapp_lib.so` | 44,996,208 | 45,000,208 | Embedded Cargo/workspace/standard-library source paths differ; matching compiler version strings alone do not establish identical build inputs |
+| `lib/arm64-v8a/libsherpa-onnx-c-api.so` | 4,406,888 | 4,373,144 | Prebuilt archive uses API 21 / NDK r29 build 14206865; source recipe uses API 26 / r29-beta3 build 13846066; embedded C++ source paths also differ |
+
+All other 1,721 entries, including ONNX Runtime, DEX, manifest, notices and
+assets, match in both decompressed and compressed bytes. ZIP offsets and native
+alignment padding change with the differing library sizes. The CI APK passes
+the unsigned production verifier, but the APKs are **not byte-identical**:
+
+- CI SHA-256: `c353a6c16cfac79a10c2843765f7b2f59bd2571d7913375e6eeaafae0edbaa84`
+- Source-only SHA-256: `f5730bc3b5765b920719760a40c12e79f321e7bff9728a79ff11412ceee761f9`
+
+The proposed next stage is to use the existing source Sherpa recipe for upstream
+Android production builds too, normalize Rust/C/C++ source paths, align actual
+toolchain/source inputs and repeat the cross-environment comparison. Cold build
+time will increase. Review the workflow change before implementation and preserve
+the isolated signing job. Path differences are confirmed; additional native
+differences have not yet been excluded. Signing secrets are not needed for this
+unsigned comparison; production signing and signature copying remain later gates.
 
 Completing gate 5 needs a production key and three more steps, run by the
 owner when that key exists (F-Droid rebuilds and compares the same way):

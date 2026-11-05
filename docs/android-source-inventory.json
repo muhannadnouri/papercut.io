@@ -593,7 +593,7 @@
     "Supertonic kept 2026-11-03 with the NonFreeAssets anti-feature; MIT-code/OpenRAIL-M distinction retained in notices.",
     "Kokoro eSpeak/CppJieba data/dictionary mapping is recorded in the shipped notices; retain the matching source/notices with each release.",
     "QCMS source MIT versus published BSD notice discrepancy must be resolved when staging rebuilt assets; preserve source notice.",
-    "Two fresh source-only APK builds are byte-identical after the 2026-11-04 Tauri 2.12.5/API 2.12.4 alignment in one environment. Ignored cache products and host tools are not a hermetic guarantee; release-vs-source build parity, second-environment reproduction, production signature copying and fdroiddata scanner/build review remain pending."
+    "PR91 CI run 41923862017 passes all nine jobs at 83be8497. Comparing its prebuilt-path APK to the one-environment source-only proof finds exactly two differing entry contents: libapp_lib.so (embedded compiler source paths differ) and libsherpa-onnx-c-api.so (build API/NDK and source paths differ). The remaining 1721 entries match. Upstream/source build alignment, independent reproduction, production signature copying and fdroiddata scanner/build review remain pending."
   ],
   "validation": {
     "scope": "Local compatibility/build receipts only. Native objects were reused; OCR/PDF work trees were recreated. No clean APK reproduction, phone test, production signing or license approval is implied.",
