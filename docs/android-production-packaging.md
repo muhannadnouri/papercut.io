@@ -870,14 +870,58 @@ APKs remain under `.cache/android-production/reproducibility/`.
 
 This is a same-host, same-toolchain relocation proof. Both checkouts share the
 Cargo/Rustup/SDK homes and the installed npm dependencies; verified source/archive
-inputs were reused, rather than downloaded independently. It does not establish
-CI/F-Droid buildserver parity or production-signature reproducibility. Owner next:
-commit/push these changes to PR #91, let its new CI build complete, and retain its
-unsigned APK for comparison against this hash. No duplicate unchanged-commit
-manual dispatch is needed if the PR run covers the platform jobs. Then validate
-the actual fdroiddata/buildserver recipe and complete production signing/device
-acceptance. Regenerate evidence for v1.10.1 after the planned testing/merge and
-version bump; this proof is still for 1.10.0.
+inputs were reused, rather than downloaded independently. The later CI comparison
+below adds another host; neither check establishes fdroidserver or production-
+signature reproducibility. Regenerate evidence for v1.10.1 after the planned
+testing/merge and version bump; these proofs are still for 1.10.0.
+
+### CI/local artifact comparison (2026-11-04)
+
+[CI run 41964028402](https://github.com/muhannadnouri/papercut.io/actions/runs/41964028402)
+passes all nine jobs at head `b151cc5f`, including checks, Android, iOS,
+Linux/Windows/macOS Intel/ARM and SILMA Linux CPU. Android's production build,
+unsigned verifier and transfer callback tests pass; optional provider inference
+is skipped as expected. PR #91 remains open/draft; no merge was performed.
+
+The owner's supplied `papercut-android-release-unsigned-apk` sample passes the
+local unsigned verifier (1.10.0 / 1010000). It has the same 1,723 entry names/order
+as the retained local reference, with exactly one differing entry:
+`lib/arm64-v8a/libapp_lib.so` (CI 44,989,592 bytes; local 44,989,464).
+Sherpa, ONNX Runtime, other packaged assets, DEX, manifest and notices match. The CI APK
+SHA-256 is `99132381fc7e3eacd848554027ddc811284517a8a665dd2e5200b90f7d8cae23`;
+the unstamped local reference remains `4cf48620…` above.
+
+The remaining input difference is the compile-time build stamp in
+[`library_transfer/diagnostics.rs`](../src-tauri/src/library_transfer/diagnostics.rs):
+`option_env!("GITHUB_SHA")` populates the optional transfer diagnostic `build`
+field. Local builds had no value; this PR job embeds GitHub's synthetic merge
+revision `a5f4d82d6dd6b993a0dee376ee70fcd9540cd10c`. The job log confirms that
+checkout. Its Git tree is exactly the same as head `b151cc5f`:
+`d8ed83c41ecc94b552c216298b6f8dff7db6ea30`. Different source content is therefore
+not responsible for this comparison's mismatch.
+
+A local diagnostic production rebuild, changing only `GITHUB_SHA` to that CI
+value, produces the exact same APK as the supplied CI sample:
+`99132381fc7e3eacd848554027ddc811284517a8a665dd2e5200b90f7d8cae23`.
+This establishes a cross-host artifact match with the same revision-stamp input.
+It uses the existing local compilation cache with Cargo's environment dependency
+tracking; it is not another two-fresh-build proof or an fdroidserver run. The
+original two clean reference APKs are retained separately. The GitHub artifact
+metadata was checked, but the artifact ZIP was not independently downloaded;
+the binary comparison uses the owner's supplied APK.
+
+Next implementation review: make the diagnostic revision an explicit,
+deterministic source input in the shared production/F-Droid build path, rather
+than depending on whether the caller happens to be GitHub Actions. Preserve the
+useful revision information and define how a checkout/release revision is
+supplied, including source exports without Git metadata, before changing it.
+No builder or diagnostics code was changed in this verification pass. A repeated
+unchanged-commit CI run is unnecessary. After the stamp contract is implemented,
+validate the real fdroiddata/buildserver recipe and complete production signing,
+Pixel acceptance and the release-specific metadata/source archive work.
+
+Ignored report, run metadata and matched-stamp APK:
+`.cache/android-production/parity-review/ci-41964028402/`.
 
 ### Production signature comparison
 
@@ -980,10 +1024,10 @@ Build-tool environments have separate dependencies.
    `npm run check:android-reproducibility` proves fresh-compile reproducibility
    on one environment, with both APK copies retained. Sorted Pagefind ingestion
    and link-time native stripping now also pass a fresh relocated-checkout proof.
-   Remaining: repeat in a frozen second environment, compare the new CI artifact,
-   then complete signature copying with
-   the production key and confirm fdroidserver's rebuild matches the published
-   APK.
+   CI/local APK bytes also match when the same diagnostic revision stamp is
+   supplied. Remaining: declare that stamp consistently, validate the frozen
+   fdroidserver environment, then complete signature copying with the production
+   key and confirm its rebuild matches the published APK.
 6. [ ] On Pixel 6 and another Pixel: install after resetting the debug test app;
    test import/open-with, bookmarks, English/Arabic OCR, scanner, voice
    download/preview, Arabic preprocessing, conceptual search, audiobook generation
