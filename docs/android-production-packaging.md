@@ -992,13 +992,62 @@ CI/F-Droid/signature check is still needed. Report and retained export APK:
 APKs remain in `.cache/android-production/reproducibility/`.
 
 Committing changes updates the embedded checkout revision and therefore the APK
-hash. Owner next: commit/push this implementation and inspect the new full PR CI
-run. For an exact CI comparison, build the actual checked-out CI commit (including
+hash. The implementation is committed as `eb56a893` and its full CI/result comparison
+is recorded below. For an exact CI comparison, build the actual checked-out CI commit (including
 a PR merge commit), or use its matching source export and declared revision.
 A checkout override naming another commit is deliberately rejected even when
 both commits have the same tree. Final release reproduction uses the v1.10.1
 release commit after the planned testing/merge/version bump. The actual F-Droid
 buildserver, production key/signature and Pixel acceptance gates remain open.
+
+### Committed revision CI and cross-host APK match (2026-11-05)
+
+[CI run 41987142956](https://github.com/muhannadnouri/papercut.io/actions/runs/41987142956)
+passes all nine jobs at head `eb56a893`. The checks job passes 785 frontend/script
+tests (one existing skip), 274 default Rust tests (four ignores), 332 shipping
+Rust tests (nine ignores), lint and the existing audit policy. Android's build,
+verifier and transfer tests pass; iOS simulator/device and all desktop/SILMA
+builds pass. Optional downloaded-model inference is intentionally skipped. PR #91
+remains open/draft; neither merge nor publication was performed.
+
+The Android artifact was downloaded directly through the GitHub connector:
+`papercut-android-release-unsigned-apk`, artifact `13397468619`. Its ZIP digest
+matches GitHub's reported SHA-256
+`1751bd34eb11b5537a1bd36475df5af56744c47cc8a477d4bbca94da8e52cfb9`.
+The extracted unsigned APK passes local production verification for 1.10.0 /
+1010000 and embeds the actual CI checkout revision
+`fed3a37d0f5be9be6ee2595002bdd694cfe821b4`.
+
+A fresh local Rust/Gradle build from an isolated Git checkout of that exact merge
+commit produces the **same complete APK bytes**, SHA-256
+`2cf33d0acdd9c4c05a069eb03ed96c13c630e9195bc04d4c699effcce470a752`.
+All 1,723 entry names/order/contents match. The project revision was derived
+automatically from Git with no revision override. Shared npm/Cargo/SDK homes and
+the previously verified source-built native pair were reused; CI independently
+built its native pair, whose bytes match. This is cross-host reproduction of
+committed source, rather than a source-stamp experiment or an fdroidserver test.
+Report, verified artifact ZIP and both APKs are under
+`.cache/android-production/parity-review/ci-41987142956/`. The owner's root sample
+is still the older `99132381…` APK and was not replaced.
+
+No further app/build-code change is indicated by this run. Next is F-Droid recipe
+preflight and owner signing/device acceptance. A concrete draft discrepancy needs
+review: `ndk: r29` does not request the tested `29.0.13846066` pin. F-Droid's
+[published r29 build log](https://monitor.f-droid.org/builds/log/ac.mdiq.Podcini.A/85)
+selects `29.0.14206865`; the source recipe requires the different exact version
+and fails closed. F-Droid's [metadata reference](https://f-droid.org/en/docs/Build_Metadata_Reference/)
+allows full numeric NDK versions. Verify availability/installation of our exact
+pin and choose the matching metadata before a real scanner/buildserver run; do
+not upgrade the app toolchain merely to make an alias look consistent. No NDK
+or metadata build-setting change is included in this verification pass.
+
+Owner signing-key/`android-release` setup can proceed in parallel using section 2.
+A signed candidate is required for Pixel installation; file-transfer installation
+remains supported and ADB is optional. Complete runtime and increasing-version
+update acceptance before merging. Then prepare v1.10.1 as planned, regenerate its
+source archive/evidence, finish actual fdroiddata lint/scanner/build/signature
+comparison and resolve the recorded licensing/listing follow-ups before claiming
+F-Droid publishing readiness.
 
 ### Production signature comparison
 
@@ -1103,9 +1152,11 @@ Build-tool environments have separate dependencies.
    and link-time native stripping now also pass a fresh relocated-checkout proof.
    CI/local APK bytes also match when the same diagnostic revision stamp is
    supplied. The shared production resolver now declares that stamp consistently
-   and passes Git/source-export APK comparison. Remaining: new implementation CI,
-   the frozen fdroidserver environment, then signature copying with the production
-   key and confirmation that its rebuild matches the published APK.
+   and passes Git/source-export APK comparison. The committed implementation also
+   passes full CI and byte-identical local reproduction of the actual CI commit.
+   Remaining: the exact F-Droid NDK setup and frozen fdroidserver environment,
+   then signature copying with the production key and confirmation that its
+   rebuild matches the published APK.
 6. [ ] On Pixel 6 and another Pixel: install after resetting the debug test app;
    test import/open-with, bookmarks, English/Arabic OCR, scanner, voice
    download/preview, Arabic preprocessing, conceptual search, audiobook generation
