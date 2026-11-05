@@ -117,6 +117,9 @@ const COMPONENTS = [
       file: join(ROOT, "node_modules/pdfjs-dist/LICENSE"),
       attribution: "PDF.js " + PINS.pdfjs.slice(0, 12),
     }, {
+      file: join(CACHE, "pdfjs-jbig2/LICENSE"),
+      attribution: "PDF.js JBIG2 wrapper",
+    }, {
       file: join(CACHE, "tesseract-source/LICENSE"),
       attribution: "Tesseract " + PINS.tesseract.slice(0, 12),
     }, {
@@ -142,7 +145,7 @@ const COMPONENTS = [
     title: "MIT License",
     required: true,
     notes: [
-      "QuickJS (PDF.js sandbox engine; fetched upstream at its pinned revision when the source recipe builds) is MIT; the MIT text below covers it. sentencepiece-related notices ride with the simple-sentencepiece Apache text in the Apache section.",
+      "sentencepiece-related notices ride with the simple-sentencepiece Apache text in the Apache section.",
     ],
     entries: [{
       file: join(ROOT, "LICENSE.md"),
@@ -159,6 +162,12 @@ const COMPONENTS = [
     }, {
       file: join(CACHE, "sherpa-build/_deps/piper_phonemize-src/licenses/uni-algo/LICENSE.md"),
       attribution: "uni-algo (Piper phonemize dependency)",
+    }, {
+      file: join(CACHE, "quickjs-source/LICENSE"),
+      attribution: "QuickJS (PDF.js sandbox engine)",
+    }, {
+      file: join(CACHE, "pdfjs-qcms/LICENSE"),
+      attribution: "PDF.js QCMS wrapper (source checkout)",
     }],
   },
   {
@@ -174,7 +183,7 @@ const COMPONENTS = [
       file: join(CACHE, "sherpa-build/_deps/kissfft-src/COPYING"),
       attribution: "KissFFT (Sherpa fetched dependency) BSD license",
     }, {
-      file: join(CACHE, "pdfjs-jbig2/LICENSE"),
+      file: join(CACHE, "pdfium-source/LICENSE"),
       attribution: "PDFium (JBIG2/CCITT decoder dependency)",
     }],
     dirEntries: [{

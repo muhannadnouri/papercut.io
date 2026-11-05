@@ -497,9 +497,10 @@ It verifies the generated fixture's inline-style word boundary, two-column
 reading order, and finite text coordinates. Real multilingual and large-file
 documents remain local, uncommitted acceptance fixtures.
 
-`npm run dev` and `npm run build:vite` copy PDF.js's installed WASM decoders
-and standard fonts into generated local assets. The renderer does not fetch
-runtime resources from a CDN. With those assets configured, the 40-page
+`npm run dev` and `npm run build:vite` normally copy PDF.js's installed WASM
+decoders and standard fonts into generated local assets. Android production
+testing can use the [source-built PDF and OCR runtime](android-production-packaging.md#source-built-pdf-and-ocr-runtime-2026-11-05).
+The renderer loads its runtime resources locally. With those assets configured, the 40-page
 JPEG 2000 benchmark renders a nonblank 430x695 first page and exposes its title
 through the text layer. The temporary first-page WebView harness used for this
 selection was removed after the production import and reader paths passed the
@@ -568,9 +569,9 @@ the worker and core into the ignored `public/tesseract/` build tree. Generated
 language must be an explicitly pinned package selected by the same preparation
 script so offline builds remain reproducible and only ship supported languages.
 
-Build preparation copies the installed worker, SIMD-capable LSTM cores, and the
-integer English and Arabic trained data into ignored `public/tesseract` assets. Runtime
-URLs are app-local; no CDN or account is required. One worker should be reused
+Build preparation stages the installed worker and integer English and Arabic
+trained data with the selected LSTM loader/WASM pairs in ignored
+`public/tesseract` assets. Runtime URLs are app-local. One worker should be reused
 for a complete job and terminated when the job finishes or is cancelled.
 
 English and Arabic are the only included languages. Automatic recognition must

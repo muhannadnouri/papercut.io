@@ -43,14 +43,15 @@ All 17 findings are under `node_modules/`:
 | --- | ---: | --- |
 | `@esbuild/linux-x64/bin/esbuild`, `esbuild/bin/esbuild`, `@pagefind/linux-x64/bin/pagefind_extended` | 3 | Host build tools: establish an acceptable tool/source provenance route |
 | `@tesseract.js-data/{ara,eng}/{4.0.0,4.0.0_best_int}/*.traineddata.gz` | 4 | OCR data: document origins/licenses and agree the archive treatment |
-| `pdfjs-dist/wasm/{jbig2,openjpeg,qcms_bg,quickjs-eval}.wasm` | 4 | Shipped PDF codecs/engine: existing source probes are available but not staged |
-| `tesseract.js-core/tesseract-core*.wasm` | 6 | Installed OCR engines, including unused legacy variants; shipping uses the three LSTM variants |
+| `pdfjs-dist/wasm/{jbig2,openjpeg,qcms_bg,quickjs-eval}.wasm` | 4 | Source mode stages rebuilt codecs and matching PDF.js bundles. Handle the npm copies still present at scan time |
+| `tesseract.js-core/tesseract-core*.wasm` | 6 | Source mode stages three rebuilt LSTM pairs. Handle all six installed npm variants at scan time |
 
 Do not move `npm ci` after the scanner or add `scanignore: node_modules` to make
-this appear clean. Reuse the existing PDF/OCR source probes for the runtime code,
-keep matched JS loaders/workers and notices, and resolve each remaining finding
-with a narrow, explained treatment. The native recipe also fetches Sherpa/CMake
-dependencies during `build`; this source scan did not cover those later trees.
+this appear clean. The [source staging pass](../android-production-packaging.md#source-built-pdf-and-ocr-runtime-2026-11-05)
+changes which engine files reach the APK. It leaves the installed npm tree and
+its scanner findings in place. Resolve each finding with a narrow, explained
+treatment. Review the Sherpa/CMake and WASM recipe dependency trees as part of
+the buildserver audit because the historical scan did not include those trees.
 
 The scanner's Gradle-wrapper removal also needs integration work: the Tauri
 pipeline must use the trusted buildserver's matching Gradle distribution without
@@ -86,12 +87,12 @@ not a buildserver or signature comparison of the r30 candidate.
 
 ## Next execution gates
 
-1. Run CI for the Pagefind writer fix, then stage the source-built PDF/OCR
-   assets and resolve the scanner findings and Gradle bridge.
+1. Verify Pagefind CI separately. Wire source staging into both release build
+   paths, resolve the scanner findings, and implement the Gradle bridge.
    Provision the actual buildserver's Node/npm, Rust 1.98.1 Android target,
    Java 17, CMake and SDK/build-tools inputs explicitly; the host preflight did
-   not prove their availability in that image. Source PDF/OCR wiring will also
-   need the documented Emscripten/Rust/WASM toolchains.
+   not prove their availability in that image. Include the documented
+   Emscripten/Rust/WASM toolchains for the source staging recipes.
 2. Owner: set up/reuse the production signing key and protected GitHub
    `android-release` environment using [guide section 2](../android-production-packaging.md#2-owner-create-and-configure-the-signing-key).
    Sign/install a candidate by file transfer (ADB optional), then complete

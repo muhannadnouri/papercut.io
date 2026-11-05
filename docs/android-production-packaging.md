@@ -432,8 +432,9 @@ PDF.js's normal build copies already-built codecs. Its separate wrapper
 Dockerfiles use floating Emscripten/Rust tags; QCMS additionally runs cargo update.
 Our recipe pins Emscripten, Rust, QCMS's existing Cargo.lock and wasm-bindgen CLI,
 applies the pinned upstream patches, and keeps compiler caches inside the project.
-It builds the JS fallbacks too. It then rebuilds PDF.js's API, worker and sandbox
-with the matching glue using its own npm lock and npm ci --ignore-scripts.
+It builds the JS fallbacks too. It then uses PDF.js's locked npm dependencies
+and upstream legacy build tasks to rebuild the API, minified worker and viewer
+with the matching glue.
 The PDF checkout includes enough history for Gulp to generate version 6.2.108;
 a one-commit checkout silently reports 6.2.0 and is rejected. No application npm
 or Cargo dependencies were upgraded.
@@ -455,7 +456,7 @@ Outputs: source-arm64/ holds the stripped source-built Sherpa library plus the
 AAR's arm64 runtime; sherpa-onnx-sys resolves both Rust link inputs from this
 one SHERPA_ONNX_LIB_DIR directory. source-ocr/ holds six
 LSTM loader/WASM files; source-pdf/ holds four codec pairs and fallbacks;
-pdf-worker-work/build/generic/ holds the matching PDF.js bundles and resources.
+pdf-worker-work/build/generic-legacy/ holds the matching PDF.js runtime set.
 Each output directory has source-receipt.json with source pins and output hashes.
 Those hashes describe a local build, not an independently reproduced reference.
 
@@ -484,13 +485,10 @@ Validation in this stage:
   not a full PDF corpus or Android sandbox test. Node-only browser API polyfills
   come from PDF.js's existing locked core-js dependency.
 
-Remaining technical boundary: stage the rebuilt PDF API/worker/glue as a set;
-replacing only WASM under the npm worker can break its import ABI. Integration
-requires a separate reviewed change to asset preparation and native build inputs.
-The local emsdk bootstrap uses upstream prebuilt FLOSS tools; this is not an
-accepted F-Droid toolchain declaration. Select F-Droid-supported/source-built
-tools and freeze host packages/environment in the clean-build stage. Ignored
-cache products, upstream downloads and host versions are not hermetic yet.
+The [source staging pass](#source-built-pdf-and-ocr-runtime-2026-11-05) now uses
+the rebuilt PDF API, worker, viewer and matching codecs together. The local
+emsdk bootstrap uses upstream prebuilt FLOSS tools. F-Droid toolchain selection
+and clean-build environment pinning remain buildserver gates.
 
 ### Dependency and notice inventory for review
 
@@ -520,13 +518,14 @@ sources, the Kareem model card and per-package attribution; regenerate with
 | Sherpa/ORT | Apache/MIT texts and ORT ThirdPartyNotices plus cmake/deps.txt; Eigen MPL2 and per-file BSD/Apache/MINPACK notices, OpenFst/Kaldi Apache notices, KissFFT BSD, JSON MIT, sentencepiece notices and exact fetched archives |
 | Rust/JS/Maven | Per-package copyright/license texts from pinned packages, including MPL-covered source files, Unicode/CDLA data terms and Apache notices; use the resolved inventory to audit final artifact contents |
 | OCR | Tesseract Apache, Leptonica BSD-style, IJG JPEG, giflib MIT, libpng/libtiff/libwebp, openlibm's MIT/BSD/ISC/FDLIBM/public-domain and LGPL test notices, and zlib texts; English/Arabic trained-data Apache source license separately from MIT npm wrapper metadata |
-| PDF | PDF.js/JBIG2 wrapper Apache, OpenJPEG BSD, PDFium BSD-3-Clause, QuickJS MIT and QCMS MIT source notices; retain existing published notices pending reconciliation, not a blanket Apache label |
+| PDF | PDF.js/JBIG2 wrapper Apache, OpenJPEG BSD, PDFium BSD-3-Clause, QuickJS MIT and QCMS MIT source notices, alongside the published PDF.js codec notices |
 | Fonts/data/models | Existing OFL/Apache font notices, PDF standard-font Foxit/Liberation notices and Libtashkeel MIT; model/voice/dictionary notices separately from inference-engine code |
 
-PDFium's actual source LICENSE is BSD-3-Clause even though the JBIG2 wrapper
-README links to it as Apache. QCMS's pinned source is MIT while the published
-PDF.js notice is BSD-style; retain both evidence sets for review when staging
-rebuilt assets. CameraX 1.5.3 camera-core's official Google Maven AAR supplies
+PDFium's source LICENSE is BSD-3-Clause. Its JBIG2 wrapper is Apache-2.0.
+The QCMS crate's MIT text is included in PDF.js's `LICENSE_QCMS`. The wrapper
+checkout has a separate MIT license while PDF.js ships a BSD-style wrapper
+notice. Source staging retains both wrapper notices.
+CameraX 1.5.3 camera-core's official Google Maven AAR supplies
 libimage_processing_util_jni.so and libsurface_util_jni.so, with Apache and libyuv
 BSD notices. F-Droid permits appropriate FLOSS artifacts from trusted Maven
 repositories; that does not waive license/notice review. Four Maven candidates
@@ -1149,7 +1148,65 @@ tests passed on Node 22. A fresh production APK build with the writer patch
 applied to `a34dd962` passed the unsigned verifier and matched the r30 CI APK
 byte-for-byte at that revision stamp.
 
-After review, run CI for the writer fix and continue with PDF/OCR source staging.
+The writer fix was committed separately from PDF/OCR source staging so CI can
+attribute its result to the Pagefind change.
+
+### Source-built PDF and OCR runtime (2026-11-05)
+
+After running the two WASM recipes above, opt into source staging using the
+normal Android release wrapper:
+
+~~~bash
+PAPERCUT_PDF_OCR_FROM_SOURCE=1 npm run android:apk:release
+node scripts/android/verify-android-apk.js --unsigned \
+  src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+~~~
+
+Use the same Android SDK, r30 NDK and source-built Sherpa inputs as the other
+production checks. For a frontend-only check, set the same variable on
+`npm run build`. The default local and CI build still uses the locked npm
+assets while the shared release and buildserver toolchains are prepared.
+
+In source mode the asset step verifies both receipts and all required runtime
+files before copying anything. Vite resolves the PDF.js legacy API, minified
+worker and viewer to the same source build. The matching four WASM modules and
+fallbacks are staged together. The upstream PDF.js codec notices are retained
+with the pinned QCMS wrapper and QuickJS license files. Standard fonts and
+viewer CSS remain from the locked PDF.js package. Tesseract.js keeps its locked
+browser worker and English/Arabic data and stages three matched source-built
+LSTM loader/WASM pairs. The OCR data and host tool findings in the F-Droid
+preflight remain separate from this change.
+
+PDF.js normally generates a fresh internal EventBus marker when Gulp starts.
+The API and viewer embed it to give internal listeners priority, so two builds
+of the same source can emit different JavaScript. The recipe derives the
+marker from the pinned PDF.js revision in the disposable checkout and builds
+both modules with that value. It checks the upstream definition before patching
+so a future revision can be reviewed when that build code changes.
+
+Local checks on Node 22.22.1 and Emscripten 4.0.15:
+
+- The legacy API, worker and viewer matched byte-for-byte across two checkout
+  paths with separate npm installs. This comparison reused the built codec
+  inputs. The fresh OCR recipe reproduced the six earlier loader/WASM hashes
+  and passed both languages on all three LSTM variants.
+- Chromium loaded the rebuilt PDF worker, JPEG 2000 and JBIG2 decoders, and
+  relaxed SIMD OCR loader. Three PDF fixtures matched the npm build pixel for
+  pixel, and the English and Arabic OCR results matched. The native browser
+  worker check complements the Node QCMS and QuickJS checks. The app suite
+  passed 797 tests with one existing skip.
+- The local unsigned arm64 APK passed the release verifier. The packaged
+  `libapp_lib.so` contained all 24 checked frontend assets, including the
+  source worker, four PDF WASM modules and six OCR files. The packaged notice
+  also matched the regenerated file. The SHA-256 is
+  `dffac24b06daabcf5ef1c73e67f9d361e0ad3086be0b62f2c6e51c4ed65954f5`.
+  This is a working-tree build on `6ad16518` with the verified r30 native
+  inputs. Reports are under `.cache/android-production/pdf-ocr-staging/`.
+
+Next, wire the same source mode into the upstream candidate and the F-Droid
+recipe, resolve the scanner findings per input, and adapt the build to the
+trusted Gradle distribution. Both sides of the signed-APK comparison need the
+same runtime inputs.
 
 Owner signing-key/`android-release` setup can proceed in parallel using section 2.
 A signed candidate is required for Pixel installation; file-transfer installation

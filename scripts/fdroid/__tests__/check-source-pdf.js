@@ -39,11 +39,12 @@ if (!mode) {
   console.log = console.warn = (...args) => {
     messages.push(args.join(" "))
   }
-  const base = mode === "reference" ? join(ROOT, "node_modules/pdfjs-dist") : join(SOURCE_CACHE, "pdf-worker-work/build/generic")
-  const resources = mode === "reference" ? base : join(base, "web")
+  const npmPackage = join(ROOT, "node_modules/pdfjs-dist")
+  const base = mode === "reference" ? join(npmPackage, "legacy") : join(SOURCE_CACHE, "pdf-worker-work/build/generic-legacy")
+  const resources = mode === "reference" ? npmPackage : join(base, "web")
   const api = await import(pathToFileURL(join(base, "build/pdf.mjs")))
   assert.equal(api.version, "6.2.108")
-  api.GlobalWorkerOptions.workerSrc = join(base, "build/pdf.worker.mjs")
+  api.GlobalWorkerOptions.workerSrc = join(base, "build/pdf.worker.min.mjs")
   const loaded = []
   // Local reads record which decoders ran; a successful JS fallback must not mask broken WASM.
   class BinaryDataFactory {

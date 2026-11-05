@@ -142,9 +142,6 @@ await receipt(destination, {
   rust: "1.98.1",
   wasmBindgen: "0.2.100",
 })
-// PDF.js bundles codec glue into its worker; these pairs require a matching worker rebuild before app integration.
-console.log("Source-built codec/loader pairs (not staged into the app): " + destination)
-
 const pdfRevision = "0365cbde028bd92e58f2dab1bb70cd30ac7acfd7"
 const pdfSource = await source("pdf.js", "https://github.com/mozilla/pdf.js.git", pdfRevision)
 // PDF.js derives 6.2.108 from Git history; a one-commit checkout silently produces the wrong build number.
@@ -159,6 +156,12 @@ await rm(worker, {
 })
 await run("git", ["clone", "--shared", pdfSource, worker])
 await run("git", ["checkout", "--detach", pdfRevision], { cwd: worker })
+// This marker orders internal EventBus listeners before public listeners. Both bundles need the same value.
+const gulpfile = join(worker, "gulpfile.mjs")
+const gulpSource = await readFile(gulpfile, "utf8")
+const eventMarker = "INTERNAL_EVT: crypto.randomUUID(),"
+assert.equal(gulpSource.split(eventMarker).length, 2, "PDF.js changed its internal event marker; review the source recipe")
+await writeFile(gulpfile, gulpSource.replace(eventMarker, `INTERNAL_EVT: "papercut-pdfjs-${pdfRevision}",`))
 for (const part of Object.keys(wrappers)) {
   for (const name of built.filter(file => file.startsWith(part === "qcms" ? "qcms" : part))) {
     await cp(join(destination, name), join(worker, "external", part, name))
@@ -172,16 +175,22 @@ await run("npm", ["ci", "--ignore-scripts", "--no-audit", "--no-fund"], {
     PUPPETEER_SKIP_DOWNLOAD: "true",
   },
 })
-await run(process.execPath, ["node_modules/gulp/bin/gulp.js", "generic"], { cwd: worker })
+await run(process.execPath, ["node_modules/gulp/bin/gulp.js", "--series", "generic-legacy", "minified-legacy", "components-legacy"], { cwd: worker })
 assert.equal(JSON.parse(await readFile(join(worker, "build/version.json"), "utf8")).version, "6.2.108")
-await receipt(join(worker, "build/generic"), {
+const runtime = join(worker, "build/generic-legacy")
+await cp(join(worker, "build/minified-legacy/build/pdf.worker.min.mjs"), join(runtime, "build/pdf.worker.min.mjs"))
+await cp(join(worker, "build/components-legacy/pdf_viewer.mjs"), join(runtime, "web/pdf_viewer.mjs"))
+await cp(join(SOURCE_CACHE, "pdfjs-qcms/LICENSE"), join(runtime, "web/wasm/LICENSE_PDFJS_QCMS_SOURCE"))
+await cp(join(SOURCE_CACHE, "quickjs-source/LICENSE"), join(runtime, "web/wasm/LICENSE_QUICKJS"))
+await run(process.execPath, ["scripts/fdroid/__tests__/check-source-pdf.js"])
+const wasmFiles = await readdir(join(runtime, "web/wasm"))
+await receipt(runtime, {
   pdfjs: pdfRevision,
   wrappers,
   libraries,
 },
-["build/pdf.mjs", "build/pdf.worker.mjs", "build/pdf.sandbox.mjs"], {
+["build/pdf.mjs", "build/pdf.worker.min.mjs", "web/pdf_viewer.mjs", ...wasmFiles.sort().map(file => "web/wasm/" + file)], {
   emscripten: "4.0.15",
   rust: "1.98.1",
   wasmBindgen: "0.2.100",
 })
-await run(process.execPath, ["scripts/fdroid/__tests__/check-source-pdf.js"])
