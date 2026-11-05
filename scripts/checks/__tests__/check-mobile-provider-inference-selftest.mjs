@@ -37,9 +37,10 @@ test("Android compile step supplies NDK archive tools to native dependency build
   const dir = mkdtempSync(join(tmpdir(), "papercut-android-toolchain-"))
   const ndk = join(dir, "NDK with spaces")
   try {
-    // Capture the environment at the real Cargo boundary without needing a local NDK.
+    // Capture the Cargo environment without provisioning the emulator fixture or needing an NDK.
     const keys = ["CC_x86_64_linux_android", "CXX_x86_64_linux_android", "CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER", "AR_x86_64_linux_android", "RANLIB_x86_64_linux_android"]
-    const stub = `cargo() { "$TASK_NODE" -e 'console.log(JSON.stringify(Object.fromEntries(${JSON.stringify(keys)}.map(key => [key, process.env[key]]))))'; }\n`
+    const stub = `npm() { [[ "$#" -eq 2 && "$1" == run && "$2" == prepare:sherpa-android-libs ]]; }
+cargo() { "$TASK_NODE" -e 'console.log(JSON.stringify(Object.fromEntries(${JSON.stringify(keys)}.map(key => [key, process.env[key]]))))'; }\n`
     const env = {
       ...process.env,
       TASK_NODE: process.execPath,
@@ -53,6 +54,7 @@ test("Android compile step supplies NDK archive tools to native dependency build
       encoding: "utf8",
       timeout: 5000,
     })
+    assert.ifError(result.error)
     assert.equal(result.status, 0, result.stderr)
     const configured = JSON.parse(readFileSync(join(dir, "android-provider-tests.json"), "utf8"))
     const bin = join(ndk, "toolchains/llvm/prebuilt/linux-x86_64/bin")
