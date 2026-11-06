@@ -3,7 +3,6 @@ import {
   isTauri,
 } from '@tauri-apps/api/core'
 import { forgetNativeAudio } from '../tts/playback/nativeMobileAudio'
-import { isMobileUserAgent } from '../utils/platform'
 
 // tesseract.js caches trained data here through idb-keyval. Nothing else uses IndexedDB.
 const TESSERACT_CACHE_DATABASE = 'keyval-store'
@@ -41,19 +40,21 @@ export function getAppResetSummary(): Promise<AppResetSummary> {
  *
  * On desktop the process may exit before the reply arrives, so this promise may
  * never settle; callers must stay in their busy state rather than await a result.
+ *
+ * Mobile releases audio only after the wipe succeeds, because a job can start after
+ * the dialog's summary and get the request refused, and playback must survive that.
+ * Wiping first is safe there: unlinking a file the player has open doesn't disturb it.
  */
 export async function eraseAppData(): Promise<AppResetBlocker | null> {
-  if (isMobileUserAgent()) {
-    // Players hold audiobook files open, and iOS keeps hard links until disposal.
-    await forgetNativeAudio().catch((error) => {
-      console.warn('Failed to release native audio before erasing', error)
-    })
-  }
   const outcome = await invoke<AppResetOutcome>('app_reset_request')
   if (outcome.blockedBy) {
     return outcome.blockedBy
   }
   if (!outcome.restarting) {
+    // iOS keeps hard links to audio, which hold erased bytes on disk until disposal.
+    await forgetNativeAudio().catch((error) => {
+      console.warn('Failed to release native audio after erasing', error)
+    })
     window.location.reload()
   }
   return null

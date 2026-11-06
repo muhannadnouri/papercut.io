@@ -10,16 +10,12 @@ import {
 const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
   isTauri: vi.fn(() => true),
-  isMobile: vi.fn(() => false),
   forgetNativeAudio: vi.fn(async () => {}),
 }))
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: mocks.invoke,
   isTauri: mocks.isTauri,
-}))
-vi.mock('../utils/platform', () => ({
-  isMobileUserAgent: mocks.isMobile,
 }))
 vi.mock('../tts/playback/nativeMobileAudio', () => ({
   forgetNativeAudio: mocks.forgetNativeAudio,
@@ -33,7 +29,6 @@ async function loadModule() {
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.isTauri.mockReturnValue(true)
-  mocks.isMobile.mockReturnValue(false)
   window.localStorage.clear()
   window.localStorage.setItem('papercut.theme.v1', 'dark')
   window.localStorage.setItem('papercut:reader-bookmark:/doc', '{}')
@@ -101,7 +96,7 @@ describe('eraseAppData', () => {
     return reload
   }
 
-  it('returns the blocker without reloading when native refuses', async () => {
+  it('keeps playback and does not reload when native refuses', async () => {
     const reload = stubReload()
     mocks.invoke.mockResolvedValue({
       blockedBy: 'audio',
@@ -112,6 +107,18 @@ describe('eraseAppData', () => {
     await expect(eraseAppData()).resolves.toBe('audio')
 
     expect(reload).not.toHaveBeenCalled()
+    expect(mocks.forgetNativeAudio).not.toHaveBeenCalled()
+  })
+
+  it('keeps playback when the request fails', async () => {
+    const reload = stubReload()
+    mocks.invoke.mockRejectedValue(new Error('disk full'))
+    const { eraseAppData } = await loadModule()
+
+    await expect(eraseAppData()).rejects.toThrow('disk full')
+
+    expect(reload).not.toHaveBeenCalled()
+    expect(mocks.forgetNativeAudio).not.toHaveBeenCalled()
   })
 
   it('leaves the desktop restart to native', async () => {
@@ -128,9 +135,8 @@ describe('eraseAppData', () => {
     expect(mocks.forgetNativeAudio).not.toHaveBeenCalled()
   })
 
-  it('releases audio, then reloads after a mobile wipe', async () => {
+  it('wipes, then releases audio, then reloads on mobile', async () => {
     const reload = stubReload()
-    mocks.isMobile.mockReturnValue(true)
     mocks.invoke.mockResolvedValue({
       blockedBy: null,
       restarting: false,
@@ -139,14 +145,14 @@ describe('eraseAppData', () => {
 
     await eraseAppData()
 
+    expect(mocks.invoke.mock.invocationCallOrder[0])
+      .toBeLessThan(mocks.forgetNativeAudio.mock.invocationCallOrder[0])
     expect(mocks.forgetNativeAudio.mock.invocationCallOrder[0])
-      .toBeLessThan(mocks.invoke.mock.invocationCallOrder[0])
-    expect(reload).toHaveBeenCalledOnce()
+      .toBeLessThan(reload.mock.invocationCallOrder[0])
   })
 
-  it('still erases when audio cannot be released', async () => {
-    stubReload()
-    mocks.isMobile.mockReturnValue(true)
+  it('still reloads when audio cannot be released', async () => {
+    const reload = stubReload()
     mocks.forgetNativeAudio.mockRejectedValueOnce(new Error('no player'))
     mocks.invoke.mockResolvedValue({
       blockedBy: null,
@@ -157,6 +163,6 @@ describe('eraseAppData', () => {
 
     await expect(eraseAppData()).resolves.toBeNull()
 
-    expect(mocks.invoke).toHaveBeenCalledWith('app_reset_request')
+    expect(reload).toHaveBeenCalledOnce()
   })
 })

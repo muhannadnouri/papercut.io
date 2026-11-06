@@ -98,7 +98,8 @@ macOS, then Android and iOS. Record untested platforms explicitly.
 9. Keep a file in app data open from another program on Windows, then erase. Expect the
    notice to list the path and later launches not to erase anything further.
 10. On AppImage, expect the restart to relaunch the AppImage. On Android and iOS, erase
-    during audio playback and expect playback to stop with no resume prompt afterward.
+    during audio playback and expect playback to stop. Then start a job so the erase is
+    refused while audio plays, and expect playback to continue.
 11. Use the dialog with a keyboard and a screen reader, and in Arabic. Expect focus to
     start away from the destructive button, Escape to be ignored while erasing, and a
     correct right-to-left layout.

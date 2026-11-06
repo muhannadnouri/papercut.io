@@ -12,14 +12,15 @@ the filesystem.
 | --- | --- | --- |
 | Refuse if a job is active | Yes | Yes |
 | Write marker `pending-native` | Yes | Yes |
-| Wipe | At next startup, after `request_restart` | In-process, after releasing audio and engines |
+| Wipe | At next startup, after `request_restart` | In-process, after dropping engines |
 | Marker becomes `pending-webview` | Yes | Yes |
-| Clear WebView storage | Boot gate in `src/main.tsx`, before app modules load | Same, after `location.reload()` |
+| Clear WebView storage | Boot gate in `src/main.tsx`, before app modules load | Same, after releasing audio and `location.reload()` |
 | Remove marker, show notice | Yes | Yes |
 
 Desktop wipes at startup because Windows can't delete open files, and because TTS
 installs and the startup index rebuild have no cancel. Mobile has no relaunch API,
-so it wipes in-process, where unlinking open files is safe.
+so it wipes in-process, where unlinking open files is safe. It releases native audio only
+after the wipe succeeds, so a refused request leaves playback untouched.
 
 WebView storage is cleared at boot rather than before reloading, since `pagehide`
 flushes can rewrite localStorage during shutdown. Modules read localStorage at
