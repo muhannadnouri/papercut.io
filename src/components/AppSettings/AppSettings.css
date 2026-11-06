@@ -66,6 +66,17 @@
   border-top: 1px solid var(--border);
 }
 
+/* Extra distance keeps this action apart from the benign settings around it. */
+.app-settings-erase {
+  margin-block-start: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.app-settings-data-action.app-settings-erase-action {
+  color: var(--danger-strong);
+}
+
 .app-settings-data-action {
   display: inline-flex;
   align-items: center;

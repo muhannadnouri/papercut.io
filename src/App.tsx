@@ -366,6 +366,7 @@ function App() {
 
   const libraryOperationBusy = documentImport.status === 'importing' ||
     documentImport.status === 'recognizing' || documentImport.status === 'deleting'
+  const eraseBlockedBy = libraryOperationBusy ? 'imports' : audiobookActionBusy ? 'audio' : null
 
   useOpenDocumentRequests({
     busy: libraryOperationBusy || audiobookActionBusy,
@@ -519,6 +520,7 @@ function App() {
                 semanticSearch={semanticSearch}
                 searchOpen={searchSettingsOpen}
                 onSearchOpenChange={setSearchSettingsOpen}
+                eraseBlockedBy={eraseBlockedBy}
               />
             )}
             headerControls={(
@@ -612,6 +614,7 @@ function App() {
             semanticSearch={semanticSearch}
             searchOpen={searchSettingsOpen}
             onSearchOpenChange={setSearchSettingsOpen}
+            eraseBlockedBy={eraseBlockedBy}
           />
         )} />
       </div>

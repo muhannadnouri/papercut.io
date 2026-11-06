@@ -69,6 +69,11 @@ impl SemanticIndexState {
             })?;
         Ok(QueryGuard(self.clone()))
     }
+    /// Whether a build holds the writer slot. Stays true after `cancel` until the build
+    /// actually exits, since cancelling only signals. A poisoned lock reads as running.
+    pub(crate) fn is_running(&self) -> bool {
+        self.0.lock().map_or(true, |job| job.cancel.is_some())
+    }
     /// Signal immediately, without waiting for the provider's current native call.
     pub(crate) fn cancel(&self) -> Result<(), String> {
         let job = self

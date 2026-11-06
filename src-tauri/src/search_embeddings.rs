@@ -41,6 +41,22 @@ impl SearchEmbeddingState {
         self.1.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1
     }
 
+    /// True while a model loads or downloads. Waits for any running inference, which
+    /// holds the same lock, so call this off the UI thread. A poisoned lock reads as busy.
+    pub(crate) fn is_busy(&self) -> bool {
+        self.status().map_or(true, |status| {
+            status.loading_format.is_some() || status.downloading_format.is_some()
+        })
+    }
+
+    /// Release the active model so erasing its files can't strand a loaded session.
+    /// Bumps the activation version first, so an in-flight activation can't reinstall it.
+    pub(crate) fn unload(&self) -> Result<(), String> {
+        #[cfg(feature = "experimental-search-embeddings-core")]
+        self.disable_at(self.invalidate_activation())?;
+        Ok(())
+    }
+
     fn status(&self) -> Result<ProviderStatus, String> {
         #[cfg(feature = "experimental-search-embeddings-core")]
         let (active_format, loading_format, downloading_format) = {

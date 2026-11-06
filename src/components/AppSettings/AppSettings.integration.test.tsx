@@ -43,7 +43,7 @@ function Harness({ completed = false }: { completed?: boolean }) {
   return <>
     <input aria-label="Query" defaultValue="draft query" />
     {!completed && <button onClick={() => setSearchOpen(true)}>Search Settings</button>}
-    <AppSettings searchOpen={searchOpen} onSearchOpenChange={setSearchOpen} semanticSearch={semantic}
+    <AppSettings eraseBlockedBy={null} searchOpen={searchOpen} onSearchOpenChange={setSearchOpen} semanticSearch={semantic}
       themeChoice="light" onThemeChange={vi.fn()} developerMode={false} onDeveloperModeChange={vi.fn()} onLibraryImported={vi.fn()} />
   </>
 }
@@ -174,4 +174,26 @@ it('restores focus to the Settings cog when completing setup removes the origina
   expect(container.querySelector('[role="dialog"]')).toBeNull()
   expect(document.activeElement).toBe(container.querySelector('.app-settings-btn'))
   assertNoPreparationStarted()
+})
+
+it('opens the erase view without starting anything, and Back returns to root Settings', async () => {
+  vi.mocked(invoke).mockImplementation(async (command) => {
+    if (command === 'app_reset_summary') {
+      return {
+        documents: 1,
+        audiobooks: 0,
+        totalBytes: 10,
+        locations: [],
+        blockedBy: null,
+      }
+    }
+    return semantic.provider
+  })
+  await click(container.querySelector('.app-settings-btn')!)
+  await click(container.querySelector('.app-settings-erase-action')!)
+  expect(container.querySelector('.app-reset-dialog h2')?.textContent).toBe('settings.erase.title')
+  expect(vi.mocked(invoke).mock.calls.some(([command]) => command === 'app_reset_request')).toBe(false)
+  await click(container.querySelector('[aria-label="common.back"]')!)
+  expect(container.querySelector('.app-reset-dialog')).toBeNull()
+  expect(container.querySelector('[role="dialog"] h2')?.textContent).toBe('settings.title')
 })

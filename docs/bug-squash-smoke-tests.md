@@ -66,6 +66,44 @@ import error. Confirm usable focus, a single status/error announcement, and no
 interaction with the hidden book before restoration finishes. Repeat narrow or
 large-text layouts used on the target devices.
 
+## Erase all data
+
+Use a built bundle, because `tauri dev` can't relaunch (see `docs/app-reset.md`), and
+disposable data only. Desktop dev and release builds share one profile, so on Linux set
+`XDG_DATA_HOME` and `XDG_CACHE_HOME` to temporary folders. Run on Linux, Windows and
+macOS, then Android and iOS. Record untested platforms explicitly.
+
+1. Import a PDF with recognized text, an EPUB and a folder. Add a bookmark, save an
+   audiobook, install a voice and change the theme. Open Settings > Reset App Data > Review Data to
+   Erase. Expect a spinner and message until the summary loads.
+   Expect correct counts and total size, and a disabled **Erase Everything** button. On
+   desktop, expect both folder paths to be correct, selectable and left to right. On
+   mobile, expect no paths.
+2. Tick the acknowledgement, then choose **Cancel**. Expect Settings to return and
+   nothing to change.
+3. Start an import, then open the dialog. Repeat with audiobook generation, a voice
+   download, semantic indexing and a library transfer. Expect the button to stay disabled
+   with a message naming the job.
+4. Choose **Transfer Library**, then Back. Expect the erase view again, with the
+   transfer note visible.
+5. Confirm the erase. Expect a restart on desktop and a reload on mobile, then a one-time
+   notice and the starting state: starter documents only, default theme and language, no
+   bookmarks, no audiobooks, no installed voices.
+6. Open the app-data and cache folders. Expect the listed stores gone and the WebView
+   profile intact.
+7. Re-import the same file. Expect no stale bookmark. Re-download a voice. Expect audio to
+   work.
+8. Launch with a file argument (Open With), then erase. Expect the file not to reappear
+   after the restart.
+9. Keep a file in app data open from another program on Windows, then erase. Expect the
+   notice to list the path and later launches not to erase anything further.
+10. On AppImage, expect the restart to relaunch the AppImage. On Android and iOS, erase
+    during audio playback and expect playback to stop. Then start a job so the erase is
+    refused while audio plays, and expect playback to continue.
+11. Use the dialog with a keyboard and a screen reader, and in Arabic. Expect focus to
+    start away from the destructive button, Escape to be ignored while erasing, and a
+    correct right-to-left layout.
+
 ## Automated fault coverage and remaining acceptance
 
 Mixed missing/invalid spans, skipped canonical mappings, recovery ordering,
