@@ -9,13 +9,18 @@ import {
   symlink,
   writeFile,
 } from "node:fs/promises"
+import { homedir } from "node:os"
 import {
   basename,
   join,
+  resolve,
 } from "node:path"
 import { gzipSync } from "node:zlib"
 import { ROOT } from "../lib/paths.js"
-import { ANDROID_RUST_TOOLCHAIN } from "../lib/android/constants.js"
+import {
+  ANDROID_RUST_TOOLCHAIN,
+  PAGEFIND_WASM_PATH_PREFIX,
+} from "../lib/android/constants.js"
 import { run } from "../lib/process.js"
 import {
   emscriptenEnv,
@@ -67,17 +72,31 @@ assert.equal(languages.length, 30, "Review the pinned Pagefind language features
 await rename(join(browser, "build.js"), join(browser, "build.cjs"))
 const glue = join(vendor, `pagefind_web.${version}.js`)
 const cargo = ["+" + ANDROID_RUST_TOOLCHAIN, "build", "--release", "--locked", "--jobs", "2"]
+// Rust panic locations otherwise embed the Cargo registry's absolute path in shipped WASM.
+const cargoHome = resolve(env.CARGO_HOME || join(homedir(), ".cargo"))
+const pathMaps = [[SOURCE_CACHE, PAGEFIND_WASM_PATH_PREFIX], [cargoHome, "/cargo"]]
+  .sort(([a], [b]) => a.length - b.length)
+const browserEnv = {
+  ...env,
+  CARGO_HOME: cargoHome,
+  CARGO_ENCODED_RUSTFLAGS: pathMaps.map(([from, to]) => `--remap-path-prefix=${from}=${to}`).join("\x1f"),
+}
 for (const language of ["unknown", ...languages]) {
   const features = language === "unknown" ? [] : ["--features", language]
   await run("cargo", [...cargo, "--target", "wasm32-unknown-unknown", ...features], {
     cwd: browser,
-    env,
+    env: browserEnv,
   })
   await run(bindgen, ["--target", "no-modules", "--out-dir", "pkg",
     join(env.CARGO_TARGET_DIR, "wasm32-unknown-unknown/release/pagefind_web.wasm")], { cwd: browser })
   await run(wasmOpt, ["--all-features", "-Oz", "pkg/pagefind_web_bg.wasm", "-o", "pkg/optimized.wasm"], { cwd: browser })
   const bytes = await readFile(join(browser, "pkg/optimized.wasm"))
   assert(WebAssembly.validate(bytes), "Invalid Pagefind WASM for " + language)
+  assert(
+    !bytes.includes(SOURCE_CACHE + "/")
+      && (cargoHome === "/cargo" || !bytes.includes(join(cargoHome, "registry") + "/")),
+    "Pagefind WASM embeds a host path for " + language,
+  )
   await writeFile(join(vendor, "wasm", `pagefind_web_bg.${language}.${version}.wasm.gz`),
     gzipSync(Buffer.concat([Buffer.from("pagefind_dcd"), bytes]), { level: 9 }))
   if (language === "unknown") {
@@ -113,4 +132,5 @@ await receipt(destination, { pagefind: revision }, ["pagefind"], {
   rust: ANDROID_RUST_TOOLCHAIN,
   wasmBindgen: "0.2.100",
   esbuild: lock.packages["node_modules/esbuild"].version,
+  filePrefix: PAGEFIND_WASM_PATH_PREFIX,
 })

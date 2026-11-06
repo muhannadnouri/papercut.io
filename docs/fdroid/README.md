@@ -153,11 +153,18 @@ checkouts. The scanner-treated export used trusted Gradle and source-built
 esbuild, and its verified unsigned APK matched the normal wrapper's output
 byte-for-byte. See the [APK evidence](../android-production-packaging.md#source-built-pagefind-2026-11-05).
 
+The [first committed Pagefind CI run](https://github.com/muhannadnouri/papercut.io/actions/runs/42142469659)
+passed. Comparing that APK against a local rebuild of the same commit exposed
+host Cargo paths inside two bundled Pagefind WASM modules. The browser recipe
+now remaps and checks those paths. See the
+[cross-checkout evidence](../android-production-packaging.md#pagefind-wasm-path-normalization-2026-11-06).
+
 ## Next execution gates
 
-1. Verify Android CI at the committed Pagefind source path. Run the clean
-   F-Droid buildserver preflight with its own toolchain and review the inputs
-   fetched during the build.
+1. Compare the new Android CI artifact with a local build of the exact CI
+   checkout after the Pagefind WASM path fix. Run the clean F-Droid buildserver
+   preflight with its own toolchain and review the inputs fetched during the
+   build.
 2. Owner: set up/reuse the production signing key and protected GitHub
    `android-release` environment using [guide section 2](../android-production-packaging.md#2-owner-create-and-configure-the-signing-key).
    Sign/install a candidate by file transfer (ADB optional), then complete

@@ -44,7 +44,7 @@ or device tests. See F-Droid's [submission guide](https://f-droid.org/en/docs/Su
 | Native staging | Native TTS debug and release use source-built r30 Sherpa; receipt and link-input hashes checked; stale archive ABI copies removed; ORT comes from the pinned Maven AAR | Independent CI/buildserver proof and device inference |
 | APK checks | JS verifier checks identity/version, non-debuggable manifest, certificate, arm64 contents, required libraries, license presence and 16 KB ELF/ZIP alignment; disposable-key signing passes | Production certificate and clean-build reproduction |
 | Source recipes | Pinned JS recipes build the Sherpa library against the pinned Maven ORT AAR, three OCR cores and four PDF codecs with a matching PDF.js worker; local compatibility checks pass | Integrate approved source outputs, freeze the complete environment and prove clean APK reproduction |
-| F-Droid | Licensing decisions recorded; notices shipped in APK; corresponding-source tooling and metadata draft; exact NDK installed through F-Droid tooling, source/APK preflight recorded | Resolve 17 npm source-scan findings and Gradle-wrapper removal; production certificate, clean buildserver/signature proof and submission review |
+| F-Droid | Licensing decisions recorded, notices ship in the APK, and corresponding-source tooling and metadata draft are in place. Local source and APK scans pass with the pinned r30 toolchain | Clean buildserver and build-input review, production certificate and signature proof, and submission review |
 
 Ordinary Android CI builds and verifies one unsigned production APK, runs the
 transfer plugin's JVM tests, then uploads that APK. It does not assemble a debug APK.
@@ -1254,6 +1254,39 @@ serially in a separate step with the same assertions and timeouts. Both
 updated steps passed locally with 797 total tests and one existing skip.
 [PR CI log](https://github.com/muhannadnouri/papercut.io/actions/runs/42139902278/job/127637387009)
 
+### Pagefind WASM path normalization (2026-11-06)
+
+[PR #91 CI](https://github.com/muhannadnouri/papercut.io/actions/runs/42142469659)
+passed all nine jobs for `340c7ce9`, including the serial Chromium fixtures
+and the source-built Android APK. The downloaded APK and a local build of
+the same CI merge commit `0b7a954e` both passed the unsigned verifier. They
+matched in 1,722 of 1,723 ZIP entries. Inside the differing app library,
+the English and fallback Pagefind WASM modules contained absolute Cargo
+registry paths from their respective build machines. The other 84 embedded
+frontend assets matched. The earlier same-host builds shared a Cargo home.
+
+The Pagefind browser build now remaps the source cache to
+`/build/papercut-pagefind` and Cargo home to `/cargo`. The recipe checks
+every optimized WASM module for valid WebAssembly and for those host paths
+before compressing it. The production wrapper requires a receipt recording
+the normalized prefix. Rerun `bash scripts/fdroid/build-android-release.sh`
+to refresh older staged Pagefind binaries before comparing APKs.
+
+Two local exports of `b16c7fb3` with this change used separate Cargo homes
+and fresh Pagefind target directories. All 41 vendor files, including
+all 31 WASM variants, matched byte-for-byte. The normalized modules also
+passed the same six-document Chromium fixture as the npm release, with
+matching search results, titles, URLs and excerpts. The builds shared the
+pinned toolchain and cached dependency downloads.
+
+Both exports also produced verified, byte-identical unsigned arm64 APKs.
+All 1,723 ZIP entries and 88 frontend files matched. SHA-256
+`9c368698a3786aa77af1d9acfd9cb225f8087ee066fc900c01b9d87b48542038`.
+The two builds used the same `b16c7fb3` revision stamp and reused the
+verified Sherpa, PDF and OCR inputs. Reports are under
+`.cache/android-production/pagefind-paths-kOT7Om/`. The next comparison
+uses the committed fix on CI, followed by the independent F-Droid buildserver.
+
 Owner signing-key/`android-release` setup can proceed in parallel using section 2.
 A signed candidate is required for Pixel installation; file-transfer installation
 remains supported and ADB is optional. Complete runtime and increasing-version
@@ -1352,15 +1385,10 @@ Build-tool environments have separate dependencies.
    Kareem reply, and reconciles the QCMS notice if rebuilt PDF assets ever
    ship. Retain current features until any remaining licensing trade-off is
    decided.
-4. [ ] Source-only native wiring is proven locally (2026-11-03) and now wired into
-   CI/release Android builds (2026-11-04): the recipe
-   links the pinned Maven AAR, SHERPA_REQUIRE_SOURCE=1 fails closed, and an
-   F-Droid-style build produced a verifier-passing unsigned APK whose ORT bytes
-   match the artifact and whose Sherpa bytes match the source build. Remaining:
-   repeat the proof in a frozen environment and resolve the npm scanner findings,
-   including the proposed use of existing OCR/PDF source probes. Review staging
-   before changing shipped inputs; preserve matched API/worker/loader pairs and
-   current versions. Source probes alone do not clear the scanner gate.
+4. [ ] CI, release and the F-Droid draft use the same Sherpa, PDF/OCR and
+   Pagefind source recipes. The local source and APK scans pass. Repeat the
+   checks in the clean F-Droid buildserver and review the inputs fetched during
+   the build.
 5. [ ] Reproducibility protocol in place (see the section above):
    `npm run check:android-reproducibility` proves fresh-compile reproducibility
    on one environment, with both APK copies retained. Sorted Pagefind ingestion
@@ -1369,11 +1397,10 @@ Build-tool environments have separate dependencies.
    supplied. The shared production resolver now declares that stamp consistently
    and passes Git/source-export APK comparison. The committed implementation also
    passes full CI and byte-identical local reproduction of the actual CI commit.
-   Exact F-Droid r30 installation/resolution is now verified with the numeric
-   pin. Remaining: committed r30 CI comparison, source changes and a frozen
-   fdroidserver environment,
-   then signature copying with the production key and confirmation that its
-   rebuild matches the published APK.
+   Exact F-Droid r30 installation/resolution is verified with the numeric pin.
+   Compare the next CI artifact after the Pagefind WASM path fix and repeat the
+   proof in the pinned F-Droid buildserver. Then copy the production signature
+   and confirm that the rebuild matches the published APK.
 6. [ ] On Pixel 6 and another Pixel: install after resetting the debug test app;
    test import/open-with, bookmarks, English/Arabic OCR, scanner, voice
    download/preview, Arabic preprocessing, conceptual search, audiobook generation

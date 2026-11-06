@@ -1,4 +1,7 @@
-import { existsSync } from "node:fs"
+import {
+  existsSync,
+  readFileSync,
+} from "node:fs"
 import { join } from "node:path"
 import { ROOT } from "../lib/paths.js"
 import {
@@ -6,6 +9,7 @@ import {
   runTauriAndroidBuild,
 } from "../lib/android/build-env.js"
 import {
+  PAGEFIND_WASM_PATH_PREFIX,
   SHERPA_DEFAULT_ANDROID_ABI,
   SHERPA_DEFAULT_ANDROID_RUST_TARGET,
   SHERPA_DEFAULT_ANDROID_TAURI_TARGET,
@@ -48,9 +52,14 @@ async function runNativeTtsAndroidBuild(extraArgs) {
   if (!existsSync(join(libDir, "libsherpa-onnx-c-api.so"))) {
     throw new Error("Missing Android sherpa native libraries at " + libDir)
   }
-  const pagefind = join(ROOT, ".cache/android-production/source-pagefind/pagefind")
-  if (production && !existsSync(pagefind)) {
-    throw new Error("Missing source-built Pagefind. Run scripts/fdroid/build-android-release.sh first.")
+  const pagefindDirectory = join(ROOT, ".cache/android-production/source-pagefind")
+  const pagefind = join(pagefindDirectory, "pagefind")
+  if (production) {
+    const receipt = join(pagefindDirectory, "source-receipt.json")
+    if (!existsSync(pagefind) || !existsSync(receipt)
+      || JSON.parse(readFileSync(receipt, "utf8")).tools?.filePrefix !== PAGEFIND_WASM_PATH_PREFIX) {
+      throw new Error("Missing Pagefind built with normalized WASM paths. Run scripts/fdroid/build-android-release.sh first.")
+    }
   }
 
   const args = extraArgs.length > 0

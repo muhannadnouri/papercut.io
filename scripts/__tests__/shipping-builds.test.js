@@ -17,6 +17,7 @@ const calls = vi.hoisted(() => ({
   iosLibs: vi.fn(),
   prepare: vi.fn(),
   resources: vi.fn(),
+  pagefindReceipt: vi.fn(),
 }))
 vi.mock("../lib/build-revision.js", () => ({ productionBuildRevision: () => "cd".repeat(20) }))
 vi.mock("../lib/process.js", () => ({
@@ -56,10 +57,16 @@ vi.mock("../lib/ios/sherpa.js", () => ({
   iosSherpaLibDir: slice => "/prepared/" + slice,
   ensureIosSherpaLibs: calls.iosLibs,
 }))
-vi.mock("node:fs", async importOriginal => ({
-  ...await importOriginal(),
-  existsSync: () => true,
-}))
+vi.mock("node:fs", async importOriginal => {
+  const fs = await importOriginal()
+  return {
+    ...fs,
+    existsSync: () => true,
+    readFileSync: (file, ...args) => file === join(ROOT, ".cache/android-production/source-pagefind/source-receipt.json")
+      ? calls.pagefindReceipt()
+      : fs.readFileSync(file, ...args),
+  }
+})
 vi.mock("node:fs/promises", () => ({
   cp: vi.fn(),
   mkdir: vi.fn(),
@@ -76,6 +83,7 @@ beforeEach(() => {
   vi.stubEnv("SHERPA_REQUIRE_SOURCE", undefined)
   vi.resetModules()
   vi.clearAllMocks()
+  calls.pagefindReceipt.mockReturnValue(JSON.stringify({ tools: { filePrefix: "/build/papercut-pagefind" } }))
   vi.stubEnv("PAPERCUT_DESKTOP_BUNDLES", "")
   vi.spyOn(console, "log").mockImplementation(() => {})
 })
@@ -144,6 +152,12 @@ it("production Android builds retain native TTS/search and require source PDF/OC
     SHERPA_ONNX_LIB_DIR: "/prepared/android",
     ORT_LIB_LOCATION: "/prepared/android",
   })
+})
+it("rejects a cached Pagefind build from before WASM path normalization", async () => {
+  calls.pagefindReceipt.mockReturnValueOnce(JSON.stringify({ tools: {} }))
+  await expect(build("android/build-android.js", "linux", ["--native-tts", "--production"]))
+    .rejects.toThrow("Missing Pagefind built with normalized WASM paths")
+  expect(calls.android).not.toHaveBeenCalled()
 })
 it.each([
   ["--production"],

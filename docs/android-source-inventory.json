@@ -667,14 +667,16 @@
     "remaining": "See androidPagefindSource for the subsequent Pagefind preflight. Updated CI, clean F-Droid buildserver, production signing and device acceptance remain pending."
   },
   "androidPagefindSource": {
-    "checkedOn": "2026-11-05",
+    "checkedOn": "2026-11-06",
     "details": "docs/android-production-packaging.md#source-built-pagefind-2026-11-05",
     "source": "Pagefind 1.4.0 Git tag at 8c3de15a6b5ab603985d98062e748463daf42d65. The shared Android release builds the extended CLI, coupled JS and all 31 WASM variants using pinned toolchains and upstream npm locks.",
     "scanner": "fdroidserver 2.4.5 and cached SUSS signatures report zero fatal findings and zero warnings on an npm-installed Git export of 022cbb4 with this stage overlaid. The npm Pagefind executable is removed by exact path.",
     "runtime": "The six-document fixture has byte-identical index metadata, chunks and fragments versus the npm release. Chromium matched English, Arabic, Chinese and fallback-language search results, titles, URLs and excerpts.",
     "localReproduction": "Independently rebuilt Pagefind in the normal checkout and scanner-treated export with source-built esbuild and trusted Gradle. The verified unsigned APKs match byte-for-byte (1723 entries, 86 frontend files, 14 Pagefind files), SHA-256 0a1b4c19ad376b7d999cab6935561f626a50498e42c3211806e58046472a0097. Working-tree overlay stamped 022cbb4 on one host with shared toolchain caches and previously verified native/PDF/OCR outputs.",
-    "ciChecks": "The preceding run 42139902278 stopped at five browser fixture timeouts before Android. The updated workflow runs four Chromium fixture files serially. Both exact commands pass locally, with 797 tests and one existing skip in total.",
-    "remaining": "Updated CI, a clean F-Droid buildserver, build-input review, production signing, and device acceptance."
+    "ciChecks": "PR 91 run 42142469659 passed all nine jobs, including 726 frontend tests with one existing skip, 71 serial Chromium tests, the source-built APK verifier and Android transfer callback tests.",
+    "wasmPaths": "A local rebuild of the exact CI checkout 0b7a954e matched 1722 of 1723 APK entries. The app library embedded two Pagefind WASM modules with different absolute Cargo registry paths. The recipe now normalizes the source cache and Cargo home and checks each optimized module for host paths. Production rejects older receipts. Independent local Pagefind builds from separate exports and Cargo homes matched all 41 vendor files, including 31 WASM variants. Chromium passed the six-document search fixture again.",
+    "pathNormalizedApk": "Both exports stamped b16c7fb3 produced verified byte-identical unsigned arm64 APKs (1723 entries, 88 frontend files), SHA-256 9c368698a3786aa77af1d9acfd9cb225f8087ee066fc900c01b9d87b48542038. They reused the verified Sherpa, PDF and OCR outputs.",
+    "remaining": "Compare the Android CI artifact after the WASM path fix, run a clean F-Droid buildserver with a build-input review, and complete production signing and device acceptance."
   },
   "pendingReview": [
     "Decided 2026-11-03: F-Droid metadata declares GPL-3.0-only for the combined Android build; root MIT unchanged.",
