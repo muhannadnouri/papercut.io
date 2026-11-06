@@ -75,6 +75,20 @@ Bundles embed their frontend, so this can't happen in a release.
 Unit tests cover the wipe, the marker and the dialog. Device acceptance is tracked in
 [bug-squash-smoke-tests.md](bug-squash-smoke-tests.md).
 
+## Acceptance
+
+Shipped in [PR 92](https://github.com/muhannadnouri/papercut.io/pull/92). CI passed on
+`0da8d177`. Owner-reported manual results:
+
+| Platform | Build | Result |
+| --- | --- | --- |
+| Android | CI build of the PR | Smoke tests passed |
+| Linux | Local AppImage, before the final UI and audio-order commits | Erase and relaunch passed with a 15.6 GB library |
+| Windows, macOS, iOS | None | Not recorded |
+
+Still open: results for the unrecorded platforms, including the Windows partial-failure
+case, and a native review of the non-English strings.
+
 ## Removing this feature
 
 1. Delete `src-tauri/src/app_reset.rs`, `src/app-reset/` and this file.

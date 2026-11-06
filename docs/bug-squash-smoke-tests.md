@@ -68,7 +68,8 @@ large-text layouts used on the target devices.
 
 ## Erase all data
 
-Use a built bundle, because `tauri dev` can't relaunch (see `docs/app-reset.md`), and
+Recorded results are under Acceptance in [app-reset.md](app-reset.md). Use a built bundle,
+because `tauri dev` can't relaunch, and
 disposable data only. Desktop dev and release builds share one profile, so on Linux set
 `XDG_DATA_HOME` and `XDG_CACHE_HOME` to temporary folders. Run on Linux, Windows and
 macOS, then Android and iOS. Record untested platforms explicitly.
