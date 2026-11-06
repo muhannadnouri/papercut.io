@@ -1,7 +1,9 @@
 import assert from "node:assert/strict"
+import { homedir } from "node:os"
 import {
   basename,
   join,
+  resolve,
 } from "node:path"
 import {
   cp,
@@ -11,7 +13,10 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises"
-import { run } from "../lib/process.js"
+import {
+  run,
+  shQuote,
+} from "../lib/process.js"
 import {
   source,
   output,
@@ -32,9 +37,13 @@ const libraries = {
   jbig2: ["https://pdfium.googlesource.com/pdfium", "0455e822ded1a5537d826703988e986a33d2d4a1"],
   quickjs: ["https://github.com/bellard/quickjs.git", "3d5e064e9dd67c70f7962836505a7fa067bf0a4e"],
 }
+// C assertions and Rust panic metadata include source paths in release WASM.
+const filePrefix = "/build/papercut-pdf"
+const cargoHome = resolve(process.env.CARGO_HOME || join(homedir(), ".cargo"))
 const env = {
   ...emscriptenEnv(),
   GIT_CEILING_DIRECTORIES: SOURCE_CACHE,
+  EMCC_CFLAGS: shQuote(`-ffile-prefix-map=${SOURCE_CACHE}=${filePrefix}`),
 }
 const destination = join(SOURCE_CACHE, "source-pdf")
 await mkdir(destination, { recursive: true })
@@ -58,6 +67,10 @@ for (const [part, revision] of Object.entries(wrappers)) {
       cwd: work,
       env: {
         ...env,
+        CARGO_ENCODED_RUSTFLAGS: [
+          `--remap-path-prefix=${SOURCE_CACHE}=${filePrefix}`,
+          `--remap-path-prefix=${cargoHome}=/cargo`,
+        ].join("\x1f"),
         CARGO_TARGET_DIR: join(SOURCE_CACHE, "qcms-build"),
       },
     })
@@ -130,8 +143,12 @@ for (const [part, revision] of Object.entries(wrappers)) {
     built.push("quickjs-eval.js", "quickjs-eval.wasm")
   }
 }
-for (const file of built.filter(file => file.endsWith(".wasm"))) {
-  assert(WebAssembly.validate(await readFile(join(destination, file))), "Invalid generated WASM: " + file)
+for (const file of built) {
+  const bytes = await readFile(join(destination, file))
+  assert(![SOURCE_CACHE, cargoHome].some(directory => bytes.includes(directory)), "PDF codec embeds a host path: " + file)
+  if (file.endsWith(".wasm")) {
+    assert(WebAssembly.validate(bytes), "Invalid generated WASM: " + file)
+  }
 }
 await receipt(destination, {
   pdfjs: "6.2.108",
@@ -141,6 +158,7 @@ await receipt(destination, {
   emscripten: "4.0.15",
   rust: "1.98.1",
   wasmBindgen: "0.2.100",
+  filePrefix,
 })
 const pdfRevision = "0365cbde028bd92e58f2dab1bb70cd30ac7acfd7"
 const pdfSource = await source("pdf.js", "https://github.com/mozilla/pdf.js.git", pdfRevision)
@@ -193,4 +211,5 @@ await receipt(runtime, {
   emscripten: "4.0.15",
   rust: "1.98.1",
   wasmBindgen: "0.2.100",
+  filePrefix,
 })

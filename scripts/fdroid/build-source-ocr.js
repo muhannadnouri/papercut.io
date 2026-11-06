@@ -1,3 +1,4 @@
+import assert from "node:assert/strict"
 import {
   basename,
   join,
@@ -10,7 +11,10 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises"
-import { run } from "../lib/process.js"
+import {
+  run,
+  shQuote,
+} from "../lib/process.js"
 import {
   source,
   output,
@@ -50,13 +54,17 @@ for (const dependency of ["zlib", "libtiff", "openlibm", "giflib", "libpng", "li
 }
 const build = join(work, "third_party/tesseract/build")
 const destination = join(SOURCE_CACHE, "source-ocr")
+// Tesseract embeds __FILE__ in diagnostic messages, including in release WASM.
+const filePrefix = "/build/papercut-ocr"
+const cxxFlags = "-O3 --closure 1 -ffile-prefix-map=" + shQuote(work + "=" + filePrefix)
 await mkdir(destination, { recursive: true })
+await rm(join(destination, "source-receipt.json"), { force: true })
 const files = []
 for (const [variant, sse, avx] of [["lstm", 0, 0], ["simd-lstm", 1, 0], ["relaxedsimd-lstm", 1, 1]]) {
   await run("cmake", ["-S", join(work, "third_party/tesseract"), "-B", build,
     "-DCMAKE_TOOLCHAIN_FILE=" + join(env.EMSDK, "upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"),
     "-DCMAKE_PREFIX_PATH=" + join(work, "dep"), "-DLeptonica_DIR=" + join(work, "third_party/leptonica/build"),
-    "-DCMAKE_CXX_FLAGS=-O3 --closure 1", "-DOPENMP_BUILD=OFF", "-DBUILD_TRAINING_TOOLS=OFF",
+    "-DCMAKE_CXX_FLAGS=" + cxxFlags, "-DOPENMP_BUILD=OFF", "-DBUILD_TRAINING_TOOLS=OFF",
     "-DGRAPHICS_DISABLED=ON", "-DWASM_BUILD=ON", "-DDISABLED_LEGACY_ENGINE=1",
     "-DHAVE_SSE4_1=" + sse, "-DHAVE_AVX=" + avx, "-DHAVE_AVX2=" + avx,
   ], {
@@ -66,6 +74,7 @@ for (const [variant, sse, avx] of [["lstm", 0, 0], ["simd-lstm", 1, 0], ["relaxe
   const name = "tesseract-core-" + variant
   // Build only the three LSTM variants staged by Papercut, rather than upstream's extra legacy cores.
   await run("cmake", ["--build", build, "--target", name, name + ".wasm", "--parallel", "2"], { env })
+  assert(!(await readFile(join(build, "bin", name + ".wasm"))).includes(work), "OCR WASM embeds the checkout path")
   for (const suffix of [".wasm", ".wasm.js"]) {
     const file = name + suffix
     await copyFile(join(build, "bin", file), join(destination, file))
@@ -74,12 +83,13 @@ for (const [variant, sse, avx] of [["lstm", 0, 0], ["simd-lstm", 1, 0], ["relaxe
 }
 // Generated Emscripten loaders are CommonJS in Node; browser worker loading is unaffected by this test metadata.
 await writeFile(join(destination, "package.json"), '{"type":"commonjs"}\n')
+await run(process.execPath, ["scripts/fdroid/__tests__/check-source-ocr.js"])
 await receipt(destination, {
   tesseract: revision,
   submodules: output("git", ["submodule", "status", "--recursive"], upstream).trim(),
 }, files, {
   emscripten: "4.0.15",
   cmake: output("cmake", ["--version"]).split("\n")[0],
+  filePrefix,
 })
-await run(process.execPath, ["scripts/fdroid/__tests__/check-source-ocr.js"])
-console.log("Source-built OCR cores (not staged into the app): " + destination)
+console.log("Source-built OCR cores: " + destination)

@@ -57,7 +57,10 @@ async function runNativeTtsAndroidBuild(extraArgs) {
   console.log("[sherpa-android-build] voice and embedding models are downloaded on demand; Arabic preprocessing is embedded")
   console.log("[sherpa-android-build] target=" + rustTarget)
   await runTauriAndroidBuild(args, {
-    ...(production ? androidProductionEnv() : {}),
+    ...(production ? {
+      ...androidProductionEnv(),
+      PAPERCUT_PDF_OCR_FROM_SOURCE: "1",
+    } : {}),
     SHERPA_ONNX_LIB_DIR: libDir,
     ORT_LIB_LOCATION: libDir,
   })

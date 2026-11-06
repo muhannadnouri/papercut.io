@@ -211,16 +211,18 @@ device acceptance gates below are complete.
 
 ## 3. Build, verify and update
 
-`npm run android:apk:native-tts` remains a development/debug build. It uses the
-same source runtime as release. On Linux prepare it with the first command
-below. On macOS/Windows, copy the complete Linux-built `source-arm64` directory
+`npm run android:apk:native-tts` is the development/debug build. It uses the
+same Sherpa runtime as release. On Linux prepare it with
+`node scripts/fdroid/build-android-source-libs.js`.
+On macOS/Windows, copy the complete Linux-built `source-arm64` directory
 including its receipt and both shared libraries, and install r30 locally for
 compiling the app. Both wrappers default to `.cache/android-production/source-arm64`;
 `SHERPA_ONNX_LIB_DIR` can select another prepared directory.
 
 ~~~bash
-node scripts/fdroid/build-android-source-libs.js
-npm run android:apk:release
+# Linux x86-64 with Node 22.22.1, npm dependencies, Rust and Android SDK installed.
+node scripts/fdroid/prepare-android-wasm-tools.js
+bash scripts/fdroid/build-android-release.sh
 node scripts/android/verify-android-apk.js --unsigned \
   src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
 ~~~
@@ -373,43 +375,29 @@ LSTM variants, omitting upstream's unused legacy variants.
 
 ### Repeatable source recipes
 
-Run from the repository root on Linux x86-64. The native Sherpa recipe is now
-used by Android CI/releases and the F-Droid draft. OCR/PDF recipes remain
-investigation tools; their production npm asset paths are unchanged. All generated files stay in
+Run from the repository root on Linux x86-64. Android CI, release and the
+F-Droid draft use the shared Sherpa, OCR and PDF recipes. Generated files stay in
 ignored .cache/android-production/. The scripts reject a wrong source revision,
 tracked edits and untracked files outside upstream ignore rules. Existing source
 checkouts are never reset. Named *-work directories are disposable and replaced
 on each OCR/PDF run. Do not store personal work there.
 
-Prerequisites: npm ci for the application; Node 22 in CI (local checks use 24), Git,
-OpenJDK 17, CMake (tested 4.4.5), make, patch, autoconf, automake, libtool,
+Prerequisites: npm ci for the application, Node 22.22.1, Git,
+OpenJDK 17, CMake 4.4.5, make, patch, autoconf, automake, libtool,
 pkg-config, a host C/C++ compiler and Android SDK/NDK 30.0.16248370.
 Production Rust builds select the named 1.98.1 toolchain, not the floating
 stable alias; install its Android target with
 `rustup target add --toolchain 1.98.1 aarch64-linux-android`.
-Use two build workers as encoded in the recipes. Install Emscripten 4.0.15 in
-an isolated directory and set EMSDK to its absolute path. The local probe used
-emsdk installer commit c0bb220cb6e6f4e0fabb6f6db9efd53390ef5e56:
+The CI provisioning script installs Emscripten 4.0.15 from emsdk installer
+commit `c0bb220cb6e6f4e0fabb6f6db9efd53390ef5e56`, verifies the official
+CMake archive, and installs the locked wasm-bindgen CLI. A buildserver can
+provide the same toolchain instead. Set `EMSDK` to the absolute path of an
+activated Emscripten installation when it lives outside the default cache.
 
 ~~~bash
-# A new directory; skip this bootstrap if an isolated, activated 4.0.15 SDK exists.
-git init .cache/android-production/emsdk
-git -C .cache/android-production/emsdk remote add origin https://github.com/emscripten-core/emsdk.git
-git -C .cache/android-production/emsdk fetch --depth=1 origin c0bb220cb6e6f4e0fabb6f6db9efd53390ef5e56
-git -C .cache/android-production/emsdk checkout --detach FETCH_HEAD
-.cache/android-production/emsdk/emsdk install 4.0.15
-.cache/android-production/emsdk/emsdk activate 4.0.15
-export EMSDK="$PWD/.cache/android-production/emsdk"
-
-# Named toolchain only; do not change the machine's default Rust toolchain.
-rustup toolchain install 1.98.1 --profile minimal --target wasm32-unknown-unknown
-cargo +1.98.1 install wasm-bindgen-cli --version 0.2.100 --locked \
-  --root "$PWD/.cache/android-production/wasm-tools" \
-  --target-dir "$PWD/.cache/android-production/wasm-tools-target"
-
-node scripts/fdroid/build-android-source-libs.js
-node scripts/fdroid/build-source-ocr.js
-node scripts/fdroid/build-source-pdf-codecs.js
+rustup toolchain install 1.98.1 --profile minimal --target aarch64-linux-android
+node scripts/fdroid/prepare-android-wasm-tools.js
+bash scripts/fdroid/build-android-release.sh
 
 # Recheck already-built outputs without recompiling.
 node --test scripts/fdroid/__tests__/check-source-build-selftest.js
@@ -426,13 +414,16 @@ hashes remain governed by the pinned upstream CMake/dependency files. The OCR
 recipe uses upstream's pinned image libraries and compiler flags, with only a
 two-worker limit and selection of the three LSTM targets. It does not run the
 upstream dependency installer against the host OS. Generated loaders and WASM
-must move together.
+must move together. The compiler maps the OCR work path in Tesseract's
+diagnostic strings to `/build/papercut-ocr`.
 
 PDF.js's normal build copies already-built codecs. Its separate wrapper
 Dockerfiles use floating Emscripten/Rust tags; QCMS additionally runs cargo update.
 Our recipe pins Emscripten, Rust, QCMS's existing Cargo.lock and wasm-bindgen CLI,
 applies the pinned upstream patches, and keeps compiler caches inside the project.
-It builds the JS fallbacks too. It then uses PDF.js's locked npm dependencies
+The C and Rust compilers map host paths in diagnostics before producing the
+WASM and JS fallbacks. The release asset step requires receipts from the
+path-normalized PDF and OCR recipes. The PDF recipe uses PDF.js's locked npm dependencies
 and upstream legacy build tasks to rebuild the API, minified worker and viewer
 with the matching glue.
 The PDF checkout includes enough history for Gulp to generate version 6.2.108;
@@ -959,10 +950,7 @@ For a source export, set the value before the existing production command:
 ~~~bash
 # Replace this placeholder with the full application commit from the release metadata.
 export PAPERCUT_BUILD_REVISION='<full-40-character-application-commit>'
-node scripts/fdroid/build-android-source-libs.js
-export SHERPA_ONNX_LIB_DIR="$PWD/.cache/android-production/source-arm64"
-export SHERPA_REQUIRE_SOURCE=1
-npm run android:apk:release
+bash scripts/fdroid/build-android-release.sh
 ~~~
 
 A Git checkout needs no export: the resolver supplies its actual `HEAD`. For PR
@@ -1153,19 +1141,11 @@ attribute its result to the Pagefind change.
 
 ### Source-built PDF and OCR runtime (2026-11-05)
 
-After running the two WASM recipes above, opt into source staging using the
-normal Android release wrapper:
-
-~~~bash
-PAPERCUT_PDF_OCR_FROM_SOURCE=1 npm run android:apk:release
-node scripts/android/verify-android-apk.js --unsigned \
-  src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
-~~~
-
-Use the same Android SDK, r30 NDK and source-built Sherpa inputs as the other
-production checks. For a frontend-only check, set the same variable on
-`npm run build`. The default local and CI build still uses the locked npm
-assets while the shared release and buildserver toolchains are prepared.
+The Android production wrapper requires source-built PDF/OCR inputs.
+`bash scripts/fdroid/build-android-release.sh` builds those inputs together
+with Sherpa and invokes the wrapper. Once the receipts exist, rerun just the
+APK step with `npm run android:apk:release`. For a frontend-only check use
+`PAPERCUT_PDF_OCR_FROM_SOURCE=1 npm run build`.
 
 In source mode the asset step verifies both receipts and all required runtime
 files before copying anything. Vite resolves the PDF.js legacy API, minified
@@ -1174,8 +1154,8 @@ fallbacks are staged together. The upstream PDF.js codec notices are retained
 with the pinned QCMS wrapper and QuickJS license files. Standard fonts and
 viewer CSS remain from the locked PDF.js package. Tesseract.js keeps its locked
 browser worker and English/Arabic data and stages three matched source-built
-LSTM loader/WASM pairs. The OCR data and host tool findings in the F-Droid
-preflight remain separate from this change.
+LSTM loader/WASM pairs. The Android production build also verifies the two
+trained-data files against the pinned tessdata hashes.
 
 PDF.js normally generates a fresh internal EventBus marker when Gulp starts.
 The API and viewer embed it to give internal listeners priority, so two builds
@@ -1203,10 +1183,36 @@ Local checks on Node 22.22.1 and Emscripten 4.0.15:
   This is a working-tree build on `6ad16518` with the verified r30 native
   inputs. Reports are under `.cache/android-production/pdf-ocr-staging/`.
 
-Next, wire the same source mode into the upstream candidate and the F-Droid
-recipe, resolve the scanner findings per input, and adapt the build to the
-trusted Gradle distribution. Both sides of the signed-APK comparison need the
-same runtime inputs.
+### Shared Android release and scanner preflight (2026-11-05)
+
+[PR #91 CI](https://github.com/muhannadnouri/papercut.io/actions/runs/42110812827)
+passed all nine jobs for `08986769`. The ZIP digest matches GitHub's artifact
+metadata. A local rebuild of the actual CI checkout `14512202` reproduced the
+unsigned APK with SHA-256
+`09318b1371c90afad574dbd9de5ad1e92d3a57a35db3fc526a92fd4c4d60c4b2`.
+Both passed the release verifier. The first local attempt differed only in
+`libapp_lib.so` because `cssparser` embedded a generated source path from an
+external `CARGO_TARGET_DIR`. Remapping that directory to
+`/build/papercut/src-tauri/target` reproduced the CI output. This run predates
+the new production source-mode wiring and is evidence for the npm-asset build.
+
+The shared release command uses the same PDF/OCR recipes in CI, release and the
+F-Droid draft. The draft replaces the scanner-deleted npm esbuild executable
+with a build from the exact locked version and connects Tauri to trusted Gradle
+8.14.3 after the scanner removes the checked-in wrapper. The scanner preflight
+has one remaining fatal finding for Pagefind. See the
+[F-Droid preflight](fdroid/README.md#shared-release-path-preflight-2026-11-05).
+
+After normalizing Tesseract, OpenJPEG and QCMS compiler paths, the local
+upstream-wrapper APK and the scanner-treated export's trusted-Gradle APK
+matched byte-for-byte at the same `08986769` revision stamp. Both passed the
+release verifier. All 1,723 ZIP entries, all 86 frontend files and all
+Sherpa/PDF/OCR receipt artifacts matched. APK SHA-256
+`6ce82cb9223735d5bf9764896aa57706a513cd1e4abc7e1801e078bbf36e6bc7`.
+This was a same-host build of the working-tree changes with shared toolchain
+and dependency caches. The manual export build retained Pagefind for this
+integration check. Logs and comparison are in
+`.cache/android-production/fdroid-tool-review/`.
 
 Owner signing-key/`android-release` setup can proceed in parallel using section 2.
 A signed candidate is required for Pixel installation; file-transfer installation

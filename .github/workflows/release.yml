@@ -285,7 +285,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 22
+          node-version: 22.22.1
           cache: npm
 
       - name: Install Android NDK
@@ -309,12 +309,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build unsigned Android release APK
+      - name: Prepare Android WASM toolchain
         run: |
-          node scripts/fdroid/build-android-source-libs.js
-          export SHERPA_ONNX_LIB_DIR="$PWD/.cache/android-production/source-arm64"
-          export SHERPA_REQUIRE_SOURCE=1
-          npm run android:apk:release
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends autoconf automake libtool-bin pkg-config
+          node scripts/fdroid/prepare-android-wasm-tools.js
+
+      - name: Build unsigned Android release APK
+        run: bash scripts/fdroid/build-android-release.sh
 
       - name: Verify unsigned Android release APK
         run: node scripts/android/verify-android-apk.js --unsigned src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk

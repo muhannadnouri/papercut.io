@@ -652,7 +652,19 @@
     "runtimeChecks": "PDF.js legacy API, worker and viewer match across two local paths with separate npm installs and shared codec inputs. All six fresh OCR files match the earlier receipt. Chromium used the source worker, JPEG 2000 and JBIG2 decoders, and relaxed SIMD OCR loader. Three PDF renders and both OCR texts match the npm reference; direct checks cover QCMS, QuickJS and every OCR variant. 797 app tests passed with one existing skip.",
     "notices": "Retained PDF.js codec notices, added the exact QCMS wrapper and QuickJS MIT notices, and corrected the consolidated notice to attribute PDFium's BSD-3-Clause text separately from the JBIG2 wrapper's Apache-2.0 text.",
     "apkEvidence": "Local unsigned arm64 working-tree build on 6ad16518 passed the release verifier using the existing r30 native inputs. Checked 24 embedded assets and the shipped notices. APK SHA-256 dffac24b06daabcf5ef1c73e67f9d361e0ad3086be0b62f2c6e51c4ed65954f5.",
-    "remaining": "Enable the same source mode in the upstream release and F-Droid recipe, resolve npm and source recipe scanner inputs, integrate trusted Gradle, and reproduce a clean buildserver candidate for signature comparison. Device acceptance remains pending."
+    "remaining": "See androidSharedSourceRelease for shared release wiring and scanner progress. Device acceptance remains pending."
+  },
+  "androidSharedSourceRelease": {
+    "checkedOn": "2026-11-05",
+    "details": "docs/fdroid/README.md#shared-release-path-preflight-2026-11-05",
+    "priorCiEvidence": "PR 91 run 42110812827 passed all nine jobs for 08986769. Artifact 13454514229 ZIP SHA-256 510341320255672a6a6d4ad4556a0a25e06076db4173d66501eff253731834b6 matches GitHub metadata. Rebuilt actual merge checkout 145122025ebb216107450d95eb49a0c45d604331 with the external Cargo target path normalized and matched the verified unsigned APK byte-for-byte, SHA-256 09318b1371c90afad574dbd9de5ad1e92d3a57a35db3fc526a92fd4c4d60c4b2. This is the prior default npm-asset build.",
+    "selection": "CI, release and the draft use the same Sherpa, PDF.js and OCR source recipes. The release wrapper requires matching PDF/OCR receipts and both pinned OCR data hashes.",
+    "wasmPaths": "Tesseract and OpenJPEG embed diagnostic source paths, and QCMS embeds paths into the host Cargo registry. Release recipes normalize those paths at compile time and the production asset step requires updated receipts.",
+    "scanner": "Local fdroidserver 2.4.5 scan of an overlaid Git export and npm ci removes npm esbuild and PDF/OCR WASM, preserves two verified Apache-2.0 OCR data archives, and leaves the Pagefind extended binary as the sole fatal finding. Zero warnings.",
+    "esbuildSource": "0.28.2 from evanw/esbuild commit 609683d892977362a0f99026cb74b96263d728a9. The draft selects the compiled tool via ESBUILD_BINARY_PATH.",
+    "gradle": "Temporary Tauri launcher links to the trusted buildserver executable after requiring the wrapper properties version (8.14.3).",
+    "localReproduction": "The normal upstream wrapper and a scanner-treated Git export with source-built esbuild and trusted Gradle produced byte-identical verified unsigned APKs (1723 entries, 86 frontend files), SHA-256 6ce82cb9223735d5bf9764896aa57706a513cd1e4abc7e1801e078bbf36e6bc7. Working-tree overlay stamped 08986769 on one host with shared toolchain/dependency caches. The manual build retained the flagged Pagefind package.",
+    "remaining": "Pagefind host and embedded browser runtime provenance, updated CI run, actual clean F-Droid buildserver, production signing, and device acceptance."
   },
   "pendingReview": [
     "Decided 2026-11-03: F-Droid metadata declares GPL-3.0-only for the combined Android build; root MIT unchanged.",

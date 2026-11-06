@@ -18,6 +18,15 @@ const cache = join(repoRoot, '.cache/android-production')
 const pdfBuild = join(cache, 'pdf-worker-work/build/generic-legacy')
 const wasmRoot = fromSource ? join(pdfBuild, 'web/wasm') : join(npmPdfRoot, 'wasm')
 const coreRoot = fromSource ? join(cache, 'source-ocr') : join(repoRoot, 'node_modules/tesseract.js-core')
+// These files match the Apache-2.0 naptha/tessdata revision recorded in the source inventory.
+const languageSources = [
+  ['eng', '45b4cb346724ac1774f1c36f42f182b887bcdb28ebe63e6fff90ac41f3fcff91'],
+  ['ara', 'f4746c44b02342dd5b3d4f0198000f47d7c49f1a229e63e0f436c0592dcd9639'],
+].map(([language, sha256]) => ({
+  language,
+  sha256,
+  path: join(repoRoot, 'node_modules', '@tesseract.js-data', language, '4.0.0_best_int', language + '.traineddata.gz'),
+}))
 const coreFiles = [
   'tesseract-core-lstm.wasm.js',
   'tesseract-core-lstm.wasm',
@@ -30,6 +39,8 @@ const coreFiles = [
 if (fromSource) {
   const pdfReceipt = readSourceReceipt(pdfBuild, 'build-source-pdf-codecs.js')
   const ocrReceipt = readSourceReceipt(coreRoot, 'build-source-ocr.js')
+  assert.equal(pdfReceipt.tools.filePrefix, '/build/papercut-pdf', 'Rerun build-source-pdf-codecs.js to normalize embedded source paths')
+  assert.equal(ocrReceipt.tools.filePrefix, '/build/papercut-ocr', 'Rerun build-source-ocr.js to normalize embedded source paths')
   const pdfModules = ['build/pdf.mjs', 'build/pdf.worker.min.mjs', 'web/pdf_viewer.mjs']
   const pdfResources = [
     'jbig2.wasm', 'jbig2_nowasm_fallback.js', 'openjpeg.wasm', 'openjpeg_nowasm_fallback.js',
@@ -41,6 +52,9 @@ if (fromSource) {
     ...new Set([...pdfResources, ...readdirSync(wasmRoot)].map(file => 'web/wasm/' + file)),
   ])
   verifySourceFiles(coreRoot, ocrReceipt, coreFiles)
+  for (const { path, sha256 } of languageSources) {
+    assert.equal(createHash('sha256').update(readFileSync(path)).digest('hex'), sha256, `OCR data differs from pinned tessdata: ${path}`)
+  }
   console.log('[pdf/ocr] verified source-built PDF.js and LSTM engine outputs')
 }
 preparePdfJsAssets()
@@ -63,15 +77,10 @@ function preparePdfJsAssets() {
 /** Copy only the browser worker, LSTM cores, and supported offline languages. */
 function prepareTesseractAssets() {
   const workerSource = join(repoRoot, 'node_modules', 'tesseract.js', 'dist', 'worker.min.js')
-  const languages = ['eng', 'ara']
-  const languageSources = languages.map((language) => join(
-    repoRoot, 'node_modules', '@tesseract.js-data', language,
-    '4.0.0_best_int', `${language}.traineddata.gz`,
-  ))
   const outputRoot = join(publicRoot, 'tesseract')
   requirePaths([
     workerSource,
-    ...languageSources,
+    ...languageSources.map(({ path }) => path),
     ...coreFiles.map((file) => join(coreRoot, file)),
   ], 'Tesseract')
   rmSync(outputRoot, {
@@ -81,9 +90,9 @@ function prepareTesseractAssets() {
   mkdirSync(join(outputRoot, 'core'), { recursive: true })
   mkdirSync(join(outputRoot, 'lang'), { recursive: true })
   cpSync(workerSource, join(outputRoot, 'worker.min.js'))
-  languages.forEach((language, index) => {
-    cpSync(languageSources[index], join(outputRoot, 'lang', `${language}.traineddata.gz`))
-  })
+  for (const { language, path } of languageSources) {
+    cpSync(path, join(outputRoot, 'lang', `${language}.traineddata.gz`))
+  }
   for (const file of coreFiles) {
     cpSync(join(coreRoot, file), join(outputRoot, 'core', file))
   }

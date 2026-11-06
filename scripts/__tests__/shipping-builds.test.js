@@ -131,12 +131,14 @@ it("keeps the explicit no-native Android build and custom native arguments", asy
   await build("android/build-android.js", "linux", ["--native-tts", ...args])
   expect(calls.android.mock.calls.at(-1)[0]).toEqual(args)
 })
-it("production Android builds retain native TTS/search and omit debug mode", async () => {
+it("production Android builds retain native TTS/search and require source PDF/OCR", async () => {
+  vi.stubEnv("PAPERCUT_PDF_OCR_FROM_SOURCE", "0")
   await build("android/build-android.js", "linux", ["--native-tts", "--production"])
   expect(calls.android).toHaveBeenCalledWith(["android", "build", "--apk", "--target", "aarch64", "--features", "native-tts-shared,experimental-search-embeddings"], {
     RUSTUP_TOOLCHAIN: "1.98.1",
     PAPERCUT_BUILD_REVISION: "cd".repeat(20),
     CARGO_ENCODED_RUSTFLAGS: "production remaps",
+    PAPERCUT_PDF_OCR_FROM_SOURCE: "1",
     SHERPA_ONNX_LIB_DIR: "/prepared/android",
     ORT_LIB_LOCATION: "/prepared/android",
   })

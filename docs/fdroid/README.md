@@ -39,7 +39,7 @@ binary finding does not by itself mean that the file is proprietary or malicious
 
 All 17 findings are under `node_modules/`:
 
-| Files | Count | Treatment still needed |
+| Files | Count | Initial finding |
 | --- | ---: | --- |
 | `@esbuild/linux-x64/bin/esbuild`, `esbuild/bin/esbuild`, `@pagefind/linux-x64/bin/pagefind_extended` | 3 | Host build tools: establish an acceptable tool/source provenance route |
 | `@tesseract.js-data/{ara,eng}/{4.0.0,4.0.0_best_int}/*.traineddata.gz` | 4 | OCR data: document origins/licenses and agree the archive treatment |
@@ -53,9 +53,9 @@ its scanner findings in place. Resolve each finding with a narrow, explained
 treatment. Review the Sherpa/CMake and WASM recipe dependency trees as part of
 the buildserver audit because the historical scan did not include those trees.
 
-The scanner's Gradle-wrapper removal also needs integration work: the Tauri
-pipeline must use the trusted buildserver's matching Gradle distribution without
-depending on the removed wrapper JAR. Merely passing the source scan is not enough.
+This scan identified the Gradle-wrapper removal. The
+[shared release path](#shared-release-path-preflight-2026-11-05) now has a
+bridge for Tauri.
 
 Local reports, tool versions, signature data and the disposable export are under
 `.cache/android-production/fdroid-preflight/` (ignored; not release artifacts).
@@ -85,14 +85,59 @@ The table above describes the historical installer comparison. The earlier CI
 artifact and source-scan reports still describe the beta3 preflight; they are
 not a buildserver or signature comparison of the r30 candidate.
 
+## Shared release path preflight (2026-11-05)
+
+The Android CI job, GitHub release and draft recipe now invoke the shared
+`scripts/fdroid/build-android-release.sh` command. It builds Sherpa, PDF.js and
+Tesseract from the pinned sources. The production APK wrapper requires the
+resulting PDF/OCR receipts.
+
+A fresh Git export of `08986769` with this pass overlaid was scanned using
+fdroidserver 2.4.5, the earlier cached SUSS signatures and Node 22.22.1. It
+reported **one fatal finding and zero warnings**.
+
+| Input | Treatment in the draft |
+| --- | --- |
+| esbuild | Delete both installed executables. Build the locked 0.28.2 from commit `609683d892977362a0f99026cb74b96263d728a9` with Go and select it through `ESBUILD_BINARY_PATH`. This is consistent with the source-build treatment in fdroiddata. [fdroiddata example](https://gitlab.com/fdroid/fdroiddata/-/blob/master/metadata/au.how2vote.app.yml) |
+| OCR data | Delete the unused `4.0.0` copies. The two exact exceptions are English and Arabic `4.0.0_best_int` data archives. Their bytes match the pinned Apache-2.0 tessdata revision, and the release asset step enforces both hashes. These exceptions are for reviewer consideration. [Source inventory](../android-source-inventory.json) |
+| PDF/OCR engines | Delete the four npm PDF WASM files, six npm OCR WASM files, and the npm OCR loaders that embed those binaries. The production asset step takes the rebuilt engine files from the source receipts. |
+| Pagefind | The locked 1.4.0 extended binary is still flagged. Its output includes browser WASM and JS embedded in the npm binary. A source build needs the coupled frontend and WASM build as well as the Rust CLI. [Upstream 1.4.0 release build](https://github.com/Pagefind/pagefind/blob/v1.4.0/.github/workflows/release.yml) |
+
+The published Pagefind 1.4.0 Cargo package includes 31 prebuilt browser WASM
+files. After decompression, its English and fallback WASM match the two files
+in Papercut's starter index. A plain `cargo install pagefind` would still
+carry those prebuilt browser inputs. [Pagefind crate](https://crates.io/crates/pagefind/1.4.0)
+
+The scanner deletes Tauri's project launchers and wrapper JAR. After scanning,
+the shared command checks the buildserver's absolute `gradle` executable
+against the version in `gradle-wrapper.properties` (8.14.3). It temporarily
+links Tauri's expected project launcher to that executable and removes the
+link on exit. F-Droid's Gradle launcher selects the distribution from the
+project and verifies its download. [F-Droid Gradle launcher](https://gitlab.com/fdroid/gradlew-fdroid)
+
+The local integration check used a scanner-treated export, source-built esbuild
+and Gradle 8.14.3 without the original wrapper JAR. It retained the flagged
+Pagefind input for the manual build. The resulting unsigned APK matched the
+normal wrapper build byte-for-byte, and the temporary launcher was removed.
+See the [APK evidence](../android-production-packaging.md#shared-android-release-and-scanner-preflight-2026-11-05).
+
+For the clean buildserver, provision Node 22.22.1/npm, Rust 1.98.1 with the
+Android and `wasm32-unknown-unknown` targets, JDK 17, SDK platform 36, Build
+Tools 35.0.0, r30 NDK, CMake 4.4.5, Go, and the documented Emscripten and
+wasm-bindgen tools. Confirm the sources and toolchain with F-Droid reviewers.
+The GitHub toolchain setup installs the official CMake release and Emscripten
+SDK. The draft expects the buildserver to provide those tools and the locked
+wasm-bindgen CLI. See the [production guide](../android-production-packaging.md#repeatable-source-recipes).
+The local scan covers the application checkout and its npm install. Review
+the Tauri host CLI and the inputs fetched by the source recipes when validating
+the full buildserver.
+
 ## Next execution gates
 
-1. Verify Pagefind CI separately. Wire source staging into both release build
-   paths, resolve the scanner findings, and implement the Gradle bridge.
-   Provision the actual buildserver's Node/npm, Rust 1.98.1 Android target,
-   Java 17, CMake and SDK/build-tools inputs explicitly; the host preflight did
-   not prove their availability in that image. Include the documented
-   Emscripten/Rust/WASM toolchains for the source staging recipes.
+1. Build and verify the Pagefind extended CLI and bundled runtime from source
+   or agree a provenance treatment with F-Droid. Compare its emitted starter
+   index and browser assets, and verify an Android CI run on the shared
+   source-mode command.
 2. Owner: set up/reuse the production signing key and protected GitHub
    `android-release` environment using [guide section 2](../android-production-packaging.md#2-owner-create-and-configure-the-signing-key).
    Sign/install a candidate by file transfer (ADB optional), then complete

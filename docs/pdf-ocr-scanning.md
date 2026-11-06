@@ -499,7 +499,7 @@ documents remain local, uncommitted acceptance fixtures.
 
 `npm run dev` and `npm run build:vite` normally copy PDF.js's installed WASM
 decoders and standard fonts into generated local assets. Android production
-testing can use the [source-built PDF and OCR runtime](android-production-packaging.md#source-built-pdf-and-ocr-runtime-2026-11-05).
+builds use the [source-built PDF and OCR runtime](android-production-packaging.md#source-built-pdf-and-ocr-runtime-2026-11-05).
 The renderer loads its runtime resources locally. With those assets configured, the 40-page
 JPEG 2000 benchmark renders a nonblank 430x695 first page and exposes its title
 through the text layer. The temporary first-page WebView harness used for this
