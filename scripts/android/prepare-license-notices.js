@@ -168,6 +168,9 @@ const COMPONENTS = [
     }, {
       file: join(CACHE, "pdfjs-qcms/LICENSE"),
       attribution: "PDF.js QCMS wrapper (source checkout)",
+    }, {
+      file: join(CACHE, "pagefind/LICENSE"),
+      attribution: "Pagefind bundled search runtime (source checkout)",
     }],
   },
   {

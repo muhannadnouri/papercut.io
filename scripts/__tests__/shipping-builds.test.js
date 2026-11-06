@@ -131,14 +131,16 @@ it("keeps the explicit no-native Android build and custom native arguments", asy
   await build("android/build-android.js", "linux", ["--native-tts", ...args])
   expect(calls.android.mock.calls.at(-1)[0]).toEqual(args)
 })
-it("production Android builds retain native TTS/search and require source PDF/OCR", async () => {
+it("production Android builds retain native TTS/search and require source PDF/OCR and Pagefind", async () => {
   vi.stubEnv("PAPERCUT_PDF_OCR_FROM_SOURCE", "0")
+  vi.stubEnv("PAGEFIND_EXTENDED_BINARY_PATH", "/prebuilt/pagefind")
   await build("android/build-android.js", "linux", ["--native-tts", "--production"])
   expect(calls.android).toHaveBeenCalledWith(["android", "build", "--apk", "--target", "aarch64", "--features", "native-tts-shared,experimental-search-embeddings"], {
     RUSTUP_TOOLCHAIN: "1.98.1",
     PAPERCUT_BUILD_REVISION: "cd".repeat(20),
     CARGO_ENCODED_RUSTFLAGS: "production remaps",
     PAPERCUT_PDF_OCR_FROM_SOURCE: "1",
+    PAGEFIND_EXTENDED_BINARY_PATH: join(ROOT, ".cache/android-production/source-pagefind/pagefind"),
     SHERPA_ONNX_LIB_DIR: "/prepared/android",
     ORT_LIB_LOCATION: "/prepared/android",
   })

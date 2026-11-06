@@ -664,7 +664,17 @@
     "esbuildSource": "0.28.2 from evanw/esbuild commit 609683d892977362a0f99026cb74b96263d728a9. The draft selects the compiled tool via ESBUILD_BINARY_PATH.",
     "gradle": "Temporary Tauri launcher links to the trusted buildserver executable after requiring the wrapper properties version (8.14.3).",
     "localReproduction": "The normal upstream wrapper and a scanner-treated Git export with source-built esbuild and trusted Gradle produced byte-identical verified unsigned APKs (1723 entries, 86 frontend files), SHA-256 6ce82cb9223735d5bf9764896aa57706a513cd1e4abc7e1801e078bbf36e6bc7. Working-tree overlay stamped 08986769 on one host with shared toolchain/dependency caches. The manual build retained the flagged Pagefind package.",
-    "remaining": "Pagefind host and embedded browser runtime provenance, updated CI run, actual clean F-Droid buildserver, production signing, and device acceptance."
+    "remaining": "See androidPagefindSource for the subsequent Pagefind preflight. Updated CI, clean F-Droid buildserver, production signing and device acceptance remain pending."
+  },
+  "androidPagefindSource": {
+    "checkedOn": "2026-11-05",
+    "details": "docs/android-production-packaging.md#source-built-pagefind-2026-11-05",
+    "source": "Pagefind 1.4.0 Git tag at 8c3de15a6b5ab603985d98062e748463daf42d65. The shared Android release builds the extended CLI, coupled JS and all 31 WASM variants using pinned toolchains and upstream npm locks.",
+    "scanner": "fdroidserver 2.4.5 and cached SUSS signatures report zero fatal findings and zero warnings on an npm-installed Git export of 022cbb4 with this stage overlaid. The npm Pagefind executable is removed by exact path.",
+    "runtime": "The six-document fixture has byte-identical index metadata, chunks and fragments versus the npm release. Chromium matched English, Arabic, Chinese and fallback-language search results, titles, URLs and excerpts.",
+    "localReproduction": "Independently rebuilt Pagefind in the normal checkout and scanner-treated export with source-built esbuild and trusted Gradle. The verified unsigned APKs match byte-for-byte (1723 entries, 86 frontend files, 14 Pagefind files), SHA-256 0a1b4c19ad376b7d999cab6935561f626a50498e42c3211806e58046472a0097. Working-tree overlay stamped 022cbb4 on one host with shared toolchain caches and previously verified native/PDF/OCR outputs.",
+    "ciChecks": "The preceding run 42139902278 stopped at five browser fixture timeouts before Android. The updated workflow runs four Chromium fixture files serially. Both exact commands pass locally, with 797 tests and one existing skip in total.",
+    "remaining": "Updated CI, a clean F-Droid buildserver, build-input review, production signing, and device acceptance."
   },
   "pendingReview": [
     "Decided 2026-11-03: F-Droid metadata declares GPL-3.0-only for the combined Android build; root MIT unchanged.",

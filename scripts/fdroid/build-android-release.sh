@@ -38,4 +38,5 @@ fi
 node scripts/fdroid/build-android-source-libs.js
 node scripts/fdroid/build-source-ocr.js
 node scripts/fdroid/build-source-pdf-codecs.js
+node scripts/fdroid/build-source-pagefind.js
 npm run android:apk:release

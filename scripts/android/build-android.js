@@ -48,6 +48,10 @@ async function runNativeTtsAndroidBuild(extraArgs) {
   if (!existsSync(join(libDir, "libsherpa-onnx-c-api.so"))) {
     throw new Error("Missing Android sherpa native libraries at " + libDir)
   }
+  const pagefind = join(ROOT, ".cache/android-production/source-pagefind/pagefind")
+  if (production && !existsSync(pagefind)) {
+    throw new Error("Missing source-built Pagefind. Run scripts/fdroid/build-android-release.sh first.")
+  }
 
   const args = extraArgs.length > 0
     ? extraArgs
@@ -60,6 +64,7 @@ async function runNativeTtsAndroidBuild(extraArgs) {
     ...(production ? {
       ...androidProductionEnv(),
       PAPERCUT_PDF_OCR_FROM_SOURCE: "1",
+      PAGEFIND_EXTENDED_BINARY_PATH: pagefind,
     } : {}),
     SHERPA_ONNX_LIB_DIR: libDir,
     ORT_LIB_LOCATION: libDir,

@@ -376,7 +376,7 @@ LSTM variants, omitting upstream's unused legacy variants.
 ### Repeatable source recipes
 
 Run from the repository root on Linux x86-64. Android CI, release and the
-F-Droid draft use the shared Sherpa, OCR and PDF recipes. Generated files stay in
+F-Droid draft use the shared Sherpa, OCR, PDF and Pagefind recipes. Generated files stay in
 ignored .cache/android-production/. The scripts reject a wrong source revision,
 tracked edits and untracked files outside upstream ignore rules. Existing source
 checkouts are never reset. Named *-work directories are disposable and replaced
@@ -1200,7 +1200,7 @@ The shared release command uses the same PDF/OCR recipes in CI, release and the
 F-Droid draft. The draft replaces the scanner-deleted npm esbuild executable
 with a build from the exact locked version and connects Tauri to trusted Gradle
 8.14.3 after the scanner removes the checked-in wrapper. The scanner preflight
-has one remaining fatal finding for Pagefind. See the
+had one remaining fatal finding for Pagefind. See the
 [F-Droid preflight](fdroid/README.md#shared-release-path-preflight-2026-11-05).
 
 After normalizing Tesseract, OpenJPEG and QCMS compiler paths, the local
@@ -1213,6 +1213,46 @@ This was a same-host build of the working-tree changes with shared toolchain
 and dependency caches. The manual export build retained Pagefind for this
 integration check. Logs and comparison are in
 `.cache/android-production/fdroid-tool-review/`.
+
+### Source-built Pagefind (2026-11-05)
+
+Android production builds select Pagefind 1.4.0 built from
+`8c3de15a6b5ab603985d98062e748463daf42d65`. The same locked npm Node API
+and sorted index writer select the rebuilt extended CLI through
+`PAGEFIND_EXTENDED_BINARY_PATH`. The shared release command builds it
+before packaging. The F-Droid draft removes the npm executable during its
+source scan, which locally reports zero fatal findings and zero warnings.
+
+The recipe follows upstream's browser build. It compiles the generic WASM
+and all 30 language variants with the existing pinned Rust, wasm-bindgen
+and Emscripten SDK's wasm-opt. A small lock patch brings the tag's stale
+minicbor entries into line with the published release and pins the browser
+crate to the already provisioned wasm-bindgen 0.2.100. Upstream JS builds
+use their npm locks, omit optional binary packages, and share Papercut's
+esbuild client and binary. The packaged notices include Pagefind's MIT text.
+[Upstream release build](https://github.com/Pagefind/pagefind/blob/8c3de15a6b5ab603985d98062e748463daf42d65/.github/workflows/release.yml)
+
+The mixed starter fixture produced the same 24 filenames as the npm
+release. Index metadata, index chunks and document fragments matched.
+Rebuilt JS, CSS and WASM differed from the published binaries as expected.
+Chromium matched results, titles, URLs and excerpts for English, Arabic,
+Chinese and fallback-language queries. Reports are under
+`.cache/android-production/pagefind-probe/`.
+
+The normal wrapper and a scanner-treated export with source-built esbuild
+and trusted Gradle 8.14.3 built Pagefind independently. The generated browser
+assets, all 86 frontend files including the 14-file starter index, and all
+1,723 APK entries matched. Both unsigned APKs passed verification. SHA-256
+`0a1b4c19ad376b7d999cab6935561f626a50498e42c3211806e58046472a0097`.
+The local working-tree builds share the `022cbb4` revision stamp, one host,
+toolchain caches and previously verified Android native and PDF/OCR outputs.
+The upstream APK also passed the F-Droid APK scanner.
+
+The PR run for the preceding commit stopped at Chromium fixture timeouts
+before the Android job started. The workflow now runs those four test files
+serially in a separate step with the same assertions and timeouts. Both
+updated steps passed locally with 797 total tests and one existing skip.
+[PR CI log](https://github.com/muhannadnouri/papercut.io/actions/runs/42139902278/job/127637387009)
 
 Owner signing-key/`android-release` setup can proceed in parallel using section 2.
 A signed candidate is required for Pixel installation; file-transfer installation

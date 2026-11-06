@@ -132,12 +132,32 @@ The local scan covers the application checkout and its npm install. Review
 the Tauri host CLI and the inputs fetched by the source recipes when validating
 the full buildserver.
 
+## Source-built Pagefind preflight (2026-11-05)
+
+The draft deletes the npm Pagefind executable by exact path. The shared
+Android build rebuilds the extended CLI, coupled browser JS and all 31 WASM
+variants from the pinned Pagefind 1.4.0 tag. Its upstream JS build scripts
+use their own npm locks and Papercut's pinned esbuild, which is rebuilt from
+source for F-Droid. The production wrapper points Pagefind's existing Node
+API at the rebuilt executable. See the [recipe and evidence](../android-production-packaging.md#source-built-pagefind-2026-11-05).
+
+A fresh Git export at `022cbb4` with this stage overlaid and npm
+dependencies reported **zero fatal findings and zero warnings** in
+fdroidserver 2.4.5 with the earlier cached SUSS signatures. The scanner
+removed `node_modules/@pagefind/linux-x64/bin/pagefind_extended`. The two
+existing exact exceptions for pinned OCR data remain in the draft. This
+local scan covers the export before the build stage.
+
+The same-host integration check built Pagefind separately in the two
+checkouts. The scanner-treated export used trusted Gradle and source-built
+esbuild, and its verified unsigned APK matched the normal wrapper's output
+byte-for-byte. See the [APK evidence](../android-production-packaging.md#source-built-pagefind-2026-11-05).
+
 ## Next execution gates
 
-1. Build and verify the Pagefind extended CLI and bundled runtime from source
-   or agree a provenance treatment with F-Droid. Compare its emitted starter
-   index and browser assets, and verify an Android CI run on the shared
-   source-mode command.
+1. Verify Android CI at the committed Pagefind source path. Run the clean
+   F-Droid buildserver preflight with its own toolchain and review the inputs
+   fetched during the build.
 2. Owner: set up/reuse the production signing key and protected GitHub
    `android-release` environment using [guide section 2](../android-production-packaging.md#2-owner-create-and-configure-the-signing-key).
    Sign/install a candidate by file transfer (ADB optional), then complete
