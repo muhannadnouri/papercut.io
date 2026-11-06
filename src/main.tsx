@@ -1,14 +1,6 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
 import './index.css'
-import './i18n'
-import App from './App.tsx'
-import { LocaleProvider } from './i18n/LocaleProvider'
+import { finishPendingAppReset } from './app-reset/appReset'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <LocaleProvider>
-      <App />
-    </LocaleProvider>
-  </StrictMode>,
-)
+// i18n and app modules read localStorage at import time, so an interrupted erase
+// must finish before they load.
+void finishPendingAppReset().finally(() => import('./renderApp'))

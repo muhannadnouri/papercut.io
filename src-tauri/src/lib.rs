@@ -1,3 +1,4 @@
+mod app_reset;
 mod document_scanner;
 mod document_uploads;
 mod library_transfer;
@@ -47,6 +48,10 @@ pub fn run() {
         .manage(search_embeddings::SearchEmbeddingState::default())
         .manage(document_uploads::semantic::SemanticIndexState::default())
         .invoke_handler(tauri::generate_handler![
+            app_reset::app_reset_summary,
+            app_reset::app_reset_request,
+            app_reset::app_reset_pending,
+            app_reset::app_reset_acknowledge,
             document_uploads::semantic::query::search_semantic_query,
             document_uploads::semantic::search_semantic_index_status,
             document_uploads::semantic::search_semantic_index_build,
@@ -122,14 +127,21 @@ pub fn run() {
             native_tts::commands::tts_probe_silma_sidecar,
         ])
         .setup(|app| {
+            let erased = app_reset::finish_pending_wipe(app.handle());
             library_transfer::initialize_storage(app.handle()).map_err(std::io::Error::other)?;
             document_uploads::schedule_search_index_rebuild(app.handle().clone());
+            // A restart repeats the launch arguments, which would re-import a file
+            // the user just erased.
             #[cfg(desktop)]
-            open_documents::queue_cli_paths(
-                app.handle(),
-                std::env::args_os().skip(1),
-                &std::env::current_dir().unwrap_or_default(),
-            );
+            if !erased {
+                open_documents::queue_cli_paths(
+                    app.handle(),
+                    std::env::args_os().skip(1),
+                    &std::env::current_dir().unwrap_or_default(),
+                );
+            }
+            #[cfg(mobile)]
+            let _ = erased;
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()

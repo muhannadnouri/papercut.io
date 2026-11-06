@@ -10,6 +10,8 @@ import { useTranslation } from 'react-i18next'
 import { getVersion } from '@tauri-apps/api/app'
 import { isTauri } from '@tauri-apps/api/core'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
+import { AppResetDialog } from '../../app-reset/AppResetDialog'
+import type { AppResetBlocker } from '../../app-reset/appReset'
 import type { ThemeChoice } from '../../hooks/useTheme'
 import {
   APP_LOCALE_OPTIONS,
@@ -22,6 +24,7 @@ import { isMobileUserAgent } from '../../utils/platform'
 import { AppDialog } from '../AppDialog/AppDialog'
 import { AppSelect } from '../AppSelect/AppSelect'
 import { SettingsIcon } from '../SettingsIcon/SettingsIcon'
+import { TrashIcon } from '../TrashIcon/TrashIcon'
 import { SearchModelSetup } from './SearchModelSetup'
 import { SearchActivity } from '../../search-semantic/SearchActivity'
 import { semanticSearchStatus } from '../../search-semantic/semanticSearchStatus'
@@ -59,6 +62,7 @@ interface AppSettingsProps {
   semanticSearch: SemanticSearchController
   searchOpen: boolean
   onSearchOpenChange: (open: boolean) => void
+  eraseBlockedBy: AppResetBlocker | null
 }
 
 export function AppSettings({
@@ -70,6 +74,7 @@ export function AppSettings({
   semanticSearch,
   searchOpen,
   onSearchOpenChange: setSearchOpen,
+  eraseBlockedBy,
 }: AppSettingsProps) {
   const { t } = useTranslation()
   const tauriRuntime = isTauri()
@@ -77,6 +82,7 @@ export function AppSettings({
   const [legalNoticesOpen, setLegalNoticesOpen] = useState(false)
   const [selectedLegalNotice, setSelectedLegalNotice] = useState<LegalNoticeId | null>(null)
   const [transferOpen, setTransferOpen] = useState(false)
+  const [eraseOpen, setEraseOpen] = useState(false)
   const [version, setVersion] = useState<string | null>(() => tauriRuntime ? null : '')
   const settingsButton = useRef<HTMLButtonElement>(null)
   const zoom = useAppZoom()
@@ -85,6 +91,7 @@ export function AppSettings({
     setSearchOpen(false)
     setLegalNoticesOpen(false)
     setSelectedLegalNotice(null)
+    setEraseOpen(false)
   }, [setSearchOpen])
   const themeOption = {
     system: t('settings.themeSystem'),
@@ -185,7 +192,20 @@ export function AppSettings({
         </AppDialog>
       )}
 
-      {open && !searchOpen && !legalNoticesOpen && (
+      {open && !searchOpen && eraseOpen && (
+        <AppResetDialog
+          blockedBy={eraseBlockedBy}
+          fallbackFocusRef={settingsButton}
+          onBack={() => setEraseOpen(false)}
+          onClose={closeSettings}
+          onExportFirst={() => {
+            setOpen(false)
+            setTransferOpen(true)
+          }}
+        />
+      )}
+
+      {open && !searchOpen && !legalNoticesOpen && !eraseOpen && (
         <AppDialog
           key="general" fallbackFocusRef={settingsButton} title={t('settings.title')}
           showCloseButton
@@ -297,6 +317,20 @@ export function AppSettings({
               </span>
             </label>
           </section>
+
+          {tauriRuntime && (
+            <section className="app-settings-section app-settings-erase" aria-labelledby="app-settings-erase">
+              <h3 id="app-settings-erase">{t('settings.erase.section')}</h3>
+              <button
+                type="button"
+                className="app-settings-data-action app-settings-erase-action"
+                onClick={() => setEraseOpen(true)}
+              >
+                <TrashIcon className="app-settings-data-icon" />
+                {t('settings.erase.open')}
+              </button>
+            </section>
+          )}
 
           <section className="app-settings-section app-settings-about" aria-labelledby="app-settings-about">
             <h3 id="app-settings-about">{t('settings.about')}</h3>
