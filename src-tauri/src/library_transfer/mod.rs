@@ -1215,7 +1215,7 @@ fn create_private_directory(path: &Path) -> Result<(), String> {
 
 /// Remove transfer packages left by a previous process without touching other
 /// cached app data. No active session exists during startup.
-fn cleanup_orphaned_transfer_files(cache: &Path) {
+pub(crate) fn cleanup_orphaned_transfer_files(cache: &Path) {
     let Ok(entries) = fs::read_dir(cache) else {
         return;
     };

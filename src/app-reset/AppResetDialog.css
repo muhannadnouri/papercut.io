@@ -1,0 +1,75 @@
+/* AppDialog centers its body, which makes these lists hard to scan. */
+.app-reset-heading,
+.app-reset-list,
+.app-reset-note,
+.app-reset-export p,
+.app-reset-blocked {
+  text-align: start;
+}
+
+.app-reset-heading {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.app-reset-heading:first-child {
+  margin-block-start: 0;
+}
+
+.app-reset-list {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.app-reset-locations {
+  font-size: 0.78rem;
+}
+
+.app-reset-export {
+  margin-block-start: 1rem;
+}
+
+.app-reset-note,
+.app-reset-export p {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.app-reset-acknowledge,
+.app-reset-blocked,
+.app-reset-error {
+  flex-basis: 100%;
+}
+
+.app-reset-acknowledge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  text-align: start;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.app-reset-acknowledge input {
+  flex: none;
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+  margin: 0;
+  accent-color: var(--danger);
+}
+
+.app-reset-error {
+  text-align: start;
+}
+
+.app-reset-blocked {
+  margin: 0;
+  color: var(--danger-strong);
+  font-size: 0.8rem;
+}

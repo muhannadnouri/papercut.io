@@ -116,4 +116,19 @@ export function disposeNativeAudio(): Promise<void> {
   })
 }
 
+// For erasing app data. Dispose re-persists the playback checkpoint, so it must be
+// cleared afterward or the next launch offers to resume an audiobook that no longer
+// exists. On iOS, dispose also drops hard links that keep erased audio bytes on disk.
+export function forgetNativeAudio(): Promise<void> {
+  initializePromise = null
+  return runLifecycleOperation(async () => {
+    const plugin = await loadPlugin()
+    try {
+      await plugin.dispose()
+    } finally {
+      await plugin.clearProgressCheckpoint()
+    }
+  })
+}
+
 export type { NativeAudioState }

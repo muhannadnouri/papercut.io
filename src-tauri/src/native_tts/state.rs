@@ -27,6 +27,34 @@ pub struct NativeTtsState {
     _disabled: Mutex<()>,
 }
 
+impl NativeTtsState {
+    /// True during a model or SILMA runtime install, or while a job holds the engine.
+    /// Audiobook saves keep the engine locked for the whole job, so `try_lock` also
+    /// detects them, and never waits on one. A poisoned lock reads as busy.
+    pub(crate) fn is_busy(&self) -> bool {
+        #[cfg(feature = "native-tts-core")]
+        {
+            self.engine.try_lock().is_err()
+                || self
+                    .model_installing
+                    .lock()
+                    .map_or(true, |installing| !installing.is_empty())
+        }
+        #[cfg(not(feature = "native-tts-core"))]
+        false
+    }
+
+    /// Drop the loaded engine, which is otherwise reused without rechecking disk, so
+    /// it would keep "working" after its model files are gone. Blocks until any
+    /// running job releases the lock, so call `is_busy` first.
+    pub(crate) fn unload_engine(&self) {
+        #[cfg(feature = "native-tts-core")]
+        if let Ok(mut engine) = self.engine.lock() {
+            *engine = None;
+        }
+    }
+}
+
 impl Default for NativeTtsState {
     fn default() -> Self {
         Self {

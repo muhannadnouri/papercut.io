@@ -39,6 +39,26 @@ pub struct LibraryTransferState {
 }
 
 impl LibraryTransferState {
+    /// Covers both restores holding the `active` reservation and network sessions.
+    /// Local exports take no reservation and aren't seen here; the export dialog is
+    /// modal and blocks navigation, which keeps them from overlapping an erase.
+    pub(crate) fn is_busy(&self) -> bool {
+        self.active.load(Ordering::Acquire)
+            || self.current.lock().map_or(true, |current| {
+                current
+                    .as_ref()
+                    .is_some_and(|o| o.status.lock().map(|s| s.state.active()).unwrap_or(true))
+            })
+    }
+    /// Drop the retained result of a finished transfer. It outlives a page reload, so
+    /// without this the dialog would re-attach and describe a library that is gone.
+    pub(crate) fn forget_finished(&self) {
+        if !self.is_busy() {
+            if let Ok(mut current) = self.current.lock() {
+                current.take();
+            }
+        }
+    }
     pub(super) fn begin_restore(&self) -> LibraryTransferResult<TransferOperationReservation> {
         reserve_operation(&self.active)
     }

@@ -68,6 +68,7 @@ function render() {
     onSearchOpenChange: (next) => {
       searchOpen = next
     },
+    eraseBlockedBy: null,
   })
   return renderToStaticMarkup(tree)
 }
