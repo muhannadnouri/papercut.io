@@ -161,11 +161,14 @@ No implementation or settings change has been made for this proposal.
 
 ## 2. Owner: create and configure the signing key
 
-Run once with a JDK installed. Keep the keystore outside the repository, make an
-encrypted recovery backup, and retain passwords in your password manager. This is
-the application signing key for direct APK/F-Droid distribution.
+Use your existing production key if one already signs Papercut's direct APKs.
+Otherwise run this once with a JDK installed. Keep the keystore in a private
+directory outside the repository, make an encrypted recovery backup separately,
+and store the passwords in your password manager. This key is the signing
+identity for direct APK and F-Droid updates.
 
 ~~~bash
+umask 077
 mkdir -p ~/.local/share/papercut-signing
 chmod 700 ~/.local/share/papercut-signing
 keytool -genkeypair -v -storetype JKS \
@@ -173,14 +176,21 @@ keytool -genkeypair -v -storetype JKS \
   -alias papercut -keyalg RSA -keysize 4096 -validity 10000
 keytool -list -v \
   -keystore ~/.local/share/papercut-signing/papercut-release.jks -alias papercut
-umask 077
-base64 -w 0 ~/.local/share/papercut-signing/papercut-release.jks \
-  > ~/.local/share/papercut-signing/papercut-release.jks.base64
 ~~~
 
 Choose the certificate details when prompted. Record the store and key passwords;
 both GitHub entries below are required even if the passwords are identical.
 Record the public certificate's SHA-256 fingerprint without colons.
+
+For local-only signing, use the keystore directly with the commands in
+section 3. For GitHub signing, make a temporary Base64 copy in the same
+private directory.
+
+~~~bash
+umask 077
+base64 -w 0 ~/.local/share/papercut-signing/papercut-release.jks \
+  > ~/.local/share/papercut-signing/papercut-release.jks.base64
+~~~
 
 In GitHub repository **Settings → Environments**, create **android-release**.
 Restrict it to trusted workflow refs/release tags and enable required reviewers
@@ -195,8 +205,11 @@ out the requested release tag: approve both the workflow and tag contents.
 | ANDROID_KEY_PASSWORD | Key password |
 
 Add the environment **variable** ANDROID_SIGNING_CERT_SHA256 with the public
-certificate's 64 hexadecimal SHA-256 digits. Do not put the private key/passwords
-in chat, source control or F-Droid metadata. Keep using this key for later updates.
+certificate's 64 hexadecimal SHA-256 digits. The Base64 file contains the same
+private key as the keystore. Remove the Base64 copy after saving the environment
+secret. Keep the keystore, backup and passwords out of chat, source control,
+F-Droid metadata and build artifacts. Only the public fingerprint goes into
+`AllowedAPKSigningKeys`.
 
 The build job uploads an unsigned input artifact. A separate protected signing
 job uses a fresh runner with no npm install, compilation or restored build cache.
@@ -220,7 +233,15 @@ compiling the app. Both wrappers default to `.cache/android-production/source-ar
 `SHERPA_ONNX_LIB_DIR` can select another prepared directory.
 
 ~~~bash
-# Linux x86-64 with Node 22.22.1, npm dependencies, Rust and Android SDK installed.
+# Use a clean checkout of the commit or release tag you intend to compare.
+# Linux x86-64 with Node 22.22.1, JDK 17 and Android SDK command-line tools.
+export ANDROID_SDK_ROOT=/path/to/android-sdk
+export ANDROID_HOME="$ANDROID_SDK_ROOT"
+sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
+  "platforms;android-36" "build-tools;35.0.0" "ndk;30.0.16248370"
+rustup toolchain install 1.98.1 --profile minimal --target aarch64-linux-android
+export RUSTUP_TOOLCHAIN=1.98.1
+npm ci
 node scripts/fdroid/prepare-android-wasm-tools.js
 bash scripts/fdroid/build-android-release.sh
 node scripts/android/verify-android-apk.js --unsigned \
@@ -231,23 +252,41 @@ The verifier uses Node, Cargo, unzip, Android SDK Build Tools 35.0.0 and
 ANDROID_HOME or ANDROID_SDK_ROOT. It adds no npm dependency. Unsigned APKs are
 validation inputs, not installable release downloads.
 
-For local signing, set ANDROID_KEYSTORE_PATH to the absolute keystore path,
-ANDROID_KEY_ALIAS, ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_PASSWORD. Read
-passwords interactively rather than entering them in shell history. Set
-ANDROID_SIGNING_CERT_SHA256 to verify the result:
+You can also use the unsigned artifact from a successful PR CI run. Extract it
+to a separate QA folder, run the verifier with that APK's path from the
+matching source checkout, and point `apk_dir` below at the QA folder. Keep the
+QA APKs separate from the private key directory.
+
+For local signing, finish the build and verify the unsigned APK first. Open
+a fresh shell. Export `ANDROID_SDK_ROOT`, the recorded public
+`ANDROID_SIGNING_CERT_SHA256` and `RUSTUP_TOOLCHAIN=1.98.1` for the
+verifier. Set `ANDROID_KEYSTORE_PATH` to the absolute keystore path and
+`ANDROID_KEY_ALIAS` to its alias. Read passwords interactively in a
+subshell used for signing.
 
 ~~~bash
-"$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" sign \
-  --ks "$ANDROID_KEYSTORE_PATH" --ks-key-alias "$ANDROID_KEY_ALIAS" \
-  --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD \
-  --out src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk \
-  src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
-node scripts/android/verify-android-apk.js \
-  src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
+apk_dir=src-tauri/gen/android/app/build/outputs/apk/universal/release
+(
+  set -e
+  read -rsp 'Keystore password: ' ANDROID_KEYSTORE_PASSWORD; printf '\n'
+  read -rsp 'Key password: ' ANDROID_KEY_PASSWORD; printf '\n'
+  export ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_PASSWORD
+  "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" sign \
+    --ks "$ANDROID_KEYSTORE_PATH" --ks-key-alias "$ANDROID_KEY_ALIAS" \
+    --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD \
+    --out "$apk_dir/app-universal-release.apk" \
+    "$apk_dir/app-universal-release-unsigned.apk"
+) && node scripts/android/verify-android-apk.js "$apk_dir/app-universal-release.apk"
 ~~~
 
 Do not modify/realign an APK after signing. The unsigned build must pass alignment
 checks first. [apksigner](https://developer.android.com/tools/apksigner)
+
+For device acceptance, copy the verified signed APK onto the test phone and
+open it there. If a debug-signed build is already installed, use a clean test
+device or back up its data before removing it. Use the same signing certificate
+and a greater version code for the upgrade candidate. Test that install in
+place with the original candidate and its data still on the phone.
 
 For every public update:
 
@@ -259,7 +298,14 @@ changelogs and release-specific evidence belong to the later release stage.
    bundle.android.versionCode in tauri.android.conf.json. Avoid per-build counters.
 2. Add fastlane/metadata/android/en-US/changelogs/<versionCode>.txt and the Arabic
    counterpart. Commit before creating the stable vX.Y.Z tag; never move it.
-3. Publish the verified APK using the same key and stable asset filename.
+3. Publish the verified APK as `Papercut_vX.Y.Z_android-arm64-v8a.apk` using
+   the same key. Run `npm run prepare:source-archive` from the matching
+   checkout after the Android build, and attach its output to the release.
+   Pushing the release tag starts the full GitHub Release workflow, including
+   desktop and iOS jobs. For a manual publication, upload the locally signed
+   APK and source archive to the GitHub release for the exact tag. Check that
+   no automated publisher is running for that tag before uploading. Use the
+   local signing route without a release tag for device-only candidates.
 4. F-Droid's recipe detects stable tags, rebuilds source and compares against that
    exact signed APK. A mismatch blocks publication for the shared-signature route.
    Configure UpdateCheckData for committed Tauri version/code rather than ignored
@@ -1284,21 +1330,24 @@ All 1,723 ZIP entries and 88 frontend files matched. SHA-256
 `9c368698a3786aa77af1d9acfd9cb225f8087ee066fc900c01b9d87b48542038`.
 The two builds used the same `b16c7fb3` revision stamp and reused the
 verified Sherpa, PDF and OCR inputs. Reports are under
-`.cache/android-production/pagefind-paths-kOT7Om/`. The next comparison
-uses the committed fix on CI, followed by the independent F-Droid buildserver.
+`.cache/android-production/pagefind-paths-kOT7Om/`. The committed fix then
+passed all nine PR CI jobs. A local rebuild of the exact CI merge `a2e72e1`
+matched its unsigned APK byte-for-byte. See the
+[F-Droid preflight and input review](fdroid/README.md#unsigned-buildserver-preflight).
 
-Owner signing-key/`android-release` setup can proceed in parallel using section 2.
-A signed candidate is required for Pixel installation; file-transfer installation
-remains supported and ADB is optional. Complete runtime and increasing-version
-update acceptance before merging. Then prepare v1.10.1 as planned, regenerate its
-source archive/evidence, finish actual fdroiddata lint/scanner/build/signature
-comparison and resolve the recorded licensing/listing follow-ups before claiming
-F-Droid publishing readiness.
+The clean unsigned build in the fdroiddata CI image matched the same CI APK.
+The next release gate is owner signing and device acceptance. Follow section 2
+for the key and section 3 to sign and install the candidate. Complete runtime
+and increasing-version update acceptance before merging. Then prepare v1.10.1,
+regenerate its source archive, and complete fdroiddata lint, scanner, build and
+signature comparison for the release tag. Resolve the recorded licensing and
+listing follow-ups before submission.
 
 ### Production signature comparison
 
-Completing gate 5 needs a production key and three more steps, run by the
-owner when that key exists (F-Droid rebuilds and compares the same way):
+Once you have the upstream signed release APK and a matching unsigned
+rebuild, run the following comparison. The signature-copy step uses the
+signed APK and its public certificate. The private key stays with the signer.
 
 ~~~bash
 pip install apksigcopier reproducible-apk-tools
@@ -1386,9 +1435,9 @@ Build-tool environments have separate dependencies.
    ship. Retain current features until any remaining licensing trade-off is
    decided.
 4. [ ] CI, release and the F-Droid draft use the same Sherpa, PDF/OCR and
-   Pagefind source recipes. The local source and APK scans pass. Repeat the
-   checks in the clean F-Droid buildserver and review the inputs fetched during
-   the build.
+   Pagefind source recipes. The clean fdroiddata CI image passed both scans
+   and matched the GitHub APK. Confirm the inputs with F-Droid reviewers and
+   repeat the checks for the release tag.
 5. [ ] Reproducibility protocol in place (see the section above):
    `npm run check:android-reproducibility` proves fresh-compile reproducibility
    on one environment, with both APK copies retained. Sorted Pagefind ingestion
@@ -1398,8 +1447,8 @@ Build-tool environments have separate dependencies.
    and passes Git/source-export APK comparison. The committed implementation also
    passes full CI and byte-identical local reproduction of the actual CI commit.
    Exact F-Droid r30 installation/resolution is verified with the numeric pin.
-   Compare the next CI artifact after the Pagefind WASM path fix and repeat the
-   proof in the pinned F-Droid buildserver. Then copy the production signature
+   The pinned F-Droid CI image reproduced the committed GitHub APK. Repeat
+   the proof in the release build environment, copy the production signature
    and confirm that the rebuild matches the published APK.
 6. [ ] On Pixel 6 and another Pixel: install after resetting the debug test app;
    test import/open-with, bookmarks, English/Arabic OCR, scanner, voice

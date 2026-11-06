@@ -121,16 +121,13 @@ Pagefind input for the manual build. The resulting unsigned APK matched the
 normal wrapper build byte-for-byte, and the temporary launcher was removed.
 See the [APK evidence](../android-production-packaging.md#shared-android-release-and-scanner-preflight-2026-11-05).
 
-For the clean buildserver, provision Node 22.22.1/npm, Rust 1.98.1 with the
-Android and `wasm32-unknown-unknown` targets, JDK 17, SDK platform 36, Build
-Tools 35.0.0, r30 NDK, CMake 4.4.5, Go, and the documented Emscripten and
-wasm-bindgen tools. Confirm the sources and toolchain with F-Droid reviewers.
-The GitHub toolchain setup installs the official CMake release and Emscripten
-SDK. The draft expects the buildserver to provide those tools and the locked
-wasm-bindgen CLI. See the [production guide](../android-production-packaging.md#repeatable-source-recipes).
-The local scan covers the application checkout and its npm install. Review
-the Tauri host CLI and the inputs fetched by the source recipes when validating
-the full buildserver.
+The draft provisions the Debian compiler and utilities, SDK platform 36 and
+Build Tools 35.0.0 in `sudo`. It stages a SHA-256-checked Node 22.22.1
+distribution outside the source checkout before `npm ci`. It reuses the
+shared toolchain installer for CMake 4.4.5, Emscripten 4.0.15 and the locked
+wasm-bindgen CLI, and selects the pinned Temurin 17 with the Android JDK
+helper. The exact r30 NDK remains managed by F-Droid. See the
+[production guide](../android-production-packaging.md#repeatable-source-recipes).
 
 ## Source-built Pagefind preflight (2026-11-05)
 
@@ -159,16 +156,75 @@ host Cargo paths inside two bundled Pagefind WASM modules. The browser recipe
 now remaps and checks those paths. See the
 [cross-checkout evidence](../android-production-packaging.md#pagefind-wasm-path-normalization-2026-11-06).
 
+## Unsigned buildserver preflight
+
+The [next PR CI run](https://github.com/muhannadnouri/papercut.io/actions/runs/42277652623)
+passed all nine jobs after the Pagefind fix. Its unsigned arm64 APK and a local
+rebuild of its exact merge checkout `a2e72e143e44daaa871e7503a71476c1b5c15c2a`
+matched at SHA-256
+`66e1a3bd56a3aea0abd7f76ece6004eb185920a4d0ee02e49d8854c200f07a68`.
+
+The independent preflight ran in a fresh Debian Trixie root filesystem from
+the fdroiddata CI image, pinned to digest
+`sha256:1ea8bef1820bff06c2974e31b4fc4c79c364cd24231b86e71fa4b926797e0dac`,
+with fdroidserver commit `cdfdce835a8231996b02392bc79c1879e6bef501`. The
+source build used the official F-Droid Gradle launcher and newly downloaded
+SDK, compiler and app inputs. The source scan passed with refreshed SUSS
+signatures and the existing rules. The separate Node and Java provisioning
+commands were also exercised in that image.
+
+The F-Droid test build produced a **byte-identical unsigned arm64 APK** to
+the GitHub artifact above, including all 1,723 ZIP entries. The APK passed
+the F-Droid binary scan and Papercut's unsigned verifier. All 88 frontend
+files matched, including both shipped Pagefind WASM modules. The temporary
+Gradle launcher was removed after the build. The independent build took
+about 27 minutes on the test machine. Logs and digests are under
+`.cache/android-production/fdroid-buildserver-preflight/`.
+
+This was a local run in the official CI image. The test used a disposable
+metadata copy with `Binaries` omitted, the exact CI revision, and the
+toolchain prepared in the image. It used `--no-tarball` and had no signing
+credentials. The dedicated production VM, release-tag build and signed
+verification are later gates.
+
+For an unsigned test, copy the draft into a disposable fdroiddata workspace,
+remove `Binaries` from that copy, and use the commit being compared. Keep the
+release tag and certificate placeholders in the tracked draft. A GitHub PR
+merge commit needs an explicit fetch of `refs/pull/91/merge` before F-Droid can
+check it out from a regular clone. Release tags are fetched normally.
+
+Run this in a provisioned F-Droid buildserver container with the packages and
+SDK from the draft's `sudo` block already installed. A dedicated F-Droid VM
+runs that block with `fdroid build --server`.
+
+```sh
+fdroid rewritemeta io.papercut.desktop
+fdroid lint -f io.papercut.desktop
+fdroid build --verbose --test --scan-binary --refresh-scanner io.papercut.desktop:1010000
+```
+
+[fdroiddata CI build job](https://gitlab.com/fdroid/fdroiddata/-/blob/master/.gitlab-ci.yml) ·
+[F-Droid buildserver setup](https://f-droid.org/en/docs/Build_Server_Setup/)
+
+The source scanner runs before the source recipes fetch their inputs. Review
+these inputs separately with F-Droid maintainers.
+
+| Input | Provenance and review |
+| --- | --- |
+| Host toolchain | Debian packages and F-Droid's Android SDK catalog supply the base tools. Node, Temurin and CMake use exact upstream archives checked by SHA-256. The pinned emsdk manifest selects Emscripten and its bundled Node. Rustup installs the pinned compiler and targets, and Cargo builds wasm-bindgen with its lockfile. Confirm the upstream binary toolchains against the [inclusion policy](https://f-droid.org/en/docs/Inclusion_Policy/). |
+| Tauri CLI | npm's lock pins the 2.11.4 host bindings with integrity hashes. The Linux `.node` files are ELF libraries even though the source scan left them in place. The host CLI orchestrates Gradle and Rust. Confirm its prebuilt treatment with reviewers. |
+| Sherpa and Android dependencies | Sherpa uses a fixed Git commit and its CMake dependency archives specify SHA-256 hashes. The pinned Maven ORT AAR is verified by the shared recipe and supplies the packaged ORT runtime. Other Android dependencies use the existing Google Maven and Maven Central configuration. |
+| PDF/OCR and Pagefind | Recipe Git commits and Tesseract submodules pin source trees. npm/Cargo locks identify package inputs. The extended Pagefind CLI also compiles Japanese UniDic from an archive fetched by Lindera 0.43.3. Lindera checks the archive's MD5. The audited copy's SHA-256 is `24ac75fe4e44d973b55e65847c35fa4aec2db7a41a07b49ca125146db9fc1189` and its COPYING offers BSD, GPL or LGPL terms. The dictionary is used by the host indexer. |
+
 ## Next execution gates
 
-1. Compare the new Android CI artifact with a local build of the exact CI
-   checkout after the Pagefind WASM path fix. Run the clean F-Droid buildserver
-   preflight with its own toolchain and review the inputs fetched during the
-   build.
-2. Owner: set up/reuse the production signing key and protected GitHub
-   `android-release` environment using [guide section 2](../android-production-packaging.md#2-owner-create-and-configure-the-signing-key).
+1. Owner sets up or reuses the production signing key. For automated signing,
+   configure the protected GitHub `android-release` environment as well.
+   See [guide section 2](../android-production-packaging.md#2-owner-create-and-configure-the-signing-key).
    Sign/install a candidate by file transfer (ADB optional), then complete
    runtime and same-key/higher-code update tests before merging.
+2. Confirm the build-time inputs and host toolchain treatment with F-Droid
+   reviewers before submission. The unsigned CI-image comparison is complete.
 3. Prepare v1.10.1 after merge/testing. Refresh the final release tag, version/code,
    screenshots/changelogs, public certificate fingerprint and corresponding-source
    archive. Resolve the existing model-rights/listing follow-ups before submission.
@@ -187,3 +243,27 @@ now remaps and checks those paths. See the
    claim that the current placeholders/build recipe can pass. Complete a clean
    buildserver build and compare with the matching upstream signed APK using
    production signature copying, as described in the production guide.
+
+## Developer release paths
+
+| Task | Entry point | Output and key access |
+| --- | --- | --- |
+| Build locally or in GitHub Actions | Install the locked npm dependencies, run `scripts/fdroid/prepare-android-wasm-tools.js`, then run `scripts/fdroid/build-android-release.sh` | The shared shell script builds Sherpa, OCR, PDF and Pagefind, then invokes `npm run android:apk:release` for the Tauri/Gradle build. The APK is unsigned. |
+| Rebuild with F-Droid | Run `fdroid build` with the draft in a provisioned fdroiddata workspace | F-Droid installs dependencies, scans the checkout and removes the declared prebuilt files. The recipe builds esbuild, uses the F-Droid Gradle launcher and calls the same shared shell script. This produces an unsigned comparison APK. |
+| Sign for a phone test | Verify the unsigned APK, then run local SDK `apksigner` as shown in the production guide | The developer's key signs the verified APK. Copy the resulting signed APK to the phone and open it. |
+| Publish the upstream release | Push the reviewed release tag, or dispatch the Release workflow for that tag on a trusted workflow ref | The build job uploads unsigned bytes. Only the separate `sign-android` job uses the protected `android-release` environment. The publisher consumes the verified signed artifact. |
+| Verify for F-Droid publication | Set `Binaries` to the signed release asset and pin its public certificate in `AllowedAPKSigningKeys` | F-Droid rebuilds the tagged source, copies the upstream signature onto its rebuild and verifies it. The release keystore stays with the developer. |
+
+Start with [build and manual signing](../android-production-packaging.md#3-build-verify-and-update)
+for commands. Use [owner signing setup](../android-production-packaging.md#2-owner-create-and-configure-the-signing-key)
+for the keystore and GitHub environment, then
+[production signature comparison](../android-production-packaging.md#production-signature-comparison)
+for the final F-Droid proof.
+
+Unsigned equality checks what two builds produced from the same revision.
+The release signature lets Android verify the APK's publisher and continue
+updates under the same signing identity. Keeping compilation and npm
+execution outside the signing job keeps build-time code away from the key.
+Review the workflow ref and resolved source tag before granting signing
+access. [GitHub environment rules](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments) ·
+[F-Droid signature copying](https://f-droid.org/en/docs/Reproducible_Builds/)

@@ -673,10 +673,19 @@
     "scanner": "fdroidserver 2.4.5 and cached SUSS signatures report zero fatal findings and zero warnings on an npm-installed Git export of 022cbb4 with this stage overlaid. The npm Pagefind executable is removed by exact path.",
     "runtime": "The six-document fixture has byte-identical index metadata, chunks and fragments versus the npm release. Chromium matched English, Arabic, Chinese and fallback-language search results, titles, URLs and excerpts.",
     "localReproduction": "Independently rebuilt Pagefind in the normal checkout and scanner-treated export with source-built esbuild and trusted Gradle. The verified unsigned APKs match byte-for-byte (1723 entries, 86 frontend files, 14 Pagefind files), SHA-256 0a1b4c19ad376b7d999cab6935561f626a50498e42c3211806e58046472a0097. Working-tree overlay stamped 022cbb4 on one host with shared toolchain caches and previously verified native/PDF/OCR outputs.",
-    "ciChecks": "PR 91 run 42142469659 passed all nine jobs, including 726 frontend tests with one existing skip, 71 serial Chromium tests, the source-built APK verifier and Android transfer callback tests.",
+    "ciChecks": "PR 91 run 42277652623 passed all nine jobs for d72a3050 after the main merge, including 750 frontend tests with one existing skip, 71 serial Chromium tests, the source-built APK verifier and Android transfer callback tests.",
     "wasmPaths": "A local rebuild of the exact CI checkout 0b7a954e matched 1722 of 1723 APK entries. The app library embedded two Pagefind WASM modules with different absolute Cargo registry paths. The recipe now normalizes the source cache and Cargo home and checks each optimized module for host paths. Production rejects older receipts. Independent local Pagefind builds from separate exports and Cargo homes matched all 41 vendor files, including 31 WASM variants. Chromium passed the six-document search fixture again.",
     "pathNormalizedApk": "Both exports stamped b16c7fb3 produced verified byte-identical unsigned arm64 APKs (1723 entries, 88 frontend files), SHA-256 9c368698a3786aa77af1d9acfd9cb225f8087ee066fc900c01b9d87b48542038. They reused the verified Sherpa, PDF and OCR outputs.",
-    "remaining": "Compare the Android CI artifact after the WASM path fix, run a clean F-Droid buildserver with a build-input review, and complete production signing and device acceptance."
+    "ciApkProof": "The downloaded CI APK and a local rebuild of the exact CI merge a2e72e1 verify and match byte-for-byte, SHA-256 66e1a3bd56a3aea0abd7f76ece6004eb185920a4d0ee02e49d8854c200f07a68. Both extracted Pagefind WASM files match the locally normalized variants.",
+    "remaining": "See the unsigned buildserver preflight in docs/fdroid/README.md. Production signing and device acceptance remain pending."
+  },
+  "fdroidUnsignedBuildserverPreflight": {
+    "checkedOn": "2026-11-06",
+    "details": "docs/fdroid/README.md#unsigned-buildserver-preflight",
+    "image": "fdroiddata CI Debian Trixie image sha256:1ea8bef1820bff06c2974e31b4fc4c79c364cd24231b86e71fa4b926797e0dac with fdroidserver cdfdce835a8231996b02392bc79c1879e6bef501.",
+    "source": "Fresh isolated dependency homes and exact CI merge a2e72e143e44daaa871e7503a71476c1b5c15c2a. Refreshed SUSS scan passed under the existing rules. Rebuilt the shipped native and WASM components and used the image's Gradle launcher.",
+    "apk": "F-Droid binary scan and Papercut unsigned verifier pass. APK matches GitHub CI run 42277652623 byte-for-byte (1723 entries, 88 frontend files), SHA-256 66e1a3bd56a3aea0abd7f76ece6004eb185920a4d0ee02e49d8854c200f07a68.",
+    "remaining": "Owner signing and device/update acceptance, review of toolchain and build inputs, and dedicated buildserver and signed comparison for the release tag."
   },
   "pendingReview": [
     "Decided 2026-11-03: F-Droid metadata declares GPL-3.0-only for the combined Android build; root MIT unchanged.",
