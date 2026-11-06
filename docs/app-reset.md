@@ -1,6 +1,7 @@
 # Erase all data
 
-Settings > Reset > **Erase all data** removes everything Papercut stores on the
+Settings > Reset App Data > **Review Data to Erase** opens a confirmation view, and its
+**Erase Everything** button removes everything Papercut stores on the
 device and returns the app to its starting state. It is available in native builds
 only. It can't be undone, and it isn't a secure overwrite: it deletes files through
 the filesystem.
@@ -61,8 +62,14 @@ Dev and release desktop builds share `io.papercut.desktop`, so `tauri dev` uses 
 real library. On Linux, always use a disposable profile:
 
 ```bash
-XDG_DATA_HOME=/tmp/papercut-erase/data XDG_CACHE_HOME=/tmp/papercut-erase/cache npm run tauri dev
+XDG_DATA_HOME=/tmp/papercut-erase/data XDG_CACHE_HOME=/tmp/papercut-erase/cache ./Papercut.AppImage
 ```
+
+Test the restart with a built bundle, not `tauri dev`. In dev the app's exit also
+stops the Vite server, so the relaunched window shows "Could not connect to localhost:
+Connection refused". The wipe has already run by then, but the boot gate hasn't: the
+marker stays at `pending-webview`. Starting dev again with the same profile finishes it.
+Bundles embed their frontend, so this can't happen in a release.
 
 Unit tests cover the wipe, the marker and the dialog. Device acceptance is tracked in
 [bug-squash-smoke-tests.md](bug-squash-smoke-tests.md).

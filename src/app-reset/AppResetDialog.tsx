@@ -5,6 +5,7 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AppDialog } from '../components/AppDialog/AppDialog'
+import { TrashIcon } from '../components/TrashIcon/TrashIcon'
 import { currentAppLocale } from '../i18n'
 import { formatStorageSize } from '../utils/formatUtils'
 import {
@@ -29,8 +30,13 @@ interface AppResetDialogProps {
  * there is never a nested focus trap.
  *
  * Follows NN/g guidance for an irreversible action: specific consequences with live
- * counts, outcome-named buttons, and a separate acknowledgement. Bookmarks and settings
- * have no backup, so the export note must stay honest about what export omits.
+ * counts, a destructive button named for its outcome, and a separate acknowledgement.
+ * Bookmarks and settings have no backup, so the transfer note must stay honest about
+ * what a transfer file omits.
+ *
+ * The summary walks every stored file, which is noticeably slow on a large library, so
+ * a spinner holds its place. Erasing stays disabled until it arrives, because the user
+ * hasn't yet seen how much they would lose.
  *
  * A job can be reported from three places, in priority order: `blockedBy` for
  * WebView-only work such as OCR, a refusal from the request itself, and the summary
@@ -70,6 +76,7 @@ export function AppResetDialog({
   }, [])
 
   const blocker = blockedBy ?? refusedBy ?? summary?.blockedBy ?? null
+  const loading = summary === null && !failed
   const totalSize = summary && formatStorageSize(summary.totalBytes)
   const canErase = summary !== null && blocker === null && acknowledged && !erasing
 
@@ -120,72 +127,85 @@ export function AppResetDialog({
             <p className="app-dialog-error app-reset-error" role="alert">{t('settings.erase.failed')}</p>
           )}
           <button type="button" className="app-dialog-cancel" disabled={erasing} onClick={onBack}>
-            {t('settings.erase.keep')}
+            {t('common.cancel')}
           </button>
           <button
             type="button"
-            className="app-dialog-submit app-dialog-submit-danger"
+            className="app-dialog-submit app-dialog-submit-danger app-reset-confirm"
             disabled={!canErase}
             onClick={() => {
               void erase()
             }}
           >
+            <TrashIcon className="app-reset-confirm-icon" />
             {erasing ? t('settings.erase.erasing') : t('settings.erase.confirm')}
           </button>
         </>
       )}
     >
-      <h3 className="app-reset-heading">{t('settings.erase.removedHeading')}</h3>
-      <ul className="app-reset-list">
-        <li>{t('settings.erase.removedDocuments')}</li>
-        <li>{t('settings.erase.removedAudiobooks')}</li>
-        <li>{t('settings.erase.removedPreferences')}</li>
-        <li>{t('settings.erase.removedModels')}</li>
-      </ul>
-      {summary && (
-        <dl className="app-dialog-details">
-          <div className="app-dialog-detail-row">
-            <dt>{t('settings.erase.documentCount')}</dt>
-            <dd>{summary.documents.toLocaleString(currentAppLocale())}</dd>
-          </div>
-          <div className="app-dialog-detail-row">
-            <dt>{t('settings.erase.audiobookCount')}</dt>
-            <dd>{summary.audiobooks.toLocaleString(currentAppLocale())}</dd>
-          </div>
-          {totalSize && (
-            <div className="app-dialog-detail-row">
-              <dt>{t('settings.erase.totalSize')}</dt>
-              <dd dir="auto">{totalSize}</dd>
-            </div>
+      <div className="app-reset-columns">
+        <section>
+          <h3 className="app-reset-heading">{t('settings.erase.removedHeading')}</h3>
+          <ul className="app-reset-list">
+            <li>{t('settings.erase.removedDocuments')}</li>
+            <li>{t('settings.erase.removedAudiobooks')}</li>
+            <li>{t('settings.erase.removedPreferences')}</li>
+            <li>{t('settings.erase.removedModels')}</li>
+          </ul>
+          {loading && (
+            <p className="app-reset-loading" role="status">
+              <span className="spinner" aria-hidden="true" />
+              {t('settings.erase.loading')}
+            </p>
           )}
-        </dl>
-      )}
+          {summary && (
+            <dl className="app-dialog-details app-reset-stats">
+              <div className="app-dialog-detail-row">
+                <dt>{t('settings.erase.documentCount')}</dt>
+                <dd>{summary.documents.toLocaleString(currentAppLocale())}</dd>
+              </div>
+              <div className="app-dialog-detail-row">
+                <dt>{t('settings.erase.audiobookCount')}</dt>
+                <dd>{summary.audiobooks.toLocaleString(currentAppLocale())}</dd>
+              </div>
+              {totalSize && (
+                <div className="app-dialog-detail-row">
+                  <dt>{t('settings.erase.totalSize')}</dt>
+                  <dd dir="auto">{totalSize}</dd>
+                </div>
+              )}
+            </dl>
+          )}
+        </section>
+
+        <section>
+          <h3 className="app-reset-heading">{t('settings.erase.keptHeading')}</h3>
+          <ul className="app-reset-list">
+            <li>{t('settings.erase.keptExports')}</li>
+            <li>{t('settings.erase.keptOriginals')}</li>
+            <li>{t('settings.erase.keptStarter')}</li>
+            <li>{t('settings.erase.keptBackups')}</li>
+          </ul>
+          <div className="app-reset-export">
+            <h3 className="app-reset-heading">{t('settings.erase.exportHeading')}</h3>
+            <p>{t('settings.erase.exportNote')}</p>
+            <button type="button" className="app-settings-data-action" disabled={erasing} onClick={onExportFirst}>
+              {t('settings.transferLibrary')}
+            </button>
+          </div>
+        </section>
+      </div>
 
       {summary && summary.locations.length > 0 && (
-        <>
+        <section>
           <h3 className="app-reset-heading">{t('settings.erase.locationHeading')}</h3>
           {/* Paths read left to right in every locale, and users may need to copy them. */}
           <ul className="app-reset-list app-reset-locations" dir="ltr">
             {summary.locations.map((location) => <li key={location}>{location}</li>)}
           </ul>
           <p className="app-reset-note">{t('settings.erase.locationNote')}</p>
-        </>
+        </section>
       )}
-
-      <h3 className="app-reset-heading">{t('settings.erase.keptHeading')}</h3>
-      <ul className="app-reset-list">
-        <li>{t('settings.erase.keptExports')}</li>
-        <li>{t('settings.erase.keptOriginals')}</li>
-        <li>{t('settings.erase.keptStarter')}</li>
-        <li>{t('settings.erase.keptBackups')}</li>
-      </ul>
-
-      <div className="app-reset-export">
-        <button type="button" className="app-settings-data-action" disabled={erasing} onClick={onExportFirst}>
-          {t('settings.erase.exportFirst')}
-        </button>
-        <p>{t('settings.erase.exportNote')}</p>
-      </div>
     </AppDialog>
   )
 }

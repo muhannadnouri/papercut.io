@@ -96,6 +96,36 @@ afterEach(async () => {
   container.remove()
 })
 
+it('shows a spinner with a message until the summary arrives, and blocks erasing', async () => {
+  let resolve: (summary: AppResetSummary) => void = () => {}
+  mocks.getAppResetSummary.mockReturnValue(new Promise((done) => {
+    resolve = done
+  }))
+  await renderDialog()
+  await acknowledge()
+
+  const status = container.querySelector('[role="status"]')!
+  expect(status.textContent).toBe('settings.erase.loading')
+  expect(status.querySelector('.spinner')?.getAttribute('aria-hidden')).toBe('true')
+  expect(container.querySelector('.app-reset-stats')).toBeNull()
+  expect(confirmButton().disabled).toBe(true)
+
+  await act(async () => resolve(SUMMARY))
+
+  expect(container.querySelector('.spinner')).toBeNull()
+  expect(container.querySelector('.app-reset-stats')).not.toBeNull()
+  expect(confirmButton().disabled).toBe(false)
+})
+
+it('stops the spinner and reports it when the summary fails', async () => {
+  mocks.getAppResetSummary.mockRejectedValue(new Error('denied'))
+  await renderDialog()
+
+  expect(container.querySelector('.spinner')).toBeNull()
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe('settings.erase.failed')
+  expect(confirmButton().disabled).toBe(true)
+})
+
 it('shows what will be erased', async () => {
   await renderDialog()
 
@@ -174,7 +204,7 @@ it('stays busy and undismissable while the restart is pending', async () => {
   await act(async () => confirmButton().click())
 
   expect(button('settings.erase.erasing').disabled).toBe(true)
-  expect(button('settings.erase.keep').disabled).toBe(true)
+  expect(button('common.cancel').disabled).toBe(true)
   await act(async () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
   })
@@ -196,8 +226,8 @@ it('reports a failed erase and lets the user retry', async () => {
 it('offers export and keeps the data on cancel', async () => {
   const { onBack, onExportFirst } = await renderDialog()
 
-  await act(async () => button('settings.erase.exportFirst').click())
-  await act(async () => button('settings.erase.keep').click())
+  await act(async () => button('settings.transferLibrary').click())
+  await act(async () => button('common.cancel').click())
 
   expect(onExportFirst).toHaveBeenCalledOnce()
   expect(onBack).toHaveBeenCalledOnce()
