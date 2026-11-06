@@ -409,8 +409,8 @@
       "confirm": "Borrar todo",
       "erasing": "Borrando…",
       "failed": "Papercut no pudo borrar tus datos. No se eliminó nada. Inténtalo de nuevo.",
-      "doneTitle": "Datos de Papercut borrados",
-      "doneBody": "Papercut ha vuelto a su estado inicial.",
+      "doneTitle": "Restablecimiento de Papercut completado",
+      "doneBody": "Tu biblioteca, tus audiolibros y tus ajustes se borraron de este dispositivo.",
       "partialTitle": "No se pudieron borrar algunos datos",
       "partialBody": "Papercut eliminó todo lo demás. Puedes borrar estos elementos tú mismo:",
       "blocked": {

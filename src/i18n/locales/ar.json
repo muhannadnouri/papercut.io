@@ -430,8 +430,8 @@
       "confirm": "مسح كل شيء",
       "erasing": "جارٍ المسح…",
       "failed": "تعذّر على Papercut مسح بياناتك. لم تتم إزالة أي شيء. حاول مرة أخرى.",
-      "doneTitle": "تم مسح بيانات Papercut",
-      "doneBody": "عاد Papercut إلى حالته الأولية.",
+      "doneTitle": "اكتملت إعادة ضبط Papercut",
+      "doneBody": "تم مسح مكتبتك وكتبك الصوتية وإعداداتك من هذا الجهاز.",
       "partialTitle": "تعذّر مسح بعض البيانات",
       "partialBody": "أزال Papercut كل شيء آخر. يمكنك حذف هذه العناصر بنفسك:",
       "blocked": {

@@ -409,8 +409,8 @@
       "confirm": "Apagar tudo",
       "erasing": "Apagando…",
       "failed": "O Papercut não conseguiu apagar seus dados. Nada foi removido. Tente novamente.",
-      "doneTitle": "Dados do Papercut apagados",
-      "doneBody": "O Papercut voltou ao estado inicial.",
+      "doneTitle": "Redefinição do Papercut concluída",
+      "doneBody": "Sua biblioteca, seus audiolivros e suas configurações foram apagados deste dispositivo.",
       "partialTitle": "Não foi possível apagar alguns dados",
       "partialBody": "O Papercut removeu todo o resto. Você mesmo pode excluir estes itens:",
       "blocked": {

@@ -409,8 +409,8 @@
       "confirm": "Cancella tutto",
       "erasing": "Cancellazione…",
       "failed": "Papercut non è riuscito a cancellare i dati. Non è stato rimosso nulla. Riprova.",
-      "doneTitle": "Dati di Papercut cancellati",
-      "doneBody": "Papercut è tornato allo stato iniziale.",
+      "doneTitle": "Ripristino di Papercut completato",
+      "doneBody": "La libreria, gli audiolibri e le impostazioni sono stati cancellati da questo dispositivo.",
       "partialTitle": "Non è stato possibile cancellare alcuni dati",
       "partialBody": "Papercut ha rimosso tutto il resto. Puoi eliminare tu questi elementi:",
       "blocked": {

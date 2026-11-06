@@ -409,8 +409,8 @@
       "confirm": "Tout effacer",
       "erasing": "Effacement…",
       "failed": "Papercut n'a pas pu effacer vos données. Rien n'a été supprimé. Réessayez.",
-      "doneTitle": "Données de Papercut effacées",
-      "doneBody": "Papercut est revenu à son état initial.",
+      "doneTitle": "Réinitialisation de Papercut terminée",
+      "doneBody": "Votre bibliothèque, vos livres audio et vos réglages ont été effacés de cet appareil.",
       "partialTitle": "Certaines données n'ont pas pu être effacées",
       "partialBody": "Papercut a supprimé tout le reste. Vous pouvez supprimer ces éléments vous-même :",
       "blocked": {

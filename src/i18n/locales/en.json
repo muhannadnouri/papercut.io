@@ -402,8 +402,8 @@
       "confirm": "Erase Everything",
       "erasing": "Erasing…",
       "failed": "Papercut couldn't erase your data. Nothing was removed. Try again.",
-      "doneTitle": "Papercut Data Erased",
-      "doneBody": "Papercut is back to its starting state.",
+      "doneTitle": "Papercut Reset Complete",
+      "doneBody": "Your library, audiobooks, and settings were erased from this device.",
       "partialTitle": "Some Data Couldn't Be Erased",
       "partialBody": "Papercut removed everything else. You can delete these items yourself:",
       "blocked": {

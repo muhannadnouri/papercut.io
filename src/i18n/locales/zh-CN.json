@@ -395,8 +395,8 @@
       "confirm": "全部清除",
       "erasing": "正在清除…",
       "failed": "Papercut 无法清除你的数据,未移除任何内容。请重试。",
-      "doneTitle": "Papercut 数据已清除",
-      "doneBody": "Papercut 已恢复到初始状态。",
+      "doneTitle": "Papercut 重置完成",
+      "doneBody": "你的资料库、有声书和设置已从此设备中清除。",
       "partialTitle": "部分数据无法清除",
       "partialBody": "Papercut 已移除其他所有内容。你可以自行删除以下项目:",
       "blocked": {
