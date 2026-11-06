@@ -91,13 +91,14 @@
   font-size: 0.75rem;
 }
 
-.app-reset-acknowledge,
 .app-reset-blocked,
 .app-reset-error {
   flex-basis: 100%;
 }
 
+/* Shares the row with the buttons when they fit, and wraps above them when they don't. */
 .app-reset-acknowledge {
+  flex: 1 1 16rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;

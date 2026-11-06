@@ -108,7 +108,16 @@ export function AppResetDialog({
       onCancel={onClose}
       actions={(
         <>
-          {/* In the pinned footer, so a disabled button never appears without its reason. */}
+          {/* In the pinned footer, so a disabled button never appears without its reason.
+              Messages come first so they can't split the checkbox from the buttons. */}
+          {blocker && (
+            <p className="app-reset-blocked" role="status">
+              {t(`settings.erase.blocked.${blocker}`)}
+            </p>
+          )}
+          {failed && (
+            <p className="app-dialog-error app-reset-error" role="alert">{t('settings.erase.failed')}</p>
+          )}
           <label className="app-reset-acknowledge">
             <input
               type="checkbox"
@@ -118,14 +127,6 @@ export function AppResetDialog({
             />
             <span>{t('settings.erase.acknowledge')}</span>
           </label>
-          {blocker && (
-            <p className="app-reset-blocked" role="status">
-              {t(`settings.erase.blocked.${blocker}`)}
-            </p>
-          )}
-          {failed && (
-            <p className="app-dialog-error app-reset-error" role="alert">{t('settings.erase.failed')}</p>
-          )}
           <button type="button" className="app-dialog-cancel" disabled={erasing} onClick={onBack}>
             {t('common.cancel')}
           </button>
