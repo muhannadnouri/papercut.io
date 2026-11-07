@@ -1,0 +1,990 @@
+{
+  "schemaVersion": 2,
+  "scope": {
+    "appVersion": "1.10.0",
+    "target": "aarch64-linux-android",
+    "features": [
+      "native-tts-shared",
+      "experimental-search-embeddings"
+    ],
+    "status": "Review inventory; package license declarations are not legal clearance or proof every file is shipped.",
+    "rust": "Resolved non-dev Android graph. Runtime and build sets can overlap. Review bundled native subprojects separately.",
+    "npm": "Production lockfile candidates, not a bundler-level inclusion claim. Native/WASM/model/data evidence is in the Android guide.",
+    "reviewedOn": "2026-11-04",
+    "method": "Static review evidence for native/WASM/model/data licensing decisions. Bulk Rust/npm/Maven dependency listings are regenerated on demand with standardRefresh instead of being stored here. inputHashes anchor this snapshot to the reviewed lockfiles; refresh after dependency changes."
+  },
+  "inputHashes": {
+    "cargoLock": "6154128d240fbc07285ea3a8e007bebaa9bee9b736f16be8d7f149c660bea62a",
+    "packageLock": "5c05ae748a74aa11247e7b383e03ee6854e20dea96a889e90772b43d5ecaae23"
+  },
+  "standardRefresh": {
+    "note": "Added 2026-11-03 when the bulk dependency arrays were replaced: regenerate graph listings for review with these standard commands rather than storing them.",
+    "rust": "cargo metadata --locked --offline --filter-platform aarch64-linux-android --features native-tts-shared,experimental-search-embeddings --format-version 1",
+    "npm": "npm sbom --package-lock-only",
+    "maven": "cd src-tauri/gen/android && ./gradlew :app:dependencies --configuration universalReleaseRuntimeClasspath"
+  },
+  "sourceComponents": [
+    {
+      "name": "ONNX Runtime",
+      "source": {
+        "url": "https://github.com/microsoft/onnxruntime.git",
+        "revision": "8f0278c77bf44b0cc83c098c6c722b92a36ac4b5"
+      },
+      "declaredLicense": "MIT; transitive terms in ThirdPartyNotices",
+      "licenseEvidence": [
+        {
+          "path": "LICENSE",
+          "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+        },
+        {
+          "path": "ThirdPartyNotices.txt",
+          "sha256": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2"
+        },
+        {
+          "path": "cmake/deps.txt",
+          "sha256": "e411468ead299e3386b2e5e9d773e50e1939b5fc0baca599666ca5757eeb3f71"
+        }
+      ]
+    },
+    {
+      "name": "Sherpa ONNX",
+      "source": {
+        "url": "https://github.com/k2-fsa/sherpa-onnx.git",
+        "revision": "142807252687d81b40d6315f23470a1512a00de3"
+      },
+      "declaredLicense": "Apache-2.0; statically incorporated GPL-3.0 eSpeak NG/ucd",
+      "licenseEvidence": [
+        {
+          "path": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "Tesseract.js core",
+      "source": {
+        "url": "https://github.com/naptha/tesseract.js-core.git",
+        "revision": "acffef2b66eb44a31df297e11d905f4b39001068"
+      },
+      "declaredLicense": "Apache-2.0; transitive terms retained separately",
+      "licenseEvidence": [
+        {
+          "path": "LICENSE",
+          "sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08"
+        }
+      ]
+    },
+    {
+      "name": "PDF.js",
+      "source": {
+        "url": "https://github.com/mozilla/pdf.js.git",
+        "revision": "0365cbde028bd92e58f2dab1bb70cd30ac7acfd7"
+      },
+      "declaredLicense": "Apache-2.0",
+      "licenseEvidence": [
+        {
+          "path": "LICENSE",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+        }
+      ]
+    },
+    {
+      "name": "OpenJPEG wrapper",
+      "source": {
+        "url": "https://github.com/mozilla/pdf.js.openjpeg.git",
+        "revision": "8bb19dc1aeecb104ce2ed3493d41fe131fc681e0"
+      },
+      "declaredLicense": "BSD-2-Clause",
+      "licenseEvidence": [
+        {
+          "path": "LICENSE",
+          "sha256": "717fc62da03292dbb4dd0c8280bd4ce7bb8550dcf31d772bc93455fb50313425"
+        }
+      ]
+    },
+    {
+      "name": "OpenJPEG",
+      "source": {
+        "url": "https://github.com/uclouvain/openjpeg.git",
+        "revision": "6c4a29b00211eb0430fa0e5e890f1ce5c80f409f"
+      },
+      "declaredLicense": "BSD-2-Clause",
+      "licenseEvidence": [
+        {
+          "path": "LICENSE",
+          "sha256": "a6af136f3e15038a666b61f376612a07d9a4e48cb7c01adbf3e33b3f14ab49b6"
+        }
+      ]
+    },
+    {
+      "name": "QCMS wrapper",
+      "source": {
+        "url": "https://github.com/mozilla/pdf.js.qcms.git",
+        "revision": "2ae4ee72334782928210ba4050e3e77d9b2d35be"
+      },
+      "declaredLicense": "MIT",
+      "licenseEvidence": [
+        {
+          "path": "LICENSE",
+          "sha256": "508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1"
+        },
+        {
+          "path": "Cargo.lock",
+          "sha256": "d53151af4e26518b2ad15329467faf02840f9597f35f1a134fcf1563a66408ad"
+        }
+      ]
+    },
+    {
+      "name": "JBIG2 wrapper",
+      "source": {
+        "url": "https://github.com/mozilla/pdf.js.jbig2.git",
+        "revision": "0b32db6d0eaf94844d46e38828ad4e0b7e36cb55"
+      },
+      "declaredLicense": "Apache-2.0 (wrapper only)",
+      "licenseEvidence": [
+        {
+          "path": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "PDFium JBIG2/CCITT subset",
+      "source": {
+        "url": "https://pdfium.googlesource.com/pdfium",
+        "revision": "0455e822ded1a5537d826703988e986a33d2d4a1"
+      },
+      "declaredLicense": "BSD-3-Clause; retain source-file notices",
+      "licenseEvidence": [
+        {
+          "path": "LICENSE",
+          "sha256": "1fe9dea718fbd75cf149adaf4d8a22a4335604d964ddb76d1b45383dec8668c9"
+        }
+      ]
+    },
+    {
+      "name": "QuickJS wrapper",
+      "source": {
+        "url": "https://github.com/mozilla/pdf.js.quickjs.git",
+        "revision": "b62f7cd527363ca2c1fe7467f274bc9acbf78c24"
+      },
+      "declaredLicense": "MIT in source headers; upstream library license retained",
+      "licenseEvidence": [
+        {
+          "path": "src/exports.c",
+          "sha256": "be00045b1b6d0e50574f4756d50586850789d370a2dd7c66e9c9c6fdbcb7af1c"
+        },
+        {
+          "path": "src/quickjs_extra.c",
+          "sha256": "1e3b4315910bcb913d48b717c87bada7c75cea5aaa4b3aba02cbe8d571a7544f"
+        }
+      ]
+    },
+    {
+      "name": "QuickJS",
+      "source": {
+        "url": "https://github.com/bellard/quickjs.git",
+        "revision": "3d5e064e9dd67c70f7962836505a7fa067bf0a4e"
+      },
+      "declaredLicense": "MIT",
+      "licenseEvidence": [
+        {
+          "path": "LICENSE",
+          "sha256": "598fd7fc928e4350abce36e337ba5a1346923c5c692f5be92c3d8e29ddd7c18d"
+        }
+      ]
+    }
+  ],
+  "ocrSubmodules": [
+    {
+      "revision": "fa37672085ce4b3d62c51627ab3c8cf2dda8009a",
+      "path": "third_party/giflib"
+    },
+    {
+      "revision": "4af068b56a9674da915debea4ed7e1b9885b17e8",
+      "path": "third_party/leptonica"
+    },
+    {
+      "revision": "6c0fcb8ddee365e7abc4d332662b06900612e923",
+      "path": "third_party/libjpeg"
+    },
+    {
+      "revision": "a37d4836519517bdce6cb9d956092321eca3e73b",
+      "path": "third_party/libpng"
+    },
+    {
+      "revision": "b51bb157123264e26d34c09cc673d213aea61fc7",
+      "path": "third_party/libtiff"
+    },
+    {
+      "revision": "20ef03ee351d4ff03fc5ff3ec4804a879d1b9d5c",
+      "path": "third_party/libwebp"
+    },
+    {
+      "revision": "ae2d91698508701c83cab83714d42a1146dccf85",
+      "path": "third_party/openlibm"
+    },
+    {
+      "revision": "2a9c1c49c360462733c386d2a44fcd22c4e21411",
+      "path": "third_party/tesseract"
+    },
+    {
+      "revision": "3ea1099664211958cb5c66c2bc69fb6652254a37",
+      "path": "third_party/tesseract/test"
+    },
+    {
+      "revision": "e2239ee6043f73722e7aa812a459f54a28552929",
+      "path": "third_party/tesseract/unittest/third_party/googletest"
+    },
+    {
+      "revision": "21767c654d31d2dccdde4330529775c6c5fd5389",
+      "path": "third_party/zlib"
+    }
+  ],
+  "sherpaNativeSubprojects": [
+    {
+      "name": "eigen",
+      "declaredLicense": "MPL-2.0 with BSD/Apache/MINPACK files",
+      "sourceDeclarations": [
+        {
+          "recipe": "sherpa-onnx/cmake/eigen.cmake",
+          "url": "https://gitlab.com/libeigen/eigen/-/archive/5.0.1/eigen-5.0.1.tar.gz",
+          "archiveSha256": "e9c326dc8c05cd1e044c71f30f1b2e34a6161a3b6ecf445d56b53ff1669e3dec"
+        },
+        {
+          "recipe": "sherpa-build/_deps/kaldi_decoder-src/cmake/eigen.cmake",
+          "url": "https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz",
+          "archiveSha256": "8586084f71f9bde545ee7fa6d00288b264a2b7ac3607b974e54d13e7162c1c72"
+        }
+      ],
+      "licenseEvidence": [
+        {
+          "path": "COPYING.APACHE",
+          "sha256": "03379001a7b12a2ec997a25554247d985270b353c10d5bafee9ac8d6519820b7"
+        },
+        {
+          "path": "COPYING.BSD",
+          "sha256": "51928dce36213c5333ba3172e847d735d4c6e9b7ff2722a326c49067155b82eb"
+        },
+        {
+          "path": "COPYING.MINPACK",
+          "sha256": "c87b7f8ee88f6195e91743820c00354833583aef091b72e2d4a49c8e28e798a0"
+        },
+        {
+          "path": "COPYING.MPL2",
+          "sha256": "66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172"
+        },
+        {
+          "path": "COPYING.README",
+          "sha256": "db640ff2bd90c6abd6a4d3fbb351e0ee4d555417cf840492054d1cbb2ea85644"
+        },
+        {
+          "path": "LICENSE",
+          "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5"
+        }
+      ]
+    },
+    {
+      "name": "json",
+      "declaredLicense": "MIT",
+      "sourceDeclarations": [
+        {
+          "recipe": "sherpa-onnx/cmake/json.cmake",
+          "url": "https://github.com/nlohmann/json/archive/refs/tags/v3.12.0.tar.gz",
+          "archiveSha256": "4b92eb0c06d10683f7447ce9406cb97cd4b453be18d7279320f7b2f025c10187"
+        }
+      ],
+      "licenseEvidence": [
+        {
+          "path": "LICENSE.MIT",
+          "sha256": "46a65cffd1ea955132d95a8dd921640714a8d6b537d2e4e482d31145ae95b603"
+        }
+      ]
+    },
+    {
+      "name": "kaldi_decoder",
+      "declaredLicense": "Apache-2.0",
+      "sourceDeclarations": [
+        {
+          "recipe": "sherpa-onnx/cmake/kaldi-decoder.cmake",
+          "url": "https://github.com/k2-fsa/kaldi-decoder/archive/refs/tags/v0.3.0.tar.gz",
+          "archiveSha256": "b9f34cfb4fd3b1344100eead79ef4d37aa15962274b9e3056de345021f76a1b0"
+        }
+      ],
+      "licenseEvidence": [
+        {
+          "path": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "kaldi_native_fbank",
+      "declaredLicense": "Apache-2.0",
+      "sourceDeclarations": [
+        {
+          "recipe": "sherpa-onnx/cmake/kaldi-native-fbank.cmake",
+          "url": "https://github.com/csukuangfj/kaldi-native-fbank/archive/refs/tags/v1.22.3.tar.gz",
+          "archiveSha256": "9176cc66fc7ce1edf85cf355b06e320c57db6297df74277f575183468893cf61"
+        }
+      ],
+      "licenseEvidence": [
+        {
+          "path": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "kaldifst",
+      "declaredLicense": "Apache-2.0",
+      "sourceDeclarations": [
+        {
+          "recipe": "sherpa-build/_deps/kaldi_decoder-src/cmake/kaldifst.cmake",
+          "url": "https://github.com/k2-fsa/kaldifst/archive/refs/tags/v1.8.0.tar.gz",
+          "archiveSha256": "3f247b7e5a2409071202f5e2bc6200060f66728c0a3443c03923ad2723e040b3"
+        }
+      ],
+      "licenseEvidence": [
+        {
+          "path": "LICENSE",
+          "sha256": "a682d6efd1ee5dee08a8e405c233c2c198ea70ae0718129daa83ab58cfe31c5d"
+        }
+      ]
+    },
+    {
+      "name": "kissfft",
+      "declaredLicense": "BSD-3-Clause",
+      "sourceDeclarations": [
+        {
+          "recipe": "sherpa-build/_deps/kaldi_native_fbank-src/cmake/kissfft.cmake",
+          "url": "https://github.com/mborgerding/kissfft/archive/febd4caeed32e33ad8b2e0bb5ea77542c40f18ec.zip",
+          "archiveSha256": "497103e664168ebe39580b757adbe616f6cf85a16572af581ca7bc42d0ab13fd"
+        }
+      ],
+      "licenseEvidence": [
+        {
+          "path": "COPYING",
+          "sha256": "a2840585f8411be8e6826a31ef15ae65c950bd74a2437a73b013398a934ad0c6"
+        }
+      ]
+    },
+    {
+      "name": "openfst",
+      "declaredLicense": "Apache-2.0",
+      "sourceDeclarations": [
+        {
+          "recipe": "sherpa-onnx/cmake/openfst.cmake",
+          "url": "https://github.com/csukuangfj/openfst/archive/refs/tags/v1.8.5-2026-04-11.tar.gz",
+          "archiveSha256": "57fbc4b950ae81b1a0e1e298af15652da968a6723a592b7874e9b4027a80a5b4"
+        },
+        {
+          "recipe": "sherpa-build/_deps/kaldifst-src/cmake/openfst.cmake",
+          "url": "https://github.com/csukuangfj/openfst/archive/refs/tags/v1.8.5-2026-04-10.tar.gz",
+          "archiveSha256": "c3549940384cbe4fa9f18c2bcfb1bfbd0a80492fd1b0bfa27433cee395a6a199"
+        }
+      ],
+      "licenseEvidence": [
+        {
+          "path": "COPYING",
+          "sha256": "4300529197035fd3452350718a0b8cee984e9412c9932d7f35fcde849fc97a4b"
+        }
+      ]
+    },
+    {
+      "name": "piper_phonemize",
+      "declaredLicense": "MIT with uni-algo and Unicode notices",
+      "sourceDeclarations": [
+        {
+          "recipe": "sherpa-onnx/cmake/piper-phonemize.cmake",
+          "url": "https://github.com/csukuangfj/piper-phonemize/archive/f3ff95afc03640bc1399e113e83361192a2fafb4.zip",
+          "archiveSha256": "d9cca4e2bdc7d6dd8dffb96a4668283dbd3f77a9c194a3e530c1e8eba9406a5d"
+        }
+      ],
+      "licenseEvidence": [
+        {
+          "path": "LICENSE.md",
+          "sha256": "13746d509d74e55ea2265fbef204bb7cdbf84a8315b0207e988326cb54387028"
+        }
+      ]
+    },
+    {
+      "name": "simple-sentencepiece",
+      "declaredLicense": "Apache-2.0",
+      "sourceDeclarations": [
+        {
+          "recipe": "sherpa-onnx/cmake/simple-sentencepiece.cmake",
+          "url": "https://github.com/pkufool/simple-sentencepiece/archive/refs/tags/v0.7.tar.gz",
+          "archiveSha256": "1748a822060a35baa9f6609f84efc8eb54dc0e74b9ece3d82367b7119fdc75af"
+        }
+      ],
+      "licenseEvidence": [
+        {
+          "path": "LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ]
+    },
+    {
+      "name": "espeak_ng",
+      "declaredLicense": "GPL-3.0; later-version permission where granted; Unicode/BSD/Apache subcomponents",
+      "sourceDeclarations": [
+        {
+          "recipe": "sherpa-onnx/cmake/espeak-ng-for-piper.cmake",
+          "url": "https://github.com/csukuangfj/espeak-ng/archive/ed530aa113046142eb5115cf2fc9157854d0ffe1.zip",
+          "archiveSha256": "e4e262cbe34f7fe21f91f1ba3397f2728e1f30eafbae7853f2b753a9ed13f0dd"
+        }
+      ],
+      "licenseEvidence": [
+        {
+          "path": "COPYING",
+          "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+        },
+        {
+          "path": "COPYING.APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "COPYING.BSD2",
+          "sha256": "a8b0c1c7d7af6c0415c068be8cf373799d1a42b0707b79dc4ccfcaf593cd902d"
+        },
+        {
+          "path": "COPYING.UCD",
+          "sha256": "be029c50df83105a810e391778b6edcb522d6cb4b4e142332aca54437a499bf7"
+        }
+      ]
+    }
+  ],
+  "packagedAssets": {
+    "ocrData": {
+      "repository": "https://github.com/naptha/tessdata",
+      "revision": "806cd9adc8c6e8abc11c782db1818c990576bebc",
+      "license": "Apache-2.0 in source repository; npm wrapper declares MIT",
+      "evidence": "Both installed 4.0.0_best_int gzip files byte-match the pinned source repository. Its LICENSE is Apache-2.0; integerization script and tessdata_best submodule describe derivation. Archive original source/license with release.",
+      "files": [
+        {
+          "path": "node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz",
+          "bytes": 2952873,
+          "sha256": "45b4cb346724ac1774f1c36f42f182b887bcdb28ebe63e6fff90ac41f3fcff91"
+        },
+        {
+          "path": "node_modules/@tesseract.js-data/ara/4.0.0_best_int/ara.traineddata.gz",
+          "bytes": 1661906,
+          "sha256": "f4746c44b02342dd5b3d4f0198000f47d7c49f1a229e63e0f436c0592dcd9639"
+        }
+      ]
+    },
+    "fonts": [
+      {
+        "license": "OFL-1.1",
+        "path": "public/fonts/reader/scheherazade-new/OFL.txt",
+        "sha256": "5b9fd21ce2377fc542debebd9edfe1c48f2d3525e78a2a8abdba4a0ec3280163"
+      },
+      {
+        "license": "OFL-1.1",
+        "path": "public/fonts/reader/readex-pro/OFL.txt",
+        "sha256": "b41267a3903a45955f77b44596e080480c577fb7221df59672d0bc8cd8cd4b6f"
+      },
+      {
+        "license": "OFL-1.1",
+        "path": "public/fonts/reader/noto-naskh-arabic/OFL.txt",
+        "sha256": "a7a5a25eb188bf1cd96982030d53e23c33485c69b1044a562254226857ee13af"
+      },
+      {
+        "license": "OFL-1.1",
+        "path": "public/fonts/reader/literata/OFL.txt",
+        "sha256": "8742963604cd89dc81437811a850018fc03b2bfad686d7422c8235967c87614e"
+      },
+      {
+        "license": "Apache-2.0",
+        "path": "public/fonts/reader/droid-arabic-naskh/LICENSE-APACHE-2.0.txt",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+      },
+      {
+        "license": "OFL-1.1",
+        "path": "public/fonts/reader/atkinson-hyperlegible/OFL.txt",
+        "sha256": "f32d22b3908fcad2c86a74000614ec22e6a7f66ea7e867e616026a27aebdc143"
+      }
+    ],
+    "pdfStandardFontNotices": [
+      {
+        "path": "standard_fonts/LICENSE_FOXIT",
+        "sha256": "b578cdd2345840ada550bd12519533812320d5f1d21cf4c1c7e1b1b0a31c98b7"
+      },
+      {
+        "path": "standard_fonts/LICENSE_LIBERATION",
+        "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+      }
+    ],
+    "cameraX": {
+      "coordinate": "androidx.camera:camera-core:1.5.3",
+      "nativeLibraries": [
+        "libimage_processing_util_jni.so",
+        "libsurface_util_jni.so"
+      ],
+      "license": "Apache-2.0 plus BSD libyuv",
+      "evidence": "Both arm64 libraries are in the official camera-core AAR; POM and META-INF/androidx/camera/camera-core/LICENSE.txt carry Apache/BSD notices. Review final APK notice retention."
+    },
+    "libtashkeel": {
+      "record": "src-tauri/tts/libtashkeel-1.5.0/README.md",
+      "license": "MIT",
+      "modelBytes": 4788213,
+      "status": "Embedded; preserve upstream source/model provenance and notices."
+    },
+    "iccProfile": {
+      "path": "node_modules/pdfjs-dist/iccs/CGATS001Compat-v2-micro.icc",
+      "license": "CC0-1.0",
+      "status": "Used only by the source compatibility test; current app asset prep does not copy iccs."
+    }
+  },
+  "optionalModels": {
+    "voices": [
+      {
+        "family": "kokoro",
+        "url": "https://github.com/muhannadnouri/papercut.io/releases/download/tts-kokoro-v1.0-2026-09-08/kokoro-multi-lang-v1_0.tar.bz2",
+        "sha256": "c5f7e2d2caf082bc1d20fb70334a61d99d20b484500aad32e7cf84c128ea3298",
+        "bytes": 349906910,
+        "status": "Archive Apache-2.0; also eSpeak linguistic data/dictionaries needing separate notices/source mapping."
+      },
+      {
+        "family": "vits",
+        "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-ar_JO-kareem-medium.tar.bz2",
+        "sha256": "9ebbcea30e0fbd588f7b2cb45ee897d6aeb1bf5791cbc037a7b5a3f641e3dbce",
+        "bytes": 67177830,
+        "status": "Dataset license unresolved: exact archive MODEL_CARD points to unavailable arabicttstrain; lessac fine-tuning lineage also needs retained notices."
+      },
+      {
+        "family": "supertonic",
+        "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-supertonic-3-tts-int8-2026-05-11.tar.bz2",
+        "sha256": "82fa96f91c4ef8abaae3a14a3f4153facf88bed821d1f7331cec2700f432c427",
+        "bytes": 128774318,
+        "status": "Archive README says MIT code and OpenRAIL-M weights; restrictions require owner/F-Droid review, not blanket MIT clearance."
+      }
+    ],
+    "embeddings": [
+      {
+        "variant": "small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "modelCard": "https://huggingface.co/intfloat/multilingual-e5-small/raw/614241f622f53c4eeff9890bdc4f31cfecc418b3/README.md",
+        "declaredLicense": "MIT",
+        "evidence": "All three pinned model cards declare MIT; converted ONNX/tokenizer files remain hash/size-pinned in src-tauri/src/search_embeddings/models.rs. Preserve per-file notices; not a retraining/quantization reproduction claim."
+      },
+      {
+        "variant": "base",
+        "revision": "d128750597153bb5987e10b1c3493a34e5a4502a",
+        "modelCard": "https://huggingface.co/intfloat/multilingual-e5-base/raw/d128750597153bb5987e10b1c3493a34e5a4502a/README.md",
+        "declaredLicense": "MIT",
+        "evidence": "All three pinned model cards declare MIT; converted ONNX/tokenizer files remain hash/size-pinned in src-tauri/src/search_embeddings/models.rs. Preserve per-file notices; not a retraining/quantization reproduction claim."
+      },
+      {
+        "variant": "large",
+        "revision": "3d7cfbdacd47fdda877c5cd8a79fbcc4f2a574f3",
+        "modelCard": "https://huggingface.co/intfloat/multilingual-e5-large/raw/3d7cfbdacd47fdda877c5cd8a79fbcc4f2a574f3/README.md",
+        "declaredLicense": "MIT",
+        "evidence": "All three pinned model cards declare MIT; converted ONNX/tokenizer files remain hash/size-pinned in src-tauri/src/search_embeddings/models.rs. Preserve per-file notices; not a retraining/quantization reproduction claim."
+      }
+    ]
+  },
+  "fdroidRecipePreflight": {
+    "checkedOn": "2026-11-05",
+    "details": "docs/fdroid/README.md",
+    "sourceCommit": "685e3ff3ccc260cdbf10205a27194488ad758972",
+    "fdroidserver": "2.4.5",
+    "sdkmanager": "0.7.2",
+    "fdroiddataConfigCommit": "8069ed5f6a0009921b7972e8ba1a2250195481c2",
+    "ndk": {
+      "metadataPin": "29.0.13846066",
+      "installedRevision": "29.0.13846066-beta3",
+      "fdroidInstallAndResolution": "passed",
+      "linuxArchiveSha256": "ca0eaac8f992635a4a74c2927e2e76d788f18b8ba52c668ddc7f675fe6265d48",
+      "archiveIntegrity": "Independently checked against signed catalog; all 9655 regular archive files match installation.",
+      "r29AliasRevision": "29.0.14206865",
+      "supersededBy": "androidNdkMigration records the subsequent r30 pin and proof."
+    },
+    "lint": "Canonical formatting passes; missing AllowedAPKSigningKeys with Binaries remains an expected failure. No fake fingerprint used.",
+    "sourceScanner": {
+      "scope": "Direct scan_source calls on clean Git export and after npm ci; no ignore/delete rules. Not full prepare_source/buildserver, Rust installation or later native dependency fetches.",
+      "sussSha256": "638d8aacf43a756f76afdc7cd651e15a104f0e9d10281ecdede0b3a4b5418573",
+      "cleanFatalCount": 0,
+      "afterNpmCiFatalCount": 17,
+      "hostExecutables": 3,
+      "ocrDataArchives": 4,
+      "pdfWasm": 4,
+      "ocrWasmIncludingUnusedVariants": 6,
+      "wrapperRemoval": "gradlew, gradlew.bat and gradle-wrapper.jar removed; trusted Gradle integration still required"
+    },
+    "apkScanner": "Known non-free DEX classes and extra signing blocks: passed on CI41987142956 APK 2cf33d0acdd9c4c05a069eb03ed96c13c630e9195bc04d4c699effcce470a752. Not source/license/reproducibility/signing/device clearance.",
+    "remaining": "Review NDK migration and runtime source staging, resolve scanner findings and Gradle integration, provision clean buildserver, set real release tag/version and public certificate, compare production signature, complete device/update and licensing/listing gates. Not ready for submission."
+  },
+  "androidNdkMigration": {
+    "checkedOn": "2026-11-05",
+    "details": "docs/android-production-packaging.md#shared-r30-toolchain-2026-11-05",
+    "version": "30.0.16248370",
+    "linuxArchiveSha256": "753611f410d002cfcd3f3dc2ef49aad532089d3180b436c060a90bf0fcb64df2",
+    "installerEvidence": "Google stable SDK catalog and F-Droid signed catalog contain the pin. Linux ZIP checked before installation; fdroidserver and Gradle resolved the exact installation.",
+    "scope": "Local Linux working-tree proof with the migration overlay on checkout base b1b4d219f7f72f1dade0f955d27caeb46eea312d; same host/toolchain and shared dependency caches. Commit changes the embedded APK source revision.",
+    "sherpaSha256": "9f5d00a96b8b8fe87377bd251a6b845787e3baabba90e681cfdbe5c1a2d78f07",
+    "ortSha256": "12c870ee77349d0e80e0d85eb293849ebe8f56717a81eec62b53ecb1446e7de8",
+    "nativeEvidence": "Fresh original and relocated Sherpa builds match; packaged app and Sherpa ELF notes are r30/API 26, pinned Maven ORT unchanged (r28/API 24). Release APK passes arm64/16 KB verification. Both arm64 debug APKs use r30; only native TTS debug contains Sherpa.",
+    "unsignedApk": {
+      "sha256": "a574f35ccdc757176edc0c8f98306ac768a771a3996cef66c7a2cf8a0134debc",
+      "bytes": 82021140,
+      "entries": 1723,
+      "matchingBuilds": "Two fresh Rust/Gradle builds plus one relocated no-Git build with independently rebuilt native inputs"
+    },
+    "tests": "795 frontend/script tests passed, one existing skip; nine Android transfer callbacks passed. One prior concurrent test run encountered an empty Pagefind fixture manifest; serial rerun passed.",
+    "ciReproduction": "PR 91 run 42097081987 passed all nine jobs. A local rebuild of Android checkout a34dd962b30d38853176cbc94664d9543a627eeb matched the CI unsigned APK SHA-256 e4010e3756cb1b41e9a1b868a32c269edf271742e643cad1b273e4f80b4d0838.",
+    "remaining": "PDF/OCR source staging and scanner/Gradle resolution, clean F-Droid buildserver, production signature and device acceptance."
+  },
+  "pagefindBundleWrites": {
+    "details": "docs/android-production-packaging.md#pagefind-bundle-write-race-2026-11-05",
+    "version": "1.4.0",
+    "upstreamIssue": "https://github.com/Pagefind/pagefind/issues/1271",
+    "fix": "Get generated bytes from Pagefind and await Node writes before replacing the generated bundle.",
+    "stressEvidence": "512 builds per writer with eight concurrent processes on one CPU. Old writer produced two empty manifests and one empty JavaScript file. All fixed bundles matched the healthy reference.",
+    "apkEvidence": "A fresh verified unsigned build of a34dd962 with the writer patch matched the CI APK at the same revision stamp, SHA-256 e4010e3756cb1b41e9a1b868a32c269edf271742e643cad1b273e4f80b4d0838."
+  },
+  "pdfOcrSourceStaging": {
+    "checkedOn": "2026-11-05",
+    "details": "docs/android-production-packaging.md#source-built-pdf-and-ocr-runtime-2026-11-05",
+    "selection": "PAPERCUT_PDF_OCR_FROM_SOURCE=1 verifies build receipts, selects the source-built PDF.js 6.2.108 legacy API, worker, viewer and codec resources, and stages all three Tesseract.js LSTM loader/WASM pairs. Fonts, viewer CSS, OCR worker and trained data use the locked npm inputs.",
+    "pdfReproducibility": "The source recipe replaces the build-time PDF.js INTERNAL_EVT random UUID with a shared marker derived from the pinned PDF.js revision. This marker orders internal EventBus listeners before external listeners.",
+    "runtimeChecks": "PDF.js legacy API, worker and viewer match across two local paths with separate npm installs and shared codec inputs. All six fresh OCR files match the earlier receipt. Chromium used the source worker, JPEG 2000 and JBIG2 decoders, and relaxed SIMD OCR loader. Three PDF renders and both OCR texts match the npm reference; direct checks cover QCMS, QuickJS and every OCR variant. 797 app tests passed with one existing skip.",
+    "notices": "Retained PDF.js codec notices, added the exact QCMS wrapper and QuickJS MIT notices, and corrected the consolidated notice to attribute PDFium's BSD-3-Clause text separately from the JBIG2 wrapper's Apache-2.0 text.",
+    "apkEvidence": "Local unsigned arm64 working-tree build on 6ad16518 passed the release verifier using the existing r30 native inputs. Checked 24 embedded assets and the shipped notices. APK SHA-256 dffac24b06daabcf5ef1c73e67f9d361e0ad3086be0b62f2c6e51c4ed65954f5.",
+    "remaining": "See androidSharedSourceRelease for shared release wiring and scanner progress. Device acceptance remains pending."
+  },
+  "androidSharedSourceRelease": {
+    "checkedOn": "2026-11-05",
+    "details": "docs/fdroid/README.md#shared-release-path-preflight-2026-11-05",
+    "priorCiEvidence": "PR 91 run 42110812827 passed all nine jobs for 08986769. Artifact 13454514229 ZIP SHA-256 510341320255672a6a6d4ad4556a0a25e06076db4173d66501eff253731834b6 matches GitHub metadata. Rebuilt actual merge checkout 145122025ebb216107450d95eb49a0c45d604331 with the external Cargo target path normalized and matched the verified unsigned APK byte-for-byte, SHA-256 09318b1371c90afad574dbd9de5ad1e92d3a57a35db3fc526a92fd4c4d60c4b2. This is the prior default npm-asset build.",
+    "selection": "CI, release and the draft use the same Sherpa, PDF.js and OCR source recipes. The release wrapper requires matching PDF/OCR receipts and both pinned OCR data hashes.",
+    "wasmPaths": "Tesseract and OpenJPEG embed diagnostic source paths, and QCMS embeds paths into the host Cargo registry. Release recipes normalize those paths at compile time and the production asset step requires updated receipts.",
+    "scanner": "Local fdroidserver 2.4.5 scan of an overlaid Git export and npm ci removes npm esbuild and PDF/OCR WASM, preserves two verified Apache-2.0 OCR data archives, and leaves the Pagefind extended binary as the sole fatal finding. Zero warnings.",
+    "esbuildSource": "0.28.2 from evanw/esbuild commit 609683d892977362a0f99026cb74b96263d728a9. The draft selects the compiled tool via ESBUILD_BINARY_PATH.",
+    "gradle": "Temporary Tauri launcher links to the trusted buildserver executable after requiring the wrapper properties version (8.14.3).",
+    "localReproduction": "The normal upstream wrapper and a scanner-treated Git export with source-built esbuild and trusted Gradle produced byte-identical verified unsigned APKs (1723 entries, 86 frontend files), SHA-256 6ce82cb9223735d5bf9764896aa57706a513cd1e4abc7e1801e078bbf36e6bc7. Working-tree overlay stamped 08986769 on one host with shared toolchain/dependency caches. The manual build retained the flagged Pagefind package.",
+    "remaining": "See androidPagefindSource for the subsequent Pagefind preflight. Updated CI, clean F-Droid buildserver, production signing and device acceptance remain pending."
+  },
+  "androidPagefindSource": {
+    "checkedOn": "2026-11-06",
+    "details": "docs/android-production-packaging.md#source-built-pagefind-2026-11-05",
+    "source": "Pagefind 1.4.0 Git tag at 8c3de15a6b5ab603985d98062e748463daf42d65. The shared Android release builds the extended CLI, coupled JS and all 31 WASM variants using pinned toolchains and upstream npm locks.",
+    "scanner": "fdroidserver 2.4.5 and cached SUSS signatures report zero fatal findings and zero warnings on an npm-installed Git export of 022cbb4 with this stage overlaid. The npm Pagefind executable is removed by exact path.",
+    "runtime": "The six-document fixture has byte-identical index metadata, chunks and fragments versus the npm release. Chromium matched English, Arabic, Chinese and fallback-language search results, titles, URLs and excerpts.",
+    "localReproduction": "Independently rebuilt Pagefind in the normal checkout and scanner-treated export with source-built esbuild and trusted Gradle. The verified unsigned APKs match byte-for-byte (1723 entries, 86 frontend files, 14 Pagefind files), SHA-256 0a1b4c19ad376b7d999cab6935561f626a50498e42c3211806e58046472a0097. Working-tree overlay stamped 022cbb4 on one host with shared toolchain caches and previously verified native/PDF/OCR outputs.",
+    "ciChecks": "PR 91 run 42277652623 passed all nine jobs for d72a3050 after the main merge, including 750 frontend tests with one existing skip, 71 serial Chromium tests, the source-built APK verifier and Android transfer callback tests.",
+    "wasmPaths": "A local rebuild of the exact CI checkout 0b7a954e matched 1722 of 1723 APK entries. The app library embedded two Pagefind WASM modules with different absolute Cargo registry paths. The recipe now normalizes the source cache and Cargo home and checks each optimized module for host paths. Production rejects older receipts. Independent local Pagefind builds from separate exports and Cargo homes matched all 41 vendor files, including 31 WASM variants. Chromium passed the six-document search fixture again.",
+    "pathNormalizedApk": "Both exports stamped b16c7fb3 produced verified byte-identical unsigned arm64 APKs (1723 entries, 88 frontend files), SHA-256 9c368698a3786aa77af1d9acfd9cb225f8087ee066fc900c01b9d87b48542038. They reused the verified Sherpa, PDF and OCR outputs.",
+    "ciApkProof": "The downloaded CI APK and a local rebuild of the exact CI merge a2e72e1 verify and match byte-for-byte, SHA-256 66e1a3bd56a3aea0abd7f76ece6004eb185920a4d0ee02e49d8854c200f07a68. Both extracted Pagefind WASM files match the locally normalized variants.",
+    "remaining": "See the unsigned buildserver preflight in docs/fdroid/README.md. Production signing and device acceptance remain pending."
+  },
+  "fdroidUnsignedBuildserverPreflight": {
+    "checkedOn": "2026-11-06",
+    "details": "docs/fdroid/README.md#unsigned-buildserver-preflight",
+    "image": "fdroiddata CI Debian Trixie image sha256:1ea8bef1820bff06c2974e31b4fc4c79c364cd24231b86e71fa4b926797e0dac with fdroidserver cdfdce835a8231996b02392bc79c1879e6bef501.",
+    "source": "Fresh isolated dependency homes and exact CI merge a2e72e143e44daaa871e7503a71476c1b5c15c2a. Refreshed SUSS scan passed under the existing rules. Rebuilt the shipped native and WASM components and used the image's Gradle launcher.",
+    "apk": "F-Droid binary scan and Papercut unsigned verifier pass. APK matches GitHub CI run 42277652623 byte-for-byte (1723 entries, 88 frontend files), SHA-256 66e1a3bd56a3aea0abd7f76ece6004eb185920a4d0ee02e49d8854c200f07a68.",
+    "remaining": "Owner signing and device/update acceptance, review of toolchain and build inputs, and dedicated buildserver and signed comparison for the release tag."
+  },
+  "pendingReview": [
+    "Decided 2026-11-03: F-Droid metadata declares GPL-3.0-only for the combined Android build; root MIT unchanged.",
+    "Notices ship in assets/licenses/android-third-party-notices.md and the corresponding-source archive is generated by npm run prepare:source-archive; owner must review and attach the matching release archive.",
+    "Owner-approved Tauri alignment (2026-11-04): tauri 2.12.5, build/macros/codegen 2.7.4, utils 2.10.2 and npm API 2.12.4 fix the PR91 Rust-test AppConfig mismatch and satisfy the Android minor-version check. Rust/Cargo minimum is 1.90. The Android graph has 489 package candidates and nine MPL crate trees after removing duplicate cssparser 0.36.0/selectors 0.36.1. Regenerated notices retain the same license groups. Full CI and Pixel runtime acceptance remain owner gates.",
+    "Kareem kept 2026-11-03 with listing disclosure; upstream dataset-rights statement from AliMokhammad still pending.",
+    "Supertonic kept 2026-11-03 with the NonFreeAssets anti-feature; MIT-code/OpenRAIL-M distinction retained in notices.",
+    "Kokoro eSpeak/CppJieba data/dictionary mapping is recorded in the shipped notices; retain the matching source/notices with each release.",
+    "QCMS staging preserves both the pinned wrapper MIT license and the published BSD-style wrapper notice. PDF.js's LICENSE_QCMS carries the crate's MIT text.",
+    "PR91 CI run 41923862017 passes all nine jobs at 83be8497. Comparing its prebuilt-path APK to the one-environment source-only proof finds exactly two differing entry contents: libapp_lib.so (embedded compiler source paths differ) and libsherpa-onnx-c-api.so (build API/NDK and source paths differ). The remaining 1721 entries match. The current build-alignment pass wires pinned source Sherpa into CI/release, selects Rust 1.98.1 and normalizes Rust/C/C++ source paths. Two fresh same-checkout APKs match (SHA256 64ebe81dffa99db60ae9a16cb1ad96599359fe187798524dfc9037750354a1f0); a clean Sherpa rebuild matches its receipt. The initial full relocated-checkout comparison failed with different bundled Pagefind 1.4.0 index bytes. A controlled relocated rebuild with identical frontend/native inputs produces the identical APK, isolating the observed mismatch to index generation. Upstream Pagefind review completed without dependency changes: 1.5.2 and 1.6.0 CLI builds still vary with file creation order; 1.6.0 includes upstream PR1124. Sorted sequential ingestion through the existing 1.4.0 Node API passes eight fresh-process runs for both the real starter corpus and a controlled multilingual/diacritics/filter fixture. The owner-approved implementation now uses sorted sequential sourcePath ingestion with locked Pagefind 1.4.0. A fresh relocated native rebuild also exposed an ELF build-ID mismatch from symbol/debug metadata removed after linking; shared-library link-time stripping now preserves a reproducible build ID. Two fresh original-checkout APKs and one fresh relocated APK match byte-for-byte: SHA256 4cf48620c35f6949030525178b79574a0c5c611668e930d94f2a06472d161c20, all 1723 entries and all frontend hashes match. Both source recipes produce Sherpa SHA256 3936e1f978f0294ef488f2494dcb95cd19f81d9191912753a21bf7c5ba825fb8. This is one host/toolchain with shared dependency/toolchain homes and reused verified source/archive inputs, not an independent CI/F-Droid or production-signature proof. Pagefind root MIT license is unchanged; no new transitive license clearance is implied. CI run41964028402 passes all nine jobs at b151cc5f. Its supplied APK differs from the unstamped local reference only in libapp_lib.so because transfer diagnostics embeds GITHUB_SHA, set to PR merge a5f4d82d6dd6b993a0dee376ee70fcd9540cd10c in CI and absent locally. Both commits have tree d8ed83c41ecc94b552c216298b6f8dff7db6ea30. A local diagnostic rebuild changing only that environment value reproduces the CI APK byte-for-byte, SHA256 99132381fc7e3eacd848554027ddc811284517a8a665dd2e5200b90f7d8cae23. This is a cross-host match with aligned revision-stamp input, not another clean two-build or fdroidserver/signature proof. The approved next pass implements a shared productionBuildRevision resolver and project-owned PAPERCUT_BUILD_REVISION: full checkout HEAD, validated matching overrides, required explicit metadata for exports without .git, and no inherited GitHub or parent-repository identity. Android/F-Droid, desktop and iOS wrappers all supply it; direct developer builds can leave the optional diagnostic value null. Tests cover Git worktrees/exports/invalid values and every packaging caller; full frontend tests (785 passed, one existing skip), frontend build and shipping Rust suite (332 passed, nine existing ignores) pass. Two fresh Git-checkout APKs and one no-Git source-export APK match byte-for-byte with project revision ef16d94ca266457fb2d9e72fdbc9b40144a957db despite different ambient GitHub stamps: SHA256 2e81c7678e0152a7fa3ae08cbd8003282e6ebf77a59990079b5a57e9adac26a6, all 1723 entries and frontend hashes match. They are uncommitted review working-tree candidates using that checkout base, shared host/toolchains/dependency homes and unchanged verified native inputs; not published releases or clean source-commit evidence. Committing updates the diagnostic revision and APK hash. Committed implementation eb56a893 passes all nine jobs in CI41987142956. Artifact13397468619 was downloaded directly and its ZIP digest verified. A fresh local Rust/Gradle build of actual CI merge fed3a37d0f5be9be6ee2595002bdd694cfe821b4 derives its project revision automatically and matches the complete CI APK: SHA256 2cf33d0acdd9c4c05a069eb03ed96c13c630e9195bc04d4c699effcce470a752, all1723 entries identical. Shared dependency/toolchain homes and verified native inputs were reused locally; CI native bytes match. Actual fdroidserver reproduction, production signature copying and scanner/build review remain pending. That CI verification pass identified the draft ndk:r29 mismatch. The subsequent fdroidRecipePreflight records exact-pin installation/resolution, the numeric metadata fix and remaining scanner/buildserver gates; production toolchain unchanged."
+  ],
+  "validation": {
+    "scope": "Local compatibility/build receipts only. Native objects were reused; OCR/PDF work trees were recreated. No clean APK reproduction, phone test, production signing or license approval is implied.",
+    "toolchain": {
+      "node": "v24.21.0",
+      "emsdkInstaller": "c0bb220cb6e6f4e0fabb6f6db9efd53390ef5e56",
+      "emscripten": "4.0.15",
+      "rustForQcms": "1.98.1",
+      "wasmBindgen": "0.2.100",
+      "cmake": "4.4.5"
+    },
+    "native": {
+      "sources": {
+        "onnxruntime": "8f0278c77bf44b0cc83c098c6c722b92a36ac4b5",
+        "sherpa": "142807252687d81b40d6315f23470a1512a00de3"
+      },
+      "tools": {
+        "ndk": "29.0.13846066",
+        "api": 26,
+        "cmake": "cmake version 4.4.5",
+        "pythonPackages": [
+          "flatbuffers==25.12.19",
+          "numpy==2.5.4",
+          "packaging==26.3",
+          "protobuf==7.36.2"
+        ]
+      },
+      "artifacts": {
+        "libonnxruntime.so": {
+          "bytes": 20617856,
+          "sha256": "8579a5663ee819dd255857073aeca8cd468869e9377108d4685e2b94c81c62f3"
+        },
+        "libsherpa-onnx-c-api.so": {
+          "bytes": 4373144,
+          "sha256": "5cc0eb9e6c0393270407cda00b2a4c18bafc7745a0ce04d403e87be8e7c0941b"
+        }
+      }
+    },
+    "ocr": {
+      "receipt": {
+        "sources": {
+          "tesseract": "acffef2b66eb44a31df297e11d905f4b39001068",
+          "submodules": "fa37672085ce4b3d62c51627ab3c8cf2dda8009a third_party/giflib (heads/master)\n 4af068b56a9674da915debea4ed7e1b9885b17e8 third_party/leptonica (4af068b)\n 6c0fcb8ddee365e7abc4d332662b06900612e923 third_party/libjpeg (heads/master)\n a37d4836519517bdce6cb9d956092321eca3e73b third_party/libpng (a37d483)\n b51bb157123264e26d34c09cc673d213aea61fc7 third_party/libtiff (b51bb15)\n 20ef03ee351d4ff03fc5ff3ec4804a879d1b9d5c third_party/libwebp (20ef03e)\n ae2d91698508701c83cab83714d42a1146dccf85 third_party/openlibm (ae2d916)\n 2a9c1c49c360462733c386d2a44fcd22c4e21411 third_party/tesseract (2a9c1c4)\n 3ea1099664211958cb5c66c2bc69fb6652254a37 third_party/tesseract/test (3ea1099)\n e2239ee6043f73722e7aa812a459f54a28552929 third_party/tesseract/unittest/third_party/googletest (e2239ee)\n 21767c654d31d2dccdde4330529775c6c5fd5389 third_party/zlib (21767c6)"
+        },
+        "tools": {
+          "emscripten": "4.0.15",
+          "cmake": "cmake version 4.4.5"
+        },
+        "artifacts": {
+          "tesseract-core-lstm.wasm": {
+            "bytes": 2859700,
+            "sha256": "0c474242ba6750615951f4fda1de004bed321128dbfc21c2d0cb4d5d6a998fdf"
+          },
+          "tesseract-core-lstm.wasm.js": {
+            "bytes": 3902272,
+            "sha256": "40b4525a808d64f594252bdb5fc176c1fa782a13034b24806ae0e360caf0b16d"
+          },
+          "tesseract-core-simd-lstm.wasm": {
+            "bytes": 2861942,
+            "sha256": "56b4df0d9a33f5e655683e6936b3dce34746ea754e6323a155c414de2e46aa3a"
+          },
+          "tesseract-core-simd-lstm.wasm.js": {
+            "bytes": 3905260,
+            "sha256": "230f7685e8d0d3c7934d68e7319f9b840e5c4d477063c2a3c2a883b6d5084482"
+          },
+          "tesseract-core-relaxedsimd-lstm.wasm": {
+            "bytes": 2866606,
+            "sha256": "096bcc7b63d8b5ddd0933ad98cadd7e6beb171c5e80bbf5a9372a73a54d1f9d1"
+          },
+          "tesseract-core-relaxedsimd-lstm.wasm.js": {
+            "bytes": 3911555,
+            "sha256": "a7ebb31f44d308f34e6aa00c8027f3f856d07f6cd8054412ef712f24984a5713"
+          }
+        }
+      },
+      "passedFixtures": 6
+    },
+    "pdfCodecs": {
+      "sources": {
+        "pdfjs": "6.2.108",
+        "wrappers": {
+          "openjpeg": "8bb19dc1aeecb104ce2ed3493d41fe131fc681e0",
+          "qcms": "2ae4ee72334782928210ba4050e3e77d9b2d35be",
+          "jbig2": "0b32db6d0eaf94844d46e38828ad4e0b7e36cb55",
+          "quickjs": "b62f7cd527363ca2c1fe7467f274bc9acbf78c24"
+        },
+        "libraries": {
+          "openjpeg": [
+            "https://github.com/uclouvain/openjpeg.git",
+            "6c4a29b00211eb0430fa0e5e890f1ce5c80f409f"
+          ],
+          "jbig2": [
+            "https://pdfium.googlesource.com/pdfium",
+            "0455e822ded1a5537d826703988e986a33d2d4a1"
+          ],
+          "quickjs": [
+            "https://github.com/bellard/quickjs.git",
+            "3d5e064e9dd67c70f7962836505a7fa067bf0a4e"
+          ]
+        }
+      },
+      "tools": {
+        "emscripten": "4.0.15",
+        "rust": "1.98.1",
+        "wasmBindgen": "0.2.100"
+      },
+      "artifacts": {
+        "openjpeg.js": {
+          "bytes": 14268,
+          "sha256": "10845667988a5b21861577c0635ddce8ccf4c78d1b1afe08c5c4740bc53c79c1"
+        },
+        "openjpeg.wasm": {
+          "bytes": 250092,
+          "sha256": "4d817691433dccb499363459fb07865eca629fb5c94e69a6e2ef95ab85032a2d"
+        },
+        "openjpeg_nowasm_fallback.js": {
+          "bytes": 451886,
+          "sha256": "f330617fec9deea171b46c3ee1f2e40314edbd6abd668130574beb1db94718b5"
+        },
+        "qcms.js": {
+          "bytes": 7334,
+          "sha256": "69f01ae9b658de80d94c0ed15ba25a8e41ecb7ec68364d35f3af4b28460cbf19"
+        },
+        "qcms_bg.wasm": {
+          "bytes": 116294,
+          "sha256": "c1e4add5688749127a8b47487cff1c791ecd2c9cb429a35462e9d5a099e3a425"
+        },
+        "qcms_utils.js": {
+          "bytes": 2955,
+          "sha256": "75e5909894052843cccd40880a804f41e9a99e13dbfdb0720428820728e70f0b"
+        },
+        "jbig2.js": {
+          "bytes": 8450,
+          "sha256": "351632b80656291b87c9ffd547f1f987ce6c049f7f71c80d4244f7cafd628de0"
+        },
+        "jbig2.wasm": {
+          "bytes": 105587,
+          "sha256": "73ac60088161c71b612132f8aa1629efc249a3a91db425f2eec0951f51fc6052"
+        },
+        "jbig2_nowasm_fallback.js": {
+          "bytes": 144864,
+          "sha256": "cc1b2ab680f710d2cc033e5e6a5458f0c543d46b3b4266639e1807f505f38750"
+        },
+        "quickjs-eval.js": {
+          "bytes": 6545,
+          "sha256": "f5cdcc240ed483391c7c16c891230c759289cf3e6d308e9ea9163db46032b1f3"
+        },
+        "quickjs-eval.wasm": {
+          "bytes": 471540,
+          "sha256": "10ebcd1310b27dff4e298791f3b60f4030af5d9c6508ac6bf6f79990f6c0eec6"
+        }
+      }
+    },
+    "pdfWorker": {
+      "sources": {
+        "pdfjs": "0365cbde028bd92e58f2dab1bb70cd30ac7acfd7",
+        "wrappers": {
+          "openjpeg": "8bb19dc1aeecb104ce2ed3493d41fe131fc681e0",
+          "qcms": "2ae4ee72334782928210ba4050e3e77d9b2d35be",
+          "jbig2": "0b32db6d0eaf94844d46e38828ad4e0b7e36cb55",
+          "quickjs": "b62f7cd527363ca2c1fe7467f274bc9acbf78c24"
+        },
+        "libraries": {
+          "openjpeg": [
+            "https://github.com/uclouvain/openjpeg.git",
+            "6c4a29b00211eb0430fa0e5e890f1ce5c80f409f"
+          ],
+          "jbig2": [
+            "https://pdfium.googlesource.com/pdfium",
+            "0455e822ded1a5537d826703988e986a33d2d4a1"
+          ],
+          "quickjs": [
+            "https://github.com/bellard/quickjs.git",
+            "3d5e064e9dd67c70f7962836505a7fa067bf0a4e"
+          ]
+        }
+      },
+      "tools": {
+        "emscripten": "4.0.15",
+        "rust": "1.98.1",
+        "wasmBindgen": "0.2.100"
+      },
+      "artifacts": {
+        "build/pdf.mjs": {
+          "bytes": 853535,
+          "sha256": "e805b3d9fac4babe5ab389db160180028ec1fd32819e780e1fe77f867c0ed0c4"
+        },
+        "build/pdf.worker.mjs": {
+          "bytes": 2222265,
+          "sha256": "0c82889ea5f766817552342237b2deba6dd8565898a220a6fa0aba5717dc339b"
+        },
+        "build/pdf.sandbox.mjs": {
+          "bytes": 118961,
+          "sha256": "6b0755eb127e43caa111a4b950804b123c627197ac47437a979df78a074c512b"
+        }
+      }
+    },
+    "pdfCompatibility": {
+      "pages": [
+        {
+          "name": "jp2k-resetprob.pdf",
+          "width": 30,
+          "height": 21,
+          "sha256": "4bade25614f7f96b266802794f8234b6f576a35d6571d2e1d74b7f28bc3dfef3"
+        },
+        {
+          "name": "jbig2_symbol_offset.pdf",
+          "width": 596,
+          "height": 842,
+          "sha256": "4591e951546afe965186750c5620ab23158302c8ddf43c738a1a5173ff362d82"
+        },
+        {
+          "name": "cmykjpeg.pdf",
+          "width": 612,
+          "height": 792,
+          "sha256": "5a9a26c16a8e642a5880ce466486164c5b60f6e8b1697237e4277b860daa6505"
+        }
+      ],
+      "colors": [
+        16645887,
+        2236193,
+        44527,
+        8084583
+      ],
+      "loaded": [
+        "openjpeg.wasm",
+        "jbig2.wasm"
+      ],
+      "messages": [
+        "Warning: Please use the `legacy` build in Node.js environments."
+      ]
+    },
+    "qcmsReference": "QCMS conversion values match the pinned PDF.js source external/qcms binaries.",
+    "quickjs": "Source and reference QuickJS initialization with arithmetic assertion passed."
+  },
+  "ocrLibraryNotices": [
+    {
+      "name": "tesseract",
+      "declaredLicense": "Apache-2.0",
+      "path": "LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "name": "leptonica",
+      "declaredLicense": "BSD-2-Clause-style",
+      "path": "leptonica-license.txt",
+      "sha256": "87829abb5bbb00b55a107365da89e9a33f86c4250169e5a1e5588505be7d5806"
+    },
+    {
+      "name": "libjpeg",
+      "declaredLicense": "IJG",
+      "path": "README",
+      "sha256": "c791da525733040e622ed257c7b096b8f5191b332604ead0c6bc2b54cbd8e0d1"
+    },
+    {
+      "name": "giflib",
+      "declaredLicense": "MIT",
+      "path": "COPYING",
+      "sha256": "0c9b7990ecdca88b676db232c226548ac408b279f550d424d996f0d83591dd8e"
+    },
+    {
+      "name": "libpng",
+      "declaredLicense": "Libpng-2.0 and historical notices",
+      "path": "LICENSE",
+      "sha256": "33ba4e187d8b0c8d7ab2bc2e522bb095219e03089e9aa0122b4fb9eb2b7de82b"
+    },
+    {
+      "name": "libtiff",
+      "declaredLicense": "libtiff permissive copyright notice",
+      "path": "COPYRIGHT",
+      "sha256": "fbd6fed7938541d2c809c0826225fc85e551fdbfa8732b10f0c87e0847acafd7"
+    },
+    {
+      "name": "libwebp",
+      "declaredLicense": "BSD-3-Clause",
+      "path": "COPYING",
+      "sha256": "5aec868f669e384a22372a4e8a1a6cd7d44c64cd451f960ca69cc170d1e13acf"
+    },
+    {
+      "name": "openlibm",
+      "declaredLicense": "MIT/BSD/ISC/FDLIBM/public domain; LGPL-2.1-or-later test files",
+      "path": "LICENSE.md",
+      "sha256": "b1843fbf5b03f519a5f0a44fce751bdd1022ae7148614923f9d6293e17a18b17"
+    },
+    {
+      "name": "zlib",
+      "declaredLicense": "Zlib",
+      "path": "zlib.h",
+      "sha256": "045cf777c6c9109b28ddcf3a413c5ca15e39fc513c13ef87bd9a3132a59d1b51"
+    }
+  ]
+}

@@ -251,7 +251,7 @@ Android, and iOS. The configured minimums relevant to this work are:
 | Android | API 26; universal release builds currently cover arm64, armv7, x86, and x86_64 |
 | iOS | iOS 14 |
 | macOS | macOS 10.13 |
-| Rust | 1.88 declared minimum; CI builds with stable |
+| Rust | 1.90 declared minimum for Tauri 2.12.5; CI uses 1.98.1 |
 | Frontend | React 19, Tauri 2, and the platform WebView |
 
 Passing desktop development tests alone is insufficient. Every Stage 1
@@ -477,7 +477,7 @@ The costs are material but bounded:
   1.77.2 minimum. Raising the minimum later did not change its RTL and
   coordinate limitations.
 
-Papercut now declares Rust 1.88 for unrelated production dependencies. The
+Papercut now declares Rust 1.90 for Tauri 2.12.5. The
 rejected native spike still does not justify carrying a second PDF parser.
 
 The native probe was fast and produced finite bounds, but throughput did not
@@ -497,9 +497,10 @@ It verifies the generated fixture's inline-style word boundary, two-column
 reading order, and finite text coordinates. Real multilingual and large-file
 documents remain local, uncommitted acceptance fixtures.
 
-`npm run dev` and `npm run build:vite` copy PDF.js's installed WASM decoders
-and standard fonts into generated local assets. The renderer does not fetch
-runtime resources from a CDN. With those assets configured, the 40-page
+`npm run dev` and `npm run build:vite` normally copy PDF.js's installed WASM
+decoders and standard fonts into generated local assets. Android production
+builds use the [source-built PDF and OCR runtime](android-production-packaging.md#source-built-pdf-and-ocr-runtime-2026-11-05).
+The renderer loads its runtime resources locally. With those assets configured, the 40-page
 JPEG 2000 benchmark renders a nonblank 430x695 first page and exposes its title
 through the text layer. The temporary first-page WebView harness used for this
 selection was removed after the production import and reader paths passed the
@@ -568,9 +569,9 @@ the worker and core into the ignored `public/tesseract/` build tree. Generated
 language must be an explicitly pinned package selected by the same preparation
 script so offline builds remain reproducible and only ship supported languages.
 
-Build preparation copies the installed worker, SIMD-capable LSTM cores, and the
-integer English and Arabic trained data into ignored `public/tesseract` assets. Runtime
-URLs are app-local; no CDN or account is required. One worker should be reused
+Build preparation stages the installed worker and integer English and Arabic
+trained data with the selected LSTM loader/WASM pairs in ignored
+`public/tesseract` assets. Runtime URLs are app-local. One worker should be reused
 for a complete job and terminated when the job finishes or is cancelled.
 
 English and Arabic are the only included languages. Automatic recognition must

@@ -120,7 +120,7 @@ impl Diagnostics {
             os: std::env::consts::OS,
             arch: std::env::consts::ARCH,
             protocol: super::network::protocol_version(),
-            build: option_env!("GITHUB_SHA")
+            build: option_env!("PAPERCUT_BUILD_REVISION")
                 .filter(|sha| sha.len() == 40 && sha.bytes().all(|byte| byte.is_ascii_hexdigit())),
             dropped: history.dropped,
             events: history.events.iter().cloned().collect(),

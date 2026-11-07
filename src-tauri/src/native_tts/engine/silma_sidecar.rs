@@ -646,6 +646,10 @@ fn valid_runtime_pack_parts(entry: &SilmaRuntimePackManifestEntry) -> bool {
 }
 
 fn silma_runtime_pack_default_source_dir() -> Option<PathBuf> {
+    // Unsupported platforms must not embed the developer checkout path.
+    if !silma_supported_on_current_platform() {
+        return None;
+    }
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let repo_root = manifest_dir.parent()?;
     let source = repo_root

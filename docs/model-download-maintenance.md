@@ -92,9 +92,9 @@ external heartbeat if strict monitoring delivery becomes a requirement.
 ## Local checks
 
 ```bash
-node --test scripts/check-model-downloads-selftest.js
-node scripts/check-model-downloads.js
-node scripts/check-model-downloads.js --download-dir /tmp/papercut-models
+node --test scripts/checks/__tests__/check-model-downloads-selftest.js
+node scripts/checks/check-model-downloads.js
+node scripts/checks/check-model-downloads.js --download-dir /tmp/papercut-models
 
 ORT_LIB_LOCATION="$PWD/src-tauri/target/sherpa-onnx-prebuilt/sherpa-onnx-v1.13.4-linux-x64-shared-lib/lib" \
   cargo test --manifest-path src-tauri/Cargo.toml --locked --features native-tts-shared --lib

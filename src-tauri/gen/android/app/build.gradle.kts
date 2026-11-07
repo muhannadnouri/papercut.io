@@ -13,8 +13,19 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Merged dependency art profiles produce non-deterministic baseline.prof content,
+// which breaks byte-identical rebuilds; upstream sherpa-onnx disables them the same way.
+tasks.whenTaskAdded {
+    if (name.contains("artprofile", ignoreCase = true) || name.contains("baselineprofile", ignoreCase = true)) {
+        enabled = false
+    }
+}
+
 android {
+    ndkVersion = "30.0.16248370"
+    System.getenv("NDK_HOME")?.let { ndkPath = it }
     compileSdk = 36
+    buildToolsVersion = "35.0.0"
     namespace = "io.papercut.desktop"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
@@ -23,6 +34,10 @@ android {
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+    }
+    packaging {
+        // Papercut links ORT through the Rust/C API; the AAR's Java-binding glue is dead weight.
+        jniLibs.excludes.add("**/libonnxruntime4j_jni.so")
     }
     buildTypes {
         getByName("debug") {
@@ -37,6 +52,7 @@ android {
             }
         }
         getByName("release") {
+            ndk.abiFilters.add("arm64-v8a")
             isMinifyEnabled = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }
@@ -58,6 +74,8 @@ rust {
 }
 
 dependencies {
+    // Pinned ORT trusted artifact; staging must not add a second libonnxruntime.so alongside it.
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.27.0")
     implementation("androidx.webkit:webkit:1.14.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.activity:activity-ktx:1.10.1")
