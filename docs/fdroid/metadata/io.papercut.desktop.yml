@@ -1,0 +1,74 @@
+AntiFeatures:
+  - NonFreeAssets
+Categories:
+  - Reading
+License: GPL-3.0-only
+AuthorName: Muhannad Nouri
+AuthorWebSite: https://github.com/muhannadnouri
+WebSite: https://github.com/muhannadnouri/papercut.io
+SourceCode: https://github.com/muhannadnouri/papercut.io
+IssueTracker: https://github.com/muhannadnouri/papercut.io/issues
+
+RepoType: git
+Repo: https://github.com/muhannadnouri/papercut.io
+Binaries: https://github.com/muhannadnouri/papercut.io/releases/download/v%v/Papercut_v%v_android-arm64-v8a.apk
+
+Builds:
+  - versionName: 1.10.0
+    versionCode: 1010000
+    commit: v1.10.0
+    sudo:
+      - apt-get update
+      - apt-get install -y --no-install-recommends autoconf automake build-essential
+        curl golang-go libtool-bin pkgconf rustup xz-utils
+      - sdkmanager --sdk_root=/opt/android-sdk "platforms;android-36" "build-tools;35.0.0"
+    output: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+    prebuild:
+      - task_node="$HOME/.local/papercut-node"
+      - mkdir -p "$task_node"
+      - curl -fsSL https://nodejs.org/dist/v22.22.1/node-v22.22.1-linux-x64.tar.xz
+        -o "$task_node/node.tar.xz"
+      - echo "9a6bc82f9b491279147219f6a18add1e18424dce90d41d2a5fcd69d4924ba3aa $task_node/node.tar.xz"
+        | sha256sum -c -
+      - tar -xJf "$task_node/node.tar.xz" -C "$task_node" --strip-components=1
+      - rm "$task_node/node.tar.xz"
+      - export PATH="$task_node/bin:$PATH"
+      - npm ci
+      - find node_modules/tesseract.js-core -maxdepth 1 -name 'tesseract-core*.wasm.js'
+        -type f -delete
+      - rustup toolchain install 1.98.1 --profile minimal --target aarch64-linux-android
+    scanignore:
+      - node_modules/@tesseract.js-data/ara/4.0.0_best_int/ara.traineddata.gz
+      - node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz
+    scandelete:
+      - node_modules/@esbuild/linux-x64/bin/esbuild
+      - node_modules/esbuild/bin/esbuild
+      - node_modules/@pagefind/linux-x64/bin/pagefind_extended
+      - node_modules/@tesseract.js-data/ara/4.0.0/ara.traineddata.gz
+      - node_modules/@tesseract.js-data/eng/4.0.0/eng.traineddata.gz
+      - node_modules/pdfjs-dist/wasm
+      - node_modules/tesseract.js-core/tesseract-core*.wasm
+    build:
+      - export PATH="$HOME/.local/papercut-node/bin:$PATH"
+      - node scripts/fdroid/prepare-android-wasm-tools.js
+      - node scripts/fdroid/build-source-esbuild.js
+      - export ESBUILD_BINARY_PATH="$PWD/.cache/android-production/host-tools/esbuild"
+      - task_java=$(env -u JAVA_HOME -u PAPERCUT_JAVA_HOME node --input-type=module
+        -e 'import { ensureLocalJdk } from "./scripts/lib/android/jdk.js"; console.log(await
+        ensureLocalJdk())' | tail -n 1)
+      - export JAVA_HOME="$task_java"
+      - task_gradle=$(command -v gradle)
+      - PAPERCUT_GRADLE="$task_gradle" bash scripts/fdroid/build-android-release.sh
+    ndk: 30.0.16248370
+
+MaintainerNotes: |-
+  Draft only: v1.10.0 predates the packaging changes. Set the real release
+  tag/version/code and AllowedAPKSigningKeys before submission. The two
+  scanner exceptions are hash-verified Apache-2.0 OCR data. Review the
+  host toolchain inputs and run the buildserver gates before submission.
+  See docs/fdroid/README.md in the app source.
+
+AutoUpdateMode: Version v%v
+UpdateCheckMode: Tags
+CurrentVersion: 1.10.0
+CurrentVersionCode: 1010000

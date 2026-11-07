@@ -69,7 +69,7 @@ npm run build
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
 npm run test:search-eval
-node scripts/check-mobile-provider-inference-selftest.mjs
+node scripts/checks/__tests__/check-mobile-provider-inference-selftest.mjs
 ```
 
 `test:search-eval` checks the frontend parser and actual native import/store/search

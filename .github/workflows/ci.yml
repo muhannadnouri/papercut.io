@@ -140,20 +140,24 @@ jobs:
               src-tauri/src/* | \
               src-tauri/tts/* | \
               src-tauri/vendor/sherpa-onnx-sys/* | \
-              scripts/lib/*)
+              scripts/lib/* | \
+              scripts/search/build-search-index.js | \
+              scripts/fdroid/source-build.js)
                 android_packaging=true
                 desktop_packaging=true
                 ios_packaging=true
                 ;;
             esac
+            # Preserve the old verify-* glob's desktop coverage of the APK verifier during this path-only move.
             case "$path" in
               src-tauri/tauri.linux.conf.json | \
               src-tauri/tauri.macos.conf.json | \
               src-tauri/Entitlements.plist | \
               src-tauri/icons/* | \
-              scripts/build-desktop.js | \
-              scripts/copy-* | \
-              scripts/verify-* | \
+              scripts/desktop/build-desktop.js | \
+              scripts/desktop/copy-* | \
+              scripts/desktop/verify-* | \
+              scripts/android/verify-android-apk.js | \
               scripts/lib/desktop/* | \
               scripts/lib/linux/* | \
               scripts/lib/macos/*)
@@ -161,8 +165,15 @@ jobs:
                 ;;
             esac
             case "$path" in
-              scripts/build-android.js | \
-              scripts/check-mobile-provider-inference*.mjs | \
+              scripts/android/build-android.js | \
+              scripts/android/verify-android-apk.js | \
+              scripts/fdroid/* | \
+              scripts/pdf/prepare-pdf-assets.js | \
+              vite.config.ts | \
+              src-tauri/tauri.android.conf.json | \
+              src-tauri/gen/android/* | \
+              scripts/checks/check-mobile-provider-inference*.mjs | \
+              scripts/checks/__tests__/check-mobile-provider-inference*.mjs | \
               scripts/lib/android/*)
                 android_packaging=true
                 ;;
@@ -171,17 +182,18 @@ jobs:
               src-tauri/tauri.ios.conf.json | \
               src-tauri/gen/apple/* | \
               src-tauri/icons/ios/* | \
-              scripts/build-ios.js | \
-              scripts/check-ios-device-build.js | \
-              scripts/check-mobile-provider-inference*.mjs | \
+              scripts/ios/build-ios.js | \
+              scripts/ios/check-ios-device-build.js | \
+              scripts/checks/check-mobile-provider-inference*.mjs | \
+              scripts/checks/__tests__/check-mobile-provider-inference*.mjs | \
               scripts/lib/ios/*)
                 ios_packaging=true
                 ;;
             esac
             case "$path" in
               sidecars/silma/* | \
-              scripts/prepare-silma-sidecar.js | \
-              scripts/package-silma-runtime-pack.js | \
+              scripts/silma/prepare-silma-sidecar.js | \
+              scripts/silma/package-silma-runtime-pack.js | \
               src-tauri/tts/silma-runtime-packs.json | \
               .github/workflows/ci.yml | \
               .github/workflows/silma-runtime.yml)
@@ -221,13 +233,19 @@ jobs:
         run: npm run lint -- --quiet
 
       - name: Frontend tests
-        run: npm test
+        run: npm test -- --exclude '**/*.browser.test.ts'
+
+      - name: Chromium fixture tests
+        run: npm test -- --no-file-parallelism .browser.test.ts
 
       - name: Model download monitor regression check
-        run: node --test scripts/check-model-downloads-selftest.js
+        run: node --test scripts/checks/__tests__/check-model-downloads-selftest.js
 
       - name: Mobile provider runner regression check
-        run: node --test scripts/check-mobile-provider-inference-selftest.mjs
+        run: node --test scripts/checks/__tests__/check-mobile-provider-inference-selftest.mjs
+
+      - name: Android production packaging regression check
+        run: node --test scripts/android/__tests__/check-android-packaging-selftest.js
 
       - name: Build frontend + Pagefind index
         run: npm run build
@@ -290,7 +308,7 @@ jobs:
       - name: Opt-in search provider regressions
         run: |
           # Reuse Cargo's prepared runtime; cached-model inference checks remain explicit.
-          node scripts/copy-sherpa-linux-libs.js
+          node scripts/desktop/copy-sherpa-linux-libs.js
           task_shared_dir="$PWD/src-tauri/tts/runtime/linux-x64-shared-libs"
           LD_LIBRARY_PATH="$task_shared_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
             cargo test --manifest-path src-tauri/Cargo.toml --locked --lib \
@@ -407,7 +425,7 @@ jobs:
 
       - name: Verify macOS bundled runtime libraries
         if: matrix.platform == 'macos'
-        run: node scripts/verify-macos-bundle-libs.js
+        run: node scripts/desktop/verify-macos-bundle-libs.js
 
       - name: Upload AppImage artifact (Linux)
         if: matrix.platform == 'linux'
@@ -511,58 +529,71 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           java-version: 17
           distribution: temurin
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
         with:
           packages: platform-tools
 
-      - name: Install Android NDK
-        run: sdkmanager "ndk;29.0.13846066"
-
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 22
+          node-version: 22.22.1
           cache: npm
 
+      - name: Install Android NDK
+        run: |
+          task_ndk_version=$(node --input-type=module -e 'import { ANDROID_NDK_VERSION } from "./scripts/lib/android/constants.js"; process.stdout.write(ANDROID_NDK_VERSION)')
+          sdkmanager "ndk;$task_ndk_version" "platforms;android-36" "build-tools;35.0.0"
+          echo "ANDROID_NDK_VERSION=$task_ndk_version" >> "$GITHUB_ENV"
+          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/$task_ndk_version" >> "$GITHUB_ENV"
+
       - name: Setup Rust with Android targets
-        uses: dtolnay/rust-toolchain@1.98.1
+        uses: dtolnay/rust-toolchain@18f0487477426dce244608110aa2660c2893deb7 # 1.98.1
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
       - name: Cache Rust build artifacts
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: src-tauri
-          shared-key: android
+          shared-key: android-${{ env.ANDROID_NDK_VERSION }}
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Android APK
-        run: npm run android:apk:native-tts
-        env:
-          NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/29.0.13846066
+      - name: Prepare Android WASM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends autoconf automake libtool-bin pkg-config
+          node scripts/fdroid/prepare-android-wasm-tools.js
 
+      - name: Build unsigned Android release APK
+        run: bash scripts/fdroid/build-android-release.sh
+
+      - name: Verify unsigned Android release APK
+        run: node scripts/android/verify-android-apk.js --unsigned src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+
+      # The release build generates Gradle plugin paths; these JVM tests need no debug APK.
       - name: Test Android transfer discovery callbacks
         working-directory: src-tauri/gen/android
         run: ./gradlew :tauri-plugin-library-transfer:testDebugUnitTest --no-daemon
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v7
+      - name: Upload unsigned Android release artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: papercut-android-native-tts-apk
-          path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
+          name: papercut-android-release-unsigned-apk
+          path: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+          if-no-files-found: error
           retention-days: 7
 
       - name: Download verified mobile inference assets
@@ -574,9 +605,9 @@ jobs:
 
       - name: Compile Android emulator provider regression
         if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
-        env:
-          NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/29.0.13846066
         run: |
+          # Upstream x86_64 fixture only; application APKs require the r30 source runtime.
+          npm run prepare:sherpa-android-libs
           task_toolchain="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
           export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="$task_toolchain/x86_64-linux-android26-clang"
           export CC_x86_64_linux_android="$CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER"
@@ -608,7 +639,7 @@ jobs:
           ram-size: 4096M
           disable-animations: true
           script: >-
-            node scripts/check-mobile-provider-inference.mjs --platform android
+            node scripts/checks/check-mobile-provider-inference.mjs --platform android
             --build-log "$RUNNER_TEMP/android-provider-tests.json"
             --models "$RUNNER_TEMP/search-provider-models"
             --runtime-libs "$PWD/src-tauri/tts/runtime/sherpa-onnx-android/jniLibs/x86_64"
@@ -715,7 +746,7 @@ jobs:
       - name: Provider initialization and model inference (iOS simulator)
         if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
         run: >-
-          node scripts/check-mobile-provider-inference.mjs --platform ios
+          node scripts/checks/check-mobile-provider-inference.mjs --platform ios
           --build-log "$RUNNER_TEMP/ios-provider-tests.json"
           --models "$RUNNER_TEMP/search-provider-models"
 
@@ -774,7 +805,7 @@ jobs:
 
       - name: Build packaged SILMA worker
         run: |
-          node scripts/prepare-silma-sidecar.js \
+          node scripts/silma/prepare-silma-sidecar.js \
             --target "${{ matrix.target }}" \
             --clean \
             --self-test \
@@ -783,7 +814,7 @@ jobs:
 
       - name: Package SILMA runtime archive
         run: |
-          node scripts/package-silma-runtime-pack.js \
+          node scripts/silma/package-silma-runtime-pack.js \
             --target "${{ matrix.target }}" \
             --runtime-id "${{ matrix.runtime_id }}" \
             --archive-name "${{ matrix.archive }}"

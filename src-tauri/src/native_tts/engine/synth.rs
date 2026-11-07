@@ -565,7 +565,7 @@ mod tests {
         assert!(audio.samples().iter().any(|sample| sample.abs() > 0.001));
     }
 
-    /// Run explicitly after downloading archives with scripts/check-model-downloads.js.
+    /// Run explicitly after downloading archives with scripts/checks/check-model-downloads.js.
     #[test]
     #[ignore = "requires real model archives; run by the model-download workflow"]
     fn model_archive_smoke() {

@@ -1,6 +1,5 @@
 import { join } from "node:path"
 import {
-  SHERPA_REQUIRED_LIBS,
   SHERPA_VERSION,
 } from "../constants.js"
 import {
@@ -8,7 +7,14 @@ import {
   SRC_TAURI_DIR,
 } from "../paths.js"
 
-export { SHERPA_REQUIRED_LIBS, SHERPA_VERSION }
+export { SHERPA_VERSION }
+
+export const ANDROID_RUST_TOOLCHAIN = "1.98.1"
+export const ANDROID_NDK_VERSION = "30.0.16248370"
+export const PAGEFIND_WASM_PATH_PREFIX = "/build/papercut-pagefind"
+
+// Gradle supplies libonnxruntime.so from the pinned Maven AAR; only Sherpa's own library is staged.
+export const SHERPA_ANDROID_STAGED_LIBS = ["libsherpa-onnx-c-api.so"]
 
 export const JDK_VERSION = "17"
 export const JDK_RELEASE = "17.0.19+10"
@@ -38,12 +44,6 @@ export const SHERPA_ANDROID_ABIS = ["arm64-v8a", "armeabi-v7a", "x86", "x86_64"]
 export const SHERPA_DEFAULT_ANDROID_ABI = "arm64-v8a"
 export const SHERPA_DEFAULT_ANDROID_RUST_TARGET = "aarch64-linux-android"
 export const SHERPA_DEFAULT_ANDROID_TAURI_TARGET = "aarch64"
-export const SHERPA_ANDROID_COPY_LIBS = [
-  "libsherpa-onnx-c-api.so",
-  "libsherpa-onnx-cxx-api.so",
-  "libonnxruntime.so",
-  "libsherpa-onnx-jni.so",
-]
 export const SHERPA_GENERATED_ANDROID_JNI_LIBS = join(
   SRC_TAURI_DIR,
   "gen",

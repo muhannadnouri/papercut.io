@@ -9,7 +9,7 @@
 | Latest Release | [![Latest release](https://img.shields.io/github/v/release/muhannadnouri/papercut.io?logo=github&color=6366f1)](https://github.com/muhannadnouri/papercut.io/releases/latest) |
 | CI Build | [![CI](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml/badge.svg)](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml) |
 | UI | [![React](https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB)](https://react.dev/) |
-| Application Framework | [![Tauri + Rust](https://img.shields.io/badge/Tauri_+_Rust-2.x_\|_1.88+-24C8DB?logo=tauri&logoColor=white)](https://v2.tauri.app/) |
+| Application Framework | [![Tauri + Rust](https://img.shields.io/badge/Tauri_+_Rust-2.x_\|_1.90+-24C8DB?logo=tauri&logoColor=white)](https://v2.tauri.app/) |
 | License | [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md) |
 | Dependency License Compliance | [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_shield&issueType=license) |
 | Security Analysis | [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=shield&issueType=security)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_shield&issueType=security) |
@@ -45,8 +45,8 @@ Bundled starter HTML documents are indexed at build time with Pagefind. User-imp
 |-------|-----------------|---------------------|
 | Node  | >= 22.13.0      | 22.22.1             |
 | npm   | >= 10.9.0       | 10.9.4              |
-| Rust  | >= 1.88         | Current stable      |
-| Cargo | >= 1.88         | Current stable      |
+| Rust  | >= 1.90         | Current stable      |
+| Cargo | >= 1.90         | Current stable      |
 
 <details>
 <summary><strong>Platform setup details</strong></summary>
@@ -118,11 +118,11 @@ The Rust toolchain (above) and Node.js (above) cover the rest. Native sherpa-onn
 
 Required to build the Android APK:
 
-| Tool        | Minimum Version |
-|-------------|-----------------|
-| Java (JDK)  | 17              |
-| Android SDK | API 26+         |
-| Android NDK | 29.0.13846066   |
+| Tool | Required version |
+| --- | --- |
+| Java (JDK) | 17 |
+| Android SDK | Platform 36, Build Tools 35.0.0 |
+| Android NDK | 30.0.16248370 |
 
 **Install Java 17:**
 
@@ -149,7 +149,7 @@ sudo pacman -S jdk17-openjdk
 Install [Android Studio](https://developer.android.com/studio) (recommended) or the command-line tools only. Then install the NDK via SDK Manager:
 
 ```bash
-sdkmanager "ndk;29.0.13846066"
+sdkmanager "ndk;30.0.16248370" "platforms;android-36" "build-tools;35.0.0"
 ```
 
 CI and release workflows explicitly pass `packages: platform-tools` to
@@ -166,7 +166,7 @@ rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-andro
 
 ```bash
 export ANDROID_HOME=$HOME/Android/Sdk
-export NDK_HOME=$ANDROID_HOME/ndk/29.0.13846066
+export NDK_HOME="$ANDROID_HOME/ndk/30.0.16248370"
 ```
 
 ### System Dependencies (Windows)
@@ -181,6 +181,9 @@ Refer to the Tauri [Windows prerequisites](https://v2.tauri.app/start/prerequisi
 </details>
 
 ## Getting Started
+
+See the [script command map](scripts/README.md) for build/check entry points,
+when to use them and their toolchain requirements.
 
 ### Install dependencies
 
@@ -230,6 +233,10 @@ security alerts are resolved.
 ```bash
 npm run desktop
 ```
+
+Production packaging derives its diagnostic build revision from the checkout.
+For exported sources without `.git`, supply `PAPERCUT_BUILD_REVISION` from the
+matching release metadata; see the [source-revision contract](docs/android-production-packaging.md#production-source-revision-contract).
 
 When this command is run from a Flatpak-hosted editor terminal, the script automatically delegates the desktop build to the host OS with `flatpak-spawn --host`. That keeps the command the same while letting Tauri and `linuxdeploy` see the real host WebKitGTK/GTK libraries needed for `.deb`, `.rpm`, and AppImage bundling. You do not need to source `tauri-env.sh` before `npm run desktop`; if it has already been sourced, the desktop wrapper removes the Flatpak pkg-config variables before running the host build.
 
@@ -336,6 +343,20 @@ npm run android:apk
 
 Use `npm run android:apk:native-tts` when building the Android APK with native audiobook generation and background playback. Native playback uses Android Media3/ExoPlayer through the official, exactly pinned `tauri-plugin-native-audio` 1.0.5 packages; API 26 is the minimum supported Android version.
 
+Native TTS debug and release APKs both use the r30 source-built arm64 runtime.
+Prepare it once on Linux x86-64 with CMake and the pinned Android SDK/NDK:
+
+```bash
+node scripts/fdroid/build-android-source-libs.js
+npm run android:apk:native-tts
+```
+
+On macOS or Windows, copy the complete Linux-built `source-arm64` directory
+(both `.so` files and `source-receipt.json`) to `.cache/android-production/`,
+or point `SHERPA_ONNX_LIB_DIR` at that directory. Install r30 on the build host
+too, for compiling the app. The wrappers reject old receipts and changed
+libraries. The ordinary `android:apk` debug build needs no Sherpa preparation.
+
 Audiobooks are not pre-rendered into the APK. Users save full audiobooks on demand from the document UI, and generated audio is stored as local app user data.
 
 The APK is output to:
@@ -344,7 +365,14 @@ The APK is output to:
 src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
 ```
 
-The `--debug` flag signs the APK automatically with a debug keystore, which is required for sideloading. Unsigned release APKs are silently rejected by Android at install time.
+The `--debug` flag signs the APK automatically with a development keystore.
+Android requires a signed APK for installation.
+
+For production packaging, use `npm run android:apk:release`. It retains native
+TTS/search and builds arm64 for Android API 26+. See the
+[Android packaging guide](docs/android-production-packaging.md) for production key
+setup, signing/verification, source and license evidence, security review,
+F-Droid submission and release updates.
 
 To sideload on an Android device, enable **Install unknown apps** in Settings and transfer the `.apk` file directly (via USB, ADB, or file share).
 
@@ -553,7 +581,7 @@ papercut.io/
 │   ├── tauri.conf.json            # Base Tauri config
 │   ├── tauri.ios.conf.json        # iOS Bundle ID / App Store config
 │   └── tauri.linux.conf.json      # Linux shared-library bundle config
-├── scripts/                       # Desktop and mobile build orchestration
+├── scripts/                       # Commands grouped by purpose; see scripts/README.md
 │   └── lib/                       # Shared and platform-specific script helpers
 ├── site/                          # Generated multilingual static website
 ├── docs/                          # Feature and architecture notes

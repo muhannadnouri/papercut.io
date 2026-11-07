@@ -1,0 +1,70 @@
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -2155 +2155 @@
+-version = "0.19.1"
++version = "2.1.1"
+@@ -2157 +2157 @@
+-checksum = "d7005aaf257a59ff4de471a9d5538ec868a21586534fff7f85dd97d4043a6139"
++checksum = "4f182275033b808ede9427884caa8e05fa7db930801759524ca7925bd8aa7a82"
+@@ -2164 +2164 @@
+-version = "0.13.0"
++version = "0.18.2"
+@@ -2166 +2166 @@
+-checksum = "1154809406efdb7982841adb6311b3d095b46f78342dd646736122fe6b19e267"
++checksum = "b17290c95158a760027059fe3f511970d6857e47ff5008f9e09bffe3d3e1c6af"
+@@ -2170 +2170 @@
+- "syn 1.0.109",
++ "syn 2.0.106",
+@@ -2264 +2264 @@
+-version = "0.0.0"
++version = "1.4.0"
+--- a/pagefind_web/Cargo.lock
++++ b/pagefind_web/Cargo.lock
+@@ -64 +64 @@
+-version = "0.0.0"
++version = "1.4.0"
+@@ -92,0 +93,6 @@
++name = "rustversion"
++version = "1.0.23"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
++
++[[package]]
+@@ -111 +117 @@
+-version = "0.2.92"
++version = "0.2.100"
+@@ -113 +119 @@
+-checksum = "4be2531df63900aeb2bca0daaaddec08491ee64ceecbee5076636a3b026795a8"
++checksum = "1edc8929d7499fc4e8f0be2262a241556cfc54a0bea223790e71446f2aab1ef5"
+@@ -115,0 +122,2 @@
++ "once_cell",
++ "rustversion",
+@@ -121 +129 @@
+-version = "0.2.92"
++version = "0.2.100"
+@@ -123 +131 @@
+-checksum = "614d787b966d3989fa7bb98a654e369c762374fd3213d212cfc0251257e747da"
++checksum = "2f0a0651a5c2bc21487bde11ee802ccaf4c51935d0d3d42a6101f98161700bc6"
+@@ -127 +134,0 @@
+- "once_cell",
+@@ -136 +143 @@
+-version = "0.2.92"
++version = "0.2.100"
+@@ -138 +145 @@
+-checksum = "a1f8823de937b71b9460c0c34e25f3da88250760bec0ebac694b49997550d726"
++checksum = "7fe63fc6d09ed3792bd0897b314f53de8e16568c2b3f7982f468c0bf9bd0b407"
+@@ -146 +153 @@
+-version = "0.2.92"
++version = "0.2.100"
+@@ -148 +155 @@
+-checksum = "e94f17b526d0a461a191c78ea52bbce64071ed5c04c9ffe424dcb38f74171bb7"
++checksum = "8ae87ea40c9f689fc23f209965b6fb8a99ad69aeeb0231408be24920604395de"
+@@ -159 +166 @@
+-version = "0.2.92"
++version = "0.2.100"
+@@ -161 +168,4 @@
+-checksum = "af190c94f2773fdb3729c55b007a722abb5384da03bc0986df4c289bf5567e96"
++checksum = "1a05d73b933a847d6cccdda8f838a22ff101ad9bf93e33684f39c1f5f0eece3d"
++dependencies = [
++ "unicode-ident",
++]
