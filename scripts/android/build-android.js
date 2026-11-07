@@ -1,3 +1,5 @@
+import assert from "node:assert/strict"
+import { createHash } from "node:crypto"
 import {
   existsSync,
   readFileSync,
@@ -9,6 +11,7 @@ import {
   runTauriAndroidBuild,
 } from "../lib/android/build-env.js"
 import {
+  PAGEFIND_SOURCE_REVISION,
   PAGEFIND_WASM_PATH_PREFIX,
   SHERPA_DEFAULT_ANDROID_ABI,
   SHERPA_DEFAULT_ANDROID_RUST_TARGET,
@@ -55,11 +58,18 @@ async function runNativeTtsAndroidBuild(extraArgs) {
   const pagefindDirectory = join(ROOT, ".cache/android-production/source-pagefind")
   const pagefind = join(pagefindDirectory, "pagefind")
   if (production) {
-    const receipt = join(pagefindDirectory, "source-receipt.json")
-    if (!existsSync(pagefind) || !existsSync(receipt)
-      || JSON.parse(readFileSync(receipt, "utf8")).tools?.filePrefix !== PAGEFIND_WASM_PATH_PREFIX) {
-      throw new Error("Missing Pagefind built with normalized WASM paths. Run scripts/fdroid/build-android-release.sh first.")
-    }
+    const receiptPath = join(pagefindDirectory, "source-receipt.json")
+    const rebuild = " Run scripts/fdroid/build-android-release.sh first."
+    assert(existsSync(pagefind) && existsSync(receiptPath), "Missing source-built Pagefind or its receipt." + rebuild)
+    const receipt = JSON.parse(readFileSync(receiptPath, "utf8"))
+    assert.equal(receipt.tools?.filePrefix, PAGEFIND_WASM_PATH_PREFIX, "Missing Pagefind built with normalized WASM paths." + rebuild)
+    assert.equal(receipt.sources?.pagefind, PAGEFIND_SOURCE_REVISION, "Pagefind source revision differs from the release pin." + rebuild)
+    const binary = readFileSync(pagefind)
+    assert(binary.length > 0, "Empty source-built Pagefind binary." + rebuild)
+    assert.deepEqual(receipt.artifacts?.pagefind, {
+      bytes: binary.length,
+      sha256: createHash("sha256").update(binary).digest("hex"),
+    }, "Pagefind binary differs from its receipt." + rebuild)
   }
 
   const args = extraArgs.length > 0

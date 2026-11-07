@@ -368,11 +368,13 @@ src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.
 The `--debug` flag signs the APK automatically with a development keystore.
 Android requires a signed APK for installation.
 
-For production packaging, use `npm run android:apk:release`. It retains native
-TTS/search and builds arm64 for Android API 26+. See the
-[Android packaging guide](docs/android-production-packaging.md) for production key
-setup, signing/verification, source and license evidence, security review,
-F-Droid submission and release updates.
+For a fresh production build on Linux x86-64, follow the
+[Android packaging guide](docs/android-production-packaging.md#3-build-verify-and-update)
+to install the pinned tools, then run `bash scripts/fdroid/build-android-release.sh`.
+It prepares the source-built inputs and builds an unsigned arm64 APK for
+Android API 26+ with native TTS and search. Once the inputs are prepared,
+`npm run android:apk:release` rebuilds the APK. The guide covers production
+signing, verification, source and license evidence, and F-Droid submission.
 
 To sideload on an Android device, enable **Install unknown apps** in Settings and transfer the `.apk` file directly (via USB, ADB, or file share).
 

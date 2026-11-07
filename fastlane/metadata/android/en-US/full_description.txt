@@ -10,6 +10,8 @@ Papercut helps you read, search and listen to documents on your device.
 
 Reading, keyword search and OCR work offline. Voice generation and conceptual search require optional model downloads; after downloading, inference runs on your device. Model availability, languages and download sizes are shown in the app. Voice and embedding models have their own licenses.
 
+Piper Kareem is an optional Arabic voice. The rights for its training dataset are still unconfirmed pending clarification from upstream.
+
 Papercut supports English and Arabic reading and audio workflows, alongside additional interface and voice languages. Android 8.0 or later and a 64-bit ARM device are required.
 
 Report problems and request features at https://github.com/muhannadnouri/papercut.io/issues

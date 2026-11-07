@@ -117,6 +117,9 @@ jobs:
             # Keep the required workflow present, but skip its runner-heavy job
             # only for known content/metadata surfaces that cannot affect the app.
             case "$path" in
+              src-tauri/licensing/*)
+                code_checks=true
+                ;;
               *.md | \
               .github/FUNDING.yml | \
               RELEASE_NOTES/* | \
@@ -136,6 +139,7 @@ jobs:
               src-tauri/build.rs | \
               src-tauri/windows-app-manifest.xml | \
               src-tauri/tauri.conf.json | \
+              src-tauri/licensing/* | \
               src-tauri/plugins/* | \
               src-tauri/src/* | \
               src-tauri/tts/* | \

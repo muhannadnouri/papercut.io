@@ -2,6 +2,7 @@ import {
   copyFile,
   mkdir,
   readFile,
+  rm,
 } from "node:fs/promises"
 import { join } from "node:path"
 import {
@@ -12,7 +13,11 @@ import {
   androidBuildPathMaps,
   androidNdkDir,
 } from "../lib/android/build-env.js"
-import { ANDROID_NDK_VERSION } from "../lib/android/constants.js"
+import {
+  ANDROID_NDK_VERSION,
+  ANDROID_ORT_AAR as ortAar,
+  SHERPA_ANDROID_SOURCE_REVISION as sherpaRevision,
+} from "../lib/android/constants.js"
 import { downloadFile } from "../lib/download.js"
 import {
   source,
@@ -25,12 +30,6 @@ import { checkElf } from "../android/verify-android-apk.js"
 // Only Sherpa is compiled from source. ORT ships from the trusted Maven AAR the app
 // already links at runtime; its source-commit history lives in earlier recipe
 // revisions if an independent ORT build is ever needed again.
-const sherpaRevision = "142807252687d81b40d6315f23470a1512a00de3"
-const ortAar = {
-  version: "1.27.0",
-  url: "https://repo1.maven.org/maven2/com/microsoft/onnxruntime/onnxruntime-android/1.27.0/onnxruntime-android-1.27.0.aar",
-  sha256: "077dec5e2d821234c7dc0aba584bec8f999854b546c754cab93a90741c56fbeb",
-}
 const ndkVersion = ANDROID_NDK_VERSION
 const ndk = androidNdkDir()
 
@@ -45,6 +44,10 @@ await downloadFile({
   dest: ortArchive,
   sha256: ortAar.sha256,
   label: "ort-aar",
+})
+await rm(join(ortDir, "headers"), {
+  recursive: true,
+  force: true,
 })
 await run("unzip", ["-o", ortArchive, "headers/*", "jni/arm64-v8a/libonnxruntime.so", "-d", ortDir])
 

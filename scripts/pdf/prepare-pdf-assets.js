@@ -47,10 +47,13 @@ if (fromSource) {
     'qcms_bg.wasm', 'quickjs-eval.wasm', 'quickjs-eval.js',
     'LICENSE_PDFJS_QCMS_SOURCE', 'LICENSE_QUICKJS',
   ]
-  verifySourceFiles(pdfBuild, pdfReceipt, [
+  const pdfFiles = [
     ...pdfModules,
     ...new Set([...pdfResources, ...readdirSync(wasmRoot)].map(file => 'web/wasm/' + file)),
-  ])
+  ]
+  assert.deepEqual(Object.keys(pdfReceipt.artifacts ?? {}).sort(), [...pdfFiles].sort(),
+    'PDF source receipt does not match the staged file set. Rerun the source recipe.')
+  verifySourceFiles(pdfBuild, pdfReceipt, pdfFiles)
   verifySourceFiles(coreRoot, ocrReceipt, coreFiles)
   for (const { path, sha256 } of languageSources) {
     assert.equal(createHash('sha256').update(readFileSync(path)).digest('hex'), sha256, `OCR data differs from pinned tessdata: ${path}`)

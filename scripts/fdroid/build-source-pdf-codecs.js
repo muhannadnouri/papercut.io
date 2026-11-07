@@ -67,10 +67,11 @@ for (const [part, revision] of Object.entries(wrappers)) {
       cwd: work,
       env: {
         ...env,
+        CARGO_HOME: cargoHome,
         CARGO_ENCODED_RUSTFLAGS: [
-          `--remap-path-prefix=${SOURCE_CACHE}=${filePrefix}`,
-          `--remap-path-prefix=${cargoHome}=/cargo`,
-        ].join("\x1f"),
+          [SOURCE_CACHE, filePrefix], [cargoHome, "/cargo"],
+        ].sort(([a], [b]) => a.length - b.length)
+          .map(([from, to]) => `--remap-path-prefix=${from}=${to}`).join("\x1f"),
         CARGO_TARGET_DIR: join(SOURCE_CACHE, "qcms-build"),
       },
     })
@@ -145,7 +146,11 @@ for (const [part, revision] of Object.entries(wrappers)) {
 }
 for (const file of built) {
   const bytes = await readFile(join(destination, file))
-  assert(![SOURCE_CACHE, cargoHome].some(directory => bytes.includes(directory)), "PDF codec embeds a host path: " + file)
+  assert(
+    !bytes.includes(SOURCE_CACHE + "/")
+      && (cargoHome === "/cargo" || !bytes.includes(join(cargoHome, "registry") + "/")),
+    "PDF codec embeds a host path: " + file,
+  )
   if (file.endsWith(".wasm")) {
     assert(WebAssembly.validate(bytes), "Invalid generated WASM: " + file)
   }

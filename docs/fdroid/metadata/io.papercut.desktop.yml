@@ -68,7 +68,8 @@ MaintainerNotes: |-
   host toolchain inputs and run the buildserver gates before submission.
   See docs/fdroid/README.md in the app source.
 
-AutoUpdateMode: Version v%v
+AutoUpdateMode: Version
 UpdateCheckMode: Tags
+UpdateCheckData: src-tauri/tauri.android.conf.json|versionCode"\s*:\s*([0-9]+)|src-tauri/tauri.conf.json|version"\s*:\s*"([^"]+)"
 CurrentVersion: 1.10.0
 CurrentVersionCode: 1010000

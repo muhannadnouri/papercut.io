@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 cache="$PWD/.cache/android-production"
-export EMSDK="${EMSDK:-$cache/emsdk}"
+export EMSDK="$cache/emsdk"
 node --input-type=module -e '
   import assert from "node:assert/strict"
   import { NODE_VERSION } from "./scripts/lib/constants.js"

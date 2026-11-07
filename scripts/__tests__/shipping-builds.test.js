@@ -6,8 +6,16 @@ import {
   vi,
 } from "vitest"
 import { ROOT } from "../lib/paths.js"
+import {
+  PAGEFIND_SOURCE_REVISION,
+  PAGEFIND_WASM_PATH_PREFIX,
+} from "../lib/android/constants.js"
+import { createHash } from "node:crypto"
 import { join } from "node:path"
 
+const pagefindPath = join(ROOT, ".cache/android-production/source-pagefind/pagefind")
+const pagefindReceiptPath = join(ROOT, ".cache/android-production/source-pagefind/source-receipt.json")
+const pagefindBytes = Buffer.from("source-built Pagefind")
 const calls = vi.hoisted(() => ({
   runSync: vi.fn(() => ({ status: 0 })),
   exitFromResult: vi.fn(),
@@ -18,6 +26,7 @@ const calls = vi.hoisted(() => ({
   prepare: vi.fn(),
   resources: vi.fn(),
   pagefindReceipt: vi.fn(),
+  pagefindExists: vi.fn(),
 }))
 vi.mock("../lib/build-revision.js", () => ({ productionBuildRevision: () => "cd".repeat(20) }))
 vi.mock("../lib/process.js", () => ({
@@ -61,10 +70,13 @@ vi.mock("node:fs", async importOriginal => {
   const fs = await importOriginal()
   return {
     ...fs,
-    existsSync: () => true,
-    readFileSync: (file, ...args) => file === join(ROOT, ".cache/android-production/source-pagefind/source-receipt.json")
-      ? calls.pagefindReceipt()
-      : fs.readFileSync(file, ...args),
+    existsSync: file => file !== pagefindPath || calls.pagefindExists(),
+    readFileSync: (file, ...args) => {
+      if (file === pagefindPath) {
+        return pagefindBytes
+      }
+      return file === pagefindReceiptPath ? calls.pagefindReceipt() : fs.readFileSync(file, ...args)
+    },
   }
 })
 vi.mock("node:fs/promises", () => ({
@@ -83,7 +95,17 @@ beforeEach(() => {
   vi.stubEnv("SHERPA_REQUIRE_SOURCE", undefined)
   vi.resetModules()
   vi.clearAllMocks()
-  calls.pagefindReceipt.mockReturnValue(JSON.stringify({ tools: { filePrefix: "/build/papercut-pagefind" } }))
+  calls.pagefindExists.mockReturnValue(true)
+  calls.pagefindReceipt.mockReturnValue(JSON.stringify({
+    tools: { filePrefix: PAGEFIND_WASM_PATH_PREFIX },
+    sources: { pagefind: PAGEFIND_SOURCE_REVISION },
+    artifacts: {
+      pagefind: {
+        bytes: pagefindBytes.length,
+        sha256: createHash("sha256").update(pagefindBytes).digest("hex"),
+      },
+    },
+  }))
   vi.stubEnv("PAPERCUT_DESKTOP_BUNDLES", "")
   vi.spyOn(console, "log").mockImplementation(() => {})
 })
@@ -157,6 +179,27 @@ it("rejects a cached Pagefind build from before WASM path normalization", async 
   calls.pagefindReceipt.mockReturnValueOnce(JSON.stringify({ tools: {} }))
   await expect(build("android/build-android.js", "linux", ["--native-tts", "--production"]))
     .rejects.toThrow("Missing Pagefind built with normalized WASM paths")
+  expect(calls.android).not.toHaveBeenCalled()
+})
+it("rejects a missing Pagefind binary before launching the build", async () => {
+  calls.pagefindExists.mockReturnValueOnce(false)
+  await expect(build("android/build-android.js", "linux", ["--native-tts", "--production"]))
+    .rejects.toThrow("Missing source-built Pagefind")
+  expect(calls.android).not.toHaveBeenCalled()
+})
+it("rejects a stale Pagefind source pin or a mismatched binary", async () => {
+  const receipt = JSON.parse(calls.pagefindReceipt())
+  calls.pagefindReceipt.mockReturnValueOnce(JSON.stringify({
+    ...receipt,
+    sources: { pagefind: "old revision" },
+  }))
+  await expect(build("android/build-android.js", "linux", ["--native-tts", "--production"]))
+    .rejects.toThrow("Pagefind source revision differs")
+  vi.resetModules()
+  receipt.artifacts.pagefind.sha256 = "ab".repeat(32)
+  calls.pagefindReceipt.mockReturnValueOnce(JSON.stringify(receipt))
+  await expect(build("android/build-android.js", "linux", ["--native-tts", "--production"]))
+    .rejects.toThrow("Pagefind binary differs")
   expect(calls.android).not.toHaveBeenCalled()
 })
 it.each([

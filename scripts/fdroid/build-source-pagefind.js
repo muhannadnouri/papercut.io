@@ -19,6 +19,7 @@ import { gzipSync } from "node:zlib"
 import { ROOT } from "../lib/paths.js"
 import {
   ANDROID_RUST_TOOLCHAIN,
+  PAGEFIND_SOURCE_REVISION as revision,
   PAGEFIND_WASM_PATH_PREFIX,
 } from "../lib/android/constants.js"
 import { run } from "../lib/process.js"
@@ -31,7 +32,6 @@ import {
 } from "./source-build.js"
 
 const version = "1.4.0"
-const revision = "8c3de15a6b5ab603985d98062e748463daf42d65"
 const lock = JSON.parse(await readFile(join(ROOT, "package-lock.json"), "utf8"))
 assert.equal(lock.packages["node_modules/pagefind"].version, version, "Review the Pagefind source pin after an npm version change")
 

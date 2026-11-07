@@ -124,10 +124,15 @@ See the [APK evidence](../android-production-packaging.md#shared-android-release
 The draft provisions the Debian compiler and utilities, SDK platform 36 and
 Build Tools 35.0.0 in `sudo`. It stages a SHA-256-checked Node 22.22.1
 distribution outside the source checkout before `npm ci`. It reuses the
-shared toolchain installer for CMake 4.4.5, Emscripten 4.0.15 and the locked
-wasm-bindgen CLI, and selects the pinned Temurin 17 with the Android JDK
+shared toolchain installer for SHA-256-checked CMake 4.4.5, Emscripten 4.0.15
+and emsdk's Node 22.16.0, plus the locked wasm-bindgen CLI. It selects
+the pinned Temurin 17 with the Android JDK
 helper. The exact r30 NDK remains managed by F-Droid. See the
 [production guide](../android-production-packaging.md#repeatable-source-recipes).
+
+Tag-based update checks read the version name and code from the committed
+Tauri JSON files. The Gradle build reads the same values from generated
+`tauri.properties` during packaging.
 
 ## Source-built Pagefind preflight (2026-11-05)
 
@@ -211,7 +216,7 @@ these inputs separately with F-Droid maintainers.
 
 | Input | Provenance and review |
 | --- | --- |
-| Host toolchain | Debian packages and F-Droid's Android SDK catalog supply the base tools. Node, Temurin and CMake use exact upstream archives checked by SHA-256. The pinned emsdk manifest selects Emscripten and its bundled Node. Rustup installs the pinned compiler and targets, and Cargo builds wasm-bindgen with its lockfile. Confirm the upstream binary toolchains against the [inclusion policy](https://f-droid.org/en/docs/Inclusion_Policy/). |
+| Host toolchain | Debian packages and F-Droid's Android SDK catalog supply the base tools. Node, Temurin and CMake use exact upstream archives checked by SHA-256. The shared installer checks emsdk's Emscripten and Node archives before extraction, including cached copies. Rustup installs the pinned compiler and targets, and Cargo builds wasm-bindgen with its lockfile. Confirm the upstream binary toolchains against the [inclusion policy](https://f-droid.org/en/docs/Inclusion_Policy/). |
 | Tauri CLI | npm's lock pins the 2.11.4 host bindings with integrity hashes. The Linux `.node` files are ELF libraries even though the source scan left them in place. The host CLI orchestrates Gradle and Rust. Confirm its prebuilt treatment with reviewers. |
 | Sherpa and Android dependencies | Sherpa uses a fixed Git commit and its CMake dependency archives specify SHA-256 hashes. The pinned Maven ORT AAR is verified by the shared recipe and supplies the packaged ORT runtime. Other Android dependencies use the existing Google Maven and Maven Central configuration. |
 | PDF/OCR and Pagefind | Recipe Git commits and Tesseract submodules pin source trees. npm/Cargo locks identify package inputs. The extended Pagefind CLI also compiles Japanese UniDic from an archive fetched by Lindera 0.43.3. Lindera checks the archive's MD5. The audited copy's SHA-256 is `24ac75fe4e44d973b55e65847c35fa4aec2db7a41a07b49ca125146db9fc1189` and its COPYING offers BSD, GPL or LGPL terms. The dictionary is used by the host indexer. |

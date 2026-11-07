@@ -258,7 +258,7 @@ matching source checkout, and point `apk_dir` below at the QA folder. Keep the
 QA APKs separate from the private key directory.
 
 For local signing, finish the build and verify the unsigned APK first. Open
-a fresh shell. Export `ANDROID_SDK_ROOT`, the recorded public
+a fresh shell. Export `ANDROID_HOME` or `ANDROID_SDK_ROOT`, the recorded public
 `ANDROID_SIGNING_CERT_SHA256` and `RUSTUP_TOOLCHAIN=1.98.1` for the
 verifier. Set `ANDROID_KEYSTORE_PATH` to the absolute keystore path and
 `ANDROID_KEY_ALIAS` to its alias. Read passwords interactively in a
@@ -268,10 +268,11 @@ subshell used for signing.
 apk_dir=src-tauri/gen/android/app/build/outputs/apk/universal/release
 (
   set -e
+  sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Set ANDROID_HOME or ANDROID_SDK_ROOT}}"
   read -rsp 'Keystore password: ' ANDROID_KEYSTORE_PASSWORD; printf '\n'
   read -rsp 'Key password: ' ANDROID_KEY_PASSWORD; printf '\n'
   export ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_PASSWORD
-  "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" sign \
+  "$sdk_root/build-tools/35.0.0/apksigner" sign \
     --ks "$ANDROID_KEYSTORE_PATH" --ks-key-alias "$ANDROID_KEY_ALIAS" \
     --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD \
     --out "$apk_dir/app-universal-release.apk" \
@@ -434,11 +435,12 @@ pkg-config, a host C/C++ compiler and Android SDK/NDK 30.0.16248370.
 Production Rust builds select the named 1.98.1 toolchain, not the floating
 stable alias; install its Android target with
 `rustup target add --toolchain 1.98.1 aarch64-linux-android`.
-The CI provisioning script installs Emscripten 4.0.15 from emsdk installer
-commit `c0bb220cb6e6f4e0fabb6f6db9efd53390ef5e56`, verifies the official
-CMake archive, and installs the locked wasm-bindgen CLI. A buildserver can
-provide the same toolchain instead. Set `EMSDK` to the absolute path of an
-activated Emscripten installation when it lives outside the default cache.
+The shared provisioning script uses emsdk installer commit
+`c0bb220cb6e6f4e0fabb6f6db9efd53390ef5e56` and verifies the Emscripten 4.0.15
+and Node 22.16.0 archives against their published SHA-256 values before
+installation, including when those archives are cached. It reinstalls the SDK
+under `.cache/android-production/emsdk`, verifies the CMake archive, and
+installs the locked wasm-bindgen CLI. The shared release script uses that SDK.
 
 ~~~bash
 rustup toolchain install 1.98.1 --profile minimal --target aarch64-linux-android
@@ -452,10 +454,12 @@ node scripts/fdroid/__tests__/check-source-pdf.js
 ~~~
 
 The native recipe downloads the pinned Maven ORT AAR, re-verifying its
-SHA-256 even on cached copies, extracts the C/C++ headers and arm64 runtime,
+SHA-256 even on cached copies, refreshes the C/C++ headers and arm64 runtime,
 builds Sherpa's C API against them, strips the Sherpa library and checks ELF
 alignment, and copies the AAR runtime beside it as the Rust link input. It no
-longer compiles ORT. Source archive
+longer compiles ORT. The native staging step checks the expected Sherpa and
+ORT pins as well as the library hashes. The production APK wrapper also checks
+the Pagefind source pin and binary against its receipt. Source archive
 hashes remain governed by the pinned upstream CMake/dependency files. The OCR
 recipe uses upstream's pinned image libraries and compiler flags, with only a
 two-worker limit and selection of the three LSTM targets. It does not run the
@@ -469,7 +473,8 @@ Our recipe pins Emscripten, Rust, QCMS's existing Cargo.lock and wasm-bindgen CL
 applies the pinned upstream patches, and keeps compiler caches inside the project.
 The C and Rust compilers map host paths in diagnostics before producing the
 WASM and JS fallbacks. The release asset step requires receipts from the
-path-normalized PDF and OCR recipes. The PDF recipe uses PDF.js's locked npm dependencies
+path-normalized PDF and OCR recipes. PDF staging requires the complete
+receipt-listed file set, including codec license files. The PDF recipe uses PDF.js's locked npm dependencies
 and upstream legacy build tasks to rebuild the API, minified worker and viewer
 with the matching glue.
 The PDF checkout includes enough history for Gulp to generate version 6.2.108;
@@ -545,9 +550,19 @@ Cargo manifests.
 Notice bundle contents, as shipped in every APK since this stage
 (owner-approved 2026-11-03). `assets/licenses/android-third-party-notices.md`
 carries the combined-work statement, verbatim license texts from pinned
-sources, the Kareem model card and per-package attribution; regenerate with
-`npm run prepare:license-notices` (the committed output is what builds package;
-`--check` verifies it is current):
+sources, the Kareem model card and per-package attribution. After `npm ci`
+and the shared source build above, regenerate and verify the committed notice:
+
+~~~bash
+npm run prepare:license-notices
+npm run prepare:license-notices -- --check
+~~~
+
+The notice command uses the active r30 Sherpa dependency tree and fetches
+hash-verified ORT notices and the pinned Supertonic and Kareem archives to
+extract their license evidence. npm attribution uses the lockfile and
+version-specific license declarations where the lockfile omits them. Review
+the notice diff before committing. Ordinary builds package the committed file.
 
 | Group | Retain with each release |
 | --- | --- |
@@ -1352,7 +1367,8 @@ signed APK and its public certificate. The private key stays with the signer.
 ~~~bash
 pip install apksigcopier reproducible-apk-tools
 apksigcopier copy released.apk repro-1of2.apk rebuilt-signed.apk
-"$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --print-certs rebuilt-signed.apk
+sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Set ANDROID_HOME or ANDROID_SDK_ROOT}}"
+"$sdk_root/build-tools/35.0.0/apksigner" verify --print-certs rebuilt-signed.apk
 node scripts/android/verify-android-apk.js rebuilt-signed.apk
 cmp released.apk rebuilt-signed.apk
 ~~~

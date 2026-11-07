@@ -18,6 +18,12 @@ import {
   relative,
 } from "node:path"
 import { parseArgs } from "node:util"
+import {
+  ANDROID_NDK_VERSION,
+  ANDROID_ORT_AAR,
+  SHERPA_ANDROID_SOURCE_REVISION,
+} from "../lib/android/constants.js"
+import { downloadFile } from "../lib/download.js"
 import { ROOT } from "../lib/paths.js"
 import { isMain } from "../lib/process.js"
 
@@ -26,16 +32,26 @@ import { isMain } from "../lib/process.js"
 // unchanged, so regenerating is explicit and its diff is reviewable.
 
 const CACHE = join(ROOT, ".cache/android-production")
+const SHERPA_DEPS = join(CACHE, "sherpa-build-" + ANDROID_NDK_VERSION, "_deps")
+const NOTICE_EVIDENCE = join(CACHE, "notice-evidence")
 const OUTPUT = join(ROOT, "src-tauri/licensing/android-third-party-notices.md")
 
 // Exact pins match the source recipes and the Maven artifact pin in build.gradle.kts.
 const PINS = {
-  sherpa: "142807252687d81b40d6315f23470a1512a00de3",
+  sherpa: SHERPA_ANDROID_SOURCE_REVISION,
   ort: "8f0278c77bf44b0cc83c098c6c722b92a36ac4b5",
-  ortAar: "com.microsoft.onnxruntime:onnxruntime-android:1.27.0 sha256 077dec5e2d821234c7dc0aba584bec8f999854b546c754cab93a90741c56fbeb",
+  ortAar: "com.microsoft.onnxruntime:onnxruntime-android:" + ANDROID_ORT_AAR.version + " sha256 " + ANDROID_ORT_AAR.sha256,
   tesseract: "acffef2b66eb44a31df297e11d905f4b39001068",
   pdfjs: "0365cbde028bd92e58f2dab1bb70cd30ac7acfd7",
   tessdata: "naptha/tessdata 806cd9adc8c6e8abc11c782db1818c990576bebc",
+}
+
+// These exact package manifests declare licenses omitted by package-lock.json.
+const NPM_LICENSES = {
+  "react 19.2.4": "MIT",
+  "react-dom 19.2.4": "MIT",
+  "scheduler 0.27.0": "MIT",
+  "typescript 5.9.3": "Apache-2.0",
 }
 
 // Deep find is bounded: license files sit at checkout roots or vendored dirs.
@@ -44,7 +60,8 @@ export function findLicenseFiles(directory, depth = 3) {
     return []
   }
   const found = []
-  for (const entry of readdirSync(directory)) {
+  const entries = readdirSync(directory).sort()
+  for (const entry of entries) {
     const path = join(directory, entry)
     if (!statSync(path).isFile()) {
       continue
@@ -56,7 +73,7 @@ export function findLicenseFiles(directory, depth = 3) {
   if (found.length) {
     return found
   }
-  for (const entry of readdirSync(directory)) {
+  for (const entry of entries) {
     const path = join(directory, entry)
     if (statSync(path).isDirectory()) {
       found.push(...findLicenseFiles(path, depth - 1))
@@ -76,13 +93,13 @@ const COMPONENTS = [
     title: "GNU General Public License v3.0",
     required: true,
     entries: [{
-      file: join(CACHE, "sherpa-build/_deps/espeak_ng-src/COPYING"),
+      file: join(SHERPA_DEPS, "espeak_ng-src/COPYING"),
       attribution: "eSpeak NG (fetched and pinned by sherpa-onnx v1.13.4 cmake)",
     }, {
-      file: join(CACHE, "sherpa-build/_deps/espeak_ng-src/COPYING.UCD"),
+      file: join(SHERPA_DEPS, "espeak_ng-src/COPYING.UCD"),
       attribution: "eSpeak NG Unicode data notice",
     }, {
-      file: join(CACHE, "sherpa-build/_deps/espeak_ng-src/src/ucd-tools/COPYING"),
+      file: join(SHERPA_DEPS, "espeak_ng-src/src/ucd-tools/COPYING"),
       attribution: "espeak-ng ucd-tools",
     }],
   },
@@ -93,25 +110,25 @@ const COMPONENTS = [
       file: join(CACHE, "sherpa-onnx/LICENSE"),
       attribution: "sherpa-onnx " + PINS.sherpa.slice(0, 12),
     }, {
-      file: join(CACHE, "onnxruntime/LICENSE"),
+      file: join(NOTICE_EVIDENCE, "ort", "LICENSE"),
       attribution: "ONNX Runtime source " + PINS.ort.slice(0, 12) + "; runtime AAR " + PINS.ortAar,
     }, {
-      file: join(CACHE, "sherpa-build/_deps/openfst-src/COPYING"),
+      file: join(SHERPA_DEPS, "openfst-src/COPYING"),
       attribution: "OpenFst (Sherpa fetched dependency)",
     }, {
-      file: join(CACHE, "sherpa-build/_deps/kaldifst-src/LICENSE"),
+      file: join(SHERPA_DEPS, "kaldifst-src/LICENSE"),
       attribution: "kaldifst (Sherpa fetched dependency)",
     }, {
-      file: join(CACHE, "sherpa-build/_deps/kaldi_native_fbank-src/LICENSE"),
+      file: join(SHERPA_DEPS, "kaldi_native_fbank-src/LICENSE"),
       attribution: "kaldi-native-fbank (Sherpa fetched dependency)",
     }, {
-      file: join(CACHE, "sherpa-build/_deps/kaldi_decoder-src/LICENSE"),
+      file: join(SHERPA_DEPS, "kaldi_decoder-src/LICENSE"),
       attribution: "kaldi-decoder (Sherpa fetched dependency)",
     }, {
-      file: join(CACHE, "sherpa-build/_deps/simple-sentencepiece-src/LICENSE"),
+      file: join(SHERPA_DEPS, "simple-sentencepiece-src/LICENSE"),
       attribution: "simple-sentencepiece (Sherpa fetched dependency)",
     }, {
-      file: join(CACHE, "sherpa-build/_deps/espeak_ng-src/COPYING.APACHE"),
+      file: join(SHERPA_DEPS, "espeak_ng-src/COPYING.APACHE"),
       attribution: "eSpeak NG dual-licensed components",
     }, {
       file: join(ROOT, "node_modules/pdfjs-dist/LICENSE"),
@@ -137,7 +154,7 @@ const COMPONENTS = [
     title: "ONNX Runtime third-party notices",
     required: true,
     entries: [{
-      file: join(CACHE, "onnxruntime/ThirdPartyNotices.txt"),
+      file: join(NOTICE_EVIDENCE, "ort", "ThirdPartyNotices.txt"),
       attribution: "ONNX Runtime " + PINS.ort.slice(0, 12),
     }],
   },
@@ -151,16 +168,16 @@ const COMPONENTS = [
       file: join(ROOT, "LICENSE.md"),
       attribution: "Papercut original code (repository root; the F-Droid metadata declares GPL-3.0-only for the combined Android distribution)",
     }, {
-      file: join(CACHE, "sherpa-build/_deps/piper_phonemize-src/LICENSE.md"),
+      file: join(SHERPA_DEPS, "piper_phonemize-src/LICENSE.md"),
       attribution: "Piper phonemize (Sherpa fetched dependency)",
     }, {
-      file: join(CACHE, "sherpa-build/_deps/json-src/LICENSE.MIT"),
+      file: join(SHERPA_DEPS, "json-src/LICENSE.MIT"),
       attribution: "nlohmann JSON (Sherpa fetched dependency)",
     }, {
-      file: join(CACHE, "supertonic-license-evidence/LICENSE"),
+      file: join(NOTICE_EVIDENCE, "supertonic-LICENSE"),
       attribution: "Supertonic 3 sample code (Supertone Inc.); weights are separately OpenRAIL-M licensed with use restrictions — https://huggingface.co/Supertone/supertonic-3/blob/main/LICENSE — declared via the NonFreeAssets anti-feature",
     }, {
-      file: join(CACHE, "sherpa-build/_deps/piper_phonemize-src/licenses/uni-algo/LICENSE.md"),
+      file: join(SHERPA_DEPS, "piper_phonemize-src/licenses/uni-algo/LICENSE.md"),
       attribution: "uni-algo (Piper phonemize dependency)",
     }, {
       file: join(CACHE, "quickjs-source/LICENSE"),
@@ -177,13 +194,13 @@ const COMPONENTS = [
     title: "BSD and BSD-style licenses",
     required: true,
     entries: [{
-      file: join(CACHE, "sherpa-build/_deps/eigen-src/COPYING.BSD"),
+      file: join(SHERPA_DEPS, "eigen-src/COPYING.BSD"),
       attribution: "Eigen (Sherpa fetched dependency) BSD components",
     }, {
-      file: join(CACHE, "sherpa-build/_deps/eigen-src/COPYING.MINPACK"),
+      file: join(SHERPA_DEPS, "eigen-src/COPYING.MINPACK"),
       attribution: "Eigen MINPACK components",
     }, {
-      file: join(CACHE, "sherpa-build/_deps/kissfft-src/COPYING"),
+      file: join(SHERPA_DEPS, "kissfft-src/COPYING"),
       attribution: "KissFFT (Sherpa fetched dependency) BSD license",
     }, {
       file: join(CACHE, "pdfium-source/LICENSE"),
@@ -198,7 +215,7 @@ const COMPONENTS = [
     title: "Mozilla Public License 2.0",
     required: true,
     entries: [{
-      file: join(CACHE, "sherpa-build/_deps/eigen-src/COPYING.MPL2"),
+      file: join(SHERPA_DEPS, "eigen-src/COPYING.MPL2"),
       attribution: "Eigen (Sherpa fetched dependency) MPL2 components; MPL-covered files are provided through the corresponding-source archive",
     }],
   },
@@ -271,9 +288,38 @@ and this notice as a corresponding-source archive with build instructions, so
 the GPL terms of the combined distribution are satisfied.
 `
 
-async function kareemCard() {
-  const card = await readFile(join(CACHE, "kareem-notices.txt"), "utf8")
-  return "Piper Kareem model card (verbatim, from the pinned archive):\n\n" + card
+async function prepareNoticeEvidence() {
+  const ortFiles = {
+    "LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+    "ThirdPartyNotices.txt": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2",
+  }
+  for (const [file, sha256] of Object.entries(ortFiles)) {
+    await downloadFile({
+      url: "https://raw.githubusercontent.com/microsoft/onnxruntime/" + PINS.ort + "/" + file,
+      dest: join(NOTICE_EVIDENCE, "ort", file),
+      sha256,
+      label: "ort-license",
+    })
+  }
+
+  const inventory = JSON.parse(await readFile(join(ROOT, "docs/android-source-inventory.json"), "utf8"))
+  const supertonic = await modelNotice(inventory.optionalModels.voices, "sherpa-onnx-supertonic-3-tts-int8-2026-05-11", "LICENSE")
+  await writeFile(join(NOTICE_EVIDENCE, "supertonic-LICENSE"), supertonic)
+  const kareem = await modelNotice(inventory.optionalModels.voices, "vits-piper-ar_JO-kareem-medium", "MODEL_CARD")
+  return "Piper Kareem model card (verbatim, from the pinned archive):\n\n" + kareem
+}
+
+async function modelNotice(voices, model, file) {
+  const archiveName = model + ".tar.bz2"
+  const pin = voices.find(voice => voice.url.endsWith("/" + archiveName))
+  assert(/^[a-f0-9]{64}$/.test(pin?.sha256 ?? ""), "Missing model archive pin: " + archiveName)
+  const archive = await downloadFile({
+    url: pin.url,
+    dest: join(NOTICE_EVIDENCE, archiveName),
+    sha256: pin.sha256,
+    label: "model-license",
+  })
+  return execFileSync("tar", ["-xOjf", archive, model + "/" + file], { encoding: "utf8" })
 }
 
 async function componentTexts() {
@@ -357,14 +403,10 @@ async function packageGraphs() {
     if (!path.startsWith("node_modules/") || info.dev) {
       continue
     }
-    const dir = join(ROOT, path)
-    // Optional platform-specific packages may not be installed on this host.
-    let license = "not installed on this host"
-    if (existsSync(join(dir, "package.json"))) {
-      const manifest = JSON.parse(await readFile(join(dir, "package.json"), "utf8"))
-      license = manifest.license ?? "unknown"
-    }
-    npm.set(path.slice("node_modules/".length) + " " + info.version, license)
+    const pkg = path.slice("node_modules/".length) + " " + info.version
+    const license = info.license ?? NPM_LICENSES[pkg]
+    assert(license, "Missing pinned npm license evidence for " + pkg)
+    npm.set(pkg, license)
   }
   return {
     rust,
@@ -383,13 +425,14 @@ export function packageAttribution(graph, kind) {
     groups.get(id).push(pkg)
   }
   return [...groups.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
+    .sort((a, b) => a[0].localeCompare(b[0], "en"))
     .map(([id, pkgs]) => "- " + kind + " packages under " + id + ": " + pkgs.sort().join(", "))
 }
 
 async function main() {
   const { values } = parseArgs({ options: { check: { type: "boolean" } } })
-  const [{ blocks, missing }, graphs, kareem] = await Promise.all([componentTexts(), packageGraphs(), kareemCard()])
+  const kareem = await prepareNoticeEvidence()
+  const [{ blocks, missing }, graphs] = await Promise.all([componentTexts(), packageGraphs()])
   assert(!missing.length, "Required license sources missing: " + missing.join(", "))
 
   const out = []

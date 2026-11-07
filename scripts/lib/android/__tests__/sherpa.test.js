@@ -15,7 +15,11 @@ import {
   it,
   vi,
 } from "vitest"
-import { ANDROID_NDK_VERSION } from "../constants.js"
+import {
+  ANDROID_NDK_VERSION,
+  ANDROID_ORT_AAR,
+  SHERPA_ANDROID_SOURCE_REVISION,
+} from "../constants.js"
 
 const state = vi.hoisted(() => ({
   stage: "",
@@ -43,6 +47,10 @@ beforeEach(async () => {
     artifacts[lib] = { sha256: createHash("sha256").update(lib).digest("hex") }
   }
   await writeFile(join(process.env.SHERPA_ONNX_LIB_DIR, "source-receipt.json"), JSON.stringify({
+    sources: {
+      sherpa: SHERPA_ANDROID_SOURCE_REVISION,
+      ortAar: ANDROID_ORT_AAR,
+    },
     tools: {
       ndk: ANDROID_NDK_VERSION,
       api: 26,
@@ -93,6 +101,22 @@ it("rejects a runtime built with the previous NDK", async () => {
   await writeFile(path, JSON.stringify(receipt))
   const { ensureAndroidSherpaLibs } = await import("../sherpa.js")
   await expect(ensureAndroidSherpaLibs()).rejects.toThrow("Rebuild the Android source libraries")
+})
+
+it.each([
+  ["sherpa", "old revision", "pinned Sherpa revision"],
+  ["ortAar", {
+    ...ANDROID_ORT_AAR,
+    sha256: "ab".repeat(32),
+  }, "pinned ONNX Runtime AAR"],
+])("rejects a stale %s source pin even when the artifacts match", async (name, pin, message) => {
+  const path = join(process.env.SHERPA_ONNX_LIB_DIR, "source-receipt.json")
+  const receipt = JSON.parse(await readFile(path, "utf8"))
+  receipt.sources[name] = pin
+  await writeFile(path, JSON.stringify(receipt))
+  const { ensureAndroidSherpaLibs } = await import("../sherpa.js")
+  await expect(ensureAndroidSherpaLibs()).rejects.toThrow(message)
+  expect(state.download).not.toHaveBeenCalled()
 })
 
 it("clears stale TTS inputs for a no-native APK without touching other JNI files", async () => {

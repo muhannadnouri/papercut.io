@@ -15,7 +15,10 @@ import {
 } from "vitest"
 
 const state = vi.hoisted(() => ({ root: "" }))
-vi.mock("../lib/paths.js", () => ({ ROOT: state.root }))
+vi.mock("../../lib/paths.js", async importOriginal => ({
+  ...await importOriginal(),
+  ROOT: state.root,
+}))
 
 let directory
 beforeEach(async () => {
