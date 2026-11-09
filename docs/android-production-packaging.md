@@ -1425,6 +1425,10 @@ audited separately with CI's cargo-audit 0.22.2 policy: zero blocking findings,
 with the same ten nonblocking warnings as the previous lockfile against the
 same RustSec snapshot. The existing RUSTSEC-2026-0235 waiver is unchanged;
 the all-features/all-targets guard confirms its rkyv 0.7 edge remains inactive.
+On November 9, 2026, CI additionally waived `RUSTSEC-2026-0459` (the C SQLite
+bundled through rusqlite's active `bundled` edge) pending a dedicated rusqlite
+0.41 migration; triage and removal conditions live in docs/library-transfer.md.
+That is current audit policy, not a retroactive change to the findings above.
 This is not a warning-free dependency graph or a fresh npm audit claim.
 Build-tool environments have separate dependencies.
 [GitHub Actions secure use](https://docs.github.com/en/actions/reference/security/secure-use)
