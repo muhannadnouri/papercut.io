@@ -209,7 +209,8 @@ certificate's 64 hexadecimal SHA-256 digits. The Base64 file contains the same
 private key as the keystore. Remove the Base64 copy after saving the environment
 secret. Keep the keystore, backup and passwords out of chat, source control,
 F-Droid metadata and build artifacts. Only the public fingerprint goes into
-`AllowedAPKSigningKeys`.
+`AllowedAPKSigningKeys`. This environment and all five entries were configured
+by the owner on 2026-11-09.
 
 The build job uploads an unsigned input artifact. A separate protected signing
 job uses a fresh runner with no npm install, compilation or restored build cache.
@@ -1430,9 +1431,13 @@ Build-tool environments have separate dependencies.
 
 ## 7. Remaining acceptance sequence
 
-1. [ ] Owner configures the real key and validates its certificate; unsigned APK
-   checks and disposable-key signing verification already pass. Choose the first
-   production version/tag before publication.
+1. [x] Owner generated the real production key and validated its certificate
+   (2026-11-09). The `android-release` GitHub environment is configured with the
+   four secrets from section 2 (`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEY_ALIAS`,
+   `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`) plus the
+   `ANDROID_SIGNING_CERT_SHA256` environment variable holding the public
+   certificate fingerprint. Unsigned APK checks and disposable-key signing
+   verification already pass. First production version/tag: v1.10.1.
 2. [x] Codify native/WASM source recipes and focused local checks; prepare a
    transitive declaration/source inventory and proposed notices for review.
 3. [ ] Licensing decisions recorded 2026-11-03: GPL-3.0-only declaration for the

@@ -14,9 +14,9 @@ Repo: https://github.com/muhannadnouri/papercut.io
 Binaries: https://github.com/muhannadnouri/papercut.io/releases/download/v%v/Papercut_v%v_android-arm64-v8a.apk
 
 Builds:
-  - versionName: 1.10.0
-    versionCode: 1010000
-    commit: v1.10.0
+  - versionName: 1.10.1
+    versionCode: 1010001
+    commit: v1.10.1
     sudo:
       - apt-get update
       - apt-get install -y --no-install-recommends autoconf automake build-essential
@@ -62,14 +62,15 @@ Builds:
     ndk: 30.0.16248370
 
 MaintainerNotes: |-
-  Draft only: v1.10.0 predates the packaging changes. Set the real release
-  tag/version/code and AllowedAPKSigningKeys before submission. The two
-  scanner exceptions are hash-verified Apache-2.0 OCR data. Review the
-  host toolchain inputs and run the buildserver gates before submission.
+  Draft only: targets the planned v1.10.1 release. Confirm the
+  tag/version/code against the tagged build and add AllowedAPKSigningKeys
+  before submission. The two scanner exceptions are hash-verified
+  Apache-2.0 OCR data. Review the host toolchain inputs and run the
+  buildserver gates before submission.
   See docs/fdroid/README.md in the app source.
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
 UpdateCheckData: src-tauri/tauri.android.conf.json|versionCode"\s*:\s*([0-9]+)|src-tauri/tauri.conf.json|version"\s*:\s*"([^"]+)"
-CurrentVersion: 1.10.0
-CurrentVersionCode: 1010000
+CurrentVersion: 1.10.1
+CurrentVersionCode: 1010001
