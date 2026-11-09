@@ -203,9 +203,10 @@ The second waiver, added November 9, 2026, is `RUSTSEC-2026-0459`: `rusqlite`
 the fixed `libsqlite3-sys` 0.39 first appears in `rusqlite` 0.41 — a
 nine-minor-version migration across the library database code, deliberately
 deferred to a dedicated, fully tested update instead of being rushed into the
-v1.10.1 release. Papercut reaches SQLite only through its own parameterized
-statements on the local library database, but imported transfer archives can
-carry SQLite files that Papercut opens, so file-level exposure is not zero.
+v1.10.1 release. Papercut rebuilds its local library database from
+transferred content; it does not open a database or WAL from transfer
+archives. Exposure remains possible if a less-trusted party can supply the
+local database and its sibling WAL.
 Unlike the rkyv waiver, this one covers an edge that is active by design.
 Remove the waiver as soon as the lockfile carries `libsqlite3-sys` 0.39 or
 newer via the rusqlite upgrade, cleaning up this paragraph and the CI audit

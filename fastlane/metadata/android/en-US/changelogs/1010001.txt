@@ -1,0 +1,11 @@
+v1.10.1 makes saved audiobooks playable from almost any position in long
+books, makes bookmark restoration dependable, opens exported
+.papercut-audiobook bundles directly from your file manager, adds Erase All
+Data in Settings, carries security updates to the document import libraries,
+and is the first Android release signed with the production Papercut key.
+
+Note if you installed Papercut from the website: earlier releases used a
+debug signing key, so Android refuses to update them in place. Uninstall
+first, then install v1.10.1, and export your library beforehand: the export
+contains documents (and audiobooks when you include them) but not bookmarks
+or reading preferences.
