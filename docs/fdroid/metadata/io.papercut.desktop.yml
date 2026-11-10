@@ -16,7 +16,7 @@ Binaries: https://github.com/muhannadnouri/papercut.io/releases/download/v%v/Pap
 Builds:
   - versionName: 1.10.2
     versionCode: 1010002
-    commit: v1.10.2
+    commit: 1709c857618217d35420ca31fc686e822848ca9d
     sudo:
       - apt-get update
       - apt-get install -y --no-install-recommends autoconf automake build-essential
