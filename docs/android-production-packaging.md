@@ -1473,11 +1473,13 @@ Build-tool environments have separate dependencies.
    Kareem reply, and reconciles the QCMS notice if rebuilt PDF assets ever
    ship. Retain current features until any remaining licensing trade-off is
    decided.
-4. [ ] CI, release and the F-Droid draft use the same Sherpa, PDF/OCR and
+4. [x] CI, release and the F-Droid draft use the same Sherpa, PDF/OCR and
    Pagefind source recipes. The clean fdroiddata CI image passed both scans
-   and matched the GitHub APK. Confirm the inputs with F-Droid reviewers and
-   repeat the checks for the release tag.
-5. [ ] Reproducibility protocol in place (see the section above):
+   and matched the GitHub APK, and the same checks were repeated for the
+   release tag: the v1.10.2 buildserver-style clean build passed the dexdump
+   and signing-block scans (2026-11-10). Confirm the inputs with F-Droid
+   reviewers during their build of the submitted metadata.
+5. [x] Reproducibility protocol in place (see the section above):
    `npm run check:android-reproducibility` proves fresh-compile reproducibility
    on one environment, with both APK copies retained. Sorted Pagefind ingestion
    and link-time native stripping now also pass a fresh relocated-checkout proof.
@@ -1486,9 +1488,15 @@ Build-tool environments have separate dependencies.
    and passes Git/source-export APK comparison. The committed implementation also
    passes full CI and byte-identical local reproduction of the actual CI commit.
    Exact F-Droid r30 installation/resolution is verified with the numeric pin.
-   The pinned F-Droid CI image reproduced the committed GitHub APK. Repeat
-   the proof in the release build environment, copy the production signature
-   and confirm that the rebuild matches the published APK.
+   The pinned F-Droid CI image reproduced the committed GitHub APK. The release
+   proof is complete for v1.10.2: the disposable buildserver workspace rebuilt
+   the tag in the pinned official CI image and its unsigned APK matched the
+   release workflow's unsigned signing input byte-for-byte (`cmp` clean,
+   1723 ZIP entries, SHA-256 3d312ebbc4c7cc297731fa721cdf570c8674c3f9e54729a4d5bc86207f3fc9de),
+   the production signature was copied by the protected signing job, and the
+   published signed APK passes certificate verification against fingerprint
+   ffb4979cfe0b5e7ecd9051252aa55baee5ffaa46f32611b21aea4778c2398eb9
+   (1.10.2 / 1010002).
 6. [ ] On Pixel 6 and another Pixel: install after resetting the debug test app;
    test import/open-with, bookmarks, English/Arabic OCR, scanner, voice
    download/preview, Arabic preprocessing, conceptual search, audiobook generation
@@ -1498,9 +1506,12 @@ Build-tool environments have separate dependencies.
    environment, plus an API 26 emulator when available; Pixel 6 alone does not
    establish those results.
 8. [ ] Metadata draft ready at
-   [fdroid/metadata/io.papercut.desktop.yml](fdroid/metadata/io.papercut.desktop.yml).
-   Remaining: add screenshots/changelogs, set the release tag and signing-key
-   fingerprint, resolve the [preflight findings](fdroid/README.md), copy into an
+   [fdroid/metadata/io.papercut.desktop.yml](fdroid/metadata/io.papercut.desktop.yml),
+   pointing at v1.10.2 with the fastlane changelogs committed. Remaining: add
+   screenshots, fill `AllowedAPKSigningKeys` with the validated production
+   certificate SHA-256
+   (ffb4979cfe0b5e7ecd9051252aa55baee5ffaa46f32611b21aea4778c2398eb9),
+   resolve the [preflight findings](fdroid/README.md), copy into an
    fdroiddata fork, verify buildserver assumptions, then repeat lint/scanner/clean
    build, submit and address review. Do not hide runtime binaries with broad
    scanner ignores.
