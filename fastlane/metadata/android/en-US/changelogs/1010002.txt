@@ -6,4 +6,4 @@ production key.
 Website installs used a debug key: Android refuses the in-place update.
 Transfers and exports carry documents (audiobooks optional) but not
 bookmarks or reading preferences. Move your library off the device, then
-uninstall and install v1.10.1.
+uninstall and install v1.10.2.

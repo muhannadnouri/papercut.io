@@ -1,8 +1,8 @@
 # F-Droid recipe preflight
 
 The [metadata](metadata/io.papercut.desktop.yml) is a **draft**, not a submission.
-`commit: v1.10.1`, `CurrentVersion` and the build version/code point at the
-planned **v1.10.1** release: confirm them against the tagged build before
+`commit: v1.10.2`, `CurrentVersion` and the build version/code point at the
+planned **v1.10.2** release: confirm them against the tagged build before
 submitting, and repeat the clean buildserver proof on that tag. Add
 `AllowedAPKSigningKeys` with the validated production certificate SHA-256 before
 using `Binaries`. Never put a private key or password in metadata.

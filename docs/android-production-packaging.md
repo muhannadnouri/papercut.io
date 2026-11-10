@@ -220,6 +220,13 @@ then verifies the public certificate. Only the verified signed artifact matches
 the publisher's artifact selection; the publisher waits for signing to succeed.
 Prepare the key now, but do not publish until the license, reproducibility and
 device acceptance gates below are complete.
+
+Keep **immutable releases disabled** in repository settings. The publisher
+attaches signed assets to the release after the protected signing job runs, so
+a release must stay editable until publication completes. Two related rules:
+deleting a release also deletes the tag it owns, and a deleted immutable
+release's tag name stays permanently reserved — v1.10.1 was lost this way
+before publication, which is why the first signed release is v1.10.2.
 [Android signing](https://developer.android.com/studio/publish/app-signing),
 [Tauri signing](https://v2.tauri.app/distribute/sign/android/)
 
@@ -292,9 +299,10 @@ place with the original candidate and its data still on the phone.
 
 For every public update:
 
-The planned next public release is **v1.10.1**, after this branch is tested and
-merged. Current APK candidates still identify as 1.10.0; the final version bump,
-changelogs and release-specific evidence belong to the later release stage.
+The next public release is **v1.10.2**. v1.10.1 was never published: its tag
+name is permanently retired because this repository keeps releases immutable,
+and deleting an immutable release does not free its tag name for reuse. Do not
+revisit v1.10.1.
 
 1. Synchronize npm/package lock, Cargo and Tauri versions; increase the committed
    bundle.android.versionCode in tauri.android.conf.json. Avoid per-build counters.
@@ -940,7 +948,7 @@ This is a same-host, same-toolchain relocation proof. Both checkouts share the
 Cargo/Rustup/SDK homes and the installed npm dependencies; verified source/archive
 inputs were reused, rather than downloaded independently. The later CI comparison
 below adds another host; neither check establishes fdroidserver or production-
-signature reproducibility. Regenerate evidence for v1.10.1 after the planned
+signature reproducibility. Regenerate evidence for v1.10.2 after the planned
 testing/merge and version bump; these proofs are still for 1.10.0.
 
 ### CI/local artifact comparison (2026-11-04)
@@ -1025,7 +1033,7 @@ A Git checkout needs no export: the resolver supplies its actual `HEAD`. For PR
 builds that can be GitHub's temporary merge commit. Do not substitute the branch
 head when different code was checked out. Builds with different embedded commit
 IDs can legitimately have different APK hashes even when their file trees match.
-Compare the same revision for reproduction, especially the final v1.10.1 release
+Compare the same revision for reproduction, especially the final v1.10.2 release
 tag. The stamp describes the checkout base; it does not certify uncommitted
 changes. Official releases still use clean tagged source. An export's supplied
 label is not a substitute for verifying source/archive integrity.
@@ -1061,7 +1069,7 @@ hash. The implementation is committed as `eb56a893` and its full CI/result compa
 is recorded below. For an exact CI comparison, build the actual checked-out CI commit (including
 a PR merge commit), or use its matching source export and declared revision.
 A checkout override naming another commit is deliberately rejected even when
-both commits have the same tree. Final release reproduction uses the v1.10.1
+both commits have the same tree. Final release reproduction uses the v1.10.2
 release commit after the planned testing/merge/version bump. The actual F-Droid
 buildserver, production key/signature and Pixel acceptance gates remain open.
 
@@ -1360,7 +1368,7 @@ matched its unsigned APK byte-for-byte. See the
 The clean unsigned build in the fdroiddata CI image matched the same CI APK.
 The next release gate is owner signing and device acceptance. Follow section 2
 for the key and section 3 to sign and install the candidate. Complete runtime
-and increasing-version update acceptance before merging. Then prepare v1.10.1,
+and increasing-version update acceptance before merging. Then prepare v1.10.2,
 regenerate its source archive, and complete fdroiddata lint, scanner, build and
 signature comparison for the release tag. Resolve the recorded licensing and
 listing follow-ups before submission.
@@ -1447,7 +1455,7 @@ Build-tool environments have separate dependencies.
    `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`) plus the
    `ANDROID_SIGNING_CERT_SHA256` environment variable holding the public
    certificate fingerprint. Unsigned APK checks and disposable-key signing
-   verification already pass. First production version/tag: v1.10.1.
+   verification already pass. First production version/tag: v1.10.2.
 2. [x] Codify native/WASM source recipes and focused local checks; prepare a
    transitive declaration/source inventory and proposed notices for review.
 3. [ ] Licensing decisions recorded 2026-11-03: GPL-3.0-only declaration for the
