@@ -295,8 +295,11 @@ jobs:
 
       - name: Audit Rust dependencies
         # Use the CLI exit status; audit-check's secondary Check API update can fail.
-        # The preceding graph check prevents this waiver from hiding an active edge.
-        run: cargo audit --file src-tauri/Cargo.lock --ignore RUSTSEC-2026-0235
+        # The preceding graph check prevents the rkyv waiver from hiding an active edge.
+        # RUSTSEC-2026-0459 waives the C SQLite bundled through rusqlite's active
+        # `bundled` edge; the committed rusqlite 0.41 migration removes it.
+        # Triage and removal conditions: docs/library-transfer.md.
+        run: cargo audit --file src-tauri/Cargo.lock --ignore RUSTSEC-2026-0235 --ignore RUSTSEC-2026-0459
 
       - name: Rust tests
         run: |

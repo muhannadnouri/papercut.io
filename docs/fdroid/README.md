@@ -1,9 +1,9 @@
 # F-Droid recipe preflight
 
 The [metadata](metadata/io.papercut.desktop.yml) is a **draft**, not a submission.
-`commit: v1.10.0`, `CurrentVersion` and the build version/code remain historical
-placeholders: that tag predates this branch's packaging changes. Set them to the
-real release after testing, merging and preparing the planned **v1.10.1**. Add
+`commit: v1.10.1`, `CurrentVersion` and the build version/code point at the
+planned **v1.10.1** release: confirm them against the tagged build before
+submitting, and repeat the clean buildserver proof on that tag. Add
 `AllowedAPKSigningKeys` with the validated production certificate SHA-256 before
 using `Binaries`. Never put a private key or password in metadata.
 
@@ -200,12 +200,16 @@ check it out from a regular clone. Release tags are fetched normally.
 
 Run this in a provisioned F-Droid buildserver container with the packages and
 SDK from the draft's `sudo` block already installed. A dedicated F-Droid VM
-runs that block with `fdroid build --server`.
+runs that block with `fdroid build --server`. The version/code target follows
+the checkout being compared: for the historical `a2e72e143e44daaa871e7503a71476c1b5c15c2a`
+comparison above that is 1.10.0 / 1010000 in the disposable copy, while the
+tracked draft stays at 1.10.1 / 1010001. The commands below target the
+tracked draft; substitute 1010000 only for that disposable historical copy.
 
 ```sh
 fdroid rewritemeta io.papercut.desktop
 fdroid lint -f io.papercut.desktop
-fdroid build --verbose --test --scan-binary --refresh-scanner io.papercut.desktop:1010000
+fdroid build --verbose --test --scan-binary --refresh-scanner io.papercut.desktop:1010001
 ```
 
 [fdroiddata CI build job](https://gitlab.com/fdroid/fdroiddata/-/blob/master/.gitlab-ci.yml) ·

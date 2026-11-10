@@ -192,11 +192,25 @@ execution required by the bundled PDF/OCR engines. Remote scripts, frames,
 objects, forms, and network connections remain blocked. Tauri continues to
 inject hashes and nonces for bundled scripts rather than allowing inline script.
 
-The sole RustSec waiver is `RUSTSEC-2026-0235`: `rkyv` 0.7 remains in the
+There are two RustSec waivers. `RUSTSEC-2026-0235`: `rkyv` 0.7 remains in the
 lockfile through `tauri-plugin-log` -> `byte-unit` -> `rust_decimal`, but
 `rust_decimal`'s optional `rkyv` feature is inactive. CI checks Papercut's
 complete feature/target dependency graph and fails if that edge becomes active.
 Remove the waiver once the lockfile no longer contains `rkyv` 0.7.
+
+The second waiver, added November 9, 2026, is `RUSTSEC-2026-0459`: `rusqlite`
+0.32 compiles the affected C SQLite through its active `bundled` feature, and
+the fixed `libsqlite3-sys` 0.39 first appears in `rusqlite` 0.41 — a
+nine-minor-version migration across the library database code, deliberately
+deferred to a dedicated, fully tested update instead of being rushed into the
+v1.10.1 release. Papercut rebuilds its local library database from
+transferred content; it does not open a database or WAL from transfer
+archives. Exposure remains possible if a less-trusted party can supply the
+local database and its sibling WAL.
+Unlike the rkyv waiver, this one covers an edge that is active by design.
+Remove the waiver as soon as the lockfile carries `libsqlite3-sys` 0.39 or
+newer via the rusqlite upgrade, cleaning up this paragraph and the CI audit
+comment together.
 
 The October 12, 2026 audit repair upgrades Ammonia to 4.2.3 and the locked
 `quinn-proto` to 0.11.18 without new waivers. Compatible `anyhow`,
