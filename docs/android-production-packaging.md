@@ -565,6 +565,12 @@ extract their license evidence. npm attribution uses the lockfile and
 version-specific license declarations where the lockfile omits them. Review
 the notice diff before committing. Ordinary builds package the committed file.
 
+CI now gates on this equality: the `build-android` job runs the `--check`
+after each release build, so a change that alters the regenerated output —
+including version bumps, which change the app's own entry in the license
+list — fails CI instead of surfacing only in a fresh-source verification.
+Regenerate the committed notice in the same PR whenever such a change lands.
+
 | Group | Retain with each release |
 | --- | --- |
 | Papercut/eSpeak/Piper | Original MIT notices, eSpeak/ucd GPLv3 texts and source-header grants, Unicode data notices, Piper MIT/uni-algo notices; exact corresponding source, patches and build instructions for the combined application |

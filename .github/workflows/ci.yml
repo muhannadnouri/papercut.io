@@ -587,6 +587,14 @@ jobs:
       - name: Build unsigned Android release APK
         run: bash scripts/fdroid/build-android-release.sh
 
+      - name: Check license notices are current
+        # cargo metadata resolves the whole lockfile graph even with
+        # --filter-platform, so fetch the unpulled tail (Windows-only crates)
+        # before the offline regeneration check.
+        run: |
+          cargo fetch --manifest-path src-tauri/Cargo.toml --locked
+          node scripts/android/prepare-license-notices.js --check
+
       - name: Verify unsigned Android release APK
         run: node scripts/android/verify-android-apk.js --unsigned src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
 
