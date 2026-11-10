@@ -203,7 +203,8 @@ SDK from the draft's `sudo` block already installed. A dedicated F-Droid VM
 runs that block with `fdroid build --server`. The version/code target follows
 the checkout being compared: for the historical `a2e72e143e44daaa871e7503a71476c1b5c15c2a`
 comparison above that is 1.10.0 / 1010000 in the disposable copy, while the
-tracked draft stays at 1.10.1 / 1010001.
+tracked draft stays at 1.10.1 / 1010001. The commands below target the
+tracked draft; substitute 1010000 only for that disposable historical copy.
 
 ```sh
 fdroid rewritemeta io.papercut.desktop
