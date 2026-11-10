@@ -234,9 +234,11 @@ these inputs separately with F-Droid maintainers.
    runtime and same-key/higher-code update tests before merging.
 2. Confirm the build-time inputs and host toolchain treatment with F-Droid
    reviewers before submission. The unsigned CI-image comparison is complete.
-3. Prepare v1.10.1 after merge/testing. Refresh the final release tag, version/code,
-   screenshots/changelogs, public certificate fingerprint and corresponding-source
-   archive. Resolve the existing model-rights/listing follow-ups before submission.
+3. Release v1.10.2 is tagged and published; the fastlane changelogs are committed
+   and the production certificate fingerprint is recorded
+   (ffb4979cfe0b5e7ecd9051252aa55baee5ffaa46f32611b21aea4778c2398eb9). Remaining
+   before submission: screenshots (owner-scheduled) and the model-rights/listing
+   follow-ups.
 4. In an fdroiddata fork containing its `config/` directory, copy this metadata to
    `metadata/io.papercut.desktop.yml`. Run with the selected buildserver tooling:
 
@@ -252,6 +254,40 @@ these inputs separately with F-Droid maintainers.
    claim that the current placeholders/build recipe can pass. Complete a clean
    buildserver build and compare with the matching upstream signed APK using
    production signature copying, as described in the production guide.
+
+## First inclusion MR (GitLab, browser-only)
+
+F-Droid lives on GitLab, so GitHub Desktop does not apply; the whole first
+inclusion fits in a browser and needs no git commands. The tag `v1.10.1` is
+retired — reference only v1.10.2.
+
+1. Fork [gitlab.com/fdroid/fdroiddata](https://gitlab.com/fdroid/fdroiddata)
+   with the Fork button. This creates `gitlab.com/<you>/fdroiddata`.
+2. Open `docs/fdroid/metadata/io.papercut.desktop.yml` at tag `v1.10.2` in the
+   Papercut repository and copy its contents. In the fork, open **Code → Web
+   IDE**, create the file `metadata/io.papercut.desktop.yml`, and paste. Then
+   add the signing-key line so F-Droid can verify the distributed APK:
+
+   ```yaml
+   AllowedAPKSigningKeys: ffb4979cfe0b5e7ecd9051252aa55baee5ffaa46f32611b21aea4778c2398eb9
+   ```
+
+   `Binaries` already resolves: `v%v` expands to the published
+   `Papercut_v1.10.2_android-arm64-v8a.apk`. Keep the draft's
+   `MaintainerNotes` and scanner exceptions; they document the recipe.
+3. Commit to a new branch (the Web IDE asks; e.g. `add-io-papercut-desktop`),
+   then start a merge request targeting `fdroid/fdroiddata` `master`. In the
+   description: introduce Papercut, link the v1.10.2 release, state the
+   licensing decisions (GPL-3.0-only declaration for Android, Kareem kept with
+   disclosure, Supertonic NonFreeAssets), and cite the reproducibility
+   evidence — the buildserver-style clean build reproduced the release's
+   unsigned signing input byte-for-byte (see the production guide's
+   reproducibility section).
+4. Respond to maintainer review. After merge, F-Droid builds and publishes;
+   later releases need no manual MR — `AutoUpdateMode: Version` with
+   `UpdateCheckMode: Tags` makes F-Droid's bots open the metadata updates
+   against each new tag, and the publisher already places every asset where
+   the metadata's `Binaries` URL expects it.
 
 ## Developer release paths
 
