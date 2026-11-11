@@ -1,5 +1,6 @@
 // Reconstruct logical narration text from PDF.js page fragments.
 
+use icu_normalizer::ComposingNormalizer;
 use regex::Regex;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -565,6 +566,7 @@ fn is_compound_hyphen(ch: char) -> bool {
 }
 
 /// Compare intact/wrapped spellings across font fragments without rewriting their source glyphs.
+/// NFC applies only to evidence keys so equivalent accents match without moving narration source offsets.
 fn compound_key(before: &str, after: &str) -> String {
     let mut key = String::new();
     for ch in before.chars().chain(['-']).chain(after.chars()) {
@@ -574,7 +576,7 @@ fn compound_key(before: &str, after: &str) -> String {
             key.extend(ch.to_lowercase());
         }
     }
-    key
+    ComposingNormalizer::new_nfc().normalize(&key).into_owned()
 }
 
 /// Explicit soft/nonbreaking semantics and intact compounds outrank the ambiguous case-based fallback.
@@ -1391,6 +1393,63 @@ mod tests {
             assert_eq!(segments[0].text, format!("{before} word."));
             assert_source_runs(&pages, &segments);
         }
+    }
+
+    /// Later-page evidence can use a different accent encoding; narration and source runs must keep the wrapped glyphs.
+    #[test]
+    fn narration_matches_canonically_equivalent_compound_evidence() {
+        for (wrapped, evidence) in [
+            ("café", "CAFE\u{301}"),
+            ("cafe\u{301}", "CAFÉ"),
+            ("café", "CAFÉ"),
+            ("cafe\u{301}", "CAFE\u{301}"),
+        ] {
+            for (before, after, evidence_before, evidence_after) in [
+                (wrapped, "restaurant", evidence, "restaurant"),
+                ("porte", wrapped, "porte", evidence),
+            ] {
+                for hyphen in ['-', '\u{2010}', '\u{2011}', '\u{ad}'] {
+                    let intact = format!("Un {evidence_before}-{evidence_after}.");
+                    let pages = vec![
+                        layer(
+                            0,
+                            vec![
+                                block(0, &format!("😀 Un {before}{hyphen}\n"), 100.0, 12.0),
+                                block(1, &format!("{after}.\n"), 117.0, 12.0),
+                            ],
+                        ),
+                        layer(1, vec![block(0, &intact, 100.0, 12.0)]),
+                    ];
+                    let segments = reconstruct(pages.clone());
+                    let retained = if hyphen == '\u{ad}' {
+                        String::new()
+                    } else {
+                        hyphen.to_string()
+                    };
+                    assert_eq!(
+                        segments[0].text,
+                        format!("😀 Un {before}{retained}{after}."),
+                        "wrapped={wrapped:?}, evidence={evidence:?}, hyphen={hyphen:?}"
+                    );
+                    assert_eq!(segments[1].text, intact);
+                    assert_source_runs(&pages, &segments);
+                }
+            }
+        }
+    }
+
+    /// Matching accent encodings must not erase accents or equate unrelated compatibility characters.
+    #[test]
+    fn compound_evidence_normalization_preserves_spelling_distinctions() {
+        assert_eq!(
+            compound_key("a\u{301}\u{327}", "word"),
+            compound_key("a\u{327}\u{301}", "word")
+        );
+        assert_ne!(
+            compound_key("café", "restaurant"),
+            compound_key("cafe", "restaurant")
+        );
+        assert_ne!(compound_key("Ａ", "word"), compound_key("A", "word"));
     }
 
     #[test]

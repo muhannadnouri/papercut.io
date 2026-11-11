@@ -1543,10 +1543,25 @@ dependency; no package versions or new packages are added to the lockfile.
 State/message selection, save labels, and restart confirmation use explicit
 branches, and export signature checking borrows chunks without a redundant copy.
 
+The PR #94 review follow-up NFC-normalizes only temporary compound evidence
+keys after lowercase/ligature expansion. An intact `café-restaurant` now matches
+a wrapped `cafe\u{301}-` / `restaurant` (and the reverse), including evidence on
+a later page. Narration retains the original accent encoding and UTF-16 source
+runs. This reuses the already locked ICU normalizer with compiled data; only a
+direct dependency edge is added, with no new package or version changes. NFC
+does not strip accents or equate compatibility spellings. Regressions cover
+both compound halves, case differences, ASCII/U+2010 hyphens, explicit
+soft/nonbreaking behavior, canonical mark ordering, and source-run preservation.
+The mixed-encoding regression failed before the fix and passes afterward.
+The existing PDF signature policy handles any resulting changed audio chunks;
+no source rewrite, cache-format bump, or migration is needed.
+
 Validation on 2026-11-11: the native suite with `native-tts-core` and shared
-sherpa libraries passes 339 tests (5 ignored). The full frontend suite passes
-840 tests (1 skipped) across 101 files. TypeScript, i18n parity across all eight
-locales, and the production build/search-index pipeline pass.
+sherpa libraries passes 341 tests (5 ignored) after the PR #94 follow-up.
+The earlier full frontend suite passed 840 tests (1 skipped) across 101 files;
+TypeScript, i18n parity across all eight locales, and the production
+build/search-index pipeline also passed. The follow-up changes Rust narration
+and its dependency declaration only, so those frontend checks were not repeated.
 Browser/local-server and temporary Git fixtures require their normal local
 permissions outside the restrictive sandbox. Function comments explain the
 reconstruction boundaries, source-offset edits, lazy status checks, generation
@@ -1561,7 +1576,8 @@ recorded below separately from automated text/source validation.
       part of the v1.10.3 release work.
 
 These owner reports do not itemize every step below or establish acceptance of
-a release-signed/F-Droid artifact. The Android NDK lookup failure was local SDK
+a release-signed/F-Droid artifact; they also predate the PR #94 key-normalization
+follow-up. The Android NDK lookup failure was local SDK
 selection: the shared build requires NDK `30.0.16248370`; selecting the existing
 pinned installation allowed the owner to build and smoke-test. No Android build
 script change or SDK downgrade is part of this fix. The application version
