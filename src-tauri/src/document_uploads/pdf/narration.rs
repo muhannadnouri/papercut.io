@@ -1,6 +1,10 @@
 // Reconstruct logical narration text from PDF.js page fragments.
 
+use icu_normalizer::ComposingNormalizer;
+use regex::Regex;
 use serde::Serialize;
+use std::collections::HashSet;
+use std::sync::LazyLock;
 
 use super::page_text::{PageTextBlock, PageTextLayer};
 
@@ -65,17 +69,43 @@ struct SegmentBuilder {
     source_runs: Vec<PdfNarrationSourceRun>,
     pending_space: bool,
     text_offset: u32,
+    omit_soft_hyphens: bool,
+    joining_line: bool,
+}
+
+#[derive(PartialEq)]
+enum LineJoin {
+    Space,
+    Joined,
+    RemoveHyphen,
 }
 
 /// Rebuild paragraphs before shared TTS chunking so PDF visual line wrapping
 /// does not become an audible model restart. Extraction order stays canonical:
 /// geometry is used only to recognize lines, paragraph gaps, and page seams.
-/// Reading through a callback keeps memory bounded to one full page layer plus
-/// the compact reconstructed text and source runs.
+/// Two bounded sidecar passes collect intact compounds before reconstruction,
+/// so evidence on later pages can preserve earlier compound-word hyphens.
 pub(crate) fn reconstruct_narration_segments<E>(
     page_count: u32,
     mut read_page: impl FnMut(u32) -> Result<PageTextLayer, E>,
 ) -> Result<Vec<PdfNarrationSegment>, E> {
+    let mut compounds = HashSet::new();
+    for page_index in 0..page_count {
+        for line in page_lines(read_page(page_index)?) {
+            for token in line
+                .text()
+                .split(|ch| !is_word_character(ch) && !is_compound_hyphen(ch))
+            {
+                let parts = token.split(is_compound_hyphen).collect::<Vec<_>>();
+                for pair in parts.windows(2) {
+                    if !pair[0].is_empty() && !pair[1].is_empty() {
+                        compounds.insert(compound_key(pair[0], pair[1]));
+                    }
+                }
+            }
+        }
+    }
+
     let mut segments = Vec::new();
     let mut current = Vec::new();
 
@@ -85,12 +115,12 @@ pub(crate) fn reconstruct_narration_segments<E>(
                 .last()
                 .is_some_and(|previous| !continues_paragraph(previous, &line))
             {
-                push_segment(&mut segments, std::mem::take(&mut current));
+                push_segment(&mut segments, std::mem::take(&mut current), &compounds);
             }
             current.push(line);
         }
     }
-    push_segment(&mut segments, current);
+    push_segment(&mut segments, current, &compounds);
     Ok(segments)
 }
 
@@ -106,6 +136,7 @@ pub(crate) fn legacy_search_text(page: PageTextLayer) -> String {
     search_text_lines(page, false).0
 }
 
+/// Keep persisted search projections stable; narration-only repairs must not force an FTS migration.
 fn search_text_lines(
     page: PageTextLayer,
     unicode_wraps: bool,
@@ -116,7 +147,7 @@ fn search_text_lines(
 
     for (index, line) in lines.iter().enumerate() {
         let mut builder = SegmentBuilder::default();
-        builder.push_line(line.clone());
+        builder.push_line(line, LineJoin::Space);
         if builder.text.is_empty() {
             continue;
         }
@@ -504,8 +535,97 @@ fn is_soft_hyphenated_wrap(previous: &TextLine, next: &TextLine) -> bool {
         return false;
     };
 
+    is_word_wrap_case(before, after)
+}
+
+/// Search keeps its existing adjacent-glyph policy; narration can pass the letters beneath accent marks.
+fn is_word_wrap_case(before: char, after: char) -> bool {
     (before.is_lowercase() && after.is_lowercase())
         || (before.is_uppercase() && after.is_alphabetic())
+}
+
+/// Classify marks without normalizing glyphs or duplicating Unicode tables in source-offset-sensitive code.
+fn is_combining_mark(ch: char) -> bool {
+    if ch.is_ascii() {
+        return false;
+    }
+    static MARK: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\p{M}").expect("Unicode mark pattern"));
+    let mut encoded = [0; 4];
+    MARK.is_match(ch.encode_utf8(&mut encoded))
+}
+
+/// Evidence collection and line joining must agree that accents belong to their word.
+fn is_word_character(ch: char) -> bool {
+    ch.is_alphabetic() || is_combining_mark(ch)
+}
+
+/// These visible hyphens share compound evidence; a discretionary soft hyphen is never evidence.
+fn is_compound_hyphen(ch: char) -> bool {
+    matches!(ch, '-' | '\u{2010}' | '\u{2011}')
+}
+
+/// Compare intact/wrapped spellings across font fragments without rewriting their source glyphs.
+/// NFC applies only to evidence keys so equivalent accents match without moving narration source offsets.
+fn compound_key(before: &str, after: &str) -> String {
+    let mut key = String::new();
+    for ch in before.chars().chain(['-']).chain(after.chars()) {
+        if let Some(expanded) = expanded_ligature(ch) {
+            key.push_str(expanded);
+        } else {
+            key.extend(ch.to_lowercase());
+        }
+    }
+    ComposingNormalizer::new_nfc().normalize(&key).into_owned()
+}
+
+/// Explicit soft/nonbreaking semantics and intact compounds outrank the ambiguous case-based fallback.
+fn narration_line_join(
+    previous: &TextLine,
+    next: &TextLine,
+    compounds: &HashSet<String>,
+) -> LineJoin {
+    if !continues_paragraph(previous, next) {
+        return LineJoin::Space;
+    }
+    let previous_text = previous.text();
+    let next_text = next.text();
+    let mut chars = previous_text.trim_end().chars();
+    let Some(hyphen) = chars.next_back() else {
+        return LineJoin::Space;
+    };
+    if !is_compound_hyphen(hyphen) && hyphen != '\u{ad}' {
+        return LineJoin::Space;
+    }
+    let before = chars
+        .as_str()
+        .rsplit(|ch| !is_word_character(ch))
+        .next()
+        .unwrap_or("");
+    let after = next_text
+        .trim_start()
+        .split(|ch| !is_word_character(ch))
+        .next()
+        .unwrap_or("");
+    let (Some(before_letter), Some(after_letter)) = (
+        before.chars().rev().find(|ch| !is_combining_mark(*ch)),
+        after.chars().find(|ch| !is_combining_mark(*ch)),
+    ) else {
+        return LineJoin::Space;
+    };
+    if hyphen == '\u{ad}' {
+        // Soft hyphens are already omitted by the narration builder.
+        return LineJoin::Joined;
+    }
+    if hyphen == '\u{2011}' || compounds.contains(&compound_key(before, after)) {
+        return LineJoin::Joined;
+    }
+    // shortcut: unseen compounds remain ambiguous; add lexical evidence only against demonstrated failures.
+    if is_word_wrap_case(before_letter, after_letter) {
+        LineJoin::RemoveHyphen
+    } else {
+        LineJoin::Space
+    }
 }
 
 fn ends_sentence(text: &str) -> bool {
@@ -526,10 +646,23 @@ fn ends_sentence(text: &str) -> bool {
         })
 }
 
-fn push_segment(segments: &mut Vec<PdfNarrationSegment>, lines: Vec<TextLine>) {
-    let mut builder = SegmentBuilder::default();
-    for line in lines {
-        builder.push_line(line);
+/// Resolve line joins while original line boundaries still exist, before generic chunking loses them.
+fn push_segment(
+    segments: &mut Vec<PdfNarrationSegment>,
+    lines: Vec<TextLine>,
+    compounds: &HashSet<String>,
+) {
+    let mut builder = SegmentBuilder {
+        omit_soft_hyphens: true,
+        ..Default::default()
+    };
+    for (index, line) in lines.iter().enumerate() {
+        let join = if index == 0 {
+            LineJoin::Space
+        } else {
+            narration_line_join(&lines[index - 1], line, compounds)
+        };
+        builder.push_line(line, join);
     }
     if !builder.text.is_empty() {
         segments.push(PdfNarrationSegment {
@@ -540,11 +673,25 @@ fn push_segment(segments: &mut Vec<PdfNarrationSegment>, lines: Vec<TextLine>) {
 }
 
 impl SegmentBuilder {
-    fn push_line(&mut self, line: TextLine) {
-        if !self.text.is_empty() {
-            self.pending_space = true;
+    /// Remove a hyphen before appending the next line, so only its final source run needs shortening.
+    /// Joining also suppresses leading layout whitespace across separately extracted items.
+    fn push_line(&mut self, line: &TextLine, join: LineJoin) {
+        if join == LineJoin::RemoveHyphen {
+            self.text.pop();
+            self.text_offset -= 1;
+            let run = self
+                .source_runs
+                .last_mut()
+                .expect("a narrated hyphen has a source run");
+            run.end_offset -= 1;
+            run.source_end_offset -= 1;
+            if run.start_offset == run.end_offset {
+                self.source_runs.pop();
+            }
         }
-        for piece in line.pieces {
+        self.pending_space = !self.text.is_empty() && join == LineJoin::Space;
+        self.joining_line = join != LineJoin::Space;
+        for piece in &line.pieces {
             self.push_piece(piece);
         }
     }
@@ -552,16 +699,21 @@ impl SegmentBuilder {
     /// Collapse layout whitespace while retaining source offsets for every
     /// visible run. Spaces inserted between wrapped lines intentionally have no
     /// source run; later highlighting simply bridges to the next mapped glyph.
-    fn push_piece(&mut self, piece: SourcePiece) {
+    fn push_piece(&mut self, piece: &SourcePiece) {
         let mut source_offset = 0u32;
         for character in piece.text.chars() {
             let source_units = character.len_utf16() as u32;
+            if self.omit_soft_hyphens && character == '\u{ad}' {
+                source_offset += source_units;
+                continue;
+            }
             if character.is_whitespace() {
-                self.pending_space = !self.text.is_empty();
+                self.pending_space = !self.text.is_empty() && !self.joining_line;
                 source_offset += source_units;
                 continue;
             }
 
+            self.joining_line = false;
             if self.pending_space {
                 self.text.push(' ');
                 self.text_offset += 1;
@@ -579,7 +731,7 @@ impl SegmentBuilder {
             self.text_offset += output_units;
             let end_offset = self.text_offset;
             self.push_source_run(
-                &piece,
+                piece,
                 start_offset,
                 end_offset,
                 source_offset,
@@ -1093,6 +1245,350 @@ mod tests {
         }
     }
 
+    #[test]
+    fn narration_rejoins_wrapped_words_with_original_utf16_source_offsets() {
+        for hyphen in ['-', '\u{2010}'] {
+            let pages = vec![layer(
+                0,
+                vec![
+                    block(0, "😀 An envi", 100.0, 12.0),
+                    block(1, &format!("{hyphen}  \n"), 100.0, 12.0),
+                    block(2, "  ronment.\n", 117.0, 12.0),
+                ],
+            )];
+            let segments = reconstruct(pages.clone());
+            assert_eq!(segments[0].text, "😀 An environment.");
+            assert!(!segments[0]
+                .source_runs
+                .iter()
+                .any(|run| run.block_order == 1));
+            let continuation = segments[0].source_runs.last().unwrap();
+            assert_eq!(continuation.start_offset, 10);
+            assert_eq!(continuation.source_start_offset, 2);
+            assert_source_runs(&pages, &segments);
+        }
+    }
+
+    #[test]
+    fn narration_preserves_compounds_seen_intact_on_later_pages() {
+        for hyphen in ['-', '\u{2010}'] {
+            let pages = vec![
+                layer(
+                    0,
+                    vec![
+                        block(0, &format!("A producer{hyphen}\n"), 100.0, 12.0),
+                        block(1, "consumer queue.\n", 117.0, 12.0),
+                        block(2, "A state-owned archive.\n", 150.0, 12.0),
+                        block(3, "A ﬁle-\n", 185.0, 12.0),
+                        block(4, "system interface.\n", 202.0, 12.0),
+                    ],
+                ),
+                layer(
+                    1,
+                    vec![block(
+                        0,
+                        "Producer-consumer queues, producerconsumer, and file-system interfaces.\n",
+                        100.0,
+                        12.0,
+                    )],
+                ),
+            ];
+            let segments = reconstruct(pages.clone());
+            assert_eq!(
+                segments[0].text,
+                format!("A producer{hyphen}consumer queue.")
+            );
+            assert_eq!(segments[1].text, "A state-owned archive.");
+            assert_eq!(segments[2].text, "A file-system interface.");
+            assert_source_runs(&pages, &segments);
+        }
+
+        let segments = reconstruct(vec![layer(
+            0,
+            vec![
+                block(0, "A producer-\n", 100.0, 12.0),
+                block(1, "consumer queue.\n", 117.0, 12.0),
+                block(
+                    2,
+                    "multiproducer-consumers is a different token.\n",
+                    150.0,
+                    12.0,
+                ),
+            ],
+        )]);
+        assert_eq!(segments[0].text, "A producerconsumer queue.");
+    }
+
+    #[test]
+    fn narration_distinguishes_discretionary_and_nonbreaking_hyphens() {
+        let pages = vec![layer(
+            0,
+            vec![
+                block(0, "😀 An en\u{ad}vi\u{ad}  \n", 100.0, 12.0),
+                block(1, "  ronment and co\u{ad}operation.\n", 117.0, 12.0),
+                block(2, "A producer\u{2011}\n", 150.0, 12.0),
+                block(3, "Consumer queue.\n", 167.0, 12.0),
+            ],
+        )];
+        let segments = reconstruct(pages.clone());
+        assert_eq!(segments[0].text, "😀 An environment and cooperation.");
+        assert_eq!(segments[1].text, "A producer\u{2011}Consumer queue.");
+        assert_source_runs(&pages, &segments);
+    }
+
+    #[test]
+    fn narration_keeps_combining_marks_inside_wrapped_words_and_compounds() {
+        for word in ["varié", "varie\u{301}", "a\u{20dd}"] {
+            for hyphen in ['-', '\u{2010}', '\u{2011}', '\u{ad}'] {
+                let pages = vec![layer(
+                    0,
+                    vec![
+                        block(0, &format!("😀 Une {word}{hyphen}\n"), 100.0, 12.0),
+                        block(1, "te\u{301}.\n", 117.0, 12.0),
+                    ],
+                )];
+                let segments = reconstruct(pages.clone());
+                let retained = if hyphen == '\u{2011}' { "\u{2011}" } else { "" };
+                assert_eq!(
+                    segments[0].text,
+                    format!("😀 Une {word}{retained}te\u{301}.")
+                );
+                assert_source_runs(&pages, &segments);
+            }
+        }
+        for (before, after) in [("cafe\u{301}", "restaurant"), ("porte", "cafe\u{301}")] {
+            let pages = vec![layer(
+                0,
+                vec![
+                    block(0, &format!("Un {before}-\n"), 100.0, 12.0),
+                    block(1, &format!("{after}.\n"), 117.0, 12.0),
+                    block(2, &format!("Un {before}-{after}.\n"), 180.0, 12.0),
+                ],
+            )];
+            let segments = reconstruct(pages.clone());
+            assert_eq!(segments[0].text, format!("Un {before}-{after}."));
+            assert_source_runs(&pages, &segments);
+        }
+        for (before, after) in [("कि", "ताब."), ("كِ", "تاب.")] {
+            let pages = vec![layer(
+                0,
+                vec![
+                    block(0, &format!("{before}\u{ad}\n"), 100.0, 12.0),
+                    block(1, after, 117.0, 12.0),
+                ],
+            )];
+            let segments = reconstruct(pages.clone());
+            assert_eq!(segments[0].text, format!("{before}{after}"));
+            assert_source_runs(&pages, &segments);
+        }
+        for before in ["e\u{301},-", "\u{301}-"] {
+            let pages = vec![layer(
+                0,
+                vec![
+                    block(0, before, 100.0, 12.0),
+                    block(1, "word.", 117.0, 12.0),
+                ],
+            )];
+            let segments = reconstruct(pages.clone());
+            assert_eq!(segments[0].text, format!("{before} word."));
+            assert_source_runs(&pages, &segments);
+        }
+    }
+
+    /// Later-page evidence can use a different accent encoding; narration and source runs must keep the wrapped glyphs.
+    #[test]
+    fn narration_matches_canonically_equivalent_compound_evidence() {
+        for (wrapped, evidence) in [
+            ("café", "CAFE\u{301}"),
+            ("cafe\u{301}", "CAFÉ"),
+            ("café", "CAFÉ"),
+            ("cafe\u{301}", "CAFE\u{301}"),
+        ] {
+            for (before, after, evidence_before, evidence_after) in [
+                (wrapped, "restaurant", evidence, "restaurant"),
+                ("porte", wrapped, "porte", evidence),
+            ] {
+                for hyphen in ['-', '\u{2010}', '\u{2011}', '\u{ad}'] {
+                    let intact = format!("Un {evidence_before}-{evidence_after}.");
+                    let pages = vec![
+                        layer(
+                            0,
+                            vec![
+                                block(0, &format!("😀 Un {before}{hyphen}\n"), 100.0, 12.0),
+                                block(1, &format!("{after}.\n"), 117.0, 12.0),
+                            ],
+                        ),
+                        layer(1, vec![block(0, &intact, 100.0, 12.0)]),
+                    ];
+                    let segments = reconstruct(pages.clone());
+                    let retained = if hyphen == '\u{ad}' {
+                        String::new()
+                    } else {
+                        hyphen.to_string()
+                    };
+                    assert_eq!(
+                        segments[0].text,
+                        format!("😀 Un {before}{retained}{after}."),
+                        "wrapped={wrapped:?}, evidence={evidence:?}, hyphen={hyphen:?}"
+                    );
+                    assert_eq!(segments[1].text, intact);
+                    assert_source_runs(&pages, &segments);
+                }
+            }
+        }
+    }
+
+    /// Matching accent encodings must not erase accents or equate unrelated compatibility characters.
+    #[test]
+    fn compound_evidence_normalization_preserves_spelling_distinctions() {
+        assert_eq!(
+            compound_key("a\u{301}\u{327}", "word"),
+            compound_key("a\u{327}\u{301}", "word")
+        );
+        assert_ne!(
+            compound_key("café", "restaurant"),
+            compound_key("cafe", "restaurant")
+        );
+        assert_ne!(compound_key("Ａ", "word"), compound_key("A", "word"));
+    }
+
+    #[test]
+    fn narration_keeps_paragraph_column_and_punctuation_boundaries() {
+        for (before, after, top, expected) in [
+            ("An envi-", "ronment.", 150.0, vec!["An envi-", "ronment."]),
+            ("An envi-", "ronment.", 70.0, vec!["An envi-", "ronment."]),
+            (
+                "A lower-",
+                "Upper word.",
+                117.0,
+                vec!["A lower- Upper word."],
+            ),
+            ("An ID7-", "word.", 117.0, vec!["An ID7- word."]),
+            (
+                "A clause–",
+                "continues.",
+                117.0,
+                vec!["A clause– continues."],
+            ),
+            (
+                "A clause—",
+                "continues.",
+                117.0,
+                vec!["A clause— continues."],
+            ),
+        ] {
+            let pages = vec![layer(
+                0,
+                vec![block(0, before, 100.0, 12.0), block(1, after, top, 12.0)],
+            )];
+            let segments = reconstruct(pages.clone());
+            assert_eq!(
+                segments.iter().map(|s| s.text.as_str()).collect::<Vec<_>>(),
+                expected
+            );
+            assert_source_runs(&pages, &segments);
+        }
+
+        let segments = reconstruct(vec![layer(
+            0,
+            vec![
+                block(0, "A state-", 100.0, 12.0),
+                block(1, "owned archive.\n", 100.0, 12.0),
+            ],
+        )]);
+        assert_eq!(segments[0].text, "A state-owned archive.");
+    }
+
+    #[test]
+    fn narration_rejoins_words_only_at_accepted_page_seams() {
+        for top in [30.0, 300.0] {
+            let pages = vec![
+                layer(
+                    0,
+                    vec![block(0, "We observe a changing envi-\n", 770.0, 12.0)],
+                ),
+                layer(1, vec![block(0, "ronment with more changes.\n", top, 12.0)]),
+            ];
+            let segments = reconstruct(pages.clone());
+            if top == 30.0 {
+                assert_eq!(
+                    segments[0].text,
+                    "We observe a changing environment with more changes."
+                );
+                assert_eq!(segments.len(), 1);
+            } else {
+                assert_eq!(segments[0].text, "We observe a changing envi-");
+                assert_eq!(segments[1].text, "ronment with more changes.");
+            }
+            assert_source_runs(&pages, &segments);
+        }
+    }
+
+    #[test]
+    fn narration_propagates_sidecar_errors_in_either_pass() {
+        for failure_at in [1, 2] {
+            let mut reads = 0;
+            let result = reconstruct_narration_segments(1, |index| {
+                assert_eq!(index, 0);
+                reads += 1;
+                if reads == failure_at {
+                    Err("unreadable sidecar")
+                } else {
+                    Ok(layer(0, vec![block(0, "A paragraph.", 100.0, 12.0)]))
+                }
+            });
+            assert_eq!(result.unwrap_err(), "unreadable sidecar");
+            assert_eq!(reads, failure_at);
+        }
+    }
+
+    /// Check against original UTF-16 glyph slices, not a second implementation of the wrap repair.
+    fn assert_source_runs(pages: &[PageTextLayer], segments: &[PdfNarrationSegment]) {
+        for segment in segments {
+            let narration = segment.text.encode_utf16().collect::<Vec<_>>();
+            let mut cursor = 0;
+            for run in &segment.source_runs {
+                assert!(run.start_offset >= cursor && run.end_offset > run.start_offset);
+                assert!(
+                    String::from_utf16(&narration[cursor as usize..run.start_offset as usize])
+                        .unwrap()
+                        .trim()
+                        .is_empty()
+                );
+                let block = pages[run.page_index as usize]
+                    .blocks
+                    .iter()
+                    .find(|block| block.order == run.block_order)
+                    .unwrap();
+                let source = block.text.encode_utf16().collect::<Vec<_>>();
+                let source = String::from_utf16(
+                    &source[run.source_start_offset as usize..run.source_end_offset as usize],
+                )
+                .unwrap();
+                let expected = source
+                    .chars()
+                    .map(|ch| {
+                        expanded_ligature(ch)
+                            .map(str::to_owned)
+                            .unwrap_or_else(|| ch.to_string())
+                    })
+                    .collect::<String>();
+                assert_eq!(
+                    String::from_utf16(
+                        &narration[run.start_offset as usize..run.end_offset as usize]
+                    )
+                    .unwrap(),
+                    expected
+                );
+                cursor = run.end_offset;
+            }
+            assert!(String::from_utf16(&narration[cursor as usize..])
+                .unwrap()
+                .trim()
+                .is_empty());
+        }
+    }
+
     fn layer(page_index: u32, blocks: Vec<PageTextBlock>) -> PageTextLayer {
         PageTextLayer {
             schema_version: 1,
@@ -1112,11 +1608,11 @@ mod tests {
         }
     }
 
+    /// Match indexed sidecar reads: reconstruction can revisit a page to use later compound evidence.
     fn reconstruct(pages: Vec<PageTextLayer>) -> Vec<PdfNarrationSegment> {
         let page_count = pages.len() as u32;
-        let mut pages = pages.into_iter();
-        reconstruct_narration_segments(page_count, |_| {
-            Ok::<_, ()>(pages.next().expect("fixture page"))
+        reconstruct_narration_segments(page_count, |index| {
+            Ok::<_, ()>(pages[index as usize].clone())
         })
         .expect("reconstruct narration")
     }

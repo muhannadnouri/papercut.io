@@ -34,6 +34,50 @@ const base: Options = {
   onImportedMetadata: () => {},
 }
 
+/** PDF bundle import restores the source; old narration must not be grafted onto corrected source runs. */
+it('prepares imported PDF sources from corrected narration instead of old bundle chunks', async () => {
+  vi.mocked(getImportedAudiobookMetadata).mockResolvedValue({
+    chunks: [{
+      id: 'old',
+      text: 'An envi- ronment.',
+    }],
+  } as Awaited<ReturnType<typeof getImportedAudiobookMetadata>>)
+  vi.mocked(getUploadedPdfNarrationSegments).mockResolvedValue([{
+    text: 'An environment.',
+    sourceRuns: [{
+      pageIndex: 0,
+      blockOrder: 0,
+      startOffset: 0,
+      endOffset: 15,
+      sourceStartOffset: 0,
+      sourceEndOffset: 15,
+    }],
+  }])
+  let latest!: ReturnType<typeof useAudiobookDocument>
+  function Harness() {
+    const result = useAudiobookDocument({
+      ...base,
+      selectedDoc: '/uploads/ab.pdf',
+      docContent: '',
+    })
+    useLayoutEffect(() => {
+      latest = result
+    }, [result])
+    return null
+  }
+  const host = document.createElement('div')
+  document.body.append(host)
+  const app = createRoot(host)
+  try {
+    await act(async () => app.render(<Harness />))
+    expect(latest.canonicalChunks?.[0].text).toBe('An environment.')
+    expect((await latest.getChunksForDocument('/uploads/ab.pdf'))[0].text).toBe('An environment.')
+    expect(getImportedAudiobookMetadata).not.toHaveBeenCalled()
+  } finally {
+    await act(async () => app.unmount())
+  }
+})
+
 it('never exposes the previous document/model chunks during replacement and retains PDF runtime source spans before playback', async () => {
   let latest!: ReturnType<typeof useAudiobookDocument>
   const seen: Array<ReturnType<typeof useAudiobookDocument>['chunks']> = []

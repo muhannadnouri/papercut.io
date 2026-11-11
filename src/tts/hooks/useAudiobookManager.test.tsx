@@ -91,12 +91,15 @@ vi.mock('../api/nativeTts', async importOriginal => ({
   listenNativeAudiobookSaveProgress: vi.fn(async () => () => {}),
   saveNativeAudiobook: vi.fn(),
   deleteNativeAudiobook: vi.fn(),
+  exportNativeAudiobook: vi.fn(),
 }))
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 beforeEach(() => {
   localStorage.clear()
   vi.clearAllMocks()
   mocks.confirm.mockResolvedValue(true)
+  vi.mocked(api.listNativeSavedAudiobooks).mockResolvedValue([])
+  vi.mocked(api.exportNativeAudiobook).mockResolvedValue({ path: '/saved.wav' } as api.NativeAudiobookExportResult)
   vi.mocked(api.getNativeTtsCapabilities).mockResolvedValue({ available: true } as api.NativeTtsCapabilities)
   vi.mocked(api.getNativeAudiobookStatus).mockResolvedValue({
     cachedChunks: 0,
@@ -137,13 +140,13 @@ beforeEach(() => {
   })
 })
 
-async function mount() {
+async function mount(selectedDoc = '/book.html') {
   let current!: ReturnType<typeof useAudiobookManager>
   const props = {
     allDocuments: [],
     docContent: '<p>Hello world.</p>',
     loadHtmlDocument: async () => '',
-    selectedDoc: '/book.html',
+    selectedDoc,
     uploadedDocuments: [],
     userUploads: [],
     onClearDocument: mocks.noop,
@@ -203,6 +206,218 @@ it.each(['beginning', 'passage'])('admits %s after the matching save finalizes w
         documentUrl: '/book.html',
         voice: 'af_heart',
       }), 0, undefined)
+  } finally {
+    await harness.dispose()
+  }
+})
+
+/** Both local and bundle-imported PDFs use the same upload URL/status path after indexing. */
+it('requires deliberate replacement of an old PDF and becomes playable after the corrected save', async () => {
+  const url = '/uploads/ab.pdf'
+  const record = {
+    ...DEFAULT_AUDIO_PREFERENCES,
+    id: createAudiobookId(url, DEFAULT_AUDIO_PREFERENCES),
+    documentUrl: url,
+    title: 'PDF',
+    savedAt: 1,
+    chunks: 1,
+  }
+  vi.mocked(api.listNativeSavedAudiobooks).mockResolvedValue([record])
+  vi.mocked(api.getNativeAudiobookStatus).mockResolvedValue({
+    cachedChunks: 0,
+    totalChunks: 1,
+    complete: false,
+    requiresRegeneration: true,
+    dir: 'saved',
+    audioDurationSec: 0,
+    wavBytes: 0,
+  })
+  const harness = await mount(url)
+  try {
+    expect(harness.current.audioControlsProps.audiobookState.status).toBe('regeneration-required')
+    expect(harness.current.audioControlsProps.canPlayAudiobook).toBe(false)
+    expect(harness.current.audiobooksPanelProps.savedAudiobooks[0].requiresRegeneration).toBe(true)
+    expect(await harness.current.playFromBeginning()).toMatchObject({ reason: 'not-ready' })
+    mocks.confirm.mockResolvedValueOnce(false)
+    await act(async () => harness.current.audioControlsProps.onSave())
+    expect(mocks.confirm).toHaveBeenLastCalledWith(expect.objectContaining({
+      description: expect.stringContaining('replaces'),
+    }))
+    expect(api.saveNativeAudiobook).not.toHaveBeenCalled()
+    expect(api.deleteNativeAudiobook).not.toHaveBeenCalled()
+    await act(async () => harness.current.audioControlsProps.onSave())
+    expect(api.saveNativeAudiobook).toHaveBeenCalledWith(expect.objectContaining({
+      chunks: mocks.chunks,
+      documentUrl: url,
+    }))
+    vi.mocked(api.listNativeSavedAudiobooks).mockResolvedValue([{
+      ...record,
+      savedAt: 2,
+    }])
+    vi.mocked(api.getNativeAudiobookStatus).mockResolvedValue({
+      cachedChunks: 1,
+      totalChunks: 1,
+      complete: true,
+      requiresRegeneration: false,
+      dir: 'saved',
+      audioDurationSec: 1,
+      wavBytes: 100,
+    })
+    await act(async () => mocks.finishSave())
+    expect(harness.current.audioControlsProps.canPlayAudiobook).toBe(true)
+    expect(harness.current.audiobooksPanelProps.savedAudiobooks[0].requiresRegeneration).not.toBe(true)
+  } finally {
+    await harness.dispose()
+  }
+})
+
+it.each(['bundle', 'wav'] as const)('blocks stale PDF %s export before invoking native export and retains deletion', async format => {
+  const record = {
+    ...DEFAULT_AUDIO_PREFERENCES,
+    id: createAudiobookId('/uploads/ab.pdf', DEFAULT_AUDIO_PREFERENCES),
+    documentUrl: '/uploads/ab.pdf',
+    title: 'PDF',
+    savedAt: 1,
+    chunks: 1,
+  }
+  vi.mocked(api.listNativeSavedAudiobooks).mockResolvedValue([record])
+  const harness = await mount()
+  try {
+    vi.mocked(api.getNativeAudiobookStatus).mockResolvedValueOnce({
+      cachedChunks: 0,
+      totalChunks: 1,
+      complete: false,
+      requiresRegeneration: true,
+      dir: 'saved',
+      audioDurationSec: 0,
+      wavBytes: 0,
+    })
+    await act(async () => harness.current.audiobooksPanelProps.onExportSaved(record, format))
+    expect(api.exportNativeAudiobook).not.toHaveBeenCalled()
+    expect(harness.current.audiobookNotice?.status).toBe('error')
+    expect(harness.current.audiobooksPanelProps.savedAudiobooks[0].requiresRegeneration).toBe(true)
+    await act(async () => harness.current.audiobooksPanelProps.onDeleteSaved(record))
+    expect(api.deleteNativeAudiobook).toHaveBeenCalledWith(expect.objectContaining({ deleteUserUpload: false }))
+  } finally {
+    await harness.dispose()
+  }
+})
+
+/** The registry can finish after the status IPC; the later generation must still receive its notice. */
+it('rechecks a PDF when its saved generation arrives after the initial status', async () => {
+  const url = '/uploads/ab.pdf'
+  const record = {
+    ...DEFAULT_AUDIO_PREFERENCES,
+    id: createAudiobookId(url, DEFAULT_AUDIO_PREFERENCES),
+    documentUrl: url,
+    title: 'PDF',
+    savedAt: 1,
+    chunks: 1,
+  }
+  let release!: (records: (typeof record)[]) => void
+  vi.mocked(api.listNativeSavedAudiobooks).mockReturnValueOnce(new Promise(resolve => {
+    release = resolve
+  }))
+  vi.mocked(api.getNativeAudiobookStatus).mockResolvedValue({
+    cachedChunks: 0,
+    totalChunks: 1,
+    complete: false,
+    requiresRegeneration: true,
+    dir: 'saved',
+    audioDurationSec: 0,
+    wavBytes: 0,
+  })
+  const harness = await mount(url)
+  try {
+    expect(harness.current.audiobooksPanelProps.savedAudiobooks).toEqual([])
+    const checks = vi.mocked(api.getNativeAudiobookStatus).mock.calls.length
+    await act(async () => release([record]))
+    expect(api.getNativeAudiobookStatus).toHaveBeenCalledTimes(checks + 1)
+    expect(harness.current.audiobooksPanelProps.savedAudiobooks[0].requiresRegeneration).toBe(true)
+  } finally {
+    await harness.dispose()
+  }
+})
+
+it.each([false, true])('restarts an old interrupted PDF only after confirmation (%s)', async accept => {
+  const harness = await mount()
+  try {
+    vi.mocked(api.getNativeAudiobookStatus).mockResolvedValueOnce({
+      cachedChunks: 0,
+      totalChunks: 1,
+      complete: false,
+      requiresRegeneration: true,
+      dir: 'saved',
+      audioDurationSec: 0,
+      wavBytes: 0,
+    })
+    mocks.confirm.mockResolvedValueOnce(accept)
+    await act(async () => harness.current.audiobooksPanelProps.onResumeQueued({
+      ...DEFAULT_AUDIO_PREFERENCES,
+      id: 'pdf',
+      documentUrl: '/uploads/ab.pdf',
+      title: 'PDF',
+      status: 'paused',
+      cachedChunks: 5,
+      totalChunks: 9,
+      message: '',
+      createdAt: 0,
+      updatedAt: 0,
+      sessionId: null,
+    }))
+    expect(mocks.confirm).toHaveBeenCalledOnce()
+    expect(api.saveNativeAudiobook).toHaveBeenCalledTimes(accept ? 1 : 0)
+    expect(api.deleteNativeAudiobook).not.toHaveBeenCalled()
+    if (accept) {
+      expect(api.saveNativeAudiobook).toHaveBeenCalledWith(expect.objectContaining({ chunks: mocks.chunks }))
+    }
+  } finally {
+    await harness.dispose()
+  }
+})
+
+it('resumes corrected PDF chunks normally and leaves a failed preparation untouched', async () => {
+  const harness = await mount()
+  const record = {
+    ...DEFAULT_AUDIO_PREFERENCES,
+    id: 'pdf',
+    documentUrl: '/uploads/ab.pdf',
+    title: 'PDF',
+    status: 'paused' as const,
+    cachedChunks: 1,
+    totalChunks: 2,
+    message: '',
+    createdAt: 0,
+    updatedAt: 0,
+    sessionId: null,
+  }
+  try {
+    await act(async () => harness.current.audiobooksPanelProps.onResumeQueued(record))
+    expect(mocks.confirm).not.toHaveBeenCalled()
+    expect(api.saveNativeAudiobook).toHaveBeenCalledOnce()
+    mocks.getChunks.mockRejectedValueOnce(new Error('PDF sidecar unavailable'))
+    await act(async () => harness.current.audiobooksPanelProps.onResumeQueued(record))
+    expect(mocks.confirm).toHaveBeenLastCalledWith(expect.objectContaining({ description: 'PDF sidecar unavailable' }))
+    expect(api.saveNativeAudiobook).toHaveBeenCalledOnce()
+    expect(api.deleteNativeAudiobook).not.toHaveBeenCalled()
+  } finally {
+    await harness.dispose()
+  }
+})
+
+it.each(['/uploads/ab.pdf', '/uploads/ab.html', '/user-uploads/ab.html'])('exports matching audio without regeneration for %s', async url => {
+  const harness = await mount()
+  try {
+    await act(async () => harness.current.audiobooksPanelProps.onExportSaved({
+      ...DEFAULT_AUDIO_PREFERENCES,
+      id: createAudiobookId(url, DEFAULT_AUDIO_PREFERENCES),
+      documentUrl: url,
+      title: 'Book',
+      savedAt: 1,
+      chunks: 1,
+    }, 'bundle'))
+    expect(api.exportNativeAudiobook).toHaveBeenCalledOnce()
+    expect(harness.current.audiobookNotice?.status).toBe('success')
   } finally {
     await harness.dispose()
   }
@@ -309,6 +524,63 @@ it('keeps a replacement save ready when an older deletion finishes later', async
     })
     expect(harness.current.audiobooksPanelProps.activeDownload).toBe(replacement)
     expect(harness.current.audioControlsProps.canPlayAudiobook).toBe(true)
+  } finally {
+    await harness.dispose()
+  }
+})
+
+/** Generated speed belongs to the cache identity; the independent playback rate must survive a new save. */
+it.each([0.8, 1.2])('selects the fixed 1x save when regenerating a legacy %sx PDF', async speed => {
+  const url = '/uploads/ab.pdf'
+  const oldOptions = {
+    ...DEFAULT_AUDIO_PREFERENCES,
+    speed,
+  }
+  const record = {
+    ...oldOptions,
+    id: createAudiobookId(url, oldOptions),
+    documentUrl: url,
+    title: 'PDF',
+    savedAt: 1,
+    chunks: 1,
+  }
+  let generated = false
+  vi.mocked(api.listNativeSavedAudiobooks).mockResolvedValue([record])
+  vi.mocked(api.getNativeAudiobookStatus).mockImplementation(async (_url, _chunks, options) => ({
+    cachedChunks: generated && options.speed === 1 ? 1 : 0,
+    totalChunks: 1,
+    complete: generated && options.speed === 1,
+    requiresRegeneration: options.speed === speed,
+    dir: 'saved',
+    audioDurationSec: 0,
+    wavBytes: 0,
+  }))
+  const harness = await mount(url)
+  try {
+    await act(async () => harness.current.audioControlsProps.onSelectSavedAudiobook(record))
+    expect(harness.current.audioControlsProps.audiobookState.status).toBe('regeneration-required')
+    await act(async () => harness.current.audioControlsProps.onPlaybackRateChange(1.5))
+    mocks.confirm.mockResolvedValueOnce(false)
+    await act(async () => harness.current.audioControlsProps.onSave())
+    expect(harness.current.audioControlsProps.selectedAudiobookId).toBe(record.id)
+    expect(mocks.confirm).toHaveBeenLastCalledWith(expect.objectContaining({ description: expect.stringContaining('1×') }))
+    expect(api.saveNativeAudiobook).not.toHaveBeenCalled()
+    await act(async () => harness.current.audioControlsProps.onSave())
+    expect(api.saveNativeAudiobook).toHaveBeenCalledOnce()
+    const save = vi.mocked(api.saveNativeAudiobook).mock.calls[0][0]
+    expect(save.options.speed).toBe(1)
+    expect(harness.current.audioControlsProps.selectedAudiobookId).toBe(createAudiobookId(url, save.options))
+    expect(harness.current.audioControlsProps.playbackRate).toBe(1.5)
+    generated = true
+    vi.mocked(api.listNativeSavedAudiobooks).mockResolvedValue([record, {
+      ...record,
+      speed: save.options.speed,
+      id: createAudiobookId(url, save.options),
+      savedAt: 2,
+    }])
+    await act(async () => mocks.finishSave())
+    expect(harness.current.audioControlsProps.canPlayAudiobook).toBe(true)
+    expect(harness.current.audioControlsProps.audiobookState.status).toBe('saved')
   } finally {
     await harness.dispose()
   }

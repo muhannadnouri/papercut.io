@@ -106,6 +106,7 @@ export interface NativeAudiobookStatus {
   cachedChunks: number
   totalChunks: number
   complete: boolean
+  requiresRegeneration?: boolean
   dir: string
   audioDurationSec: number
   wavBytes: number
@@ -329,6 +330,7 @@ export async function listenNativeTtsModelInstallProgress(
     handler(event.payload)
   })
 }
+/** Status compares ordered chunk identities without sending all text or regenerating missing audio. */
 export async function getNativeAudiobookStatus(
   documentUrl: string,
   chunks: TtsChunk[],

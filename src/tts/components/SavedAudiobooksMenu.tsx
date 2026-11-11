@@ -17,6 +17,7 @@ interface SavedAudiobooksMenuProps {
   onSelect: (record: SavedAudiobookRecord) => void
 }
 
+/** Restoring a version selects its settings; known stale PDF versions explain why playback stays unavailable. */
 export function SavedAudiobooksMenu({ records, selectedId, onSelect }: SavedAudiobooksMenuProps) {
   const { t, i18n } = useTranslation()
   // Keep mixed model, voice, and runtime metadata stable across UI directions.
@@ -24,7 +25,8 @@ export function SavedAudiobooksMenu({ records, selectedId, onSelect }: SavedAudi
   const label = t('tts.controls.savedVersions', { count: records.length })
   const headingId = useId()
   const descriptionId = useId()
-  const hasCurrent = records.some((record) => record.id === selectedId)
+  const hasCurrent = records.some((record) => record.id === selectedId && !record.requiresRegeneration)
+  const allNeedRegeneration = records.length > 0 && records.every(record => record.requiresRegeneration)
 
   return (
     <MenuTrigger>
@@ -46,8 +48,11 @@ export function SavedAudiobooksMenu({ records, selectedId, onSelect }: SavedAudi
             <strong id={headingId}>{label}</strong>
             {!hasCurrent && (
               <small id={descriptionId}>
-                <span>{t('tts.controls.savedVersionsMismatch')}</span>
-                <span>{t('tts.controls.savedVersionsAction')}</span>
+                {allNeedRegeneration && <span>{t('tts.status.pdfRegenerationRequired')}</span>}
+                {!allNeedRegeneration && <>
+                  <span>{t('tts.controls.savedVersionsMismatch')}</span>
+                  <span>{t('tts.controls.savedVersionsAction')}</span>
+                </>}
               </small>
             )}
           </div>
@@ -87,7 +92,8 @@ export function SavedAudiobooksMenu({ records, selectedId, onSelect }: SavedAudi
                       {metaParts.slice(1).map((part) => <span key={part}>{part}</span>)}
                     </span>
                   </span>
-                  {current && <small>{t('tts.controls.currentSetup')}</small>}
+                  {record.requiresRegeneration && <small>{t('tts.status.pdfRegenerationRequired')}</small>}
+                  {!record.requiresRegeneration && current && <small>{t('tts.controls.currentSetup')}</small>}
                 </MenuItem>
               )
             })}

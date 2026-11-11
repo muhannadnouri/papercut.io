@@ -81,6 +81,7 @@ type AudioIconName =
   | 'return'
 const PLAYBACK_RATE_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3]
 
+/** A changed PDF stays readable and saveable, with playback withheld until corrected audio is saved. */
 export function AudioControls({
   playAnywhere,
   audiobookState,
@@ -366,6 +367,10 @@ export function AudioControls({
         {renderSaveButton()}
       </div>
 
+      {audiobookState.status === 'regeneration-required' && (
+        <div className="audio-regeneration-notice" role="status" dir="auto">{audiobookState.message}</div>
+      )}
+
       {portalTarget && createPortal(
         <div ref={dockRef} className="audio-playback-dock" role="group" aria-label={t('tts.controls.playbackControls')}>
           {showPlaybackMenuButton && chunkMenuOpen && (
@@ -495,6 +500,7 @@ export function AudioControls({
     </section>
   )
 
+  /** Reuse Save for regeneration; the manager owns the explicit replacement confirmation. */
   function renderSaveButton() {
     if (isPreparingSave) {
       return (
@@ -517,10 +523,14 @@ export function AudioControls({
       )
     }
 
-    const saveLabel = savedAudiobooks.length > 0
-      ? t('tts.controls.saveCurrentSetup')
-      : t('tts.controls.save')
-    const buttonLabel = audiobookState.complete ? t('tts.controls.savedForCurrentSetup') : saveLabel
+    let buttonLabel = t('tts.controls.save')
+    if (audiobookState.complete) {
+      buttonLabel = t('tts.controls.savedForCurrentSetup')
+    } else if (audiobookState.status === 'regeneration-required') {
+      buttonLabel = t('tts.controls.saveAgain')
+    } else if (savedAudiobooks.length > 0) {
+      buttonLabel = t('tts.controls.saveCurrentSetup')
+    }
     const modelSetupRequired = modelSetupLabel !== null
     // Generation setup must not imply that an imported, playable audiobook is unavailable.
     const actionLabel = modelSetupRequired

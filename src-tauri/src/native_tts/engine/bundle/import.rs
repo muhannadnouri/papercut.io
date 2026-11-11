@@ -762,6 +762,17 @@ mod tests {
         validate_bundle_manifest(&pdf).expect("version 3 PDF bundle");
     }
 
+    /// Import old audio intact; only the post-index PDF status check decides whether it needs regeneration.
+    #[test]
+    fn hyphenation_repair_keeps_existing_pdf_and_html_bundles_importable() {
+        for (version, kind, role) in [(3, Some("pdf"), "sourcePdf"), (2, None, "sourceHtml")] {
+            let mut manifest = bundle_manifest(version, kind, role);
+            manifest.cache_version = "native-save-v4-segmented".into();
+            manifest.chunks[0].text = "An envi- ronment.".into();
+            validate_bundle_manifest(&manifest).expect("existing audio cache remains supported");
+        }
+    }
+
     #[test]
     fn rejects_source_kind_and_payload_role_mismatches() {
         let manifest = bundle_manifest(3, Some("pdf"), "sourceHtml");

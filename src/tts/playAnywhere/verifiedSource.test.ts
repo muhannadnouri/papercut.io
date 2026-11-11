@@ -348,6 +348,85 @@ describe('verified source lookup', () => {
       sourceRuns: [],
     }])).toMatchObject({ reason: 'invalid-source' })
   })
+
+  it('resolves a dehyphenated PDF word to both original lines without mapping removed punctuation', () => {
+    const segments = pdfNarrationToReadableSegments([{
+      text: '😀 An environment.',
+      sourceRuns: [
+        {
+          pageIndex: 0,
+          blockOrder: 0,
+          startOffset: 0,
+          endOffset: 2,
+          sourceStartOffset: 0,
+          sourceEndOffset: 2,
+        },
+        {
+          pageIndex: 0,
+          blockOrder: 0,
+          startOffset: 3,
+          endOffset: 5,
+          sourceStartOffset: 3,
+          sourceEndOffset: 5,
+        },
+        {
+          pageIndex: 0,
+          blockOrder: 0,
+          startOffset: 6,
+          endOffset: 10,
+          sourceStartOffset: 6,
+          sourceEndOffset: 10,
+        },
+        {
+          pageIndex: 0,
+          blockOrder: 2,
+          startOffset: 10,
+          endOffset: 18,
+          sourceStartOffset: 2,
+          sourceEndOffset: 10,
+        },
+      ],
+    }])
+    const chunks = chunkAudiobookSaveSegmentsWithSpans(segments).map((chunk, index) => ({
+      ...chunk,
+      id: String(index),
+      pdfSourceSpans: pdfSourceSpansForChunk(segments, chunk.sourceSpan),
+    }))
+    expect(chunks.map(chunk => chunk.text)).toEqual(['😀 An environment.'])
+    expect(pdfSourceSpansForChunk(segments, span(8, 13))).toEqual([
+      {
+        pageIndex: 0,
+        blockOrder: 0,
+        startOffset: 8,
+        endOffset: 10,
+      },
+      {
+        pageIndex: 0,
+        blockOrder: 2,
+        startOffset: 2,
+        endOffset: 5,
+      },
+    ])
+    const resolver = verifiedPdfResolver(chunks, segments)
+    expect(resolver.status).toBe('ready')
+    if (resolver.status === 'ready') {
+      expect(resolver.resolve({
+        pageIndex: 0,
+        blockOrder: 0,
+        offset: 9,
+      })).toMatchObject({ chunkIndex: 0 })
+      expect(resolver.resolve({
+        pageIndex: 0,
+        blockOrder: 2,
+        offset: 2,
+      })).toMatchObject({ chunkIndex: 0 })
+      expect(resolver.resolve({
+        pageIndex: 0,
+        blockOrder: 1,
+        offset: 0,
+      })).toMatchObject({ reason: 'unmapped' })
+    }
+  })
 })
 
 it('never treats the end-of-index sentinel as permission to discard independent final punctuation', () => {

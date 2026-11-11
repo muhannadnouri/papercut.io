@@ -5,6 +5,11 @@
   min-width: 0;
 }
 
+.audio-regeneration-notice {
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+
 .audio-compact-row {
   display: flex;
   align-items: center;

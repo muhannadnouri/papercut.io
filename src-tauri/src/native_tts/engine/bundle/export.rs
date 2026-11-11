@@ -20,14 +20,17 @@ use serde_json::json;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_fs::{FilePath, FsExt, OpenOptions};
 
+use super::super::cache::audiobook_status_for_dir;
 use super::super::config::{BUNDLE_MAGIC, CACHE_VERSION};
 use super::super::paths::{
-    audiobook_dir, chunk_path, sanitize_export_basename, speakable_chunks, unique_export_work_dir,
+    audiobook_dir, chunk_path, chunk_source_signature, sanitize_export_basename, speakable_chunks,
+    unique_export_work_dir,
 };
 use super::{stitch_audiobook_wav, WavExportSummary};
 use crate::document_uploads::get_pdf_source_path;
 use crate::native_tts::types::{
-    NativeAudiobookExportRequest, NativeAudiobookExportResponse, NativeTtsInputChunk,
+    NativeAudiobookExportRequest, NativeAudiobookExportResponse, NativeAudiobookStatusRequest,
+    NativeTtsInputChunk,
 };
 
 struct BundleSource {
@@ -40,10 +43,26 @@ struct BundleSource {
 
 /// Top-level export entry point. The frontend chooses between the re-importable
 /// Papercut bundle and a plain stitched WAV for use outside Papercut.
+/// Reject changed PDF chunks before Save As, rather than failing on nonexistent WAVs later.
 pub(crate) fn export_audiobook_native(
     app: tauri::AppHandle,
     request: NativeAudiobookExportRequest,
 ) -> Result<NativeAudiobookExportResponse, String> {
+    let status = audiobook_status_for_dir(
+        &audiobook_dir(&app, &request.audiobook_id)?,
+        &NativeAudiobookStatusRequest {
+            audiobook_id: request.audiobook_id.clone(),
+            source_signature: chunk_source_signature(&request.chunks),
+            total_chunks: request
+                .chunks
+                .iter()
+                .filter(|chunk| !chunk.text.trim().is_empty())
+                .count(),
+        },
+    )?;
+    if status.requires_regeneration {
+        return Err("PDF audiobook needs regeneration".into());
+    }
     match request.export_format.as_str() {
         "bundle" => export_audiobook_bundle(app, request),
         "wav" => export_audiobook_wav(app, request),
