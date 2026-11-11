@@ -12,7 +12,10 @@ import type {
   NativeTtsModelStatus,
 } from '../api/nativeTts'
 import { previewNativeTtsVoice } from '../api/nativeTts'
-import { getTtsPreviewText } from '../models'
+import {
+  getRecommendedTtsModel,
+  getTtsPreviewText,
+} from '../models'
 import { nativeTtsErrorMessage } from '../utils/errors'
 import {
   DEFAULT_SILMA_NFE_STEP,
@@ -199,6 +202,7 @@ export function AudioSetupPanel({
   const modelsForLanguage = selectedLanguage
     ? models.filter((model) => getLanguageOption(model).value === selectedLanguage)
     : models
+  const recommendedModel = getRecommendedTtsModel(modelsForLanguage, selectedLanguage)
   const showModelInstallDetails = !modelInstalled || silmaRuntimeMissing || modelInstallProgress !== null || modelInstalling
   const recommendedVoice = voices.find((item) => item.id === selectedModel?.defaultVoice)
   const previewSelection = [modelId, voice, textPreprocessor, silmaNfeStep].join('\0')
@@ -306,7 +310,8 @@ export function AudioSetupPanel({
             value={selectedLanguage}
             options={languageOptions}
             onChange={(language) => {
-              const nextModel = models.find((model) => getLanguageOption(model).value === language)
+              const nextModel = getRecommendedTtsModel(models, language)
+                ?? models.find((model) => getLanguageOption(model).value === language)
               if (nextModel) {
                 onModelChange(nextModel.id)
               }
@@ -332,7 +337,7 @@ export function AudioSetupPanel({
             >
               {modelsForLanguage.map((model) => (
                 <option key={model.id} value={model.id}>
-                  {model.name}
+                  {model.name}{model.id === recommendedModel?.id ? ' · ' + t('tts.setup.recommended') : ''}
                 </option>
               ))}
             </select>

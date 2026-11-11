@@ -4,10 +4,10 @@ Papercut's TTS path is native sherpa-onnx with a catalog of model families. Koko
 
 The design goal is still offline-first: model files live on the user's device, audiobook chunks are generated only when a user asks to save a document, and generated audio is stored as user data instead of being pre-rendered into the app bundle.
 
-Planned recommendation labels, Sherpa 2.x compatibility work, interrupted-save
-handling and paired English/Arabic small-model additions are specified in the
-[Sherpa upgrade plan](sherpa-onnx-upgrade.md). Its staged human-review gates are
-pending; that plan does not describe shipped support.
+The [Sherpa upgrade plan](sherpa-onnx-upgrade.md) records the recommendation-policy
+implementation accepted by the owner and the subsequent Sherpa 2.x,
+interrupted-save and paired English/Arabic small-model stages. The runtime and
+model roster remain unchanged at Stage 1.
 
 ## Runtime Architecture
 
@@ -257,7 +257,7 @@ The document header exposes one consolidated audio control surface:
 - Playback speed in the active player changes how fast the saved WAV plays. It is a listener preference and is persisted separately from generated-audio settings.
 - Save generates and persists the full audiobook for the current supported document. HTML and EPUB save from sanitized reader HTML; PDF saves from persisted page-text layers and page-aware locators.
 - Saved appears when the full audiobook exists locally for the current Audio Setup.
-- Model selects the engine/language. Download voice model installs the selected pinned model into app data. Papercut may suggest an Arabic or Mandarin model when the document script is unambiguous, but Latin-script documents preserve the user's selected engine because script alone cannot distinguish English, Spanish, French, and other supported languages.
+- Model selects the engine/language. English Kokoro v1.0 and Arabic Piper Kareem Medium carry the translated Recommended label, independently of the existing voice recommendation. Entering either speech language selects its recommended model when available; other languages and catalogs missing that recommendation retain their first available matching model. Existing selected alternatives are preserved across rerenders and catalog refreshes. Download voice model installs the selected pinned model into app data. Papercut may suggest Kareem for Arabic or a Mandarin model when the document script is unambiguous, without replacing an already selected model for that language. Automatic suggestions continue to skip uploaded documents, and Latin-script documents preserve the user's selected engine because script alone cannot distinguish English, Spanish, French, and other supported languages. Recommendation labels do not change model/voice IDs or saved-audio identity.
 - Voice marks each model's catalog default as the recommended starting point. Once the selected model is installed, Preview Voice synthesizes and plays a short language-matched sample through the normal native engine and preprocessing path. The temporary WAV is removed immediately and never creates an audiobook record.
 - Audio Setup keeps language, model, voice, installation, and preview controls visible. Text processing, threads, diagnostics, and SILMA-specific tuning use one native **Advanced** disclosure that starts collapsed; active non-default choices remain summarized on the disclosure row.
 - Text processing selects a model-supported synthesis preprocessor. Piper offers automatic Arabic diacritization or original text; Kokoro exposes original text only.

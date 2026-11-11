@@ -5,10 +5,13 @@ import {
 } from 'vitest'
 import {
   FALLBACK_TTS_MODELS,
+  getRecommendedTtsModel,
   getTtsPreviewText,
   suggestTtsModel,
 } from './models'
 import {
+  DEFAULT_TTS_MODEL_ID,
+  PIPER_KAREEM_MODEL_ID,
   SUPERTONIC_AR_MODEL_ID,
   SUPERTONIC_EN_MODEL_ID,
 } from './types'
@@ -21,6 +24,34 @@ const ARABIC_CHUNKS = [{
   id: 'arabic',
   text: 'هذا نص عربي طويل بما يكفي لاقتراح نموذج عربي للقراءة الصوتية.',
 }]
+
+const CATALOGS = [
+  {
+    order: 'fallback',
+    models: FALLBACK_TTS_MODELS,
+  },
+  {
+    order: 'reversed',
+    models: [...FALLBACK_TTS_MODELS].reverse(),
+  },
+]
+
+describe('recommended TTS models', () => {
+  it.each(CATALOGS)(
+    'finds recommendations in $order catalog order', ({ models }) => {
+      expect(getRecommendedTtsModel(models, 'en-US')?.id).toBe(DEFAULT_TTS_MODEL_ID)
+      expect(getRecommendedTtsModel(models, 'AR-JO')?.id).toBe(PIPER_KAREEM_MODEL_ID)
+      expect(getRecommendedTtsModel(models, 'fr-FR')).toBeUndefined()
+    },
+  )
+
+  it('does not recommend unavailable models', () => {
+    const models = FALLBACK_TTS_MODELS.filter((model) => model.id !== PIPER_KAREEM_MODEL_ID)
+    expect(getRecommendedTtsModel(models, 'ar')).toBeUndefined()
+    expect(suggestTtsModel(models, ARABIC_CHUNKS, DEFAULT_TTS_MODEL_ID)?.id)
+      .toBe(SUPERTONIC_AR_MODEL_ID)
+  })
+})
 
 describe('suggestTtsModel', () => {
   it('preserves the selected model for ambiguous Latin-script text', () => {
@@ -39,12 +70,12 @@ describe('suggestTtsModel', () => {
     )).toBeNull()
   })
 
-  it('still suggests an Arabic model when the selected language differs', () => {
+  it.each(CATALOGS)('suggests Kareem when the selected language differs ($order order)', ({ models }) => {
     expect(suggestTtsModel(
-      FALLBACK_TTS_MODELS,
+      models,
       ARABIC_CHUNKS,
       SUPERTONIC_EN_MODEL_ID,
-    )?.language).toMatch(/^ar/i)
+    )?.id).toBe(PIPER_KAREEM_MODEL_ID)
   })
 })
 

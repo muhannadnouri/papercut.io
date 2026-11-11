@@ -272,6 +272,16 @@ export function getTtsModel(models: TtsModelInfo[], modelId: string): TtsModelIn
     ?? FALLBACK_TTS_MODELS[0]
 }
 
+const RECOMMENDED_TTS_MODEL_IDS: Record<string, string> = {
+  en: DEFAULT_TTS_MODEL_ID,
+  ar: PIPER_KAREEM_MODEL_ID,
+}
+
+export function getRecommendedTtsModel(models: TtsModelInfo[], language: string): TtsModelInfo | undefined {
+  const modelId = RECOMMENDED_TTS_MODEL_IDS[language.split('-')[0].toLowerCase()]
+  return models.find((model) => model.id === modelId)
+}
+
 export function getTtsVoiceName(models: TtsModelInfo[], modelId: string, voiceId: string): string {
   return getTtsModel(models, modelId).voices.find((voice) => voice.id === voiceId)?.name ?? voiceId
 }
@@ -337,7 +347,8 @@ export function suggestTtsModel(
     if (currentLanguage.startsWith('ar')) {
       return null
     }
-    return models.find((model) => model.language.toLowerCase().startsWith('ar'))
+    return getRecommendedTtsModel(models, 'ar')
+      ?? models.find((model) => model.language.toLowerCase().startsWith('ar'))
       ?? getTtsModel(models, DEFAULT_TTS_MODEL_ID)
   }
   // Latin text does not identify a language reliably enough to replace the

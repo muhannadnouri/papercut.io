@@ -1,6 +1,6 @@
 # Sherpa ONNX upgrade and model selection plan
 
-Status: specification prepared; implementation has not started. Owner direction
+Status: Stage 1 accepted by owner; later stages not started. Owner direction
 confirmed November 11, 2026. Research baseline: local `main` at `6baf1858`, Sherpa
 1.13.4. Candidate runtime: 2.0.1, subject to the compatibility gate below.
 
@@ -50,8 +50,9 @@ applicable session authorization; the plan itself is not that authorization.
 
 ## 2. Verified starting facts and risks
 
-These findings are source inspection as of November 11, not new executable or
-device acceptance evidence. Recheck against the actual implementation base.
+These findings describe the pre-implementation source inspection of November 11,
+not device acceptance evidence. Stage 1 resolves the first row's order dependence;
+recheck the remaining findings against the actual implementation base.
 
 | Finding | Consequence |
 | --- | --- |
@@ -167,7 +168,7 @@ import/export and manifest-index rebuild paths, not only the visible button.
 
 ## 4. Stage gates
 
-No stage is accepted yet. An agent can prepare the next-stage handoff but must
+Stage 1 was accepted by the owner on November 11, 2026. An agent can prepare the next-stage handoff but must
 stop after presenting its gate evidence. A named human reviewer/owner records
 acceptance before the next implementation stage starts. Green tests alone do
 not grant that acceptance. A failed gate means fix within scope or request an
@@ -198,6 +199,64 @@ Human acceptance:
 - [ ] Known audiobook ID expectations remain byte-identical; labels do not enter cache identity. Fallback and native-like order are both covered.
 - [ ] Labels remain understandable in Arabic/RTL and narrow layouts; existing keyboard/screen-reader select behavior remains usable.
 - [ ] Diff contains no runtime/model/cache/persistence change. Reviewer records approval to start Stage 2.
+
+#### Stage 1 implementation handoff — November 11, 2026
+
+Owner authorized committing the plan, creating the branch and implementing this
+stage. Branch `task/sherpa-onnx` was created from local `main` at `6baf1858`;
+the two planning documents were committed as `ce054ead`. The Stage 1 implementation
+is committed separately from that documentation commit.
+
+Changes:
+
+- `src/tts/models.ts` owns one explicit `en`/`ar` recommendation lookup, returning
+  only models present in the supplied catalog. Arabic document suggestions use
+  that lookup before their previous first-match fallback. Detection thresholds,
+  Mandarin routing and same-language preservation are unchanged.
+- `AudioSetupPanel.tsx` uses that lookup for the model-option label and explicit
+  language changes. Missing recommendations keep the previous available-model
+  fallback without falsely endorsing it. No effect rewrites an existing selection.
+- Focused model/UI tests exercise fallback and reversed catalogs (including
+  Supertonic before Kareem), actual select-change events, unavailable recommendations,
+  preserved selected alternatives during catalog refresh and existing voice labels.
+- Independent historical ID assertions cover Heart, British Emma and diacritized
+  Kareem. Audio preferences and saved/imported metadata restoration code are
+  unchanged; their installed-app restart/import behavior remains a human check.
+
+Validation on this Stage 1 working diff:
+
+- `npm test -- src/tts`: **31 files, 385 tests passed**, including the Chromium
+  fixtures and existing manager/export/import regression coverage. The first
+  sandboxed broader runs could not execute browser fixtures (`ECONNRESET`);
+  the final run with local browser-process permissions passed. Final log:
+  `/tmp/sherpa-stage1-tts-tests.log` (session-local; retain with review evidence
+  if needed, or reproduce with the same command).
+- `npm run build:typecheck`: passed.
+- `npm run check:i18n`: all eight locales passed.
+- `npx eslint --max-warnings=0 src/tts/models.ts src/tts/models.test.ts src/tts/components/AudioSetupPanel.tsx src/tts/components/AudioSetupPanel.test.tsx src/tts/storage/AudiobookLibrary.test.ts`: passed.
+- Scoped whitespace/local-document-link checks passed. Unrelated pre-existing
+  `.gitignore`, `.vscode/settings.json` and owner-only untracked files are excluded
+  from the implementation and documentation commit.
+
+Owner accepted Gate 1 on November 11, reporting that smoke tests pass as intended
+and the Recommended labels are visible in the UI, and authorized Stage 2. This
+records owner acceptance, not an inferred device/accessibility test inventory.
+No runtime upgrade,
+model download, native inference, app version/cache/schema/ID change, new locale
+key or production dependency is part of this stage. Existing uploaded-document
+exclusions remain in `useAudiobookManager`; that caller is unchanged.
+
+Manual Gate 1: review the two badges, switch languages, explicitly select
+Supertonic in each language, refresh/reopen and confirm it stays selected. Restore
+an existing saved/imported audiobook and its settings. Verify Arabic RTL/narrow
+layout and keyboard/screen-reader behavior. The owner reported smoke acceptance;
+specific device/accessibility receipts were not supplied and are not claimed by
+the jsdom tests. Detailed physical-device acceptance remains in Stage 5.
+
+Next, authorized by owner Gate 1 acceptance: Stage 2 only, the bounded native
+compatibility investigation. Do not start production migration or expose small
+models. No clarification blocks Stage 1; Stage 2 must return evidence for its
+frontend, platform-linking and generation-revision/restart proposals.
 
 ### Stage 2 — Bounded native compatibility investigation
 
@@ -415,7 +474,7 @@ Separate logical/design acceptance from outstanding platform execution.
 
 | Stage | Status | Source/artifact | Human reviewer and decision/date |
 | --- | --- | --- | --- |
-| 1. Recommendation policy | Not started | — | — |
+| 1. Recommendation policy | Accepted | `task/sherpa-onnx`, implementation after `ce054ead`; handoff above | Owner, November 11, 2026: smoke passes, Recommended labels visible; proceed to Stage 2 |
 | 2. Compatibility investigation | Not started | — | — |
 | 3. Existing-roster upgrade/resume | Not started | — | — |
 | 4. Paired small-model addition | Not started | — | — |
