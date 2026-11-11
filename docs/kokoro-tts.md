@@ -4,6 +4,11 @@ Papercut's TTS path is native sherpa-onnx with a catalog of model families. Koko
 
 The design goal is still offline-first: model files live on the user's device, audiobook chunks are generated only when a user asks to save a document, and generated audio is stored as user data instead of being pre-rendered into the app bundle.
 
+Planned recommendation labels, Sherpa 2.x compatibility work, interrupted-save
+handling and paired English/Arabic small-model additions are specified in the
+[Sherpa upgrade plan](sherpa-onnx-upgrade.md). Its staged human-review gates are
+pending; that plan does not describe shipped support.
+
 ## Runtime Architecture
 
 The proposed viewport/selection-to-saved-chunk feature is specified in the
