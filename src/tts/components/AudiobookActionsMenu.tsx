@@ -25,7 +25,7 @@ interface AudiobookActionsMenuProps {
   onDelete: () => void
 }
 
-/** Render saved-audiobook actions in a portal so the menu can flip around viewport edges. */
+/** Portal placement avoids clipped menus; stale PDF exports stay disabled while opening/deletion remain available. */
 export function AudiobookActionsMenu({
   t,
   record,
@@ -62,6 +62,7 @@ export function AudiobookActionsMenu({
                   id={option.format}
                   className="audiobook-actions-option"
                   textValue={option.label}
+                  isDisabled={Boolean(record.requiresRegeneration)}
                   onAction={() => onExport(option.format)}
                 >
                   <span>{option.label}</span>

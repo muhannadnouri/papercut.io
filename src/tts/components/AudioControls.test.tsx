@@ -18,6 +18,32 @@ vi.mock('react-i18next', async importOriginal => ({
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 afterEach(() => document.body.replaceChildren())
 
+it('explains a stale PDF and offers Save again without exposing playback', async () => {
+  const config = props()
+  const host = document.createElement('div')
+  document.body.append(host)
+  const app = createRoot(host)
+  const save = vi.fn()
+  try {
+    await act(async () => app.render(<AudioControls {...config} canPlayAudiobook={false} canSaveAudiobook
+      audiobookState={{
+        ...config.audiobookState,
+        status: 'regeneration-required',
+        complete: false,
+        message: 'Save this PDF again.',
+      }}
+      onSave={save} />))
+    expect(host.querySelector('.audio-regeneration-notice')?.textContent).toBe('Save this PDF again.')
+    expect(host.querySelector('.audio-primary-btn')).toBeNull()
+    const button = host.querySelector<HTMLButtonElement>('[aria-label="tts.controls.saveAgain"]')!
+    expect(button.disabled).toBe(false)
+    await act(async () => button.click())
+    expect(save).toHaveBeenCalledOnce()
+  } finally {
+    await act(async () => app.unmount())
+  }
+})
+
 it('keeps playback speed reachable through Options without the optional feature', async () => {
   const config = props()
   const element = document.createElement('div')

@@ -131,6 +131,7 @@ dependencies = [
  "percent-encoding",
  "pulldown-cmark",
  "rcgen",
+ "regex",
  "reqwest 0.12.28",
  "roxmltree",
  "rusqlite",

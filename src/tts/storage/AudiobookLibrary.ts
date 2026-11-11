@@ -24,6 +24,8 @@ export interface SavedAudiobookRecord {
   chunks: number
   audioDurationSec?: number
   wavBytes?: number
+  /** Discovered lazily for this saved generation, not a persisted format/cache version. */
+  requiresRegeneration?: boolean
 }
 
 export function getSavedAudiobooksForDocument(

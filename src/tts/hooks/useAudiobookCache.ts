@@ -4,6 +4,7 @@ import {
   useState,
 } from 'react'
 import i18n from '../../i18n'
+import { createAudiobookId } from '../storage/AudiobookLibrary'
 import {
   cancelNativeAudiobookSave,
   getNativeAudiobookStatus,
@@ -27,7 +28,7 @@ import {
   type TtsChunk,
 } from '../types'
 
-type AudiobookSaveStatus = 'idle' | 'checking' | 'partial' | 'saving' | 'saved' | 'error'
+type AudiobookSaveStatus = 'idle' | 'checking' | 'partial' | 'saving' | 'saved' | 'error' | 'regeneration-required'
 
 export interface AudiobookCacheState {
   status: AudiobookSaveStatus
@@ -38,6 +39,8 @@ export interface AudiobookCacheState {
   audioDurationSec: number
   wavBytes: number
   appliedThreadCount: number | null
+  /** Prevent a completed asynchronous check from labelling another document/setup after navigation. */
+  checkedAudiobookId?: string
 }
 
 const INITIAL_STATE: AudiobookCacheState = {
@@ -67,12 +70,15 @@ export function useAudiobookCache() {
     setState(INITIAL_STATE)
   }, [])
 
+  /** Read-only checks distinguish a changed PDF from a missing save; neither starts synthesis. */
   const check = useCallback((chunks: TtsChunk[], options: TtsOptions) => {
     const checkId = checkIdRef.current + 1
     checkIdRef.current = checkId
     const totalChunks = chunks.filter((chunk) => chunk.text.trim()).length
+    const checkedAudiobookId = options.documentUrl ? createAudiobookId(options.documentUrl, options) : undefined
     setState((prev) => ({
       ...prev,
+      checkedAudiobookId,
       status: 'checking',
       message: i18n.t('tts.status.checkingSaved'),
       totalChunks,
@@ -92,9 +98,19 @@ export function useAudiobookCache() {
         if (checkIdRef.current !== checkId) {
           return
         }
+        let nextStatus: AudiobookSaveStatus = 'partial'
+        let message = i18n.t('tts.status.notSaved')
+        if (status.requiresRegeneration) {
+          nextStatus = 'regeneration-required'
+          message = i18n.t('tts.status.pdfRegenerationRequired')
+        } else if (status.complete) {
+          nextStatus = 'saved'
+          message = i18n.t('tts.status.saved')
+        }
         setState({
-          status: status.complete ? 'saved' : 'partial',
-          message: status.complete ? i18n.t('tts.status.saved') : i18n.t('tts.status.notSaved'),
+          checkedAudiobookId,
+          status: nextStatus,
+          message,
           cachedChunks: status.cachedChunks,
           totalChunks: status.totalChunks,
           complete: status.complete,
@@ -107,6 +123,7 @@ export function useAudiobookCache() {
           return
         }
         setState({
+          checkedAudiobookId,
           status: 'error',
           message: nativeTtsErrorMessage(err),
           cachedChunks: 0,

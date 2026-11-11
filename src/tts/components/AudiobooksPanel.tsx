@@ -72,6 +72,7 @@ interface AudiobooksPanelProps {
   onResumeQueued: (record: AudiobookDownloadRecord) => void
 }
 
+/** Keep stale PDF saves visible for opening or deletion; checking/exporting must not replace their files. */
 export function AudiobooksPanel({
   activeDownload,
   audioSetup,
@@ -260,6 +261,9 @@ export function AudiobooksPanel({
                         <span className="audiobook-meta" dir="auto" title={savedMeta}>
                           {savedMeta}
                         </span>
+                        {record.requiresRegeneration && (
+                          <span className="audiobook-status-text" dir="auto">{t('tts.status.pdfRegenerationRequired')}</span>
+                        )}
                       </button>
                       <AudiobookActionsMenu
                         t={t}

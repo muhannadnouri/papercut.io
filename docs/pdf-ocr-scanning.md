@@ -1486,36 +1486,111 @@ not audible or device acceptance.
 
 ### Stage 2: PDF-Only Regeneration Policy
 
-Stage status: Pending; Stage 1 alone is not ready to release.
+Stage status: Implemented; the owner reports Linux and Android debug smoke tests
+passing. Release-artifact validation remains part of the v1.10.3 release work.
 
 The accepted policy requires regeneration of affected PDF audiobooks rather
 than maintaining legacy playback/highlighting projections. Already generated
 WAVs cannot acquire corrected pronunciation from a text fix.
 
-- [ ] Detect saved PDFs whose chunks no longer match corrected narration and
-      present an explicit regeneration-required state. Cover reader playback,
-      saved-library actions, and imported PDF bundles; avoid silently reporting
-      an ordinary missing save or attempting export with nonexistent new WAVs.
-- [ ] Reuse Delete + Save initially if sufficient. Keep the source PDF available
-      and leave stored audio untouched until the user deliberately replaces or
-      deletes it. Do not require source reimport for this reconstruction change.
-- [ ] Define interrupted-save restart/resume behavior for changed chunk sets;
-      never mix old text/spans with corrected audio. Existing save replacement
-      writes a pending manifest and prunes old chunks before synthesis, so it
-      does not preserve the previous book on cancellation.
-- [ ] Keep invalidation specific to PDF narration. Do not bump the global audio
-      cache version: exact equality is also required when importing HTML bundles.
-- [ ] Test old PDF bundles/saves, fresh generation, resume, delete/recreate,
-      and export/import, plus unchanged HTML/EPUB/TXT saves.
+- [x] Compare the existing ordered chunk signature and count against the saved
+      manifest. A valid PDF manifest with different chunks returns
+      `requiresRegeneration`; missing/unreadable manifests retain the ordinary
+      not-saved state. Matching older PDFs remain playable.
+- [x] Show an explicit reader notice and label the existing Save action as
+      **Save PDF audiobook again**. Its confirmation explains replacement for
+      the chosen settings and generated speed, loss of the replaced version if interrupted,
+      and retention of the source PDF. Declining starts no save or deletion.
+      Existing delete controls also remain available without deleting the PDF.
+- [x] Check background PDF versions on export/resume rather than reconstructing
+      every saved book at startup. Discovered stale versions show a library/menu
+      notice and disable export until replaced. Native export independently
+      checks the signature before opening Save As. Notices follow the saved
+      generation timestamp; a successful replacement clears the old notice.
+- [x] Confirm restarting an old interrupted PDF with current chunks. Once the
+      corrected pending manifest exists, ordinary resume reuses only WAV paths
+      whose index, chunk ID, and text identity match. Unchanged audio may be
+      reused; stale WAVs are pruned by the existing replacement path. No atomic
+      keep-old-version guarantee is added.
+- [x] Keep the global cache version and bundle formats unchanged. Old PDF bundles
+      import their original audio/source, then normal PDF indexing/preparation
+      and status checks determine whether regeneration is required. HTML/EPUB/TXT
+      keep their existing preparation and import/export paths. No source reimport
+      or automatic background regeneration is needed.
+- [x] Add regressions for same-count changed text, changed counts, pending and
+      completed manifests, read-only mismatch detection, matching/absent/corrupt
+      saves, legacy PDF/HTML bundle acceptance, corrected PDF preparation,
+      confirmation/cancellation, guarded WAV/bundle export, deletion with source
+      retention, and replacement/resume with actual synthetic WAVs.
+
+Review corrections keep every new Save at **1x** and select that cache identity
+only after confirmation. Opening an older 0.8x/1.2x audiobook still locates its
+original audio, but Save again selects the new 1x version instead of leaving the
+reader on the stale version. A differently paced legacy version remains a
+separate saved entry. Cancellation preserves the old selection; playback rate
+is independent and remains unchanged. Resume keeps the recorded job settings
+so its cached chunks retain one generation identity. The confirmation displays
+the actual generated speed of the requested save/resume, without exposing a
+generation-speed setting.
+
+PDF word classification now retains Unicode combining marks when collecting
+compound evidence and finding boundary letters. Precomposed/decomposed accents,
+Hindi vowel signs, and Arabic marks retain their original glyphs and UTF-16
+offsets. A shared letter-case check preserves the existing search projection;
+only narration looks through marks to the boundary letter. This reuses the
+already locked `regex` crate's Unicode Mark classification as a direct
+dependency; no package versions or new packages are added to the lockfile.
+State/message selection, save labels, and restart confirmation use explicit
+branches, and export signature checking borrows chunks without a redundant copy.
+
+Validation on 2026-11-11: the native suite with `native-tts-core` and shared
+sherpa libraries passes 339 tests (5 ignored). The full frontend suite passes
+840 tests (1 skipped) across 101 files. TypeScript, i18n parity across all eight
+locales, and the production build/search-index pipeline pass.
+Browser/local-server and temporary Git fixtures require their normal local
+permissions outside the restrictive sandbox. Function comments explain the
+reconstruction boundaries, source-offset edits, lazy status checks, generation
+ownership, and replacement/export gotchas. Owner-reported manual acceptance is
+recorded below separately from automated text/source validation.
 
 ### Stage 3: Release Acceptance
 
-- [ ] Listen to corrected generation from a PDF with discretionary wraps and real
-      compounds; verify highlighting and play-from-here at repaired words.
-- [ ] Exercise Android upgrade from v1.10.2 with existing saved PDFs, imports,
-      cancellation/restart, and the regeneration-required controls.
+- [x] Owner reports PDF audiobook and regeneration smoke tests passing on Linux.
+- [x] Owner reports smoke tests passing on Android using a debug build.
 - [ ] Run the release checks after Stage 2, then update release notes/version as
       part of the v1.10.3 release work.
+
+These owner reports do not itemize every step below or establish acceptance of
+a release-signed/F-Droid artifact. The Android NDK lookup failure was local SDK
+selection: the shared build requires NDK `30.0.16248370`; selecting the existing
+pinned installation allowed the owner to build and smoke-test. No Android build
+script change or SDK downgrade is part of this fix. The application version
+remains `1.10.2` until the separate v1.10.3 release preparation.
+
+Manual reproduction/acceptance checklist for reviewers (use a build from
+`bug/pdf-tts-hyphen`):
+
+1. Prepare an old completed PDF save, an old paused PDF job, and the original
+   audiobook bundle before upgrading. Upgrade v1.10.2 without clearing app data.
+   Check that affected saves show the regeneration notice. Cancel Save again:
+   no job should start, and the PDF and old saved entry should remain.
+2. Save the Google File System sample again. Completion should automatically
+   select the new 1x version and enable Play. Listen around `environment` and
+   other repaired words; check real compounds, highlights across wrapped lines,
+   and play-from-here at both parts of a repaired word.
+3. Interrupt generation, reopen, and resume. Check that an old changed job asks
+   before restart, while a matching corrected job resumes normally. The source
+   PDF should remain readable throughout.
+4. Export corrected WAV and bundle files, then import the corrected bundle
+   (preferably on another device/profile). Verify playback, highlighting, and
+   absence of a regeneration notice for the corrected bundle.
+5. Check an unaffected PDF and saved HTML/EPUB/TXT books. If available, include
+   an older audiobook with a non-1x *generated* speed; changing the playback-rate
+   control does not create this legacy case. New Save must generate/select 1x
+   while retaining the chosen playback rate.
+6. On the phone, verify that the notice, confirmation, and saved-version menu
+   fit and remain usable, including RTL if used. Report device/OS, model/voice,
+   the failing step, and exact page/word for any speech or highlight problem.
 
 ## Decision Log
 
