@@ -1442,6 +1442,81 @@ Stage status: Deferred
 - [ ] Add advanced table, equation, or layout analysis only after corpus data
       demonstrates the need.
 
+## v1.10.3: PDF Narration Hyphenation Repair
+
+The line-end hyphen repair below is a staged follow-up to the released PDF
+pipeline. Search already joined eligible broken words, but narration retained
+the hyphen and inserted a space, sending text such as `envi- ronment` to TTS.
+
+### Stage 1: Reconstruction And Source Mapping
+
+- [x] Repair visual word wraps in the PDF-owned reconstructor before shared
+      audiobook chunking. Reuse the existing paragraph/page-continuation and
+      letter-case checks; preserve inline compounds and paragraph/column breaks.
+- [x] Collect intact compound-word pairs from the document before reconstruction.
+      A later `producer-consumer` occurrence preserves the hyphen in an earlier
+      `producer-` / `consumer` wrap. Evidence is case-insensitive, normalizes
+      standard presentation ligatures, and takes precedence if both joined and
+      hyphenated forms occur. Unseen compounds remain a heuristic limitation.
+- [x] Omit U+00AD soft hyphens from narration, including inline occurrences.
+      Preserve U+2011 nonbreaking hyphens while removing the layout space at
+      eligible letter-to-letter continuations. ASCII hyphen and U+2010 use the
+      compound evidence and conservative case fallback; en/em dashes remain.
+- [x] Retain original UTF-16 PDF block offsets. Removed hyphens have no source
+      run; following letters retain their original source coordinates, including
+      whitespace, emoji, ligatures, and separately extracted hyphen items.
+- [x] Cover reconstruction, source projection, play-from-here lookup, page seams,
+      later-page evidence, and sidecar-read errors with focused regressions.
+
+Reconstruction now reads validated sidecars twice, one page at a time: first
+for intact compounds, then for narration. It retains compound keys plus the
+existing compact narration/source runs, without retaining all page geometry or
+reparsing the PDF. The open-document narration cache still avoids repeat work
+when only the voice model changes. Canonical PDF files, sidecars, search
+projections, and HTML/EPUB/TXT preparation are unchanged.
+
+Validation includes the application's native PDF/document-upload tests and a
+frontend source-resolver regression. A read-only replay of the owner-supplied
+15-page audiobook produces 103 segments and 320 default-profile chunks (321
+before correction). All 15,261 narration source runs match original PDF blocks
+with the existing ligature expansion; default and SILMA chunk profiles pass
+the verified source resolver. Search projections and body ranges match the
+pre-change implementation on every replayed page. This is text/source validation,
+not audible or device acceptance.
+
+### Stage 2: PDF-Only Regeneration Policy
+
+Stage status: Pending; Stage 1 alone is not ready to release.
+
+The accepted policy requires regeneration of affected PDF audiobooks rather
+than maintaining legacy playback/highlighting projections. Already generated
+WAVs cannot acquire corrected pronunciation from a text fix.
+
+- [ ] Detect saved PDFs whose chunks no longer match corrected narration and
+      present an explicit regeneration-required state. Cover reader playback,
+      saved-library actions, and imported PDF bundles; avoid silently reporting
+      an ordinary missing save or attempting export with nonexistent new WAVs.
+- [ ] Reuse Delete + Save initially if sufficient. Keep the source PDF available
+      and leave stored audio untouched until the user deliberately replaces or
+      deletes it. Do not require source reimport for this reconstruction change.
+- [ ] Define interrupted-save restart/resume behavior for changed chunk sets;
+      never mix old text/spans with corrected audio. Existing save replacement
+      writes a pending manifest and prunes old chunks before synthesis, so it
+      does not preserve the previous book on cancellation.
+- [ ] Keep invalidation specific to PDF narration. Do not bump the global audio
+      cache version: exact equality is also required when importing HTML bundles.
+- [ ] Test old PDF bundles/saves, fresh generation, resume, delete/recreate,
+      and export/import, plus unchanged HTML/EPUB/TXT saves.
+
+### Stage 3: Release Acceptance
+
+- [ ] Listen to corrected generation from a PDF with discretionary wraps and real
+      compounds; verify highlighting and play-from-here at repaired words.
+- [ ] Exercise Android upgrade from v1.10.2 with existing saved PDFs, imports,
+      cancellation/restart, and the regeneration-required controls.
+- [ ] Run the release checks after Stage 2, then update release notes/version as
+      part of the v1.10.3 release work.
+
 ## Decision Log
 
 | Date | Stage | Decision | Evidence / Notes |
