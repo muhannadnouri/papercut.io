@@ -23,6 +23,13 @@ mod linux;
 #[cfg(any(windows, test))]
 mod windows;
 
+// Android and Windows own their native service strings; Unix host tests also compile the Apple adapter.
+#[cfg(any(
+    target_os = "linux",
+    target_os = "macos",
+    target_os = "ios",
+    all(test, unix)
+))]
 const SERVICE: &str = "_papercut-xfer._tcp";
 const PEERS: usize = 64;
 const ADDRESSES: usize = 8;
