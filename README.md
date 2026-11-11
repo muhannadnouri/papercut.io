@@ -398,6 +398,16 @@ npm run ios:ipa:native-tts
 
 The iOS native TTS build uses the official sherpa-onnx iOS static XCFramework archive, verifies its SHA-256, prepares thin Cargo link archives under `src-tauri/tts/runtime/sherpa-onnx-ios/cargo-libs/`, and builds the App Store Connect IPA with `native-tts-ios`. Device builds link the thin sherpa `ios-arm64` archive directly and thin the framework-wrapped ONNX Runtime archive; simulator CI thins both upstream universal archives to arm64 before Rust sees them. The iOS feature also enables Libtashkeel through static ONNX Runtime linking by pointing `ORT_LIB_LOCATION` at the prepared iOS archive directory. Native background playback uses `tauri-plugin-native-audio` on iOS, and the generated Apple target declares Background Modes > Audio.
 
+### Desktop build troubleshooting
+
+The npm lockfile pins Tauri CLI 2.12.4. Older CLI 2.11 builds inject the deprecated
+`STATIC_VCRUNTIME` environment variable even on Linux; use `npm ci` after pulling
+the CLI update. Windows MSVC static runtime linking retains Tauri's default
+`build.windows.staticVCRuntime: true`. Do not set `STATIC_VCRUNTIME=false` to hide
+the warning: that still warns and changes the Windows linking policy. An
+explicit legacy variable in your build environment must also be removed or
+migrated to the supported configuration.
+
 ### Android build troubleshooting
 
 If Cargo prints `Blocking waiting for file lock on artifact directory`, another Rust/Tauri build is holding the target directory lock. Wait for the other build to finish, or stop the older terminal process and rerun the command. If no Cargo/Rust process is running, rerunning with a fresh terminal normally clears it.
