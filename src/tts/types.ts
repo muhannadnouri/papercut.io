@@ -52,6 +52,8 @@ export interface TtsOptions {
   silmaNfeStep?: number
   documentUrl?: string
   title?: string
+  /** One confirmation for a specific retained native generation; never persisted. */
+  restartGenerationToken?: string
 }
 
 export function resolveTtsDtype(options: Pick<TtsOptions, 'dtype'>): TtsDtype {

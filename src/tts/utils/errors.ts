@@ -11,6 +11,7 @@ const ERROR_KEYS = {
   'operation-cancelled': 'tts.errors.operationCancelled',
   'audiobook-cache-mismatch': 'tts.errors.audiobookCacheMismatch',
   'pdf-audiobook-regeneration-required': 'tts.status.pdfRegenerationRequired',
+  'audiobook-restart-required': 'tts.errors.audiobookRestartRequired',
   'wav-too-large': 'tts.errors.wavTooLarge',
   'invalid-audiobook-bundle': 'tts.errors.invalidBundle',
 } as const

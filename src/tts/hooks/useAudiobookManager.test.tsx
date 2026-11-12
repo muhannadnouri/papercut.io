@@ -184,7 +184,7 @@ it.each(['beginning', 'passage'])('admits %s after the matching save finalizes w
     await act(async () => harness.current.audioControlsProps.onSave())
     expect(harness.current.audioControlsProps.canPlayAudiobook).toBe(false)
     await act(async () => mocks.finishSave())
-    expect(api.getNativeAudiobookStatus).toHaveBeenCalledOnce()
+    expect(api.getNativeAudiobookStatus).toHaveBeenCalledTimes(2)
     expect(harness.current.audioControlsProps.canPlayAudiobook).toBe(true)
     const result = action === 'beginning' ? await harness.current.playFromBeginning()
       : await harness.current.playFromHere({
@@ -371,6 +371,113 @@ it.each([false, true])('restarts an old interrupted PDF only after confirmation 
     if (accept) {
       expect(api.saveNativeAudiobook).toHaveBeenCalledWith(expect.objectContaining({ chunks: mocks.chunks }))
     }
+  } finally {
+    await harness.dispose()
+  }
+})
+
+it.each(['/book.html', '/uploads/ab.pdf', '/uploads/ab.epub'].flatMap(url => [false, true].map(accept => ({
+  url,
+  accept,
+}))))(
+  'requires fresh engine-restart consent for $url (accept=$accept), without persisting it',
+  async ({ url, accept }) => {
+    const harness = await mount()
+    const token = 'retained-generation-token'
+    const record = {
+      ...DEFAULT_AUDIO_PREFERENCES,
+      id: createAudiobookId(url, DEFAULT_AUDIO_PREFERENCES),
+      documentUrl: url,
+      title: 'Interrupted book',
+      status: 'paused' as const,
+      cachedChunks: 1,
+      totalChunks: 2,
+      message: '',
+      createdAt: 0,
+      updatedAt: 0,
+      sessionId: null,
+    }
+    try {
+      vi.mocked(api.getNativeAudiobookStatus).mockResolvedValue({
+        cachedChunks: 1,
+        totalChunks: 2,
+        complete: false,
+        requiresRegeneration: true,
+        regenerationReason: 'synthesis',
+        restartGenerationToken: token,
+        dir: 'saved',
+        audioDurationSec: 1,
+        wavBytes: 100,
+      })
+      mocks.confirm.mockResolvedValueOnce(accept)
+      await act(async () => harness.current.audiobooksPanelProps.onResumeQueued(record))
+      expect(mocks.confirm).toHaveBeenLastCalledWith(expect.objectContaining({
+        description: expect.stringContaining('deletes its saved progress'),
+        confirmLabel: 'Restart from beginning',
+      }))
+      expect(api.saveNativeAudiobook).toHaveBeenCalledTimes(accept ? 1 : 0)
+      expect(api.deleteNativeAudiobook).not.toHaveBeenCalled()
+      if (accept) {
+        expect(api.saveNativeAudiobook).toHaveBeenCalledWith(expect.objectContaining({
+          options: expect.objectContaining({ restartGenerationToken: token }),
+        }))
+        expect(JSON.stringify(localStorage)).not.toContain(token)
+        // A restored queue record is still checked and confirmed on its next attempt.
+        mocks.confirm.mockResolvedValueOnce(false)
+        await act(async () => harness.current.audiobooksPanelProps.onResumeQueued(record))
+        expect(mocks.confirm).toHaveBeenCalledTimes(2)
+        expect(api.saveNativeAudiobook).toHaveBeenCalledOnce()
+      }
+    } finally {
+      await harness.dispose()
+    }
+  },
+)
+
+it.each([false, true])('checks the primary Save generation before engine-restart consent (accept=%s)', async accept => {
+  const harness = await mount()
+  try {
+    vi.mocked(api.getNativeAudiobookStatus).mockResolvedValue({
+      cachedChunks: 1,
+      totalChunks: 2,
+      complete: false,
+      requiresRegeneration: true,
+      regenerationReason: 'synthesis',
+      restartGenerationToken: 'primary-save-token',
+      dir: 'saved',
+      audioDurationSec: 1,
+      wavBytes: 100,
+    })
+    mocks.confirm.mockResolvedValueOnce(accept)
+    await act(async () => harness.current.audioControlsProps.onSave())
+    expect(api.getNativeAudiobookStatus).toHaveBeenLastCalledWith('/book.html', mocks.chunks,
+      expect.objectContaining({ speed: 1 }))
+    expect(mocks.confirm).toHaveBeenLastCalledWith(expect.objectContaining({
+      description: expect.stringContaining('deletes its saved progress'),
+      confirmLabel: 'Restart from beginning',
+    }))
+    expect(api.saveNativeAudiobook).toHaveBeenCalledTimes(accept ? 1 : 0)
+    if (accept) {
+      expect(api.saveNativeAudiobook).toHaveBeenCalledWith(expect.objectContaining({
+        options: expect.objectContaining({ restartGenerationToken: 'primary-save-token' }),
+      }))
+    }
+  } finally {
+    await harness.dispose()
+  }
+})
+
+it('leaves audio untouched when the primary Save cannot check the retained generation', async () => {
+  const harness = await mount()
+  try {
+    vi.mocked(api.getNativeAudiobookStatus).mockRejectedValueOnce(new Error('Saved audio could not be checked'))
+    await act(async () => harness.current.audioControlsProps.onSave())
+    expect(mocks.confirm).toHaveBeenLastCalledWith(expect.objectContaining({
+      description: 'Saved audio could not be checked',
+      cancelLabel: null,
+    }))
+    expect(api.saveNativeAudiobook).not.toHaveBeenCalled()
+    expect(api.deleteNativeAudiobook).not.toHaveBeenCalled()
   } finally {
     await harness.dispose()
   }

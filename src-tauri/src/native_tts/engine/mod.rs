@@ -1,10 +1,11 @@
 //! Native sherpa-onnx engine implementation (compiled with `native-tts-core`).
 //!
-//! Submodules, with dependencies pointing downward:
+//! Main orchestration paths:
 //!
 //! ```text
-//! { model, synth, save, cache, bundle } -> { manifest, paths, config, text_normalization } -> super::types
-//! save -> { synth, cache, prune }   bundle -> { cache, manifest, paths }   synth -> cache
+//! save -> { generation, synth, cache, prune, manifest }
+//! cache -> generation compatibility checks -> { manifest, cache }
+//! bundle -> { cache, manifest, paths }   synth -> cache
 //! ```
 //!
 //! - [`config`]: pinned model metadata, event names, bundle format constants.
@@ -13,6 +14,7 @@
 //! - [`text_normalization`]: shared cleanup plus English-only synthesis rewrites.
 //! - `manifest`: saved-audiobook manifest JSON and playback index validation.
 //! - `prune`: saved-audiobook chunk/temp cleanup.
+//! - `generation`: synthesis provenance and explicit restart of unfinished saves.
 //! - [`cache`]: native audiobook directory scanning and WAV parsing.
 //! - [`save`]: long-running native audiobook save jobs and progress events.
 //! - [`bundle`]: audiobook export/import bundle format, plus delete.
@@ -25,6 +27,7 @@ mod bundle;
 mod cache;
 mod config;
 mod file_commit;
+mod generation;
 mod manifest;
 mod model;
 mod models;

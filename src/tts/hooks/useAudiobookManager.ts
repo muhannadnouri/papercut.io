@@ -437,7 +437,7 @@ export function useAudiobookManager({
     setTtsTextPreprocessor(model.defaultTextPreprocessor)
   }, [resetSelectedAudiobookState, setTtsModelId, stopTts, ttsModels])
 
-  /** A stale PDF uses the existing save flow only after disclosing replacement and cancellation behavior. */
+  /** Bind consent to fresh 1x destination status; a selected legacy-speed book can have a different saved identity. */
   const handleSaveAudiobook = useCallback(async () => {
     if (!selectedDoc) {
       return
@@ -460,10 +460,32 @@ export function useAudiobookManager({
       ttsTextPreprocessor,
       selectedTtsModel.textPreprocessors.find((item) => item.id === ttsTextPreprocessor)?.name,
     )
-    let saveDescription = i18n.t('tts.confirm.saveDescription')
-    if (selectedAudiobookState.status === 'regeneration-required') {
-      saveDescription = i18n.t('tts.confirm.pdfRegenerationDescription', { speed: DEFAULT_TTS_SPEED })
+    let status: Awaited<ReturnType<typeof getNativeAudiobookStatus>>
+    try {
+      // Read immediately before consent, using the new save's identity (always 1x).
+      status = await getNativeAudiobookStatus(selectedDoc, chunks, {
+        modelId: ttsModelId,
+        textPreprocessor: ttsTextPreprocessor,
+        voice: ttsVoice,
+        speed: DEFAULT_TTS_SPEED,
+        silmaNfeStep,
+        dtype: ttsDtype,
+      })
+    } catch (error) {
+      await confirmAudiobookAction({
+        title: i18n.t('tts.confirm.saveTitle'),
+        description: nativeTtsErrorMessage(error),
+        confirmLabel: i18n.t('tts.confirm.ok'),
+        cancelLabel: null,
+      })
+      return
     }
+    const needsEngineRestart = status.regenerationReason === 'synthesis'
+    const saveDescription = needsEngineRestart
+      ? i18n.t('tts.confirm.restartDescription', { speed: DEFAULT_TTS_SPEED })
+      : status.requiresRegeneration || selectedAudiobookState.status === 'regeneration-required'
+        ? i18n.t('tts.confirm.pdfRegenerationDescription', { speed: DEFAULT_TTS_SPEED })
+        : i18n.t('tts.confirm.saveDescription')
     const confirmed = await confirmAudiobookAction({
       title: i18n.t('tts.confirm.saveTitle'),
       description: saveDescription,
@@ -499,7 +521,7 @@ export function useAudiobookManager({
           value: speakableChunks.length,
         },
       ],
-      confirmLabel: i18n.t('tts.confirm.startSaving'),
+      confirmLabel: i18n.t(needsEngineRestart ? 'tts.confirm.restartSaving' : 'tts.confirm.startSaving'),
     })
     if (!confirmed) {
       return
@@ -517,24 +539,32 @@ export function useAudiobookManager({
       speed: DEFAULT_TTS_SPEED,
       silmaNfeStep,
       dtype: ttsDtype,
+      restartGenerationToken: status.requiresRegeneration ? status.restartGenerationToken ?? undefined : undefined,
     })
   }, [confirmAudiobookAction, getDocumentTitle, getSelectedAudiobookSaveChunks, selectedDoc, selectedAudiobookState.status, selectedTtsModel.family, selectedTtsModel.name, selectedTtsModel.textPreprocessors, silmaNfeStep, startAudiobookSave, ttsDtype, ttsModelId, ttsModels, ttsTextPreprocessor, ttsThreadCount, ttsVoice])
 
-  /** Old interrupted PDFs restart deliberately; resume retains the stored job identity, including legacy speed. */
+  /** Restored jobs keep their saved speed/settings but must obtain fresh, generation-bound restart consent. */
   const handleResumeAudiobookDownload = useCallback(async (record: AudiobookDownloadRecord) => {
     let chunks: TtsChunk[]
+    let restartGenerationToken: string | undefined
     try {
       chunks = await getAudiobookSaveChunksForDocument(record.documentUrl, record.modelId)
-      const needsRegeneration = await checkPdfRegeneration(record, chunks)
-      if (needsRegeneration) {
+      const status = await getNativeAudiobookStatus(record.documentUrl, chunks, {
+        ...record,
+        dtype: record.dtype as TtsDtype,
+      })
+      if (status.requiresRegeneration) {
         const confirmed = await confirmAudiobookAction({
           title: i18n.t('tts.confirm.saveTitle'),
-          description: i18n.t('tts.confirm.pdfRegenerationDescription', { speed: record.speed }),
-          confirmLabel: i18n.t('tts.confirm.startSaving'),
+          description: i18n.t(status.regenerationReason === 'synthesis'
+            ? 'tts.confirm.restartDescription'
+            : 'tts.confirm.pdfRegenerationDescription', { speed: record.speed }),
+          confirmLabel: i18n.t(status.regenerationReason === 'synthesis' ? 'tts.confirm.restartSaving' : 'tts.confirm.startSaving'),
         })
         if (!confirmed) {
           return
         }
+        restartGenerationToken = status.restartGenerationToken ?? undefined
       }
     } catch (error) {
       await confirmAudiobookAction({
@@ -555,8 +585,9 @@ export function useAudiobookManager({
       speed: record.speed,
       silmaNfeStep: record.silmaNfeStep,
       dtype: record.dtype,
+      restartGenerationToken,
     })
-  }, [checkPdfRegeneration, confirmAudiobookAction, getAudiobookSaveChunksForDocument, startAudiobookSave])
+  }, [confirmAudiobookAction, getAudiobookSaveChunksForDocument, startAudiobookSave])
 
   const handleRemoveAudiobookDownload = useCallback(async (id: string) => {
     const record = audiobookDownloads.find((item) => item.id === id)

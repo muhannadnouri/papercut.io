@@ -107,6 +107,8 @@ export interface NativeAudiobookStatus {
   totalChunks: number
   complete: boolean
   requiresRegeneration?: boolean
+  regenerationReason?: 'source' | 'synthesis' | null
+  restartGenerationToken?: string | null
   dir: string
   audioDurationSec: number
   wavBytes: number
@@ -330,7 +332,7 @@ export async function listenNativeTtsModelInstallProgress(
     handler(event.payload)
   })
 }
-/** Status compares ordered chunk identities without sending all text or regenerating missing audio. */
+/** Status may repair/recover metadata without synthesis; its restart token is for fresh confirmation, never persistence. */
 export async function getNativeAudiobookStatus(
   documentUrl: string,
   chunks: TtsChunk[],
@@ -398,6 +400,7 @@ export async function previewNativeTtsVoice(input: NativeTtsPreviewInput): Promi
   return base64ToArrayBuffer(response.wavBase64)
 }
 
+/** Native preflight rechecks transient restart consent under the writer lease; an earlier status check alone grants nothing. */
 export async function saveNativeAudiobook(
   input: {
     jobId: string
@@ -421,6 +424,7 @@ export async function saveNativeAudiobook(
       speed: input.options.speed,
       threadCount: input.options.threadCount,
       silmaNfeStep: resolveSilmaNfeStep(input.options),
+      restartGenerationToken: input.options.restartGenerationToken,
     },
   })
 }

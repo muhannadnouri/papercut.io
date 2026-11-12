@@ -7,7 +7,8 @@ The design goal is still offline-first: model files live on the user's device, a
 The [Sherpa upgrade plan](sherpa-onnx-upgrade.md) records the accepted recommendation
 policy, owner-accepted Sherpa 2.0.1 compatibility probes, and the
 subsequent runtime migration, interrupted-save and paired small-model stages.
-The app still uses Sherpa 1.13.4 and its existing model roster.
+The app still uses Sherpa 1.13.4 and its existing model roster. Stage 3a's
+simple explicit-restart guard is implemented for review before the binary upgrade.
 
 ## Runtime Architecture
 
@@ -199,7 +200,7 @@ Instead, audio is generated on demand:
 
 1. The user opens a supported readable document and clicks Save. HTML and EPUB use the sanitized HTML source loaded by the reader; PDF uses persisted page-text layers derived from its canonical source by PDF.js.
 2. The app builds deterministic narration chunks for that document.
-3. The native audiobook directory in app data is scanned for existing WAV chunks.
+3. Native Save checks source/synthesis compatibility before changing its manifest or pruning chunks, then scans compatible WAVs.
 4. For each missing chunk, the selected text preprocessor creates synthesis text while preserving canonical source text and spans.
 5. A single native save job generates every missing chunk in sequence and writes WAV files directly to app data.
 6. Native progress events update the React Audiobooks panel and TTS diagnostics.
@@ -207,6 +208,26 @@ Instead, audio is generated on demand:
 8. Save writes a versioned `manifest.json` containing compact chunk timing/size metadata. On first mobile Play, Rust reuses a restored bundle track when available or streams the saved chunks into an atomic cached `playback.wav`; later plays reuse that track and its `playback.json` boundaries.
 
 Save uses a conservative chunk profile that is separate from playback chunking. Sentence detection includes Arabic `؟`; clause splitting includes `،` and `؛`; a final word-boundary hard split guarantees no request exceeds the profile maximum even when punctuation is missing. Playback keeps larger chunks for comfortable skip/highlight behavior, while Save uses smaller sentence-like chunks so one problematic text range is less likely to kill a long Android job and Resume has less work to retry.
+
+Schema-2 manifests now carry optional synthesis provenance. Completed historical
+and imported audio remains usable without regeneration; timing-index repair does
+not relabel it as newly synthesized. An incomplete Sherpa save with missing or
+different provenance requires explicit restart, including when resumed from the
+queue. Consent is bound to the retained generation and is never persisted.
+
+Restart explicitly discards that unfinished job’s old chunks and starts from zero
+in the same directory. Cancel leaves them untouched. Old provenance stays until
+clearing succeeds; current pending provenance is written afterward so incomplete
+clearing cannot mix old chunks into new synthesis. Later interrupted progress with
+current provenance resumes normally. There are no replacement staging directories,
+backups or promotion journals. The small per-book writer lease prevents competing
+save/import/delete/transfer writes during reset.
+
+Completed audio is exempt from engine restart. Explicit source-edited re-saves
+retain their pre-existing behavior; no new completed-book replacement framework
+is included. The [revised Stage 3a handoff](sherpa-onnx-upgrade.md#stage-3a-handoff--november-12-2026)
+records the owner’s November 12 simplification and pending human/platform checks.
+Cache IDs and schema/bundle versions are unchanged.
 
 ### Narration Text Alignment
 

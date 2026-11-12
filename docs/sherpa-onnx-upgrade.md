@@ -1,7 +1,8 @@
 # Sherpa ONNX upgrade and model selection plan
 
-Status: Stages 1–2 accepted by the owner; Stage 3 authorized; Stages 4–5 not started. Owner direction
-confirmed November 11, 2026. Research baseline: local `main` at `6baf1858`, Sherpa
+Status: Stages 1–2 accepted by the owner; Stage 3a implemented, awaiting human review;
+Stage 3b and Stages 4–5 not started. Owner direction
+updated November 12, 2026 (simple explicit restart). Research baseline: local `main` at `6baf1858`, Sherpa
 1.13.4. Candidate runtime: 2.0.1, subject to the compatibility gate below.
 
 This is the implementation and human-review contract for this work. The
@@ -32,8 +33,9 @@ here must not be represented as shipped or validated until its gate passes.
   Record actual OS versions and app artifacts when testing; do not invent them.
 - Preserve the current upload rule: automatic document-language suggestions
   skip uploaded documents. The language selector remains available there.
-- Handle incompatible interrupted saves explicitly, preserving existing data
-  until the user authorizes regeneration and a replacement is safely committed.
+- Handle incompatible unfinished saves with explicit Restart/Cancel. Cancel keeps
+  progress; confirmed restart discards that job’s partial audio and starts over.
+  An engine update alone never regenerates completed audiobooks.
 
 Do not add GPU/provider selection, multiple runtime versions, a plugin/model
 framework, Python/PyTorch/Misaki services in the shipped app, unrelated model
@@ -138,33 +140,33 @@ achieved within this boundary, stop and return the tradeoff to the owner.
   compatibility for new-model bundles without evidence. Current-version bundles
   and existing saved audio must remain readable by the upgraded app.
 
-### Interrupted-save proposal for Gate 3 review
+### Accepted simple restart contract (updated November 12, 2026)
 
-The agreed requirement is explicit, non-destructive handling. The concrete
-interaction below is proposed and must receive human review before activation.
+The owner explicitly chose simple restart instead of retaining partial generations
+through rebuilds. This supersedes the earlier backup/journal proposal. Mixed-engine
+WAVs are not inherently corrupt: the guard enforces a chosen synthesis-consistency
+policy. The accepted listening comparisons did not establish mixed-version resume
+as broken. Historical partial jobs lack provenance and are conservatively unknown.
 
-1. Record a small synthesis revision in the existing manifest, representing
-   changes relevant to generated output. Define exact inputs during Stage 2;
-   recommendations, display labels and thread counts are not such changes.
-2. Check it before `write_pending_manifest`, pruning, reuse or any replacement.
-   A missing revision on an older incomplete job is unknown, not proven current.
-3. Continue compatible incomplete jobs normally. Preserve all completed audio
-   for playback/export, even when its original synthesizer revision is old.
-4. For an incompatible incomplete job, explain that regeneration is required
-   and offer an explicit restart/cancel decision. Queue restoration must obey
-   the same rule and must not silently accept on the user's behalf.
-5. On cancel, leave the old manifest/chunks unchanged. On restart, isolate the
-   replacement from old chunks and preserve the old generation until the new
-   one is validated and committed. A failed, cancelled or interrupted rebuild
-   must not destroy the retained generation. Use existing atomic file-commit
-   mechanisms and define any directory promotion/recovery before implementation.
-6. Insufficient disk space or failed replacement reports an actionable error;
-   it must not silently delete retained data to make room. Reuse existing space
-   checks where available. No new whole-library migration framework.
+1. Record optional `synthesisRevision` in schema-2 manifests, reflecting the pinned
+   engine/frontend/data/normalization contract, not labels or thread counts.
+2. Before pending writes, deletion, pruning or chunk reuse, check compatibility
+   under the per-book writer lease. Completed audio is exempt from engine restart,
+   including complete legacy WAVs whose index needs repair. SILMA is unaffected.
+3. For an incompatible/unknown unfinished Sherpa job, explain that Restart deletes
+   its saved progress and regenerates from the beginning. Cancel changes nothing.
+   Restored queue jobs require the same decision; consent is never persisted.
+4. Recheck the exact confirmed generation token under the writer lease, then clear
+   only that job’s chunk directory. Keep old provenance until removal succeeds;
+   a failed/interrupted reset must never adopt leftover old chunks as new output.
+5. Write current pending provenance after clearing. If later generation fails or
+   is interrupted, its new compatible progress resumes normally. No backup,
+   staging generation, directory-promotion journal or rollback is retained.
+6. Completed audio is not automatically touched by an engine change. Explicit
+   source-edit replacement keeps the pre-existing save/PDF UX and behavior; this
+   pass does not extend it with transactional replacement or a new HTML restart
+   flow. No global cache/schema/bundle bump or whole-library migration is needed.
 
-Generation provenance is a synthesis/resume concern, not a reason to make old
-saved audio unavailable. Check native status, queue restoration, direct save,
-import/export and manifest-index rebuild paths, not only the visible button.
 
 ## 4. Stage gates
 
@@ -297,7 +299,7 @@ Steps:
    reference cleanup of syllable dots/U+02E4/U+032A. Test actual model token/style
    limits, not only source-character limits. The historical issue is not closed
    merely because the new API exists; no local Sherpa C++ patch is authorized.
-8. Specify the smallest generation-revision and restart/recovery design, exact
+8. Specify the smallest generation-revision and restart/failure-resume design, exact
    stale-runtime cache invalidation, and the Stage 3 file/test scope.
 
 Human acceptance:
@@ -308,7 +310,7 @@ Human acceptance:
 - [ ] Wrapper, sys bindings and native ABI versions align; one compatible ORT route covers all consumers. Any dependency addition has a specific necessity.
 - [ ] Existing native-runtime copy protections survive the proposed vendor rebase; cold, restored and alternating-version caches cannot select stale binaries.
 - [ ] Nabra blockers are explicitly resolved by evidence or remain named blockers for the paired model stage.
-- [ ] The non-destructive interrupted-save proposal, copy requirements and failure recovery are reviewable and accepted for implementation.
+- [ ] The explicit interrupted-save restart proposal, progress-loss disclosure and failed-reset behavior are reviewable and accepted for implementation.
 - [ ] Reviewer approves the exact Stage 3 design and records any remaining execution gates. A platform design that cannot preserve current support blocks progression.
 
 #### Stage 2 evidence and proposed integration — November 11, 2026
@@ -466,40 +468,31 @@ must meet the same quality gate together; smaller weights are not a waiver.
   Unknown/incompatible Sherpa partial saves return a specific regeneration reason;
   UI/queue restoration must request explicit restart or leave the old job intact.
   Distinguish this from the existing PDF-source regeneration reason.
-- Keep current audiobook IDs and `chunks/` layout. Regenerate into a sibling
-  directory, using the existing save/index validation code. Retain the original
-  directory and source references through cancellation, failure and disk shortage.
-  Check the expected old generation again before publication to reject stale jobs.
-- Publication needs more than `commit_staged_file`: that helper atomically
-  replaces a file, while the existing import promoter refuses to overwrite an
-  incomplete directory. Under the audiobook reference/write lock, persist a
-  small same-parent replacement journal, rename old to retained backup, then
-  rename validated staging to the canonical path. Never pre-delete the old data.
-- Recovery before reading/writing that book: a validated published new manifest
-  wins; if canonical is absent and a valid backup exists, restore the backup;
-  if old canonical still exists, preserve it. Unknown/conflicting states fail
-  closed and retain all copies. Journal paths must be derived/validated app-owned
-  names, not arbitrary filesystem paths from JSON. Remove the backup only after
-  new publication is validated. Serialise save/import/delete/status recovery so
-  another operation cannot mistake an active transaction for abandoned work.
-- An isolated filesystem design self-check passed interruptions before retiring
-  old data, after retiring it, and after publication, retaining old data in every
-  case. This is not production Rust recovery, Windows rename testing or a
-  power-loss guarantee. Stage 3 must test actual implementation, queue/native
-  race guards, cancellation, full disk and interruption at each transition.
+- Keep current audiobook IDs and `chunks/` layout. The initial Stage 2 design
+  proposed a retained sibling generation and recovery journal. On November 12,
+  the owner replaced that proposal with the simple restart contract above.
+- Under the book writer lease, validate the confirmed generation token, clear
+  incompatible partial chunks, and only then stamp current pending provenance.
+  Failed clearing retains old provenance, so leftover chunks cannot be resumed
+  under a falsely current revision. Once the new pending manifest exists, later
+  interruptions resume its compatible progress without another restart prompt.
+- No directory replacement/recovery framework or preservation of discarded partial
+  progress is required. Existing completed-book playback and source-edit behavior
+  remain separate; do not reintroduce staging/backup journals for this upgrade.
 
 **Gate 2 disposition:** owner accepted November 11, 2026 after reviewing
 `listening.html`, reporting no regression and quality at parity, and authorized
 Stage 3. This records that listening decision without extending it to untested
 platforms or future production integration. Review the proposed
-C API/source-build/static-link and restart/recovery contracts above. Actual
+C API/source-build/static-link contracts above and the subsequently simplified
+restart contract accepted November 12. Actual
 Windows/macOS/iOS execution and Android inference/packaging remain explicit
 Stage 3 gates, followed by the four owner devices in Stage 5. If listening finds
 a regression, resolve it before accepting migration; do not waive it for speed.
 
 On approval, implement **Stage 3 only**, with existing models: native phonemizer,
 complete sys rebase with retained safeguards, matching platform preparation,
-and non-destructive interrupted-save handling. Stage 4 model additions remain
+and the accepted explicit partial-save restart handling. Stage 4 model additions remain
 separate. Changes to this report are not authorization to start that work.
 
 ### Stage 3 — Upgrade existing models and protect interrupted saves
@@ -508,18 +501,27 @@ Scope: matching Cargo/lock/vendor/runtime changes, required native frontend,
 platform preparation/bundling, backward-readable provenance and restart handling.
 Do not add new catalog models in this stage.
 
+Implement Stage 3 in two reviewable passes. **3a is the simple restart prerequisite**
+on the existing 1.13.4 runtime; **3b is the runtime/frontend/platform upgrade**.
+The inspected save path wrote a pending manifest and pruned old chunks before
+loading the engine. Review the small restart guard before changing native binaries.
+The owner’s November 12 decision removes partial-generation backup/rollback from
+acceptance scope; completed-book compatibility remains required. Stage 3 is not complete merely because 3a passes.
+
 Steps:
 
-1. Implement the reviewed runtime/frontend integration and narrowly rebase vendor
+1. Implement and review the 3a provenance/restart safeguards described below,
+   including UI, restored queue jobs and native entry points. Stop for review.
+2. In 3b, implement the reviewed runtime/frontend integration and narrowly rebase vendor
    changes. Update pins, hashes, source/notice tooling and CI paths together.
-2. Make prepared native caches version-aware; test existing caches and restoration
+3. Make prepared native caches version-aware; test existing caches and restoration
    as well as clean builds. Fail closed on incompatible source receipts/ABI.
-3. Implement provenance checks and explicit restart across UI, queue and native
-   entry points, with checks before any destructive operation.
-4. Run the existing suites appropriate to the changed paths plus native inference
+4. Advance the synthesis revision for the actual integrated 2.0.1 frontend/data
+   contract; test a 3a/current-revision interrupted save crossing that boundary.
+5. Run the existing suites appropriate to the changed paths plus native inference
    and packaging checks. Use the validation matrix below and real old-format
    fixtures made from disposable copies; do not mutate the owner's library.
-5. Update shipping architecture/maintenance/packaging docs to describe only the
+6. Update shipping architecture/maintenance/packaging docs to describe only the
    implemented behavior. Present Gate 3 evidence with exact source revision.
 
 Human acceptance:
@@ -528,10 +530,121 @@ Human acceptance:
 - [ ] Current-runtime versus upgraded-runtime samples have pronunciation and overall speech-quality parity or improvement, including US/British and multilingual cases. No missing-word regression is accepted.
 - [ ] Completed historical HTML/EPUB/PDF audio plays, seeks, highlights and exports offline without redownload or regeneration; imported bundles restore original settings.
 - [ ] Compatible incomplete saves resume; incompatible/unknown legacy saves require explicit restart. Cancel and queue restoration cannot bypass that decision.
-- [ ] Failed/cancelled rebuild, disk-full and interruption before/after commit preserve the retained generation; restart never reuses incompatible chunks. Recovery is deterministic after relaunch.
+- [ ] Cancel/stale consent leaves old progress untouched. Confirmed restart discards only the unfinished job’s old chunks. Failed/interrupted clearing cannot adopt old chunks as current; new compatible progress resumes after relaunch. No partial-generation rollback is promised.
 - [ ] Valid current manifests remain readable, including missing-field defaults and timing-index recovery; a global cache/schema bump was not used as a shortcut.
 - [ ] Clean and restored-cache builds/inference pass on the required platform matrix; native library loading, initialization order and packaging/source/notice checks are evidenced.
 - [ ] Reviewer accepts migration of the existing roster and explicitly authorizes Stage 4. Remaining owner device checks are recorded for Stage 5, not asserted passed.
+
+#### Stage 3a handoff — November 12, 2026
+
+The owner approved **simple explicit restart** on November 12, replacing the
+initial uncommitted retained-generation design. Implementation is committed for
+owner smoke review on `task/sherpa-onnx`, following `280cff78`. No Cargo/lock/vendor/native-library or
+model pin changed; runtime remains 1.13.4. Stage 3b and model additions have not
+started. This design decision is accepted; the revised implementation still needs
+human review.
+
+Implemented contract:
+
+- Optional schema-2 `synthesisRevision` currently records
+  `sherpa/1.13.4;frontend/embedded;normalization/1`. Missing/different provenance
+  triggers Restart/Cancel only for unfinished Sherpa audio. Completed legacy
+  audio/index repair and imported bundles retain original provenance. SILMA
+  resumes as before, including historical NFE defaults.
+- Primary Save checks its actual 1x destination immediately before confirmation;
+  Resume checks all document types using their stored speed/settings. The dialog
+  explains deletion of old saved progress and offers **Restart from beginning**.
+  Cancel or a failed status check starts nothing. Consent/token is transient and
+  not stored in queue records/preferences.
+- Native preflight rechecks settings and the exact confirmed manifest token under
+  the per-book writer lease. It removes the old unfinished chunk directory before
+  current provenance is written. A deletion failure/interruption leaves old
+  provenance and requires confirmation again; surviving old chunks cannot be
+  stamped current or mixed into new generation. A job that has completed since
+  confirmation is exempt and must not be deleted by a stale restart request.
+- After current pending provenance is written, new generation uses the original
+  directory/chunk layout. Later interrupted progress resumes without a repeated
+  engine-restart prompt. The old partial progress has intentionally been discarded
+  and cannot be rolled back. Existing atomic WAV/manifest file commits remain.
+- Removed sibling staging, retained backups, replacement journals/checkpoints,
+  directory-promotion recovery, read/list recovery hooks and their tests. There
+  is no second-generation storage requirement. Old prototype artifacts were never
+  shipped and do not require production migration/support.
+- Retained the small `fs4` writer lease shared by save/import/delete/transfer;
+  a reset must not race another writer. The existing engine busy lock covers
+  preflight/reset and saving; the global source-reference lock is used only for
+  short pending-source publication. Function comments explain the ordering and
+  compatibility obligations.
+- Existing completed-book playback/seek/highlighting/export and IDs are unchanged
+  by engine upgrades. Source-edited completed books are outside engine restart:
+  their explicit re-save still uses pre-existing behavior, including the PDF
+  replacement warning. The broader source-edit protection from the earlier
+  prototype was removed. Upload language-suggestion behavior is unchanged.
+
+The simplification removed over 400 Rust lines including tests/comments compared
+with the initial Stage 3a prototype, mainly journal/backup machinery. The subsequent
+pre-commit review grouped module/test imports, shortened repeated qualified helper
+paths and corrected a misplaced module comment. Function comments retain the
+non-obvious consent, locking and reset-order contracts.
+
+Automated evidence on this Linux host:
+
+| Check | Result |
+| --- | --- |
+| Full `npm test -- src/tts` (approved local Chromium fixtures) | 31 files, 394 passed |
+| Full native suite, `--offline --features native-tts-core,sherpa-onnx/shared`, existing 1.13.4 libraries | 349 passed, 5 existing ignored |
+| Default/providerless `cargo check --offline` | Passed |
+| TypeScript build, eight-locale validation, strict touched-file ESLint, scoped rustfmt and whitespace | Passed |
+| Native restart helpers using disposable manifests/WAVs | Missing/stale consent, Cancel/byte preservation, confirmed reset/no old-chunk reuse, failed/interrupted clearing, current-progress resume, completed legacy/index repair, completion after confirmation, damaged caches and SILMA defaults |
+| UI/queue regressions | Restart warning/button, Save and restored HTML/PDF/EPUB jobs, Cancel/no native save, no persisted token, failed status checks and legacy generated speed |
+
+Fresh source-bound patch/check logs and reproduction commands are retained locally
+in `.cache/sherpa-simple-restart-2026-11-12/`. Earlier prototype evidence remains
+under `.cache/sherpa-stage3a-2026-11-11/` for history and does not validate the
+revised behavior. No owner library data or model/runtime binaries are included.
+No physical full-disk, forced shutdown, installed-app or non-Linux result is
+claimed from Linux helper tests.
+
+Gate 3a — owner smoke review after commit, pending:
+
+- [ ] Review that native consent precedes deletion, old provenance survives an
+  incomplete reset, and current provenance is written only after old chunks clear.
+- [ ] In a disposable profile, interrupt a multi-chunk save; close the app and
+  remove only that copy’s `synthesisRevision`. Relaunch and Cancel: hashes and
+  progress must stay unchanged, and no generation should start.
+- [ ] Confirm **Restart from beginning**: old progress is discarded and generation
+  starts from zero. Interrupt again and relaunch; Resume must keep the newly
+  generated compatible chunks without another engine-restart confirmation.
+- [ ] Verify completed legacy/imported audio still plays/seeks/highlights/exports
+  offline without synthesis, redownload or changed identity. Check that an engine
+  change alone never offers to discard a completed book.
+- [ ] Accept the revised 3a implementation and authorize 3b. Actual installed-app
+  and Windows/macOS/mobile checks remain in the combined Stage 3/5 matrix.
+
+Use a freshly rebuilt/restarted native app and disposable copies only; a
+browser-only or frontend-HMR session cannot validate the Rust restart guard. On Linux, isolated `XDG_DATA_HOME`/`XDG_CACHE_HOME`
+work with the normal native dev launcher; download/copy model inputs into that
+profile as needed. Older binaries do not honor these leases/provenance and must
+not concurrently share the writable profile or resume candidate partial jobs.
+
+#### Library maintenance boundary for Stage 3b
+
+No upstream library has been modified in 3a. For 3b, keep Sherpa, Piper phonemizer,
+eSpeak and ONNX Runtime C/C++ source unchanged. Call the published phonemizer C API
+through a small checked Rust adapter in the app, with result ownership and cached
+initialization failure. Reuse verified model-pack eSpeak data. Avoid adopting the
+phonemizer Rust crate's unconditional unversioned data downloader or maintaining
+a fork of it; the inspected details/pins are in the Stage 2 report above.
+
+There is an existing local `sherpa-onnx-sys` Rust build adapter, so upgrades are not
+maintenance-free. Narrowly rebase that packaging delta: iOS explicit static
+precedence/aggregate linking, atomic Unix runtime replacement, required-cache
+validation and Windows test DLL placement. Keep the full matching upstream 2.0.1
+bindings. Future upgrades must recheck the public C API, pinned data/archives,
+static/shared link inputs, notices/source receipts and single-ORT behavior. This
+keeps the maintenance burden in app integration/build plumbing rather than a
+modified speech-engine implementation. Record any necessary additional patch
+explicitly and return a C++-patch requirement to the owner before taking it.
 
 ### Stage 4 — Add both small models and their selection UX
 
@@ -583,7 +696,7 @@ Human acceptance:
 
 - [ ] On all four devices, compare existing-model baseline recordings with upgraded existing models, then audition both small candidates using the same text/settings.
 - [ ] English and Arabic pronunciation, word coverage and overall quality are parity or better. Obtain competent listening coverage for the other offered languages; preserve US/British distinctions and Mandarin numeric behavior.
-- [ ] Verify clean-profile install/download and an upgrade profile with completed and interrupted audiobooks, including explicit restart/cancel/recovery.
+- [ ] Verify clean-profile install/download and an upgrade profile with completed and interrupted audiobooks, including explicit restart/cancel and normal resume of new compatible progress.
 - [ ] Verify preview, saved playback, seek, source highlighting, background audio/lock-screen controls and bundle import/export on installed apps.
 - [ ] No crash, NaN/corrupt audio, silent loss of content, unexpected model switch or saved-data loss occurs. Users can choose existing or small models freely.
 - [ ] Platform CI and installed desktop checks are recorded; Android source-built package, alignment/notices/corresponding-source and applicable reproducibility checks have current evidence. iOS signing/distribution checks apply before its release.
@@ -610,7 +723,7 @@ waveform equality is not the quality criterion.
 | Model limits | Empty/unspeakable text, short fragments, long unpunctuated input and actual phoneme/token/style boundaries; no unhandled native exit |
 | Audio integrity | Finite, valid, non-silent speech where expected; sensible duration/sample rate and timing boundaries; short-text ARM INT8 coverage |
 | Durable audio | Pre-upgrade completed/incomplete manifests, missing provenance, compatible/new provenance, source edits, restored bundles and timing-index recovery |
-| Failure/recovery | Download/checksum failure, source receipt/version mismatch, cancelled jobs, insufficient disk, failed replacement and process interruption; retained-data hashes before/after |
+| Failure/resume | Download/checksum failure, source receipt/version mismatch, Cancel/stale-token hash preservation, failed/interrupted reset, new compatible progress after restart and insufficient disk |
 
 Required platform evidence follows existing supported build targets: Linux and
 Windows x64, macOS Intel/Apple Silicon, Android arm64 installed apps plus the
@@ -632,7 +745,7 @@ Reuse existing commands/tests rather than creating a new validation framework:
   APK verifier/reproducibility tools, desktop staging and iOS device/simulator
   checks, and `.github/workflows/ci.yml` / model-download workflow coverage.
 - New nontrivial logic needs a focused regression: recommendation reordering,
-  provenance mismatch/recovery, stale-runtime rejection and phoneme/token
+  provenance mismatch/restart, stale-runtime rejection and phoneme/token
   contracts. Keep test scope proportional; do not mirror implementation details.
 
 Resolve commands from the actual source revision and record exact invocations,
@@ -667,7 +780,8 @@ Separate logical/design acceptance from outstanding platform execution.
 | --- | --- | --- | --- |
 | 1. Recommendation policy | Accepted | `task/sherpa-onnx`, implementation after `ce054ead`; handoff above | Owner, November 11, 2026: smoke passes, Recommended labels visible; proceed to Stage 2 |
 | 2. Compatibility investigation | Accepted | `a8248205`; dated evidence/proposal above, local listening packet | Owner, November 11, 2026: listening parity/no regression; proceed to Stage 3. Platform execution gates remain. |
-| 3. Existing-roster upgrade/resume | Not started | — | — |
+| 3a. Simple partial-save restart | Awaiting human review | Stage 3a commit after `280cff78`; revised handoff above | Owner, November 12: simple Restart/Cancel direction accepted; revised implementation review pending |
+| 3b. Existing-roster runtime/frontend upgrade | Not started | Existing 1.13.4 pins retained | After 3a review; full Gate 3 still applies |
 | 4. Paired small-model addition | Not started | — | — |
 | 5. Device/release acceptance | Not started | — | — |
 
@@ -688,6 +802,16 @@ stable references and reproduction instructions in the handoff. The committed
 spec must stand on its own; private MemSearch journals are helpful context, not
 a required dependency for another agent. Do not commit model weights, runtime
 libraries, generated audio or private user data.
+
+For every remaining pass, review function-level comments on added/changed code
+and correct outdated explanations in the touched flow. Record non-obvious intent,
+caller obligations, examples, compatibility decisions and failure/recovery
+gotchas where maintainers need them. Keep shared architecture in module/docs
+comments and avoid restating self-evident implementation steps or test names.
+Keep touched Rust modules and test scopes organized with grouped standard-library,
+external and local imports. Import repeated long helper paths where names remain
+clear; retain qualification where it resolves ambiguity or clarifies a namespace.
+Follow surrounding conventions and scoped rustfmt without unrelated reformatting.
 
 Suggested first-stage instruction for a new agent:
 

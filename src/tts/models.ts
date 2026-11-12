@@ -277,6 +277,7 @@ const RECOMMENDED_TTS_MODEL_IDS: Record<string, string> = {
   ar: PIPER_KAREEM_MODEL_ID,
 }
 
+/** Catalog order must not change recommendation policy; an unavailable recommendation stays undefined. */
 export function getRecommendedTtsModel(models: TtsModelInfo[], language: string): TtsModelInfo | undefined {
   const modelId = RECOMMENDED_TTS_MODEL_IDS[language.split('-')[0].toLowerCase()]
   return models.find((model) => model.id === modelId)
