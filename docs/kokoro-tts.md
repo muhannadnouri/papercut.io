@@ -4,10 +4,10 @@ Papercut's TTS path is native sherpa-onnx with a catalog of model families. Koko
 
 The design goal is still offline-first: model files live on the user's device, audiobook chunks are generated only when a user asks to save a document, and generated audio is stored as user data instead of being pre-rendered into the app bundle.
 
-The [Sherpa upgrade plan](sherpa-onnx-upgrade.md) records the recommendation-policy
-implementation accepted by the owner and the subsequent Sherpa 2.x,
-interrupted-save and paired English/Arabic small-model stages. The runtime and
-model roster remain unchanged at Stage 1.
+The [Sherpa upgrade plan](sherpa-onnx-upgrade.md) records the accepted recommendation
+policy, owner-accepted Sherpa 2.0.1 compatibility probes, and the
+subsequent runtime migration, interrupted-save and paired small-model stages.
+The app still uses Sherpa 1.13.4 and its existing model roster.
 
 ## Runtime Architecture
 

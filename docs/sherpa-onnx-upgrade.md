@@ -1,6 +1,6 @@
 # Sherpa ONNX upgrade and model selection plan
 
-Status: Stage 1 accepted by owner; later stages not started. Owner direction
+Status: Stages 1–2 accepted by the owner; Stage 3 authorized; Stages 4–5 not started. Owner direction
 confirmed November 11, 2026. Research baseline: local `main` at `6baf1858`, Sherpa
 1.13.4. Candidate runtime: 2.0.1, subject to the compatibility gate below.
 
@@ -311,6 +311,197 @@ Human acceptance:
 - [ ] The non-destructive interrupted-save proposal, copy requirements and failure recovery are reviewable and accepted for implementation.
 - [ ] Reviewer approves the exact Stage 3 design and records any remaining execution gates. A platform design that cannot preserve current support blocks progression.
 
+#### Stage 2 evidence and proposed integration — November 11, 2026
+
+Application base: `a8248205925c56e71ee6ae9ec5930dff0184671a` on
+`task/sherpa-onnx`, the owner-accepted Stage 1 commit. Production source, Cargo
+pins, runtime caches and model catalog were not modified for this investigation.
+Only disposable builds read the existing verified model assets. Upstream source
+checkouts remained clean; there is no local Sherpa C++ patch.
+
+The local evidence packet is `.cache/sherpa-stage2-2026-11-11/`, ignored by Git.
+Its README, scripts, headers, Cargo lock, result JSON, logs, public synthetic text,
+audio and `SHA256SUMS.json` describe the actual probes. `listening.html` presents
+17 baseline/candidate pairs. Temporary native archives/source/builds remain under
+`/tmp/papercut-sherpa-stage2`; the small packet retains their inputs and reproduction
+instructions, not a production framework. The packet is not committed or assumed
+present on another machine; the pins, results and integration contract below
+stand on their own. Reproduce missing artifacts before claiming their checks.
+
+**Pinned investigation inputs** (not a production dependency change):
+
+| Input | Exact identity |
+| --- | --- |
+| Sherpa wrapper/sys/source | `2.0.1`, upstream commit `af2d8d81dbfa61c4cea4c568da78f3982edca005` |
+| External phonemizer source | `1.5.9`, commit `dae4d2d831f9f0817355f7c0e8abd98c2fb0a49d` |
+| Linux Sherpa shared archive | `sherpa-onnx-v2.0.1-linux-x64-shared-lib.tar.bz2`, 9,710,131 bytes, SHA-256 `532c45bbd41036d83cd70606797529aa8086c2053395a58967736c727625b120` |
+| Linux phonemizer shared archive | `piper-phonemize-v1.5.9-linux-x64-shared-lib.tar.bz2`, 305,777 bytes, SHA-256 `609569420d356f561e13ee6d52ed0edf7dcae225ea498f4cc68587c11d6d295c` |
+| iOS Sherpa static XCFramework | `sherpa-onnx-v2.0.1-ios-static.xcframework.zip`, 16,349,037 bytes, SHA-256 `88aa569f71b7903e0bbdfbe6e2e114b3b95862b1ef0759eea3024f82926d7374` |
+| Separate iOS ORT static XCFramework | `onnxruntime-ios-static-xcframework-1.28.2.xcframework.zip`, 33,821,118 bytes, SHA-256 `2c2299acbb461d26d4bac4bc85985d40e7c7177ed6072703ae0846d88b0b4599` |
+| Android source-build inputs | Pinned NDK `30.0.16248370`, arm64/API 26, the two source commits above and existing Maven ORT `1.27.0` AAR, SHA-256 `077dec5e2d821234c7dc0aba584bec8f999854b546c754cab93a90741c56fbeb` |
+| Existing voice models | All three archives match size/hash in `src-tauri/tts/model-manifest.json`; installed Kokoro graph, voices, tokens, lexicons and FSTs were matched against its pinned archive |
+
+All six downloaded Linux/Android/iOS inspection archives were size/SHA-256
+verified before extraction; the separate Nabra experiment is described below.
+Downloaded Android prebuilt libraries were inspected, not selected for shipping.
+The candidate Linux library reports ORT `1.28.2`; current Linux reports `1.27.0`,
+using their actual `OrtGetApiBase` version APIs. These versions describe the
+inspected binaries, not every untested desktop artifact.
+
+**Executed evidence and limits:**
+
+| Probe | Observed result | What remains |
+| --- | --- | --- |
+| Baseline 1.13.4 versus 2.0.1 C API | 15 Kokoro/Kareem cases plus Supertonic English/Arabic: 34 successful, finite, non-silent WAV outputs. Covers all current Sherpa language entries, US/British, names, mixed scripts and short input. | Listening parity; the controls bypass app orchestration and do not certify complete saves/highlighting. |
+| US/Arabic/Spanish/British/US phonemizer changes | Same process, first/last US phoneme output identical. Current Kokoro/Kareem eSpeak data trees are identical: 355 files, 17,991,651 bytes. | Production initialization/error/lifetime tests and all-platform execution. |
+| Official 2.0.1 Rust wrapper with app dependencies | App's actual `tashkeel.rs` adapter, Libtashkeel 1.5.0, ORT rc.13 and FastEmbed 7.1.0 run together. Both speech-first and embedding-first runs pass, including repeated sessions, stable before/after 384-dimensional embeddings and one ORT image in `/proc/self/maps`. | Full app, all embedding variants, concurrency/teardown and other platforms. This is not cross-version ranking parity. |
+| Android source builds | Both pinned source projects compile/link for arm64/API 26 against the existing verified ORT 1.27.0 AAR. Both ELF LOAD alignments are at least 16 KB. Phonemizer core has no ORT dependency; Sherpa needs the single shared ORT. | Installed/emulator inference, packaging, source notices and release reproducibility. Probe outputs are unstripped, not release artifacts. Upstream compiler warnings were present. |
+| iOS archive/symbol inspection | Device arm64 and arm64/x64 simulator slices exist. Sherpa's aggregate static archive references but does not define `OrtGetApiBase`; separate static ORT defines it. Declared framework minimum OS is 13.0, below the app's current floor. | Actual macOS/Xcode link and inference, simulator thinning, signing/distribution and phonemizer static source build. |
+| Upstream iOS Rust mode | A stdlib-only harness running the exact upstream function returns Shared with the static feature enabled. | Keep an explicit-static override and aggregate-static adapter in our sys patch; test actual Apple builds in Stage 3. |
+| Warnings/content coverage | French emits two unknown-hyphen warnings on both old and candidate; reviewed English/Arabic controls emit none. Candidate Mandarin numeric FST and lexicon routes generate audio. | No claim that all vocabulary is covered or existing French pronunciation is fixed. Competent listening is still required. |
+
+SILMA is outside Sherpa inference. Its catalog/backend remains unchanged; its
+sidecar was not rerun in this probe. No Windows/macOS runtime or iOS app was
+executed on this Linux host, and no owner phone ran the candidate runtime.
+
+**Selected architecture for Gate 2 review:**
+
+1. Keep the app's existing native pipeline and optional Libtashkeel boundary.
+   Add a small Rust owner for the phonemizer's public C API in the native TTS
+   engine: checked CString/count/pointer handling, copied phoneme vectors and
+   deterministic result destruction. Link `piper_phonemize_core`, not its
+   C++/JNI wrappers. No Sherpa implementation patch, Python service or generic
+   frontend framework is needed. Pass phonemes through the official Rust
+   `GenerationConfig` API; preserve Mandarin lexicon/FST and Supertonic text paths.
+2. Do not adopt `piper-phonemize` 1.5.9's Rust crate unchanged. Inspection finds
+   unconditional unversioned data downloading, a global temporary extraction
+   directory and no iOS archive-selection branch. Its public C API is available
+   on all relevant source-build targets and avoids those build/lifecycle policies.
+   Bind only that published boundary, with safety comments and focused tests.
+3. Reuse verified eSpeak data from the installed model packs instead of introducing
+   an unversioned build-time download. Current Kokoro/Kareem trees match exactly;
+   deterministic tree digest (UTF-8 sorted records: relative path, TAB, lowercase
+   file SHA-256, LF)
+   is `43ebef9ebca9edcb42dd5d49a7935038731af4c6450a677dc0cae732dae0ce6a`.
+   Validate the expected data before first initialization and retain a stable
+   directory for its process lifetime. New small-model packages must carry the
+   same pinned data so they can install/run independently of the old models.
+   No current in-app voice-model removal command was found; do not add removal
+   or allow future removal of the initialized data without managing its lifetime.
+4. Cache the first initialization Result in the app. Upstream initialization uses
+   `call_once`: a failed first attempt cannot be repaired by assuming a later zero
+   return means success. Report repair/restart, and serialize calls through the
+   existing native synthesis ownership. Keep US/British and per-language locales.
+5. Preserve Rust sanitization/English normalization and source-span identity.
+   Check emitted phoneme/token limits and split only at safe boundaries before
+   the model's style limit; do not truncate or split a word merely because a C++
+   helper has a count threshold. The passing boundary probe is not a universal
+   crash/quality proof. Add production regressions in Stage 3.
+6. Android: retain the supported Maven ORT 1.27.0 route, source-building Sherpa
+   2.0.1 and the phonemizer against it. The Maven 1.28.2 POM returns HTTP 404;
+   do not change Gradle to a nonexistent version or pair its current ORT with
+   Sherpa prebuilts compiled for a newer runtime. Extend the existing source
+   preparation/receipt path to cover normal developer builds and the x64 emulator
+   fixture as well as arm64 release builds. Reuse it from existing entrypoints,
+   with matching source/data pins, required libraries and 16 KB checks.
+7. iOS: stage separate aggregate Sherpa, ORT and phonemizer static archives,
+   preserving one ORT definition. Use the verified Sherpa/ORT XCFrameworks above;
+   build pinned phonemizer source through its existing iOS recipe (aggregate
+   core/eSpeak/ucd, device/simulator), since no suitable versioned library archive
+   was found in the inspected 1.5.9 release. Do not extract a Flutter demo app as
+   a dependency. Extend Mac CI preparation and verify the real link before merge.
+8. Desktop: stage the matching official phonemizer core alongside Sherpa/ORT,
+   using existing platform preparation, verified download and bundling patterns.
+   Refresh exact Windows/macOS asset pins and verify actual runtime dependencies
+   on those hosts during implementation. Update signing/resource staging together.
+
+**Vendor/build delta disposition:**
+
+| Current/new build behavior | Required Stage 3 action |
+| --- | --- |
+| Old local sys bindings and static component list | Rebase complete 2.0.1 bindings/metadata, including new generation input and config layout. Pin wrapper/sys exactly and verify Cargo resolves the local sys patch rather than silently bypassing it. Adopt upstream removal of embedded eSpeak/Piper and addition of utf8proc; do not selectively append one FFI field. |
+| Existing Unix atomic runtime replacement | Retain `runtime_copy.rs` and its regression; upstream still uses direct `fs::copy` for loaded Unix runtime destinations. |
+| Old empty-directory cache repair | Retain and strengthen to required-library/version/receipt validation. Upstream directory-presence checks do not solve stale/restored caches. |
+| Existing Windows copies into `deps` | Retain; upstream still copies only to profile/examples. Keep tests resolving the intended DLLs. |
+| iOS static adapter | Retain aggregate Sherpa/ORT linkage and make explicit static features win over upstream mobile shared defaults. Update archive paths/thinning for inspected layouts. |
+| New automatic Tauri Android JNI copying | Keep app-owned source receipt/JNI staging authoritative. Prevent the new sys helper from copying a second ORT or bypassing source-built inputs. |
+| Upstream custom-profile/device/simulator fixes | Adopt upstream fixes, then test them alongside our retained patch. Do not assume they replace the app's static ownership. |
+| Source/notice/archive tooling assumes eSpeak under Sherpa `_deps` | Point it at the separately pinned phonemizer/eSpeak source, update receipts and source inventory, keep existing GPL distribution obligations. Moving eSpeak outside Sherpa does not remove it from the app. |
+
+**Nabra findings and constraints for the later paired-model stage:**
+
+The current upstream `nabra-82m-arabic-int8.tar.bz2` is 82,810,819 bytes,
+SHA-256 `a8608a504b1db4dd538b821409fe50b2d5cf37650c0a8753fa215bd6445e9964`.
+It differs from the October 82,775,122-byte archive with SHA-256
+`e7c644fabb1529190de9a2f7d6044f88c26bf6d9b717ad41ef5d2b748e01459b`.
+Do not silently change an old pin or claim identical-weight replay. This model
+is not in current main's catalog and was not added by this investigation.
+
+With the current archive and the plan's boundary text, the old 1.13.4 child
+process still exits 255; 2.0.1 explicit phoneme input succeeds. Raw input still
+contains model-inappropriate dots/markers. A native cleanup experiment matches
+the public Arabic `clean_phonemes` output on the two tested cases and removes
+their unknown-marker warnings. This establishes a supported integration route,
+not pronunciation acceptance or exhaustive closure of the historical issue.
+The inspected reference was matched byte-for-byte at Hugging Face revision
+`03b95013d3dcd8be6f0b0412a157d25518c7b756`, file SHA-256
+`7754aab4d0d8e33822ee4f736b641291b6c445608e1df568c12b9762f7c0f55c`.
+
+The Arabic reference's *text* normalization deletes Latin runs. Do not copy
+that deletion into Papercut; mixed-script input may not silently lose words.
+Keep the approved Libtashkeel choice instead of importing its Camel-tools path.
+The English 7M reference still requires Misaki-compatible phonemes; current 82M
+eSpeak success does not qualify it. Both 7M candidates remain Stage 4 work and
+must meet the same quality gate together; smaller weights are not a waiver.
+
+**Interrupted-save design proposed for Stage 3:**
+
+- Add optional `synthesisRevision` to the existing manifest, with missing =
+  unknown. Derive it from the pinned Sherpa/native frontend/data/normalization
+  contract, not labels, recommendation order or thread count. Existing model and
+  preprocessor IDs already identify their artifacts/options. SILMA's unaffected
+  legacy jobs should not be invalidated by a Sherpa revision.
+- Read/validate completion and revision before pending-manifest writes or pruning.
+  A complete legacy generation stays usable. Compatible partial saves resume.
+  Unknown/incompatible Sherpa partial saves return a specific regeneration reason;
+  UI/queue restoration must request explicit restart or leave the old job intact.
+  Distinguish this from the existing PDF-source regeneration reason.
+- Keep current audiobook IDs and `chunks/` layout. Regenerate into a sibling
+  directory, using the existing save/index validation code. Retain the original
+  directory and source references through cancellation, failure and disk shortage.
+  Check the expected old generation again before publication to reject stale jobs.
+- Publication needs more than `commit_staged_file`: that helper atomically
+  replaces a file, while the existing import promoter refuses to overwrite an
+  incomplete directory. Under the audiobook reference/write lock, persist a
+  small same-parent replacement journal, rename old to retained backup, then
+  rename validated staging to the canonical path. Never pre-delete the old data.
+- Recovery before reading/writing that book: a validated published new manifest
+  wins; if canonical is absent and a valid backup exists, restore the backup;
+  if old canonical still exists, preserve it. Unknown/conflicting states fail
+  closed and retain all copies. Journal paths must be derived/validated app-owned
+  names, not arbitrary filesystem paths from JSON. Remove the backup only after
+  new publication is validated. Serialise save/import/delete/status recovery so
+  another operation cannot mistake an active transaction for abandoned work.
+- An isolated filesystem design self-check passed interruptions before retiring
+  old data, after retiring it, and after publication, retaining old data in every
+  case. This is not production Rust recovery, Windows rename testing or a
+  power-loss guarantee. Stage 3 must test actual implementation, queue/native
+  race guards, cancellation, full disk and interruption at each transition.
+
+**Gate 2 disposition:** owner accepted November 11, 2026 after reviewing
+`listening.html`, reporting no regression and quality at parity, and authorized
+Stage 3. This records that listening decision without extending it to untested
+platforms or future production integration. Review the proposed
+C API/source-build/static-link and restart/recovery contracts above. Actual
+Windows/macOS/iOS execution and Android inference/packaging remain explicit
+Stage 3 gates, followed by the four owner devices in Stage 5. If listening finds
+a regression, resolve it before accepting migration; do not waive it for speed.
+
+On approval, implement **Stage 3 only**, with existing models: native phonemizer,
+complete sys rebase with retained safeguards, matching platform preparation,
+and non-destructive interrupted-save handling. Stage 4 model additions remain
+separate. Changes to this report are not authorization to start that work.
+
 ### Stage 3 — Upgrade existing models and protect interrupted saves
 
 Scope: matching Cargo/lock/vendor/runtime changes, required native frontend,
@@ -475,7 +666,7 @@ Separate logical/design acceptance from outstanding platform execution.
 | Stage | Status | Source/artifact | Human reviewer and decision/date |
 | --- | --- | --- | --- |
 | 1. Recommendation policy | Accepted | `task/sherpa-onnx`, implementation after `ce054ead`; handoff above | Owner, November 11, 2026: smoke passes, Recommended labels visible; proceed to Stage 2 |
-| 2. Compatibility investigation | Not started | — | — |
+| 2. Compatibility investigation | Accepted | `a8248205`; dated evidence/proposal above, local listening packet | Owner, November 11, 2026: listening parity/no regression; proceed to Stage 3. Platform execution gates remain. |
 | 3. Existing-roster upgrade/resume | Not started | — | — |
 | 4. Paired small-model addition | Not started | — | — |
 | 5. Device/release acceptance | Not started | — | — |
@@ -526,3 +717,8 @@ inputs. A merged conversion PR is not proof of our packaged-app quality.
 - [INT8 export correction, #4087](https://github.com/k2-fsa/sherpa-onnx/pull/4087)
 - [iOS XCFramework artifacts](https://github.com/k2-fsa/sherpa-onnx/releases/tag/xcframework)
 - [Upstream Rust build fixes, #3991](https://github.com/k2-fsa/sherpa-onnx/pull/3991)
+- [Inspected phonemizer C API/source](https://github.com/csukuangfj/piper-phonemize/blob/dae4d2d831f9f0817355f7c0e8abd98c2fb0a49d/src/c-api.cpp)
+- [Inspected phonemizer Rust build policy](https://github.com/csukuangfj/piper-phonemize/blob/dae4d2d831f9f0817355f7c0e8abd98c2fb0a49d/rust/piper-phonemize-sys/build.rs)
+- [Separate ORT 1.28.2 framework assets](https://github.com/csukuangfj/onnxruntime-libs/releases/tag/v1.28.2)
+- [Pinned Arabic cleanup reference](https://huggingface.co/oddadmix/Nabra-7M-Distill/raw/03b95013d3dcd8be6f0b0412a157d25518c7b756/arabic_g2p.py)
+- [Historical Nabra boundary/cleanup issue, #4057](https://github.com/k2-fsa/sherpa-onnx/issues/4057)
