@@ -572,6 +572,9 @@ const SILMA_REQUIRED_FILES: &[&str] = &[
     "models--silma-ai--silma-tts/snapshots/d2515317033803648ecb8844765db9e583afecf9/vocab.txt",
 ];
 
+// Reserved identities for the qualified frontends; catalog exposure awaits artifact/installer review.
+pub(super) const KOKORO_7M_MODEL_ID: &str = "sherpa-onnx/kokoro-7m-distill-en-fp32";
+pub(super) const NABRA_7M_MODEL_ID: &str = "sherpa-onnx/nabra-7m-distill-ar-fp32";
 pub(super) const DEFAULT_MODEL_ID: &str = "sherpa-onnx/kokoro-multi-lang-v1_0";
 pub(super) const KOKORO_ZH_MODEL_ID: &str = "sherpa-onnx/kokoro-multi-lang-v1_0-zh";
 pub(super) const SILMA_MODEL_ID: &str = "silma-ai/silma-tts";

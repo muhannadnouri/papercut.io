@@ -69,6 +69,423 @@ Piper Kareem model card (verbatim, from the pinned archive):
 
 Finetuned from U.S English lessac voice (medium quality).
 
+## Native Misaki frontend and embedded language data
+
+Attribution:
+
+- Unchanged misaki-rs 0.9.0, original Misaki, spaCy/model notices and tokenizer/stemmer dependencies
+
+```
+Notices for the native Misaki frontend and its embedded language data
+
+misaki-rs is consumed unchanged from crates.io with default features disabled;
+Papercut uses its existing Piper fallback and does not ship Python or a second
+eSpeak library. Upstream: https://github.com/MicheleYin/misaki-rs/tree/01022f471a6aee532db40d79648b7b6f3d2a57b7
+Original: https://github.com/hexgrad/misaki
+spaCy: https://github.com/explosion/spaCy
+English model: https://github.com/explosion/spacy-models/releases/tag/en_core_web_sm-3.8.0
+
+Trailing whitespace is normalized; source-file hashes refer to original bytes.
+This file preserves distinct source notices, not just the port's MIT declaration.
+The package graph lists the remaining ordinary registry dependencies separately.
+
+=== misaki-rs 0.9.0 (MIT), registry checksum 7276a53f7862206be9c32a451d65fe508caa100c7385250cc2f3678a078b89de ===
+Source-file SHA-256: 1bea4b79e660b7477ea5919bed5944d970c86531b508bd1d538309c0d12e8858
+
+MIT License
+
+Copyright (c) 2026 Michele Yin
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+=== Original Misaki 0.9.4 logic/dictionaries (Apache-2.0) ===
+Source-file SHA-256: c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4
+
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright [yyyy] [name of copyright owner]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+=== spaCy 3.8.18 tokenizer/norm reference (MIT) ===
+Source-file SHA-256: 3f4378e67708fecacd3e27651c8bc0f977cf20789e19da0d81a2840e7cf573a2
+
+The MIT License (MIT)
+
+Copyright (C) 2016-2024 ExplosionAI GmbH, 2016 spaCy GmbH, 2015 Matthew Honnibal
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+=== spaCy en_core_web_sm 3.8.0 tagger parameters (MIT) ===
+Source-file SHA-256: 3933c176979b68bc6d0bcc902c7d6c130f1d127f476f17ba5cdba8d99cfd0012
+
+Copyright 2021 ExplosionAI GmbH
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+=== spaCy en_core_web_sm 3.8.0 source notices (retained conservatively; the Rust port uses the POS tagger, not the entire Python pipeline) ===
+Source-file SHA-256: 20d9dfacd215112251f15341edd1a47b1f98bf393a212f10f194ffdc7ee98a90
+
+# OntoNotes 5
+
+* Author: Ralph Weischedel, Martha Palmer, Mitchell Marcus, Eduard Hovy, Sameer Pradhan, Lance Ramshaw, Nianwen Xue, Ann Taylor, Jeff Kaufman, Michelle Franchini, Mohammed El-Bachouti, Robert Belvin, Ann Houston
+* URL: https://catalog.ldc.upenn.edu/LDC2013T19
+* License: commercial (licensed by Explosion)
+
+```
+```
+
+
+
+
+# ClearNLP Constituent-to-Dependency Conversion
+
+* Author: Emory University
+* URL: https://github.com/clir/clearnlp-guidelines/blob/master/md/components/dependency_conversion.md
+* License: Citation provided for reference, no code packaged with model
+
+```
+```
+
+
+
+
+# WordNet 3.0
+
+* Author: Princeton University
+* URL: https://wordnet.princeton.edu/
+* License: WordNet 3.0 License
+
+```
+WordNet Release 3.0
+
+This software and database is being provided to you, the LICENSEE, by
+Princeton University under the following license.  By obtaining, using
+and/or copying this software and database, you agree that you have
+read, understood, and will comply with these terms and conditions.:
+
+Permission to use, copy, modify and distribute this software and
+database and its documentation for any purpose and without fee or
+royalty is hereby granted, provided that you agree to comply with
+the following copyright notice and statements, including the disclaimer,
+and that the same appear on ALL copies of the software, database and
+documentation, including modifications that you make for internal
+use or for distribution.
+
+WordNet 3.0 Copyright 2006 by Princeton University.  All rights reserved.
+
+THIS SOFTWARE AND DATABASE IS PROVIDED "AS IS" AND PRINCETON
+UNIVERSITY MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR
+IMPLIED.  BY WAY OF EXAMPLE, BUT NOT LIMITATION, PRINCETON
+UNIVERSITY MAKES NO REPRESENTATIONS OR WARRANTIES OF MERCHANT-
+ABILITY OR FITNESS FOR ANY PARTICULAR PURPOSE OR THAT THE USE
+OF THE LICENSED SOFTWARE, DATABASE OR DOCUMENTATION WILL NOT
+INFRINGE ANY THIRD PARTY PATENTS, COPYRIGHTS, TRADEMARKS OR
+OTHER RIGHTS.
+
+The name of Princeton University or Princeton may not be used in
+advertising or publicity pertaining to distribution of the software
+and/or database.  Title to copyright in this software, database and
+any associated documentation shall at all times remain with
+Princeton University and LICENSEE agrees to preserve same.```
+
+=== language-tokenizer 0.1.0 (WTFPL), registry checksum ed9d23ae923f144698673d87d508ee7cd8627ddae99c23549a43525c4f7a4a23 ===
+Source-file SHA-256: 971408c19bfdfcf3934b2be00951157b1c95690b8d86a731d0001f4e75a54619
+
+        DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
+                    Version 2, December 2004
+
+Copyright (C) 2026 Pavlov Danil <savannstm@gmail.com>
+
+Everyone is permitted to copy and distribute verbatim or modified
+copies of this license document, and changing it is allowed as long
+as the name is changed.
+
+            DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
+
+TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+
+0. You just DO WHAT THE FUCK YOU WANT TO.
+
+=== waken_snowball 0.1.0 (BSD-3-Clause), registry checksum 16a3e068c98d5736c4b5d2dfc0ab9f3b1dcb8f9dbc5a22bde166550c5d3788c0 ===
+Source-file SHA-256: 2df9551fec09708af98aab4e56f559bc7a9abd41936f95f28c3148a6a3fbdbc8
+
+BSD 3-Clause License
+
+Copyright (c) 2001-2024, Dr Martin Porter and Richard Boulton
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+
 ## GNU General Public License v3.0
 
 Attribution:
@@ -10935,7 +11352,7 @@ DEALINGS IN THE FONT SOFTWARE.
 ## Package attribution by declared license
 
 - Rust packages under (Apache-2.0 OR MIT) AND BSD-3-Clause: encoding_rs 0.8.35
-- Rust packages under (MIT OR Apache-2.0) AND Unicode-3.0: unicode-ident 1.0.24
+- Rust packages under (MIT OR Apache-2.0) AND Unicode-3.0: unicode-ident 1.0.24, unicode-normalization 0.1.26
 - Rust packages under 0BSD OR MIT OR Apache-2.0: adler2 2.0.1
 - Rust packages under Apache-2.0: borsh-derive 1.6.0, esaxx-rs 0.1.10, fastembed 7.1.0, lzma-rust2 0.22.0, safetensors 0.8.0, sherpa-onnx 2.0.1, sherpa-onnx-sys 2.0.1, spm_precompiled 0.1.4, sync_wrapper 1.0.2, tao 0.37.2, tokenizers 0.23.2, zopfli 0.8.3
 - Rust packages under Apache-2.0 / MIT: fnv 1.0.7
@@ -10948,7 +11365,7 @@ DEALINGS IN THE FONT SOFTWARE.
 - Rust packages under Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT: linux-raw-sys 0.12.1, rustix 1.1.4
 - Rust packages under Apache-2.0/MIT: cesu8 1.1.0, fxhash 0.2.1, rayon-cond 0.4.0
 - Rust packages under BSD-2-Clause OR Apache-2.0 OR MIT: zerocopy 0.8.40
-- Rust packages under BSD-3-Clause: alloc-no-stdlib 3.0.0, alloc-stdlib 0.3.0, curve25519-dalek 4.1.3, subtle 2.6.1, zstd 0.14.4, zstd-safe 8.3.0
+- Rust packages under BSD-3-Clause: alloc-no-stdlib 3.0.0, alloc-stdlib 0.3.0, curve25519-dalek 4.1.3, subtle 2.6.1, waken_snowball 0.1.0, zstd 0.14.4, zstd-safe 8.3.0
 - Rust packages under BSD-3-Clause AND BSD-2-Clause: zstd-sys 2.1.3+zstd.1.5.7
 - Rust packages under BSD-3-Clause AND MIT: brotli 9.1.1
 - Rust packages under BSD-3-Clause OR MIT OR Apache-2.0: num_enum 0.7.5, num_enum_derive 0.7.5
@@ -10958,9 +11375,9 @@ DEALINGS IN THE FONT SOFTWARE.
 - Rust packages under CC0-1.0 OR MIT-0 OR Apache-2.0: constant_time_eq 0.6.1, dunce 1.0.5
 - Rust packages under CDLA-Permissive-2.0: webpki-roots 0.26.11, webpki-roots 1.0.10
 - Rust packages under ISC: libloading 0.9.0, rustls-webpki 0.103.16, untrusted 0.9.0
-- Rust packages under MIT: app 1.10.2, bitvec 1.0.1, byte-unit 5.2.0, bytecheck 0.6.12, bytecheck_derive 0.6.12, bytes 1.11.1, cargo_metadata 0.19.2, castaway 0.2.4, cfb 0.14.0, cfg_aliases 0.2.1, color_quant 1.1.0, combine 4.6.7, compact_str 0.9.1, convert_case 0.4.0, darling 0.20.11, darling 0.23.0, darling_core 0.20.11, darling_core 0.23.0, darling_macro 0.20.11, darling_macro 0.23.0, deflate64 0.1.12, derive_more 0.99.20, derive_more 2.1.1, derive_more-impl 2.1.1, dom_query 0.28.0, embed-resource 3.0.6, fancy-regex 0.11.0, fern 0.7.1, funty 2.0.0, generic-array 0.14.7, http-body 1.0.1, http-body-util 0.1.3, http-range 0.1.5, hyper 1.8.1, hyper-util 0.1.20, ico 0.6.0, infer 0.22.0, is-docker 0.2.0, is-wsl 0.4.0, kuchikiki 0.8.8-speedreader, libsqlite3-sys 0.30.1, libtqsm 0.6.1, matches 0.1.10, mio 1.1.1, new_debug_unreachable 1.0.6, nom 7.1.3, num-bigfloat 1.7.2, onig 6.5.3, onig_sys 69.9.3, open 5.3.6, pem 3.0.6, phf 0.10.1, phf 0.11.3, phf 0.13.1, phf 0.14.0, phf 0.8.0, phf_codegen 0.11.3, phf_codegen 0.13.1, phf_codegen 0.14.0, phf_codegen 0.8.0, phf_generator 0.10.0, phf_generator 0.11.3, phf_generator 0.13.1, phf_generator 0.14.0, phf_generator 0.8.0, phf_macros 0.10.0, phf_macros 0.13.1, phf_shared 0.10.0, phf_shared 0.11.3, phf_shared 0.13.1, phf_shared 0.14.0, phf_shared 0.8.0, plist 1.10.0, precomputed-hash 0.1.1, ptr_meta 0.1.4, ptr_meta_derive 0.1.4, pulldown-cmark 0.13.6, pulldown-cmark-escape 0.11.0, quick-xml 0.41.0, radium 0.7.0, rend 0.4.2, rkyv 0.7.46, rkyv_derive 0.7.46, rusqlite 0.32.1, rust_decimal 1.40.0, schemars 0.8.22, schemars 0.9.0, schemars 1.2.1, schemars_derive 0.8.22, seahash 4.1.0, simd-adler32 0.3.8, slab 0.4.12, strsim 0.11.1, synstructure 0.13.2, tap 1.0.1, tauri-winres 0.3.5, tokio 1.50.0, tokio-util 0.7.18, tower 0.5.3, tower-http 0.6.8, tower-layer 0.3.3, tower-service 0.3.3, tracing 0.1.44, tracing-attributes 0.1.31, tracing-core 0.1.36, try-lock 0.2.5, urlpattern 0.6.0, utf8-width 0.1.8, want 0.3.1, winnow 0.7.15, winnow 1.0.3, wyz 0.5.1, zip 9.0.5, zmij 1.0.21
+- Rust packages under MIT: app 1.10.2, bitvec 1.0.1, byte-unit 5.2.0, bytecheck 0.6.12, bytecheck_derive 0.6.12, bytes 1.11.1, cargo_metadata 0.19.2, castaway 0.2.4, cfb 0.14.0, cfg_aliases 0.2.1, color_quant 1.1.0, combine 4.6.7, compact_str 0.9.1, convert_case 0.4.0, darling 0.20.11, darling 0.23.0, darling_core 0.20.11, darling_core 0.23.0, darling_macro 0.20.11, darling_macro 0.23.0, deflate64 0.1.12, derive_more 0.99.20, derive_more 2.1.1, derive_more-impl 2.1.1, dom_query 0.28.0, embed-resource 3.0.6, fancy-regex 0.11.0, fancy-regex 0.13.0, fern 0.7.1, funty 2.0.0, generic-array 0.14.7, http-body 1.0.1, http-body-util 0.1.3, http-range 0.1.5, hyper 1.8.1, hyper-util 0.1.20, ico 0.6.0, infer 0.22.0, is-docker 0.2.0, is-wsl 0.4.0, kuchikiki 0.8.8-speedreader, libsqlite3-sys 0.30.1, libtqsm 0.6.1, matches 0.1.10, mio 1.1.1, misaki-rs 0.9.0, new_debug_unreachable 1.0.6, nom 7.1.3, num-bigfloat 1.7.2, onig 6.5.3, onig_sys 69.9.3, open 5.3.6, pem 3.0.6, phf 0.10.1, phf 0.11.3, phf 0.13.1, phf 0.14.0, phf 0.8.0, phf_codegen 0.11.3, phf_codegen 0.13.1, phf_codegen 0.14.0, phf_codegen 0.8.0, phf_generator 0.10.0, phf_generator 0.11.3, phf_generator 0.13.1, phf_generator 0.14.0, phf_generator 0.8.0, phf_macros 0.10.0, phf_macros 0.13.1, phf_shared 0.10.0, phf_shared 0.11.3, phf_shared 0.13.1, phf_shared 0.14.0, phf_shared 0.8.0, plist 1.10.0, precomputed-hash 0.1.1, ptr_meta 0.1.4, ptr_meta_derive 0.1.4, pulldown-cmark 0.13.6, pulldown-cmark-escape 0.11.0, quick-xml 0.41.0, radium 0.7.0, rend 0.4.2, rkyv 0.7.46, rkyv_derive 0.7.46, rusqlite 0.32.1, rust_decimal 1.40.0, schemars 0.8.22, schemars 0.9.0, schemars 1.2.1, schemars_derive 0.8.22, seahash 4.1.0, simd-adler32 0.3.8, slab 0.4.12, strsim 0.11.1, strum 0.27.2, strum_macros 0.27.2, synstructure 0.13.2, tap 1.0.1, tauri-winres 0.3.5, tokio 1.50.0, tokio-util 0.7.18, tower 0.5.3, tower-http 0.6.8, tower-layer 0.3.3, tower-service 0.3.3, tracing 0.1.44, tracing-attributes 0.1.31, tracing-core 0.1.36, try-lock 0.2.5, urlpattern 0.6.0, utf8-width 0.1.8, want 0.3.1, winnow 0.7.15, winnow 1.0.3, wyz 0.5.1, zip 9.0.5, zmij 1.0.21
 - Rust packages under MIT / Apache-2.0: futf 0.1.5
-- Rust packages under MIT OR Apache-2.0: aes 0.9.4, ahash 0.7.8, ahash 0.8.12, allocator-api2 0.2.21, ammonia 4.2.5, android_log-sys 0.3.2, android_logger 0.15.1, anyhow 1.0.103, arrayvec 0.7.6, base64 0.22.1, base64 0.23.1, bitflags 2.11.0, block-buffer 0.10.4, block-buffer 0.12.1, borsh 1.6.0, bumpalo 3.20.2, bzip2 0.6.1, camino 1.2.2, cargo-platform 0.1.9, cc 1.2.56, cfg-if 1.0.4, chacha20 0.10.2, chrono 0.4.44, cipher 0.5.2, cookie 0.18.1, cpubits 0.1.1, cpufeatures 0.2.17, cpufeatures 0.3.1, crc32fast 1.5.0, crossbeam-channel 0.5.15, crossbeam-deque 0.8.8, crossbeam-epoch 0.9.21, crossbeam-utils 0.8.21, crypto-common 0.1.7, crypto-common 0.2.2, daachorse 3.0.3, dary_heap 0.3.9, defmt 1.2.0, defmt-macros 1.2.0, defmt-parser 1.1.0, deranged 0.5.8, derive_builder 0.20.2, derive_builder_core 0.20.2, derive_builder_macro 0.20.2, digest 0.10.7, digest 0.11.3, dirs 7.0.0, dirs-sys 0.5.0, displaydoc 0.2.5, dtoa 1.0.11, dyn-clone 1.0.20, either 1.18.0, env_filter 0.1.4, erased-serde 0.4.10, errno 0.3.14, fdeflate 0.3.7, find-msvc-tools 0.1.9, flate2 1.1.9, form_urlencoded 1.2.2, fs4 1.1.0, futures-channel 0.3.32, futures-core 0.3.32, futures-io 0.3.32, futures-macro 0.3.32, futures-sink 0.3.32, futures-task 0.3.32, futures-util 0.3.32, getrandom 0.1.16, getrandom 0.2.17, getrandom 0.3.4, getrandom 0.4.2, gif 0.13.3, glob 0.3.3, hashbrown 0.12.3, hashbrown 0.14.5, hashbrown 0.16.1, hashlink 0.9.1, heck 0.5.0, hex 0.4.3, hkdf 0.12.4, hmac 0.12.1, hmac 0.13.0, html5ever 0.29.1, html5ever 0.39.0, html5ever 0.40.1, http 1.4.0, httparse 1.10.1, hybrid-array 0.4.10, iana-time-zone 0.1.65, idna 1.1.0, image 0.25.2, image-webp 0.1.3, inout 0.2.6, ipnet 2.12.0, iri-string 0.7.10, itertools 0.14.0, itoa 1.0.17, jobserver 0.1.35, jsonptr 0.7.1, libc 0.2.191, lock_api 0.4.14, log 0.4.29, markup5ever 0.14.1, markup5ever 0.39.0, markup5ever 0.40.0, match_token 0.1.0, mime 0.3.17, monostate 0.1.18, monostate-impl 0.1.18, ndarray 0.15.6, ndarray 0.17.2, ndk 0.9.0, ndk-context 0.1.1, ndk-sys 0.6.0+11769913, num-complex 0.4.6, num-conv 0.2.0, num-integer 0.1.46, num-traits 0.2.19, num2words 1.2.0, num_threads 0.1.7, once_cell 1.21.3, ort 2.0.0-rc.13, ort-sys 2.0.0-rc.13, parking_lot 0.12.5, parking_lot_core 0.9.12, paste 1.0.15, pastey 0.2.3, pbkdf2 0.13.0, percent-encoding 2.3.2, pin-utils 0.1.0, pkg-config 0.3.32, png 0.17.16, png 0.18.1, powerfmt 0.2.0, ppv-lite86 0.2.21, proc-macro-crate 3.5.0, proc-macro-hack 0.5.20+deprecated, proc-macro2 1.0.106, quinn 0.11.9, quinn-proto 0.11.19, quinn-udp 0.5.16, quote 1.0.45, rand 0.10.3, rand 0.7.3, rand 0.8.6, rand 0.9.4, rand_chacha 0.2.2, rand_chacha 0.3.1, rand_chacha 0.9.0, rand_core 0.10.1, rand_core 0.5.1, rand_core 0.6.4, rand_core 0.9.5, rand_pcg 0.10.2, rand_pcg 0.2.1, rayon 1.12.0, rayon-core 1.13.0, rcgen 0.13.2, ref-cast 1.0.25, ref-cast-impl 1.0.25, regex 1.12.3, regex-automata 0.4.14, regex-syntax 0.8.10, reqwest 0.12.28, reqwest 0.13.2, roxmltree 0.20.0, rustc_version 0.4.1, rustls-pki-types 1.14.1, rustversion 1.0.22, scopeguard 1.2.0, semver 1.0.28, serde 1.0.228, serde-untagged 0.1.9, serde_core 1.0.228, serde_derive 1.0.228, serde_derive_internals 0.29.1, serde_json 1.0.149, serde_repr 0.1.20, serde_spanned 1.1.2, serde_with 3.22.0, serde_with_macros 3.22.0, serialize-to-javascript 0.1.2, serialize-to-javascript-impl 0.1.2, servo_arc 0.2.0, servo_arc 0.4.3, sha1 0.11.0, sha2 0.10.9, sha2 0.11.1, shlex 1.3.0, simdutf8 0.1.5, smallvec 1.15.1, socket2 0.6.3, spake2 0.4.0, stable_deref_trait 1.2.1, static_assertions 1.1.0, string_cache 0.11.0, string_cache 0.8.9, string_cache 0.9.0, string_cache_codegen 0.11.2, string_cache_codegen 0.5.4, string_cache_codegen 0.6.1, syn 1.0.109, syn 2.0.117, syn 3.0.9, tao-macros 0.1.4, tar 0.4.46, tauri-plugin-native-audio 1.0.5, tempfile 3.27.0, tendril 0.5.1, thiserror 1.0.69, thiserror 2.0.18, thiserror-impl 1.0.69, thiserror-impl 2.0.18, time 0.3.47, time-core 0.1.8, time-macros 0.2.27, tokio-rustls 0.26.4, toml 0.9.12+spec-1.1.0, toml 1.2.0+spec-1.1.0, toml_datetime 0.7.5+spec-1.1.0, toml_datetime 1.1.2+spec-1.1.0, toml_edit 0.25.4+spec-1.1.0, toml_parser 1.1.5+spec-1.1.0, toml_writer 1.2.0+spec-1.1.0, typed-path 0.12.3, typeid 1.0.3, typenum 1.19.0, unicase 2.9.0, unicode-segmentation 1.12.0, unicode_categories 0.1.1, ureq 2.12.1, url 2.5.8, utf-8 0.7.6, web-time 1.1.0, web_atoms 0.2.6, web_atoms 0.3.0, weezl 0.1.12, windows-link 0.2.1, windows-sys 0.61.2, xattr 1.6.1, yasna 0.5.2
+- Rust packages under MIT OR Apache-2.0: aes 0.9.4, ahash 0.7.8, ahash 0.8.12, allocator-api2 0.2.21, ammonia 4.2.5, android_log-sys 0.3.2, android_logger 0.15.1, anyhow 1.0.103, arrayvec 0.7.6, base64 0.22.1, base64 0.23.1, bitflags 2.11.0, block-buffer 0.10.4, block-buffer 0.12.1, borsh 1.6.0, bumpalo 3.20.2, bzip2 0.6.1, camino 1.2.2, cargo-platform 0.1.9, cc 1.2.56, cfg-if 1.0.4, chacha20 0.10.2, chrono 0.4.44, cipher 0.5.2, cookie 0.18.1, cpubits 0.1.1, cpufeatures 0.2.17, cpufeatures 0.3.1, crc32fast 1.5.0, crossbeam-channel 0.5.15, crossbeam-deque 0.8.8, crossbeam-epoch 0.9.21, crossbeam-utils 0.8.21, crypto-common 0.1.7, crypto-common 0.2.2, daachorse 3.0.3, dary_heap 0.3.9, defmt 1.2.0, defmt-macros 1.2.0, defmt-parser 1.1.0, deranged 0.5.8, derive_builder 0.20.2, derive_builder_core 0.20.2, derive_builder_macro 0.20.2, digest 0.10.7, digest 0.11.3, dirs 7.0.0, dirs-sys 0.5.0, displaydoc 0.2.5, dtoa 1.0.11, dyn-clone 1.0.20, either 1.18.0, env_filter 0.1.4, erased-serde 0.4.10, errno 0.3.14, fdeflate 0.3.7, find-msvc-tools 0.1.9, flate2 1.1.9, form_urlencoded 1.2.2, fs4 1.1.0, futures-channel 0.3.32, futures-core 0.3.32, futures-io 0.3.32, futures-macro 0.3.32, futures-sink 0.3.32, futures-task 0.3.32, futures-util 0.3.32, getrandom 0.1.16, getrandom 0.2.17, getrandom 0.3.4, getrandom 0.4.2, gif 0.13.3, glob 0.3.3, hashbrown 0.12.3, hashbrown 0.14.5, hashbrown 0.16.1, hashlink 0.9.1, heck 0.5.0, hex 0.4.3, hkdf 0.12.4, hmac 0.12.1, hmac 0.13.0, html5ever 0.29.1, html5ever 0.39.0, html5ever 0.40.1, http 1.4.0, httparse 1.10.1, hybrid-array 0.4.10, iana-time-zone 0.1.65, idna 1.1.0, image 0.25.2, image-webp 0.1.3, inout 0.2.6, ipnet 2.12.0, iri-string 0.7.10, itertools 0.14.0, itoa 1.0.17, jobserver 0.1.35, jsonptr 0.7.1, libc 0.2.191, lock_api 0.4.14, log 0.4.29, markup5ever 0.14.1, markup5ever 0.39.0, markup5ever 0.40.0, match_token 0.1.0, mime 0.3.17, monostate 0.1.18, monostate-impl 0.1.18, ndarray 0.15.6, ndarray 0.17.2, ndk 0.9.0, ndk-context 0.1.1, ndk-sys 0.6.0+11769913, num-complex 0.4.6, num-conv 0.2.0, num-integer 0.1.46, num-traits 0.2.19, num2words 0.4.1, num2words 1.2.0, num_threads 0.1.7, once_cell 1.21.3, ort 2.0.0-rc.13, ort-sys 2.0.0-rc.13, parking_lot 0.12.5, parking_lot_core 0.9.12, paste 1.0.15, pastey 0.2.3, pbkdf2 0.13.0, percent-encoding 2.3.2, pin-utils 0.1.0, pkg-config 0.3.32, png 0.17.16, png 0.18.1, powerfmt 0.2.0, ppv-lite86 0.2.21, proc-macro-crate 3.5.0, proc-macro-hack 0.5.20+deprecated, proc-macro2 1.0.106, quinn 0.11.9, quinn-proto 0.11.19, quinn-udp 0.5.16, quote 1.0.45, rand 0.10.3, rand 0.7.3, rand 0.8.6, rand 0.9.4, rand_chacha 0.2.2, rand_chacha 0.3.1, rand_chacha 0.9.0, rand_core 0.10.1, rand_core 0.5.1, rand_core 0.6.4, rand_core 0.9.5, rand_pcg 0.10.2, rand_pcg 0.2.1, rayon 1.12.0, rayon-core 1.13.0, rcgen 0.13.2, ref-cast 1.0.25, ref-cast-impl 1.0.25, regex 1.12.3, regex-automata 0.4.14, regex-syntax 0.8.10, reqwest 0.12.28, reqwest 0.13.2, roxmltree 0.20.0, rustc_version 0.4.1, rustls-pki-types 1.14.1, rustversion 1.0.22, scopeguard 1.2.0, semver 1.0.28, serde 1.0.228, serde-untagged 0.1.9, serde_core 1.0.228, serde_derive 1.0.228, serde_derive_internals 0.29.1, serde_json 1.0.149, serde_repr 0.1.20, serde_spanned 1.1.2, serde_with 3.22.0, serde_with_macros 3.22.0, serialize-to-javascript 0.1.2, serialize-to-javascript-impl 0.1.2, servo_arc 0.2.0, servo_arc 0.4.3, sha1 0.11.0, sha2 0.10.9, sha2 0.11.1, shlex 1.3.0, simdutf8 0.1.5, smallvec 1.15.1, socket2 0.6.3, spake2 0.4.0, stable_deref_trait 1.2.1, static_assertions 1.1.0, string_cache 0.11.0, string_cache 0.8.9, string_cache 0.9.0, string_cache_codegen 0.11.2, string_cache_codegen 0.5.4, string_cache_codegen 0.6.1, syn 1.0.109, syn 2.0.117, syn 3.0.9, tao-macros 0.1.4, tar 0.4.46, tauri-plugin-native-audio 1.0.5, tempfile 3.27.0, tendril 0.5.1, thiserror 1.0.69, thiserror 2.0.18, thiserror-impl 1.0.69, thiserror-impl 2.0.18, time 0.3.47, time-core 0.1.8, time-macros 0.2.27, tokio-rustls 0.26.4, toml 0.9.12+spec-1.1.0, toml 1.2.0+spec-1.1.0, toml_datetime 0.7.5+spec-1.1.0, toml_datetime 1.1.2+spec-1.1.0, toml_edit 0.25.4+spec-1.1.0, toml_parser 1.1.5+spec-1.1.0, toml_writer 1.2.0+spec-1.1.0, typed-path 0.12.3, typeid 1.0.3, typenum 1.19.0, unicase 2.9.0, unicode-segmentation 1.12.0, unicode_categories 0.1.1, ureq 2.12.1, url 2.5.8, utf-8 0.7.6, web-time 1.1.0, web_atoms 0.2.6, web_atoms 0.3.0, weezl 0.1.12, windows-link 0.2.1, windows-sys 0.61.2, xattr 1.6.1, yasna 0.5.2
 - Rust packages under MIT OR Apache-2.0 OR Zlib: lru-slab 0.1.2, raw-window-handle 0.6.2, static_vcruntime 3.0.0, tinyvec_macros 0.1.1, zune-core 0.4.12, zune-jpeg 0.4.21
 - Rust packages under MIT OR BSD-3-Clause: if-addrs 0.15.0
 - Rust packages under MIT OR Zlib OR Apache-2.0: miniz_oxide 0.8.9
@@ -10969,6 +11386,7 @@ DEALINGS IN THE FONT SOFTWARE.
 - Rust packages under Unicode-3.0: icu_collections 2.1.1, icu_locale_core 2.1.1, icu_normalizer 2.1.1, icu_normalizer_data 2.1.1, icu_properties 2.1.2, icu_properties_data 2.1.2, icu_provider 2.1.1, litemap 0.8.1, potential_utf 0.1.4, tinystr 0.8.2, writeable 0.6.2, yoke 0.8.1, yoke-derive 0.8.1, zerofrom 0.1.6, zerofrom-derive 0.1.6, zerotrie 0.2.3, zerovec 0.11.5, zerovec-derive 0.11.2
 - Rust packages under Unlicense OR MIT: aho-corasick 1.1.4, byteorder 1.5.0, byteorder-lite 0.1.0, jiff 0.2.39, jiff-core 0.1.2, memchr 2.8.0
 - Rust packages under Unlicense/MIT: same-file 1.0.6, walkdir 2.5.0
+- Rust packages under WTFPL: language-tokenizer 0.1.0
 - Rust packages under Zlib: foldhash 0.2.0, zlib-rs 0.6.8
 - Rust packages under Zlib OR Apache-2.0 OR MIT: bytemuck 1.25.0, tinyvec 1.10.0
 - npm packages under 0BSD: tslib 2.8.1

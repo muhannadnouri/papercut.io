@@ -3,9 +3,12 @@
 Status: Stages 1–3a accepted; the owner reports Stage 3b smoke tests pass.
 Stage 3c.1 proof and Stage 3c.2 local smokes are accepted. The registry
 integration is checkpointed at `a5f3d86`; the separate three-crate audit repair
-passes local checks. Native platform gates remain pending until PR preparation. Stages 4–5 not started. Owner direction
-updated November 15, 2026 (fork-free integration and Cargo invocation contract). Research baseline: local `main` at `6baf1858`, Sherpa
-1.13.4. Stage 3b working-tree runtime: 2.0.1, subject to the platform/human gates below.
+passes local checks and owner smokes. Stage 4a paired listening is accepted with
+the explicit English quality tradeoff below; Stage 4b native frontends and owner smoke tests are accepted.
+ Stage 4c catalog/install work and Stage 5 remain pending.
+Native platform gates remain mandatory at PR preparation. Owner direction updated
+November 15, 2026. Research baseline: local `main` at `6baf1858`, Sherpa 1.13.4.
+Current branch runtime: 2.0.1, subject to the platform/human gates below.
 
 This is the implementation and human-review contract for this work. The
 [native TTS guide](kokoro-tts.md) describes the shipping architecture;
@@ -18,7 +21,8 @@ Current scheduling decision (owner, November 15): paired English/Arabic 7M work
 may proceed after local acceptance. Other native-platform tests are deferred to
 PR preparation and remain mandatory before merge. This supersedes the earlier
 requirement to finish every Gate 3 platform check before starting Stage 4; it does
-not waive native testing, vendor-retirement conditions or speech-quality parity.
+not waive native testing or vendor-retirement conditions. The later explicit
+English 7M quality tradeoff is scoped below; existing-model quality gates stand.
 
 ## 1. Agreed outcome and boundaries
 
@@ -30,10 +34,12 @@ not waive native testing, vendor-retirement conditions or speech-quality parity.
 - Qualify **English Kokoro 7M and Arabic Nabra 7M together** as additive,
   single-voice choices. Neither replaces an existing model. Do not quietly ship
   English alone if Arabic fails qualification; return that decision to the owner.
-- Prioritize generated speech quality, particularly pronunciation. Acceptance
-  requires parity or improvement; speed or smaller weights cannot excuse
-  mispronunciation, omissions, or other speech-quality regressions. An
-  Experimental label does not waive this requirement.
+- Prioritize generated speech quality, particularly pronunciation. Existing models
+  require parity or improvement. On November 15 the owner specifically accepted
+  English 7M as a more robotic/less crisp smaller alternative and Arabic Nabra as
+  competitive with Kareem; keep Arabic automatic diacritization enabled. This
+  explicit exception is not a general waiver for mispronunciation, omissions or
+  existing-model regressions; an Experimental label alone provides no waiver.
 - No numeric speed or memory targets, performance-tuning project, or benchmark
   gate is required. Users choose the model appropriate to their hardware.
   Crashes, corrupt audio and ordinary usability failures still fail acceptance.
@@ -856,6 +862,18 @@ Suggested commit for the pending Stage 3b + 3c set: `feat(tts): upgrade Sherpa w
 
 ### Stage 4 — Add both small models and their selection UX
 
+Stage 4a listening is accepted for both candidates (November 15). The owner
+explicitly accepts English 7M's more robotic/less crisp output as a smaller
+alternative; Arabic Nabra is competitive with Kareem. This is not overall English
+quality-parity evidence. Keep full Kokoro recommended and Arabic diacritization
+enabled by default. Stage 4b native frontend integration is ready for local review.
+See the [artifact/frontend qualification record and reviewer instructions](#stage-4a--paired-qualification-record)
+and [immutable input pins/private assembly proofs](../src-tauri/tts/qualification-artifacts.json).
+Both native frontends are integrated behind their reserved IDs with focused
+guards; the optional Misaki dependency is pinned without its native eSpeak
+feature. No catalog/selector entry has been added. Next qualify distributable
+artifacts/installation and additive catalog metadata before selector exposure.
+
 Scheduling: owner permits local paired-model work before deferred native platform
 qualification. Carry the remaining Gate 3 platform checks into PR/merge acceptance.
 
@@ -885,16 +903,316 @@ Steps:
    supported, including vocalized and unvocalized Arabic. A different timbre or
    voice identity alone is not a pronunciation failure; assess intelligibility, pronunciation,
    omissions, fluency and artifacts separately. Experimental status does not
-   authorize a speech-quality downgrade.
+   authorize a speech-quality downgrade. The November 15 English 7M tradeoff
+   is an explicit owner approval, not an inference from its Experimental label.
 
 Human acceptance:
 
 - [ ] Both candidates have reproducible pinned artifacts, verified vocab/style mappings and native frontend behavior; no Python runtime or unreviewed diacritizer is introduced.
-- [ ] Both pass side-by-side pronunciation/quality review. A candidate failing this gate is not exposed merely for smaller size; obtain an owner decision if the pair cannot qualify.
+- [x] Owner accepts both after side-by-side review (November 15). English 7M is explicitly approved as a smaller, more robotic/less crisp alternative; full Kokoro remains recommended. Arabic is competitive with Kareem with default automatic diacritization preserved. This specific approval does not waive other pronunciation/content-loss or existing-model regression gates.
 - [ ] Install, preview, save, resume, offline playback, delete and reinstall work independently of existing models. Failed/checksum-mismatched downloads cannot become installed.
 - [ ] UI communicates language and single-voice capability, distinguishes recommendations from experiments, preserves old selections and works in RTL/narrow layouts.
 - [ ] New IDs create distinct audiobook generations; existing records and bundles remain available and unchanged. Native/fallback catalog and download monitoring cover both additions.
 - [ ] No numeric speed/memory acceptance threshold or unmeasured Faster claim has been introduced. Reviewer approves the pair for final device acceptance.
+
+#### Stage 4a — Paired qualification record
+
+Status: **paired listening accepted; native frontend integration candidate**.
+The owner accepted
+security-pass smoke tests and authorized paired qualification. Other native
+platform tests remain PR/merge gates. Neither small model is in the app catalog.
+
+##### Review this packet
+
+Local evidence and listening page: `.cache/sherpa-stage4a-2026-11-15/listening.html`.
+The packet is ignored, machine-local evidence, not a committed audio fixture.
+Its runtime/source baseline is `88483fad7a3c62cdf1dc13ea1f35cc6fef038b07`.
+Stage 4a changed no production code. The Stage 4b integration below adds the
+frontends and an optional registry dependency, with no catalog/download exposure
+or changes to existing defaults, saved-book identities or upstream source.
+
+Review all 22 rows (11 per language), comparing:
+
+1. **Current recommendation**: Kokoro v1.0 Heart for English, Kareem for Arabic.
+2. **7M reference frontend FP32**: Python reference phones through the same Sherpa
+   renderer and pause settings as the candidate. English includes Misaki's
+   official unknown-word fallback; Arabic retains mixed Latin text.
+3. **7M native candidate FP32**: prospective native frontend, same model assets
+   and renderer settings as column 2.
+
+Record English and Arabic verdicts separately, with case ID and exact words for
+any pronunciation error, omission, repetition, fluency or audio artifact. A
+voice/timbre difference alone is not a pronunciation failure. Inspect the
+synthesis-text details for existing number normalization/optional diacritization.
+Pay particular attention to `en-oov-negative` (invented `qzxwv`), names, mixed
+Arabic/Latin, pharyngeals, numbers and the three comma-pause cases below.
+
+Collapsed diagnostics contain independent direct ONNX inference with uncompressed
+pauses, two raw-eSpeak English controls and two short INT8 controls. These are
+not additional shipping choices. The direct reference has longer pauses than
+the primary columns; do not mistake that processing difference for omitted words.
+
+Human gate:
+
+- [x] Owner accepts English as an optional smaller alternative, explicitly finding
+  it more robotic and less crisp than recommended full Kokoro. This is a specific
+  approved quality tradeoff, **not a claim of overall quality parity**.
+- [x] Owner accepts Arabic Nabra as competitive with Kareem. Both have weak
+  pronunciation without tashkeel; preserve automatic diacritization enabled by
+  default. No undiacritized-pronunciation fix or dialect support is claimed.
+- [x] Owner approves integration of both on November 15, 2026 after reviewing the
+  packet. The English tradeoff is scoped to this additive option; existing-model
+  quality protections and platform/device gates remain.
+
+##### Exact candidate contract
+
+[Machine-readable pins](../src-tauri/tts/qualification-artifacts.json) record immutable
+source URLs, SHA-256 and sizes, plus **private assembly proofs**, not approved
+production download endpoints. Source revisions:
+
+| Candidate | Original model revision | Converted ONNX revision |
+| --- | --- | --- |
+| English Kokoro 7M | `9357717e6499717b769ab65de61797aa7c501c86` | `c5663e70326392471bb13be92d37127025bdbf89` |
+| Arabic Nabra 7M | `03b95013d3dcd8be6f0b0412a157d25518c7b756` | `33b4e69edf70a3dd58af32abf41e3330dc64a9fe` |
+
+| Property | English | Arabic |
+| --- | --- | --- |
+| Primary precision | FP32 | FP32 |
+| ONNX graph bytes | 30,641,467 | 30,641,486 |
+| Token count | 114 | 116, including `ʕ`/`ħ` |
+| Voice | Sole `af_msa`, speaker 0 | Sole `af_msa`, speaker 0 |
+| Language scope | US English | Modern Standard Arabic |
+| Private complete archive bytes | 35,615,853 | 35,568,384 |
+| Proposed distinct ID | `sherpa-onnx/kokoro-7m-distill-en-fp32` | `sherpa-onnx/nabra-7m-distill-ar-fp32` |
+
+Both use 24 kHz output and a 510 × 1 × 256 style pack. Vocabulary IDs exactly
+match their respective original config plus Arabic's reference extra symbols;
+original PyTorch style bytes exactly match converted `voices.bin`. The two
+supplied packs happen to have the same SHA-256; do not generalize this to other
+versions. They cannot inherit the existing multilingual token table or voice list.
+
+The exact converted graphs include baked notch FIR constants; recursive graph
+checks pass and the inspected INT8 graphs have no ConvInteger/QLinearConv nodes.
+Two short Linux CPU INT8 renders pass, which does **not** qualify INT8 on ARM.
+Use FP32 for this pair's primary review; no graph rewriting is proposed.
+
+Sherpa selects style row N while the reference uses N−1. A synthetic echo model
+confirms this at N=1,17,350. **Every one of the 510 real rows is byte-identical**,
+so the index difference has no effect for these exact packs. No shifted pack,
+style adapter, graph modification or upstream source patch is needed. Recheck
+this invariant if assets change; do not silently apply the conclusion elsewhere.
+
+The private archives include each unchanged graph, vocabulary, style pack and
+verified phonemizer data, rather than requiring an entire 82M installation for
+unknown-word fallback. The data tree hash is
+`43ebef9ebca9edcb42dd5d49a7935038731af4c6450a677dc0cae732dae0ce6a`.
+Assembly repeats byte-for-byte; extraction verifies 358 files per archive.
+`QUALIFICATION.json` identifies these as private evaluation bundles. Final public
+packaging/notices may change archive hashes; do not promote these local pins as
+published catalog artifacts. Both original model cards declare Apache 2.0;
+review converted provenance and package all required notices before publication.
+
+##### Frontend result and maintenance boundary
+
+English 7M needs Misaki-compatible phones. Feeding current 82M eSpeak output
+directly to it is not a qualified shortcut. The isolated probe evaluates published
+`misaki-rs` 0.9.0 with `default-features=false`, embedded lexicons/POS assets and a
+small bridge to the app's existing Piper 1.5.9 fallback. This avoids the port's
+optional second eSpeak native build. It requires no Python runtime or fork of
+Misaki, Piper, Sherpa or ONNX Runtime. Stage 4b now integrates this optional exact-pinned dependency and bridge.
+The lock adds eight package identities, updates none of the existing versions
+and excludes `espeak-rs`. Existing dependency references retain their resolution;
+only the required num2words/fancy-regex disambiguation is added.
+
+The bridge translates Piper IPA into the pinned Python Misaki 0.9.4 fallback
+conventions. It is maintenance work even without a fork: qualify unknown-word
+coverage, error handling, cache/thread use and initialization before promotion.
+The Stage 4a isolated dependency lock audits clean locally (82 resolved dependencies).
+The port's MIT license and its embedded/data/transitive notices must be covered
+by the existing notice workflow; this is not blanket platform/MSRV qualification.
+
+Measured on actual app-normalized synthesis text:
+
+| Probe | Result | Difference requiring review |
+| --- | --- | --- |
+| English native + Piper fallback vs Python Misaki + official fallback | 10/11 exact phone strings | `en-oov-negative`: `…ʌbəl…` vs `…ʌbᵊl…` in spelling `qzxwv` |
+| English without fallback vs Python without fallback | 11/11 exact | Both can produce unresolved markers; unsafe as a shipping route |
+| Arabic native cleanup vs reference cleanup | 8/11 exact | `ar-pharyngeals`, `ar-numbers`, `ar-numbers-tashkeel`: native retains comma pauses |
+
+The converter's no-fallback English recipe can omit unknown words; it is not the
+primary reference or proposed shipping policy. Unresolved/unsupported phones must
+produce a recoverable error, never silent word removal. The Arabic reference's
+Latin-deletion normalization is deliberately excluded: mixed Papercut/Edmonton
+text remains in synthesis. Native cleanup preserves `ʕ`/`ħ`; it folds IPA before
+removing Arabic syllable markers. Reuse existing optional Libtashkeel 1.5.0 and
+text normalization rather than adding a diacritizer or changing source text.
+
+All 92 Stage 4a final listening entries generate finite, non-silent audio: 66 primary
+clips, 22 independent-direct diagnostics and four controls. This proves execution,
+not quality. Long samples preserve all phones in word-bounded chunks of at most
+350; they do not exercise app save/seek/highlighting or full-book chunk timing.
+Four equal-input, uncompressed-pause direct/Sherpa calibrations have matching
+sample counts. Samples are not equal: the graphs contain random operators and a
+repeat through the direct renderer itself differs. No waveform-parity claim is
+made. Primary reference/native audio uses the same app silence scaling (0.2).
+
+##### Evidence and next implementation gate
+
+The local packet retains `artifact-pins.json`, original source files, `cases.json`,
+`frontend-results.json`, `contracts.json`, `graph-style-checks.json`,
+`bundle-results.json`, `audio-results.json`, calibration/repeat results, logs and
+probe sources. `evidence-sha256.json` binds the report inputs and tool sources.
+Python package versions are frozen in `reference-requirements.txt`; the private
+Rust probe has its own Cargo.lock. Python is reference tooling only (CPU Torch,
+Misaki 0.9.4). Direct ONNX reference uses the same native ORT 1.28.2 as Sherpa,
+not the unrelated Python ORT installation. Native probes import unchanged app
+phonemizer, normalization and Tashkeel modules. These tools have checkout-local
+paths; a new machine must restore pinned inputs and adjust those paths.
+
+Human listening is accepted under the explicit English tradeoff above. Native
+frontend integration is implemented in Stage 4b below; keep catalog exposure behind
+the remaining artifact/installer gate. Before adding selectable entries:
+
+1. Resolve/review the known OOV and comma differences; add focused differential,
+   unknown-token, empty/oversized-input and long-text coverage. Route by new model
+   identity; existing models keep their current frontend and synthesis revision.
+2. Confirm a distributable immutable archive location and final notices/pins.
+   Reuse current verified/atomic installer and per-model directories. A clean
+   profile must install either candidate independently. Respect the existing
+   phonemizer's process-global data-directory lifetime; do not add casual cache
+   deletion or assume data is disposable after initialization.
+3. Review then implement additive Language → Model → Voice entries for both
+   languages, with one valid voice each, exact complete download size and
+   Experimental/Small copy. Current Kokoro v1.0/Kareem recommendations, saved
+   selections, uploads' language-suggestion behavior and existing languages stay.
+4. Human-smoke clean install, interrupted/bad downloads, preview, save/resume,
+   playback and old-book compatibility; RTL/narrow UI; independent models and
+   offline operation. No silent word loss or model substitution is acceptable.
+
+Other native platforms, minimum OS, installed applications and the four owner
+phones remain required before merge/release under Stages 3/5. Do not retire the
+inactive vendor reference merely because this Linux probe passes. No speed/RAM
+threshold, extra precision selector, publication or release action is added here.
+
+##### Primary references
+
+- [English original model](https://huggingface.co/oddadmix/Kokoro-7M-Distill) and [converted files](https://huggingface.co/marwanelamami/kokoro-7m-distill-sherpa-onnx).
+- [Arabic original model](https://huggingface.co/oddadmix/Nabra-7M-Distill) and [converted files](https://huggingface.co/marwanelamami/nabra-7m-distill-sherpa-onnx).
+- [Sherpa 2.0.1 reference frontend](https://github.com/k2-fsa/sherpa-onnx/blob/v2.0.1/scripts/kokoro/7m-distill/g2p_frontend.py).
+- [Misaki Rust port](https://github.com/MicheleYin/misaki-rs); the evaluated registry source records revision `01022f471a6aee532db40d79648b7b6f3d2a57b7`.
+
+#### Stage 4b — Integrated native frontend handoff
+
+The two reserved IDs live beside the other model identities in `models.rs` but
+are not entries in `MODELS`. All model metadata, loading, inference, preprocessing,
+WAV persistence and future installation/catalog APIs remain shared. The separate
+`phoneme_adapter.rs` contains only the training-specific phoneme adapters and
+checks; putting these in the metadata catalog would mix pronunciation processing
+with model declarations. It is not a second engine, loader or catalog.
+
+`SherpaTtsEngine` owns an optional adapter alongside its existing native handle.
+Only the two exact new IDs initialize it; existing models do not load Misaki or
+change frontend routing. The existing engine mutex serializes use. English loads
+one US Misaki pipeline with the existing Piper fallback; Arabic reuses Piper and
+reference-compatible cleanup, keeping accepted comma pauses and Latin text.
+`af_msa` cannot select locale by prefix: Nabra explicitly uses Arabic. Existing
+optional Libtashkeel stays upstream of this adapter, with no new preprocessor.
+
+Load validates the pinned vocabulary and voice hashes. Generation rejects empty,
+unresolved and unsupported phones before Sherpa, and reuses the existing 350-phone
+word-safe splitter with no truncation. Native fallback errors propagate to the
+caller; a failed frontend cannot commit a successful audio chunk. New models will
+need model-specific synthesis provenance when added to the catalog; do not bump
+the existing-roster revision just to version these new frontends.
+
+“Preserving the synthesis contract” means retaining the existing text-to-phones
+behavior for the current model roster. The distills were trained with different
+phoneme conventions: English uses Misaki's compact symbols, and Nabra needs its
+Arabic cleanup/vocabulary. Applying these transforms to every Kokoro-family model
+would change already-reviewed pronunciation and could disrupt multilingual paths.
+This is frontend selection inside one engine, not a second model implementation.
+An intentional existing-model frontend change would need renewed listening and
+synthesis-provenance/restart review; completed WAVs do not depend on this frontend.
+
+Function comments explain the shared engine/data lifetime, transform ordering,
+locale trap, accepted OOV variant and error boundaries. Existing useful comments
+are retained. No upstream crate, C/C++ library or model/voice bytes are patched.
+
+The existing `src-tauri/tts/frontend-smoke.json` now retains all 22 reviewed
+processed-text/phone pairs beside the existing 18 roster cases. The existing
+`cached_frontend_smoke` runs both groups through the same production loader and
+`generate_audio` route. Optional expected-phone fields assert exact reviewed
+outputs for the distills, plus sole-voice rejection and sanitized-empty behavior.
+A temporary test-only metadata fallback allows the reserved IDs before catalog
+exposure; remove it when real catalog entries land. There is no separate fixture
+store or synthesis harness for the new models. Ordinary tests
+cover opt-in isolation across the entire current roster, word-safe preservation,
+unknown/oversized/invalid phones, pack mismatches, fallback errors, unresolved
+words and Arabic/English transforms. They download no models.
+
+Local reproduction from the repository root (prepared native libraries required):
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml --offline --locked \
+  --features native-tts-shared,experimental-search-embeddings --lib
+PAPERCUT_TTS_MODEL_ROOT="$PWD/.cache/sherpa-stage4b-2026-11-15/models" \
+PAPERCUT_TTS_SMOKE_OUTPUT_DIR="$PWD/.cache/sherpa-stage4b-2026-11-15/audio" \
+  cargo test --manifest-path src-tauri/Cargo.toml --offline --locked \
+  --features native-tts-shared,experimental-search-embeddings --lib \
+  cached_frontend_smoke -- --ignored --nocapture
+```
+
+The assets root uses the normal model directory names, including
+`kokoro-7m-distill-en-fp32/` and `nabra-7m-distill-ar-fp32/`, each with unchanged
+graph bytes as `model.onnx`, `tokens.txt`, `voices.bin` and verified
+`espeak-ng-data/`. Existing roster directories are present for the same test.
+The local probe uses links to the frozen Stage 4a inputs; it does not modify them
+or the owner's installed models. Full regressions need loopback access for
+unrelated existing transfer/download tests; sandbox denials are retained separately.
+
+Dependency notices include the port, original Misaki dictionaries/logic, spaCy
+and model source notices, tokenizer and stemmer. All four dictionary JSON trees
+match Misaki 0.9.4. The pinned upstream extraction script reproduces the embedded
+tagger parameters and labels byte-for-byte from `en_core_web_sm` 3.8.0. Evidence is
+in `.cache/sherpa-stage4b-2026-11-15/embedded-data-provenance.json`; regenerated
+notices and the source inventory bind this dependency change.
+
+The versioned `licensing/misaki-0.9.0.txt` is a reviewed input to the existing
+notice generator and packaged license directory (the same convention as
+Libtashkeel). Its location is a packaging choice, not a special Misaki requirement.
+It preserves the port and embedded-data/dependency notices reproducibly without
+depending on a developer's registry layout or fetching licenses during app builds.
+It contains attribution text, not a library fork.
+
+Review gate for this pass:
+
+- [x] Owner accepts the shared-engine/adapter boundary and focused-test pass
+  for checkpointing (November 15).
+- [x] Owner reports the requested existing recommended English/Arabic preview
+  and save/playback smokes pass (November 15); Arabic
+  automatic diacritization remains enabled. Existing language and upload behavior
+  stay unchanged. The 7M options will not appear in the UI yet.
+- [x] Owner accepts frontend readiness and requests this checkpoint. The paired
+  immutable artifact, installer and additive catalog/selection stage is next; it
+  remains unimplemented. No further listening decision
+  is required for the unchanged reviewed frontend/assets, but device testing and
+  any later pronunciation-affecting change still require qualification.
+
+Before that next stage exposes either model: finalize distributable archive URL,
+notices and final bytes/SHA; bind distinct model/voice/preprocessor/provenance
+metadata; test verified atomic installs and independent operation; preserve full
+Kokoro/Kareem recommendations and default Arabic diacritization. Public uploading
+or publishing an archive remains a separately authorized action. No performance
+claim has been measured or added. Other native platforms remain PR/merge gates.
+
+Executed Stage 4b checks: native/provider suite **372 passed, 10 ignored**;
+default suite **293 passed, 4 ignored**; explicit cached paired-corpus test
+**passes all 40 cases (18 existing + 22 reviewed distill cases)**; notice/source script suites **6 passed**;
+changed JavaScript lint, notice regeneration/currentness, existing-waiver RustSec
+audit and local corresponding-source assembly are recorded in the Stage 4b
+packet. Ordinary ignored tests and other native platforms are not asserted passed.
+The initial sandboxed full suite's local-listener denials are retained; the full
+suite passes when rerun with its required loopback access.
 
 ### Stage 5 — Owner device quality and release readiness
 
@@ -906,7 +1224,7 @@ must not substitute non-silence checks or its own unsupported listening claim.
 Human acceptance:
 
 - [ ] On all four devices, compare existing-model baseline recordings with upgraded existing models, then audition both small candidates using the same text/settings.
-- [ ] English and Arabic pronunciation, word coverage and overall quality are parity or better. Obtain competent listening coverage for the other offered languages; preserve US/British distinctions and Mandarin numeric behavior.
+- [ ] Existing English/Arabic models retain quality parity or better; both small models reproduce their accepted listening profiles on device, including the explicit English 7M quality tradeoff and default Arabic diacritization. No new omissions/pronunciation regression is accepted. Obtain competent listening coverage for the other offered languages; preserve US/British distinctions and Mandarin numeric behavior.
 - [ ] Verify clean-profile install/download and an upgrade profile with completed and interrupted audiobooks, including explicit restart/cancel and normal resume of new compatible progress.
 - [ ] Verify preview, saved playback, seek, source highlighting, background audio/lock-screen controls and bundle import/export on installed apps.
 - [ ] No crash, NaN/corrupt audio, silent loss of content, unexpected model switch or saved-data loss occurs. Users can choose existing or small models freely.
@@ -992,10 +1310,12 @@ Separate logical/design acceptance from outstanding platform execution.
 | 1. Recommendation policy | Accepted | `task/sherpa-onnx`, implementation after `ce054ead`; handoff above | Owner, November 11, 2026: smoke passes, Recommended labels visible; proceed to Stage 2 |
 | 2. Compatibility investigation | Accepted | `a8248205`; dated evidence/proposal above, local listening packet | Owner, November 11, 2026: listening parity/no regression; proceed to Stage 3. Platform execution gates remain. |
 | 3a. Simple partial-save restart | Accepted | `31fa781f5ecb4f1f4989087b38fbf7b8772f953f`; revised handoff above | Owner, November 12: all smoke tests pass; proceed to 3b. No unreported per-device results implied. |
-| 3b. Existing-roster runtime/frontend upgrade | Awaiting human review | Uncommitted working tree after `31fa781f`; handoff/evidence below | Owner, November 15: all requested smoke tests pass; fork-free replacement requested before more feature work. Remaining platform/minimum-OS gates are not asserted passed. |
+| 3b. Existing-roster runtime/frontend upgrade | Owner local smokes passed; native gates deferred | Checkpoint `a5f3d86`; handoff/evidence below | Owner, November 15: all requested smoke tests pass; fork-free replacement requested before more feature work. Remaining platform/minimum-OS gates are not asserted passed. |
 | 3c.1. Fork-free build proof | Accepted for integration | Isolated registry export after `31fa781f`; [report](sherpa-no-fork-proof.md) | Owner authorized production integration November 15; frozen proof retains its documented platform limits. |
 | 3c.2. Production replacement/qualification | Owner local smokes passed; native gates deferred | Checkpoint `a5f3d86`; separate three-crate security repair passes audit and local tests | Owner permits paired 7M work after local acceptance. Native SDK/minimum-OS/device qualification and dormant vendor retirement remain PR/merge gates. |
-| 4. Paired small-model addition | Not started | — | — |
+| 4a. Paired artifact/frontend qualification | Accepted | [Report](#stage-4a--paired-qualification-record), pinned inputs and machine-local listening packet | Owner, November 15: both approved; explicit English crispness/robotic-quality tradeoff for smaller option; Arabic competitive with Kareem, preserve default diacritization. |
+| 4b. Native frontend integration | Accepted | Same shared engine; reserved IDs, pinned Misaki/Piper adapter and focused guards | Owner, November 15: requested smoke tests pass; commit checkpoint. No catalog exposure. |
+| 4c. Paired artifact/installer/catalog integration | Not started | Final distributable pins, per-model metadata and existing installer/UI | After frontend review; native/device gates remain PR/merge requirements. |
 | 5. Device/release acceptance | Not started | — | — |
 
 At every handoff, update this record and provide:

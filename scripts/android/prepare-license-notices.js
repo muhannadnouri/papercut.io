@@ -62,6 +62,12 @@ const NPM_LICENSES = {
   "typescript 5.9.3": "Apache-2.0",
 }
 
+// This pinned crate uses license-file instead of an SPDX field; its text is
+// preserved in licensing/misaki-0.9.0.txt, not attributed as repository-original code.
+const RUST_LICENSES = {
+  "language-tokenizer 0.1.0": "WTFPL",
+}
+
 // Deep find is bounded: license files sit at checkout roots or vendored dirs.
 export function findLicenseFiles(directory, depth = 3) {
   if (depth < 0 || !existsSync(directory)) {
@@ -97,6 +103,14 @@ function rel(path) {
 // Fixed component blocks; texts are deduplicated by content, so repeated
 // licenses (MIT, Apache-2.0, BSD) render once with merged attribution.
 const COMPONENTS = [
+  {
+    title: "Native Misaki frontend and embedded language data",
+    required: true,
+    entries: [{
+      file: join(ROOT, "src-tauri/licensing/misaki-0.9.0.txt"),
+      attribution: "Unchanged misaki-rs 0.9.0, original Misaki, spaCy/model notices and tokenizer/stemmer dependencies",
+    }],
+  },
   {
     title: "GNU General Public License v3.0",
     required: true,
@@ -383,6 +397,15 @@ export function groupBySha(sources) {
   return [...groups.values()]
 }
 
+// Unknown registry license-file terms need review after upgrades; only local crates use our original-code scope.
+export function rustPackageLicense(pkg) {
+  const key = pkg.name + " " + pkg.version
+  const license = pkg.license ?? RUST_LICENSES[key]
+  assert(license || !pkg.source, "Review missing Rust license evidence for " + key)
+  return license
+}
+
+// Include reviewed license-file declarations so third-party crates cannot be labeled original app code.
 async function packageGraphs() {
   const cargo = JSON.parse(execFileSync("cargo", [
     "metadata", "--manifest-path", join(ROOT, "src-tauri/Cargo.toml"), "--locked",
@@ -401,11 +424,12 @@ async function packageGraphs() {
     if (rust.has(key)) {
       continue
     }
-    if (!pkg.license) {
+    const license = rustPackageLicense(pkg)
+    if (!license) {
       undeclared.push(key)
       continue
     }
-    rust.set(key, pkg.license)
+    rust.set(key, license)
   }
 
   const lock = JSON.parse(await readFile(join(ROOT, "package-lock.json"), "utf8"))

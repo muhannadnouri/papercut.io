@@ -135,7 +135,7 @@ pub(super) fn phonemize(data: &Path, text: &str, locale: &str) -> Result<Vec<Vec
 }
 
 /// Stay below Sherpa's count/style boundaries without truncating or bisecting a spoken word.
-fn split_sentence(phonemes: &[i32]) -> Result<Vec<Vec<i32>>, String> {
+pub(super) fn split_sentence(phonemes: &[i32]) -> Result<Vec<Vec<i32>>, String> {
     let mut parts = Vec::new();
     let mut rest = phonemes;
     while rest.len() > MAX_PHONEMES {

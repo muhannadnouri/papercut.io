@@ -37,6 +37,39 @@ full check subsequently passed on September 29, 2026. Notification delivery
 still needs maintainer confirmation, and packaged-app validation remains part
 of the application rollout below.
 
+## Upstream changes and checksum pins
+
+A version name or Git tag is not a byte-identity guarantee. Even recompressing an
+unchanged tarball changes its archive SHA-256. Do not remove checksum checks or
+automatically trust a new upstream digest to avoid a download error: that would
+silently replace reviewed inputs. September's fix kept verification and put
+Kokoro behind the owner-controlled immutable mirror, with availability monitoring.
+
+The Stage 4 distill source files are pinned to exact Hugging Face **commit** URLs,
+not moving branch URLs. Later upstream commits do not move those pins. Their
+source/assembly evidence lives beside the other TTS inputs in
+`src-tauri/tts/qualification-artifacts.json`; these private proofs are deliberately
+not production download entries. Before exposing either candidate, prepare final
+complete archives using the existing Papercut immutable-release convention, keep
+those bytes available, and add only the final URLs/sizes/hashes to
+`model-manifest.json`. No asset is published by this frontend pass.
+
+The phoneme adapter additionally verifies the reviewed token/voice files: the
+frontend must not consume a different training vocabulary/style pack just because
+it uses the same marketing version. These checks inspect installed local bytes;
+they do not poll upstream or update a user's model. A legitimate replacement is a
+reviewed pin/contract update. New synthesis semantics need versioned model or
+per-model synthesis provenance, not an unreviewed checksum swap. Retain old assets
+for existing app versions. Pure outer-archive repackaging can preserve model
+identity only after proving the synthesis payload is unchanged.
+
+Changed/deleted **unmirrored** upstream assets remain an availability risk: new
+installs (or clean native builds for pinned build archives) can fail verification
+or fetching. Checksums prevent silent substitution; they cannot keep a deleted
+file online. Already installed model files and completed audiobook WAVs are not
+changed by an upstream commit. Kareem/Supertonic still have their existing upstream
+availability dependence; expanding their mirrors is separate from this pass.
+
 ## Activate after committing
 
 The workflows below only become operational once pushed. No model release,

@@ -48,11 +48,15 @@ regressions or prove the deferred native platforms.
 Reviewer gates for this pass:
 
 - [ ] Review the three-crate-only lock delta and unchanged audit waivers.
-- [ ] Smoke an HTML/EPUB import, reader text/images/footnotes and an existing
+- [x] Owner reports security-pass smokes pass (November 15): HTML/EPUB import, reader text/images/footnotes and an existing
   audiobook's playback/import/export; confirm normal content remains usable.
-- [ ] Accept local security work, then start paired 7M qualification. Native
+- [x] Owner accepts local security work and authorizes paired 7M qualification. Native
   Windows/macOS/iOS, installed-app/minimum-OS and device evidence remains required
   at PR/merge time. Keep the inactive vendor reference until that qualification.
+
+Security checkpoint: `88483fad7a3c62cdf1dc13ea1f35cc6fef038b07`.
+Paired qualification is recorded in the [Stage 4a record](sherpa-onnx-upgrade.md#stage-4a--paired-qualification-record);
+listening acceptance remains open and no 7M model is exposed.
 
 Suggested security commit: `fix(deps): patch sanitizer and QUIC audit findings`
 

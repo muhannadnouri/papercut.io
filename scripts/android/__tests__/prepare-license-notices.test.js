@@ -81,3 +81,27 @@ it("groups package attributions by declared license with sorted output", async (
     "- Rust packages under MIT OR Apache-2.0: pkg-b 2.0",
   ])
 })
+
+it("requires reviewed license-file evidence for registry crates after upgrades", async () => {
+  const { rustPackageLicense } = await import("../prepare-license-notices.js")
+  const crate = {
+    name: "language-tokenizer",
+    version: "0.1.0",
+    source: "registry+test",
+  }
+  expect(rustPackageLicense(crate)).toBe("WTFPL")
+  expect(rustPackageLicense({
+    ...crate,
+    version: "0.1.1",
+    license: "MIT",
+  })).toBe("MIT")
+  expect(() => rustPackageLicense({
+    ...crate,
+    version: "0.1.1",
+  })).toThrow("Review missing Rust license evidence")
+  expect(rustPackageLicense({
+    name: "local-plugin",
+    version: "0.1.0",
+    source: null,
+  })).toBeUndefined()
+})

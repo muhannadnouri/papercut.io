@@ -34,6 +34,7 @@ mod manifest;
 mod model;
 mod models;
 mod paths;
+mod phoneme_adapter;
 mod phonemizer;
 mod playback;
 mod preprocess;
