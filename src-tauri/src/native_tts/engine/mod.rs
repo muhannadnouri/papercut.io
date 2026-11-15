@@ -1,5 +1,7 @@
 //! Native sherpa-onnx engine implementation (compiled with `native-tts-core`).
 //!
+//! Shared helpers used by `{ model, synth, save, cache, bundle }` include
+//! `{ manifest, paths, config, text_normalization }` and `super::types`.
 //! Main orchestration paths:
 //!
 //! ```text
@@ -32,6 +34,7 @@ mod manifest;
 mod model;
 mod models;
 mod paths;
+mod phonemizer;
 mod playback;
 mod preprocess;
 mod prune;

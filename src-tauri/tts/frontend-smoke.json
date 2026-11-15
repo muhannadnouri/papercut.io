@@ -1,0 +1,110 @@
+[
+  {
+    "name": "english-us",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0",
+    "speaker": 3,
+    "text": "Welcome to Papercut. This is a short reading sample."
+  },
+  {
+    "name": "english-gb",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0",
+    "speaker": 21,
+    "text": "Welcome to Papercut. This is a short reading sample."
+  },
+  {
+    "name": "names-us",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0",
+    "speaker": 3,
+    "text": "Siobhan and Zyxophrenia visited Edmonton with Doctor Smith."
+  },
+  {
+    "name": "normalized-us",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0",
+    "speaker": 3,
+    "text": "Chapter four. Doctor Smith paid five dollars at nine o'clock in nineteen eighty-four."
+  },
+  {
+    "name": "spanish",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0-es",
+    "speaker": 28,
+    "text": "La biblioteca tiene libros nuevos. María lee una historia interesante."
+  },
+  {
+    "name": "french",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0-fr",
+    "speaker": 30,
+    "text": "La bibliothèque propose des livres. François lit une histoire intéressante."
+  },
+  {
+    "name": "hindi",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0-hi",
+    "speaker": 31,
+    "text": "नमस्ते, यह हिंदी में एक छोटी कहानी है। पुस्तक पढ़ना अच्छा है।"
+  },
+  {
+    "name": "italian",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0-it",
+    "speaker": 35,
+    "text": "La biblioteca ha libri nuovi. Giulia legge una storia interessante."
+  },
+  {
+    "name": "portuguese",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0-pt-br",
+    "speaker": 42,
+    "text": "A biblioteca tem livros novos. João lê uma história interessante."
+  },
+  {
+    "name": "mandarin",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0-zh",
+    "speaker": 45,
+    "text": "欢迎使用图书馆。这是一个中文语音测试。今天是2026年11月11日。"
+  },
+  {
+    "name": "arabic-vocalized",
+    "model": "sherpa-onnx/vits-piper-ar_JO-kareem-medium",
+    "speaker": 0,
+    "text": "كَتَبَ الطَّالِبُ الدَّرْسَ فِي المَدْرَسَةِ."
+  },
+  {
+    "name": "arabic-original",
+    "model": "sherpa-onnx/vits-piper-ar_JO-kareem-medium",
+    "speaker": 0,
+    "text": "قرأ الطالب كتابا جديدا في المكتبة. هذه تجربة للقراءة الصوتية."
+  },
+  {
+    "name": "mixed-arabic",
+    "model": "sherpa-onnx/vits-piper-ar_JO-kareem-medium",
+    "speaker": 0,
+    "text": "مرحبا بكم في Papercut. هذا اختبار قصير في Edmonton."
+  },
+  {
+    "name": "mixed-english",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0",
+    "speaker": 3,
+    "text": "Welcome to Papercut. مرحبا بكم في المكتبة."
+  },
+  {
+    "name": "short-us",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0",
+    "speaker": 3,
+    "text": "Hi!"
+  },
+  {
+    "name": "supertonic-en",
+    "model": "sherpa-onnx/supertonic-3-en",
+    "speaker": 6,
+    "text": "Welcome to Papercut. This is a short reading sample."
+  },
+  {
+    "name": "supertonic-ar",
+    "model": "sherpa-onnx/supertonic-3-ar",
+    "speaker": 6,
+    "text": "مرحبا بكم. هذه تجربة قصيرة للقراءة الصوتية."
+  },
+  {
+    "name": "english-return",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0",
+    "speaker": 3,
+    "text": "Welcome to Papercut. This is a short reading sample."
+  }
+]

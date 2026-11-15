@@ -22,7 +22,7 @@ export async function prepareMacosBundleResources({ linkMode, feature, env }) {
 
   // Tauri resolves bundle.resources before beforeBundleCommand has reliably
   // populated gitignored staging dirs. Run a fast Cargo check first so
-  // sherpa-onnx-sys downloads the macOS dylibs, then stage them before the
+  // the app prepares the macOS dylibs, then stage them before the
   // Tauri build process starts scanning resources.
   const result = runSync("cargo", ["check", "--manifest-path", "src-tauri/Cargo.toml", "--features", feature], { env })
   if (result.error || result.status !== 0) {

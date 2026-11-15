@@ -9,7 +9,7 @@
       }
     },
     "resources": {
-      "tts/runtime/linux-x64-shared-libs/": ""
+      "tts/runtime/linux-x64-shared-libs-2.0.1/": ""
     }
   }
 }

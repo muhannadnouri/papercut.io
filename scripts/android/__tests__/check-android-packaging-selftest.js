@@ -55,6 +55,8 @@ test("checks native architecture, header bounds and 16 KB segment alignment", ()
   checkElf(elf(), "valid.so")
   const wrongArch = elf()
   wrongArch.writeUInt16LE(62, 18)
+  checkElf(wrongArch, "emulator.so", "x86_64")
+  assert.throws(() => checkElf(elf(), "wrong-emulator.so", "x86_64"))
   const hugeOffset = elf()
   hugeOffset.writeBigUInt64LE(2n ** 63n, 32)
   for (const data of [elf(4096n), wrongArch, hugeOffset, Buffer.from("not ELF"), elf().subarray(0, 80)]) {
@@ -63,10 +65,10 @@ test("checks native architecture, header bounds and 16 KB segment alignment", ()
 })
 
 test("rejects missing runtime, extra ABIs, duplicates and wildcard/path names", () => {
-  const names = ["libapp_lib.so", "libsherpa-onnx-c-api.so", "libonnxruntime.so"].map(name => `lib/arm64-v8a/${name}`)
+  const names = ["libapp_lib.so", "libsherpa-onnx-c-api.so", "libpiper_phonemize_core.so", "libonnxruntime.so"].map(name => `lib/arm64-v8a/${name}`)
   names.push("assets/licenses/libtashkeel-1.5.0.txt")
   names.push("assets/licenses/android-third-party-notices.md")
-  assert.equal(checkEntries(names).length, 3)
+  assert.equal(checkEntries(names).length, 4)
   for (const bad of [
     names.slice(1),
     [...names, "lib/x86_64/libonnxruntime.so"],

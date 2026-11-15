@@ -1,9 +1,10 @@
 # Sherpa ONNX upgrade and model selection plan
 
-Status: Stages 1–2 accepted by the owner; Stage 3a implemented, awaiting human review;
-Stage 3b and Stages 4–5 not started. Owner direction
-updated November 12, 2026 (simple explicit restart). Research baseline: local `main` at `6baf1858`, Sherpa
-1.13.4. Candidate runtime: 2.0.1, subject to the compatibility gate below.
+Status: Stages 1–3a accepted; the owner reports Stage 3b smoke tests pass.
+Stage 3c.1 proof and Stage 3c.2 local smokes are accepted. The registry
+integration is being checkpointed; audit/native platform gates remain pending. Stages 4–5 not started. Owner direction
+updated November 15, 2026 (fork-free integration and Cargo invocation contract). Research baseline: local `main` at `6baf1858`, Sherpa
+1.13.4. Stage 3b working-tree runtime: 2.0.1, subject to the platform/human gates below.
 
 This is the implementation and human-review contract for this work. The
 [native TTS guide](kokoro-tts.md) describes the shipping architecture;
@@ -539,14 +540,14 @@ Human acceptance:
 
 The owner approved **simple explicit restart** on November 12, replacing the
 initial uncommitted retained-generation design. Implementation is committed for
-owner smoke review on `task/sherpa-onnx`, following `280cff78`. No Cargo/lock/vendor/native-library or
-model pin changed; runtime remains 1.13.4. Stage 3b and model additions have not
-started. This design decision is accepted; the revised implementation still needs
-human review.
+owner smoke review on `task/sherpa-onnx`, following `280cff78`. In 3a, no Cargo/lock/vendor/native-library or
+model pin changed; its runtime was 1.13.4. Stage 3b and model additions had not
+started at that handoff. The owner subsequently reported all smoke tests for this pass passed and
+authorized Stage 3b. Platform/runtime upgrade checks remain separate.
 
 Implemented contract:
 
-- Optional schema-2 `synthesisRevision` currently records
+- Optional schema-2 `synthesisRevision` in 3a recorded
   `sherpa/1.13.4;frontend/embedded;normalization/1`. Missing/different provenance
   triggers Restart/Cancel only for unfinished Sherpa audio. Completed legacy
   audio/index repair and imported bundles retain original provenance. SILMA
@@ -605,20 +606,20 @@ revised behavior. No owner library data or model/runtime binaries are included.
 No physical full-disk, forced shutdown, installed-app or non-Linux result is
 claimed from Linux helper tests.
 
-Gate 3a — owner smoke review after commit, pending:
+Gate 3a — owner reported all smoke tests passed, November 12, 2026:
 
-- [ ] Review that native consent precedes deletion, old provenance survives an
+- [x] Review that native consent precedes deletion, old provenance survives an
   incomplete reset, and current provenance is written only after old chunks clear.
-- [ ] In a disposable profile, interrupt a multi-chunk save; close the app and
+- [x] In a disposable profile, interrupt a multi-chunk save; close the app and
   remove only that copy’s `synthesisRevision`. Relaunch and Cancel: hashes and
   progress must stay unchanged, and no generation should start.
-- [ ] Confirm **Restart from beginning**: old progress is discarded and generation
+- [x] Confirm **Restart from beginning**: old progress is discarded and generation
   starts from zero. Interrupt again and relaunch; Resume must keep the newly
   generated compatible chunks without another engine-restart confirmation.
-- [ ] Verify completed legacy/imported audio still plays/seeks/highlights/exports
+- [x] Verify completed legacy/imported audio still plays/seeks/highlights/exports
   offline without synthesis, redownload or changed identity. Check that an engine
   change alone never offers to discard a completed book.
-- [ ] Accept the revised 3a implementation and authorize 3b. Actual installed-app
+- [x] Accept the revised 3a implementation and authorize 3b. Actual installed-app
   and Windows/macOS/mobile checks remain in the combined Stage 3/5 matrix.
 
 Use a freshly rebuilt/restarted native app and disposable copies only; a
@@ -645,6 +646,204 @@ static/shared link inputs, notices/source receipts and single-ORT behavior. This
 keeps the maintenance burden in app integration/build plumbing rather than a
 modified speech-engine implementation. Record any necessary additional patch
 explicitly and return a C++-patch requirement to the owner before taking it.
+
+#### Stage 3b handoff — November 12, 2026
+
+**Review candidate, uncommitted:** `task/sherpa-onnx` after
+`31fa781f5ecb4f1f4989087b38fbf7b8772f953f`. The owner accepted 3a smoke tests and
+authorized this pass. No new model, display ID, voice ID, speaker mapping, model
+archive pin, upload suggestion behavior or global cache/schema version changed.
+The restored `engine/mod.rs` architecture comment keeps the useful shared
+`{model,synth,save,cache,bundle}` overview alongside the current flow diagram.
+
+Implemented:
+
+1. Exact Sherpa wrapper/sys **2.0.1**, full matching upstream bindings; no C/C++
+   patches. The existing locally modified Rust sys **build adapter remains**.
+   The [build-integration report](sherpa-no-fork-proof.md) records the
+   maintenance history, replacement proof and removal gates. This is a real
+   build/packaging fork, not a maintenance-free registry dependency.
+2. App-owned `build/phonemizer.rs` prepares pinned official desktop Piper 1.5.9
+   artifacts. `engine/phonemizer.rs` calls its published C API, owns/destroys
+   native results, checks version and data identity, caches first initialization
+   success **or failure**, and supplies word-safe phoneme sentences to Sherpa's
+   official generation API. No Piper Rust crate/fork, Python runtime, C++ patch
+   or application-specific speech algorithm is embedded in the vendor crate.
+3. Non-Mandarin Kokoro retains per-voice US/British/Spanish/French/Hindi/Italian/
+   Brazilian Portuguese phonemization; Kareem uses Arabic. Existing English
+   normalization/optional Arabic preprocessing run first. Mandarin retains
+   lexicons and numeric FSTs; Supertonic retains its text tokenizer. Existing
+   model-pack eSpeak data is verified against tree SHA
+   `43ebef9ebca9edcb42dd5d49a7935038731af4c6450a677dc0cae732dae0ce6a`.
+   First-init repair/removal requires app restart. Oversized individual words
+   error explicitly rather than being truncated or silently omitted.
+4. Desktop archive size/SHA pins and extracted-file receipts reject missing,
+   empty or changed caches. Linux/macOS Tauri resource staging is now versioned:
+   old staged 1.13.4 resources had actually overwritten the new Cargo runtime
+   during this pass; the native version check caught it before inference. Keep
+   Node constants, Tauri resource JSON and CI/model-download workflow paths in sync.
+5. Android production/developer/emulator builds share the unchanged-source
+   Sherpa/Piper recipe with source/tool/ABI/output receipts. NDK 30.0.16248370,
+   API 26 and Maven ORT 1.27.0 stay pinned. Only Sherpa/Piper C libraries are
+   staged; Gradle packages ORT once. arm64-v8a and x86_64 use the same recipe.
+   Explicit invalid inputs fail closed; no 2.0 prebuilt Android fallback is used.
+6. iOS prepares separate pinned Sherpa/ORT XCFramework ZIPs (ORT 1.28.2), plus
+   unchanged pinned Piper source through its upstream iOS build script. App
+   preparation thins the three aggregate archives; explicit static linking is
+   preserved. Extracted upstream caches require matching hash receipts.
+7. New synthesis revision is
+   `sherpa/2.0.1;piper/1.5.9;espeak/43ebef9e;normalization/1`. Disposable tests
+   cross the exact 3a revision boundary: unfinished old progress needs explicit
+   restart; completed old audio stays byte-identical. Confirmed restart still
+   intentionally discards partial progress, with no journal/backup rollback.
+8. License/source tools now track external Piper/eSpeak and utf8proc; notices
+   regenerated. Android inventory preserves historical evidence as historical.
+   The local corresponding-source archive is review evidence, not a release;
+   its HEAD reference must be regenerated from the matching committed tree before distribution.
+
+Local evidence is retained under `.cache/sherpa-stage3b-2026-11-12/` (ignored):
+
+| Check | Result/scope |
+| --- | --- |
+| Complete native Rust suite, TTS/preprocessing/embeddings features enabled | 364 passed, 10 opt-in tests ignored; original restart/save/bundle checks plus exact old-revision completed/partial cases |
+| TTS and adjacent packaging/script suites | 38 files, 433 passed; APK verifier self-checks: 4 passed |
+| Production `cached_frontend_smoke` corpus | 18 finite/non-silent WAVs: all existing Sherpa languages, US/British, names, mixed scripts, short input, Supertonic English/Arabic; English phonemes identical after language switching. Not human quality acceptance. |
+| Real Arabic preprocessing + Kareem synthesis | Passed with cached model/Libtashkeel through actual app code |
+| Cached E5 Small FP32 lifecycle/index/query regression on new desktop ORT | Passed; INT8/Base/Large and other platforms not rerun here |
+| Android source builds | Both arm64 and x86_64 compiled; source/ABI/hash receipts and 16 KB ELF LOAD checks pass |
+| Local arm64 debug APK | Built. Native library inventory, 16 KB ELF alignment, notices and exact Sherpa/Piper/AAR ORT byte matches verified. Debug artifact only; no release signature/reproducibility or physical inference acceptance. |
+| Linux shared/static variants | Shared resource staging includes Sherpa, the single ORT runtime and Piper core. Static compile/link and the same 18-case corpus pass using the separate static Piper/eSpeak/ucd libraries. |
+| Upstream boundary | All 15 sys binding files byte-identical to crates.io 2.0.1; Sherpa/Piper source checkouts clean |
+| iOS cache boundary tests | Missing receipt/empty/changed extracted archive triggers repair; actual Apple compilation remains pending |
+| Notices/corresponding-source tooling | Generated notice check passes; local pinned-source archive assembled |
+| TypeScript/eight-locale check, touched-file ESLint, scoped rustfmt, whitespace | Passed; unrelated files preserved |
+
+The fresh `listening.html` pairs the 15 reproducible Stage 2 Kokoro/Kareem
+baseline passages with **current production-path** audio; it also includes
+standalone current Supertonic and return-to-English samples. Stage 2 owner
+listening approval is preserved, but must not be represented as approval of
+these new integrated outputs. Different waveform bytes/durations do not by
+themselves establish a pronunciation regression or parity.
+
+**macOS support policy clarified by the owner — November 12, 2026:**
+Target the oldest macOS major release still receiving Apple's regular security
+updates, and newer maintained releases. For this dated review, use **macOS
+Sequoia 15** as the oldest supported major; recommend its current security patch.
+Apple's [security-release list](https://support.apple.com/en-us/100100) lists
+Golden Gate 27, Tahoe 26 and Sequoia 15 in the current update round, including
+[Sequoia 15.8.3 on November 9, 2026](https://support.apple.com/en-us/149720).
+This target is inferred from Apple's ongoing release pattern, not a promised
+Apple three-release support guarantee. Recheck the maintained major releases
+when preparing an app release; record any minimum change explicitly.
+
+The intended packaging major-version floor is therefore **15.0**, with actual
+macOS 15 qualification still required. Stage 3c.2 aligns the Tauri minimum and Cargo deployment default to 15.0.
+This metadata correction is not actual minimum-OS qualification or stage acceptance.
+
+For historical context, inspection of the official Intel 1.13.4 archive found
+Sherpa minOS 10.14 / ORT minOS 15.5; the 2.0.1 archive has Sherpa 10.14 / ORT
+10.15; Piper 1.5.9 has minOS 10.14. The new binary floors fit the intended 15.x
+support target. These headers do not establish actual installed-app compatibility.
+See `macos-minimums.json` and the verified archive inspection script in the local
+packet. Intel/Apple Silicon builds and actual minimum-OS execution remain gates.
+
+The owner reported all requested Stage 3b smoke tests pass on November 15. This
+records functional smoke acceptance without inventing per-device/OS or SDK/CI
+results. The owner requested a fork-free build evaluation before committing the
+vendor approach. The following broad platform/design gates remain applicable.
+
+Gate 3b — remaining design/platform review:
+
+- [x] Owner chose the unchanged-registry Cargo override approach and authorized
+  production integration on November 15. Native acceptance remains separate.
+- [ ] Listen to integrated outputs: pronunciation, names/unknown words, mixed
+  scripts, all existing languages and long passages must retain parity or improve.
+- [ ] Rebuild/restart the native app. Use disposable old partials to check
+  Restart/Cancel across the real 1.13.4→2.0.1 boundary; verify completed old/imported
+  HTML/EPUB/PDF playback, seek/highlight/export offline without regeneration.
+- [ ] Run required Windows/macOS/iOS builds and installed-app loader/static/shared
+  checks. Run Android inference (not just compilation) and verify release/source
+  receipts through the established workflow. No remote CI run is claimed here.
+- [ ] Align macOS packaging/deployment metadata with the owner's clarified 15.0
+  major-version floor and qualify macOS 15. Record any remaining device
+  matrix items explicitly; the iPhone 16 / Pixel 6 Pro / Pixel 7 / Pixel 10 Pro
+  quality checks remain Stage 5 unless actually performed earlier.
+- [ ] Accept Gate 3 and authorize Stage 4. Next implementation is the **paired**
+  English Kokoro 7M + Arabic Nabra 7M artifact/frontend qualification and additive
+  selection UX; neither existing recommendation changes.
+
+Suggested commit title: `feat(tts): integrate Sherpa 2.0.1 with native Piper phonemization`
+
+Suggested description:
+
+> Upgrade the existing roster to exact Sherpa 2.0.1 with app-owned native Piper
+> 1.5.9 phonemization, preserving Mandarin/Supertonic frontends and stable model
+> identities. Advance synthesis provenance so unfinished old saves require the
+> accepted explicit restart while completed audio remains usable. Keep upstream
+> speech sources/bindings unchanged; document the retained local sys build fork.
+> Update pinned native preparation, Android source/ORT receipts, desktop and iOS
+> packaging, CI paths and corresponding-source/notices together. Local native,
+> TTS/script, multilingual inference and arm64 debug APK checks pass; non-Linux
+> execution, minimum-OS qualification and owner listening remain review gates.
+
+#### Stage 3c — Fork-free integration proof and replacement
+
+The owner accepted the bounded proof and authorized production integration on
+November 15. **3c.1 is complete within its documented scope.** Its frozen packet
+retains full Linux shared/static inference, 364 native regressions, both single-ORT
+initialization orders, relocation, cache repair and actual Tauri/Android build
+chains. Apple/Windows metadata checks are not native SDK/runtime acceptance.
+
+**3c.2 local integration passed owner smokes on November 15.** Cargo now resolves the unchanged
+registry sys crate, with target links overrides in root `.cargo/config.toml`.
+App-owned Rust selects existing platform link modes and shares verified archive
+preparation with Piper; desktop automatic preparation remains available. Native
+pins, archive-bound extraction receipts, input-triggered restaging, Windows test
+DLLs and Unix atomic replacement are retained. The dormant vendor directory is
+not active and is deliberately retained until native qualification passes.
+
+The [integration report](sherpa-no-fork-proof.md) records exact current-pass
+results, smoke instructions and remaining gates. macOS Tauri/Cargo deployment
+metadata now agrees on 15.0; actual minimum-OS testing remains required. No model
+IDs, synthesis revision, saved audio or generation behavior changes in this pass.
+
+The owner accepts repo-root commands and explicit Cargo `--config` from outside
+the checkout. Keep feature-based static/shared selection in app-owned linking,
+not mutable per-feature global config. Use `CARGO_TARGET_DIR` for a custom desktop
+bundle output root so Node cache lookup and Cargo agree.
+
+The owner will complete the other native-platform tests at PR preparation. Keep
+those gates open and retain the dormant vendor reference until they pass. This
+deferral does not authorize treating metadata-only checks as native acceptance.
+
+Acceptance gates for the human reviewer:
+
+- [ ] Review the registry identity, absence of an active Cargo patch, and app-owned
+  preparation/link/staging code; confirm the maintenance boundary is acceptable.
+- [ ] Run focused smokes: native app launch, existing Kokoro and Kareem previews,
+  Arabic preprocessing, an existing completed book, and save/cancel/reopen. If
+  using embeddings, activate/query/disable while speech remains usable. Existing
+  compatible 2.0.1 partials must not request a new restart for this build-only change.
+- [ ] Resolve four pre-existing Rust audit findings in a separate patch pass.
+  The same CI-pinned audit and existing waivers fail on the exact pre-pass lock;
+  the registry switch adds no finding and does not justify a new waiver.
+- [ ] Accept real Windows MSVC, Intel/Apple Silicon macOS and iOS SDK builds,
+  installed-app loading, minimum macOS 15 execution and Android device/emulator
+  inference. Local target metadata is not this evidence. CI has not been dispatched.
+- [ ] Remove the dormant tracked vendor crate after the replacement's platform
+  gates pass. Exclude `src-tauri/vendor/sherpa-onnx-sys/PAPERCUT.md` from commits;
+  clean its obsolete manifest include with the retired crate. Keep rationale here.
+- [ ] Accept replacement smokes and Gate 3, then explicitly authorize Stage 4.
+
+Suggested commit for the pending Stage 3b + 3c set: `feat(tts): upgrade Sherpa with registry-based native builds`
+
+> Upgrade the existing roster to Sherpa 2.0.1 with native Piper 1.5.9 and
+> unchanged registry Rust bindings. Replace the sys patch with Cargo links
+> overrides and app-owned verified preparation, platform linking and single-ORT
+> staging. Preserve model identities/completed audio, use explicit restart for
+> incompatible old-engine partials, align macOS metadata to 15.0, and refresh
+> packaging/CI/notices. Retain the unused vendor reference pending qualification.
+> Four unchanged baseline audit findings and native SDK/device gates remain open.
 
 ### Stage 4 — Add both small models and their selection UX
 
@@ -765,7 +964,7 @@ every listed file. Avoid whole-branch cherry-picks from earlier Nabra experiment
 | Catalog/download contract | `src-tauri/src/native_tts/engine/models.rs`, `model.rs`, `src-tauri/src/native_tts/types.rs`, `src-tauri/tts/model-manifest.json`, generated metadata in `src-tauri/build.rs`, TS fallback |
 | Native synthesis/preprocessing | `src-tauri/src/native_tts/engine/synth.rs`, `preprocess.rs`, `src-tauri/src/onnx_runtime.rs`, semantic embedding runtime consumers |
 | Resume/identity/bundles | `engine/save.rs`, `manifest.rs`, `cache.rs`, `paths.rs`, `file_commit.rs`, `bundle/`, `src/tts/storage/AudiobookLibrary.ts`, queue/cache/saved-audiobook hooks and native IPC |
-| ABI and platform preparation | `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, `src-tauri/vendor/sherpa-onnx-sys/` including `runtime_copy.rs`, `scripts/lib/constants.js`, platform helpers under `scripts/lib/{android,ios,linux,macos,desktop}/` |
+| ABI and platform preparation | `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, `src-tauri/build/`, root `.cargo/config.toml`, `src-tauri/tts/{native,phonemizer}-artifacts.json` (dormant vendor reference pending retirement), `scripts/lib/constants.js`, platform helpers under `scripts/lib/{android,ios,linux,macos,desktop}/` |
 | Android source/distribution | `scripts/fdroid/build-android-source-libs.js`, `scripts/android/prepare-license-notices.js`, `assemble-source-archive.js`, verification tools, Gradle Maven ORT dependency, licensing outputs and F-Droid metadata as applicable |
 | Integration evidence/docs | Existing CI/release/model-download workflows, `docs/kokoro-tts.md`, `docs/model-download-maintenance.md`, `docs/android-production-packaging.md`, F-Droid guide and README only where behavior changes |
 
@@ -780,8 +979,10 @@ Separate logical/design acceptance from outstanding platform execution.
 | --- | --- | --- | --- |
 | 1. Recommendation policy | Accepted | `task/sherpa-onnx`, implementation after `ce054ead`; handoff above | Owner, November 11, 2026: smoke passes, Recommended labels visible; proceed to Stage 2 |
 | 2. Compatibility investigation | Accepted | `a8248205`; dated evidence/proposal above, local listening packet | Owner, November 11, 2026: listening parity/no regression; proceed to Stage 3. Platform execution gates remain. |
-| 3a. Simple partial-save restart | Awaiting human review | Stage 3a commit after `280cff78`; revised handoff above | Owner, November 12: simple Restart/Cancel direction accepted; revised implementation review pending |
-| 3b. Existing-roster runtime/frontend upgrade | Not started | Existing 1.13.4 pins retained | After 3a review; full Gate 3 still applies |
+| 3a. Simple partial-save restart | Accepted | `31fa781f5ecb4f1f4989087b38fbf7b8772f953f`; revised handoff above | Owner, November 12: all smoke tests pass; proceed to 3b. No unreported per-device results implied. |
+| 3b. Existing-roster runtime/frontend upgrade | Awaiting human review | Uncommitted working tree after `31fa781f`; handoff/evidence below | Owner, November 15: all requested smoke tests pass; fork-free replacement requested before more feature work. Remaining platform/minimum-OS gates are not asserted passed. |
+| 3c.1. Fork-free build proof | Accepted for integration | Isolated registry export after `31fa781f`; [report](sherpa-no-fork-proof.md) | Owner authorized production integration November 15; frozen proof retains its documented platform limits. |
+| 3c.2. Production replacement/qualification | Local candidate ready; gates pending | Registry bindings + app-owned build plumbing; current-pass evidence in integration report | Owner smokes, four unchanged baseline audit findings, native SDK/minimum-OS/device gates and dormant vendor retirement remain before Stage 4. |
 | 4. Paired small-model addition | Not started | — | — |
 | 5. Device/release acceptance | Not started | — | — |
 

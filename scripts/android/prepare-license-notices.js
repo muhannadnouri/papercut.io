@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { execFileSync } from "node:child_process"
 import { createHash } from "node:crypto"
 import {
   existsSync,
@@ -10,7 +11,6 @@ import {
   writeFile,
   mkdir,
 } from "node:fs/promises"
-import { execFileSync } from "node:child_process"
 import {
   basename,
   dirname,
@@ -18,11 +18,17 @@ import {
   relative,
 } from "node:path"
 import { parseArgs } from "node:util"
+
 import {
   ANDROID_NDK_VERSION,
   ANDROID_ORT_AAR,
   SHERPA_ANDROID_SOURCE_REVISION,
 } from "../lib/android/constants.js"
+import {
+  PIPER_SOURCE_REVISION,
+  SHERPA_VERSION,
+  PIPER_VERSION,
+} from "../lib/constants.js"
 import { downloadFile } from "../lib/download.js"
 import { ROOT } from "../lib/paths.js"
 import { isMain } from "../lib/process.js"
@@ -32,7 +38,9 @@ import { isMain } from "../lib/process.js"
 // unchanged, so regenerating is explicit and its diff is reviewable.
 
 const CACHE = join(ROOT, ".cache/android-production")
-const SHERPA_DEPS = join(CACHE, "sherpa-build-" + ANDROID_NDK_VERSION, "_deps")
+const SHERPA_DEPS = join(CACHE, "sherpa-build-" + SHERPA_VERSION + "-arm64-v8a-" + ANDROID_NDK_VERSION, "_deps")
+const PIPER_ROOT = join(CACHE, "piper-phonemize-" + PIPER_VERSION)
+const PIPER_DEPS = join(CACHE, "piper-build-" + PIPER_VERSION + "-arm64-v8a-" + ANDROID_NDK_VERSION, "_deps")
 const NOTICE_EVIDENCE = join(CACHE, "notice-evidence")
 const OUTPUT = join(ROOT, "src-tauri/licensing/android-third-party-notices.md")
 
@@ -93,13 +101,13 @@ const COMPONENTS = [
     title: "GNU General Public License v3.0",
     required: true,
     entries: [{
-      file: join(SHERPA_DEPS, "espeak_ng-src/COPYING"),
-      attribution: "eSpeak NG (fetched and pinned by sherpa-onnx v1.13.4 cmake)",
+      file: join(PIPER_DEPS, "espeak_ng-src/COPYING"),
+      attribution: "eSpeak NG (fetched and pinned by Piper phonemize 1.5.9 CMake)",
     }, {
-      file: join(SHERPA_DEPS, "espeak_ng-src/COPYING.UCD"),
+      file: join(PIPER_DEPS, "espeak_ng-src/COPYING.UCD"),
       attribution: "eSpeak NG Unicode data notice",
     }, {
-      file: join(SHERPA_DEPS, "espeak_ng-src/src/ucd-tools/COPYING"),
+      file: join(PIPER_DEPS, "espeak_ng-src/src/ucd-tools/COPYING"),
       attribution: "espeak-ng ucd-tools",
     }],
   },
@@ -107,7 +115,7 @@ const COMPONENTS = [
     title: "Apache License 2.0",
     required: true,
     entries: [{
-      file: join(CACHE, "sherpa-onnx/LICENSE"),
+      file: join(CACHE, "sherpa-onnx-" + SHERPA_VERSION, "LICENSE"),
       attribution: "sherpa-onnx " + PINS.sherpa.slice(0, 12),
     }, {
       file: join(NOTICE_EVIDENCE, "ort", "LICENSE"),
@@ -128,7 +136,7 @@ const COMPONENTS = [
       file: join(SHERPA_DEPS, "simple-sentencepiece-src/LICENSE"),
       attribution: "simple-sentencepiece (Sherpa fetched dependency)",
     }, {
-      file: join(SHERPA_DEPS, "espeak_ng-src/COPYING.APACHE"),
+      file: join(PIPER_DEPS, "espeak_ng-src/COPYING.APACHE"),
       attribution: "eSpeak NG dual-licensed components",
     }, {
       file: join(ROOT, "node_modules/pdfjs-dist/LICENSE"),
@@ -168,8 +176,11 @@ const COMPONENTS = [
       file: join(ROOT, "LICENSE.md"),
       attribution: "Papercut original code (repository root; the F-Droid metadata declares GPL-3.0-only for the combined Android distribution)",
     }, {
-      file: join(SHERPA_DEPS, "piper_phonemize-src/LICENSE.md"),
-      attribution: "Piper phonemize (Sherpa fetched dependency)",
+      file: join(PIPER_ROOT, "LICENSE.md"),
+      attribution: "Piper phonemize " + PIPER_SOURCE_REVISION.slice(0, 12),
+    }, {
+      file: join(SHERPA_DEPS, "utf8proc-src/LICENSE.md"),
+      attribution: "utf8proc (Sherpa fetched dependency)",
     }, {
       file: join(SHERPA_DEPS, "json-src/LICENSE.MIT"),
       attribution: "nlohmann JSON (Sherpa fetched dependency)",
@@ -177,7 +188,7 @@ const COMPONENTS = [
       file: join(NOTICE_EVIDENCE, "supertonic-LICENSE"),
       attribution: "Supertonic 3 sample code (Supertone Inc.); weights are separately OpenRAIL-M licensed with use restrictions — https://huggingface.co/Supertone/supertonic-3/blob/main/LICENSE — declared via the NonFreeAssets anti-feature",
     }, {
-      file: join(SHERPA_DEPS, "piper_phonemize-src/licenses/uni-algo/LICENSE.md"),
+      file: join(PIPER_ROOT, "licenses/uni-algo/LICENSE.md"),
       attribution: "uni-algo (Piper phonemize dependency)",
     }, {
       file: join(CACHE, "quickjs-source/LICENSE"),

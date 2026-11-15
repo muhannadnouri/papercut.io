@@ -1,0 +1,52 @@
+{
+  "sherpa-onnx-v2.0.1-linux-aarch64-shared-cpu-lib.tar.bz2": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-v2.0.1-linux-aarch64-shared-cpu-lib.tar.bz2",
+    "sha256": "15bd737eae467da32ec97e3740a329a535fd21e33caca4f327b0081451d11533",
+    "bytes": 12500491
+  },
+  "sherpa-onnx-v2.0.1-linux-aarch64-static-lib.tar.bz2": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-v2.0.1-linux-aarch64-static-lib.tar.bz2",
+    "sha256": "b6c6090e40fd18d6812f04fe21260602cd1223d7b5e83ad39dab87ad7c1c031d",
+    "bytes": 21076492
+  },
+  "sherpa-onnx-v2.0.1-linux-x64-shared-lib.tar.bz2": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-v2.0.1-linux-x64-shared-lib.tar.bz2",
+    "sha256": "532c45bbd41036d83cd70606797529aa8086c2053395a58967736c727625b120",
+    "bytes": 9710131
+  },
+  "sherpa-onnx-v2.0.1-linux-x64-static-lib.tar.bz2": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-v2.0.1-linux-x64-static-lib.tar.bz2",
+    "sha256": "55cfadf65ba50d0afc1a802b7a337942819e51c94a5b5a384def1978f7c70871",
+    "bytes": 22694241
+  },
+  "sherpa-onnx-v2.0.1-osx-arm64-shared-lib.tar.bz2": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-v2.0.1-osx-arm64-shared-lib.tar.bz2",
+    "sha256": "e2d57ad9c83803d6c48f259caa66e44879bd4c4724c61f0d51a277b411bffb1d",
+    "bytes": 8730600
+  },
+  "sherpa-onnx-v2.0.1-osx-arm64-static-lib.tar.bz2": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-v2.0.1-osx-arm64-static-lib.tar.bz2",
+    "sha256": "d7a9b14f337958e7373c8c650f046df33d210bbaff2f33cb8322dda663ee5e1c",
+    "bytes": 20829454
+  },
+  "sherpa-onnx-v2.0.1-osx-x64-shared-lib.tar.bz2": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-v2.0.1-osx-x64-shared-lib.tar.bz2",
+    "sha256": "be9042971c5d1b14da76a960534d2a8cdb6f0e5e02f5e1dc8bddff8576359bdd",
+    "bytes": 9956644
+  },
+  "sherpa-onnx-v2.0.1-osx-x64-static-lib.tar.bz2": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-v2.0.1-osx-x64-static-lib.tar.bz2",
+    "sha256": "6a3cb3c14104d3a02e7b2a6cd5621f590b14892cce7d0bc0935f7655ef518938",
+    "bytes": 20415061
+  },
+  "sherpa-onnx-v2.0.1-win-x64-shared-MT-Release-lib.tar.bz2": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-v2.0.1-win-x64-shared-MT-Release-lib.tar.bz2",
+    "sha256": "afa4de3ca4ab0afd53bb4aab40d28ee15608364b549ffc0fe0caf6489bfc39a5",
+    "bytes": 7899712
+  },
+  "sherpa-onnx-v2.0.1-win-x64-static-MT-Release-lib.tar.bz2": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-v2.0.1-win-x64-static-MT-Release-lib.tar.bz2",
+    "sha256": "23e7b986b197eda0bbc47ff3d7d5c87afd6ef2b9077214ba26b0f1ec52ef0e66",
+    "bytes": 122863596
+  }
+}

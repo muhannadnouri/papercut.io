@@ -96,11 +96,11 @@ node --test scripts/checks/__tests__/check-model-downloads-selftest.js
 node scripts/checks/check-model-downloads.js
 node scripts/checks/check-model-downloads.js --download-dir /tmp/papercut-models
 
-ORT_LIB_LOCATION="$PWD/src-tauri/target/sherpa-onnx-prebuilt/sherpa-onnx-v1.13.4-linux-x64-shared-lib/lib" \
+ORT_LIB_LOCATION="$PWD/src-tauri/target/sherpa-onnx-prebuilt/sherpa-onnx-v2.0.1-linux-x64-shared-lib/lib" \
   cargo test --manifest-path src-tauri/Cargo.toml --locked --features native-tts-shared --lib
 
 PAPERCUT_MODEL_ARCHIVE_DIR=/tmp/papercut-models \
-ORT_LIB_LOCATION="$PWD/src-tauri/target/sherpa-onnx-prebuilt/sherpa-onnx-v1.13.4-linux-x64-shared-lib/lib" \
+ORT_LIB_LOCATION="$PWD/src-tauri/target/sherpa-onnx-prebuilt/sherpa-onnx-v2.0.1-linux-x64-shared-lib/lib" \
   cargo test --manifest-path src-tauri/Cargo.toml --locked --features native-tts-shared \
   --lib model_archive_smoke -- --ignored --nocapture
 ```
@@ -170,3 +170,23 @@ Resumable Kokoro downloads remain a separate improvement.
 References: [GitHub immutable releases](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases),
 [Actions notifications](https://docs.github.com/en/actions/concepts/workflows-and-actions/notifications-for-workflow-runs),
 [scheduled workflow behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+
+## Native build ownership after Stage 3c
+
+The working-tree registry integration uses unchanged published Sherpa Rust crates.
+Root `.cargo/config.toml` overrides the sys build script; `src-tauri/build/` owns
+platform linking, pinned archive preparation and runtime staging. No upstream
+Sherpa/Piper/eSpeak/ORT implementation is patched. The dormant vendor directory
+is a qualification reference and is not a Cargo dependency.
+
+For a later native runtime upgrade, review the exact Cargo wrapper/sys version and
+lock, the release-name mapping in `build/sherpa.rs`, `tts/native-artifacts.json`,
+Piper pins/version mapping in `build/phonemizer.rs`, Node version constants and
+versioned Tauri/CI resource paths together. Preserve iOS aggregate archives and
+Android source/AAR receipts; do not assume desktop archive layouts apply to mobile.
+Re-run the build-plumbing tests and packaging/source/notice/audit checks, plus the
+native platform and single-ORT layout gates in the
+[integration report](sherpa-no-fork-proof.md). New target triples need Cargo links
+overrides too. Normal commands run from the repo root; external Cargo callers
+must explicitly load that config. Use `CARGO_TARGET_DIR` for custom desktop bundle
+roots so Node cache paths agree with Cargo.

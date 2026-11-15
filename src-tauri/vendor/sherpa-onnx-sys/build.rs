@@ -1,19 +1,18 @@
+use std::collections::{BTreeMap, HashSet};
 use std::env;
 use std::error::Error;
-use std::ffi::OsStr;
-use std::fs;
-use std::fs::File;
+use std::ffi::{OsStr, OsString};
+use std::fs::{self, File};
 use std::io;
 use std::path::{Path, PathBuf};
-use std::{collections::HashSet, ffi::OsString};
 
 use bzip2::read::BzDecoder;
+use sha2::{Digest, Sha256};
 use tar::Archive;
 
 mod runtime_copy;
 use runtime_copy::copy_file_atomically;
 
-const RELEASE_BASE_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download";
 const SHERPA_ONNX_STATIC_LIBS: &[&str] = &[
     "sherpa-onnx-c-api",
     "sherpa-onnx-core",
@@ -23,9 +22,7 @@ const SHERPA_ONNX_STATIC_LIBS: &[&str] = &[
     "sherpa-onnx-fst",
     "kaldi-native-fbank-core",
     "kissfft-float",
-    "piper_phonemize",
-    "espeak-ng",
-    "ucd",
+    "utf8proc",
     "onnxruntime",
     "ssentencepiece_core",
 ];
@@ -47,6 +44,7 @@ fn main() {
 fn try_main() -> Result<(), DynError> {
     println!("cargo:rerun-if-env-changed=SHERPA_ONNX_LIB_DIR");
     println!("cargo:rerun-if-env-changed=SHERPA_ONNX_ARCHIVE_DIR");
+    println!("cargo:rerun-if-changed=artifacts.json");
     println!("cargo:rerun-if-env-changed=DOCS_RS");
 
     if env::var_os("DOCS_RS").is_some() {
@@ -81,6 +79,7 @@ fn try_main() -> Result<(), DynError> {
     Ok(())
 }
 
+/// Explicit static mode must survive on iOS; the app prepares and stages mobile artifacts itself.
 fn resolve_link_mode() -> Result<LinkMode, DynError> {
     let static_enabled = env::var_os("CARGO_FEATURE_STATIC").is_some();
     let shared_enabled = env::var_os("CARGO_FEATURE_SHARED").is_some();
@@ -116,93 +115,79 @@ fn resolve_lib_dir(
     download_prebuilt_libs(link_mode, target_os, target_arch)
 }
 
-// Cache cleaners can strip files while keeping directory trees; an empty lib dir must re-download.
-fn dir_has_entries(path: &Path) -> bool {
-    fs::read_dir(path)
-        .map(|mut entries| matches!(entries.next(), Some(Ok(_))))
-        .unwrap_or(false)
+fn download_prebuilt_libs(mode: LinkMode, os: &str, arch: &str) -> Result<PathBuf, DynError> {
+    prepared_archive("sherpa-onnx-prebuilt", &archive_name(mode, os, arch)?)
 }
 
-fn download_prebuilt_libs(
-    link_mode: LinkMode,
-    target_os: &str,
-    target_arch: &str,
-) -> Result<PathBuf, DynError> {
-    let archive_name = archive_name(link_mode, target_os, target_arch)?;
-    let archive_stem = archive_name.trim_end_matches(".tar.bz2");
-
-    let out_dir = PathBuf::from(env::var("OUT_DIR")?);
-    let cache_root = target_dir_from_out_dir(&out_dir)?.join("sherpa-onnx-prebuilt");
-    let extracted_dir = cache_root.join(archive_stem);
-    let lib_dir = extracted_dir.join("lib");
-
-    if lib_dir.is_dir() && dir_has_entries(&lib_dir) {
-        return Ok(lib_dir);
-    }
-
-    fs::create_dir_all(&cache_root)?;
-
-    let archive_path = cache_root.join(&archive_name);
-    if !archive_path.is_file() {
-        if let Some(local_archive_dir) = env::var_os("SHERPA_ONNX_ARCHIVE_DIR") {
-            let local_archive_path = PathBuf::from(local_archive_dir).join(&archive_name);
-            if !local_archive_path.is_file() {
-                return Err(format!(
-                    "SHERPA_ONNX_ARCHIVE_DIR does not contain expected archive: {}",
-                    local_archive_path.display()
-                )
-                .into());
+/// A verified extraction receipt rejects empty/restored skeleton caches; versioned names isolate old runtimes.
+fn prepared_archive(cache: &str, name: &str) -> Result<PathBuf, DynError> {
+    let pins: serde_json::Value = serde_json::from_str(include_str!("artifacts.json"))?;
+    let pin = &pins[name];
+    let hash = pin["sha256"]
+        .as_str()
+        .ok_or("Native archive has no reviewed SHA-256 pin")?;
+    let root = target_dir_from_out_dir(&PathBuf::from(env::var("OUT_DIR")?))?.join(cache);
+    let extracted = root.join(name.trim_end_matches(".tar.bz2"));
+    let lib = extracted.join("lib");
+    let receipt = extracted.join(".verified.json");
+    if let Ok(bytes) = fs::read(&receipt) {
+        if let Ok(files) = serde_json::from_slice::<BTreeMap<String, String>>(&bytes) {
+            if !files.is_empty()
+                && files.iter().all(|(file, expected)| {
+                    fs::read(lib.join(file))
+                        .is_ok_and(|b| format!("{:x}", Sha256::digest(b)) == *expected)
+                })
+            {
+                return Ok(lib);
             }
-
-            copy_file_atomically(&local_archive_path, &archive_path)?;
+        }
+    }
+    fs::create_dir_all(&root)?;
+    let archive = root.join(name);
+    if !archive.is_file() {
+        if let Some(local) = env::var_os("SHERPA_ONNX_ARCHIVE_DIR")
+            .map(PathBuf::from)
+            .filter(|p| p.join(name).is_file())
+        {
+            copy_file_atomically(&local.join(name), &archive)?;
         } else {
-            let version = env!("CARGO_PKG_VERSION");
-            let url = format!("{RELEASE_BASE_URL}/v{version}/{archive_name}");
-            eprintln!("Downloading sherpa-onnx libs from {url}");
-
+            let url = pin["url"].as_str().ok_or("Missing native archive URL")?;
             let response = ureq::builder()
                 .try_proxy_from_env(true)
                 .build()
-                .get(&url)
-                .call()
-                .map_err(|e| format!("Failed to download sherpa-onnx archive from {url}: {e}"))?;
-            let mut reader = response.into_reader();
-            write_reader_atomically(&mut reader, &archive_path)?;
+                .get(url)
+                .call()?;
+            write_reader_atomically(&mut response.into_reader(), &archive)?;
         }
     }
-
-    if extracted_dir.exists() {
-        fs::remove_dir_all(&extracted_dir)?;
+    let bytes = fs::read(&archive)?;
+    if bytes.len() as u64 != pin["bytes"].as_u64().ok_or("Missing native archive size")?
+        || format!("{:x}", Sha256::digest(&bytes)) != hash
+    {
+        fs::remove_file(&archive)?;
+        return Err(format!("Native archive checksum/size mismatch: {name}").into());
     }
-
-    let unpack_result: Result<(), DynError> = (|| {
-        let tar_file = File::open(&archive_path)?;
-        let decoder = BzDecoder::new(tar_file);
-        let mut archive = Archive::new(decoder);
-        archive.unpack(&cache_root)?;
-        Ok(())
-    })();
-    if let Err(err) = unpack_result {
-        let _ = fs::remove_file(&archive_path);
-        let _ = fs::remove_dir_all(&extracted_dir);
-        return Err(format!(
-            "Failed to unpack cached archive {}: {err}",
-            archive_path.display()
-        )
-        .into());
+    if extracted.exists() {
+        fs::remove_dir_all(&extracted)?;
     }
-
-    if !lib_dir.is_dir() {
-        return Err(format!(
-            "Downloaded archive did not contain a lib directory: {}",
-            lib_dir.display()
-        )
-        .into());
+    fs::create_dir_all(&extracted)?;
+    let mut tar = Archive::new(BzDecoder::new(File::open(&archive)?));
+    tar.unpack(&root)?;
+    let mut files = BTreeMap::new();
+    for file in fs::read_dir(&lib)? {
+        let file = file?;
+        if file.path().is_file() {
+            files.insert(
+                file.file_name().to_string_lossy().into_owned(),
+                format!("{:x}", Sha256::digest(fs::read(file.path())?)),
+            );
+        }
     }
-
-    eprintln!("Downloaded sherpa-onnx libs to {}", extracted_dir.display());
-
-    Ok(lib_dir)
+    if files.is_empty() {
+        return Err("Native archive has no usable libraries".into());
+    }
+    fs::write(receipt, serde_json::to_vec(&files)?)?;
+    Ok(lib)
 }
 
 fn archive_name(
@@ -246,10 +231,12 @@ fn archive_name(
             "iOS builds must set SHERPA_ONNX_LIB_DIR to prepared sherpa-onnx iOS static libraries"
                 .into(),
         ),
-        _ => return Err(format!(
+        _ => {
+            return Err(format!(
             "Unsupported target for sherpa-onnx prebuilt libs: os={target_os}, arch={target_arch}"
         )
-        .into()),
+            .into())
+        }
     };
 
     Ok(name)
@@ -313,18 +300,13 @@ fn emit_relative_rpath(target_os: &str) {
     }
 }
 
+/// Cargo OUT_DIR ends in <profile>/build/<crate>/out, including custom profiles and cross targets.
 fn profile_output_dirs() -> Result<[PathBuf; 2], DynError> {
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
-    let profile = env::var("PROFILE")?;
     let profile_dir = out_dir
         .ancestors()
-        .find(|path| path.file_name() == Some(OsStr::new(&profile)))
-        .ok_or_else(|| {
-            format!(
-                "Could not locate Cargo profile directory from {}",
-                out_dir.display()
-            )
-        })?
+        .nth(3)
+        .ok_or("Invalid Cargo OUT_DIR")?
         .to_path_buf();
 
     Ok([profile_dir.clone(), profile_dir.join("examples")])

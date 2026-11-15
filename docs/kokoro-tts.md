@@ -7,8 +7,40 @@ The design goal is still offline-first: model files live on the user's device, a
 The [Sherpa upgrade plan](sherpa-onnx-upgrade.md) records the accepted recommendation
 policy, owner-accepted Sherpa 2.0.1 compatibility probes, and the
 subsequent runtime migration, interrupted-save and paired small-model stages.
-The app still uses Sherpa 1.13.4 and its existing model roster. Stage 3a's
-simple explicit-restart guard is implemented for review before the binary upgrade.
+The working tree upgrades the existing roster to Sherpa 2.0.1 plus native
+Piper phonemize 1.5.9. Stage 3b owner smokes passed; the Stage 3c registry
+integration is a new review candidate, with platform/device acceptance pending. Stage 3a's
+simple explicit-restart guard passed owner smoke review. No small models are added yet.
+
+Sherpa 2.0 removed embedded eSpeak. The app's `engine/phonemizer.rs` calls the
+published Piper C API for non-Mandarin Kokoro and Kareem, passes phoneme
+codepoints through Sherpa's official generation API, and keeps Mandarin's
+lexicon/FST and Supertonic's own tokenizer. Existing English normalization and
+optional Arabic preprocessing run first. The first model pack's verified eSpeak
+data is retained for the process lifetime; initialization failures stay failed
+until app restart. Long phoneme sentences split at word boundaries; a word too
+long to fit returns an error instead of being cut or dropped. Data repair after
+failed initialization requires restarting the app.
+
+Desktop native libraries are official checksum-pinned archives. iOS uses separate
+Sherpa/ORT static XCFramework archives plus unchanged pinned upstream Piper source
+built by its iOS recipe. Cargo now uses unchanged published Rust bindings with
+root `.cargo/config.toml` links overrides; `src-tauri/build/` owns pinned archive
+preparation, platform linking and runtime staging. The dormant vendor directory
+is retained only as a reference until native qualification passes. The
+[fork-free integration report](sherpa-no-fork-proof.md) records the evidence and
+remaining maintenance. No upstream C/C++ source is patched.
+Linux/macOS resource staging is versioned (`*-shared-libs-2.0.1`) so stale 1.13.4
+resources cannot overwrite new Cargo runtime copies. Tauri JSON paths and CI must
+change with the Node constants on a future runtime upgrade.
+
+Run Cargo from the repository root (nested Gradle/Xcode commands discover the
+same ancestor configuration). From outside the checkout, supply Cargo
+`--config /absolute/path/to/papercut.io/.cargo/config.toml`; Tauri's JSON
+`--config` is a separate option. For custom desktop bundle output directories,
+set `CARGO_TARGET_DIR` so Cargo, ORT lookup and Node resource helpers agree.
+macOS packaging and Cargo deployment metadata now declare 15.0, per the owner's
+support policy; execution on the minimum OS still needs qualification.
 
 ## Runtime Architecture
 
@@ -176,7 +208,7 @@ Android debug APK builds without native TTS still use the normal command:
 npm run android:apk
 ```
 
-Android native TTS uses the official sherpa-onnx Android shared-library archive, copies the shared objects into Tauri's generated `jniLibs`, and builds only the common arm64 target by default:
+Android native TTS source-builds pinned Sherpa 2.0.1 and Piper phonemize 1.5.9 with NDK 30.0.16248370/API 26 against the pinned Maven ORT 1.27.0 headers/runtime. It stages only their C libraries into generated `jniLibs`; Gradle packages the sole ORT copy. The default is arm64; the optional emulator uses the same source recipe for x86_64:
 
 ```bash
 npm run prepare:jdk
@@ -184,11 +216,11 @@ npm run prepare:sherpa-android-libs
 npm run android:apk:native-tts
 ```
 
-The explicit prepare commands are useful for setup and troubleshooting, but `npm run android:apk:native-tts` also ensures the sherpa Android libraries are present before building. The native Android wrapper sets `JAVA_HOME`, `SHERPA_ONNX_LIB_DIR`, and `ORT_LIB_LOCATION` automatically for the default arm64 APK path. `npm run prepare:jdk` installs a repo-local Eclipse Temurin JDK 17 into `src-tauri/tts/runtime/jdk/temurin-17` when a system JDK is not available. The fallback JDK archive is pinned to Eclipse Temurin 17.0.19+10, and both the JDK archive and sherpa Android archive are verified with SHA-256 before extraction. Downloads are written through temporary files before being promoted to their cache path. The Android build still requires the normal Android SDK/NDK prerequisites. Native background audio raises the app minimum to Android API 26, matching the plugin's Media3 service requirement.
+The explicit prepare commands are useful for setup and troubleshooting, but `npm run android:apk:native-tts` also ensures the sherpa Android libraries are present before building. The native Android wrapper sets `JAVA_HOME`, `SHERPA_ONNX_LIB_DIR`, and `ORT_LIB_LOCATION` automatically for the default arm64 APK path. `npm run prepare:jdk` installs a repo-local Eclipse Temurin JDK 17 into `src-tauri/tts/runtime/jdk/temurin-17` when a system JDK is not available. The fallback JDK archive is pinned to Eclipse Temurin 17.0.19+10, and the JDK and ORT AAR archives are verified with SHA-256 before extraction. Native source revisions and output receipts are checked before staging; explicit invalid source inputs fail without a prebuilt fallback. Downloads are written through temporary files before being promoted to their cache path. The Android build still requires the normal Android SDK/NDK prerequisites. Native background audio raises the app minimum to Android API 26, matching the plugin's Media3 service requirement.
 
-The Node build scripts are orchestration around npm, Cargo, Tauri, Gradle, and SDK Manager rather than a replacement for those tools. Shared helpers in `scripts/lib/` own project paths, version constants, child-process execution, archive extraction, and checked downloads. Platform-specific helpers live in `scripts/lib/android/` for Android JDK/sherpa setup, `scripts/lib/linux/` for Linux shared-library bundling, `scripts/lib/macos/` for macOS dylib bundling, and `scripts/lib/ios/` for iOS static XCFramework prep. Script entrypoints such as `prepare:sherpa-android-libs`, `prepare:sherpa-ios-libs`, `android:apk:native-tts`, `ios:ipa:native-tts`, and `desktop` call those helpers instead of relying on import side effects or duplicated archive/spawn code. Android APK variants are handled by one Android entry script, `scripts/android/build-android.js`; the native TTS npm command passes `--native-tts` to that script. iOS uses `scripts/ios/build-ios.js` to select the device or arm64 simulator sherpa static-library slice and build with `native-tts-ios`, which includes static Libtashkeel preprocessing. A local `sherpa-onnx-sys` patch teaches the Rust build script to use the upstream iOS aggregate archives (`libsherpa-onnx.a` and `libonnxruntime.a`) instead of desktop component archives. The generated iOS app target also includes a tiny Swift bridge source so Xcode links Swift runtime libraries needed by Tauri/plugin Swift objects inside `libapp.a`, and PR CI performs both simulator and unsigned generic iPhoneOS device native-TTS builds. The device check prebuilds the Rust static library with Cargo using the configured iOS minimum deployment target, stages Cargo's `libapp_lib.a` output as `libapp.a` in `gen/apple/Externals/arm64/release/`, and then uses direct `xcodebuild build` with the generated Tauri script skipped so it stops before archive/export signing.
+The Node build scripts are orchestration around npm, Cargo, Tauri, Gradle, and SDK Manager rather than a replacement for those tools. Shared helpers in `scripts/lib/` own project paths, version constants, child-process execution, archive extraction, and checked downloads. Platform-specific helpers live in `scripts/lib/android/` for Android JDK/sherpa setup, `scripts/lib/linux/` for Linux shared-library bundling, `scripts/lib/macos/` for macOS dylib bundling, and `scripts/lib/ios/` for iOS static XCFramework prep. Script entrypoints such as `prepare:sherpa-android-libs`, `prepare:sherpa-ios-libs`, `android:apk:native-tts`, `ios:ipa:native-tts`, and `desktop` call those helpers instead of relying on import side effects or duplicated archive/spawn code. Android APK variants are handled by one Android entry script, `scripts/android/build-android.js`; the native TTS npm command passes `--native-tts` to that script. iOS uses `scripts/ios/build-ios.js` to select the device or arm64 simulator sherpa static-library slice and build with `native-tts-ios`, which includes static Libtashkeel preprocessing. App-owned `build/sherpa.rs` links the upstream iOS aggregate archives (`libsherpa-onnx.a` and `libonnxruntime.a`); app-owned build code adds the pinned upstream Piper/eSpeak/ucd aggregate `libpiper_phonemize.a` instead of desktop component archives. The generated iOS app target also includes a tiny Swift bridge source so Xcode links Swift runtime libraries needed by Tauri/plugin Swift objects inside `libapp.a`, and PR CI performs both simulator and unsigned generic iPhoneOS device native-TTS builds. The device check prebuilds the Rust static library with Cargo using the configured iOS minimum deployment target, stages Cargo's `libapp_lib.a` output as `libapp.a` in `gen/apple/Externals/arm64/release/`, and then uses direct `xcodebuild build` with the generated Tauri script skipped so it stops before archive/export signing.
 
-On macOS, `sherpa-onnx-sys` downloads per-arch (`osx-x64` / `osx-arm64`) shared-library archives during the Cargo build, copies the `.dylib`s next to the dev binary, and emits an `@loader_path` rpath for `npm run tauri:dev`. The desktop build helper runs a fast macOS `cargo check` first so `sherpa-onnx-sys` downloads the dylibs, stages every `.dylib` from the sherpa macOS archive before Tauri scans `bundle.resources` (including versioned ONNX Runtime siblings such as `libonnxruntime.1.24.4.dylib`), signs staged dylibs with the Developer ID identity and secure timestamp when release signing is active, and the `tauri.macos.conf.json` `beforeBundleCommand` (`scripts/desktop/copy-sherpa-macos-libs.js`) refreshes that staging directory before bundling. `src-tauri/build.rs` adds an `@loader_path/../Resources` rpath so the installed `.app` (binary in `Contents/MacOS`, resources in `Contents/Resources`) resolves the dylibs at launch. The same shared ONNX Runtime is reused by Libtashkeel via `ort::init_from`. macOS builds are produced per-architecture on `macos-15-intel` (Intel x86_64) and `macos-15` (Apple Silicon aarch64) runners. Release builds use the protected `apple-release` GitHub Environment to import the Developer ID certificate, sign with hardened runtime entitlements, notarize, staple, and verify the `.dmg` artifacts; ordinary PR/CI or local builds without Apple secrets remain unsigned development artifacts.
+On macOS, the app build script downloads per-arch (`osx-x64` / `osx-arm64`) shared-library archives during the Cargo build, copies the `.dylib`s next to the dev binary, and emits an `@loader_path` rpath for `npm run tauri:dev`. The desktop build helper runs a fast macOS `cargo check` first so the app prepares the dylibs, stages every `.dylib` from the sherpa macOS archive before Tauri scans `bundle.resources` (including versioned ONNX Runtime siblings such as `libonnxruntime.1.28.2.dylib`), signs staged dylibs with the Developer ID identity and secure timestamp when release signing is active, and the `tauri.macos.conf.json` `beforeBundleCommand` (`scripts/desktop/copy-sherpa-macos-libs.js`) refreshes that staging directory before bundling. `src-tauri/build.rs` adds an `@loader_path/../Resources` rpath so the installed `.app` (binary in `Contents/MacOS`, resources in `Contents/Resources`) resolves the dylibs at launch. The same shared ONNX Runtime is reused by Libtashkeel via `ort::init_from`. macOS builds are produced per-architecture on `macos-15-intel` (Intel x86_64) and `macos-15` (Apple Silicon aarch64) runners. Release builds use the protected `apple-release` GitHub Environment to import the Developer ID certificate, sign with hardened runtime entitlements, notarize, staple, and verify the `.dmg` artifacts; ordinary PR/CI or local builds without Apple secrets remain unsigned development artifacts.
 
 `npm run android:apk:native-tts` does not copy model files into Android assets. The first TTS use on Android follows the same in-app model download path as desktop, so the APK stays smaller and developers do not need to carry large model assets between machines.
 

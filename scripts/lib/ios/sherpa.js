@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import {
   cp,
   link,
@@ -6,12 +7,18 @@ import {
   realpath,
   rm,
   stat,
+  writeFile,
 } from "node:fs/promises"
 import { join } from "node:path"
-import { extractTar } from "../archive.js"
+
+import { source } from "../../fdroid/source-build.js"
+import { PIPER_SOURCE_REVISION } from "../constants.js"
 import { downloadFile } from "../download.js"
 import { run } from "../process.js"
 import {
+  ORT_IOS_ARCHIVE,
+  ORT_IOS_URL,
+  ORT_IOS_SHA256,
   SHERPA_IOS_ARCHIVE,
   SHERPA_IOS_DEFAULT_SLICE,
   SHERPA_IOS_DEVICE_SLICE,
@@ -57,10 +64,11 @@ export async function ensureIosSherpaLibs({ force = false, includeSimulator = pr
     throw new Error("Downloaded sherpa-onnx iOS archive is missing required XCFramework static libraries")
   }
 
-  await syncDeviceCargoLibs()
+  const piper = await piperFramework()
+  await syncDeviceCargoLibs(piper)
   await verifyCargoLibs(SHERPA_IOS_DEVICE_SLICE)
   if (includeSimulator) {
-    await syncSimulatorArm64CargoLibs()
+    await syncSimulatorArm64CargoLibs(piper)
     await verifyCargoLibs(SHERPA_IOS_SIMULATOR_ARM64_SLICE)
   } else {
     console.log("[sherpa-ios-libs] simulator thinning skipped; lipo is only available on macOS")
@@ -68,35 +76,74 @@ export async function ensureIosSherpaLibs({ force = false, includeSimulator = pr
   console.log("[sherpa-ios-libs] ready " + join(SHERPA_IOS_RUNTIME_ROOT, "cargo-libs"))
 }
 
+// Pin the extracted bytes too: a restored directory or empty library is not a verified archive cache.
 async function hasIosArchiveLibs() {
-  return await isFile(sherpaArchiveLib(SHERPA_IOS_DEVICE_SLICE)) &&
-    await isFile(sherpaArchiveLib(SHERPA_IOS_SIMULATOR_UPSTREAM_SLICE)) &&
-    await isFile(onnxRuntimeArchiveLib(SHERPA_IOS_DEVICE_SLICE)) &&
-    await isFile(onnxRuntimeArchiveLib(SHERPA_IOS_SIMULATOR_UPSTREAM_SLICE))
+  try {
+    const receipt = JSON.parse(await readFile(join(SHERPA_IOS_RUNTIME_ROOT, ".archive-receipt.json"), "utf8"))
+    return receipt.sherpa === SHERPA_IOS_SHA256 && receipt.ort === ORT_IOS_SHA256 &&
+      JSON.stringify(receipt.files) === JSON.stringify(await archiveFileHashes())
+  } catch {
+    return false
+  }
+}
+
+async function archiveFileHashes() {
+  const hashes = []
+  for (const slice of [SHERPA_IOS_DEVICE_SLICE, SHERPA_IOS_SIMULATOR_UPSTREAM_SLICE]) {
+    for (const file of [sherpaArchiveLib(slice), onnxRuntimeArchiveLib(slice)]) {
+      const bytes = await readFile(file)
+      if (!bytes.length) {
+        throw new Error("Empty iOS native archive: " + file)
+      }
+      hashes.push(createHash("sha256").update(bytes).digest("hex"))
+    }
+  }
+  return hashes
 }
 
 async function extractIosArchive() {
-  console.log("[sherpa-ios-libs] extracting " + SHERPA_IOS_ARCHIVE)
-  await extractTar({
-    archive: SHERPA_IOS_ARCHIVE,
-    destination: SHERPA_IOS_RUNTIME_ROOT,
-    compression: "bzip2",
+  await run("unzip", ["-o", SHERPA_IOS_ARCHIVE, "-d", SHERPA_IOS_RUNTIME_ROOT])
+  await downloadFile({
+    url: ORT_IOS_URL,
+    dest: ORT_IOS_ARCHIVE,
+    sha256: ORT_IOS_SHA256,
+    label: "ort-ios-libs",
   })
+  await run("unzip", ["-o", ORT_IOS_ARCHIVE, "-d", SHERPA_IOS_RUNTIME_ROOT])
+  await writeFile(join(SHERPA_IOS_RUNTIME_ROOT, ".archive-receipt.json"), JSON.stringify({
+    sherpa: SHERPA_IOS_SHA256,
+    ort: ORT_IOS_SHA256,
+    files: await archiveFileHashes(),
+  }) + "\n")
 }
 
-// The sherpa device archive is thin, but ORT 1.27 wraps its arm64 static archive
+// Upstream's pinned recipe produces the core/eSpeak/ucd aggregate without any local C++ changes.
+async function piperFramework() {
+  if (process.platform !== "darwin") {
+    throw new Error("Preparing the native Piper iOS archive requires macOS/Xcode")
+  }
+  const checkout = await source("piper-phonemize-1.5.9", "https://github.com/csukuangfj/piper-phonemize.git", PIPER_SOURCE_REVISION)
+  const framework = join(checkout, "build-ios/piper-phonemize.xcframework")
+  // Source identity is checked above on every build; the upstream script rebuilds missing outputs with CMake.
+  await run("bash", [join(checkout, "build-ios.sh")], { cwd: checkout })
+  return framework
+}
+
+// The sherpa device archive is thin, but ORT 1.28.2 wraps its arm64 static archive
 // in a one-architecture Mach-O universal container that Cargo cannot link.
-async function syncDeviceCargoLibs() {
+async function syncDeviceCargoLibs(piper) {
   const target = await resetCargoLibDir(SHERPA_IOS_DEVICE_SLICE)
   await linkOrCopy(sherpaArchiveLib(SHERPA_IOS_DEVICE_SLICE), join(target, "libsherpa-onnx.a"))
   await thinArchive(onnxRuntimeArchiveLib(SHERPA_IOS_DEVICE_SLICE), join(target, "libonnxruntime.a"), "arm64")
+  await thinArchive(join(piper, SHERPA_IOS_DEVICE_SLICE, "PiperPhonemizeC.framework/PiperPhonemizeC"), join(target, "libpiper_phonemize.a"), "arm64")
 }
 
 // Upstream simulator archives are universal; Rust wants a thin arm64 archive for aarch64-sim CI.
-async function syncSimulatorArm64CargoLibs() {
+async function syncSimulatorArm64CargoLibs(piper) {
   const target = await resetCargoLibDir(SHERPA_IOS_SIMULATOR_ARM64_SLICE)
   await thinArchive(sherpaArchiveLib(SHERPA_IOS_SIMULATOR_UPSTREAM_SLICE), join(target, "libsherpa-onnx.a"), "arm64")
   await thinArchive(onnxRuntimeArchiveLib(SHERPA_IOS_SIMULATOR_UPSTREAM_SLICE), join(target, "libonnxruntime.a"), "arm64")
+  await thinArchive(join(piper, SHERPA_IOS_SIMULATOR_UPSTREAM_SLICE, "PiperPhonemizeC.framework/PiperPhonemizeC"), join(target, "libpiper_phonemize.a"), "arm64")
 }
 
 async function resetCargoLibDir(slice) {
@@ -126,7 +173,7 @@ async function thinArchive(source, target, arch) {
 }
 
 function sherpaArchiveLib(slice) {
-  return join(SHERPA_IOS_SHERPA_XCFRAMEWORK, slice, "libsherpa-onnx.a")
+  return join(SHERPA_IOS_SHERPA_XCFRAMEWORK, slice, "SherpaOnnxC.framework", "SherpaOnnxC")
 }
 
 function onnxRuntimeArchiveLib(slice) {

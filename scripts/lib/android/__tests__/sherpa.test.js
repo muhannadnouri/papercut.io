@@ -8,6 +8,7 @@ import {
 } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+
 import {
   afterEach,
   beforeEach,
@@ -15,6 +16,8 @@ import {
   it,
   vi,
 } from "vitest"
+
+import { PIPER_SOURCE_REVISION } from "../../constants.js"
 import {
   ANDROID_NDK_VERSION,
   ANDROID_ORT_AAR,
@@ -42,18 +45,20 @@ beforeEach(async () => {
   vi.stubEnv("SHERPA_ONNX_LIB_DIR", join(directory, "source"))
   await mkdir(process.env.SHERPA_ONNX_LIB_DIR)
   const artifacts = {}
-  for (const lib of ["libsherpa-onnx-c-api.so", "libonnxruntime.so"]) {
+  for (const lib of ["libsherpa-onnx-c-api.so", "libonnxruntime.so", "libpiper_phonemize_core.so"]) {
     await writeFile(join(process.env.SHERPA_ONNX_LIB_DIR, lib), lib)
     artifacts[lib] = { sha256: createHash("sha256").update(lib).digest("hex") }
   }
   await writeFile(join(process.env.SHERPA_ONNX_LIB_DIR, "source-receipt.json"), JSON.stringify({
     sources: {
       sherpa: SHERPA_ANDROID_SOURCE_REVISION,
+      piper: PIPER_SOURCE_REVISION,
       ortAar: ANDROID_ORT_AAR,
     },
     tools: {
       ndk: ANDROID_NDK_VERSION,
       api: 26,
+      abi: "arm64-v8a",
     },
     artifacts,
   }))
@@ -105,6 +110,7 @@ it("rejects a runtime built with the previous NDK", async () => {
 
 it.each([
   ["sherpa", "old revision", "pinned Sherpa revision"],
+  ["piper", "old revision", "pinned Piper revision"],
   ["ortAar", {
     ...ANDROID_ORT_AAR,
     sha256: "ab".repeat(32),
@@ -117,6 +123,11 @@ it.each([
   const { ensureAndroidSherpaLibs } = await import("../sherpa.js")
   await expect(ensureAndroidSherpaLibs()).rejects.toThrow(message)
   expect(state.download).not.toHaveBeenCalled()
+})
+
+it("rejects a source receipt for another ABI", async () => {
+  const { ensureAndroidSherpaLibs } = await import("../sherpa.js")
+  await expect(ensureAndroidSherpaLibs({ abi: "x86_64" })).rejects.toThrow()
 })
 
 it("clears stale TTS inputs for a no-native APK without touching other JNI files", async () => {
@@ -132,7 +143,7 @@ it("clears stale TTS inputs for a no-native APK without touching other JNI files
   expect(await readFile(join(target, "libother.so"), "utf8")).toBe("keep")
 })
 
-it.each(["libsherpa-onnx-c-api.so", "libonnxruntime.so"])("rejects a changed %s instead of trusting a stale receipt", async lib => {
+it.each(["libsherpa-onnx-c-api.so", "libonnxruntime.so", "libpiper_phonemize_core.so"])("rejects a changed %s instead of trusting a stale receipt", async lib => {
   await writeFile(join(process.env.SHERPA_ONNX_LIB_DIR, lib), "changed")
   const { ensureAndroidSherpaLibs } = await import("../sherpa.js")
   await expect(ensureAndroidSherpaLibs()).rejects.toThrow("differs from its receipt")

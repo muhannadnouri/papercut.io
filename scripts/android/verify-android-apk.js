@@ -30,10 +30,11 @@ export function checkCertificate(output, expected) {
   assert(!output.includes("CN=Android Debug"), "Refusing to publish an Android Debug certificate")
 }
 
-// This arm64 gate reads ELF64 PT_LOAD alignment; ZIP alignment alone cannot establish 16 KB compatibility.
-export function checkElf(data, name) {
+// Read ELF64 PT_LOAD alignment for source builds and the production arm64 gate; ZIP alignment alone cannot establish 16 KB compatibility.
+export function checkElf(data, name, abi = "arm64-v8a") {
   assert(data.length >= 64 && data.subarray(0, 6).equals(Buffer.from([0x7f, 69, 76, 70, 2, 1])), `${name}: expected little-endian ELF64`)
-  assert.equal(data.readUInt16LE(18), 183, `${name}: expected AArch64 code`)
+  assert(["arm64-v8a", "x86_64"].includes(abi), "Unsupported ELF ABI: " + abi)
+  assert.equal(data.readUInt16LE(18), abi === "arm64-v8a" ? 183 : 62, `${name}: expected ${abi} code`)
   const offset = data.readBigUInt64LE(32)
   const size = data.readUInt16LE(54)
   const count = data.readUInt16LE(56)
@@ -53,7 +54,7 @@ export function checkEntries(names) {
   assert.equal(names.length, new Set(names).size, "APK contains duplicate ZIP entries")
   const libraries = names.filter(name => name.startsWith("lib/") && name.endsWith(".so"))
   assert(libraries.length && libraries.every(name => /^lib\/arm64-v8a\/[a-z0-9_.+-]+\.so$/i.test(name)), "APK must contain only arm64 native libraries with ordinary filenames")
-  for (const required of ["libapp_lib.so", "libsherpa-onnx-c-api.so", "libonnxruntime.so"]) {
+  for (const required of ["libapp_lib.so", "libsherpa-onnx-c-api.so", "libpiper_phonemize_core.so", "libonnxruntime.so"]) {
     assert(libraries.includes(`lib/arm64-v8a/${required}`), `APK is missing ${required}`)
   }
   assert(names.includes("assets/licenses/libtashkeel-1.5.0.txt"), "APK is missing the Arabic preprocessing license")

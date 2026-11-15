@@ -84,3 +84,40 @@ WASM compilers. Their checks use already-built probe outputs and are under
 `fdroid/__tests__/`. Those probes do not prove clean APK reproducibility. Follow the
 [single Android guide](../docs/android-production-packaging.md) for those commands,
 their prerequisites and the unresolved source/licensing decisions.
+
+## Sherpa 2.0 native preparation
+
+The Stage 3b working tree uses Sherpa 2.0.1/Piper phonemize 1.5.9. Android developer,
+production and optional x86_64 emulator preparation share
+`lib/android/source.js`; explicit source overrides require matching receipts.
+`PAPERCUT_ANDROID_ABI=x86_64 npm run prepare:sherpa-android-libs` prepares the
+emulator inputs. The default ABI remains arm64. Use the pinned NDK from
+`lib/android/constants.js`; Maven ORT remains 1.27.0, supplied once by Gradle.
+
+iOS prep requires macOS/Xcode and builds pinned unchanged upstream Piper source
+in addition to verifying/thinning Sherpa/ORT XCFrameworks. Desktop Cargo builds
+prepare official hash-pinned archives; bundle helpers include the Piper core
+runtime. Tauri JSON and CI resource directories must match the versioned Node
+constants. The [fork-free build proof and migration gates](../docs/sherpa-no-fork-proof.md)
+record the original build delta and the current registry integration. Root
+`.cargo/config.toml` skips the upstream sys build script; app-owned Rust prepares
+and links the pinned libraries. Run normal commands from the repo root. External
+Cargo callers must pass that file with Cargo `--config`, separately from Tauri's
+JSON config. Set `CARGO_TARGET_DIR` for custom desktop bundle caches; optional
+`SHERPA_ONNX_LIB_DIR` / `PIPER_PHONEMIZE_LIB_DIR` inputs are validated before use.
+The dormant vendor reference is not used by Cargo and stays until platform gates
+pass. `cargo test --manifest-path src-tauri/Cargo.toml --locked --features
+native-tts-shared --test native_build` checks the shared build plumbing offline.
+
+Opt-in local speech corpus (all current roster model directories required):
+
+```sh
+PAPERCUT_TTS_MODEL_ROOT=/path/to/model/directories \
+PAPERCUT_TTS_SMOKE_OUTPUT_DIR=/tmp/papercut-speech-evidence \
+cargo test --manifest-path src-tauri/Cargo.toml --locked \
+  --features native-tts-shared,experimental-search-embeddings \
+  cached_frontend_smoke -- --ignored --nocapture
+```
+
+This runs the real app synthesis path and saves finite/non-silent WAV evidence.
+It does not replace human pronunciation/listening acceptance or device checks.

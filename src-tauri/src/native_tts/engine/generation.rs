@@ -16,7 +16,7 @@ use super::silma_sidecar::DEFAULT_SILMA_NFE_STEP;
 use crate::native_tts::types::NativeAudiobookSaveRequest;
 
 // Change this when synthesis semantics change; cache IDs and completed audio stay stable.
-const SHERPA_SYNTHESIS_REVISION: &str = "sherpa/1.13.4;frontend/embedded;normalization/1";
+const SHERPA_SYNTHESIS_REVISION: &str = "sherpa/2.0.1;piper/1.5.9;espeak/43ebef9e;normalization/1";
 
 /// Version Sherpa's synthesis contract separately from cache IDs; SILMA keeps its existing resume rules.
 pub(super) fn synthesis_revision(model_id: &str) -> Option<String> {
@@ -345,6 +345,23 @@ mod tests {
     }
 
     #[test]
+    fn completed_prior_runtime_audio_is_not_restarted_or_rewritten() {
+        let fixture = Fixture::new();
+        for index in 0..fixture.request.chunks.len() {
+            fixture.wav(&fixture.dir, index, 7);
+        }
+        let path = fixture.dir.join("manifest.json");
+        let mut json: serde_json::Value =
+            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        json["synthesisRevision"] = "sherpa/1.13.4;frontend/embedded;normalization/1".into();
+        fs::write(path, serde_json::to_vec(&json).unwrap()).unwrap();
+        let before = snapshot(&fixture.dir);
+        assert!(required_restart_token(&fixture.dir).unwrap().is_none());
+        prepare_save(&fixture.dir, &fixture.request).unwrap();
+        assert_eq!(snapshot(&fixture.dir), before);
+    }
+
+    #[test]
     fn current_revision_and_silma_partials_resume_without_restart() {
         for model_id in [DEFAULT_MODEL_ID, SILMA_MODEL_ID] {
             let mut fixture = Fixture::new();
@@ -372,7 +389,8 @@ mod tests {
                 "different" => {
                     let mut json: serde_json::Value =
                         serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
-                    json["synthesisRevision"] = "sherpa/older-frontend".into();
+                    json["synthesisRevision"] =
+                        "sherpa/1.13.4;frontend/embedded;normalization/1".into();
                     fs::write(&path, serde_json::to_vec(&json).unwrap()).unwrap();
                 }
                 "missing" => fs::remove_file(&path).unwrap(),

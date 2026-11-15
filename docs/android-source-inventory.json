@@ -1,25 +1,25 @@
 {
   "schemaVersion": 2,
   "scope": {
-    "appVersion": "1.10.0",
+    "appVersion": "1.10.2",
     "target": "aarch64-linux-android",
     "features": [
       "native-tts-shared",
       "experimental-search-embeddings"
     ],
-    "status": "Review inventory; package license declarations are not legal clearance or proof every file is shipped.",
-    "rust": "Resolved non-dev Android graph. Runtime and build sets can overlap. Review bundled native subprojects separately.",
+    "status": "Stage 3c.2 registry integration candidate; native platform/device/reproducibility gates remain pending.",
+    "rust": "Resolved Android metadata candidates; runtime/build/dev metadata may coexist. Notices conservatively enumerate the resolved graph, not every compiled/shipped package. Review native subprojects separately.",
     "npm": "Production lockfile candidates, not a bundler-level inclusion claim. Native/WASM/model/data evidence is in the Android guide.",
-    "reviewedOn": "2026-11-04",
+    "reviewedOn": "2026-11-15",
     "method": "Static review evidence for native/WASM/model/data licensing decisions. Bulk Rust/npm/Maven dependency listings are regenerated on demand with standardRefresh instead of being stored here. inputHashes anchor this snapshot to the reviewed lockfiles; refresh after dependency changes."
   },
   "inputHashes": {
-    "cargoLock": "6154128d240fbc07285ea3a8e007bebaa9bee9b736f16be8d7f149c660bea62a",
-    "packageLock": "5c05ae748a74aa11247e7b383e03ee6854e20dea96a889e90772b43d5ecaae23"
+    "cargoLock": "8e4b1c27d08be5167369a668903573916920febe391a720b20879c9a86736579",
+    "packageLock": "6f38534a175a28b08262b5a276335daa3b7a0144a6bd3c2c4f4fa4b1ff788d43"
   },
   "standardRefresh": {
     "note": "Added 2026-11-03 when the bulk dependency arrays were replaced: regenerate graph listings for review with these standard commands rather than storing them.",
-    "rust": "cargo metadata --locked --offline --filter-platform aarch64-linux-android --features native-tts-shared,experimental-search-embeddings --format-version 1",
+    "rust": "cargo metadata --manifest-path src-tauri/Cargo.toml --locked --offline --filter-platform aarch64-linux-android --features native-tts-shared,experimental-search-embeddings --format-version 1",
     "npm": "npm sbom --package-lock-only",
     "maven": "cd src-tauri/gen/android && ./gradlew :app:dependencies --configuration universalReleaseRuntimeClasspath"
   },
@@ -50,9 +50,9 @@
       "name": "Sherpa ONNX",
       "source": {
         "url": "https://github.com/k2-fsa/sherpa-onnx.git",
-        "revision": "142807252687d81b40d6315f23470a1512a00de3"
+        "revision": "af2d8d81dbfa61c4cea4c568da78f3982edca005"
       },
-      "declaredLicense": "Apache-2.0; statically incorporated GPL-3.0 eSpeak NG/ucd",
+      "declaredLicense": "Apache-2.0; external Piper/eSpeak/ucd distribution terms retained separately",
       "licenseEvidence": [
         {
           "path": "LICENSE",
@@ -324,8 +324,8 @@
       "sourceDeclarations": [
         {
           "recipe": "sherpa-onnx/cmake/kaldi-native-fbank.cmake",
-          "url": "https://github.com/csukuangfj/kaldi-native-fbank/archive/refs/tags/v1.22.3.tar.gz",
-          "archiveSha256": "9176cc66fc7ce1edf85cf355b06e320c57db6297df74277f575183468893cf61"
+          "url": "https://github.com/csukuangfj/kaldi-native-fbank/archive/refs/tags/v1.22.4.tar.gz",
+          "archiveSha256": "257fea639585ca6ee00860493bb9d7ab32488b8a5407ffe434c1f361ea545fae"
         }
       ],
       "licenseEvidence": [
@@ -375,8 +375,8 @@
       "sourceDeclarations": [
         {
           "recipe": "sherpa-onnx/cmake/openfst.cmake",
-          "url": "https://github.com/csukuangfj/openfst/archive/refs/tags/v1.8.5-2026-04-11.tar.gz",
-          "archiveSha256": "57fbc4b950ae81b1a0e1e298af15652da968a6723a592b7874e9b4027a80a5b4"
+          "url": "https://github.com/csukuangfj/openfst/archive/refs/tags/v1.8.5-2026-07-09.tar.gz",
+          "archiveSha256": "2ff712a32952fcb01d351121a6bc8ccf4fdc6b2aa06ce8df2b3095dedd518c0e"
         },
         {
           "recipe": "sherpa-build/_deps/kaldifst-src/cmake/openfst.cmake",
@@ -396,9 +396,9 @@
       "declaredLicense": "MIT with uni-algo and Unicode notices",
       "sourceDeclarations": [
         {
-          "recipe": "sherpa-onnx/cmake/piper-phonemize.cmake",
-          "url": "https://github.com/csukuangfj/piper-phonemize/archive/f3ff95afc03640bc1399e113e83361192a2fafb4.zip",
-          "archiveSha256": "d9cca4e2bdc7d6dd8dffb96a4668283dbd3f77a9c194a3e530c1e8eba9406a5d"
+          "recipe": "scripts/lib/android/source.js and scripts/lib/ios/sherpa.js",
+          "url": "https://github.com/csukuangfj/piper-phonemize/archive/dae4d2d831f9f0817355f7c0e8abd98c2fb0a49d.tar.gz",
+          "archiveSha256": "61d569c856f10559b55e9112143b12abc8bb3992fe34e4777dbbdb5db286a6cd"
         }
       ],
       "licenseEvidence": [
@@ -406,7 +406,8 @@
           "path": "LICENSE.md",
           "sha256": "13746d509d74e55ea2265fbef204bb7cdbf84a8315b0207e988326cb54387028"
         }
-      ]
+      ],
+      "parent": "App-owned native frontend, no longer fetched by Sherpa"
     },
     {
       "name": "simple-sentencepiece",
@@ -430,7 +431,7 @@
       "declaredLicense": "GPL-3.0; later-version permission where granted; Unicode/BSD/Apache subcomponents",
       "sourceDeclarations": [
         {
-          "recipe": "sherpa-onnx/cmake/espeak-ng-for-piper.cmake",
+          "recipe": "piper-phonemize/CMakeLists.txt",
           "url": "https://github.com/csukuangfj/espeak-ng/archive/ed530aa113046142eb5115cf2fc9157854d0ffe1.zip",
           "archiveSha256": "e4e262cbe34f7fe21f91f1ba3397f2728e1f30eafbae7853f2b753a9ed13f0dd"
         }
@@ -451,6 +452,24 @@
         {
           "path": "COPYING.UCD",
           "sha256": "be029c50df83105a810e391778b6edcb522d6cb4b4e142332aca54437a499bf7"
+        }
+      ],
+      "parent": "Piper phonemize 1.5.9"
+    },
+    {
+      "name": "utf8proc",
+      "declaredLicense": "MIT and Unicode data terms (verbatim combined license)",
+      "sourceDeclarations": [
+        {
+          "recipe": "sherpa-onnx/cmake/utf8proc.cmake",
+          "url": "https://github.com/JuliaStrings/utf8proc/archive/refs/tags/v2.12.0.tar.gz",
+          "archiveSha256": "f564011d38b2888d583d510b08e69ffa15aa117155db1b9b49ef1dfe1fa25111"
+        }
+      ],
+      "licenseEvidence": [
+        {
+          "path": "LICENSE.md",
+          "sha256": "3b510150d34f248a221bb88e1d811238d6c6c18b51231822c42974c39bb07256"
         }
       ]
     }
@@ -986,5 +1005,22 @@
       "path": "zlib.h",
       "sha256": "045cf777c6c9109b28ddcf3a413c5ca15e39fc513c13ef87bd9a3132a59d1b51"
     }
-  ]
+  ],
+  "sherpaStage3b": {
+    "status": "Local integration, not accepted platform/device/reproducibility evidence",
+    "sherpaVersion": "2.0.1",
+    "sherpaRevision": "af2d8d81dbfa61c4cea4c568da78f3982edca005",
+    "piperVersion": "1.5.9",
+    "piperRevision": "dae4d2d831f9f0817355f7c0e8abd98c2fb0a49d",
+    "androidOrt": "Pinned Maven AAR 1.27.0 unchanged; both native libraries source-built for arm64 and x86_64; only Sherpa/Piper staged; Gradle owns the sole ORT copy",
+    "sourcePatches": "None to Sherpa/Piper/eSpeak/ORT C/C++; local Rust sys build/packaging adapter retained",
+    "historicalEvidence": "Earlier hashes and F-Droid/reproducibility evidence describe their original source commits, not this upgraded runtime; rerun before publication."
+  },
+  "sherpaStage3c": {
+    "status": "Registry integration, pending native platform acceptance",
+    "bindings": "Unchanged published sherpa-onnx/sherpa-onnx-sys 2.0.1; Cargo links overrides and app-owned native preparation/linking/staging; no Cargo patch",
+    "resolvedBuildDependencies": "27 added package identities including registry sys; no prior version replaced. Sys build script is skipped, but artifact inspection finds new jobserver0.1.35 through shared host cc feature unification. Other added transitive packages have no compiled unit; app ZIP retains only its selected deflate backend. Notices conservatively enumerate the resolved graph.",
+    "sourcePatches": "No Sherpa/Piper/eSpeak/ORT C/C++ source patches. Dormant vendor reference remains until platform gates pass.",
+    "evidence": ".cache/sherpa-stage3c-integration-2026-11-15/; exact scope and pending gates in docs/sherpa-no-fork-proof.md"
+  }
 }
