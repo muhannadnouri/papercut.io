@@ -51,6 +51,30 @@ transfer plugin's JVM tests, then uploads that APK. It does not assemble a debug
 The release workflow requires the signed production APK and expected certificate;
 its download filename remains Papercut_vX.Y.Z_android-arm64-v8a.apk.
 
+### Tauri CLI alignment (2026-11-11)
+
+The npm lockfile now pins Tauri CLI 2.12.4, replacing 2.11.4's deprecated
+`STATIC_VCRUNTIME` injection during desktop builds. Rust dependencies, Android
+SDK/NDK pins, shipping features, signing, and tracked generated projects are
+unchanged. The CLI is shared by desktop and mobile packaging, so earlier APK
+reproducibility receipts remain evidence for their recorded inputs, not proof
+for this updated CLI. Refresh release/source-build comparisons before shipping.
+
+The production helper's explicit Android link flags were rechecked against
+cargo-mobile2 0.22.5, used by CLI 2.12.4. Its `android/target.rs` still supplies
+`-landroid`, `-llog`, and `-lOpenSLES`, matching the prior 0.22.4 implementation;
+no remap or link-flag change is needed. Linux/Android build checks are separate
+from Windows/macOS/iOS CI and installed-device acceptance.
+
+Local validation on `task/build-warning-cleanup`: 27 shipping/build-environment/
+reproducibility-helper tests, 341 native tests (5 ignored), and all 9 Android
+discovery JVM tests pass. `npm run desktop` produces AppImage, DEB, and RPM;
+`npm run android:apk:native-tts` produces the debug APK using the existing pinned
+NDK installation. Both logs omit the deprecated runtime and unused `SERVICE`
+warnings. Locale/type/frontend/search-index checks run through the build hooks.
+Existing Vite size and Gradle/test deprecation warnings remain outside this
+cleanup. No production APK comparison, signing, or physical-device test was run.
+
 ### CI scope and timing
 
 The [mobile-scope baseline run](https://github.com/muhannadnouri/papercut.io/actions/runs/41739896570/job/126282579237)

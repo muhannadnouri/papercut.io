@@ -1555,6 +1555,11 @@ The WebView neither opens sockets nor parses DNS packets. Apple/Windows system
 API calls and Linux D-Bus stay in platform-specific Rust modules; Android alone
 needs the Kotlin bridge. [Tauri mobile plugin guide](https://v2.tauri.app/develop/plugins/develop-mobile/)
 
+The Rust `SERVICE` constant is compiled only for its Linux/Apple consumers and
+Unix host tests of the Apple adapter. Android uses the Kotlin NSD service type;
+Windows uses its native fully qualified DNS name. This avoids unused-constant
+warnings without changing service names, discovery behavior, or bridge payloads.
+
 #### Endpoints, Port and Compatibility
 
 - Use **TCP 53318** as Papercut's default, distinct from LocalSend's 53317. It is
