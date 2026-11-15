@@ -2,7 +2,8 @@
 
 Status: Stages 1–3a accepted; the owner reports Stage 3b smoke tests pass.
 Stage 3c.1 proof and Stage 3c.2 local smokes are accepted. The registry
-integration is being checkpointed; audit/native platform gates remain pending. Stages 4–5 not started. Owner direction
+integration is checkpointed at `a5f3d86`; the separate three-crate audit repair
+passes local checks. Native platform gates remain pending until PR preparation. Stages 4–5 not started. Owner direction
 updated November 15, 2026 (fork-free integration and Cargo invocation contract). Research baseline: local `main` at `6baf1858`, Sherpa
 1.13.4. Stage 3b working-tree runtime: 2.0.1, subject to the platform/human gates below.
 
@@ -12,6 +13,12 @@ This is the implementation and human-review contract for this work. The
 monitoring; [Android production packaging](android-production-packaging.md)
 describes source builds, notices and distribution evidence. Proposed behavior
 here must not be represented as shipped or validated until its gate passes.
+
+Current scheduling decision (owner, November 15): paired English/Arabic 7M work
+may proceed after local acceptance. Other native-platform tests are deferred to
+PR preparation and remain mandatory before merge. This supersedes the earlier
+requirement to finish every Gate 3 platform check before starting Stage 4; it does
+not waive native testing, vendor-retirement conditions or speech-quality parity.
 
 ## 1. Agreed outcome and boundaries
 
@@ -824,16 +831,18 @@ Acceptance gates for the human reviewer:
   Arabic preprocessing, an existing completed book, and save/cancel/reopen. If
   using embeddings, activate/query/disable while speech remains usable. Existing
   compatible 2.0.1 partials must not request a new restart for this build-only change.
-- [ ] Resolve four pre-existing Rust audit findings in a separate patch pass.
-  The same CI-pinned audit and existing waivers fail on the exact pre-pass lock;
-  the registry switch adds no finding and does not justify a new waiver.
+- [x] Repair four baseline audit findings separately: Ammonia 4.2.5, quinn-proto
+  0.11.19 and quinn-udp 0.5.16. Audit passes with the existing two waivers; native
+  and default tests pass. No other package version/dependency reference changes.
 - [ ] Accept real Windows MSVC, Intel/Apple Silicon macOS and iOS SDK builds,
   installed-app loading, minimum macOS 15 execution and Android device/emulator
   inference. Local target metadata is not this evidence. CI has not been dispatched.
 - [ ] Remove the dormant tracked vendor crate after the replacement's platform
   gates pass. Exclude `src-tauri/vendor/sherpa-onnx-sys/PAPERCUT.md` from commits;
   clean its obsolete manifest include with the retired crate. Keep rationale here.
-- [ ] Accept replacement smokes and Gate 3, then explicitly authorize Stage 4.
+- [x] Owner accepts replacement smokes and allows paired Stage 4 work after local
+  acceptance. Deferred native qualification and vendor retirement remain PR/merge
+  gates; current physical-device quality acceptance is not inferred.
 
 Suggested commit for the pending Stage 3b + 3c set: `feat(tts): upgrade Sherpa with registry-based native builds`
 
@@ -846,6 +855,9 @@ Suggested commit for the pending Stage 3b + 3c set: `feat(tts): upgrade Sherpa w
 > Four unchanged baseline audit findings and native SDK/device gates remain open.
 
 ### Stage 4 — Add both small models and their selection UX
+
+Scheduling: owner permits local paired-model work before deferred native platform
+qualification. Carry the remaining Gate 3 platform checks into PR/merge acceptance.
 
 Scope: English Kokoro 7M and Arabic Nabra 7M, using the existing family, installer,
 preview, save and playback contracts. Both must qualify. No defaults move from
@@ -982,7 +994,7 @@ Separate logical/design acceptance from outstanding platform execution.
 | 3a. Simple partial-save restart | Accepted | `31fa781f5ecb4f1f4989087b38fbf7b8772f953f`; revised handoff above | Owner, November 12: all smoke tests pass; proceed to 3b. No unreported per-device results implied. |
 | 3b. Existing-roster runtime/frontend upgrade | Awaiting human review | Uncommitted working tree after `31fa781f`; handoff/evidence below | Owner, November 15: all requested smoke tests pass; fork-free replacement requested before more feature work. Remaining platform/minimum-OS gates are not asserted passed. |
 | 3c.1. Fork-free build proof | Accepted for integration | Isolated registry export after `31fa781f`; [report](sherpa-no-fork-proof.md) | Owner authorized production integration November 15; frozen proof retains its documented platform limits. |
-| 3c.2. Production replacement/qualification | Local candidate ready; gates pending | Registry bindings + app-owned build plumbing; current-pass evidence in integration report | Owner smokes, four unchanged baseline audit findings, native SDK/minimum-OS/device gates and dormant vendor retirement remain before Stage 4. |
+| 3c.2. Production replacement/qualification | Owner local smokes passed; native gates deferred | Checkpoint `a5f3d86`; separate three-crate security repair passes audit and local tests | Owner permits paired 7M work after local acceptance. Native SDK/minimum-OS/device qualification and dormant vendor retirement remain PR/merge gates. |
 | 4. Paired small-model addition | Not started | — | — |
 | 5. Device/release acceptance | Not started | — | — |
 

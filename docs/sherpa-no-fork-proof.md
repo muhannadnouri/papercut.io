@@ -4,13 +4,64 @@ Status: **production integration candidate; qualification pending**, November 15
 2026. The owner accepted the bounded proof and authorized this integration after
 Stage 3b smokes passed. Cargo now uses unchanged registry bindings; the unused
 vendor reference stays until native platform gates pass. No 7M models are added.
-Base: `task/sherpa-onnx`, HEAD `31fa781f5ecb4f1f4989087b38fbf7b8772f953f`;
-The owner reports Stage 3c.2 smokes pass. This integration is being checkpointed
-before a separate security patch pass. `PAPERCUT.md` remains excluded.
-Native tests on the other platforms are deferred by the owner until PR preparation;
-that scheduling decision does not waive the qualification or vendor-retirement gates.
+Checkpoint: `a5f3d862f99b1f81b51f8329dddace74526e2fef` on `task/sherpa-onnx`.
+The owner reports Stage 3c.2 smokes pass. `PAPERCUT.md` remains excluded.
+Other native-platform tests are deferred by the owner until PR preparation;
+qualification and vendor retirement remain PR/merge gates. The owner explicitly
+allows paired English/Arabic 7M work after local acceptance, before those deferred
+tests; this changes scheduling, not the required platform or speech-quality gates.
 
-## Production integration — November 15
+## Security patch pass — November 15
+
+The smoke-passed TTS integration was checkpointed separately before these updates:
+
+| Package | Before | After | Advisory |
+| --- | --- | --- | --- |
+| ammonia | 4.2.4 | 4.2.5 | RUSTSEC-2026-0533 |
+| quinn-proto | 0.11.18 | 0.11.19 | RUSTSEC-2026-0523, RUSTSEC-2026-0524 |
+| quinn-udp | 0.5.14 | 0.5.16 | RUSTSEC-2026-0538 |
+
+The manifest raises Ammonia's minimum to 4.2.5; Quinn stays transitive in the lock.
+Only these three versions/checksums change. Cargo's initial update also rewrote
+unrelated dependency references; existing compatible references were preserved
+and validated with `cargo metadata --locked`. No package additions, broad update,
+new override, upstream source modification or new audit waiver is introduced.
+
+The primary RustSec records and downloaded crate sources identify these as the
+patched releases: [Ammonia](https://rustsec.org/advisories/RUSTSEC-2026-0533),
+[Quinn stream limits](https://rustsec.org/advisories/RUSTSEC-2026-0523),
+[Quinn Retry tokens](https://rustsec.org/advisories/RUSTSEC-2026-0524), and
+[Quinn UDP receive handling](https://rustsec.org/advisories/RUSTSEC-2026-0538).
+The existing reader sanitizer policy remains unchanged; it already excludes the
+raw-text gadget tags described by the Ammonia advisory. No Quinn reverse dependency
+appears in the checked host native/provider normal graph; fixing its lock entries
+does not enable HTTP/3 or imply that a reachable QUIC exploit was reproduced.
+
+Local validation: CI-pinned cargo-audit 0.22.2 passes with the same two existing
+waivers and 12 warning-only findings; no new waiver. Native/provider tests pass
+364/10 ignored; default tests pass 293/4 ignored, including reader sanitization,
+HTML/EPUB/bundle handling and loopback network cases. Notices are regenerated and
+checked; source assembly and the inventory lock hash are refreshed. Evidence:
+`.cache/sherpa-security-2026-11-15/`. These checks do not execute QUIC protocol
+regressions or prove the deferred native platforms.
+
+Reviewer gates for this pass:
+
+- [ ] Review the three-crate-only lock delta and unchanged audit waivers.
+- [ ] Smoke an HTML/EPUB import, reader text/images/footnotes and an existing
+  audiobook's playback/import/export; confirm normal content remains usable.
+- [ ] Accept local security work, then start paired 7M qualification. Native
+  Windows/macOS/iOS, installed-app/minimum-OS and device evidence remains required
+  at PR/merge time. Keep the inactive vendor reference until that qualification.
+
+Suggested security commit: `fix(deps): patch sanitizer and QUIC audit findings`
+
+> Update Ammonia to 4.2.5, quinn-proto to 0.11.19 and quinn-udp to 0.5.16 without
+> changing other package versions or dependency references. Refresh notices/source
+> inventory and record owner smoke acceptance and PR-time platform gates. Audit
+> and existing native/default regressions pass; no new waiver or application logic.
+
+## Production integration — November 15 (checkpoint evidence)
 
 The active `[patch.crates-io]` entry is removed. Root `.cargo/config.toml` supplies
 target links overrides; `src-tauri/build/sherpa.rs` selects the existing native
@@ -79,15 +130,17 @@ Human gates remaining for this candidate:
   playback/export and save/cancel/reopen smokes. With embeddings enabled, query
   while speech is usable. This build-only change must not reset compatible
   2.0.1 partials; model IDs and synthesis provenance are unchanged.
-- [ ] Resolve the four baseline audit vulnerabilities without adding blanket waivers.
+- [x] Resolve the four baseline audit vulnerabilities with the separate three-crate
+  security pass above; existing warning-only findings and two waivers are unchanged.
 - [ ] Accept real Windows MSVC, Intel/Apple Silicon macOS and iOS SDK builds,
   installed-app loading, macOS 15 minimum execution and Android inference. No
   remote CI workflow has been dispatched by this pass.
 - [ ] Retire the dormant tracked vendor crate only after its replacement passes
   those platform gates. Keep the excluded local `PAPERCUT.md` out of commits.
-- [ ] Accept Gate 3 before English Kokoro 7M and Arabic Nabra 7M are added together.
+- [x] Owner allows paired English Kokoro 7M / Arabic Nabra 7M work after local
+  acceptance; deferred native qualification stays a PR/merge gate.
 
-Suggested commit for the uncommitted Stage 3b + 3c set after `31fa781f`: `feat(tts): upgrade Sherpa with registry-based native builds`
+Checkpoint commit `a5f3d86` (Stage 3b + 3c after `31fa781f`): `feat(tts): upgrade Sherpa with registry-based native builds`
 
 Description: Upgrade the existing roster to exact Sherpa 2.0.1 with app-owned
 Piper 1.5.9 phonemization and unchanged published Rust bindings. Replace the sys
@@ -99,8 +152,8 @@ packaging, CI, notices and handoff gates. Retain the unused vendor reference unt
 native qualification passes. Local checks pass within the stated scopes; four
 baseline audit findings and SDK/device gates remain open.
 
-The engine/provenance changes in that description belong to the still-uncommitted
-Stage 3b upgrade. Stage 3c's build-only changes do not advance the 2.0.1 synthesis
+The engine/provenance changes in that description belong to the Stage 3b
+portion of the checkpoint. Stage 3c's build-only changes do not advance the 2.0.1 synthesis
 revision again or reset compatible 2.0.1 partials.
 
 ## Historical bounded proof (Stage 3c.1)

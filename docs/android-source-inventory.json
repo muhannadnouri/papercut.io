@@ -7,14 +7,14 @@
       "native-tts-shared",
       "experimental-search-embeddings"
     ],
-    "status": "Stage 3c.2 registry integration candidate; native platform/device/reproducibility gates remain pending.",
+    "status": "Stage 3c.2 owner smokes passed; three-crate security patch candidate. Other native-platform qualification deferred to PR preparation; historical device/reproducibility records remain scoped to their source revisions.",
     "rust": "Resolved Android metadata candidates; runtime/build/dev metadata may coexist. Notices conservatively enumerate the resolved graph, not every compiled/shipped package. Review native subprojects separately.",
     "npm": "Production lockfile candidates, not a bundler-level inclusion claim. Native/WASM/model/data evidence is in the Android guide.",
     "reviewedOn": "2026-11-15",
     "method": "Static review evidence for native/WASM/model/data licensing decisions. Bulk Rust/npm/Maven dependency listings are regenerated on demand with standardRefresh instead of being stored here. inputHashes anchor this snapshot to the reviewed lockfiles; refresh after dependency changes."
   },
   "inputHashes": {
-    "cargoLock": "8e4b1c27d08be5167369a668903573916920febe391a720b20879c9a86736579",
+    "cargoLock": "9b21343a52a85232b05e2fc59228500836f7de89db7a6f6afc279b8309f7f53b",
     "packageLock": "6f38534a175a28b08262b5a276335daa3b7a0144a6bd3c2c4f4fa4b1ff788d43"
   },
   "standardRefresh": {
@@ -1022,5 +1022,17 @@
     "resolvedBuildDependencies": "27 added package identities including registry sys; no prior version replaced. Sys build script is skipped, but artifact inspection finds new jobserver0.1.35 through shared host cc feature unification. Other added transitive packages have no compiled unit; app ZIP retains only its selected deflate backend. Notices conservatively enumerate the resolved graph.",
     "sourcePatches": "No Sherpa/Piper/eSpeak/ORT C/C++ source patches. Dormant vendor reference remains until platform gates pass.",
     "evidence": ".cache/sherpa-stage3c-integration-2026-11-15/; exact scope and pending gates in docs/sherpa-no-fork-proof.md"
+  },
+  "sherpaSecurityPass": {
+    "date": "2026-11-15",
+    "updates": {
+      "ammonia": "4.2.4 -> 4.2.5",
+      "quinn-proto": "0.11.18 -> 0.11.19",
+      "quinn-udp": "0.5.14 -> 0.5.16"
+    },
+    "lockScope": "Only these three versions/checksums change; existing dependency references retained, validated with Cargo --locked.",
+    "runtime": "No active Quinn reverse dependency in the checked host native/provider normal graph; lockfile advisories fixed without enabling HTTP/3. Sanitizer allowlist unchanged.",
+    "evidence": ".cache/sherpa-security-2026-11-15/",
+    "qualification": "Other platform SDK/device tests deferred to PR time; not waived."
   }
 }
