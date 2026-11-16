@@ -1473,6 +1473,30 @@ ESLint and whitespace checks pass. Existing browser/child-process fixtures requi
 an unrestricted local run after sandbox failures. Hosted CI on this fix remains
 pending; runtime/model behavior and prior native qualification are unchanged.
 
+macOS verifier follow-up, November 16: the arm64 job `133501081780` in run
+`43923027594` built the app and passed transfer-adapter tests, then failed only
+because the verifier unconditionally required a versioned ONNX Runtime filename.
+The owner subsequently confirmed the Intel macOS job failed at the same check.
+Both architectures require fresh CI validation on the fix revision; neither is
+marked accepted by the local verifier fixtures. Both committed SHA/size-pinned macOS 2.0.1 shared archives were inspected:
+arm64 and Intel contain `libonnxruntime.dylib`, and their Mach-O install names and
+ORT dependency references use that unversioned name. The shared verifier applies
+the same obsolete filename assertion to either architecture.
+
+Remove only that unconditional assertion. Keep required library checks, the
+actual `otool -L` dependency walk and optional strict signature checks. A referenced
+versioned name still must exist; do not invent an unused compatibility alias.
+Six host-side fixtures exercise the real verifier with stubbed macOS commands:
+unversioned and complete versioned layouts pass, while a missing referenced alias,
+missing ORT entry point, missing Piper dependency and failed signature are rejected.
+These fixtures do not establish real macOS loading/signing or installed-app acceptance.
+Archive inspection evidence: `.cache/sherpa-stage4c-2026-11-16/macos-dylib-layout.json`.
+Validation: the exact frontend CI command passes 100 files / 813 tests with one
+existing skip; all six new verifier tests, changed-file ESLint and whitespace
+checks pass. Child-process fixtures required execution outside the sandbox.
+No native build/link/staging logic or runtime pins changed. After pushing this fix,
+require both architecture jobs to pass on the new revision before closing the gate.
+
 Publication and human review gate (before merge/ship):
 
 - [ ] Review `release-final/` in the packet, `SHA256SUMS.txt`, cards, provenance,

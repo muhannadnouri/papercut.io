@@ -20,7 +20,7 @@ This file records what Papercut still needs before macOS releases stop showing G
 
 Use `branch-release-v1.3.3` for the macOS dylib packaging patch release. Do not reuse the v1.3.0, v1.3.1, or v1.3.2 tags if they were already published or downloaded; ship v1.3.3 so users and GitHub Release assets have a clean immutable version.
 
-Before publishing v1.3.3, confirm both macOS release jobs pass the `Verify macOS bundled runtime libraries` step. That step runs `scripts/desktop/verify-macos-bundle-libs.js`, checks required dylibs, checks the versioned `libonnxruntime.*.dylib` dependency, walks `otool -L` dependencies for the app and every bundled dylib, and verifies dylib signatures in the protected release job before DMG notarization/upload. After release upload, smoke-test the Apple Silicon DMG on MacInCloud by dragging `Papercut.app` out of the mounted DMG and launching it from Terminal.
+Before publishing v1.3.3, confirm both macOS release jobs pass the `Verify macOS bundled runtime libraries` step. That step runs `scripts/desktop/verify-macos-bundle-libs.js`, checks required dylibs, requires any versioned `libonnxruntime.*.dylib` name actually referenced by Mach-O, walks `otool -L` dependencies for the app and every bundled dylib, and verifies dylib signatures in the protected release job before DMG notarization/upload. After release upload, smoke-test the Apple Silicon DMG on MacInCloud by dragging `Papercut.app` out of the mounted DMG and launching it from Terminal.
 
 ## Sources
 

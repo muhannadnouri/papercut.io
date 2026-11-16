@@ -17,7 +17,6 @@ const resourcesDir = join(contentsDir, "Resources")
 const appBinary = join(macosDir, "app")
 
 const requiredDylibs = ["libsherpa-onnx-c-api.dylib", "libonnxruntime.dylib"]
-const versionedOnnxRuntime = /^libonnxruntime\.\d.*\.dylib$/
 
 const failures = []
 
@@ -145,10 +144,8 @@ function main() {
     }
   }
 
-  if (!dylibNames.some((name) => versionedOnnxRuntime.test(name))) {
-    fail("missing versioned ONNX Runtime dylib matching " + versionedOnnxRuntime)
-  }
-
+  // Sherpa 2 uses an unversioned ORT install name; require versioned aliases only
+  // when the actual Mach-O dependency walk below references them.
   console.log("[verify-macos-bundle-libs] bundled dylibs:")
   for (const name of dylibNames) {
     console.log("  " + name)
