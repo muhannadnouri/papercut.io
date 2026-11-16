@@ -26,8 +26,8 @@ Desktop native libraries are official checksum-pinned archives. iOS uses separat
 Sherpa/ORT static XCFramework archives plus unchanged pinned upstream Piper source
 built by its iOS recipe. Cargo now uses unchanged published Rust bindings with
 root `.cargo/config.toml` links overrides; `src-tauri/build/` owns pinned archive
-preparation, platform linking and runtime staging. The dormant vendor directory
-is retained only as a reference until native qualification passes. The
+preparation, platform linking and runtime staging. The inactive tracked vendor
+crate has been retired after platform build/inference qualification. The
 [fork-free integration report](sherpa-no-fork-proof.md) records the evidence and
 remaining maintenance. No upstream C/C++ source is patched.
 Linux/macOS resource staging is versioned (`*-shared-libs-2.0.1`) so stale 1.13.4

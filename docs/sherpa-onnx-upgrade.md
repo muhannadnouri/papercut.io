@@ -7,9 +7,10 @@ passes local checks and owner smokes. Stage 4a paired listening is accepted with
 the explicit English quality tradeoff below; Stage 4b native frontends and owner smoke tests are accepted.
 Stage 4c model artifacts are published and verified immutable. The owner accepts
 the current AppImage smoke tests, including the English synthesis follow-ups.
-Post-publication hosted `full` validation and the remaining detailed release
-checklist below remain open. Stage 5 device acceptance remains pending.
-Native platform gates remain mandatory at PR preparation. Owner direction updated
+Hosted public-asset validation and platform build/provider inference CI pass.
+The inactive tracked sys vendor crate is retired. Android smoke acceptance is
+recorded; remaining installed-app/minimum-OS/manual quality checks are deferred
+by the owner until after merge and before the app release (Stage 5). Owner direction updated
 November 16, 2026. Research baseline: local `main` at `6baf1858`, Sherpa 1.13.4.
 Current branch runtime: 2.0.1, subject to the platform/human gates below.
 
@@ -26,6 +27,13 @@ PR preparation and remain mandatory before merge. This supersedes the earlier
 requirement to finish every Gate 3 platform check before starting Stage 4; it does
 not waive native testing or vendor-retirement conditions. The later explicit
 English 7M quality tradeoff is scoped below; existing-model quality gates stand.
+
+Latest owner scheduling decision, November 16: Android generation and legacy
+import/playback smokes pass. Installed iOS/Windows/macOS tests move to post-merge,
+pre-application-release acceptance. With platform build/inference CI verified,
+the owner authorizes retirement of the inactive tracked sys crate now. This
+supersedes earlier pre-merge manual/vendor scheduling statements below; historical
+evidence is retained, but unperformed manual tests are not marked passed.
 
 ## 1. Agreed outcome and boundaries
 
@@ -846,7 +854,7 @@ Acceptance gates for the human reviewer:
 - [ ] Accept real Windows MSVC, Intel/Apple Silicon macOS and iOS SDK builds,
   installed-app loading, minimum macOS 15 execution and Android device/emulator
   inference. Local target metadata is not this evidence. CI has not been dispatched.
-- [ ] Remove the dormant tracked vendor crate after the replacement's platform
+- [x] Remove the dormant tracked vendor crate after the replacement's platform
   gates pass. Exclude `src-tauri/vendor/sherpa-onnx-sys/PAPERCUT.md` from commits;
   clean its obsolete manifest include with the retired crate. Keep rationale here.
 - [x] Owner accepts replacement smokes and allows paired Stage 4 work after local
@@ -1521,6 +1529,37 @@ Status at inspection: Linux, Windows, Intel macOS, frontend checks and SILMA job
 passed; Apple Silicon macOS was cancelled; Android was still running; iOS failed
 as above. Do not infer either cancellation or pending jobs as platform acceptance.
 
+Vendor-retirement checkpoint, November 16: all platform builds pass at
+`ace75a81`. Explicit shared-runtime inference passes on Linux, Windows, both
+macOS architectures, Android emulator and iOS simulator; the Intel retry
+[job 133626887858](https://github.com/muhannadnouri/papercut.io/actions/runs/43948378908/job/133626887858)
+completed DMG upload and FP32/INT8 lifecycle checks. Hosted model downloads and
+all 12 Sherpa entries were separately qualified by
+[full run 43822702950](https://github.com/muhannadnouri/papercut.io/actions/runs/43822702950).
+
+Remove all 21 tracked files under the unused sys vendor directory, retaining the
+excluded private note. No active manifest/build-script include points there;
+remove the obsolete vendor path in CI change detection. Cargo.lock, runtime/model
+pins, source/notice inventory and generated notices stay unchanged because the
+active registry dependency graph and packaged assets do not change.
+
+The owner reports Android English/Arabic generation for existing and new models,
+and import/playback of previous-version audiobooks. Exact device coverage and
+EPUB spelling differences are not independently qualified; no pronunciation
+policy changes are part of retirement. Remaining manual iOS/Windows/macOS and
+minimum-OS tests are post-merge/pre-app-release gates by explicit owner direction.
+Local retirement verification: registry metadata still resolves sys 2.0.1 from
+crates.io with an unchanged lockfile. Native tests pass **366/8 ignored**, native
+build-plumbing tests **4/4**, and source-archive/notice/path tests **8/8**. The
+notice generator's `--check` confirms generated notices remain current. YAML and
+whitespace checks pass. Native loopback fixtures and the notice reader's `tar`
+subprocess required execution outside the restricted sandbox. Private-file hashes,
+including `PAPERCUT.md`, are unchanged. Evidence is retained under
+`.cache/sherpa-stage4c-2026-11-16/vendor-retirement-*`.
+
+After this cleanup, rerun CI and complete PR review before merging. Do not infer
+application release/signing/version-bump authorization.
+
 Publication and human review gate (before merge/ship):
 
 - [ ] Review `release-final/` in the packet, `SHA256SUMS.txt`, cards, provenance,
@@ -1532,7 +1571,7 @@ Publication and human review gate (before merge/ship):
 - [x] With GitHub immutable releases enabled, publish
   `tts-distill-7m-fp32-2026-11-15` as **non-latest**. Publication requires separate
   owner authorization. A changed artifact requires a new release identity.
-- [ ] Run `check-model-downloads.js` metadata and fresh full-download checks, plus
+- [x] Run `check-model-downloads.js` metadata and fresh full-download checks, plus
   production `model_archive_smoke`, against the public assets. The local complete
   packet is not proof of hosted availability/immutability. Do not bypass this gate.
 - [ ] In a clean app profile, select/download/preview both models, check sole voice,
@@ -1631,7 +1670,7 @@ every listed file. Avoid whole-branch cherry-picks from earlier Nabra experiment
 | Catalog/download contract | `src-tauri/src/native_tts/engine/models.rs`, `model.rs`, `src-tauri/src/native_tts/types.rs`, `src-tauri/tts/model-manifest.json`, generated metadata in `src-tauri/build.rs`, TS fallback |
 | Native synthesis/preprocessing | `src-tauri/src/native_tts/engine/synth.rs`, `preprocess.rs`, `src-tauri/src/onnx_runtime.rs`, semantic embedding runtime consumers |
 | Resume/identity/bundles | `engine/save.rs`, `manifest.rs`, `cache.rs`, `paths.rs`, `file_commit.rs`, `bundle/`, `src/tts/storage/AudiobookLibrary.ts`, queue/cache/saved-audiobook hooks and native IPC |
-| ABI and platform preparation | `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, `src-tauri/build/`, root `.cargo/config.toml`, `src-tauri/tts/{native,phonemizer}-artifacts.json` (dormant vendor reference pending retirement), `scripts/lib/constants.js`, platform helpers under `scripts/lib/{android,ios,linux,macos,desktop}/` |
+| ABI and platform preparation | `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, `src-tauri/build/`, root `.cargo/config.toml`, `src-tauri/tts/{native,phonemizer}-artifacts.json`, `scripts/lib/constants.js`, platform helpers under `scripts/lib/{android,ios,linux,macos,desktop}/` |
 | Android source/distribution | `scripts/fdroid/build-android-source-libs.js`, `scripts/android/prepare-license-notices.js`, `assemble-source-archive.js`, verification tools, Gradle Maven ORT dependency, licensing outputs and F-Droid metadata as applicable |
 | Integration evidence/docs | Existing CI/release/model-download workflows, `docs/kokoro-tts.md`, `docs/model-download-maintenance.md`, `docs/android-production-packaging.md`, F-Droid guide and README only where behavior changes |
 
@@ -1649,11 +1688,11 @@ Separate logical/design acceptance from outstanding platform execution.
 | 3a. Simple partial-save restart | Accepted | `31fa781f5ecb4f1f4989087b38fbf7b8772f953f`; revised handoff above | Owner, November 12: all smoke tests pass; proceed to 3b. No unreported per-device results implied. |
 | 3b. Existing-roster runtime/frontend upgrade | Owner local smokes passed; native gates deferred | Checkpoint `a5f3d86`; handoff/evidence below | Owner, November 15: all requested smoke tests pass; fork-free replacement requested before more feature work. Remaining platform/minimum-OS gates are not asserted passed. |
 | 3c.1. Fork-free build proof | Accepted for integration | Isolated registry export after `31fa781f`; [report](sherpa-no-fork-proof.md) | Owner authorized production integration November 15; frozen proof retains its documented platform limits. |
-| 3c.2. Production replacement/qualification | Owner local smokes passed; native gates deferred | Checkpoint `a5f3d86`; separate three-crate security repair passes audit and local tests | Owner permits paired 7M work after local acceptance. Native SDK/minimum-OS/device qualification and dormant vendor retirement remain PR/merge gates. |
+| 3c.2. Production replacement/qualification | Platform build/provider inference CI passes; tracked vendor retired | Original integration `a5f3d86`; verified build `43940474695` and inference `43948378908` including successful Intel retry | Owner authorizes vendor retirement; installed iOS/Windows/macOS/minimum-OS manual checks deferred post-merge/pre-app-release. |
 | 4a. Paired artifact/frontend qualification | Accepted | [Report](#stage-4a--paired-qualification-record), pinned inputs and machine-local listening packet | Owner, November 15: both approved; explicit English crispness/robotic-quality tradeoff for smaller option; Arabic competitive with Kareem, preserve default diacritization. |
 | 4b. Native frontend integration | Accepted | Same shared engine; reserved IDs, pinned Misaki/Piper adapter and focused guards | Owner, November 15: requested smoke tests pass; commit checkpoint. No catalog exposure. |
-| 4c. Paired artifact/installer/catalog integration | Published immutable; local owner smokes accepted; hosted full/release checklist open | Exact paired archives/source companion, catalog/installer/UI, shared draft workflow and scoped synthesis fixes | Owner, November 16: available AppImage smoke tests pass; commit checkpoint authorized. Post-publication full and remaining native/device gates are not inferred passed. |
-| 5. Device/release acceptance | Not started | — | — |
+| 4c. Paired artifact/installer/catalog integration | Published immutable; hosted full and owner AppImage/Android generation smokes pass | Public artifact run `43822702950`; subsequent platform build/provider inference qualification | Remaining installed-platform/device quality checks are tracked under Stage 5; completed CI is not a listening verdict. |
+| 5. Device/release acceptance | Android generation/import smokes accepted; other manual checks deferred | Platform build/inference CI passes; sys vendor retired | Owner defers installed iOS/Windows/macOS and minimum-OS acceptance until post-merge/pre-app-release. |
 
 At every handoff, update this record and provide:
 

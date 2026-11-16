@@ -209,8 +209,9 @@ References: [GitHub immutable releases](https://docs.github.com/en/code-security
 The working-tree registry integration uses unchanged published Sherpa Rust crates.
 Root `.cargo/config.toml` overrides the sys build script; `src-tauri/build/` owns
 platform linking, pinned archive preparation and runtime staging. No upstream
-Sherpa/Piper/eSpeak/ORT implementation is patched. The dormant vendor directory
-is a qualification reference and is not a Cargo dependency.
+Sherpa/Piper/eSpeak/ORT implementation is patched. The inactive tracked vendor
+crate has been removed; future upgrades use the registry bindings and app-owned
+integration rather than a vendored sys fork.
 
 For a later native runtime upgrade, review the exact Cargo wrapper/sys version and
 lock, the release-name mapping in `build/sherpa.rs`, `tts/native-artifacts.json`,

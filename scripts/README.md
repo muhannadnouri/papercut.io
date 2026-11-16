@@ -105,8 +105,8 @@ and links the pinned libraries. Run normal commands from the repo root. External
 Cargo callers must pass that file with Cargo `--config`, separately from Tauri's
 JSON config. Set `CARGO_TARGET_DIR` for custom desktop bundle caches; optional
 `SHERPA_ONNX_LIB_DIR` / `PIPER_PHONEMIZE_LIB_DIR` inputs are validated before use.
-The dormant vendor reference is not used by Cargo and stays until platform gates
-pass. `cargo test --manifest-path src-tauri/Cargo.toml --locked --features
+The inactive tracked vendor reference has been retired after platform CI and
+inference qualification; no local sys crate is maintained. `cargo test --manifest-path src-tauri/Cargo.toml --locked --features
 native-tts-shared --test native_build` checks the shared build plumbing offline.
 
 Opt-in local speech corpus (all current roster model directories required):

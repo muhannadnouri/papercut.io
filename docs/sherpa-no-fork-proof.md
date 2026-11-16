@@ -1,15 +1,43 @@
 # Sherpa build integration without a library fork
 
-Status: **production integration candidate; qualification pending**, November 15,
-2026. The owner accepted the bounded proof and authorized this integration after
-Stage 3b smokes passed. Cargo now uses unchanged registry bindings; the unused
-vendor reference stays until native platform gates pass. No 7M models are added.
-Checkpoint: `a5f3d862f99b1f81b51f8329dddace74526e2fef` on `task/sherpa-onnx`.
-The owner reports Stage 3c.2 smokes pass. `PAPERCUT.md` remains excluded.
-Other native-platform tests are deferred by the owner until PR preparation;
-qualification and vendor retirement remain PR/merge gates. The owner explicitly
-allows paired English/Arabic 7M work after local acceptance, before those deferred
-tests; this changes scheduling, not the required platform or speech-quality gates.
+Current status: **tracked vendor retired**, November 16, 2026. Platform build
+and shared-runtime provider inference CI pass; installed iOS/Windows/macOS and
+minimum-OS manual checks are deferred by the owner to post-merge/pre-app-release.
+The excluded private `PAPERCUT.md` remains local and unchanged.
+
+The original integration proof was checkpointed at
+`a5f3d862f99b1f81b51f8329dddace74526e2fef` on `task/sherpa-onnx` after the owner
+accepted Stage 3b/3c smokes. That checkpoint activated unchanged registry bindings
+and app-owned native preparation, and introduced no 7M model choices. Paired models
+were added in subsequent stages documented in the upgrade plan. The original
+proof and its historical gates remain below; the retirement checkpoint records
+the later evidence and superseding owner scheduling decision.
+
+## Retirement checkpoint — November 16
+
+The tracked local sys crate is now removed. The registry integration below was
+already active before deletion; no dependency/runtime pin or native linking
+behavior changes in this cleanup. Remove the obsolete vendor-specific CI path
+trigger as well; build/native module triggers remain active.
+
+[PR build run 43940474695](https://github.com/muhannadnouri/papercut.io/actions/runs/43940474695)
+passes every platform build, including both macOS verifiers and unsigned iOS device
+and simulator builds. The explicit inference run
+[43948378908](https://github.com/muhannadnouri/papercut.io/actions/runs/43948378908)
+passes Linux, Windows, Apple Silicon macOS, Android emulator and iOS simulator
+inference; [Intel retry 133626887858](https://github.com/muhannadnouri/papercut.io/actions/runs/43948378908/job/133626887858)
+passes both FP32 and INT8 provider lifecycle/index-query checks after an artifact
+upload DNS failure on its previous attempt.
+
+The owner accepts Android English/Arabic generation with existing/new models and
+legacy audiobook import/playback. Installed iOS/Windows/macOS smoke tests and
+minimum-OS acceptance are explicitly deferred to **post-merge, pre-app-release**;
+they are not inferred passed from CI. This later owner decision supersedes the
+original pre-merge manual gates in the historical proof below. The excluded local
+`PAPERCUT.md` is retained byte-for-byte and is not shipped or committed.
+
+The remaining sections preserve the original proof/checkpoint history. References
+to pending retirement or earlier qualification limits describe those dated stages.
 
 ## Security patch pass — November 15
 
@@ -139,7 +167,7 @@ Human gates remaining for this candidate:
 - [ ] Accept real Windows MSVC, Intel/Apple Silicon macOS and iOS SDK builds,
   installed-app loading, macOS 15 minimum execution and Android inference. No
   remote CI workflow has been dispatched by this pass.
-- [ ] Retire the dormant tracked vendor crate only after its replacement passes
+- [x] Retire the dormant tracked vendor crate only after its replacement passes
   those platform gates. Keep the excluded local `PAPERCUT.md` out of commits.
 - [x] Owner allows paired English Kokoro 7M / Arabic Nabra 7M work after local
   acceptance; deferred native qualification stays a PR/merge gate.

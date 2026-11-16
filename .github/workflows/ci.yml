@@ -146,7 +146,6 @@ jobs:
               src-tauri/plugins/* | \
               src-tauri/src/* | \
               src-tauri/tts/* | \
-              src-tauri/vendor/sherpa-onnx-sys/* | \
               scripts/lib/* | \
               scripts/search/build-search-index.js | \
               scripts/fdroid/source-build.js)
