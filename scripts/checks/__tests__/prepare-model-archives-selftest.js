@@ -1,3 +1,4 @@
+// Keep the -selftest suffix: these node:test checks run explicitly in CI, outside Vitest.
 import assert from "node:assert/strict"
 import { createHash } from "node:crypto"
 import {

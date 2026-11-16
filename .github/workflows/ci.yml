@@ -245,8 +245,8 @@ jobs:
       - name: Chromium fixture tests
         run: npm test -- --no-file-parallelism .browser.test.ts
 
-      - name: Model download monitor regression check
-        run: node --test scripts/checks/__tests__/check-model-downloads-selftest.js
+      - name: Model archive and download monitor regression checks
+        run: node --test scripts/checks/__tests__/prepare-model-archives-selftest.js scripts/checks/__tests__/check-model-downloads-selftest.js
 
       - name: Mobile provider runner regression check
         run: node --test scripts/checks/__tests__/check-mobile-provider-inference-selftest.mjs

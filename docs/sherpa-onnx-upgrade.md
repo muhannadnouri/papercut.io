@@ -1279,7 +1279,7 @@ signal; other downloader callers retain their previous behavior.
 
 ```sh
 node scripts/checks/prepare-model-archives.js --out /tmp/papercut-distill-assets --check-manifest
-node --test scripts/checks/__tests__/prepare-model-archives.test.js scripts/checks/__tests__/check-model-downloads-selftest.js
+node --test scripts/checks/__tests__/prepare-model-archives-selftest.js scripts/checks/__tests__/check-model-downloads-selftest.js
 ```
 
 `--source-dir` optionally chooses the verified input cache; `--data-dir` optionally
@@ -1458,6 +1458,20 @@ This accepts the requested local smoke checks; it does not substitute for the
 post-publication hosted `full` run, every checklist item below or deferred native
 platform qualification. No new implementation stage, push or CI dispatch is
 started by this checkpoint.
+
+PR CI follow-up, November 16: the frontend job in run `43824607811` discovered
+the Node-runner archive tests through their former `.test.js` suffix. Although
+Node's assertions ran, Vitest correctly reported no Vitest suite. Rename that file
+to `prepare-model-archives-selftest.js` and explicitly execute it with the existing
+Node model-monitor checks in CI. No test is disabled and no global discovery
+exclusion or npm command is added. A new run on the fix revision is needed; retrying
+the old run retains its original test layout. This runner-wiring failure does not
+invalidate the separate hosted model-download/synthesis qualification.
+Validation: the exact frontend CI command passes 99 files / 807 tests with one
+existing skipped test; both Node self-test files pass. YAML parsing, changed-file
+ESLint and whitespace checks pass. Existing browser/child-process fixtures required
+an unrestricted local run after sandbox failures. Hosted CI on this fix remains
+pending; runtime/model behavior and prior native qualification are unchanged.
 
 Publication and human review gate (before merge/ship):
 
