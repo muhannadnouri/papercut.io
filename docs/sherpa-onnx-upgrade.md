@@ -1497,6 +1497,30 @@ checks pass. Child-process fixtures required execution outside the sandbox.
 No native build/link/staging logic or runtime pins changed. After pushing this fix,
 require both architecture jobs to pass on the new revision before closing the gate.
 
+iOS build-phase follow-up, November 16: run `43929545618`, job `133525012920`,
+prepared the versioned simulator libraries correctly but failed when `ort-sys`
+looked in the former unversioned `sherpa-onnx-ios/cargo-libs` directory. The
+committed Xcode Rust phase overwrote the build wrapper's correct environment.
+Both the XcodeGen source and committed `.pbxproj` contained that stale path,
+affecting device as well as simulator builds.
+
+The Xcode phase now resolves its SDK-selected slice through the existing
+`iosSherpaLibDir` helper from the repository root, exports that same path for
+Sherpa and ORT, and aborts on resolution failure. It retains the skip path for an
+already prepared `libapp.a`. No archive pin, linker mode or native library changed.
+Host-side tests execute the real committed phase with a stubbed final Tauri call,
+cover both SDK slices despite stale inherited paths, verify both project definitions
+stay identical, preserve the skip path and reject a missing project root.
+Validation: the frontend CI command passes 101 files / 818 tests with one existing
+skip, including all five new phase tests; changed-file ESLint and whitespace checks
+pass. Existing child-process fixtures required running outside the sandbox.
+These tests do not compile/link with Xcode. Both unsigned simulator and device
+builds, followed by applicable inference checks, remain required on the fix revision.
+
+Status at inspection: Linux, Windows, Intel macOS, frontend checks and SILMA jobs
+passed; Apple Silicon macOS was cancelled; Android was still running; iOS failed
+as above. Do not infer either cancellation or pending jobs as platform acceptance.
+
 Publication and human review gate (before merge/ship):
 
 - [ ] Review `release-final/` in the packet, `SHA256SUMS.txt`, cards, provenance,
