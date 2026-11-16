@@ -767,14 +767,14 @@ mod tests {
             if model.id == super::super::models::KOKORO_7M_MODEL_ID {
                 let frontend = engine.phoneme_adapter.as_ref().unwrap();
                 assert_eq!(
-                    frontend.phonemize("MIA > Archive > Plekhanov").unwrap(),
+                    frontend.phonemize("Library > Section > Chapter").unwrap(),
                     frontend
-                        .phonemize("MIA greater than Archive greater than Plekhanov")
+                        .phonemize("Library greater than Section greater than Chapter")
                         .unwrap()
                 );
                 assert!(generate_audio(
                     &engine,
-                    "MIA > Archive > Plekhanov",
+                    "Library > Section > Chapter",
                     model.default_voice,
                     1.0
                 )

@@ -1419,8 +1419,9 @@ and optionally retry the existing Nabra job to verify retained progress. No
 packaged-app or perceptual acceptance is inferred from these native tests.
 
 English Kokoro 7M follow-up (November 16): the next supplied smoke profile did
-select English Kokoro 7M with Original text. It failed at chunk 1/384,
-`MIA > Archive > Plekhanov`. Misaki emits its unresolved-token sentinel U+2753
+select English Kokoro 7M with Original text. It failed at chunk 1/384 on a
+breadcrumb containing standalone `>` separators. The regression uses the synthetic
+example `Library > Section > Chapter`. Misaki emits its unresolved-token sentinel U+2753
 (`❓`) for a standalone `>` without invoking its unknown-word fallback. The
 symbol is frontend output, not source corruption. The app correctly rejected it
 rather than letting Sherpa silently drop unknown phones.
