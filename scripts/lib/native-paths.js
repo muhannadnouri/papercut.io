@@ -5,7 +5,7 @@ import {
   SRC_TAURI_DIR,
 } from "./paths.js"
 
-// Official wrappers run at ROOT; Cargo resolves relative CARGO_TARGET_DIR there too.
+// Match desktopBuildEnv's ROOT-relative target normalization before Tauri changes cwd.
 export function nativeCacheDir(cache, archive, env = process.env) {
   return resolve(ROOT, env.CARGO_TARGET_DIR || resolve(SRC_TAURI_DIR, "target"), cache, archive, "lib")
 }

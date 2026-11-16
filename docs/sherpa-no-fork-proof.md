@@ -117,6 +117,9 @@ stages adjacent test DLLs, preserving the single-ORT policy.
 Cargo derives cache roots from its actual OUT_DIR, including custom target paths
 and cross builds. Official Node helpers follow `CARGO_TARGET_DIR` and explicit
 native overrides; use that environment variable for a custom desktop bundle root.
+Desktop build/dev wrappers normalize relative values from the repository root
+before launching children, so preliminary Cargo checks and nested Tauri builds
+share the same cache even when their working directories differ.
 Normal wrappers run inside the checkout. External Cargo callers must explicitly
 load root `.cargo/config.toml`, as the owner agreed. No promise is made for arbitrary
 outside-directory manifest calls without that config. macOS Tauri minimum and

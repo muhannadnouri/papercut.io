@@ -1695,6 +1695,33 @@ Separate logical/design acceptance from outstanding platform execution.
 | 4c. Paired artifact/installer/catalog integration | Published immutable; hosted full and owner AppImage/Android generation smokes pass | Public artifact run `43822702950`; subsequent platform build/provider inference qualification | Remaining installed-platform/device quality checks are tracked under Stage 5; completed CI is not a listening verdict. |
 | 5. Device/release acceptance | Android generation/import smokes accepted; other manual checks deferred | Platform build/inference CI passes; sys vendor retired | Owner defers installed iOS/Windows/macOS and minimum-OS acceptance until post-merge/pre-app-release. |
 
+### PR review follow-up — November 16, 2026
+
+Both CodeRabbit findings were confirmed against the current wrappers and tests.
+Desktop build/dev now normalize a supplied `CARGO_TARGET_DIR` to an absolute
+repository-root-relative path in the existing shared environment dispatcher.
+The same environment reaches preliminary Cargo checks, Tauri builds/dev and
+packaging hooks. Default target selection and explicit native/ORT overrides
+remain intact; no dependency, model identity or synthesis revision changes.
+
+The macOS verifier's POSIX shebang-stub suite skips Windows hosts. The related
+Xcode `/bin/sh` execution cases also skip Windows, while the project-source/build
+phase synchronization assertion still runs there. Linux/macOS retain the full
+cases; no new command-runner abstraction or CI matrix is introduced.
+
+Acceptance: focused script tests and lint must pass, actual Cargo metadata must
+resolve a relative target identically from repo root and `src-tauri` after wrapper
+normalization, and normal PR CI must pass after the owner pushes. Installed
+iOS/Windows/macOS and minimum-OS checks remain post-merge/pre-app-release gates.
+This follow-up awaits owner review; it does not change earlier human acceptances.
+
+Local validation: all 31 tests across native paths, shipping entry scripts,
+macOS bundle verification and Xcode phase selection pass on Linux. Cargo metadata
+with a normalized target containing spaces agrees from both working directories
+for all three desktop environment branches (six metadata invocations; not native
+cross-platform builds). Touched JavaScript lint and whitespace checks pass.
+Windows/macOS host execution and hosted CI remain unexecuted for this follow-up.
+
 At every handoff, update this record and provide:
 
 1. Current branch, base/head SHA, dirty files and exact work completed.

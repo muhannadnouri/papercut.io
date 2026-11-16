@@ -103,7 +103,10 @@ record the original build delta and the current registry integration. Root
 `.cargo/config.toml` skips the upstream sys build script; app-owned Rust prepares
 and links the pinned libraries. Run normal commands from the repo root. External
 Cargo callers must pass that file with Cargo `--config`, separately from Tauri's
-JSON config. Set `CARGO_TARGET_DIR` for custom desktop bundle caches; optional
+JSON config. Set `CARGO_TARGET_DIR` for custom desktop bundle caches. Desktop
+build/dev wrappers resolve relative values from the repo root and pass the same
+absolute target to preliminary Cargo checks, Tauri and its packaging hooks;
+unset values retain Cargo's default. Optional
 `SHERPA_ONNX_LIB_DIR` / `PIPER_PHONEMIZE_LIB_DIR` inputs are validated before use.
 The inactive tracked vendor reference has been retired after platform CI and
 inference qualification; no local sys crate is maintained. `cargo test --manifest-path src-tauri/Cargo.toml --locked --features

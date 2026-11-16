@@ -12,13 +12,14 @@ import {
 import { spawnSync } from "node:child_process"
 import { pathToFileURL } from "node:url"
 import {
+  describe,
   expect,
   it,
 } from "vitest"
 
 const verifier = resolve("scripts/desktop/verify-macos-bundle-libs.js")
 
-// Run the real verifier on a disposable bundle; host-independent command stubs model Mach-O/signing results.
+// Run the real verifier on a disposable bundle; POSIX command stubs model Mach-O/signing results.
 function verifyBundle({ versioned = false, missingVersioned = false, missingOrt = false, missingPiper = false, signatures = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), "papercut-macos-verifier-"))
   try {
@@ -81,37 +82,40 @@ for(const dep of deps[path.basename(binary)]||[])console.log('\\t'+dep+' (compat
   }
 }
 
-it("accepts Sherpa 2's unversioned ONNX Runtime dependency", () => {
-  expect(verifyBundle().status).toBe(0)
-})
-
-it("accepts an older versioned dependency when its target is bundled", () => {
-  expect(verifyBundle({ versioned: true }).status).toBe(0)
-})
-
-it("rejects a missing versioned target when Mach-O actually references it", () => {
-  const result = verifyBundle({
-    versioned: true,
-    missingVersioned: true,
+// Windows cannot execute these extensionless POSIX shebang stubs.
+describe.skipIf(process.platform === "win32")("macOS bundle verifier", () => {
+  it("accepts Sherpa 2's unversioned ONNX Runtime dependency", () => {
+    expect(verifyBundle().status).toBe(0)
   })
-  expect(result.status).toBe(1)
-  expect(result.output).toContain("references missing dependency @rpath/libonnxruntime.1.27.0.dylib")
-})
 
-it("still requires the ONNX Runtime entry point", () => {
-  const result = verifyBundle({ missingOrt: true })
-  expect(result.status).toBe(1)
-  expect(result.output).toContain("missing required dylib:")
-})
+  it("accepts an older versioned dependency when its target is bundled", () => {
+    expect(verifyBundle({ versioned: true }).status).toBe(0)
+  })
 
-it("still rejects a missing transitive Piper dependency", () => {
-  const result = verifyBundle({ missingPiper: true })
-  expect(result.status).toBe(1)
-  expect(result.output).toContain("references missing dependency @rpath/libpiper_phonemize_core.dylib")
-})
+  it("rejects a missing versioned target when Mach-O actually references it", () => {
+    const result = verifyBundle({
+      versioned: true,
+      missingVersioned: true,
+    })
+    expect(result.status).toBe(1)
+    expect(result.output).toContain("references missing dependency @rpath/libonnxruntime.1.27.0.dylib")
+  })
 
-it("still verifies signatures when requested", () => {
-  const result = verifyBundle({ signatures: true })
-  expect(result.status).toBe(1)
-  expect(result.output).toContain("codesign verification failed")
+  it("still requires the ONNX Runtime entry point", () => {
+    const result = verifyBundle({ missingOrt: true })
+    expect(result.status).toBe(1)
+    expect(result.output).toContain("missing required dylib:")
+  })
+
+  it("still rejects a missing transitive Piper dependency", () => {
+    const result = verifyBundle({ missingPiper: true })
+    expect(result.status).toBe(1)
+    expect(result.output).toContain("references missing dependency @rpath/libpiper_phonemize_core.dylib")
+  })
+
+  it("still verifies signatures when requested", () => {
+    const result = verifyBundle({ signatures: true })
+    expect(result.status).toBe(1)
+    expect(result.output).toContain("codesign verification failed")
+  })
 })

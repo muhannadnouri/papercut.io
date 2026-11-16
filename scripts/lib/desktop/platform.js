@@ -1,3 +1,6 @@
+import { resolve } from "node:path"
+
+import { ROOT } from "../paths.js"
 import {
   prepareLinuxDesktopBuild,
   linuxDesktopEnv,
@@ -44,15 +47,20 @@ export async function prepareDesktopBundleResources(platform, options) {
   }
 }
 
+// Cargo checks run at ROOT while Tauri changes cwd; both must inherit the same absolute target.
 export function desktopBuildEnv(platform, baseEnv) {
+  const env = { ...baseEnv }
+  if (env.CARGO_TARGET_DIR) {
+    env.CARGO_TARGET_DIR = resolve(ROOT, env.CARGO_TARGET_DIR)
+  }
   if (platform === "linux") {
-    return linuxDesktopEnv(baseEnv)
+    return linuxDesktopEnv(env)
   }
   if (platform === "windows") {
-    return windowsDesktopEnv(baseEnv)
+    return windowsDesktopEnv(env)
   }
   if (platform === "macos") {
-    return macosDesktopEnv(baseEnv)
+    return macosDesktopEnv(env)
   }
-  return { ...baseEnv }
+  return env
 }

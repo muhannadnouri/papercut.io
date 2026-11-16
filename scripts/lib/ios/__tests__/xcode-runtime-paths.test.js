@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { spawnSync } from "node:child_process"
 import {
+  describe,
   expect,
   it,
 } from "vitest"
@@ -41,28 +42,31 @@ it("keeps the XcodeGen source and committed Xcode build phase synchronized", () 
   expect(phase).toBe(source)
 })
 
-it.each([
-  ["iphonesimulator", "ios-arm64-simulator"],
-  ["iphoneos", "ios-arm64"],
-])("uses the prepared runtime for %s rather than an inherited or old path", (platform, slice) => {
-  const result = runPhase(platform)
-  expect(result.error).toBeUndefined()
-  expect(result.status, result.stderr).toBe(0)
-  const expected = iosSherpaLibDir(slice)
-  expect(result.stdout.trim().split("\n")).toEqual([expected, expected])
-})
+// Windows has no /bin/sh; keep the project-file synchronization check above active there.
+describe.skipIf(process.platform === "win32")("Xcode shell phase", () => {
+  it.each([
+    ["iphonesimulator", "ios-arm64-simulator"],
+    ["iphoneos", "ios-arm64"],
+  ])("uses the prepared runtime for %s rather than an inherited or old path", (platform, slice) => {
+    const result = runPhase(platform)
+    expect(result.error).toBeUndefined()
+    expect(result.status, result.stderr).toBe(0)
+    const expected = iosSherpaLibDir(slice)
+    expect(result.stdout.trim().split("\n")).toEqual([expected, expected])
+  })
 
-it("preserves the skip path for an already prepared libapp.a", () => {
-  const result = runPhase("iphonesimulator", true)
-  expect(result.error).toBeUndefined()
-  expect(result.status).toBe(0)
-  expect(result.stdout).toContain("Skipping Tauri iOS xcode-script")
-  expect(result.stdout).not.toContain("stale-ort")
-})
+  it("preserves the skip path for an already prepared libapp.a", () => {
+    const result = runPhase("iphonesimulator", true)
+    expect(result.error).toBeUndefined()
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain("Skipping Tauri iOS xcode-script")
+    expect(result.stdout).not.toContain("stale-ort")
+  })
 
-it("does not invoke Tauri when the project root cannot be resolved", () => {
-  const result = runPhase("iphonesimulator", false, "")
-  expect(result.error).toBeUndefined()
-  expect(result.status).not.toBe(0)
-  expect(result.stdout).toBe("")
+  it("does not invoke Tauri when the project root cannot be resolved", () => {
+    const result = runPhase("iphonesimulator", false, "")
+    expect(result.error).toBeUndefined()
+    expect(result.status).not.toBe(0)
+    expect(result.stdout).toBe("")
+  })
 })
