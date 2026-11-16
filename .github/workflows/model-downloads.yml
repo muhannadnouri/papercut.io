@@ -97,19 +97,16 @@ jobs:
           else
             cargo test --manifest-path src-tauri/Cargo.toml --locked --features native-tts-shared --lib model_archive_smoke -- --ignored --nocapture
           fi
-      - name: Preserve validated Kokoro bytes for the draft release
+      - name: Complete the original mirror review packet
         if: inputs.mode == 'prepare-mirror'
+        run: |
+          cp src-tauri/tts/model-manifest.json "$RUNNER_TEMP/model-archives/"
+          (cd "$RUNNER_TEMP/model-archives" && sha256sum kokoro-multi-lang-v1_0.tar.bz2 > SHA256SUMS.txt)
+      - name: Preserve the validated model release packet
+        if: inputs.mode == 'prepare-mirror' || inputs.mode == 'prepare-distills'
         uses: actions/upload-artifact@v7
         with:
-          name: validated-kokoro
-          path: ${{ runner.temp }}/model-archives/kokoro-multi-lang-v1_0.tar.bz2
-          if-no-files-found: error
-          retention-days: 7
-      - name: Preserve the verified pair and corresponding source for review
-        if: inputs.mode == 'prepare-distills'
-        uses: actions/upload-artifact@v7
-        with:
-          name: validated-distills
+          name: validated-model-release
           path: |
             ${{ runner.temp }}/model-archives/*.tar.bz2
             ${{ runner.temp }}/model-archives/SHA256SUMS.txt
@@ -117,9 +114,10 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  distill-draft:
+  model-draft:
     needs: smoke
-    if: ${{ !cancelled() && needs.smoke.result == 'success' && inputs.mode == 'prepare-distills' }}
+    # Preparation skips metadata; bypass inherited skip status only after successful smoke.
+    if: ${{ !cancelled() && needs.smoke.result == 'success' && (inputs.mode == 'prepare-mirror' || inputs.mode == 'prepare-distills') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -129,40 +127,22 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@v7
         with:
-          name: validated-distills
-          path: model-assets
-      - name: Create a reviewed-pair draft without overwriting any release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          tag="$(jq -r '.packaging.releaseTag' src-tauri/tts/qualification-artifacts.json)"
-          gh release create "$tag" model-assets/* --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" --draft --latest=false --title "Kokoro and Nabra 7M FP32 model artifacts" \
-            --notes "Paired single-voice FP32 artifacts. Retain both model archives and the matching Piper/eSpeak corresponding-source companion. Verify SHA256SUMS.txt and the committed model manifest; review the Stage 4c gates in docs/sherpa-onnx-upgrade.md before publishing as an immutable, non-latest release."
-
-  mirror-draft:
-    needs: smoke
-    # metadata is intentionally skipped in prepare-mirror; bypass inherited skip status.
-    if: ${{ !cancelled() && needs.smoke.result == 'success' && inputs.mode == 'prepare-mirror' }}
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@v7
-        with:
-          name: validated-kokoro
+          name: validated-model-release
           path: model-assets
       - name: Create a draft without replacing existing assets
         env:
           GH_TOKEN: ${{ github.token }}
+          MODE: ${{ inputs.mode }}
         run: |
-          cp src-tauri/tts/model-manifest.json model-assets/
-          (cd model-assets && sha256sum kokoro-multi-lang-v1_0.tar.bz2 > SHA256SUMS.txt)
-          url="$(jq -r '.archives[] | select(.modelName == "kokoro-multi-lang-v1_0") | .url' src-tauri/tts/model-manifest.json)"
-          tag="$(basename "$(dirname "$url")")"
+          if [ "$MODE" = prepare-distills ]; then
+            tag="$(jq -r '.packaging.releaseTag' src-tauri/tts/qualification-artifacts.json)"
+            title="Kokoro and Nabra 7M FP32 model artifacts"
+            notes=(--notes "Paired single-voice FP32 artifacts. Retain both model archives and the matching Piper/eSpeak corresponding-source companion. Verify SHA256SUMS.txt and the committed model manifest; review the Stage 4c gates in docs/sherpa-onnx-upgrade.md before publishing as an immutable, non-latest release.")
+          else
+            url="$(jq -r '.archives[] | select(.modelName == "kokoro-multi-lang-v1_0") | .url' src-tauri/tts/model-manifest.json)"
+            tag="$(basename "$(dirname "$url")")"
+            title="Kokoro v1.0 model artifact (2026-09-08)"
+            notes=(--notes-file docs/kokoro-model-release.md)
+          fi
           gh release create "$tag" model-assets/* --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" --draft --latest=false --title "Kokoro v1.0 model artifact (2026-09-08)" \
-            --notes-file docs/kokoro-model-release.md
+            --target "$GITHUB_SHA" --draft --latest=false --title "$title" "${notes[@]}"

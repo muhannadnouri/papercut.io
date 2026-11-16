@@ -372,6 +372,9 @@
 }
 
 .audiobook-status {
+  /* Download errors contain long URLs; wrap them instead of widening the setup dialog. */
+  min-width: 0;
+  overflow-wrap: anywhere;
   display: grid;
   gap: 0.45rem;
   padding: 0.55rem 0.8rem;
@@ -388,6 +391,14 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.audiobook-status-row > span:first-child {
+  min-width: 0;
+}
+
+.audiobook-status-row > span + span {
+  flex-shrink: 0;
 }
 
 .audiobook-status-saving {

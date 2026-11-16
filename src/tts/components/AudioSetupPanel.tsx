@@ -14,7 +14,7 @@ import type {
 import { previewNativeTtsVoice } from '../api/nativeTts'
 import {
   getRecommendedTtsModel,
-  isDistillTtsModel,
+  TTS_MODEL_PRESENTATION,
   getTtsPreviewText,
 } from '../models'
 import { nativeTtsErrorMessage } from '../utils/errors'
@@ -84,6 +84,22 @@ function getLanguageOption(model: TtsModelInfo): { label: string;
     label: languageLabel,
     value,
   }
+}
+
+// Keep translated badges here; model identities and native capabilities stay unchanged.
+function modelOptionLabel(model: TtsModelInfo, recommendedId: string | undefined, t: TFunction): string {
+  const labels = [model.name]
+  const presentation = TTS_MODEL_PRESENTATION[model.id]
+  if (presentation?.small) {
+    labels.push(t('tts.setup.smallModel'))
+  }
+  if (presentation?.experimental) {
+    labels.push(t('settings.experimental'))
+  }
+  if (model.id === recommendedId) {
+    labels.push(t('tts.setup.recommended'))
+  }
+  return labels.join(' · ')
 }
 
 export interface AudioSetupPanelProps {
@@ -338,7 +354,7 @@ export function AudioSetupPanel({
             >
               {modelsForLanguage.map((model) => (
                 <option key={model.id} value={model.id}>
-                  {model.name}{isDistillTtsModel(model.id) ? ' · ' + t('tts.setup.smallModel') + ' · ' + t('settings.experimental') : ''}{model.id === recommendedModel?.id ? ' · ' + t('tts.setup.recommended') : ''}
+                  {modelOptionLabel(model, recommendedModel?.id, t)}
                 </option>
               ))}
             </select>
@@ -386,7 +402,7 @@ export function AudioSetupPanel({
                 >
                   <div className="audiobook-status-row">
                     <span dir="auto">{modelProgressMessage ?? modelStatus?.message ?? t('tts.setup.preparingDownload')}</span>
-                    <span>{modelPercent}%</span>
+                    {modelInstallProgress?.status !== 'error' && <span>{modelPercent}%</span>}
                   </div>
                   {!modelInstalled && modelInstallProgress?.status !== 'error' && (
                     <div
@@ -427,10 +443,15 @@ export function AudioSetupPanel({
             >
               {voices.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {isDistillTtsModel(modelId) ? t('tts.setup.singleVoice') : item.name}{item.id === selectedModel?.defaultVoice ? ' · ' + t('tts.setup.recommended') : ''}
+                  {item.name}{item.id === selectedModel?.defaultVoice ? ' · ' + t('tts.setup.recommended') : ''}
                 </option>
               ))}
             </select>
+            {voices.length === 1 && (
+              <span className="audio-thread-meta" dir="auto">
+                {t('tts.setup.singleVoice')}
+              </span>
+            )}
             {recommendedVoice && (
               <span className="audio-thread-meta" dir="auto">
                 {t('tts.setup.recommendedVoice', { voice: recommendedVoice.name })}

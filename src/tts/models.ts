@@ -304,9 +304,17 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
   },
 ]
 
-/** The two reviewed distills have one voice and distinct training-compatible frontends. */
-export function isDistillTtsModel(modelId: string): boolean {
-  return modelId === KOKORO_7M_MODEL_ID || modelId === NABRA_7M_MODEL_ID
+// Presentation badges are independent of backend family, phonemizer and voice count.
+export const TTS_MODEL_PRESENTATION: Partial<Record<string, { small: boolean;
+  experimental: boolean }>> = {
+  [KOKORO_7M_MODEL_ID]: {
+    small: true,
+    experimental: true,
+  },
+  [NABRA_7M_MODEL_ID]: {
+    small: true,
+    experimental: true,
+  },
 }
 
 export function getTtsModel(models: TtsModelInfo[], modelId: string): TtsModelInfo {

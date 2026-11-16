@@ -5,11 +5,12 @@ Stage 3c.1 proof and Stage 3c.2 local smokes are accepted. The registry
 integration is checkpointed at `a5f3d86`; the separate three-crate audit repair
 passes local checks and owner smokes. Stage 4a paired listening is accepted with
 the explicit English quality tradeoff below; Stage 4b native frontends and owner smoke tests are accepted.
- Stage 4c catalog/install implementation and local qualification are ready;
-immutable artifact publication/public downloads and human UI/install acceptance
-remain open. Stage 5 remains pending.
+Stage 4c model artifacts are published and verified immutable. The owner accepts
+the current AppImage smoke tests, including the English synthesis follow-ups.
+Post-publication hosted `full` validation and the remaining detailed release
+checklist below remain open. Stage 5 device acceptance remains pending.
 Native platform gates remain mandatory at PR preparation. Owner direction updated
-November 15, 2026. Research baseline: local `main` at `6baf1858`, Sherpa 1.13.4.
+November 16, 2026. Research baseline: local `main` at `6baf1858`, Sherpa 1.13.4.
 Current branch runtime: 2.0.1, subject to the platform/human gates below.
 
 This is the implementation and human-review contract for this work. The
@@ -1236,12 +1237,14 @@ selections and upload-language-suggestion exclusion stay unchanged.
 
 The existing Language → Model → Voice controls append localized **Small** and
 **Experimental** labels to these two model options, show a localized single-voice
-label, and use the existing exact-size/install-state/preview controls. Full Kokoro
-and Kareem retain their model-level Recommended labels. There is no precision
+hint derived from the available voice count, preserving the supplied voice name
+in both the dropdown and recommendation. Badges are frontend presentation metadata,
+independent of backend synthesis families/frontends. The existing exact-size,
+install-state and preview controls remain in place. Full Kokoro and Kareem retain their model-level Recommended labels. There is no precision
 selector or unmeasured speed/RAM claim. Native and browser candidate capability
 DTOs compare identically in the local packet.
 
-New per-model provenance suffixes are `misaki/0.9.0;piper-fallback/1;distill/1`
+New per-model provenance suffixes are `misaki/0.9.0;piper-fallback/1;distill/1;symbols/1`
 and `nabra-cleanup/1;distill/1`. Existing model synthesis revisions and the global
 cache version remain unchanged. Same-voice distills still produce separate book
 IDs. Completed books and the accepted existing-model partial-save policy stand.
@@ -1297,6 +1300,32 @@ creates a **draft** release. It does not publish or overwrite a release. Origina
 `prepare-mirror` remains scoped to the original multilingual Kokoro archive by
 exact name; family-wide checks still include the pair.
 
+Both preparation modes now upload the same `validated-model-release` packet
+format (archives, checksums and manifest) and use one `model-draft` job. Archive
+assembly remains in the shared recipe-driven `prepare-model-archives.js`; original
+Kokoro remains a byte-preserving mirror. No new npm command is needed.
+
+Cleanup checkpoint, November 15: owner-started
+[run 43812418413](https://github.com/muhannadnouri/papercut.io/actions/runs/43812418413)
+passed `smoke` and the previous `distill-draft` job. This validates the preceding
+revision and draft creation, not these workflow edits or public availability.
+Retain/review that draft; do not rerun preparation against its existing tag or
+replace assets. The shared job is called `model-draft` on subsequent revisions.
+Cleanup validation: 23 focused model/setup tests pass; TypeScript, all eight
+locales, changed-file ESLint with zero warnings and diff whitespace checks pass.
+Both archive-preparation/monitor Node test files pass. Workflow YAML and every
+shell block parse; the exact draft shell passes both modes with real `jq` and
+committed manifests using a local `gh` stub, including tag/target/asset forwarding,
+draft/non-latest flags and nonzero failure propagation. No hosted run of the
+refactored workflow or native GUI smoke is claimed; synthesis code/artifact pins
+are unchanged.
+
+Before accepting this cleanup, review the two model badges, preserved voice names
+and count-based single-voice hints (including Kareem), plus unchanged recommendations
+in English/Arabic and narrow/RTL layouts. Publication and hosted/full-install
+acceptance below remain open; platform qualification/vendor retirement remain PR
+and merge gates.
+
 Local results/evidence: `.cache/sherpa-stage4c-2026-11-15/`. Native/provider
 regressions pass **374/10 ignored**; default Rust passes **293/4 ignored**.
 TTS frontend tests pass **400 total** (329 non-browser and 71 browser); the browser
@@ -1312,15 +1341,133 @@ Frontend/catalog/UI/cache-ID tests, translations/typecheck, archive/source and
 mirror-scope checks pass. Other platform/device and native GUI acceptance are not
 inferred from these local results.
 
+Draft-to-public handoff (November 16): an AppImage downloading either 7M model
+receives HTTP 404 while `tts-distill-7m-fp32-2026-11-15` is a draft. Its installer
+uses public URLs, not the owner's GitHub login. This is expected until publication;
+do not add tokens, bypass hashes, change URLs or recreate the release to work around
+it. Review/download the five draft assets, run `sha256sum -c SHA256SUMS.txt` in
+that folder and compare the three archive hashes/sizes against the committed
+production manifest (the prepared manifest describes this packet, not the full
+catalog). Enable repository immutable releases **before** publishing. Edit the
+existing draft, preserve its tag/assets, leave **Set as latest release** unchecked,
+and publish only after owner approval. This publishes model files, not an app.
+Then run **Model Downloads → full** on `task/sherpa-onnx`; require both `metadata`
+and `smoke` success. Do not run preparation again against the existing tag.
+The same AppImage can retry the download once the public assets are available;
+the error-layout fix itself requires rebuilding the app.
+
+Download-error layout follow-up: long URL diagnostics wrap within the install
+column, retain their full text and omit the percentage on failure. Keep normal
+vertical scrolling for content taller than the viewport; do not hide or truncate
+errors to suppress a horizontal scrollbar. Verify narrow/wide English/Arabic
+setup dialogs, then complete the post-publication installer/audio checklist below.
+Validation: 24 focused model/setup tests and four real Chromium viewport/locale
+regressions pass, plus typecheck, changed-file ESLint and whitespace checks.
+Screenshots are in `.cache/sherpa-stage4c-2026-11-16/`. Chromium required running
+outside the restricted sandbox after its initial browser connection resets.
+No AppImage rebuild, draft-asset download verification or publication was performed
+in this follow-up.
+
+November 16 owner smoke follow-up: the republished
+`tts-distill-7m-fp32-2026-11-15` release now reports `draft: false, immutable: true`
+and the same five pinned asset sizes/digests. Owner reports successful Nabra
+Arabic audiobook generation. The linked CI runs prove preparation/synthesis and
+publication metadata separately:
+
+- [43818019696](https://github.com/muhannadnouri/papercut.io/actions/runs/43818019696):
+  preparation `smoke` and `distill-draft` passed; metadata intentionally skipped.
+- [43818531468](https://github.com/muhannadnouri/papercut.io/actions/runs/43818531468):
+  `metadata` passed; synthesis/download smoke skipped. Neither linked run is the
+  post-publication `full` acceptance run. Run `full` on `task/sherpa-onnx` and
+  require both metadata and smoke before closing hosted qualification.
+
+Read-only inspection of the supplied local smoke profile found that the failed
+English-document job actually selected Nabra with Libtashkeel, not English Kokoro
+7M. It stopped at source chunk 364/384, `* * *`, with 363 valid-cache candidates
+still on disk despite the queue displaying zero progress. The Arabic book has
+57 WAV chunks and an indexed duration of 1031.65 seconds. This does not establish
+English Kokoro audiobook acceptance, nor should the profile be rewritten to make
+it do so: a new English/Kokoro save gets its own identity; Retry retains the queued
+job's original model/settings.
+
+The 7M bridge previously treated a separator producing no phones as an error.
+It now permits an empty phone result only when the source contains no letters or
+numbers and every returned sentence is empty. Synthesis uses the existing 0.25s
+silent WAV placeholder, preserving the original chunk/source spans and a continuous
+playback index. Word/number, unsupported-phone and native frontend failures still
+fail closed; other models and existing speech output/provenance are unchanged.
+No cache-version bump or forced restart is needed for previously successful speech.
+The supplied app profile and its WAVs were not modified.
+
+Fix validation: native tests **364 passed, 7 ignored**; each downloaded paired
+archive independently passes production verification/extraction/synthesis, including
+the actual `* * *` separator and a spoken-number guard. Existing unresolved-word
+and invalid-phone tests remain green. Loopback fixtures required a native test run
+outside the restricted sandbox; model archives were read via workspace-local
+links so extraction did not write into Downloads. Evidence is under
+`.cache/sherpa-stage4c-2026-11-16/`. Owner gate: rebuild the AppImage, verify a new
+English/Kokoro 7M audiobook containing the separator can finish/play/seek/reopen,
+and optionally retry the existing Nabra job to verify retained progress. No
+packaged-app or perceptual acceptance is inferred from these native tests.
+
+English Kokoro 7M follow-up (November 16): the next supplied smoke profile did
+select English Kokoro 7M with Original text. It failed at chunk 1/384,
+`MIA > Archive > Plekhanov`. Misaki emits its unresolved-token sentinel U+2753
+(`❓`) for a standalone `>` without invoking its unknown-word fallback. The
+symbol is frontend output, not source corruption. The app correctly rejected it
+rather than letting Sherpa silently drop unknown phones.
+
+The app-owned English adapter now expands `<`/`>` to their spoken English meanings,
+“less than”/“greater than,” only in the synthesis copy. Inputs without these symbols
+retain their existing path; Nabra, the recommended/full models, source chunks and
+highlight spans are unchanged. No dependency, vendor library, model archive or
+public release was modified. Other unknown tokens/phones remain errors. The
+English candidate's provenance adds `;symbols/1`: its previous unfinished saves
+require the existing explicit restart confirmation; completed WAVs remain playable.
+The other models' provenance and global cache IDs are unchanged.
+
+A new opt-in `cached_audiobook_smoke` test replays a supplied Sherpa manifest's
+exact chunks/settings into a **new** output directory, preserving the supplied
+profile/cache. Set `PAPERCUT_TTS_SMOKE_MANIFEST` to that manifest,
+`PAPERCUT_TTS_MODEL_ROOT` to its parent model roster and
+`PAPERCUT_TTS_SMOKE_OUTPUT_DIR` to a fresh evidence directory; invoke it with
+`--lib cached_audiobook_smoke -- --ignored --nocapture` using the same native
+Cargo feature/runtime environment as `model_archive_smoke`. Private source text
+and generated audio stay in ignored evidence, not committed test fixtures.
+
+Evidence: baseline replay of all 384 supplied source chunks failed **only chunk 1**;
+383 generated WAVs validated. Corrected replay generated and validated **all 384**,
+including the separator at chunk 364. Files/logs are under
+`.cache/sherpa-stage4c-2026-11-16/english-book-before` and `english-book-after`.
+Native tests pass **366/8 ignored**; both independent archive smokes pass the
+opening breadcrumb, separator, spoken-number and all 22 frozen candidate-phone
+contracts. Angle-bracket tests cover both comparison directions with/without
+spaces. The prior-English-revision restart test verifies completed audio is
+exempt and metadata/audio bytes are untouched by the compatibility probe.
+Formatting and whitespace checks pass. These are synthesis/file-validity checks,
+not an owner listening verdict or packaged-app integration test.
+
+Owner gate: rebuild the AppImage, retry this English Kokoro job, accept its explicit
+restart prompt, then verify completion/playback/seek/reopen and listen to the
+opening line. The supplied profile and prior Arabic book were not changed.
+
+Owner acceptance checkpoint, November 16: after rebuilding and testing the
+current AppImage, the owner reports that the available smoke tests pass and
+explicitly authorizes committing the accumulated UI/workflow/synthesis fixes.
+This accepts the requested local smoke checks; it does not substitute for the
+post-publication hosted `full` run, every checklist item below or deferred native
+platform qualification. No new implementation stage, push or CI dispatch is
+started by this checkpoint.
+
 Publication and human review gate (before merge/ship):
 
 - [ ] Review `release-final/` in the packet, `SHA256SUMS.txt`, cards, provenance,
   notices and corresponding source. Approve the exact paired artifacts.
-- [ ] After commit/push of the reviewed code, run **Model Downloads →
+- [x] After commit/push of the reviewed code, run **Model Downloads →
   prepare-distills** on that exact ref, or upload the exact locally verified packet
   to a new draft. Confirm the draft contains both models, the source companion,
   checksums and the prepared manifest; never use `--clobber`.
-- [ ] With GitHub immutable releases enabled, publish
+- [x] With GitHub immutable releases enabled, publish
   `tts-distill-7m-fp32-2026-11-15` as **non-latest**. Publication requires separate
   owner authorization. A changed artifact requires a new release identity.
 - [ ] Run `check-model-downloads.js` metadata and fresh full-download checks, plus
@@ -1337,9 +1484,10 @@ Publication and human review gate (before merge/ship):
 - [ ] Accept Stage 4 before Stage 5 device/release acceptance. Native-platform
   qualification and dormant vendor deletion remain mandatory PR/merge gates.
 
-No publishing authority, model performance claims, native qualification or vendor
-retirement is inferred from implementation completion. Public-asset publication
-is the next action before normal end-to-end new-model download smokes.
+No additional publishing authority, model performance claims, native qualification
+or vendor retirement is inferred from implementation completion. The model
+release is now published and immutable; the next external check is a hosted
+post-publication `full` run, followed by remaining release/device acceptance.
 
 ### Stage 5 — Owner device quality and release readiness
 
@@ -1442,7 +1590,7 @@ Separate logical/design acceptance from outstanding platform execution.
 | 3c.2. Production replacement/qualification | Owner local smokes passed; native gates deferred | Checkpoint `a5f3d86`; separate three-crate security repair passes audit and local tests | Owner permits paired 7M work after local acceptance. Native SDK/minimum-OS/device qualification and dormant vendor retirement remain PR/merge gates. |
 | 4a. Paired artifact/frontend qualification | Accepted | [Report](#stage-4a--paired-qualification-record), pinned inputs and machine-local listening packet | Owner, November 15: both approved; explicit English crispness/robotic-quality tradeoff for smaller option; Arabic competitive with Kareem, preserve default diacritization. |
 | 4b. Native frontend integration | Accepted | Same shared engine; reserved IDs, pinned Misaki/Piper adapter and focused guards | Owner, November 15: requested smoke tests pass; commit checkpoint. No catalog exposure. |
-| 4c. Paired artifact/installer/catalog integration | Implemented; local checks passed, publication/human install gates open | Exact paired archives/source companion, native/browser catalog, existing installer/UI and preparation workflow | No public upload/dispatch. Approve/publish immutable artifacts, then run hosted download and native GUI smokes before accepting Stage 4. |
+| 4c. Paired artifact/installer/catalog integration | Published immutable; local owner smokes accepted; hosted full/release checklist open | Exact paired archives/source companion, catalog/installer/UI, shared draft workflow and scoped synthesis fixes | Owner, November 16: available AppImage smoke tests pass; commit checkpoint authorized. Post-publication full and remaining native/device gates are not inferred passed. |
 | 5. Device/release acceptance | Not started | — | — |
 
 At every handoff, update this record and provide:

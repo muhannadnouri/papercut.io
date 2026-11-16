@@ -177,5 +177,43 @@ it.each([KOKORO_7M_MODEL_ID, NABRA_7M_MODEL_ID])('shows %s as a compact experime
   })
   expect(markup).toContain(selected.name + ' · tts.setup.smallModel · settings.experimental')
   expect(markup).toContain('tts.setup.singleVoice')
+  expect(markup).toContain(selected.voices[0].name + ' · tts.setup.recommended')
   expect(selected.voices).toHaveLength(1)
+})
+
+// A single named voice is a capability, independent of experimental model badges.
+it('preserves Kareem’s voice name and explains its single-voice capability', () => {
+  const selected = FALLBACK_TTS_MODELS.find((item) => item.id === PIPER_KAREEM_MODEL_ID)!
+  const markup = renderPanel({
+    modelId: selected.id,
+    models: [selected],
+    voice: selected.defaultVoice,
+    voices: selected.voices,
+  })
+  expect(markup).toContain(selected.voices[0].name + ' · tts.setup.recommended')
+  expect(markup).toContain('tts.setup.singleVoice')
+  expect(markup).not.toContain('tts.setup.smallModel')
+  expect(markup).not.toContain('settings.experimental')
+})
+
+it('does not show a single-voice hint for the full Kokoro roster', () => {
+  expect(renderPanel()).not.toContain('tts.setup.singleVoice')
+})
+
+// Keep the diagnostic available for retry/reporting, without presenting a failed download as progress.
+it('retains download errors without a percentage or progress meter', () => {
+  const message = 'Failed to download: https://example.com/model.tar.bz2 (404 Not Found)'
+  const markup = renderPanel({
+    modelInstallProgress: {
+      modelId: model.id,
+      status: 'error',
+      message,
+      downloadedBytes: 0,
+      totalBytes: 100,
+      percent: 0,
+    },
+  })
+  expect(markup).toContain(message)
+  expect(markup).not.toContain('0%')
+  expect(markup).not.toContain('role="progressbar"')
 })

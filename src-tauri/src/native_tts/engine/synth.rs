@@ -381,7 +381,9 @@ pub(super) fn synthesize_silma_to_file(
 /// voice name to a speaker id, sanitizes the text, and asks the engine to
 /// generate. Returns `Ok(None)` when the text is empty after sanitization (the
 /// chunk has nothing speakable, so the caller writes a silent placeholder rather
-/// than failing the save). Frontend/unsupported-phone failures are recoverable errors,
+/// than failing the save). The 7M frontend can also return no phones for a decorative
+/// separator; preserve its chunk/timeline with the same placeholder.
+/// Word/unsupported-phone failures remain errors,
 /// so incomplete speech cannot become a successful saved chunk.
 fn generate_audio(
     engine: &SherpaTtsEngine,
@@ -420,7 +422,11 @@ fn generate_audio(
 
     // These distills need different training-time phones; changing other models would change reviewed pronunciation.
     if let Some(frontend) = &engine.phoneme_adapter {
-        generation.phoneme_codepoints = Some(frontend.phonemize(&sanitized)?);
+        let sentences = frontend.phonemize(&sanitized)?;
+        if sentences.is_empty() {
+            return Ok(None);
+        }
+        generation.phoneme_codepoints = Some(sentences);
     } else {
         // Mandarin keeps its lexicon/FST frontend; Supertonic keeps its own text tokenizer.
         let locale = match engine.model.require_sherpa_family()? {
@@ -566,6 +572,7 @@ mod tests {
     use std::env;
     use std::path::PathBuf;
 
+    use super::super::manifest::NativeAudiobookManifest;
     use super::super::models::{model_definition, DEFAULT_MODEL_ID, KOKORO_ZH_MODEL_ID};
     use super::*;
 
@@ -725,6 +732,55 @@ mod tests {
                 "Silent audio: {}",
                 model.id
             );
+            // A section separator must not wedge a long save or require changing its source index.
+            if engine.phoneme_adapter.is_some() {
+                let separator_wav = work.join("separator.wav");
+                let result =
+                    synthesize_to_file(&engine, "* * *", model.default_voice, 1.0, &separator_wav)
+                        .expect("Separator should use a silent placeholder");
+                assert!(result.audio_duration_sec > 0.0);
+                assert!(super::super::cache::wav_info(&separator_wav).is_some());
+                assert!(generate_audio(&engine, "1", model.default_voice, 1.0)
+                    .unwrap()
+                    .is_some());
+                let cases: Vec<FrontendCase> =
+                    serde_json::from_str(include_str!("../../../tts/frontend-smoke.json")).unwrap();
+                for case in cases.iter().filter(|case| case.model == model.id) {
+                    let expected = case
+                        .phones
+                        .as_ref()
+                        .expect("Reviewed candidate phone fixture");
+                    assert_eq!(
+                        engine
+                            .phoneme_adapter
+                            .as_ref()
+                            .unwrap()
+                            .phonemize(&case.text)
+                            .unwrap()
+                            .concat(),
+                        expected.chars().map(|c| c as i32).collect::<Vec<_>>(),
+                        "{}",
+                        case.name
+                    );
+                }
+            }
+            if model.id == super::super::models::KOKORO_7M_MODEL_ID {
+                let frontend = engine.phoneme_adapter.as_ref().unwrap();
+                assert_eq!(
+                    frontend.phonemize("MIA > Archive > Plekhanov").unwrap(),
+                    frontend
+                        .phonemize("MIA greater than Archive greater than Plekhanov")
+                        .unwrap()
+                );
+                assert!(generate_audio(
+                    &engine,
+                    "MIA > Archive > Plekhanov",
+                    model.default_voice,
+                    1.0
+                )
+                .unwrap()
+                .is_some());
+            }
             let wav = work.join(format!("{}.wav", model.id.replace('/', "-")));
             assert!(audio.save(wav.to_str().unwrap()));
             assert!(super::super::cache::wav_info(&wav).is_some());
@@ -738,6 +794,45 @@ mod tests {
         }
         assert!(exercised > 0, "Archive filter did not exercise any model");
         fs::remove_dir_all(work).unwrap();
+    }
+
+    /// Replay a real save's exact chunks/settings into a separate directory, without touching its cache.
+    /// This opt-in check catches long-document failures that short preview sentences cannot expose.
+    #[test]
+    #[ignore = "requires PAPERCUT_TTS_SMOKE_MANIFEST, PAPERCUT_TTS_MODEL_ROOT and PAPERCUT_TTS_SMOKE_OUTPUT_DIR"]
+    fn cached_audiobook_smoke() {
+        let manifest: NativeAudiobookManifest = serde_json::from_slice(
+            &fs::read(env::var_os("PAPERCUT_TTS_SMOKE_MANIFEST").unwrap()).unwrap(),
+        )
+        .unwrap();
+        let root = PathBuf::from(env::var_os("PAPERCUT_TTS_MODEL_ROOT").unwrap());
+        let out = PathBuf::from(env::var_os("PAPERCUT_TTS_SMOKE_OUTPUT_DIR").unwrap());
+        // A fresh evidence directory prevents accidental overwrites, including of the supplied save.
+        fs::create_dir(&out).expect("Use a new smoke output directory");
+        let model = model_definition(&manifest.model_id).unwrap();
+        let model_dir = root.join(model.directory_name);
+        let engine = SherpaTtsEngine {
+            phoneme_adapter: PhonemeAdapter::load(model.id, &model_dir).unwrap(),
+            tts: create_engine(model, &model_dir, manifest.thread_count).unwrap(),
+            model,
+            model_dir,
+            num_threads: manifest.thread_count,
+        };
+        let preprocessor = TextPreprocessor::create(model, &manifest.text_preprocessor).unwrap();
+        let mut failures = Vec::new();
+        for (index, chunk) in manifest.chunks.iter().enumerate() {
+            let output = out.join(format!("{:05}.wav", index + 1));
+            let result = preprocessor.process(&chunk.text).and_then(|text| {
+                synthesize_to_file(&engine, &text, &manifest.voice, manifest.speed, &output)
+            });
+            match result {
+                Ok(_) => assert!(super::super::cache::wav_info(&output).is_some()),
+                Err(error) => failures.push(format!("chunk {}: {error}", index + 1)),
+            }
+        }
+        fs::write(out.join("failures.txt"), failures.join("\n")).unwrap();
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+        println!("PASS audiobook smoke: {} chunks", manifest.chunks.len());
     }
 
     /// One production-path corpus covers the current roster and qualified distills; returns to English after switching.

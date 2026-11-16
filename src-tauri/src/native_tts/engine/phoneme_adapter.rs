@@ -3,6 +3,7 @@
 //! Keep this bridge in the app, not in a speech-library fork. Exact vocabulary/style
 //! pins bind the transformations to the pair accepted in the Stage 4a listening review.
 
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -83,10 +84,25 @@ impl PhonemeAdapter {
 
     /// Input is the existing app-normalized/optionally diacritized synthesis copy.
     /// Unknown words must resolve or fail; passing unknown phones to Sherpa would drop them.
+    /// An empty result is allowed only for non-alphanumeric input with no phones (e.g. `* * *`);
+    /// the synthesis caller preserves that source chunk with the existing silent placeholder.
     pub(super) fn phonemize(&self, text: &str) -> Result<Vec<Vec<i32>>, String> {
         let phones = if let Some(g2p) = &self.english {
+            // Misaki leaves standalone angle brackets unresolved instead of invoking fallback.
+            // Speak their meaning in the synthesis copy; never drop them or the resulting unknown marker.
+            let frontend_text = if text.contains(['<', '>']) {
+                Cow::Owned(
+                    text.replace('>', " greater than ")
+                        .replace('<', " less than ")
+                        .split_whitespace()
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                )
+            } else {
+                Cow::Borrowed(text)
+            };
             let (phones, tokens) = g2p
-                .g2p(text)
+                .g2p(&frontend_text)
                 .map_err(|err| format!("7M English frontend: {err}"))?;
             if tokens.iter().any(|token| {
                 token.text.chars().any(char::is_alphanumeric)
@@ -104,6 +120,13 @@ impl PhonemeAdapter {
                 .map(|sentence| phone_text(sentence).map(|text| arabic_phones(&text)))
                 .collect::<Result<Vec<_>, _>>()?
         };
+        // A decorative separator can survive sanitization yet have no pronunciation.
+        // Never apply this fallback to words/numbers or discard phones that were produced.
+        if !text.chars().any(char::is_alphanumeric)
+            && phones.iter().all(|sentence| sentence.trim().is_empty())
+        {
+            return Ok(Vec::new());
+        }
         let mut sentences = Vec::new();
         for sentence in phones {
             sentences.extend(self.checked_sentences(&sentence)?);
@@ -308,6 +331,34 @@ mod tests {
         );
     }
 
+    /// Comparison symbols must retain their meaning, including without surrounding spaces.
+    #[test]
+    fn english_angle_brackets_are_spoken_without_unknown_markers() {
+        let g2p = G2P::with_fallback(Language::EnglishUS, None);
+        let greater = g2p.g2p("2 greater than 1").unwrap().0;
+        let less = g2p.g2p("1 less than 2").unwrap().0;
+        let frontend = PhonemeAdapter {
+            english: Some(g2p),
+            data: PathBuf::new(),
+            vocabulary: greater
+                .chars()
+                .chain(less.chars())
+                .map(|c| c as i32)
+                .collect(),
+        };
+        for (text, expected) in [
+            ("2 > 1", greater.as_str()),
+            ("2>1", greater.as_str()),
+            ("1 < 2", less.as_str()),
+            ("1<2", less.as_str()),
+        ] {
+            assert_eq!(
+                frontend.phonemize(text).unwrap().concat(),
+                expected.chars().map(|c| c as i32).collect::<Vec<_>>()
+            );
+        }
+    }
+
     struct FailedFallback;
     impl Fallback for FailedFallback {
         /// Stand in for a native failure; no test should initialize real Piper implicitly.
@@ -334,7 +385,8 @@ mod tests {
             .phonemize("Zyxophrenia")
             .unwrap_err()
             .contains("test failure"));
-        assert!(frontend.phonemize("").is_err());
+        assert!(frontend.phonemize("").unwrap().is_empty());
+        assert!(frontend.phonemize("* * *").unwrap().is_empty());
     }
 
     /// Even an upstream success containing an unknown marker must not count as complete speech.

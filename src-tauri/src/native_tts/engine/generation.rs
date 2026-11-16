@@ -26,7 +26,7 @@ pub(super) fn synthesis_revision(model_id: &str) -> Option<String> {
         (model.backend == TtsModelBackend::SherpaOnnx).then(|| {
             // Version new frontends separately; existing saves keep the accepted 2.0.1 revision.
             let frontend = match model.id {
-                KOKORO_7M_MODEL_ID => ";misaki/0.9.0;piper-fallback/1;distill/1",
+                KOKORO_7M_MODEL_ID => ";misaki/0.9.0;piper-fallback/1;distill/1;symbols/1",
                 NABRA_7M_MODEL_ID => ";nabra-cleanup/1;distill/1",
                 _ => "",
             };
@@ -153,7 +153,7 @@ mod tests {
         );
         let english = synthesis_revision(KOKORO_7M_MODEL_ID).unwrap();
         let arabic = synthesis_revision(NABRA_7M_MODEL_ID).unwrap();
-        assert!(english.ends_with(";misaki/0.9.0;piper-fallback/1;distill/1"));
+        assert!(english.ends_with(";misaki/0.9.0;piper-fallback/1;distill/1;symbols/1"));
         assert!(arabic.ends_with(";nabra-cleanup/1;distill/1"));
         assert_ne!(english, arabic);
         assert!(synthesis_revision(SILMA_MODEL_ID).is_none());
@@ -400,6 +400,35 @@ mod tests {
             let original = snapshot(&fixture.dir);
             assert!(required_restart_token(&fixture.dir).unwrap().is_none());
             prepare_save(&fixture.dir, &fixture.request).unwrap();
+            assert_eq!(snapshot(&fixture.dir), original);
+        }
+    }
+
+    /// The symbol correction changes only the English distill contract; completed audio stays playable.
+    #[test]
+    fn prior_english_distill_requires_restart_only_when_incomplete() {
+        for complete in [false, true] {
+            let mut fixture = Fixture::new();
+            fixture.request.model_id = KOKORO_7M_MODEL_ID.into();
+            fixture.request.voice = "af_msa".into();
+            write_pending_manifest(&fixture.dir, &fixture.request, &fixture.request.chunks)
+                .unwrap();
+            let path = fixture.dir.join("manifest.json");
+            let mut manifest: serde_json::Value =
+                serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+            manifest["synthesisRevision"] =
+                format!("{SHERPA_SYNTHESIS_REVISION};misaki/0.9.0;piper-fallback/1;distill/1")
+                    .into();
+            fs::write(&path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+            fixture.wav(&fixture.dir, 0, 1);
+            if complete {
+                fixture.wav(&fixture.dir, 1, 2);
+            }
+            let original = snapshot(&fixture.dir);
+            assert_eq!(
+                required_restart_token(&fixture.dir).unwrap().is_some(),
+                !complete
+            );
             assert_eq!(snapshot(&fixture.dir), original);
         }
     }

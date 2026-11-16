@@ -90,7 +90,7 @@ by the source patch itself.
    archive, `SHA256SUMS.txt`, and the manifest. It never overwrites an existing
    release. If a draft already exists, inspect it rather than rerunning upload
    with `--clobber`.
-   Confirm that **mirror-draft** succeeded; a green run with only **smoke**
+   Confirm that **model-draft** succeeded (older runs used **mirror-draft**); a green run with only **smoke**
    completed does not prove the draft exists. After a workflow fix, start a new
    `prepare-mirror` run on `main` rather than rerunning an old run, which retains
    its original workflow revision.
