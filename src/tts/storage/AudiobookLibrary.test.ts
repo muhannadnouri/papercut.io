@@ -8,6 +8,10 @@ import {
   getSavedAudiobooksForDocument,
   type SavedAudiobookRecord,
 } from './AudiobookLibrary'
+import {
+  KOKORO_7M_MODEL_ID,
+  NABRA_7M_MODEL_ID,
+} from '../types'
 
 function record(id: string, documentUrl: string): SavedAudiobookRecord {
   return {
@@ -48,4 +52,21 @@ it.each([
     textPreprocessor,
     speed: 1,
   })).toBe(expected)
+})
+
+it('keeps the two distills distinct even with the same voice and preprocessing', () => {
+  const options = {
+    voice: 'af_msa',
+    speed: 1,
+    textPreprocessor: 'none',
+  }
+  const english = createAudiobookId('/book.html', {
+    ...options,
+    modelId: KOKORO_7M_MODEL_ID,
+  })
+  const arabic = createAudiobookId('/book.html', {
+    ...options,
+    modelId: NABRA_7M_MODEL_ID,
+  })
+  expect(english).not.toBe(arabic)
 })

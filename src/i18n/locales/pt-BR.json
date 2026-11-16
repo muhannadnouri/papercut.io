@@ -856,7 +856,9 @@
       "runtimeMissing": "O pacote de tempo de execução SILMA não está instalado",
       "threadCount_one": "Rosca {{count, number}}",
       "threadCount_many": "Tópicos {{count, number}}",
-      "threadCount_other": "Tópicos {{count, number}}"
+      "threadCount_other": "Tópicos {{count, number}}",
+      "smallModel": "Pequeno",
+      "singleVoice": "Voz única"
     },
     "controls": {
       "ariaLabel": "Controles de audiolivro",

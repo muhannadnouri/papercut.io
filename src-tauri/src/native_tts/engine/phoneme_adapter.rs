@@ -255,6 +255,10 @@ mod tests {
     #[test]
     fn only_the_new_identities_opt_in() {
         for model in MODELS {
+            if [KOKORO_7M_MODEL_ID, NABRA_7M_MODEL_ID].contains(&model.id) {
+                assert!(PhonemeAdapter::locale(model.id).is_some());
+                continue;
+            }
             assert_eq!(PhonemeAdapter::locale(model.id), None);
             assert!(PhonemeAdapter::load(model.id, Path::new("/missing"))
                 .unwrap()

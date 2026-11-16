@@ -856,7 +856,9 @@
       "runtimeMissing": "Il pacchetto runtime SILMA non è installato",
       "threadCount_one": "Filettatura {{count, number}}",
       "threadCount_many": "Filetti {{count, number}}",
-      "threadCount_other": "Filetti {{count, number}}"
+      "threadCount_other": "Filetti {{count, number}}",
+      "smallModel": "Piccolo",
+      "singleVoice": "Voce unica"
     },
     "controls": {
       "ariaLabel": "Controlli dell'audiolibro",

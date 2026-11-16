@@ -12,7 +12,7 @@ are implied by this directory layout.
 | [desktop](desktop/) | Desktop development/builds, native library staging, bundle verification | Local desktop development, CI and releases |
 | [ios](ios/) | iOS builds, native library preparation, unsigned device build check | Local Apple development, CI and releases |
 | [pdf](pdf/) | Stage installed PDF/OCR assets; generate manual PDF boundary fixtures | Frontend development/builds; optional diagnostics |
-| [checks](checks/) | Localization, model-download monitoring, mobile provider runner | Shared checks and explicit CI inference runs |
+| [checks](checks/) | Localization, model-download monitoring, reproducible model/source archive preparation, mobile provider runner | Shared checks and explicit CI inference runs |
 | [fdroid](fdroid/) | Native source build and optional OCR/PDF probes, with cached inputs/receipts | Android CI/releases and manual F-Droid preparation |
 | [search](search/) | Deterministic bundled search-index build and fixed-corpus search evaluation | Frontend builds and explicit evaluation runs |
 | [silma](silma/) | SILMA sidecar/runtime packaging and optional CUDA installation | SILMA workflows and explicit local setup |
@@ -121,3 +121,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked \
 
 This runs the real app synthesis path and saves finite/non-silent WAV evidence.
 It does not replace human pronunciation/listening acceptance or device checks.
+
+Model artifact preparation: `node scripts/checks/prepare-model-archives.js --out
+<directory> --check-manifest` (Node + GNU tar/bzip2; developer/CI only). Publication
+and verification gates live in `docs/sherpa-onnx-upgrade.md`, not in the app flow.

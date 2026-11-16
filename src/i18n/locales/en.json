@@ -848,7 +848,9 @@
       "largeDownloadNote": "Large downloads can take a while and resume after interruption.",
       "manualInstall": "Manual model install required",
       "preparingDownload": "Preparing model download",
-      "runtimeMissing": "SILMA runtime pack is not installed"
+      "runtimeMissing": "SILMA runtime pack is not installed",
+      "smallModel": "Small",
+      "singleVoice": "Single voice"
     },
     "controls": {
       "ariaLabel": "Audiobook controls",

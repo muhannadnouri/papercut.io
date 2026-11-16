@@ -7,11 +7,11 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Check metadata, run a fresh install, or prepare the Kokoro mirror draft"
+        description: "Check metadata, test installs, or prepare an original/paired model draft"
         required: true
         default: full
         type: choice
-        options: [metadata, full, prepare-mirror]
+        options: [metadata, full, prepare-mirror, prepare-distills]
 
 permissions:
   contents: read
@@ -26,7 +26,7 @@ env:
 jobs:
   # ponytail: monitor the current manifest; add supported-client versions with the remote catalog.
   metadata:
-    if: inputs.mode != 'prepare-mirror'
+    if: inputs.mode != 'prepare-mirror' && inputs.mode != 'prepare-distills'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -46,7 +46,7 @@ jobs:
     needs: metadata
     if: >-
       always() && !cancelled() &&
-      (inputs.mode == 'prepare-mirror' ||
+      (inputs.mode == 'prepare-mirror' || inputs.mode == 'prepare-distills' ||
        (needs.metadata.result == 'success' &&
         (inputs.mode == 'full' || github.event.schedule == '41 8 * * *')))
     runs-on: ubuntu-24.04
@@ -73,11 +73,15 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           MODE: ${{ inputs.mode }}
         run: |
-          args=(--download-dir "$RUNNER_TEMP/model-archives")
-          if [ "$MODE" = prepare-mirror ]; then
-            args+=(--upstream --family kokoro)
+          if [ "$MODE" = prepare-distills ]; then
+            node scripts/checks/prepare-model-archives.js --out "$RUNNER_TEMP/model-archives" --check-manifest
+          else
+            args=(--download-dir "$RUNNER_TEMP/model-archives")
+            if [ "$MODE" = prepare-mirror ]; then
+              args+=(--upstream --model-name kokoro-multi-lang-v1_0)
+            fi
+            node scripts/checks/check-model-downloads.js "${args[@]}"
           fi
-          node scripts/checks/check-model-downloads.js "${args[@]}"
       - name: Test the production verifier, extractor, voice mappings, and synthesis
         env:
           PAPERCUT_MODEL_ARCHIVE_DIR: ${{ runner.temp }}/model-archives
@@ -86,7 +90,13 @@ jobs:
         run: |
           if [ "$MODE" = prepare-mirror ]; then export PAPERCUT_SMOKE_KOKORO_ONLY=1; fi
           cargo test --manifest-path src-tauri/Cargo.toml --locked --features native-tts-shared --lib
-          cargo test --manifest-path src-tauri/Cargo.toml --locked --features native-tts-shared --lib model_archive_smoke -- --ignored --nocapture
+          if [ "$MODE" = prepare-distills ]; then
+            for model in $(jq -r '.archives[].modelName' "$PAPERCUT_MODEL_ARCHIVE_DIR/model-manifest.json"); do
+              PAPERCUT_SMOKE_ARCHIVE_NAME="$model" cargo test --manifest-path src-tauri/Cargo.toml --locked --features native-tts-shared --lib model_archive_smoke -- --ignored --nocapture
+            done
+          else
+            cargo test --manifest-path src-tauri/Cargo.toml --locked --features native-tts-shared --lib model_archive_smoke -- --ignored --nocapture
+          fi
       - name: Preserve validated Kokoro bytes for the draft release
         if: inputs.mode == 'prepare-mirror'
         uses: actions/upload-artifact@v7
@@ -95,6 +105,40 @@ jobs:
           path: ${{ runner.temp }}/model-archives/kokoro-multi-lang-v1_0.tar.bz2
           if-no-files-found: error
           retention-days: 7
+      - name: Preserve the verified pair and corresponding source for review
+        if: inputs.mode == 'prepare-distills'
+        uses: actions/upload-artifact@v7
+        with:
+          name: validated-distills
+          path: |
+            ${{ runner.temp }}/model-archives/*.tar.bz2
+            ${{ runner.temp }}/model-archives/SHA256SUMS.txt
+            ${{ runner.temp }}/model-archives/model-manifest.json
+          if-no-files-found: error
+          retention-days: 7
+
+  distill-draft:
+    needs: smoke
+    if: ${{ !cancelled() && needs.smoke.result == 'success' && inputs.mode == 'prepare-distills' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v7
+        with:
+          name: validated-distills
+          path: model-assets
+      - name: Create a reviewed-pair draft without overwriting any release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$(jq -r '.packaging.releaseTag' src-tauri/tts/qualification-artifacts.json)"
+          gh release create "$tag" model-assets/* --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --draft --latest=false --title "Kokoro and Nabra 7M FP32 model artifacts" \
+            --notes "Paired single-voice FP32 artifacts. Retain both model archives and the matching Piper/eSpeak corresponding-source companion. Verify SHA256SUMS.txt and the committed model manifest; review the Stage 4c gates in docs/sherpa-onnx-upgrade.md before publishing as an immutable, non-latest release."
 
   mirror-draft:
     needs: smoke
@@ -117,7 +161,7 @@ jobs:
         run: |
           cp src-tauri/tts/model-manifest.json model-assets/
           (cd model-assets && sha256sum kokoro-multi-lang-v1_0.tar.bz2 > SHA256SUMS.txt)
-          url="$(jq -r '.archives[] | select(.family == "kokoro") | .url' src-tauri/tts/model-manifest.json)"
+          url="$(jq -r '.archives[] | select(.modelName == "kokoro-multi-lang-v1_0") | .url' src-tauri/tts/model-manifest.json)"
           tag="$(basename "$(dirname "$url")")"
           gh release create "$tag" model-assets/* --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" --draft --latest=false --title "Kokoro v1.0 model artifact (2026-09-08)" \

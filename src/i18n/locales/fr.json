@@ -856,7 +856,9 @@
       "runtimeMissing": "Le pack d'exécution SILMA n'est pas installé",
       "threadCount_one": "Fil {{count, number}}",
       "threadCount_many": "Fils {{count, number}}",
-      "threadCount_other": "Fils {{count, number}}"
+      "threadCount_other": "Fils {{count, number}}",
+      "smallModel": "Petit",
+      "singleVoice": "Voix unique"
     },
     "controls": {
       "ariaLabel": "Commandes de livres audio",

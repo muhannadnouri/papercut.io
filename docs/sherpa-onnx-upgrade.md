@@ -5,7 +5,9 @@ Stage 3c.1 proof and Stage 3c.2 local smokes are accepted. The registry
 integration is checkpointed at `a5f3d86`; the separate three-crate audit repair
 passes local checks and owner smokes. Stage 4a paired listening is accepted with
 the explicit English quality tradeoff below; Stage 4b native frontends and owner smoke tests are accepted.
- Stage 4c catalog/install work and Stage 5 remain pending.
+ Stage 4c catalog/install implementation and local qualification are ready;
+immutable artifact publication/public downloads and human UI/install acceptance
+remain open. Stage 5 remains pending.
 Native platform gates remain mandatory at PR preparation. Owner direction updated
 November 15, 2026. Research baseline: local `main` at `6baf1858`, Sherpa 1.13.4.
 Current branch runtime: 2.0.1, subject to the platform/human gates below.
@@ -866,13 +868,13 @@ Stage 4a listening is accepted for both candidates (November 15). The owner
 explicitly accepts English 7M's more robotic/less crisp output as a smaller
 alternative; Arabic Nabra is competitive with Kareem. This is not overall English
 quality-parity evidence. Keep full Kokoro recommended and Arabic diacritization
-enabled by default. Stage 4b native frontend integration is ready for local review.
+enabled by default. Stage 4b native frontend integration and owner smokes are accepted.
 See the [artifact/frontend qualification record and reviewer instructions](#stage-4a--paired-qualification-record)
 and [immutable input pins/private assembly proofs](../src-tauri/tts/qualification-artifacts.json).
-Both native frontends are integrated behind their reserved IDs with focused
-guards; the optional Misaki dependency is pinned without its native eSpeak
-feature. No catalog/selector entry has been added. Next qualify distributable
-artifacts/installation and additive catalog metadata before selector exposure.
+Both native frontends use distinct IDs and focused guards; Misaki is pinned
+without its native eSpeak feature. Stage 4c now adds both candidate catalog/selector
+entries and locally qualified complete artifacts. The publication/public-download
+and human install/UI gates remain open before merge/ship.
 
 Scheduling: owner permits local paired-model work before deferred native platform
 qualification. Carry the remaining Gate 3 platform checks into PR/merge acceptance.
@@ -1214,6 +1216,131 @@ packet. Ordinary ignored tests and other native platforms are not asserted passe
 The initial sandboxed full suite's local-listener denials are retained; the full
 suite passes when rerun with its required loopback access.
 
+#### Stage 4c — Paired artifacts and catalog integration (November 15)
+
+Status: **implementation/local qualification ready; publication and human install
+acceptance pending**. Baseline is `912451af5d90a8f327bdca793d6c90b1801ea7f6`.
+This working branch exposes the two candidate selections for review; it must not
+merge/ship until their immutable public assets and download checks pass. The
+public monitor currently passes the three existing archives and fails with the
+expected HTTP 404 for the unpublished new release. No upload, release publication,
+workflow dispatch, push or application release has occurred.
+
+The authoritative `MODELS` and browser fallback now contain both distinct IDs,
+with one `af_msa` speaker (native index 0), the Kokoro family loader and independent
+model directories. English retains the existing normalization and Misaki/Piper
+adapter. Nabra uses the same Arabic preprocessing capabilities/default as Kareem,
+including default Libtashkeel when that capability is compiled. No new diacritizer,
+engine or model/voice inference is introduced. Default recommendations, existing
+selections and upload-language-suggestion exclusion stay unchanged.
+
+The existing Language → Model → Voice controls append localized **Small** and
+**Experimental** labels to these two model options, show a localized single-voice
+label, and use the existing exact-size/install-state/preview controls. Full Kokoro
+and Kareem retain their model-level Recommended labels. There is no precision
+selector or unmeasured speed/RAM claim. Native and browser candidate capability
+DTOs compare identically in the local packet.
+
+New per-model provenance suffixes are `misaki/0.9.0;piper-fallback/1;distill/1`
+and `nabra-cleanup/1;distill/1`. Existing model synthesis revisions and the global
+cache version remain unchanged. Same-voice distills still produce separate book
+IDs. Completed books and the accepted existing-model partial-save policy stand.
+The temporary test-only model metadata fallback has been removed; the shared
+40-case smoke corpus now resolves real catalog entries.
+
+Final prepared model artifacts (FP32, original reviewed graph/token/style bytes):
+
+| Archive | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `kokoro-7m-distill-en-fp32.tar.bz2` | 35,634,041 | `864a694715b41bde0cb711535664ecdb4f451464ac3684fff1c092e4b0f0b364` |
+| `nabra-7m-distill-ar-fp32.tar.bz2` | 35,583,076 | `2a98a1f637156d8b927be4311a3d94edbed0f18e888bd4363614ab2e5f73eabf` |
+| `piper-espeak-corresponding-source.tar.bz2` | 27,911,709 | `66c0103fb4a685dbdb67b1d4d2744f956626060699ee4030bb031e41ef3223c0` |
+
+Each model archive includes its original model card, `MODEL_SOURCE.json`,
+`NOTICE.txt`, Apache/GPL texts, graph, tokens, voice and full verified phonemizer
+data. It no longer contains the old private `QUALIFICATION.json`. The published
+Piper source's `swift-api-examples/espeak-ng-data` tree is byte-identical to the
+reviewed data hash; provenance names that exact commit/path. The companion offers
+unmodified, checksum-pinned Piper and eSpeak/ucd source archives with a manifest
+binding them to these two model hashes. It is component source, not an application
+binary or an app-release qualification claim.
+
+`scripts/checks/prepare-model-archives.js` uses the shared downloader/extractor and
+Node/GNU tar, with no Python or library fork. Canonical ordering, owner, time and
+permissions make all three outputs reproducible. Fresh source/model downloads and
+independent assembly produce identical bytes. Atomic no-clobber promotion rejects
+a different archive under an existing output name. Data links, incorrect trees,
+changed cached source hashes and partial/aborted downloads fail rather than
+entering release output. Developer preparation fetches have a five-minute abort
+signal; other downloader callers retain their previous behavior.
+
+```sh
+node scripts/checks/prepare-model-archives.js --out /tmp/papercut-distill-assets --check-manifest
+node --test scripts/checks/__tests__/prepare-model-archives.test.js scripts/checks/__tests__/check-model-downloads-selftest.js
+```
+
+`--source-dir` optionally chooses the verified input cache; `--data-dir` optionally
+uses an already prepared verified data tree. Defaults reconstruct it from the
+pinned Piper source archive. Sources/recipes are beside other TTS metadata in
+`qualification-artifacts.json`; final downloads are in `model-manifest.json`.
+The older private assembly proofs remain historical and must not be uploaded.
+
+The production manifest also pins the separate source companion; monitoring checks
+its associated release/size/hash without advertising it as a TTS model or making
+the app download it. Full developer download checks include it.
+
+The existing **Model Downloads** workflow adds `prepare-distills`. It skips the
+not-yet-published metadata gate, assembles/verifies both candidates and their
+companion against committed pins, runs ordinary native tests and each candidate's
+production archive smoke in a fresh process, then uploads the verified packet and
+creates a **draft** release. It does not publish or overwrite a release. Original
+`prepare-mirror` remains scoped to the original multilingual Kokoro archive by
+exact name; family-wide checks still include the pair.
+
+Local results/evidence: `.cache/sherpa-stage4c-2026-11-15/`. Native/provider
+regressions pass **374/10 ignored**; default Rust passes **293/4 ignored**.
+TTS frontend tests pass **400 total** (329 non-browser and 71 browser); the browser
+fixtures require local browser/server access and their initial sandbox resets
+are retained separately. Focused frontend/notice/source checks pass **32**; archive
+preparation checks pass **4** and monitor checks **3**. Typecheck, all eight
+locales, changed-file lint/formatting, existing-waiver audit and workflow YAML/seven
+shell blocks pass. Real production verification/extraction/synthesis passes for all
+12 Sherpa entries across five archives. The shared 40-case corpus passes with all
+22 reviewed candidate phone strings unchanged. Each new model separately passes
+from its own extracted archive in a fresh process without the full Kokoro tree.
+Frontend/catalog/UI/cache-ID tests, translations/typecheck, archive/source and
+mirror-scope checks pass. Other platform/device and native GUI acceptance are not
+inferred from these local results.
+
+Publication and human review gate (before merge/ship):
+
+- [ ] Review `release-final/` in the packet, `SHA256SUMS.txt`, cards, provenance,
+  notices and corresponding source. Approve the exact paired artifacts.
+- [ ] After commit/push of the reviewed code, run **Model Downloads →
+  prepare-distills** on that exact ref, or upload the exact locally verified packet
+  to a new draft. Confirm the draft contains both models, the source companion,
+  checksums and the prepared manifest; never use `--clobber`.
+- [ ] With GitHub immutable releases enabled, publish
+  `tts-distill-7m-fp32-2026-11-15` as **non-latest**. Publication requires separate
+  owner authorization. A changed artifact requires a new release identity.
+- [ ] Run `check-model-downloads.js` metadata and fresh full-download checks, plus
+  production `model_archive_smoke`, against the public assets. The local complete
+  packet is not proof of hosted availability/immutability. Do not bypass this gate.
+- [ ] In a clean app profile, select/download/preview both models, check sole voice,
+  exact sizes, Arabic default diacritization/on-off behavior and the unchanged
+  recommended choices. Check interrupted/checksum-failed installs, offline
+  playback, save/cancel/resume/reopen, source highlighting and separate same-book
+  variants; verify existing completed books still play.
+- [ ] Check RTL/narrow layouts and valid saved selections. There is no existing
+  model-delete UI/API to extend here; use an isolated restarted profile for removal
+  and reinstall qualification, respecting Piper's process-global data lifetime.
+- [ ] Accept Stage 4 before Stage 5 device/release acceptance. Native-platform
+  qualification and dormant vendor deletion remain mandatory PR/merge gates.
+
+No publishing authority, model performance claims, native qualification or vendor
+retirement is inferred from implementation completion. Public-asset publication
+is the next action before normal end-to-end new-model download smokes.
+
 ### Stage 5 — Owner device quality and release readiness
 
 Use the exact reviewed candidate artifact on iPhone 16, Pixel 6 Pro, Pixel 7 and
@@ -1315,7 +1442,7 @@ Separate logical/design acceptance from outstanding platform execution.
 | 3c.2. Production replacement/qualification | Owner local smokes passed; native gates deferred | Checkpoint `a5f3d86`; separate three-crate security repair passes audit and local tests | Owner permits paired 7M work after local acceptance. Native SDK/minimum-OS/device qualification and dormant vendor retirement remain PR/merge gates. |
 | 4a. Paired artifact/frontend qualification | Accepted | [Report](#stage-4a--paired-qualification-record), pinned inputs and machine-local listening packet | Owner, November 15: both approved; explicit English crispness/robotic-quality tradeoff for smaller option; Arabic competitive with Kareem, preserve default diacritization. |
 | 4b. Native frontend integration | Accepted | Same shared engine; reserved IDs, pinned Misaki/Piper adapter and focused guards | Owner, November 15: requested smoke tests pass; commit checkpoint. No catalog exposure. |
-| 4c. Paired artifact/installer/catalog integration | Not started | Final distributable pins, per-model metadata and existing installer/UI | After frontend review; native/device gates remain PR/merge requirements. |
+| 4c. Paired artifact/installer/catalog integration | Implemented; local checks passed, publication/human install gates open | Exact paired archives/source companion, native/browser catalog, existing installer/UI and preparation workflow | No public upload/dispatch. Approve/publish immutable artifacts, then run hosted download and native GUI smokes before accepting Stage 4. |
 | 5. Device/release acceptance | Not started | — | — |
 
 At every handoff, update this record and provide:

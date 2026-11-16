@@ -1,5 +1,5 @@
 {
-  "status": "Local qualification only; not approved production catalog pins",
+  "status": "Immutable source inputs and historical private qualification proofs; final archive pins are in model-manifest.json, pending immutable publication.",
   "baselineCommit": "88483fad7a3c62cdf1dc13ea1f35cc6fef038b07",
   "assets": [
     {
@@ -154,6 +154,20 @@
       "url": "https://huggingface.co/oddadmix/Nabra-7M-Distill/resolve/03b95013d3dcd8be6f0b0412a157d25518c7b756/arabic_g2p.py",
       "bytes": 7964,
       "sha256": "7754aab4d0d8e33822ee4f736b641291b6c445608e1df568c12b9762f7c0f55c"
+    },
+    {
+      "language": "shared",
+      "file": "LICENSE-APACHE-2.0",
+      "url": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/af2d8d81dbfa61c4cea4c568da78f3982edca005/LICENSE",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "language": "shared",
+      "file": "COPYING-GPL-3.0",
+      "url": "https://raw.githubusercontent.com/csukuangfj/espeak-ng/ed530aa113046142eb5115cf2fc9157854d0ffe1/COPYING",
+      "bytes": 35147,
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
     }
   ],
   "privateAssemblyProofs": [
@@ -181,5 +195,36 @@
       "extractedFilesVerified": 358,
       "status": "Local evaluation bundle; not a published production pin"
     }
-  ]
+  ],
+  "packaging": {
+    "releaseTag": "tts-distill-7m-fp32-2026-11-15",
+    "dataTreeSha256": "43ebef9ebca9edcb42dd5d49a7935038731af4c6450a677dc0cae732dae0ce6a",
+    "dataSource": {
+      "repo": "csukuangfj/piper-phonemize",
+      "revision": "dae4d2d831f9f0817355f7c0e8abd98c2fb0a49d",
+      "path": "swift-api-examples/espeak-ng-data"
+    },
+    "models": [
+      {
+        "language": "en",
+        "modelName": "kokoro-7m-distill-en-fp32"
+      },
+      {
+        "language": "ar",
+        "modelName": "nabra-7m-distill-ar-fp32"
+      }
+    ],
+    "sourceArchives": [
+      {
+        "name": "piper-phonemize",
+        "url": "https://github.com/csukuangfj/piper-phonemize/archive/dae4d2d831f9f0817355f7c0e8abd98c2fb0a49d.tar.gz",
+        "sha256": "61d569c856f10559b55e9112143b12abc8bb3992fe34e4777dbbdb5db286a6cd"
+      },
+      {
+        "name": "espeak-ng",
+        "url": "https://github.com/csukuangfj/espeak-ng/archive/ed530aa113046142eb5115cf2fc9157854d0ffe1.zip",
+        "sha256": "e4e262cbe34f7fe21f91f1ba3397f2728e1f30eafbae7853f2b753a9ed13f0dd"
+      }
+    ]
+  }
 }

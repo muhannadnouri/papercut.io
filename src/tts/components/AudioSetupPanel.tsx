@@ -14,6 +14,7 @@ import type {
 import { previewNativeTtsVoice } from '../api/nativeTts'
 import {
   getRecommendedTtsModel,
+  isDistillTtsModel,
   getTtsPreviewText,
 } from '../models'
 import { nativeTtsErrorMessage } from '../utils/errors'
@@ -337,7 +338,7 @@ export function AudioSetupPanel({
             >
               {modelsForLanguage.map((model) => (
                 <option key={model.id} value={model.id}>
-                  {model.name}{model.id === recommendedModel?.id ? ' · ' + t('tts.setup.recommended') : ''}
+                  {model.name}{isDistillTtsModel(model.id) ? ' · ' + t('tts.setup.smallModel') + ' · ' + t('settings.experimental') : ''}{model.id === recommendedModel?.id ? ' · ' + t('tts.setup.recommended') : ''}
                 </option>
               ))}
             </select>
@@ -426,7 +427,7 @@ export function AudioSetupPanel({
             >
               {voices.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name}{item.id === selectedModel?.defaultVoice ? ' · ' + t('tts.setup.recommended') : ''}
+                  {isDistillTtsModel(modelId) ? t('tts.setup.singleVoice') : item.name}{item.id === selectedModel?.defaultVoice ? ' · ' + t('tts.setup.recommended') : ''}
                 </option>
               ))}
             </select>

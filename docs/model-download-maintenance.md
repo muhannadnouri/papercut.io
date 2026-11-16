@@ -139,7 +139,7 @@ ORT_LIB_LOCATION="$PWD/src-tauri/target/sherpa-onnx-prebuilt/sherpa-onnx-v2.0.1-
 ```
 
 Before the mirror exists, add `--upstream` to the download command. For a
-Kokoro-only check, also use `--family kokoro` and set
+original multilingual Kokoro mirror check, use `--model-name kokoro-multi-lang-v1_0` and set
 `PAPERCUT_SMOKE_KOKORO_ONLY=1` for the Rust smoke test. These options are for
 artifact preparation, not substitutes for the production mirror check.
 Native tests require the normal Linux build dependencies. The ignored smoke
@@ -223,3 +223,26 @@ native platform and single-ORT layout gates in the
 overrides too. Normal commands run from the repo root; external Cargo callers
 must explicitly load that config. Use `CARGO_TARGET_DIR` for custom desktop bundle
 roots so Node cache paths agree with Cargo.
+
+
+## Paired distill artifact preparation
+
+Stage 4c of [the upgrade plan](sherpa-onnx-upgrade.md#stage-4c--paired-artifacts-and-catalog-integration-november-15)
+records the exact candidate hashes and open publication gates. Model/source inputs
+are pinned in `src-tauri/tts/qualification-artifacts.json`; final complete archive
+identities are in `model-manifest.json`. `prepare-model-archives.js --out <directory>
+--check-manifest` assembles the English/Arabic pair and their corresponding-source
+companion reproducibly from fresh immutable inputs. The app never runs this tool.
+
+The existing workflow's `prepare-distills` mode qualifies the committed pair and
+creates a non-overwriting draft. Publishing the immutable non-latest model release
+is separately authorized; metadata/full-download checks must then pass before
+merge. The original mirror mode still targets only the original multilingual
+archive. `--family kokoro` intentionally covers both original and distill archives;
+`--model-name` selects one exact archive for preparation/diagnostics.
+
+For a cold standalone production archive test, set `PAPERCUT_MODEL_ARCHIVE_DIR` and
+`PAPERCUT_SMOKE_ARCHIVE_NAME=kokoro-7m-distill-en-fp32` (then
+`nabra-7m-distill-ar-fp32`) when running `model_archive_smoke`. Missing archive
+filters fail instead of silently skipping qualification. Separate processes prove
+neither model borrows another installed model's phonemizer data.

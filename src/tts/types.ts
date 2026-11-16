@@ -1,4 +1,6 @@
 export const DEFAULT_TTS_MODEL_ID = 'sherpa-onnx/kokoro-multi-lang-v1_0'
+export const KOKORO_7M_MODEL_ID = 'sherpa-onnx/kokoro-7m-distill-en-fp32'
+export const NABRA_7M_MODEL_ID = 'sherpa-onnx/nabra-7m-distill-ar-fp32'
 export const KOKORO_ZH_MODEL_ID = 'sherpa-onnx/kokoro-multi-lang-v1_0-zh'
 export const PIPER_KAREEM_MODEL_ID = 'sherpa-onnx/vits-piper-ar_JO-kareem-medium'
 export const SUPERTONIC_EN_MODEL_ID = 'sherpa-onnx/supertonic-3-en'

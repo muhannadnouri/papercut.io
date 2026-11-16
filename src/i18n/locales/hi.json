@@ -848,7 +848,9 @@
       "preparingDownload": "मॉडल डाउनलोड की तैयारी",
       "runtimeMissing": "SILMA रनटाइम पैक स्थापित नहीं है",
       "threadCount_one": "{{count, number}} धागा",
-      "threadCount_other": "{{count, number}} धागे"
+      "threadCount_other": "{{count, number}} धागे",
+      "smallModel": "छोटा",
+      "singleVoice": "एक आवाज़"
     },
     "controls": {
       "ariaLabel": "ऑडियोबुक नियंत्रण",

@@ -880,7 +880,9 @@
       "largeDownloadNote": "قد تستغرق التنزيلات الكبيرة وقتًا ويمكن استئنافها بعد الانقطاع.",
       "manualInstall": "يلزم تثبيت النموذج يدويًا",
       "preparingDownload": "جارٍ إعداد تنزيل النموذج",
-      "runtimeMissing": "حزمة تشغيل SILMA غير مثبّتة"
+      "runtimeMissing": "حزمة تشغيل SILMA غير مثبّتة",
+      "smallModel": "صغير",
+      "singleVoice": "صوت واحد"
     },
     "controls": {
       "ariaLabel": "عناصر التحكم في الكتاب الصوتي",

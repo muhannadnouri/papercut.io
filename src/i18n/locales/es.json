@@ -856,7 +856,9 @@
       "runtimeMissing": "El paquete de tiempo de ejecución SILMA no está instalado",
       "threadCount_one": "Hilo {{count, number}}",
       "threadCount_many": "Hilos {{count, number}}",
-      "threadCount_other": "Hilos {{count, number}}"
+      "threadCount_other": "Hilos {{count, number}}",
+      "smallModel": "Pequeño",
+      "singleVoice": "Una sola voz"
     },
     "controls": {
       "ariaLabel": "Controles de audiolibros",

@@ -11,6 +11,9 @@ import {
 } from './models'
 import {
   DEFAULT_TTS_MODEL_ID,
+  KOKORO_7M_MODEL_ID,
+  NABRA_7M_MODEL_ID,
+  LIBTASHKEEL_TEXT_PREPROCESSOR,
   PIPER_KAREEM_MODEL_ID,
   SUPERTONIC_AR_MODEL_ID,
   SUPERTONIC_EN_MODEL_ID,
@@ -83,5 +86,19 @@ describe('getTtsPreviewText', () => {
   it('uses the selected model language and falls back to English', () => {
     expect(getTtsPreviewText('ar-JO')).toMatch(/[\u0600-\u06ff]/u)
     expect(getTtsPreviewText('unknown')).toBe(getTtsPreviewText('en-US'))
+  })
+})
+
+describe('paired distill selections', () => {
+  it('keeps independent single-voice choices without changing recommendations', () => {
+    const english = FALLBACK_TTS_MODELS.find((model) => model.id === KOKORO_7M_MODEL_ID)!
+    const arabic = FALLBACK_TTS_MODELS.find((model) => model.id === NABRA_7M_MODEL_ID)!
+    expect(english.voices.map((voice) => voice.id)).toEqual(['af_msa'])
+    expect(arabic.voices.map((voice) => voice.id)).toEqual(['af_msa'])
+    expect(arabic.defaultTextPreprocessor).toBe(LIBTASHKEEL_TEXT_PREPROCESSOR)
+    expect(suggestTtsModel(FALLBACK_TTS_MODELS, ARABIC_CHUNKS, arabic.id)).toBeNull()
+    expect(suggestTtsModel(FALLBACK_TTS_MODELS, LATIN_CHUNKS, english.id)).toBeNull()
+    expect(getRecommendedTtsModel(FALLBACK_TTS_MODELS, 'en')?.id).toBe(DEFAULT_TTS_MODEL_ID)
+    expect(getRecommendedTtsModel(FALLBACK_TTS_MODELS, 'ar')?.id).toBe(PIPER_KAREEM_MODEL_ID)
   })
 })

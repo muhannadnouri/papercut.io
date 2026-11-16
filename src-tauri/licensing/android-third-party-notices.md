@@ -27,6 +27,10 @@ accompany each release.
   and declared with the F-Droid NonFreeAssets anti-feature.
 - Kokoro: Apache-2.0 archive; its bundled eSpeak data/dictionaries and
   CppJieba dictionaries are covered by the GPL and MIT notices above.
+- Kokoro 7M / Nabra 7M: pinned original model cards declare Apache-2.0.
+  Complete optional archives retain original cards, exact converted-file
+  provenance, Apache/GPL texts and unchanged GPL eSpeak data from Piper.
+  The model release includes corresponding Piper/eSpeak source.
 - E5 embeddings (Small/Base/Large): all pinned model cards declare MIT; the
   MIT text above covers them; hash-pinned ONNX/tokenizer assets keep per-file
   notices.

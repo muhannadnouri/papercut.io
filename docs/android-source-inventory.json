@@ -7,7 +7,7 @@
       "native-tts-shared",
       "experimental-search-embeddings"
     ],
-    "status": "Stage 3 security smokes, paired Stage 4a listening and Stage 4b native frontend smokes accepted. No small-model catalog exposure. Other native-platform qualification remains a PR/merge gate.",
+    "status": "Stage 4c paired catalog/artifact implementation candidate; owner accepted Stage 4a listening and Stage 4b smokes. Local archive assembly complete; immutable publication/public download validation and human install/UI gates pending. Native platform qualification remains a PR/merge gate.",
     "rust": "Resolved Android metadata candidates; runtime/build/dev metadata may coexist. Notices conservatively enumerate the resolved graph, not every compiled/shipped package. Review native subprojects separately.",
     "npm": "Production lockfile candidates, not a bundler-level inclusion claim. Native/WASM/model/data evidence is in the Android guide.",
     "reviewedOn": "2026-11-15",
@@ -625,6 +625,20 @@
         "sha256": "82fa96f91c4ef8abaae3a14a3f4153facf88bed821d1f7331cec2700f432c427",
         "bytes": 128774318,
         "status": "Archive README says MIT code and OpenRAIL-M weights; restrictions require owner/F-Droid review, not blanket MIT clearance."
+      },
+      {
+        "family": "kokoro",
+        "url": "https://github.com/muhannadnouri/papercut.io/releases/download/tts-distill-7m-fp32-2026-11-15/kokoro-7m-distill-en-fp32.tar.bz2",
+        "sha256": "864a694715b41bde0cb711535664ecdb4f451464ac3684fff1c092e4b0f0b364",
+        "bytes": 35634041,
+        "status": "Prepared release candidate, not published. Original model card declares Apache-2.0; unmodified converted files and GPL data provenance/notices are embedded. Companion Piper/eSpeak source required with publication."
+      },
+      {
+        "family": "kokoro",
+        "url": "https://github.com/muhannadnouri/papercut.io/releases/download/tts-distill-7m-fp32-2026-11-15/nabra-7m-distill-ar-fp32.tar.bz2",
+        "sha256": "2a98a1f637156d8b927be4311a3d94edbed0f18e888bd4363614ab2e5f73eabf",
+        "bytes": 35583076,
+        "status": "Prepared release candidate, not published. Original model card declares Apache-2.0; unmodified converted files and GPL data provenance/notices are embedded. Companion Piper/eSpeak source required with publication."
       }
     ],
     "embeddings": [
@@ -648,6 +662,19 @@
         "modelCard": "https://huggingface.co/intfloat/multilingual-e5-large/raw/3d7cfbdacd47fdda877c5cd8a79fbcc4f2a574f3/README.md",
         "declaredLicense": "MIT",
         "evidence": "All three pinned model cards declare MIT; converted ONNX/tokenizer files remain hash/size-pinned in src-tauri/src/search_embeddings/models.rs. Preserve per-file notices; not a retraining/quantization reproduction claim."
+      }
+    ],
+    "voiceSourceCompanions": [
+      {
+        "family": "source",
+        "modelName": "piper-espeak-corresponding-source",
+        "url": "https://github.com/muhannadnouri/papercut.io/releases/download/tts-distill-7m-fp32-2026-11-15/piper-espeak-corresponding-source.tar.bz2",
+        "sha256": "66c0103fb4a685dbdb67b1d4d2744f956626060699ee4030bb031e41ef3223c0",
+        "archiveBytes": 27911709,
+        "modelNames": [
+          "kokoro-7m-distill-en-fp32",
+          "nabra-7m-distill-ar-fp32"
+        ]
       }
     ]
   },

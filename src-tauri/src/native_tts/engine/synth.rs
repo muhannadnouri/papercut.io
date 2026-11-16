@@ -566,10 +566,7 @@ mod tests {
     use std::env;
     use std::path::PathBuf;
 
-    use super::super::models::{
-        model_definition, VoiceDefinition, DEFAULT_MODEL_ID, KOKORO_7M_MODEL_ID,
-        KOKORO_ZH_MODEL_ID, NABRA_7M_MODEL_ID,
-    };
+    use super::super::models::{model_definition, DEFAULT_MODEL_ID, KOKORO_ZH_MODEL_ID};
     use super::*;
 
     #[derive(serde::Deserialize)]
@@ -590,7 +587,7 @@ mod tests {
             serde_json::from_str(include_str!("../../../tts/frontend-smoke.json")).unwrap();
         let mut distills = 0;
         for case in cases {
-            let model = frontend_smoke_model(&case.model);
+            let model = model_definition(&case.model).unwrap();
             assert!(model
                 .voices
                 .iter()
@@ -651,6 +648,9 @@ mod tests {
                 .expect("PAPERCUT_MODEL_ARCHIVE_DIR is required"),
         );
         let only_kokoro = env::var_os("PAPERCUT_SMOKE_KOKORO_ONLY").is_some();
+        // One archive in a fresh process proves a distill does not borrow an installed 82M data tree.
+        let archive_name = env::var("PAPERCUT_SMOKE_ARCHIVE_NAME").ok();
+        let mut exercised = 0;
         let work = archive_dir.join(format!("smoke-{}", std::process::id()));
         assert!(
             !work.exists(),
@@ -663,7 +663,14 @@ mod tests {
             .iter()
             .filter(|model| matches!(model.backend, TtsModelBackend::SherpaOnnx))
         {
-            if only_kokoro && model.require_sherpa_family().unwrap() != SherpaModelFamily::Kokoro {
+            if archive_name
+                .as_deref()
+                .is_some_and(|name| name != model.directory_name)
+            {
+                continue;
+            }
+            // Historical mirror preparation includes only the original multilingual archive.
+            if only_kokoro && model.directory_name != "kokoro-multi-lang-v1_0" {
                 continue;
             }
             if extracted.insert(model.directory_name) {
@@ -702,7 +709,11 @@ mod tests {
                 "ar" | "ar-JO" => "مرحبا هذا اختبار للصوت",
                 language => panic!("Add a smoke sample for {language}"),
             };
-            let audio = generate_audio(&engine, text, model.default_voice, 1.0)
+            let text = TextPreprocessor::create(model, model.default_text_preprocessor)
+                .unwrap()
+                .process(text)
+                .unwrap();
+            let audio = generate_audio(&engine, &text, model.default_voice, 1.0)
                 .unwrap()
                 .unwrap();
             assert!(
@@ -717,6 +728,7 @@ mod tests {
             let wav = work.join(format!("{}.wav", model.id.replace('/', "-")));
             assert!(audio.save(wav.to_str().unwrap()));
             assert!(super::super::cache::wav_info(&wav).is_some());
+            exercised += 1;
             println!(
                 "PASS {}: {} speakers, {} samples",
                 model.id,
@@ -724,38 +736,8 @@ mod tests {
                 audio.samples().len()
             );
         }
+        assert!(exercised > 0, "Archive filter did not exercise any model");
         fs::remove_dir_all(work).unwrap();
-    }
-
-    /// shortcut: reserved distill metadata is test-only until the artifact/catalog gate passes.
-    /// Keep fixture/model ownership shared; remove this fallback when the real entries become installable.
-    fn frontend_smoke_model(id: &str) -> &'static ModelDefinition {
-        if let Ok(model) = model_definition(id) {
-            return model;
-        }
-        let locale = PhonemeAdapter::locale(id).expect("Unknown model in frontend smoke corpus");
-        let mut model = *model_definition(DEFAULT_MODEL_ID).unwrap();
-        model.id = if locale == "ar" {
-            NABRA_7M_MODEL_ID
-        } else {
-            KOKORO_7M_MODEL_ID
-        };
-        model.language = if locale == "ar" { "ar" } else { "en-US" };
-        model.directory_name = model.id.strip_prefix("sherpa-onnx/").unwrap();
-        model.model_file = "model.onnx";
-        model.default_voice = "af_msa";
-        model.voices = &[VoiceDefinition {
-            id: "af_msa",
-            name: "af_msa",
-            speaker_id: 0,
-        }];
-        model.required_files = &[
-            "model.onnx",
-            "tokens.txt",
-            "voices.bin",
-            "espeak-ng-data/phontab",
-        ];
-        Box::leak(Box::new(model))
     }
 
     /// One production-path corpus covers the current roster and qualified distills; returns to English after switching.
@@ -768,9 +750,19 @@ mod tests {
         fs::create_dir_all(&out).unwrap();
         let cases: Vec<FrontendCase> =
             serde_json::from_str(include_str!("../../../tts/frontend-smoke.json")).unwrap();
+        fs::write(
+            out.join("catalog.json"),
+            serde_json::to_vec_pretty(
+                &super::super::models::visible_models()
+                    .map(ModelDefinition::to_info)
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
         let mut first = None;
         for case in cases {
-            let model = frontend_smoke_model(&case.model);
+            let model = model_definition(&case.model).unwrap();
             let model_dir = root.join(model.directory_name);
             assert!(
                 model.has_required_files(&model_dir),

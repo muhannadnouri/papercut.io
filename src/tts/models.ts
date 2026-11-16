@@ -1,6 +1,8 @@
 import {
   DEFAULT_TTS_MODEL_ID,
   KOKORO_ZH_MODEL_ID,
+  KOKORO_7M_MODEL_ID,
+  NABRA_7M_MODEL_ID,
   LIBTASHKEEL_TEXT_PREPROCESSOR,
   PIPER_KAREEM_MODEL_ID,
   SILMA_MODEL_ID,
@@ -10,6 +12,20 @@ import {
   type TtsChunk,
   type TtsModelInfo,
 } from './types'
+
+// Arabic models share preprocessing capabilities; voice/model IDs remain independent.
+const ARABIC_TEXT_PREPROCESSORS = [
+  {
+    id: TEXT_PREPROCESSOR_NONE,
+    name: 'Original text',
+    description: 'Synthesize Arabic source text without automatic diacritization.',
+  },
+  {
+    id: LIBTASHKEEL_TEXT_PREPROCESSOR,
+    name: 'Auto diacritization',
+    description: 'Restore Arabic tashkeel with Libtashkeel before synthesis.',
+  },
+]
 
 // Native capabilities are authoritative. This fallback keeps browser/stub UI
 // deterministic and preserves existing preferences before Tauri responds.
@@ -193,18 +209,7 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
     languageLabel: 'Arabic (Jordan)',
     defaultVoice: 'kareem',
     defaultTextPreprocessor: LIBTASHKEEL_TEXT_PREPROCESSOR,
-    textPreprocessors: [
-      {
-        id: TEXT_PREPROCESSOR_NONE,
-        name: 'Original text',
-        description: 'Synthesize Arabic source text without automatic diacritization.',
-      },
-      {
-        id: LIBTASHKEEL_TEXT_PREPROCESSOR,
-        name: 'Auto diacritization',
-        description: 'Restore Arabic tashkeel with Libtashkeel before Piper synthesis.',
-      },
-    ],
+    textPreprocessors: ARABIC_TEXT_PREPROCESSORS,
     voices: [{
       id: 'kareem',
       name: 'Kareem',
@@ -246,6 +251,39 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
       name: 'Speaker 6',
     }],
   },
+  // Preserve fallback selection order by appending alternatives after the existing roster.
+  {
+    id: KOKORO_7M_MODEL_ID,
+    name: 'Kokoro 7M',
+    family: 'kokoro',
+    language: 'en-US',
+    languageLabel: 'English',
+    defaultVoice: 'af_msa',
+    defaultTextPreprocessor: TEXT_PREPROCESSOR_NONE,
+    textPreprocessors: [{
+      id: TEXT_PREPROCESSOR_NONE,
+      name: 'Original text',
+      description: 'Synthesize source text without language preprocessing.',
+    }],
+    voices: [{
+      id: 'af_msa',
+      name: 'Default voice',
+    }],
+  },
+  {
+    id: NABRA_7M_MODEL_ID,
+    name: 'Nabra 7M',
+    family: 'kokoro',
+    language: 'ar',
+    languageLabel: 'Arabic (Modern Standard)',
+    defaultVoice: 'af_msa',
+    defaultTextPreprocessor: LIBTASHKEEL_TEXT_PREPROCESSOR,
+    textPreprocessors: ARABIC_TEXT_PREPROCESSORS,
+    voices: [{
+      id: 'af_msa',
+      name: 'Default voice',
+    }],
+  },
   {
     id: SILMA_MODEL_ID,
     name: 'SILMA Arabic TTS',
@@ -265,6 +303,11 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
     }],
   },
 ]
+
+/** The two reviewed distills have one voice and distinct training-compatible frontends. */
+export function isDistillTtsModel(modelId: string): boolean {
+  return modelId === KOKORO_7M_MODEL_ID || modelId === NABRA_7M_MODEL_ID
+}
 
 export function getTtsModel(models: TtsModelInfo[], modelId: string): TtsModelInfo {
   return models.find((model) => model.id === modelId)

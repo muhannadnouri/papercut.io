@@ -146,6 +146,17 @@ Piper Kareem is about 64 MB compressed and suitable for offline Arabic, but a me
 
 Existing saved audiobook files are unchanged. The cache version stays `native-save-v4-segmented`; Kokoro retains the same model ID, voice IDs, and audiobook identity. Legacy preferences, download records, saved records, imported uploads, native manifests, and bundles default missing model metadata to Kokoro and missing preprocessing metadata to `none`. Existing completed WAV audiobooks remain playable. Diacritized Piper saves use a distinct ID and never overwrite or reuse undiacritized audio. Documents unaffected by the wrapper-text omission keep the same narration text. An affected document must be regenerated to include the newly retained prose; the corrected source signature and chunk sequence intentionally differ from the incomplete generation.
 
+The additive Kokoro 7M / Nabra 7M FP32 catalog integration is a Stage 4c candidate,
+with public archive publication and installed-app acceptance still pending; see
+[the upgrade plan](sherpa-onnx-upgrade.md#stage-4c--paired-artifacts-and-catalog-integration-november-15).
+Both are single-voice alternatives using the shared Sherpa engine and native
+phoneme adapters. Full Kokoro/Kareem remain recommended. English 7M's more robotic,
+less crisp output is an explicitly accepted smaller option; Arabic Nabra is
+competitive with Kareem and retains default automatic Libtashkeel diacritization.
+Current model IDs, completed WAVs and existing synthesis revisions stay stable;
+new distills have their own identities and frontend provenance. No performance
+claim or other-platform qualification is implied.
+
 ## Arabic Pronunciation And Diacritization
 
 Piper Kareem uses eSpeak-ng phonemization through sherpa-onnx. Arabic normally omits short vowels, so an undiacritized spelling can represent several pronunciations and meanings. Piper and eSpeak-ng do not provide enough contextual language understanding to resolve every ambiguity by themselves.

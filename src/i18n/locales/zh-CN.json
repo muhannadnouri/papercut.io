@@ -840,7 +840,9 @@
       "manualInstall": "需要手动安装模型",
       "preparingDownload": "准备模型下载",
       "runtimeMissing": "SILMA运行时包未安装",
-      "threadCount_other": "{{count, number}} 螺纹"
+      "threadCount_other": "{{count, number}} 螺纹",
+      "smallModel": "小型",
+      "singleVoice": "单一音色"
     },
     "controls": {
       "ariaLabel": "有声读物控件",

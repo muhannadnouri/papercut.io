@@ -12,6 +12,8 @@ import { FALLBACK_TTS_MODELS } from '../models'
 import {
   DEFAULT_SILMA_NFE_STEP,
   DEFAULT_TTS_MODEL_ID,
+  KOKORO_7M_MODEL_ID,
+  NABRA_7M_MODEL_ID,
   PIPER_KAREEM_MODEL_ID,
   SILMA_MODEL_ID,
   SUPERTONIC_AR_MODEL_ID,
@@ -71,6 +73,8 @@ describe('AudioSetupPanel model recommendations', () => {
   it.each([
     [SUPERTONIC_EN_MODEL_ID, 'en', DEFAULT_TTS_MODEL_ID],
     [SUPERTONIC_AR_MODEL_ID, 'ar', PIPER_KAREEM_MODEL_ID],
+    [KOKORO_7M_MODEL_ID, 'en', DEFAULT_TTS_MODEL_ID],
+    [NABRA_7M_MODEL_ID, 'ar', PIPER_KAREEM_MODEL_ID],
   ])('labels the recommended model without replacing selected %s', async (modelId, language, recommendedId) => {
     const onModelChange = vi.fn()
     const element = document.createElement('div')
@@ -159,4 +163,19 @@ describe('AudioSetupPanel Advanced disclosure', () => {
     expect(html).toContain('tts.setup.diagnostics: tts.setup.on')
     expect(html).not.toContain('<details class="audio-setup-group audio-setup-advanced" open="">')
   })
+})
+
+it.each([KOKORO_7M_MODEL_ID, NABRA_7M_MODEL_ID])('shows %s as a compact experiment with one valid voice', (id) => {
+  const selected = FALLBACK_TTS_MODELS.find((item) => item.id === id)!
+  const markup = renderPanel({
+    models: FALLBACK_TTS_MODELS,
+    modelId: id,
+    voice: selected.defaultVoice,
+    voices: selected.voices,
+    textPreprocessor: selected.defaultTextPreprocessor,
+    textPreprocessors: selected.textPreprocessors,
+  })
+  expect(markup).toContain(selected.name + ' · tts.setup.smallModel · settings.experimental')
+  expect(markup).toContain('tts.setup.singleVoice')
+  expect(selected.voices).toHaveLength(1)
 })

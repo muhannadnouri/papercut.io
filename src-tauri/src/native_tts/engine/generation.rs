@@ -11,7 +11,9 @@ use sha2::{Digest, Sha256};
 
 use super::cache::scan_audiobook;
 use super::manifest::{read_manifest, NativeAudiobookManifest};
-use super::models::{model_definition, TtsModelBackend, SILMA_MODEL_ID};
+use super::models::{
+    model_definition, TtsModelBackend, KOKORO_7M_MODEL_ID, NABRA_7M_MODEL_ID, SILMA_MODEL_ID,
+};
 use super::silma_sidecar::DEFAULT_SILMA_NFE_STEP;
 use crate::native_tts::types::NativeAudiobookSaveRequest;
 
@@ -21,7 +23,15 @@ const SHERPA_SYNTHESIS_REVISION: &str = "sherpa/2.0.1;piper/1.5.9;espeak/43ebef9
 /// Version Sherpa's synthesis contract separately from cache IDs; SILMA keeps its existing resume rules.
 pub(super) fn synthesis_revision(model_id: &str) -> Option<String> {
     model_definition(model_id).ok().and_then(|model| {
-        (model.backend == TtsModelBackend::SherpaOnnx).then(|| SHERPA_SYNTHESIS_REVISION.into())
+        (model.backend == TtsModelBackend::SherpaOnnx).then(|| {
+            // Version new frontends separately; existing saves keep the accepted 2.0.1 revision.
+            let frontend = match model.id {
+                KOKORO_7M_MODEL_ID => ";misaki/0.9.0;piper-fallback/1;distill/1",
+                NABRA_7M_MODEL_ID => ";nabra-cleanup/1;distill/1",
+                _ => "",
+            };
+            format!("{SHERPA_SYNTHESIS_REVISION}{frontend}")
+        })
     })
 }
 
@@ -133,6 +143,21 @@ mod tests {
     use super::super::paths::{chunk_path, stable_hex_hash};
     use super::*;
     use crate::native_tts::types::NativeTtsInputChunk;
+
+    /// Adding frontend provenance must not restart existing-roster jobs or collide with the other distill.
+    #[test]
+    fn distill_revisions_are_scoped_without_changing_existing_sherpa_provenance() {
+        assert_eq!(
+            synthesis_revision(DEFAULT_MODEL_ID).unwrap(),
+            SHERPA_SYNTHESIS_REVISION
+        );
+        let english = synthesis_revision(KOKORO_7M_MODEL_ID).unwrap();
+        let arabic = synthesis_revision(NABRA_7M_MODEL_ID).unwrap();
+        assert!(english.ends_with(";misaki/0.9.0;piper-fallback/1;distill/1"));
+        assert!(arabic.ends_with(";nabra-cleanup/1;distill/1"));
+        assert_ne!(english, arabic);
+        assert!(synthesis_revision(SILMA_MODEL_ID).is_none());
+    }
 
     struct Fixture {
         root: PathBuf,
