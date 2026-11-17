@@ -160,7 +160,7 @@ requires `PAPERCUT_ARABIC_TTS_MODEL_DIR` and `-- --ignored --exact --nocapture`.
 The standalone atomic Unix runtime-copy regression needs no Cargo dependencies:
 
 ```sh
-rustc --edition=2021 --test src-tauri/vendor/sherpa-onnx-sys/runtime_copy.rs -o /tmp/papercut-runtime-copy-test
+rustc --edition=2021 --test src-tauri/build/runtime_copy.rs -o /tmp/papercut-runtime-copy-test
 /tmp/papercut-runtime-copy-test
 ```
 

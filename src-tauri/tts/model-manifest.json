@@ -39,11 +39,50 @@
         "android"
       ],
       "licenseNote": "Experimental multilingual SupertonicTTS 3 entry; performance and quality should be benchmarked per device."
+    },
+    {
+      "family": "kokoro",
+      "modelName": "kokoro-7m-distill-en-fp32",
+      "sourceLabel": "oddadmix / marwanelamami Kokoro 7M FP32",
+      "url": "https://github.com/muhannadnouri/papercut.io/releases/download/tts-distill-7m-fp32-2026-11-15/kokoro-7m-distill-en-fp32.tar.bz2",
+      "sha256": "864a694715b41bde0cb711535664ecdb4f451464ac3684fff1c092e4b0f0b364",
+      "archiveBytes": 35634041,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "licenseNote": "Apache-2.0 model/voice; bundled eSpeak NG data carries GPLv3 terms and corresponding source."
+    },
+    {
+      "family": "kokoro",
+      "modelName": "nabra-7m-distill-ar-fp32",
+      "sourceLabel": "oddadmix / marwanelamami Nabra 7M FP32",
+      "url": "https://github.com/muhannadnouri/papercut.io/releases/download/tts-distill-7m-fp32-2026-11-15/nabra-7m-distill-ar-fp32.tar.bz2",
+      "sha256": "2a98a1f637156d8b927be4311a3d94edbed0f18e888bd4363614ab2e5f73eabf",
+      "archiveBytes": 35583076,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "licenseNote": "Apache-2.0 model/voice; bundled eSpeak NG data carries GPLv3 terms and corresponding source."
     }
   ],
   "notes": [
     "Model archives are downloaded on demand and are not packaged into installers or APKs.",
     "Platform-specific sherpa-onnx libraries are handled separately by Cargo or Android prep scripts.",
     "Authoritative download metadata: build.rs compiles these URLs, hashes, and exact sizes into the Rust catalog; monitoring reads the same file."
+  ],
+  "companions": [
+    {
+      "family": "source",
+      "modelName": "piper-espeak-corresponding-source",
+      "url": "https://github.com/muhannadnouri/papercut.io/releases/download/tts-distill-7m-fp32-2026-11-15/piper-espeak-corresponding-source.tar.bz2",
+      "sha256": "66c0103fb4a685dbdb67b1d4d2744f956626060699ee4030bb031e41ef3223c0",
+      "archiveBytes": 27911709,
+      "modelNames": [
+        "kokoro-7m-distill-en-fp32",
+        "nabra-7m-distill-ar-fp32"
+      ]
+    }
   ]
 }

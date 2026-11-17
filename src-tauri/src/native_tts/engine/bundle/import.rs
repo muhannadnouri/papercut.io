@@ -29,8 +29,8 @@ use super::super::paths::{
     playback_track_path, speakable_chunks, stable_hex_hash,
 };
 use super::super::silma_sidecar::DEFAULT_SILMA_NFE_STEP;
-use crate::document_uploads::release_source_access;
-use crate::document_uploads::{restore_audiobook_pdf, sanitize_html};
+use crate::document_uploads::{release_source_access, restore_audiobook_pdf, sanitize_html};
+use crate::native_tts::lock_audiobook_directory;
 use crate::native_tts::types::{
     NativeAudiobookImportResponse, NativeAudiobookSaveRequest, NativeTtsInputChunk,
 };
@@ -178,6 +178,7 @@ pub(crate) fn audiobook_source_is_bundle(
 }
 
 /// Shared validation/restore pipeline behind dialog and open-with imports.
+/// Hold the destination's writer lease through restore; imported WAVs never inherit the current engine's provenance.
 fn import_audiobook_core<R: Read>(
     app: tauri::AppHandle,
     mut reader: BufReader<R>,
@@ -215,6 +216,7 @@ fn import_audiobook_core<R: Read>(
         }
     }
     let destination_audiobook_dir = audiobook_dir(&app, &audiobook_id)?;
+    let _book_lease = lock_audiobook_directory(&destination_audiobook_dir)?;
     let storage_key = destination_audiobook_dir
         .file_name()
         .and_then(|name| name.to_str())
@@ -363,8 +365,9 @@ fn import_audiobook_core<R: Read>(
         speed: manifest.speed,
         thread_count: None,
         silma_nfe_step: manifest.silma_nfe_step,
+        restart_generation_token: None,
     };
-    write_manifest(&staged_audiobook_dir, &save_request, &speakable, 0)?;
+    write_manifest(&staged_audiobook_dir, &save_request, &speakable, 0, None)?;
     // write_manifest invalidates old derived playback files. Commit staged bundle
     // track afterward so first mobile Play can rebuild only its tiny sidecar.
     if imported_track {

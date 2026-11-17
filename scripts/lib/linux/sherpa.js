@@ -5,6 +5,9 @@ import {
   stat,
 } from "node:fs/promises"
 import { join } from "node:path"
+
+import { PIPER_VERSION } from "../constants.js"
+import { nativeCacheDir } from "../native-paths.js"
 import {
   SHERPA_LINUX_OPTIONAL_LIBS,
   SHERPA_LINUX_SHARED_OUT_DIR,
@@ -31,6 +34,9 @@ export async function copyLinuxSherpaLibs({ platform = process.env.TAURI_ENV_PLA
     }
   }
 
+  const piperDir = process.env.PIPER_PHONEMIZE_LIB_DIR || nativeCacheDir("piper-phonemize-prebuilt", `piper-phonemize-v${PIPER_VERSION}-linux-x64-shared-lib`)
+  const piper = join(piperDir, "libpiper_phonemize_core.so")
+  await cp(piper, join(SHERPA_LINUX_SHARED_OUT_DIR, "libpiper_phonemize_core.so"), { force: true })
   console.log("[sherpa-linux-libs] bundled shared libraries from " + SHERPA_LINUX_SHARED_SOURCE_DIR)
 }
 
@@ -39,12 +45,12 @@ async function assertLinuxSharedLibsExist() {
   for (const lib of SHERPA_REQUIRED_LIBS) {
     try {
       const info = await stat(join(SHERPA_LINUX_SHARED_SOURCE_DIR, lib))
-      if (!info.isFile()) {
-        throw new Error(lib + " is not a file")
+      if (!info.isFile() || !info.size) {
+        throw new Error(lib + " is not a non-empty library")
       }
     } catch (err) {
       throw new Error(
-        "Missing " + lib + " at " + SHERPA_LINUX_SHARED_SOURCE_DIR + ". Build with --features native-tts-shared so sherpa-onnx downloads its Linux shared library archive before bundling. " + err,
+        "Missing " + lib + " at " + SHERPA_LINUX_SHARED_SOURCE_DIR + ". Build with --features native-tts-shared so the app prepares its Linux shared library archive before bundling. " + err,
       )
     }
   }

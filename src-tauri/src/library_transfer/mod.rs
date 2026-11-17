@@ -30,6 +30,7 @@ use crate::document_uploads::{
     UploadedDocument, UploadedLibraryCreateFolderRequest, UploadedLibraryFolder,
     UploadedLibraryMoveDocumentsRequest,
 };
+use crate::native_tts::lock_audiobook_directory;
 use package::{
     audiobook_file_path, copy_audiobook_file, document_asset_path, document_source_path,
     open_archive, read_document_asset, read_document_source, read_manifest, sha256_reader,
@@ -852,6 +853,7 @@ fn restore_manifest<T: Read + std::io::Seek>(
 /// Restore one audiobook through a same-filesystem staging directory, then ask
 /// the native registry to validate identity, manifest totals, and every chunk
 /// before atomically promoting it into the live audiobook directory.
+/// Hold the destination's writer lease through restore so imports cannot race a confirmed restart or active save.
 fn restore_audiobook<T: Read + std::io::Seek>(
     app: &tauri::AppHandle,
     archive: &mut ZipArchive<T>,
@@ -861,6 +863,7 @@ fn restore_audiobook<T: Read + std::io::Seek>(
     fs::create_dir_all(&root)
         .map_err(|err| format!("Failed to create native audiobook directory: {err}"))?;
     let destination = root.join(&audiobook.storage_key);
+    let _book_lease = lock_audiobook_directory(&destination)?;
     if destination.is_dir() {
         crate::native_tts::validate_transferred_audiobook(&destination, &audiobook.id)?;
         return Ok(None);

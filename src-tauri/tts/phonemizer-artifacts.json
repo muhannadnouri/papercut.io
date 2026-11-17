@@ -1,0 +1,52 @@
+{
+  "piper-phonemize-v1.5.9-linux-arm64-shared-lib.tar.bz2": {
+    "url": "https://github.com/csukuangfj/piper-phonemize/releases/download/v1.5.9/piper-phonemize-v1.5.9-linux-arm64-shared-lib.tar.bz2",
+    "sha256": "aad9f2bbf74b28e34f30f840409b83134e0400ea879d06f87c2c249bec4f987e",
+    "bytes": 300862
+  },
+  "piper-phonemize-v1.5.9-linux-arm64-static-lib.tar.bz2": {
+    "url": "https://github.com/csukuangfj/piper-phonemize/releases/download/v1.5.9/piper-phonemize-v1.5.9-linux-arm64-static-lib.tar.bz2",
+    "sha256": "7b435dc61c930ae14dd5895020b932f3e424ed5931aa32fec5d88941b4efa954",
+    "bytes": 331180
+  },
+  "piper-phonemize-v1.5.9-linux-x64-shared-lib.tar.bz2": {
+    "url": "https://github.com/csukuangfj/piper-phonemize/releases/download/v1.5.9/piper-phonemize-v1.5.9-linux-x64-shared-lib.tar.bz2",
+    "sha256": "609569420d356f561e13ee6d52ed0edf7dcae225ea498f4cc68587c11d6d295c",
+    "bytes": 305777
+  },
+  "piper-phonemize-v1.5.9-linux-x64-static-lib.tar.bz2": {
+    "url": "https://github.com/csukuangfj/piper-phonemize/releases/download/v1.5.9/piper-phonemize-v1.5.9-linux-x64-static-lib.tar.bz2",
+    "sha256": "89bb62ee003f11f43ec198d035b781cec91739f02bc406de347a12da7622e6d6",
+    "bytes": 333467
+  },
+  "piper-phonemize-v1.5.9-macos-arm64-shared-lib.tar.bz2": {
+    "url": "https://github.com/csukuangfj/piper-phonemize/releases/download/v1.5.9/piper-phonemize-v1.5.9-macos-arm64-shared-lib.tar.bz2",
+    "sha256": "4c79b52c1543124c84a15b457d7f8aac696673d805312bb3d739c028ef107c68",
+    "bytes": 251457
+  },
+  "piper-phonemize-v1.5.9-macos-arm64-static-lib.tar.bz2": {
+    "url": "https://github.com/csukuangfj/piper-phonemize/releases/download/v1.5.9/piper-phonemize-v1.5.9-macos-arm64-static-lib.tar.bz2",
+    "sha256": "4ed1ca09d558b2af416dd56b305f60f5bc4d7fd643607acb54c3cf40e1b7bcda",
+    "bytes": 327771
+  },
+  "piper-phonemize-v1.5.9-macos-x64-shared-lib.tar.bz2": {
+    "url": "https://github.com/csukuangfj/piper-phonemize/releases/download/v1.5.9/piper-phonemize-v1.5.9-macos-x64-shared-lib.tar.bz2",
+    "sha256": "745b7f8e60f1dc02f40b5a279c083910cbbc69b8f78e0ecfb780f3a717f10222",
+    "bytes": 256869
+  },
+  "piper-phonemize-v1.5.9-macos-x64-static-lib.tar.bz2": {
+    "url": "https://github.com/csukuangfj/piper-phonemize/releases/download/v1.5.9/piper-phonemize-v1.5.9-macos-x64-static-lib.tar.bz2",
+    "sha256": "7c83920f34769c04d18cb786913dccb7805b89081f721ba595450f8525b576fc",
+    "bytes": 311778
+  },
+  "piper-phonemize-v1.5.9-windows-x64-shared-lib.tar.bz2": {
+    "url": "https://github.com/csukuangfj/piper-phonemize/releases/download/v1.5.9/piper-phonemize-v1.5.9-windows-x64-shared-lib.tar.bz2",
+    "sha256": "e0a66e68a96c7d65a408255599816408f7cf6a0b84866b4cfd5a80f3f71abfa7",
+    "bytes": 427015
+  },
+  "piper-phonemize-v1.5.9-windows-x64-static-lib.tar.bz2": {
+    "url": "https://github.com/csukuangfj/piper-phonemize/releases/download/v1.5.9/piper-phonemize-v1.5.9-windows-x64-static-lib.tar.bz2",
+    "sha256": "7c69b30f6ce0715905c323c613735db84337ae0387436a038c6efe1a5738e388",
+    "bytes": 464899
+  }
+}

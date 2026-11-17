@@ -71,3 +71,59 @@ test("archives are unique and changed/missing/mutable releases fail monitoring",
     assert.throws(() => assertReleaseAsset(archive, broken, model.url))
   }
 })
+
+test("original mirror preparation never broadens to every Kokoro-family archive", () => {
+  const model = {
+    modelName: "kokoro-multi-lang-v1_0",
+    family: "kokoro",
+    url: "https://github.com/o/r/releases/download/t/a.tar.bz2",
+    sha256: "a".repeat(64),
+    archiveBytes: 42,
+  }
+  const manifest = {
+    schemaVersion: 2,
+    archives: [model, {
+      ...model,
+      modelName: "kokoro-7m-distill-en-fp32",
+    }],
+  }
+  assert.equal(validatedArchives(manifest, "kokoro").length, 2)
+  assert.deepEqual(validatedArchives(manifest, undefined, model.modelName), [model])
+  assert.throws(() => validatedArchives(manifest, undefined, "missing"), /No matching/)
+})
+
+test("source companions are validated without becoming selectable model archives", () => {
+  const model = {
+    modelName: "voice",
+    family: "kokoro",
+    url: "https://github.com/o/r/releases/download/t/a.tar.bz2",
+    sha256: "a".repeat(64),
+    archiveBytes: 42,
+  }
+  const companion = {
+    ...model,
+    modelName: "source",
+    family: "source",
+    modelNames: [model.modelName],
+  }
+  const manifest = {
+    schemaVersion: 2,
+    archives: [model],
+    companions: [companion],
+  }
+  assert.deepEqual(validatedArchives(manifest), [model])
+  assert.throws(() => validatedArchives({
+    ...manifest,
+    companions: [{
+      ...companion,
+      modelNames: ["missing"],
+    }],
+  }), /Unknown companion/)
+  assert.throws(() => validatedArchives({
+    ...manifest,
+    companions: [{
+      ...companion,
+      sha256: "bad",
+    }],
+  }))
+})

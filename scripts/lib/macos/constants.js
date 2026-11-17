@@ -1,15 +1,10 @@
-import { join } from "node:path"
 import { SHERPA_VERSION } from "../constants.js"
-import {
-  fromRuntime,
-  SRC_TAURI_DIR,
-} from "../paths.js"
+import { fromRuntime } from "../paths.js"
+import { nativeCacheDir } from "../native-paths.js"
 
 export { SHERPA_VERSION }
 
-// sherpa-onnx-sys downloads per-arch macOS shared archives and extracts them
-// under src-tauri/target/sherpa-onnx-prebuilt/. Node's process.arch matches the
-// native build target on GitHub macOS runners (x64 on macos-13, arm64 on macos-14).
+// The app prepares per-arch archives; Node matches the native CI runner architecture.
 export function macosArch() {
   if (process.arch !== "x64" && process.arch !== "arm64") {
     throw new Error("Unsupported macOS build architecture: " + process.arch)
@@ -17,17 +12,14 @@ export function macosArch() {
   return process.arch
 }
 
-export const SHERPA_MACOS_SHARED_SOURCE_DIR = join(
-  SRC_TAURI_DIR,
-  "target",
+export const SHERPA_MACOS_SHARED_SOURCE_DIR = process.env.SHERPA_ONNX_LIB_DIR || nativeCacheDir(
   "sherpa-onnx-prebuilt",
   "sherpa-onnx-v" + SHERPA_VERSION + "-osx-" + macosArch() + "-shared-lib",
-  "lib",
 )
 
-// Fixed staging name so tauri.macos.conf.json can reference it statically.
+// Keep the version in sync with tauri.macos.conf.json; old staged dylibs must not overwrite new Cargo runtimes.
 // Each build produces one arch, so a single dir is reused without collisions.
-export const SHERPA_MACOS_SHARED_OUT_DIR = fromRuntime("macos-shared-libs")
+export const SHERPA_MACOS_SHARED_OUT_DIR = fromRuntime("macos-shared-libs-" + SHERPA_VERSION)
 
 export const SHERPA_MACOS_REQUIRED_LIBS = [
   "libsherpa-onnx-c-api.dylib",

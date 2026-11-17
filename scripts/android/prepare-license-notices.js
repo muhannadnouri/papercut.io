@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { execFileSync } from "node:child_process"
 import { createHash } from "node:crypto"
 import {
   existsSync,
@@ -10,7 +11,6 @@ import {
   writeFile,
   mkdir,
 } from "node:fs/promises"
-import { execFileSync } from "node:child_process"
 import {
   basename,
   dirname,
@@ -18,11 +18,17 @@ import {
   relative,
 } from "node:path"
 import { parseArgs } from "node:util"
+
 import {
   ANDROID_NDK_VERSION,
   ANDROID_ORT_AAR,
   SHERPA_ANDROID_SOURCE_REVISION,
 } from "../lib/android/constants.js"
+import {
+  PIPER_SOURCE_REVISION,
+  SHERPA_VERSION,
+  PIPER_VERSION,
+} from "../lib/constants.js"
 import { downloadFile } from "../lib/download.js"
 import { ROOT } from "../lib/paths.js"
 import { isMain } from "../lib/process.js"
@@ -32,7 +38,9 @@ import { isMain } from "../lib/process.js"
 // unchanged, so regenerating is explicit and its diff is reviewable.
 
 const CACHE = join(ROOT, ".cache/android-production")
-const SHERPA_DEPS = join(CACHE, "sherpa-build-" + ANDROID_NDK_VERSION, "_deps")
+const SHERPA_DEPS = join(CACHE, "sherpa-build-" + SHERPA_VERSION + "-arm64-v8a-" + ANDROID_NDK_VERSION, "_deps")
+const PIPER_ROOT = join(CACHE, "piper-phonemize-" + PIPER_VERSION)
+const PIPER_DEPS = join(CACHE, "piper-build-" + PIPER_VERSION + "-arm64-v8a-" + ANDROID_NDK_VERSION, "_deps")
 const NOTICE_EVIDENCE = join(CACHE, "notice-evidence")
 const OUTPUT = join(ROOT, "src-tauri/licensing/android-third-party-notices.md")
 
@@ -52,6 +60,12 @@ const NPM_LICENSES = {
   "react-dom 19.2.4": "MIT",
   "scheduler 0.27.0": "MIT",
   "typescript 5.9.3": "Apache-2.0",
+}
+
+// This pinned crate uses license-file instead of an SPDX field; its text is
+// preserved in licensing/misaki-0.9.0.txt, not attributed as repository-original code.
+const RUST_LICENSES = {
+  "language-tokenizer 0.1.0": "WTFPL",
 }
 
 // Deep find is bounded: license files sit at checkout roots or vendored dirs.
@@ -90,16 +104,24 @@ function rel(path) {
 // licenses (MIT, Apache-2.0, BSD) render once with merged attribution.
 const COMPONENTS = [
   {
+    title: "Native Misaki frontend and embedded language data",
+    required: true,
+    entries: [{
+      file: join(ROOT, "src-tauri/licensing/misaki-0.9.0.txt"),
+      attribution: "Unchanged misaki-rs 0.9.0, original Misaki, spaCy/model notices and tokenizer/stemmer dependencies",
+    }],
+  },
+  {
     title: "GNU General Public License v3.0",
     required: true,
     entries: [{
-      file: join(SHERPA_DEPS, "espeak_ng-src/COPYING"),
-      attribution: "eSpeak NG (fetched and pinned by sherpa-onnx v1.13.4 cmake)",
+      file: join(PIPER_DEPS, "espeak_ng-src/COPYING"),
+      attribution: "eSpeak NG (fetched and pinned by Piper phonemize 1.5.9 CMake)",
     }, {
-      file: join(SHERPA_DEPS, "espeak_ng-src/COPYING.UCD"),
+      file: join(PIPER_DEPS, "espeak_ng-src/COPYING.UCD"),
       attribution: "eSpeak NG Unicode data notice",
     }, {
-      file: join(SHERPA_DEPS, "espeak_ng-src/src/ucd-tools/COPYING"),
+      file: join(PIPER_DEPS, "espeak_ng-src/src/ucd-tools/COPYING"),
       attribution: "espeak-ng ucd-tools",
     }],
   },
@@ -107,7 +129,7 @@ const COMPONENTS = [
     title: "Apache License 2.0",
     required: true,
     entries: [{
-      file: join(CACHE, "sherpa-onnx/LICENSE"),
+      file: join(CACHE, "sherpa-onnx-" + SHERPA_VERSION, "LICENSE"),
       attribution: "sherpa-onnx " + PINS.sherpa.slice(0, 12),
     }, {
       file: join(NOTICE_EVIDENCE, "ort", "LICENSE"),
@@ -128,7 +150,7 @@ const COMPONENTS = [
       file: join(SHERPA_DEPS, "simple-sentencepiece-src/LICENSE"),
       attribution: "simple-sentencepiece (Sherpa fetched dependency)",
     }, {
-      file: join(SHERPA_DEPS, "espeak_ng-src/COPYING.APACHE"),
+      file: join(PIPER_DEPS, "espeak_ng-src/COPYING.APACHE"),
       attribution: "eSpeak NG dual-licensed components",
     }, {
       file: join(ROOT, "node_modules/pdfjs-dist/LICENSE"),
@@ -168,8 +190,11 @@ const COMPONENTS = [
       file: join(ROOT, "LICENSE.md"),
       attribution: "Papercut original code (repository root; the F-Droid metadata declares GPL-3.0-only for the combined Android distribution)",
     }, {
-      file: join(SHERPA_DEPS, "piper_phonemize-src/LICENSE.md"),
-      attribution: "Piper phonemize (Sherpa fetched dependency)",
+      file: join(PIPER_ROOT, "LICENSE.md"),
+      attribution: "Piper phonemize " + PIPER_SOURCE_REVISION.slice(0, 12),
+    }, {
+      file: join(SHERPA_DEPS, "utf8proc-src/LICENSE.md"),
+      attribution: "utf8proc (Sherpa fetched dependency)",
     }, {
       file: join(SHERPA_DEPS, "json-src/LICENSE.MIT"),
       attribution: "nlohmann JSON (Sherpa fetched dependency)",
@@ -177,7 +202,7 @@ const COMPONENTS = [
       file: join(NOTICE_EVIDENCE, "supertonic-LICENSE"),
       attribution: "Supertonic 3 sample code (Supertone Inc.); weights are separately OpenRAIL-M licensed with use restrictions — https://huggingface.co/Supertone/supertonic-3/blob/main/LICENSE — declared via the NonFreeAssets anti-feature",
     }, {
-      file: join(SHERPA_DEPS, "piper_phonemize-src/licenses/uni-algo/LICENSE.md"),
+      file: join(PIPER_ROOT, "licenses/uni-algo/LICENSE.md"),
       attribution: "uni-algo (Piper phonemize dependency)",
     }, {
       file: join(CACHE, "quickjs-source/LICENSE"),
@@ -265,6 +290,10 @@ accompany each release.
   and declared with the F-Droid NonFreeAssets anti-feature.
 - Kokoro: Apache-2.0 archive; its bundled eSpeak data/dictionaries and
   CppJieba dictionaries are covered by the GPL and MIT notices above.
+- Kokoro 7M / Nabra 7M: pinned original model cards declare Apache-2.0.
+  Complete optional archives retain original cards, exact converted-file
+  provenance, Apache/GPL texts and unchanged GPL eSpeak data from Piper.
+  The model release includes corresponding Piper/eSpeak source.
 - E5 embeddings (Small/Base/Large): all pinned model cards declare MIT; the
   MIT text above covers them; hash-pinned ONNX/tokenizer assets keep per-file
   notices.
@@ -372,6 +401,15 @@ export function groupBySha(sources) {
   return [...groups.values()]
 }
 
+// Unknown registry license-file terms need review after upgrades; only local crates use our original-code scope.
+export function rustPackageLicense(pkg) {
+  const key = pkg.name + " " + pkg.version
+  const license = pkg.license ?? RUST_LICENSES[key]
+  assert(license || !pkg.source, "Review missing Rust license evidence for " + key)
+  return license
+}
+
+// Include reviewed license-file declarations so third-party crates cannot be labeled original app code.
 async function packageGraphs() {
   const cargo = JSON.parse(execFileSync("cargo", [
     "metadata", "--manifest-path", join(ROOT, "src-tauri/Cargo.toml"), "--locked",
@@ -390,11 +428,12 @@ async function packageGraphs() {
     if (rust.has(key)) {
       continue
     }
-    if (!pkg.license) {
+    const license = rustPackageLicense(pkg)
+    if (!license) {
       undeclared.push(key)
       continue
     }
-    rust.set(key, pkg.license)
+    rust.set(key, license)
   }
 
   const lock = JSON.parse(await readFile(join(ROOT, "package-lock.json"), "utf8"))

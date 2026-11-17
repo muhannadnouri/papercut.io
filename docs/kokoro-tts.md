@@ -4,6 +4,44 @@ Papercut's TTS path is native sherpa-onnx with a catalog of model families. Koko
 
 The design goal is still offline-first: model files live on the user's device, audiobook chunks are generated only when a user asks to save a document, and generated audio is stored as user data instead of being pre-rendered into the app bundle.
 
+The [Sherpa upgrade plan](sherpa-onnx-upgrade.md) records the accepted recommendation
+policy, owner-accepted Sherpa 2.0.1 compatibility probes, and the
+subsequent runtime migration, interrupted-save and paired small-model stages.
+The working tree upgrades the existing roster to Sherpa 2.0.1 plus native
+Piper phonemize 1.5.9. Stage 3b owner smokes passed; the Stage 3c registry
+integration is a new review candidate, with platform/device acceptance pending. Stage 3a's
+simple explicit-restart guard passed owner smoke review. No small models are added yet.
+
+Sherpa 2.0 removed embedded eSpeak. The app's `engine/phonemizer.rs` calls the
+published Piper C API for non-Mandarin Kokoro and Kareem, passes phoneme
+codepoints through Sherpa's official generation API, and keeps Mandarin's
+lexicon/FST and Supertonic's own tokenizer. Existing English normalization and
+optional Arabic preprocessing run first. The first model pack's verified eSpeak
+data is retained for the process lifetime; initialization failures stay failed
+until app restart. Long phoneme sentences split at word boundaries; a word too
+long to fit returns an error instead of being cut or dropped. Data repair after
+failed initialization requires restarting the app.
+
+Desktop native libraries are official checksum-pinned archives. iOS uses separate
+Sherpa/ORT static XCFramework archives plus unchanged pinned upstream Piper source
+built by its iOS recipe. Cargo now uses unchanged published Rust bindings with
+root `.cargo/config.toml` links overrides; `src-tauri/build/` owns pinned archive
+preparation, platform linking and runtime staging. The inactive tracked vendor
+crate has been retired after platform build/inference qualification. The
+[fork-free integration report](sherpa-no-fork-proof.md) records the evidence and
+remaining maintenance. No upstream C/C++ source is patched.
+Linux/macOS resource staging is versioned (`*-shared-libs-2.0.1`) so stale 1.13.4
+resources cannot overwrite new Cargo runtime copies. Tauri JSON paths and CI must
+change with the Node constants on a future runtime upgrade.
+
+Run Cargo from the repository root (nested Gradle/Xcode commands discover the
+same ancestor configuration). From outside the checkout, supply Cargo
+`--config /absolute/path/to/papercut.io/.cargo/config.toml`; Tauri's JSON
+`--config` is a separate option. For custom desktop bundle output directories,
+set `CARGO_TARGET_DIR` so Cargo, ORT lookup and Node resource helpers agree.
+macOS packaging and Cargo deployment metadata now declare 15.0, per the owner's
+support policy; execution on the minimum OS still needs qualification.
+
 ## Runtime Architecture
 
 The proposed viewport/selection-to-saved-chunk feature is specified in the
@@ -108,6 +146,17 @@ Piper Kareem is about 64 MB compressed and suitable for offline Arabic, but a me
 
 Existing saved audiobook files are unchanged. The cache version stays `native-save-v4-segmented`; Kokoro retains the same model ID, voice IDs, and audiobook identity. Legacy preferences, download records, saved records, imported uploads, native manifests, and bundles default missing model metadata to Kokoro and missing preprocessing metadata to `none`. Existing completed WAV audiobooks remain playable. Diacritized Piper saves use a distinct ID and never overwrite or reuse undiacritized audio. Documents unaffected by the wrapper-text omission keep the same narration text. An affected document must be regenerated to include the newly retained prose; the corrected source signature and chunk sequence intentionally differ from the incomplete generation.
 
+The additive Kokoro 7M / Nabra 7M FP32 catalog integration is a Stage 4c candidate,
+with public archive publication and installed-app acceptance still pending; see
+[the upgrade plan](sherpa-onnx-upgrade.md#stage-4c--paired-artifacts-and-catalog-integration-november-15).
+Both are single-voice alternatives using the shared Sherpa engine and native
+phoneme adapters. Full Kokoro/Kareem remain recommended. English 7M's more robotic,
+less crisp output is an explicitly accepted smaller option; Arabic Nabra is
+competitive with Kareem and retains default automatic Libtashkeel diacritization.
+Current model IDs, completed WAVs and existing synthesis revisions stay stable;
+new distills have their own identities and frontend provenance. No performance
+claim or other-platform qualification is implied.
+
 ## Arabic Pronunciation And Diacritization
 
 Piper Kareem uses eSpeak-ng phonemization through sherpa-onnx. Arabic normally omits short vowels, so an undiacritized spelling can represent several pronunciations and meanings. Piper and eSpeak-ng do not provide enough contextual language understanding to resolve every ambiguity by themselves.
@@ -170,7 +219,7 @@ Android debug APK builds without native TTS still use the normal command:
 npm run android:apk
 ```
 
-Android native TTS uses the official sherpa-onnx Android shared-library archive, copies the shared objects into Tauri's generated `jniLibs`, and builds only the common arm64 target by default:
+Android native TTS source-builds pinned Sherpa 2.0.1 and Piper phonemize 1.5.9 with NDK 30.0.16248370/API 26 against the pinned Maven ORT 1.27.0 headers/runtime. It stages only their C libraries into generated `jniLibs`; Gradle packages the sole ORT copy. The default is arm64; the optional emulator uses the same source recipe for x86_64:
 
 ```bash
 npm run prepare:jdk
@@ -178,11 +227,11 @@ npm run prepare:sherpa-android-libs
 npm run android:apk:native-tts
 ```
 
-The explicit prepare commands are useful for setup and troubleshooting, but `npm run android:apk:native-tts` also ensures the sherpa Android libraries are present before building. The native Android wrapper sets `JAVA_HOME`, `SHERPA_ONNX_LIB_DIR`, and `ORT_LIB_LOCATION` automatically for the default arm64 APK path. `npm run prepare:jdk` installs a repo-local Eclipse Temurin JDK 17 into `src-tauri/tts/runtime/jdk/temurin-17` when a system JDK is not available. The fallback JDK archive is pinned to Eclipse Temurin 17.0.19+10, and both the JDK archive and sherpa Android archive are verified with SHA-256 before extraction. Downloads are written through temporary files before being promoted to their cache path. The Android build still requires the normal Android SDK/NDK prerequisites. Native background audio raises the app minimum to Android API 26, matching the plugin's Media3 service requirement.
+The explicit prepare commands are useful for setup and troubleshooting, but `npm run android:apk:native-tts` also ensures the sherpa Android libraries are present before building. The native Android wrapper sets `JAVA_HOME`, `SHERPA_ONNX_LIB_DIR`, and `ORT_LIB_LOCATION` automatically for the default arm64 APK path. `npm run prepare:jdk` installs a repo-local Eclipse Temurin JDK 17 into `src-tauri/tts/runtime/jdk/temurin-17` when a system JDK is not available. The fallback JDK archive is pinned to Eclipse Temurin 17.0.19+10, and the JDK and ORT AAR archives are verified with SHA-256 before extraction. Native source revisions and output receipts are checked before staging; explicit invalid source inputs fail without a prebuilt fallback. Downloads are written through temporary files before being promoted to their cache path. The Android build still requires the normal Android SDK/NDK prerequisites. Native background audio raises the app minimum to Android API 26, matching the plugin's Media3 service requirement.
 
-The Node build scripts are orchestration around npm, Cargo, Tauri, Gradle, and SDK Manager rather than a replacement for those tools. Shared helpers in `scripts/lib/` own project paths, version constants, child-process execution, archive extraction, and checked downloads. Platform-specific helpers live in `scripts/lib/android/` for Android JDK/sherpa setup, `scripts/lib/linux/` for Linux shared-library bundling, `scripts/lib/macos/` for macOS dylib bundling, and `scripts/lib/ios/` for iOS static XCFramework prep. Script entrypoints such as `prepare:sherpa-android-libs`, `prepare:sherpa-ios-libs`, `android:apk:native-tts`, `ios:ipa:native-tts`, and `desktop` call those helpers instead of relying on import side effects or duplicated archive/spawn code. Android APK variants are handled by one Android entry script, `scripts/android/build-android.js`; the native TTS npm command passes `--native-tts` to that script. iOS uses `scripts/ios/build-ios.js` to select the device or arm64 simulator sherpa static-library slice and build with `native-tts-ios`, which includes static Libtashkeel preprocessing. A local `sherpa-onnx-sys` patch teaches the Rust build script to use the upstream iOS aggregate archives (`libsherpa-onnx.a` and `libonnxruntime.a`) instead of desktop component archives. The generated iOS app target also includes a tiny Swift bridge source so Xcode links Swift runtime libraries needed by Tauri/plugin Swift objects inside `libapp.a`, and PR CI performs both simulator and unsigned generic iPhoneOS device native-TTS builds. The device check prebuilds the Rust static library with Cargo using the configured iOS minimum deployment target, stages Cargo's `libapp_lib.a` output as `libapp.a` in `gen/apple/Externals/arm64/release/`, and then uses direct `xcodebuild build` with the generated Tauri script skipped so it stops before archive/export signing.
+The Node build scripts are orchestration around npm, Cargo, Tauri, Gradle, and SDK Manager rather than a replacement for those tools. Shared helpers in `scripts/lib/` own project paths, version constants, child-process execution, archive extraction, and checked downloads. Platform-specific helpers live in `scripts/lib/android/` for Android JDK/sherpa setup, `scripts/lib/linux/` for Linux shared-library bundling, `scripts/lib/macos/` for macOS dylib bundling, and `scripts/lib/ios/` for iOS static XCFramework prep. Script entrypoints such as `prepare:sherpa-android-libs`, `prepare:sherpa-ios-libs`, `android:apk:native-tts`, `ios:ipa:native-tts`, and `desktop` call those helpers instead of relying on import side effects or duplicated archive/spawn code. Android APK variants are handled by one Android entry script, `scripts/android/build-android.js`; the native TTS npm command passes `--native-tts` to that script. iOS uses `scripts/ios/build-ios.js` to select the device or arm64 simulator sherpa static-library slice and build with `native-tts-ios`, which includes static Libtashkeel preprocessing. App-owned `build/sherpa.rs` links the upstream iOS aggregate archives (`libsherpa-onnx.a` and `libonnxruntime.a`); app-owned build code adds the pinned upstream Piper/eSpeak/ucd aggregate `libpiper_phonemize.a` instead of desktop component archives. The generated iOS app target also includes a tiny Swift bridge source so Xcode links Swift runtime libraries needed by Tauri/plugin Swift objects inside `libapp.a`, and PR CI performs both simulator and unsigned generic iPhoneOS device native-TTS builds. The device check prebuilds the Rust static library with Cargo using the configured iOS minimum deployment target, stages Cargo's `libapp_lib.a` output as `libapp.a` in `gen/apple/Externals/arm64/release/`, and then uses direct `xcodebuild build` with the generated Tauri script skipped so it stops before archive/export signing.
 
-On macOS, `sherpa-onnx-sys` downloads per-arch (`osx-x64` / `osx-arm64`) shared-library archives during the Cargo build, copies the `.dylib`s next to the dev binary, and emits an `@loader_path` rpath for `npm run tauri:dev`. The desktop build helper runs a fast macOS `cargo check` first so `sherpa-onnx-sys` downloads the dylibs, stages every `.dylib` from the sherpa macOS archive before Tauri scans `bundle.resources` (including versioned ONNX Runtime siblings such as `libonnxruntime.1.24.4.dylib`), signs staged dylibs with the Developer ID identity and secure timestamp when release signing is active, and the `tauri.macos.conf.json` `beforeBundleCommand` (`scripts/desktop/copy-sherpa-macos-libs.js`) refreshes that staging directory before bundling. `src-tauri/build.rs` adds an `@loader_path/../Resources` rpath so the installed `.app` (binary in `Contents/MacOS`, resources in `Contents/Resources`) resolves the dylibs at launch. The same shared ONNX Runtime is reused by Libtashkeel via `ort::init_from`. macOS builds are produced per-architecture on `macos-15-intel` (Intel x86_64) and `macos-15` (Apple Silicon aarch64) runners. Release builds use the protected `apple-release` GitHub Environment to import the Developer ID certificate, sign with hardened runtime entitlements, notarize, staple, and verify the `.dmg` artifacts; ordinary PR/CI or local builds without Apple secrets remain unsigned development artifacts.
+On macOS, the app build script downloads per-arch (`osx-x64` / `osx-arm64`) shared-library archives during the Cargo build, copies the `.dylib`s next to the dev binary, and emits an `@loader_path` rpath for `npm run tauri:dev`. The desktop build helper runs a fast macOS `cargo check` first so the app prepares the dylibs, stages every `.dylib` from the sherpa macOS archive before Tauri scans `bundle.resources` (including versioned ONNX Runtime siblings such as `libonnxruntime.1.28.2.dylib`), signs staged dylibs with the Developer ID identity and secure timestamp when release signing is active, and the `tauri.macos.conf.json` `beforeBundleCommand` (`scripts/desktop/copy-sherpa-macos-libs.js`) refreshes that staging directory before bundling. `src-tauri/build.rs` adds an `@loader_path/../Resources` rpath so the installed `.app` (binary in `Contents/MacOS`, resources in `Contents/Resources`) resolves the dylibs at launch. The same shared ONNX Runtime is reused by Libtashkeel via `ort::init_from`. macOS builds are produced per-architecture on `macos-15-intel` (Intel x86_64) and `macos-15` (Apple Silicon aarch64) runners. Release builds use the protected `apple-release` GitHub Environment to import the Developer ID certificate, sign with hardened runtime entitlements, notarize, staple, and verify the `.dmg` artifacts; ordinary PR/CI or local builds without Apple secrets remain unsigned development artifacts.
 
 `npm run android:apk:native-tts` does not copy model files into Android assets. The first TTS use on Android follows the same in-app model download path as desktop, so the APK stays smaller and developers do not need to carry large model assets between machines.
 
@@ -194,7 +243,7 @@ Instead, audio is generated on demand:
 
 1. The user opens a supported readable document and clicks Save. HTML and EPUB use the sanitized HTML source loaded by the reader; PDF uses persisted page-text layers derived from its canonical source by PDF.js.
 2. The app builds deterministic narration chunks for that document.
-3. The native audiobook directory in app data is scanned for existing WAV chunks.
+3. Native Save checks source/synthesis compatibility before changing its manifest or pruning chunks, then scans compatible WAVs.
 4. For each missing chunk, the selected text preprocessor creates synthesis text while preserving canonical source text and spans.
 5. A single native save job generates every missing chunk in sequence and writes WAV files directly to app data.
 6. Native progress events update the React Audiobooks panel and TTS diagnostics.
@@ -202,6 +251,26 @@ Instead, audio is generated on demand:
 8. Save writes a versioned `manifest.json` containing compact chunk timing/size metadata. On first mobile Play, Rust reuses a restored bundle track when available or streams the saved chunks into an atomic cached `playback.wav`; later plays reuse that track and its `playback.json` boundaries.
 
 Save uses a conservative chunk profile that is separate from playback chunking. Sentence detection includes Arabic `؟`; clause splitting includes `،` and `؛`; a final word-boundary hard split guarantees no request exceeds the profile maximum even when punctuation is missing. Playback keeps larger chunks for comfortable skip/highlight behavior, while Save uses smaller sentence-like chunks so one problematic text range is less likely to kill a long Android job and Resume has less work to retry.
+
+Schema-2 manifests now carry optional synthesis provenance. Completed historical
+and imported audio remains usable without regeneration; timing-index repair does
+not relabel it as newly synthesized. An incomplete Sherpa save with missing or
+different provenance requires explicit restart, including when resumed from the
+queue. Consent is bound to the retained generation and is never persisted.
+
+Restart explicitly discards that unfinished job’s old chunks and starts from zero
+in the same directory. Cancel leaves them untouched. Old provenance stays until
+clearing succeeds; current pending provenance is written afterward so incomplete
+clearing cannot mix old chunks into new synthesis. Later interrupted progress with
+current provenance resumes normally. There are no replacement staging directories,
+backups or promotion journals. The small per-book writer lease prevents competing
+save/import/delete/transfer writes during reset.
+
+Completed audio is exempt from engine restart. Explicit source-edited re-saves
+retain their pre-existing behavior; no new completed-book replacement framework
+is included. The [revised Stage 3a handoff](sherpa-onnx-upgrade.md#stage-3a-handoff--november-12-2026)
+records the owner’s November 12 simplification and pending human/platform checks.
+Cache IDs and schema/bundle versions are unchanged.
 
 ### Narration Text Alignment
 
@@ -252,7 +321,7 @@ The document header exposes one consolidated audio control surface:
 - Playback speed in the active player changes how fast the saved WAV plays. It is a listener preference and is persisted separately from generated-audio settings.
 - Save generates and persists the full audiobook for the current supported document. HTML and EPUB save from sanitized reader HTML; PDF saves from persisted page-text layers and page-aware locators.
 - Saved appears when the full audiobook exists locally for the current Audio Setup.
-- Model selects the engine/language. Download voice model installs the selected pinned model into app data. Papercut may suggest an Arabic or Mandarin model when the document script is unambiguous, but Latin-script documents preserve the user's selected engine because script alone cannot distinguish English, Spanish, French, and other supported languages.
+- Model selects the engine/language. English Kokoro v1.0 and Arabic Piper Kareem Medium carry the translated Recommended label, independently of the existing voice recommendation. Entering either speech language selects its recommended model when available; other languages and catalogs missing that recommendation retain their first available matching model. Existing selected alternatives are preserved across rerenders and catalog refreshes. Download voice model installs the selected pinned model into app data. Papercut may suggest Kareem for Arabic or a Mandarin model when the document script is unambiguous, without replacing an already selected model for that language. Automatic suggestions continue to skip uploaded documents, and Latin-script documents preserve the user's selected engine because script alone cannot distinguish English, Spanish, French, and other supported languages. Recommendation labels do not change model/voice IDs or saved-audio identity.
 - Voice marks each model's catalog default as the recommended starting point. Once the selected model is installed, Preview Voice synthesizes and plays a short language-matched sample through the normal native engine and preprocessing path. The temporary WAV is removed immediately and never creates an audiobook record.
 - Audio Setup keeps language, model, voice, installation, and preview controls visible. Text processing, threads, diagnostics, and SILMA-specific tuning use one native **Advanced** disclosure that starts collapsed; active non-default choices remain summarized on the disclosure row.
 - Text processing selects a model-supported synthesis preprocessor. Piper offers automatic Arabic diacritization or original text; Kokoro exposes original text only.

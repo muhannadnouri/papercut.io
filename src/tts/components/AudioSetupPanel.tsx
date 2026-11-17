@@ -12,7 +12,11 @@ import type {
   NativeTtsModelStatus,
 } from '../api/nativeTts'
 import { previewNativeTtsVoice } from '../api/nativeTts'
-import { getTtsPreviewText } from '../models'
+import {
+  getRecommendedTtsModel,
+  TTS_MODEL_PRESENTATION,
+  getTtsPreviewText,
+} from '../models'
 import { nativeTtsErrorMessage } from '../utils/errors'
 import {
   DEFAULT_SILMA_NFE_STEP,
@@ -80,6 +84,22 @@ function getLanguageOption(model: TtsModelInfo): { label: string;
     label: languageLabel,
     value,
   }
+}
+
+// Keep translated badges here; model identities and native capabilities stay unchanged.
+function modelOptionLabel(model: TtsModelInfo, recommendedId: string | undefined, t: TFunction): string {
+  const labels = [model.name]
+  const presentation = TTS_MODEL_PRESENTATION[model.id]
+  if (presentation?.small) {
+    labels.push(t('tts.setup.smallModel'))
+  }
+  if (presentation?.experimental) {
+    labels.push(t('settings.experimental'))
+  }
+  if (model.id === recommendedId) {
+    labels.push(t('tts.setup.recommended'))
+  }
+  return labels.join(' · ')
 }
 
 export interface AudioSetupPanelProps {
@@ -199,6 +219,7 @@ export function AudioSetupPanel({
   const modelsForLanguage = selectedLanguage
     ? models.filter((model) => getLanguageOption(model).value === selectedLanguage)
     : models
+  const recommendedModel = getRecommendedTtsModel(modelsForLanguage, selectedLanguage)
   const showModelInstallDetails = !modelInstalled || silmaRuntimeMissing || modelInstallProgress !== null || modelInstalling
   const recommendedVoice = voices.find((item) => item.id === selectedModel?.defaultVoice)
   const previewSelection = [modelId, voice, textPreprocessor, silmaNfeStep].join('\0')
@@ -306,7 +327,8 @@ export function AudioSetupPanel({
             value={selectedLanguage}
             options={languageOptions}
             onChange={(language) => {
-              const nextModel = models.find((model) => getLanguageOption(model).value === language)
+              const nextModel = getRecommendedTtsModel(models, language)
+                ?? models.find((model) => getLanguageOption(model).value === language)
               if (nextModel) {
                 onModelChange(nextModel.id)
               }
@@ -332,7 +354,7 @@ export function AudioSetupPanel({
             >
               {modelsForLanguage.map((model) => (
                 <option key={model.id} value={model.id}>
-                  {model.name}
+                  {modelOptionLabel(model, recommendedModel?.id, t)}
                 </option>
               ))}
             </select>
@@ -380,7 +402,7 @@ export function AudioSetupPanel({
                 >
                   <div className="audiobook-status-row">
                     <span dir="auto">{modelProgressMessage ?? modelStatus?.message ?? t('tts.setup.preparingDownload')}</span>
-                    <span>{modelPercent}%</span>
+                    {modelInstallProgress?.status !== 'error' && <span>{modelPercent}%</span>}
                   </div>
                   {!modelInstalled && modelInstallProgress?.status !== 'error' && (
                     <div
@@ -425,6 +447,11 @@ export function AudioSetupPanel({
                 </option>
               ))}
             </select>
+            {voices.length === 1 && (
+              <span className="audio-thread-meta" dir="auto">
+                {t('tts.setup.singleVoice')}
+              </span>
+            )}
             {recommendedVoice && (
               <span className="audio-thread-meta" dir="auto">
                 {t('tts.setup.recommendedVoice', { voice: recommendedVoice.name })}

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { existsSync } from "node:fs"
 import {
   cp,
   mkdir,
@@ -6,27 +7,31 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises"
-import { existsSync } from "node:fs"
 import {
   basename,
   dirname,
   join,
 } from "node:path"
 import { parseArgs } from "node:util"
+
+import {
+  output,
+  source,
+} from "../fdroid/source-build.js"
+import {
+  PIPER_SOURCE_REVISION,
+  PIPER_VERSION,
+} from "../lib/constants.js"
+import { downloadFile } from "../lib/download.js"
 import { ROOT } from "../lib/paths.js"
 import {
   run,
   isMain,
 } from "../lib/process.js"
-import { downloadFile } from "../lib/download.js"
-import {
-  output,
-  source,
-} from "../fdroid/source-build.js"
 
 // Assembles the per-release corresponding-source archive required by the GPL
 // portions of the combined Android distribution: the pinned eSpeak NG (with
-// ucd-tools) and Piper phonemize archives fetched by Sherpa, the MPL-covered
+// ucd-tools) and Piper phonemize archives used by the app, the MPL-covered
 // Rust crate sources, the shipped notices file and a manifest pointing at the
 // release tag for the application source. Apache/MIT/BSD components carry no
 // source obligation and are fetchable from public registries via the locks.
@@ -36,15 +41,14 @@ const CACHE = join(ROOT, ".cache/android-production")
 // Staging stays a subdirectory of the output folder so tar never archives its own output.
 const STAGING = join(CACHE, "source-archive/work")
 const PINS = {
-  sherpa: "142807252687d81b40d6315f23470a1512a00de3",
   ortAar: "com.microsoft.onnxruntime:onnxruntime-android:1.27.0 sha256 077dec5e2d821234c7dc0aba584bec8f999854b546c754cab93a90741c56fbeb",
 }
 
-// Sherpa's cmake files are the authoritative pin source for the GPL archives.
+// Piper's pinned CMake file supplies the matching eSpeak/ucd source archive.
 export function extractArchivePins(cmakeText, component) {
   const url = cmakeText.match(new RegExp(String.raw`set\(${component}_URL\s+"([^"]+)"`))
   const hash = cmakeText.match(new RegExp(String.raw`set\(${component}_HASH\s+"SHA256=([a-f0-9]{64})"`))
-  assert(url && hash, `${component} archive pin not found in Sherpa cmake`)
+  assert(url && hash, `${component} archive pin not found in native CMake`)
   return {
     url: url[1],
     sha256: hash[1],
@@ -81,27 +85,18 @@ async function main() {
   const version = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8")).version
   const commit = output("git", ["rev-parse", "HEAD"]).trim()
 
-  const sherpa = await source("sherpa-onnx", "https://github.com/k2-fsa/sherpa-onnx.git", PINS.sherpa)
-  const pinSpecs = [
-    {
-      component: "espeak_ng",
-      label: "eSpeak NG (includes ucd-tools)",
-      cmake: "espeak-ng-for-piper.cmake",
-    },
-    {
-      component: "piper_phonemize",
-      label: "Piper phonemize",
-      cmake: "piper-phonemize.cmake",
-    },
-  ]
-  const pins = []
-  for (const spec of pinSpecs) {
-    pins.push({
-      component: spec.component,
-      label: spec.label,
-      ...extractArchivePins(await readFile(join(sherpa, "cmake", spec.cmake), "utf8"), spec.component),
-    })
-  }
+  const piper = await source("piper-phonemize-" + PIPER_VERSION, "https://github.com/csukuangfj/piper-phonemize.git", PIPER_SOURCE_REVISION)
+  const espeak = extractArchivePins(await readFile(join(piper, "CMakeLists.txt"), "utf8"), "espeak_ng")
+  const pins = [{
+    component: "espeak_ng",
+    label: "eSpeak NG (includes ucd-tools)",
+    ...espeak,
+  }, {
+    component: "piper_phonemize",
+    label: "Piper phonemize",
+    url: "https://github.com/csukuangfj/piper-phonemize/archive/" + PIPER_SOURCE_REVISION + ".tar.gz",
+    sha256: "61d569c856f10559b55e9112143b12abc8bb3992fe34e4777dbbdb5db286a6cd",
+  }]
 
   await rm(STAGING, {
     recursive: true,
@@ -137,7 +132,7 @@ Application source: papercut.io repository at commit ${commit} (attach this
 archive to the matching release tag). Build instructions: the source recipes
 and build sections of docs/android-production-packaging.md in that commit.
 
-GPL components (verbatim pinned archives fetched by Sherpa's cmake):
+GPL components (verbatim pinned Piper source and its eSpeak/ucd dependency archive):
 
 ${pins.map(pin => `- ${pin.label}: ${pin.url} sha256 ${pin.sha256}`).join("\n")}
 

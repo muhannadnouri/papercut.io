@@ -1,6 +1,10 @@
 use std::{fs, io, path::Path};
 
+/// Leave equal DLLs untouched; replace changed Unix inodes so a running app keeps its old mapping.
 pub(crate) fn copy_file_atomically(src: &Path, dst: &Path) -> io::Result<()> {
+    if fs::read(dst).ok().as_ref() == Some(&fs::read(src)?) {
+        return Ok(());
+    }
     let mut name = dst
         .file_name()
         .ok_or(io::ErrorKind::InvalidInput)?

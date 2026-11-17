@@ -1,7 +1,7 @@
 //! Long-running native audiobook save jobs.
 //!
-//! A single blocking job generates every missing chunk in sequence, writing WAV
-//! files straight to app data and emitting per-chunk progress on
+//! A single blocking job generates compatible missing chunks in sequence, writing
+//! into the audiobook directory and emitting progress on
 //! [`SAVE_PROGRESS_EVENT`]. Cancellation is cooperative: the command inserts the
 //! job id into the shared cancelled set and the loop checks it between chunks.
 //! Manifest writing and cache pruning live in sibling modules so this file stays
@@ -22,9 +22,10 @@ use tauri::Emitter;
 
 use super::cache::{scan_audiobook, wav_info};
 use super::config::SAVE_PROGRESS_EVENT;
-use super::manifest::{write_manifest, write_pending_manifest};
+use super::generation::{prepare_save, synthesis_revision};
+use super::manifest::{read_or_rebuild_manifest_index, write_manifest, write_pending_manifest};
 use super::models::{model_definition, TtsModelBackend};
-use super::paths::{audiobook_dir, chunk_path, speakable_chunks};
+use super::paths::{audiobook_dir, chunk_path, chunk_source_signature, speakable_chunks};
 use super::preprocess::TextPreprocessor;
 use super::prune::{prune_orphan_chunk_files, prune_stale_temp_files};
 use super::silma_sidecar::{normalize_silma_nfe_step, DEFAULT_SILMA_NFE_STEP};
@@ -33,11 +34,13 @@ use super::synth::{
     LoadedTtsEngine,
 };
 use super::text_normalization::text_preview;
+use crate::document_uploads::ensure_uploaded_source_exists;
 use crate::native_tts::platform::resolve_thread_count;
 use crate::native_tts::state::NativeTtsState;
 use crate::native_tts::types::{
     NativeAudiobookSaveProgress, NativeAudiobookSaveRequest, NativeAudiobookSaveResponse,
 };
+use crate::native_tts::{lock_audiobook_directory, with_audiobook_reference_lock};
 
 #[derive(Default)]
 struct SavePerformanceStats {
@@ -92,10 +95,8 @@ pub(crate) fn cancel_audiobook_save(
 
 /// The actual save loop, run on a blocking thread.
 ///
-/// Scans which chunks already exist (so Resume skips them), loads the engine
-/// once, then for each missing chunk: checks for cancellation, synthesizes it to
-/// disk, and emits progress. On success writes the manifest and a final "saved"
-/// event. Returns aggregate totals for the whole audiobook.
+/// Hold engine/busy and book writer locks through saving; reject stale restart consent before deleting partial progress.
+/// Completed legacy audio is reused; confirmed incompatible partials start over and subsequent interruptions resume normally.
 fn save_audiobook_native_blocking(
     app: tauri::AppHandle,
     engine_state: Arc<Mutex<Option<LoadedTtsEngine>>>,
@@ -118,10 +119,40 @@ fn save_audiobook_native_blocking(
             request.text_preprocessor, model.display_name
         ));
     }
+    // Include preflight/reset in the existing busy state used by app-data removal.
+    let mut guard = engine_state
+        .lock()
+        .map_err(|_| "Native TTS engine lock poisoned".to_string())?;
     let dir = audiobook_dir(&app, &request.audiobook_id)?;
+    let _book_lease = lock_audiobook_directory(&dir)?;
+    if is_cancelled(&cancelled_jobs, &request.job_id)? {
+        return Err("Audiobook save cancelled".into());
+    }
+    ensure_uploaded_source_exists(&app, &request.document_url)?;
+    prepare_save(&dir, &request)?;
+    // Completed audio, including legacy timing-index recovery, never gets relabelled
+    // as synthesized by the current engine merely because Save was clicked again.
+    if scan_audiobook(&dir, &chunks, false).cached_chunks == chunks.len() {
+        let manifest = read_or_rebuild_manifest_index(&dir)?;
+        if chunk_source_signature(&manifest.chunks) == chunk_source_signature(&chunks) {
+            return Ok(NativeAudiobookSaveResponse {
+                job_id: request.job_id,
+                cached_chunks: chunks.len(),
+                total_chunks: chunks.len(),
+                generated_chunks: 0,
+                complete: true,
+                dir: dir.display().to_string(),
+                generate_ms: started.elapsed().as_millis(),
+                audio_duration_sec: manifest.audio_duration_sec,
+                wav_bytes: manifest.wav_bytes,
+                applied_thread_count: manifest.thread_count,
+                backend: model.backend_name().into(),
+            });
+        }
+    }
     let chunks_dir = dir.join("chunks");
-    crate::native_tts::with_audiobook_reference_lock(|| {
-        crate::document_uploads::ensure_uploaded_source_exists(&app, &request.document_url)?;
+    with_audiobook_reference_lock(|| {
+        ensure_uploaded_source_exists(&app, &request.document_url)?;
         fs::create_dir_all(&chunks_dir).map_err(|err| {
             format!(
                 "Failed to create native audiobook directory {}: {err}",
@@ -186,9 +217,6 @@ fn save_audiobook_native_blocking(
 
     // Load the engine once for the whole job, then build a richer backend label
     // that includes the model dir and thread count for diagnostics.
-    let mut guard = engine_state
-        .lock()
-        .map_err(|_| "Native TTS engine lock poisoned".to_string())?;
     let backend = match model.backend {
         TtsModelBackend::SherpaOnnx => {
             let engine =
@@ -399,8 +427,13 @@ fn save_audiobook_native_blocking(
     // returned totals are measured from WAV headers, so they are the canonical
     // values to report instead of the per-chunk f32 running sum.
     let indexing_started = Instant::now();
-    let (total_audio_duration_sec, total_wav_bytes) =
-        write_manifest(&dir, &request, &chunks, thread_count)?;
+    let (total_audio_duration_sec, total_wav_bytes) = write_manifest(
+        &dir,
+        &request,
+        &chunks,
+        thread_count,
+        synthesis_revision(&request.model_id),
+    )?;
     performance.total_indexing_ms = indexing_started.elapsed().as_millis();
     clear_cancelled(&cancelled_jobs, &request.job_id)?;
 

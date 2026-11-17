@@ -12,7 +12,8 @@ import {
 import { dirname } from "node:path"
 
 // Download through a temp path so interrupted fetches never poison cache.
-export async function downloadFile({ url, dest, force = false, sha256, label = "download" }) {
+// Callers may bound a transfer with a signal; existing callers retain their previous behavior.
+export async function downloadFile({ url, dest, force = false, sha256, label = "download", signal }) {
   if (!force && existsSync(dest)) {
     if (sha256) {
       await assertSha256(dest, sha256, label)
@@ -26,7 +27,7 @@ export async function downloadFile({ url, dest, force = false, sha256, label = "
 
   try {
     console.log("[" + label + "] downloading " + url)
-    const response = await fetch(url)
+    const response = await fetch(url, { signal })
     if (!response.ok) {
       throw new Error("Failed to download " + url + ": " + response.status + " " + response.statusText)
     }

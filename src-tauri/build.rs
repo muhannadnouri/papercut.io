@@ -1,3 +1,13 @@
+#[path = "build/native.rs"]
+mod native;
+#[path = "build/phonemizer.rs"]
+mod phonemizer;
+#[path = "build/runtime_copy.rs"]
+mod runtime_copy;
+#[path = "build/sherpa.rs"]
+mod sherpa;
+
+/// Put installed-resource rpaths before native-cache fallbacks so all consumers load the bundled ORT copy.
 fn main() {
     verify_bundled_preprocessor();
     generate_model_downloads();
@@ -14,12 +24,15 @@ fn main() {
 
     if target_os == "macos" && native_tts_shared {
         // Tauri places bundled resources in Papercut.app/Contents/Resources while
-        // the app binary lives in Contents/MacOS. sherpa-onnx-sys emits @loader_path
+        // the app binary lives in Contents/MacOS. Our native adapter emits @loader_path
         // for dev runs (dylibs are copied next to the binary during cargo build);
         // this additional rpath lets the installed .app locate the dylibs bundled
         // as resources without requiring users to set DYLD_LIBRARY_PATH.
         println!("cargo:rustc-link-arg-bin=app=-Wl,-rpath,@loader_path/../Resources");
     }
+
+    sherpa::prepare().expect("Failed to prepare pinned Sherpa runtime");
+    phonemizer::prepare().expect("Failed to prepare pinned native phonemizer");
 
     let windows_msvc =
         target_os == "windows" && std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc");

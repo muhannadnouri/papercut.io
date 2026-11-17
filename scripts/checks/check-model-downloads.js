@@ -11,10 +11,12 @@ import { parseArgs } from "node:util"
 import { pathToFileURL } from "node:url"
 import { downloadFile } from "../lib/download.js"
 
-export function validatedArchives(manifest, family) {
+// Mirror preparation selects one exact archive; family-wide qualification includes all new distills.
+// Source companions share integrity checks but never become selectable TTS models.
+export function validatedArchives(manifest, family, modelName) {
   assert.equal(manifest.schemaVersion, 2, "Unsupported model manifest")
   const names = new Set()
-  for (const { modelName, url, fallbackUrl, sha256, archiveBytes } of manifest.archives) {
+  for (const { modelName, url, fallbackUrl, sha256, archiveBytes } of [...manifest.archives, ...(manifest.companions ?? [])]) {
     assert.match(modelName, /^[a-zA-Z0-9_-]+$/)
     assert.match(sha256, /^[a-f0-9]{64}$/)
     assert(Number.isSafeInteger(archiveBytes) && archiveBytes > 0)
@@ -24,7 +26,11 @@ export function validatedArchives(manifest, family) {
     assert(!names.has(modelName), `Duplicate archive: ${modelName}`)
     names.add(modelName)
   }
-  const archives = manifest.archives.filter((archive) => !family || archive.family === family)
+  for (const companion of manifest.companions ?? []) {
+    assert(Array.isArray(companion.modelNames) && companion.modelNames.length > 0, "Source companion needs model associations")
+    assert(companion.modelNames.every((name) => manifest.archives.some((archive) => archive.modelName === name)), "Unknown companion model")
+  }
+  const archives = manifest.archives.filter((archive) => (!family || archive.family === family) && (!modelName || archive.modelName === modelName))
   assert(archives.length > 0, "No matching model archives")
   return archives
 }
@@ -46,6 +52,7 @@ async function main() {
     options: {
       "download-dir": { type: "string" },
       family: { type: "string" },
+      "model-name": { type: "string" },
       upstream: {
         type: "boolean",
         default: false,
@@ -53,9 +60,10 @@ async function main() {
     },
   })
   const manifest = JSON.parse(await readFile(new URL("../../src-tauri/tts/model-manifest.json", import.meta.url), "utf8"))
-  const archives = validatedArchives(manifest, values.family)
+  const archives = validatedArchives(manifest, values.family, values["model-name"])
+  const companions = (manifest.companions ?? []).filter((entry) => entry.modelNames.some((name) => archives.some((archive) => archive.modelName === name)))
   const releases = new Map()
-  for (const archive of archives) {
+  for (const archive of [...archives, ...companions]) {
     const source = values.upstream ? archive.fallbackUrl ?? archive.url : archive.url
     const url = new URL(source)
     const match = url.pathname.match(/^\/([^/]+)\/([^/]+)\/releases\/download\/([^/]+)\/[^/]+$/)

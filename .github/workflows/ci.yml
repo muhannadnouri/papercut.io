@@ -134,16 +134,18 @@ jobs:
               .github/workflows/ci.yml | \
               package.json | \
               package-lock.json | \
+              .cargo/config.toml | \
               src-tauri/Cargo.toml | \
               src-tauri/Cargo.lock | \
               src-tauri/build.rs | \
+              src-tauri/build/* | \
+              src-tauri/tests/* | \
               src-tauri/windows-app-manifest.xml | \
               src-tauri/tauri.conf.json | \
               src-tauri/licensing/* | \
               src-tauri/plugins/* | \
               src-tauri/src/* | \
               src-tauri/tts/* | \
-              src-tauri/vendor/sherpa-onnx-sys/* | \
               scripts/lib/* | \
               scripts/search/build-search-index.js | \
               scripts/fdroid/source-build.js)
@@ -242,8 +244,8 @@ jobs:
       - name: Chromium fixture tests
         run: npm test -- --no-file-parallelism .browser.test.ts
 
-      - name: Model download monitor regression check
-        run: node --test scripts/checks/__tests__/check-model-downloads-selftest.js
+      - name: Model archive and download monitor regression checks
+        run: node --test scripts/checks/__tests__/prepare-model-archives-selftest.js scripts/checks/__tests__/check-model-downloads-selftest.js
 
       - name: Mobile provider runner regression check
         run: node --test scripts/checks/__tests__/check-mobile-provider-inference-selftest.mjs
@@ -304,19 +306,21 @@ jobs:
       - name: Rust tests
         run: |
           # Tauri validates this generated Linux bundle resource before tests run.
-          mkdir -p src-tauri/tts/runtime/linux-x64-shared-libs
+          mkdir -p src-tauri/tts/runtime/linux-x64-shared-libs-2.0.1
           cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
 
       - name: Compile opt-in search provider with native TTS
         run: |
           cargo build --manifest-path src-tauri/Cargo.toml --locked --lib \
             --features native-tts-shared,experimental-search-embeddings
+          cargo test --manifest-path src-tauri/Cargo.toml --locked \
+            --features native-tts-shared --test native_build
 
       - name: Opt-in search provider regressions
         run: |
           # Reuse Cargo's prepared runtime; cached-model inference checks remain explicit.
           node scripts/desktop/copy-sherpa-linux-libs.js
-          task_shared_dir="$PWD/src-tauri/tts/runtime/linux-x64-shared-libs"
+          task_shared_dir="$PWD/src-tauri/tts/runtime/linux-x64-shared-libs-2.0.1"
           LD_LIBRARY_PATH="$task_shared_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
             cargo test --manifest-path src-tauri/Cargo.toml --locked --lib \
             --features native-tts-shared,experimental-search-embeddings
@@ -334,7 +338,7 @@ jobs:
           PAPERCUT_EMBEDDING_TEST_MODELS: ${{ runner.temp }}/search-provider-models
           PAPERCUT_EMBEDDING_TEST_DOWNLOAD: "1"
         run: |
-          task_shared_dir="$PWD/src-tauri/tts/runtime/linux-x64-shared-libs"
+          task_shared_dir="$PWD/src-tauri/tts/runtime/linux-x64-shared-libs-2.0.1"
           LD_LIBRARY_PATH="$task_shared_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
             cargo test --manifest-path src-tauri/Cargo.toml --locked --lib \
             --features native-tts-shared,experimental-search-embeddings \
@@ -488,7 +492,7 @@ jobs:
           PAPERCUT_EMBEDDING_TEST_MODELS: ${{ runner.temp }}/search-provider-models
           PAPERCUT_EMBEDDING_TEST_DOWNLOAD: "1"
         run: |
-          task_shared_dir="$PWD/src-tauri/tts/runtime/macos-shared-libs"
+          task_shared_dir="$PWD/src-tauri/tts/runtime/macos-shared-libs-2.0.1"
           DYLD_LIBRARY_PATH="$task_shared_dir${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" \
             cargo test --manifest-path src-tauri/Cargo.toml --locked --release --lib \
             --features native-tts-shared,experimental-search-embeddings \
@@ -621,8 +625,8 @@ jobs:
       - name: Compile Android emulator provider regression
         if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
         run: |
-          # Upstream x86_64 fixture only; application APKs require the r30 source runtime.
-          npm run prepare:sherpa-android-libs
+          # Emulator and application use the same source recipe and Maven runtime.
+          PAPERCUT_ANDROID_ABI=x86_64 npm run prepare:sherpa-android-libs
           task_toolchain="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
           export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="$task_toolchain/x86_64-linux-android26-clang"
           export CC_x86_64_linux_android="$CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER"
@@ -752,7 +756,7 @@ jobs:
           export SDKROOT="$(xcrun --sdk iphonesimulator --show-sdk-path)"
           # Match the native simulator archive's minimum; this is not minimum-OS acceptance.
           export IPHONEOS_DEPLOYMENT_TARGET=15.1
-          export SHERPA_ONNX_LIB_DIR="$PWD/src-tauri/tts/runtime/sherpa-onnx-ios/cargo-libs/ios-arm64-simulator"
+          export SHERPA_ONNX_LIB_DIR="$PWD/src-tauri/tts/runtime/sherpa-onnx-ios-2.0.1/cargo-libs/ios-arm64-simulator"
           export ORT_LIB_LOCATION="$SHERPA_ONNX_LIB_DIR"
           cargo test --manifest-path src-tauri/Cargo.toml --locked --release --lib \
             --target aarch64-apple-ios-sim --features native-tts-ios,experimental-search-embeddings-linked \

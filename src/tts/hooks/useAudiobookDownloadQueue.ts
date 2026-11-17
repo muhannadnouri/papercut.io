@@ -42,6 +42,7 @@ export interface StartAudiobookDownloadInput {
   speed: number
   silmaNfeStep?: number
   dtype: TtsDtype
+  restartGenerationToken?: string
 }
 
 interface AudiobookDownloadQueueOptions {
@@ -97,6 +98,7 @@ export function useAudiobookDownloadQueue({
     persistTimerRef.current = window.setTimeout(flushPersist, PERSIST_DELAY_MS)
   }, [flushPersist])
 
+  /** Persist job settings/progress only; restored jobs must obtain restart consent again through the manager. */
   const start = useCallback((input: StartAudiobookDownloadInput) => {
     const speakableChunks = input.chunks.filter((chunk) => chunk.text.trim())
     if (speakableChunks.length === 0) {
@@ -140,6 +142,7 @@ export function useAudiobookDownloadQueue({
       silmaNfeStep: input.silmaNfeStep,
       documentUrl: input.documentUrl,
       title: input.title,
+      restartGenerationToken: input.restartGenerationToken,
     })
   }, [save, schedulePersist, threadCount])
 

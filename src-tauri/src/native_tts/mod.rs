@@ -1,7 +1,7 @@
 //! Native sherpa-onnx offline TTS feature.
 //!
-//! Splits the synthesis / audiobook-save backend into focused submodules so each
-//! concern can grow independently. Dependencies only point downward:
+//! Splits synthesis and audiobook storage into focused submodules. Main entry
+//! points and shared helpers:
 //!
 //! ```text
 //! commands -> { engine | stub } -> { platform, types }
@@ -15,8 +15,10 @@
 //! - `stub`: the "native TTS not compiled" fallbacks, same signatures as `engine`.
 //! - [`platform`]: the OS-specific tuning seam (thread counts, future providers).
 //! - [`state`]: the Tauri-managed [`NativeTtsState`].
+//! - `book_lock`: per-audiobook writer leases shared with import/delete/transfer.
 //! - [`types`]: serde DTOs shared across the boundary (leaf module).
 
+mod book_lock;
 // `commands` is `pub(crate)` so `generate_handler!` in `lib.rs` can reach both
 // each command and the hidden `__cmd__*` helper the macro generates beside it.
 pub(crate) mod commands;
@@ -31,6 +33,7 @@ mod platform;
 #[cfg(not(feature = "native-tts-core"))]
 mod stub;
 
+pub(crate) use book_lock::lock_audiobook_directory;
 pub(crate) use references::{document_has_audiobook_reference, with_audiobook_reference_lock};
 pub use state::NativeTtsState;
 
@@ -39,6 +42,7 @@ pub(crate) use engine::{
     audiobooks_dir, imported_upload_dir, imported_upload_id_from_document_url,
     list_audiobook_transfer_payloads, validate_transferred_audiobook,
 };
+
 #[cfg(not(feature = "native-tts-core"))]
 pub(crate) use types::NativeAudiobookTransferPayload;
 pub(crate) use types::NativeSavedAudiobookRecord;

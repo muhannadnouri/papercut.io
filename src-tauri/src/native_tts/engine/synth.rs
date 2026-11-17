@@ -17,15 +17,16 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use base64::{engine::general_purpose, Engine as _};
-use tauri::Manager;
-
 use sherpa_onnx::{
     GeneratedAudio, GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsKokoroModelConfig,
     OfflineTtsModelConfig, OfflineTtsSupertonicModelConfig, OfflineTtsVitsModelConfig,
 };
+use tauri::Manager;
 
 use super::models::{model_definition, ModelDefinition, SherpaModelFamily, TtsModelBackend};
 use super::paths::{audio_duration_sec, resolve_model_dir};
+use super::phoneme_adapter::PhonemeAdapter;
+use super::phonemizer::phonemize;
 use super::preprocess::TextPreprocessor;
 use super::silma_sidecar::{normalize_silma_nfe_step, SilmaSidecar, DEFAULT_SILMA_NFE_STEP};
 use super::text_normalization::{normalize_english_synthesis_text, sanitize_tts_text};
@@ -46,6 +47,7 @@ pub(crate) struct SherpaTtsEngine {
     pub(super) model: &'static ModelDefinition,
     pub(super) model_dir: std::path::PathBuf,
     pub(super) num_threads: i32,
+    phoneme_adapter: Option<PhonemeAdapter>,
 }
 
 /// Loaded SILMA worker plus the runtime settings that decide whether it can be
@@ -237,6 +239,7 @@ pub(super) fn ensure_sherpa_engine<'a>(
     if should_create {
         let model_dir = resolve_model_dir(app, model)?;
         *guard = Some(LoadedTtsEngine::Sherpa(SherpaTtsEngine {
+            phoneme_adapter: PhonemeAdapter::load(model.id, &model_dir)?,
             tts: create_engine(model, &model_dir, requested_threads)?,
             model,
             model_dir,
@@ -378,7 +381,10 @@ pub(super) fn synthesize_silma_to_file(
 /// voice name to a speaker id, sanitizes the text, and asks the engine to
 /// generate. Returns `Ok(None)` when the text is empty after sanitization (the
 /// chunk has nothing speakable, so the caller writes a silent placeholder rather
-/// than failing the save); errors only when generation itself fails.
+/// than failing the save). The 7M frontend can also return no phones for a decorative
+/// separator; preserve its chunk/timeline with the same placeholder.
+/// Word/unsupported-phone failures remain errors,
+/// so incomplete speech cannot become a successful saved chunk.
 fn generate_audio(
     engine: &SherpaTtsEngine,
     text: &str,
@@ -396,7 +402,7 @@ fn generate_audio(
         extra.insert("lang".to_string(), serde_json::json!(lang));
         extra
     });
-    let generation = GenerationConfig {
+    let mut generation = GenerationConfig {
         speed,
         sid,
         extra,
@@ -414,6 +420,30 @@ fn generate_audio(
         return Ok(None);
     }
 
+    // These distills need different training-time phones; changing other models would change reviewed pronunciation.
+    if let Some(frontend) = &engine.phoneme_adapter {
+        let sentences = frontend.phonemize(&sanitized)?;
+        if sentences.is_empty() {
+            return Ok(None);
+        }
+        generation.phoneme_codepoints = Some(sentences);
+    } else {
+        // Mandarin keeps its lexicon/FST frontend; Supertonic keeps its own text tokenizer.
+        let locale = match engine.model.require_sherpa_family()? {
+            SherpaModelFamily::Kokoro => generation_language(engine.model, voice),
+            SherpaModelFamily::Vits => Some("ar"),
+            SherpaModelFamily::Supertonic => None,
+        };
+        if let Some(locale) = locale {
+            let sentences =
+                phonemize(&engine.model_dir.join("espeak-ng-data"), &sanitized, locale)?;
+            if sentences.is_empty() {
+                return Err("Native phonemizer returned no speech for nonempty text".into());
+            }
+            generation.phoneme_codepoints = Some(sentences);
+        }
+    }
+
     // The last arg is an optional progress callback; `None::<fn...>` means none.
     engine
         .tts
@@ -424,9 +454,13 @@ fn generate_audio(
 
 /// Select the phonemizer locale per voice without changing model or voice identity.
 ///
-/// Kokoro voice prefixes are its stable locale convention; Supertonic instead
+/// Small models use their explicit language; their shared af_msa name is not a locale.
+/// Existing Kokoro voice prefixes are its stable locale convention; Supertonic instead
 /// selects one language for the whole catalog entry.
 fn generation_language(model: &ModelDefinition, voice: &str) -> Option<&'static str> {
+    if let Some(locale) = PhonemeAdapter::locale(model.id) {
+        return Some(locale);
+    }
     match model.require_sherpa_family().ok()? {
         SherpaModelFamily::Kokoro if voice.starts_with('a') => Some("en-us"),
         // The bundled eSpeak data accepts `en` for British phonemization, not `en-gb`.
@@ -449,6 +483,13 @@ fn create_engine(
     model_dir: &Path,
     thread_count: i32,
 ) -> Result<OfflineTts, String> {
+    // Reject stale packaged libraries before passing the new ABI structures across FFI.
+    if sherpa_onnx::version() != "2.0.1" {
+        return Err(format!(
+            "Incorrect native Sherpa version {}; expected 2.0.1; rebuild/reinstall the app",
+            sherpa_onnx::version()
+        ));
+    }
     let mut model_config = OfflineTtsModelConfig {
         num_threads: thread_count,
         provider: Some("cpu".into()),
@@ -470,9 +511,7 @@ fn create_engine(
                 model: Some(model_dir.join(model.model_file).display().to_string()),
                 voices: Some(model_dir.join("voices.bin").display().to_string()),
                 tokens: Some(model_dir.join("tokens.txt").display().to_string()),
-                data_dir: Some(model_dir.join("espeak-ng-data").display().to_string()),
                 lexicon: (!lexicon.is_empty()).then_some(lexicon),
-                lang: generation_language(model, model.default_voice).map(str::to_owned),
                 ..Default::default()
             };
         }
@@ -506,7 +545,6 @@ fn create_engine(
             model_config.vits = OfflineTtsVitsModelConfig {
                 model: Some(model_dir.join(model.model_file).display().to_string()),
                 tokens: Some(model_dir.join("tokens.txt").display().to_string()),
-                data_dir: Some(model_dir.join("espeak-ng-data").display().to_string()),
                 ..Default::default()
             };
         }
@@ -531,8 +569,46 @@ fn create_engine(
 
 #[cfg(test)]
 mod tests {
+    use std::env;
+    use std::path::PathBuf;
+
+    use super::super::manifest::NativeAudiobookManifest;
     use super::super::models::{model_definition, DEFAULT_MODEL_ID, KOKORO_ZH_MODEL_ID};
     use super::*;
+
+    #[derive(serde::Deserialize)]
+    struct FrontendCase {
+        name: String,
+        model: String,
+        speaker: i32,
+        text: String,
+        // Frozen reviewed phones supplement audio validity for training-specific adapters.
+        #[serde(default)]
+        phones: Option<String>,
+    }
+
+    /// Corpus metadata must resolve explicitly; reserved candidates may not hide typos or foreign speaker IDs.
+    #[test]
+    fn frontend_fixture_contracts_are_explicit() {
+        let cases: Vec<FrontendCase> =
+            serde_json::from_str(include_str!("../../../tts/frontend-smoke.json")).unwrap();
+        let mut distills = 0;
+        for case in cases {
+            let model = model_definition(&case.model).unwrap();
+            assert!(model
+                .voices
+                .iter()
+                .any(|voice| voice.speaker_id == case.speaker));
+            if PhonemeAdapter::locale(model.id).is_some() {
+                assert_eq!(case.speaker, 0);
+                assert!(!case.phones.unwrap().is_empty());
+                distills += 1;
+            } else {
+                assert!(case.phones.is_none());
+            }
+        }
+        assert_eq!(distills, 22);
+    }
 
     /// Read cached assets explicitly; never download models during ordinary tests.
     #[cfg(feature = "native-text-preprocessing-core")]
@@ -540,8 +616,8 @@ mod tests {
     #[ignore = "requires PAPERCUT_ARABIC_TTS_MODEL_DIR pointing to cached Arabic VITS assets"]
     fn cached_arabic_preprocessing_smoke() {
         let model = model_definition("sherpa-onnx/vits-piper-ar_JO-kareem-medium").unwrap();
-        let model_dir = std::path::PathBuf::from(
-            std::env::var_os("PAPERCUT_ARABIC_TTS_MODEL_DIR")
+        let model_dir = PathBuf::from(
+            env::var_os("PAPERCUT_ARABIC_TTS_MODEL_DIR")
                 .expect("PAPERCUT_ARABIC_TTS_MODEL_DIR is required"),
         );
         assert!(model.has_required_files(&model_dir));
@@ -551,6 +627,7 @@ mod tests {
         let text = preprocessor.process("كتب الطالب الدرس").unwrap();
         assert_eq!(text, "كَتَبَ الطَّالِبُ الدَّرْس");
         let engine = SherpaTtsEngine {
+            phoneme_adapter: PhonemeAdapter::load(model.id, &model_dir).unwrap(),
             tts: create_engine(model, &model_dir, 2).unwrap(),
             model,
             model_dir,
@@ -573,11 +650,14 @@ mod tests {
             model::{extract_model_archive, verify_model_archive},
             models::MODELS,
         };
-        let archive_dir = std::path::PathBuf::from(
-            std::env::var_os("PAPERCUT_MODEL_ARCHIVE_DIR")
+        let archive_dir = PathBuf::from(
+            env::var_os("PAPERCUT_MODEL_ARCHIVE_DIR")
                 .expect("PAPERCUT_MODEL_ARCHIVE_DIR is required"),
         );
-        let only_kokoro = std::env::var_os("PAPERCUT_SMOKE_KOKORO_ONLY").is_some();
+        let only_kokoro = env::var_os("PAPERCUT_SMOKE_KOKORO_ONLY").is_some();
+        // One archive in a fresh process proves a distill does not borrow an installed 82M data tree.
+        let archive_name = env::var("PAPERCUT_SMOKE_ARCHIVE_NAME").ok();
+        let mut exercised = 0;
         let work = archive_dir.join(format!("smoke-{}", std::process::id()));
         assert!(
             !work.exists(),
@@ -590,7 +670,14 @@ mod tests {
             .iter()
             .filter(|model| matches!(model.backend, TtsModelBackend::SherpaOnnx))
         {
-            if only_kokoro && model.require_sherpa_family().unwrap() != SherpaModelFamily::Kokoro {
+            if archive_name
+                .as_deref()
+                .is_some_and(|name| name != model.directory_name)
+            {
+                continue;
+            }
+            // Historical mirror preparation includes only the original multilingual archive.
+            if only_kokoro && model.directory_name != "kokoro-multi-lang-v1_0" {
                 continue;
             }
             if extracted.insert(model.directory_name) {
@@ -605,6 +692,7 @@ mod tests {
                 model.id
             );
             let engine = SherpaTtsEngine {
+                phoneme_adapter: PhonemeAdapter::load(model.id, &model_dir).unwrap(),
                 tts: create_engine(model, &model_dir, 2).unwrap(),
                 model,
                 model_dir,
@@ -628,7 +716,11 @@ mod tests {
                 "ar" | "ar-JO" => "مرحبا هذا اختبار للصوت",
                 language => panic!("Add a smoke sample for {language}"),
             };
-            let audio = generate_audio(&engine, text, model.default_voice, 1.0)
+            let text = TextPreprocessor::create(model, model.default_text_preprocessor)
+                .unwrap()
+                .process(text)
+                .unwrap();
+            let audio = generate_audio(&engine, &text, model.default_voice, 1.0)
                 .unwrap()
                 .unwrap();
             assert!(
@@ -640,9 +732,59 @@ mod tests {
                 "Silent audio: {}",
                 model.id
             );
+            // A section separator must not wedge a long save or require changing its source index.
+            if engine.phoneme_adapter.is_some() {
+                let separator_wav = work.join("separator.wav");
+                let result =
+                    synthesize_to_file(&engine, "* * *", model.default_voice, 1.0, &separator_wav)
+                        .expect("Separator should use a silent placeholder");
+                assert!(result.audio_duration_sec > 0.0);
+                assert!(super::super::cache::wav_info(&separator_wav).is_some());
+                assert!(generate_audio(&engine, "1", model.default_voice, 1.0)
+                    .unwrap()
+                    .is_some());
+                let cases: Vec<FrontendCase> =
+                    serde_json::from_str(include_str!("../../../tts/frontend-smoke.json")).unwrap();
+                for case in cases.iter().filter(|case| case.model == model.id) {
+                    let expected = case
+                        .phones
+                        .as_ref()
+                        .expect("Reviewed candidate phone fixture");
+                    assert_eq!(
+                        engine
+                            .phoneme_adapter
+                            .as_ref()
+                            .unwrap()
+                            .phonemize(&case.text)
+                            .unwrap()
+                            .concat(),
+                        expected.chars().map(|c| c as i32).collect::<Vec<_>>(),
+                        "{}",
+                        case.name
+                    );
+                }
+            }
+            if model.id == super::super::models::KOKORO_7M_MODEL_ID {
+                let frontend = engine.phoneme_adapter.as_ref().unwrap();
+                assert_eq!(
+                    frontend.phonemize("Library > Section > Chapter").unwrap(),
+                    frontend
+                        .phonemize("Library greater than Section greater than Chapter")
+                        .unwrap()
+                );
+                assert!(generate_audio(
+                    &engine,
+                    "Library > Section > Chapter",
+                    model.default_voice,
+                    1.0
+                )
+                .unwrap()
+                .is_some());
+            }
             let wav = work.join(format!("{}.wav", model.id.replace('/', "-")));
             assert!(audio.save(wav.to_str().unwrap()));
             assert!(super::super::cache::wav_info(&wav).is_some());
+            exercised += 1;
             println!(
                 "PASS {}: {} speakers, {} samples",
                 model.id,
@@ -650,7 +792,143 @@ mod tests {
                 audio.samples().len()
             );
         }
+        assert!(exercised > 0, "Archive filter did not exercise any model");
         fs::remove_dir_all(work).unwrap();
+    }
+
+    /// Replay a real save's exact chunks/settings into a separate directory, without touching its cache.
+    /// This opt-in check catches long-document failures that short preview sentences cannot expose.
+    #[test]
+    #[ignore = "requires PAPERCUT_TTS_SMOKE_MANIFEST, PAPERCUT_TTS_MODEL_ROOT and PAPERCUT_TTS_SMOKE_OUTPUT_DIR"]
+    fn cached_audiobook_smoke() {
+        let manifest: NativeAudiobookManifest = serde_json::from_slice(
+            &fs::read(env::var_os("PAPERCUT_TTS_SMOKE_MANIFEST").unwrap()).unwrap(),
+        )
+        .unwrap();
+        let root = PathBuf::from(env::var_os("PAPERCUT_TTS_MODEL_ROOT").unwrap());
+        let out = PathBuf::from(env::var_os("PAPERCUT_TTS_SMOKE_OUTPUT_DIR").unwrap());
+        // A fresh evidence directory prevents accidental overwrites, including of the supplied save.
+        fs::create_dir(&out).expect("Use a new smoke output directory");
+        let model = model_definition(&manifest.model_id).unwrap();
+        let model_dir = root.join(model.directory_name);
+        let engine = SherpaTtsEngine {
+            phoneme_adapter: PhonemeAdapter::load(model.id, &model_dir).unwrap(),
+            tts: create_engine(model, &model_dir, manifest.thread_count).unwrap(),
+            model,
+            model_dir,
+            num_threads: manifest.thread_count,
+        };
+        let preprocessor = TextPreprocessor::create(model, &manifest.text_preprocessor).unwrap();
+        let mut failures = Vec::new();
+        for (index, chunk) in manifest.chunks.iter().enumerate() {
+            let output = out.join(format!("{:05}.wav", index + 1));
+            let result = preprocessor.process(&chunk.text).and_then(|text| {
+                synthesize_to_file(&engine, &text, &manifest.voice, manifest.speed, &output)
+            });
+            match result {
+                Ok(_) => assert!(super::super::cache::wav_info(&output).is_some()),
+                Err(error) => failures.push(format!("chunk {}: {error}", index + 1)),
+            }
+        }
+        fs::write(out.join("failures.txt"), failures.join("\n")).unwrap();
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+        println!("PASS audiobook smoke: {} chunks", manifest.chunks.len());
+    }
+
+    /// One production-path corpus covers the current roster and qualified distills; returns to English after switching.
+    /// Fixtures reuse the owner-reviewed Stage 2 passages; WAVs are evidence, not an automatic quality verdict.
+    #[test]
+    #[ignore = "requires cached roster models and PAPERCUT_TTS_MODEL_ROOT/PAPERCUT_TTS_SMOKE_OUTPUT_DIR"]
+    fn cached_frontend_smoke() {
+        let root = PathBuf::from(env::var_os("PAPERCUT_TTS_MODEL_ROOT").unwrap());
+        let out = PathBuf::from(env::var_os("PAPERCUT_TTS_SMOKE_OUTPUT_DIR").unwrap());
+        fs::create_dir_all(&out).unwrap();
+        let cases: Vec<FrontendCase> =
+            serde_json::from_str(include_str!("../../../tts/frontend-smoke.json")).unwrap();
+        fs::write(
+            out.join("catalog.json"),
+            serde_json::to_vec_pretty(
+                &super::super::models::visible_models()
+                    .map(ModelDefinition::to_info)
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let mut first = None;
+        for case in cases {
+            let model = model_definition(&case.model).unwrap();
+            let model_dir = root.join(model.directory_name);
+            assert!(
+                model.has_required_files(&model_dir),
+                "Missing model: {}",
+                case.model
+            );
+            let engine = SherpaTtsEngine {
+                phoneme_adapter: PhonemeAdapter::load(model.id, &model_dir).unwrap(),
+                tts: create_engine(model, &model_dir, 2).unwrap(),
+                model,
+                model_dir,
+                num_threads: 2,
+            };
+            let voice = model
+                .voices
+                .iter()
+                .find(|v| v.speaker_id == case.speaker)
+                .unwrap();
+            if let Some(expected) = &case.phones {
+                let phones = engine
+                    .phoneme_adapter
+                    .as_ref()
+                    .expect("Expected phoneme adapter")
+                    .phonemize(&case.text)
+                    .unwrap();
+                let expected: Vec<i32> = expected.chars().map(|c| c as i32).collect();
+                assert_eq!(phones.concat(), expected, "{}", case.name);
+                assert_eq!(
+                    generation_language(model, voice.id),
+                    PhonemeAdapter::locale(model.id)
+                );
+                assert!(generate_audio(&engine, "Hello", "af_heart", 1.0).is_err());
+                assert!(generate_audio(&engine, "\u{200b}", voice.id, 1.0)
+                    .unwrap()
+                    .is_none());
+            }
+            let audio = generate_audio(&engine, &case.text, voice.id, 1.0)
+                .unwrap()
+                .unwrap();
+            assert!(audio.samples().len() > audio.sample_rate() as usize / 4);
+            assert!(audio.samples().iter().all(|sample| sample.is_finite()));
+            assert!(audio.samples().iter().any(|sample| sample.abs() > 0.001));
+            if case.name == "english-us" {
+                first = Some(
+                    phonemize(
+                        &engine.model_dir.join("espeak-ng-data"),
+                        &case.text,
+                        "en-us",
+                    )
+                    .unwrap(),
+                );
+            }
+            if case.name == "english-return" {
+                assert_eq!(
+                    first,
+                    Some(
+                        phonemize(
+                            &engine.model_dir.join("espeak-ng-data"),
+                            &case.text,
+                            "en-us"
+                        )
+                        .unwrap()
+                    ),
+                    "Language switching changed English phonemes"
+                );
+            }
+            let wav = out.join(format!("{}.wav", case.name));
+            assert!(audio.save(wav.to_str().unwrap()));
+            assert!(super::super::cache::wav_info(&wav).is_some());
+            println!("PASS {}: {} samples", case.name, audio.samples().len());
+        }
     }
 
     #[test]

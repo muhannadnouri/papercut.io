@@ -12,8 +12,10 @@ use std::path::Path;
 
 use base64::{engine::general_purpose, Engine as _};
 
+use super::generation::required_restart_token;
 use super::manifest::{manifest_has_complete_index, read_manifest, read_or_rebuild_manifest_index};
 use super::paths::{audiobook_dir, chunk_path, chunk_source_signature};
+use crate::native_tts::lock_audiobook_directory;
 use crate::native_tts::types::{
     NativeAudiobookChunkRequest, NativeAudiobookStatusRequest, NativeAudiobookStatusResponse,
     NativeTtsChunkResponse, NativeTtsInputChunk,
@@ -47,9 +49,9 @@ pub(super) struct WavMetadata {
 /// Report saved-audiobook availability without receiving the full chunk list over IPC.
 ///
 /// The caller sends the same ordered source signature used by the manifest. A
-/// matching current manifest is a single-read metadata fast path with no per-WAV
-/// scan. Incomplete current manifests fall back to one verification scan and are
-/// indexed only after every expected WAV exists.
+/// matching current-revision manifest can use the metadata fast path. Unknown/old
+/// revisions verify WAV coverage so completed legacy audio is exempt from restart.
+/// Timing repair never starts synthesis or grants restart consent.
 pub(crate) fn native_audiobook_status(
     app: tauri::AppHandle,
     request: NativeAudiobookStatusRequest,
@@ -58,8 +60,8 @@ pub(crate) fn native_audiobook_status(
     audiobook_status_for_dir(&dir, &request)
 }
 
-/// Compare with the saved source before scanning: stale PDFs require deliberate
-/// replacement, while absent/corrupt saves retain the ordinary not-saved state.
+/// Keep PDF source-edit behavior separate from engine restart; status never discards partial progress.
+/// Completed matching manifests keep the fast path; timing repair requires a writer lease and preserves provenance.
 pub(super) fn audiobook_status_for_dir(
     dir: &Path,
     request: &NativeAudiobookStatusRequest,
@@ -69,7 +71,8 @@ pub(super) fn audiobook_status_for_dir(
         chunk_source_signature(&manifest.chunks) == request.source_signature
             && manifest.chunks.len() == request.total_chunks
     });
-    let requires_regeneration = !matches
+    let restart_generation_token = required_restart_token(dir)?;
+    let changed_pdf = !matches
         && manifest.as_ref().is_some_and(|manifest| {
             manifest
                 .document_url
@@ -78,6 +81,14 @@ pub(super) fn audiobook_status_for_dir(
                 .unwrap_or_default()
                 .ends_with(".pdf")
         });
+    let regeneration_reason = if restart_generation_token.is_some() {
+        Some("synthesis")
+    } else if changed_pdf {
+        Some("source")
+    } else {
+        None
+    };
+    let requires_regeneration = regeneration_reason.is_some();
     let manifest = match manifest.filter(|_| matches) {
         Some(manifest) => manifest,
         _ => {
@@ -86,6 +97,8 @@ pub(super) fn audiobook_status_for_dir(
                 total_chunks: request.total_chunks,
                 complete: false,
                 requires_regeneration,
+                regeneration_reason,
+                restart_generation_token,
                 dir: dir.display().to_string(),
                 audio_duration_sec: 0.0,
                 wav_bytes: 0,
@@ -95,12 +108,14 @@ pub(super) fn audiobook_status_for_dir(
 
     // Complete current manifests contain totals and exact chunk boundaries,
     // so large books avoid opening hundreds or thousands of WAV files here.
-    if manifest_has_complete_index(&manifest) {
+    if manifest_has_complete_index(&manifest) && !requires_regeneration {
         return Ok(NativeAudiobookStatusResponse {
             cached_chunks: manifest.chunks.len(),
             total_chunks: manifest.chunks.len(),
             complete: true,
             requires_regeneration: false,
+            regeneration_reason: None,
+            restart_generation_token: None,
             dir: dir.display().to_string(),
             audio_duration_sec: manifest.audio_duration_sec as f32,
             wav_bytes: manifest.wav_bytes,
@@ -112,7 +127,10 @@ pub(super) fn audiobook_status_for_dir(
     let scan = scan_audiobook(&dir, &manifest.chunks, false);
     let complete = !manifest.chunks.is_empty() && scan.cached_chunks == manifest.chunks.len();
     let indexed = if complete {
-        read_or_rebuild_manifest_index(&dir).ok()
+        // A save may have reached its final chunk; do not race its manifest writer.
+        lock_audiobook_directory(dir)
+            .ok()
+            .and_then(|_lease| read_or_rebuild_manifest_index(&dir).ok())
     } else {
         None
     };
@@ -120,7 +138,9 @@ pub(super) fn audiobook_status_for_dir(
         cached_chunks: scan.cached_chunks,
         total_chunks: manifest.chunks.len(),
         complete,
-        requires_regeneration: false,
+        requires_regeneration,
+        regeneration_reason,
+        restart_generation_token,
         dir: dir.display().to_string(),
         audio_duration_sec: indexed
             .as_ref()
@@ -274,16 +294,17 @@ pub(super) fn wav_metadata(path: &Path) -> Option<WavMetadata> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::config::AUDIOBOOK_MANIFEST_VERSION;
-    use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::super::config::AUDIOBOOK_MANIFEST_VERSION;
+    use super::super::manifest::write_pending_manifest;
+    use super::super::prune::prune_orphan_chunk_files;
+    use super::*;
+    use crate::native_tts::types::NativeAudiobookSaveRequest;
 
     /// Exercise the existing replacement/resume sequence with real WAVs, without loading a voice model.
     #[test]
     fn corrected_pdf_restart_reuses_only_current_chunk_audio() {
-        use super::super::manifest::write_pending_manifest;
-        use super::super::prune::prune_orphan_chunk_files;
-        use crate::native_tts::types::NativeAudiobookSaveRequest;
         let dir = std::env::temp_dir().join(format!(
             "papercut-pdf-restart-{}",
             SystemTime::now()
@@ -318,6 +339,7 @@ mod tests {
             speed: 1.0,
             thread_count: Some(1),
             silma_nfe_step: None,
+            restart_generation_token: None,
         };
         let mut wav = Vec::new();
         wav.extend_from_slice(b"RIFF");
@@ -355,7 +377,7 @@ mod tests {
 
     /// Use actual manifests/files so read-only checks cannot silently prune old audio or rewrite metadata.
     #[test]
-    fn changed_pdf_status_preserves_completed_and_interrupted_saves() {
+    fn changed_source_status_preserves_completed_and_interrupted_saves() {
         for url in [
             "/uploads/ab.pdf",
             "/uploads/ab.pdf?view=1#page=2",
@@ -377,8 +399,24 @@ mod tests {
                     source_span: None,
                 }];
                 let audio = chunk_path(&dir, 0, &chunks[0]);
-                let old_audio = b"old audio must stay untouched";
-                fs::write(&audio, old_audio).unwrap();
+                let old_audio = if complete {
+                    // A complete legacy fixture needs actual WAV coverage, not just a claimed timing index.
+                    let mut wav = Vec::new();
+                    wav.extend_from_slice(b"RIFF");
+                    wav.extend_from_slice(&16036u32.to_le_bytes());
+                    wav.extend_from_slice(b"WAVEfmt ");
+                    wav.extend_from_slice(&16u32.to_le_bytes());
+                    wav.extend_from_slice(&[
+                        1, 0, 1, 0, 0x40, 0x1f, 0, 0, 0x80, 0x3e, 0, 0, 2, 0, 16, 0,
+                    ]);
+                    wav.extend_from_slice(b"data");
+                    wav.extend_from_slice(&16000u32.to_le_bytes());
+                    wav.resize(16044, 0);
+                    wav
+                } else {
+                    b"old audio must stay untouched".to_vec()
+                };
+                fs::write(&audio, &old_audio).unwrap();
                 let path = dir.join("manifest.json");
                 let manifest = serde_json::to_vec(&serde_json::json!({
                     "version": AUDIOBOOK_MANIFEST_VERSION, "documentUrl": url, "title": "Fixture",
@@ -395,7 +433,7 @@ mod tests {
                     source_signature: chunk_source_signature(&chunks),
                 };
                 let matching = audiobook_status_for_dir(&dir, &request).unwrap();
-                assert!(!matching.requires_regeneration);
+                assert_eq!(matching.requires_regeneration, !complete);
                 assert_eq!(matching.complete, complete);
 
                 request.source_signature = chunk_source_signature(&[NativeTtsInputChunk {
@@ -407,21 +445,32 @@ mod tests {
                 for total in [1, 2] {
                     request.total_chunks = total;
                     let changed = audiobook_status_for_dir(&dir, &request).unwrap();
-                    assert_eq!(changed.requires_regeneration, url.contains(".pdf"));
+                    assert_eq!(
+                        changed.requires_regeneration,
+                        !complete || url.contains(".pdf")
+                    );
                     assert!(!changed.complete);
                     assert_eq!(changed.cached_chunks, 0);
                 }
                 assert_eq!(fs::read(&path).unwrap(), manifest);
                 assert_eq!(fs::read(&audio).unwrap(), old_audio);
+                if complete {
+                    request.source_signature = chunk_source_signature(&chunks);
+                    fs::write(&audio, b"damaged WAV despite complete index").unwrap();
+                    let damaged = audiobook_status_for_dir(&dir, &request).unwrap();
+                    assert!(!damaged.complete && damaged.requires_regeneration);
+                    assert!(damaged.restart_generation_token.is_some());
+                    assert_eq!(fs::read(&path).unwrap(), manifest);
+                }
                 fs::remove_file(&path).unwrap();
                 assert!(
-                    !audiobook_status_for_dir(&dir, &request)
+                    audiobook_status_for_dir(&dir, &request)
                         .unwrap()
                         .requires_regeneration
                 );
                 fs::write(&path, b"invalid JSON").unwrap();
                 assert!(
-                    !audiobook_status_for_dir(&dir, &request)
+                    audiobook_status_for_dir(&dir, &request)
                         .unwrap()
                         .requires_regeneration
                 );

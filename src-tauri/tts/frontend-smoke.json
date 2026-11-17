@@ -1,0 +1,264 @@
+[
+  {
+    "name": "english-us",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0",
+    "speaker": 3,
+    "text": "Welcome to Papercut. This is a short reading sample."
+  },
+  {
+    "name": "english-gb",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0",
+    "speaker": 21,
+    "text": "Welcome to Papercut. This is a short reading sample."
+  },
+  {
+    "name": "names-us",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0",
+    "speaker": 3,
+    "text": "Siobhan and Zyxophrenia visited Edmonton with Doctor Smith."
+  },
+  {
+    "name": "normalized-us",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0",
+    "speaker": 3,
+    "text": "Chapter four. Doctor Smith paid five dollars at nine o'clock in nineteen eighty-four."
+  },
+  {
+    "name": "spanish",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0-es",
+    "speaker": 28,
+    "text": "La biblioteca tiene libros nuevos. María lee una historia interesante."
+  },
+  {
+    "name": "french",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0-fr",
+    "speaker": 30,
+    "text": "La bibliothèque propose des livres. François lit une histoire intéressante."
+  },
+  {
+    "name": "hindi",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0-hi",
+    "speaker": 31,
+    "text": "नमस्ते, यह हिंदी में एक छोटी कहानी है। पुस्तक पढ़ना अच्छा है।"
+  },
+  {
+    "name": "italian",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0-it",
+    "speaker": 35,
+    "text": "La biblioteca ha libri nuovi. Giulia legge una storia interessante."
+  },
+  {
+    "name": "portuguese",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0-pt-br",
+    "speaker": 42,
+    "text": "A biblioteca tem livros novos. João lê uma história interessante."
+  },
+  {
+    "name": "mandarin",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0-zh",
+    "speaker": 45,
+    "text": "欢迎使用图书馆。这是一个中文语音测试。今天是2026年11月11日。"
+  },
+  {
+    "name": "arabic-vocalized",
+    "model": "sherpa-onnx/vits-piper-ar_JO-kareem-medium",
+    "speaker": 0,
+    "text": "كَتَبَ الطَّالِبُ الدَّرْسَ فِي المَدْرَسَةِ."
+  },
+  {
+    "name": "arabic-original",
+    "model": "sherpa-onnx/vits-piper-ar_JO-kareem-medium",
+    "speaker": 0,
+    "text": "قرأ الطالب كتابا جديدا في المكتبة. هذه تجربة للقراءة الصوتية."
+  },
+  {
+    "name": "mixed-arabic",
+    "model": "sherpa-onnx/vits-piper-ar_JO-kareem-medium",
+    "speaker": 0,
+    "text": "مرحبا بكم في Papercut. هذا اختبار قصير في Edmonton."
+  },
+  {
+    "name": "mixed-english",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0",
+    "speaker": 3,
+    "text": "Welcome to Papercut. مرحبا بكم في المكتبة."
+  },
+  {
+    "name": "short-us",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0",
+    "speaker": 3,
+    "text": "Hi!"
+  },
+  {
+    "name": "supertonic-en",
+    "model": "sherpa-onnx/supertonic-3-en",
+    "speaker": 6,
+    "text": "Welcome to Papercut. This is a short reading sample."
+  },
+  {
+    "name": "supertonic-ar",
+    "model": "sherpa-onnx/supertonic-3-ar",
+    "speaker": 6,
+    "text": "مرحبا بكم. هذه تجربة قصيرة للقراءة الصوتية."
+  },
+  {
+    "name": "english-return",
+    "model": "sherpa-onnx/kokoro-multi-lang-v1_0",
+    "speaker": 3,
+    "text": "Welcome to Papercut. This is a short reading sample."
+  },
+  {
+    "name": "en-greeting",
+    "model": "sherpa-onnx/kokoro-7m-distill-en-fp32",
+    "speaker": 0,
+    "text": "Welcome to Papercut. This is a short reading sample.",
+    "phones": "wˈɛlkəm tə pˈApəɹkˌʌt. ðˌɪs ɪz ɐ ʃˈɔɹt ɹˈidɪŋ sˈæmpᵊl."
+  },
+  {
+    "name": "en-diphthongs",
+    "model": "sherpa-onnx/kokoro-7m-distill-en-fp32",
+    "speaker": 0,
+    "text": "The brown dog waits outside while Jane drives home.",
+    "phones": "ðə bɹˈWn dˈɔɡ wˈAts ˌWtsˈId wˌIl ʤˈAn dɹˈIvz hˈOm."
+  },
+  {
+    "name": "en-homographs",
+    "model": "sherpa-onnx/kokoro-7m-distill-en-fp32",
+    "speaker": 0,
+    "text": "They record a record every week. I will read the book I read yesterday.",
+    "phones": "ðˌA ɹəkˈɔɹd ɐ ɹˈɛkəɹd ˈɛvəɹi wˈik. ˌI wɪl ɹˈid ðə bˈʊk ˌI ɹˈɛd jˈɛstəɹdˌA."
+  },
+  {
+    "name": "en-contractions",
+    "model": "sherpa-onnx/kokoro-7m-distill-en-fp32",
+    "speaker": 0,
+    "text": "I can't believe we've finished! It's time to reopen the library.",
+    "phones": "ˌI kˈænt bəlˈiv wiv fˈɪnəʃt! ˌɪts tˈIm tə ɹiˈOpᵊn ðə lˈIbɹˌɛɹi."
+  },
+  {
+    "name": "en-numbers",
+    "model": "sherpa-onnx/kokoro-7m-distill-en-fp32",
+    "speaker": 0,
+    "text": "Doctor Smith paid five dollars and twenty-five cents at nine thirty in nineteen eighty-four.",
+    "phones": "dˈɑktəɹ smˈɪθ pˈAd fˈIv dˈɑləɹz ænd twˈɛntifˌIv sˈɛnts æt nˈIn θˈɜɹTi ɪn nˌIntˈin ˈATifˌɔɹ."
+  },
+  {
+    "name": "en-normalized",
+    "model": "sherpa-onnx/kokoro-7m-distill-en-fp32",
+    "speaker": 0,
+    "text": "Chapter four. Doctor Smith paid five dollars at nine o'clock in nineteen eighty-four.",
+    "phones": "ʧˈæptəɹ fˈɔɹ. dˈɑktəɹ smˈɪθ pˈAd fˈIv dˈɑləɹz æt nˈIn əklˈɑk ɪn nˌIntˈin ˈATifˌɔɹ."
+  },
+  {
+    "name": "en-names",
+    "model": "sherpa-onnx/kokoro-7m-distill-en-fp32",
+    "speaker": 0,
+    "text": "Siobhan and Zyxophrenia visited Edmonton with Doctor Smith.",
+    "phones": "ʃɪvˈɔn ænd zˌIksəfɹˈɛniə vˈɪzɪTᵻd ˈɛdməntᵊn wɪð dˈɑktəɹ smˈɪθ."
+  },
+  {
+    "name": "en-unicode",
+    "model": "sherpa-onnx/kokoro-7m-distill-en-fp32",
+    "speaker": 0,
+    "text": "\"Café,\" she said-then paused, Really?",
+    "phones": "“kæfˈA,” ʃi sˌɛdðˈɛn pˈɔzd, ɹˈiᵊli?"
+  },
+  {
+    "name": "en-short",
+    "model": "sherpa-onnx/kokoro-7m-distill-en-fp32",
+    "speaker": 0,
+    "text": "Hi!",
+    "phones": "hˈI!"
+  },
+  {
+    "name": "en-long",
+    "model": "sherpa-onnx/kokoro-7m-distill-en-fp32",
+    "speaker": 0,
+    "text": "The library is quiet, and the reader turns another page. The library is quiet, and the reader turns another page. The library is quiet, and the reader turns another page. The library is quiet, and the reader turns another page. The library is quiet, and the reader turns another page. The library is quiet, and the reader turns another page. The library is quiet, and the reader turns another page. The library is quiet, and the reader turns another page.",
+    "phones": "ðə lˈIbɹˌɛɹi ɪz kwˈIət, ænd ðə ɹˈidəɹ tˈɜɹnz ənˈʌðəɹ pˈAʤ. ðə lˈIbɹˌɛɹi ɪz kwˈIət, ænd ðə ɹˈidəɹ tˈɜɹnz ənˈʌðəɹ pˈAʤ. ðə lˈIbɹˌɛɹi ɪz kwˈIət, ænd ðə ɹˈidəɹ tˈɜɹnz ənˈʌðəɹ pˈAʤ. ðə lˈIbɹˌɛɹi ɪz kwˈIət, ænd ðə ɹˈidəɹ tˈɜɹnz ənˈʌðəɹ pˈAʤ. ðə lˈIbɹˌɛɹi ɪz kwˈIət, ænd ðə ɹˈidəɹ tˈɜɹnz ənˈʌðəɹ pˈAʤ. ðə lˈIbɹˌɛɹi ɪz kwˈIət, ænd ðə ɹˈidəɹ tˈɜɹnz ənˈʌðəɹ pˈAʤ. ðə lˈIbɹˌɛɹi ɪz kwˈIət, ænd ðə ɹˈidəɹ tˈɜɹnz ənˈʌðəɹ pˈAʤ. ðə lˈIbɹˌɛɹi ɪz kwˈIət, ænd ðə ɹˈidəɹ tˈɜɹnz ənˈʌðəɹ pˈAʤ."
+  },
+  {
+    "name": "en-oov-negative",
+    "model": "sherpa-onnx/kokoro-7m-distill-en-fp32",
+    "speaker": 0,
+    "text": "qzxwv",
+    "phones": "kjˌuzˌiˈɛksdˌʌbəljˌuvˈi"
+  },
+  {
+    "name": "ar-vocalized",
+    "model": "sherpa-onnx/nabra-7m-distill-ar-fp32",
+    "speaker": 0,
+    "text": "كَتَبَ الطَّالِبُ الدَّرْسَ فِي المَدْرَسَةِ.",
+    "phones": "katˌaba ʔatːˈaːlibˌu ʔaddːˈarsa fiː ʔalmadrˈasatˌi."
+  },
+  {
+    "name": "ar-pharyngeals",
+    "model": "sherpa-onnx/nabra-7m-distill-ar-fp32",
+    "speaker": 0,
+    "text": "عَلِيٌّ حَمَلَ الْكِتَابَ، وَهَذَا حَقٌّ وَعِلْمٌ.",
+    "phones": "ʕˈaliːˌun ħˈamalˌa alkˈitaːbˌa, wˈahaðˌaː ħˈaqːun wˈaʕilmˌun."
+  },
+  {
+    "name": "ar-names",
+    "model": "sherpa-onnx/nabra-7m-distill-ar-fp32",
+    "speaker": 0,
+    "text": "زَارَ مُحَمَّدٌ وَفَاطِمَةُ مَكْتَبَةَ الْمَدِينَةِ.",
+    "phones": "zˈaːra muħˈammadˌun wˌafaːtˈimatˌu maktˈabatˌa almadˈiːnatˌi."
+  },
+  {
+    "name": "ar-short",
+    "model": "sherpa-onnx/nabra-7m-distill-ar-fp32",
+    "speaker": 0,
+    "text": "مَرْحَبًا!",
+    "phones": "mˈarħabˌan!"
+  },
+  {
+    "name": "ar-unvocalized",
+    "model": "sherpa-onnx/nabra-7m-distill-ar-fp32",
+    "speaker": 0,
+    "text": "قرأ الطالب كتابا جديدا في المكتبة. هذه تجربة للقراءة الصوتية.",
+    "phones": "qˈaraʔ ʔatˈaːlab ktaːbˌaː ʤdˈiːdaː fˈiː ʔalmˈaktabˌa.hˈaːðihˌi tˈaʤribˌa llqraːʔt ʔassawtˈijjah."
+  },
+  {
+    "name": "ar-unvocalized-tashkeel",
+    "model": "sherpa-onnx/nabra-7m-distill-ar-fp32",
+    "speaker": 0,
+    "text": "قَرَأَ الطَّالِبُ كِتَابًا جَدِيدًا فِي الْمَكْتَبَةِ. هَذِهِ تَجْرِبَةٌ لِلْقِرَاءَةِ الصَّوْتِيَّةِ.",
+    "phones": "qˈaraʔˌa ʔatːˈaːlibˌu kitˌaːban ʤˈadiːdˌan fiː almaktˈabatˌi.hˈaðihˌi taʤrˈibatˌun lilqˌiraːʔˌati ʔassːˌautˈiːatˌi."
+  },
+  {
+    "name": "ar-mixed",
+    "model": "sherpa-onnx/nabra-7m-distill-ar-fp32",
+    "speaker": 0,
+    "text": "مرحبا بكم في Papercut. هذا اختبار قصير في Edmonton.",
+    "phones": "mrħbˈaː bˈakam fˈiː pˈApəkˌʌt.hˈaːðaː ˈiχtibˌaːr qˈasiːr fˈiː ˈɛdmɒntən."
+  },
+  {
+    "name": "ar-mixed-tashkeel",
+    "model": "sherpa-onnx/nabra-7m-distill-ar-fp32",
+    "speaker": 0,
+    "text": "مَرْحَبًا بِكُمْ فِي Papercut. هَذَا اخْتِبَارٌ قَصِيرٍ فِي Edmonton.",
+    "phones": "mˈarħabˌan bikˌum fiː pˈApəkˌʌt.hˈaðaː aχtˈibaːrˌun qˈasiːrˌin fiː ˈɛdmɒntən."
+  },
+  {
+    "name": "ar-numbers",
+    "model": "sherpa-onnx/nabra-7m-distill-ar-fp32",
+    "speaker": 0,
+    "text": "في عام 2026 قرأ الطالب 12 كتابا، ودفع 25 دولارا.",
+    "phones": "fˈiː ʕˈaːm ʔalfˈaːn wa sˈitːawˌaʕiʃrˈuːn qˈaraʔ ʔatˈaːlab ʔˈiθnˈaː ʕʕˌaʃar ktaːbˌaː, wdfʕ xˈamsawˌaʕiʃrˈuːn dˈuːlaːrˌaː."
+  },
+  {
+    "name": "ar-numbers-tashkeel",
+    "model": "sherpa-onnx/nabra-7m-distill-ar-fp32",
+    "speaker": 0,
+    "text": "فِي عَامِ 2026 قَرَأَ الطَّالِبُ 12 كِتَابًا، وَدَفَعَ 25 دُولَارًا.",
+    "phones": "fiː ʕˈaːmi ʔalfˈaːn wa sˈitːawˌaʕiʃrˈuːn qˈaraʔˌa ʔatːˈaːlibˌu ʔˈiθnˈaː ʕʕˌaʃar kitˌaːban, wadˈafaʕˌa xˈamsawˌaʕiʃrˈuːn dˈuːlaːrˌan."
+  },
+  {
+    "name": "ar-long",
+    "model": "sherpa-onnx/nabra-7m-distill-ar-fp32",
+    "speaker": 0,
+    "text": "كَتَبَ الطَّالِبُ الدَّرْسَ فِي المَدْرَسَةِ. كَتَبَ الطَّالِبُ الدَّرْسَ فِي المَدْرَسَةِ. كَتَبَ الطَّالِبُ الدَّرْسَ فِي المَدْرَسَةِ. كَتَبَ الطَّالِبُ الدَّرْسَ فِي المَدْرَسَةِ. كَتَبَ الطَّالِبُ الدَّرْسَ فِي المَدْرَسَةِ. كَتَبَ الطَّالِبُ الدَّرْسَ فِي المَدْرَسَةِ. كَتَبَ الطَّالِبُ الدَّرْسَ فِي المَدْرَسَةِ. كَتَبَ الطَّالِبُ الدَّرْسَ فِي المَدْرَسَةِ. كَتَبَ الطَّالِبُ الدَّرْسَ فِي المَدْرَسَةِ. كَتَبَ الطَّالِبُ الدَّرْسَ فِي المَدْرَسَةِ.",
+    "phones": "katˌaba ʔatːˈaːlibˌu ʔaddːˈarsa fiː ʔalmadrˈasatˌi.katˌaba ʔatːˈaːlibˌu ʔaddːˈarsa fiː ʔalmadrˈasatˌi.katˌaba ʔatːˈaːlibˌu ʔaddːˈarsa fiː ʔalmadrˈasatˌi.katˌaba ʔatːˈaːlibˌu ʔaddːˈarsa fiː ʔalmadrˈasatˌi.katˌaba ʔatːˈaːlibˌu ʔaddːˈarsa fiː ʔalmadrˈasatˌi.katˌaba ʔatːˈaːlibˌu ʔaddːˈarsa fiː ʔalmadrˈasatˌi.katˌaba ʔatːˈaːlibˌu ʔaddːˈarsa fiː ʔalmadrˈasatˌi.katˌaba ʔatːˈaːlibˌu ʔaddːˈarsa fiː ʔalmadrˈasatˌi.katˌaba ʔatːˈaːlibˌu ʔaddːˈarsa fiː ʔalmadrˈasatˌi.katˌaba ʔatːˈaːlibˌu ʔaddːˈarsa fiː ʔalmadrˈasatˌi."
+  }
+]

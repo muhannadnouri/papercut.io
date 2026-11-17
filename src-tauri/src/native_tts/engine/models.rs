@@ -154,7 +154,7 @@ impl ModelDefinition {
     }
 
     /// English-only synthesis-text normalization (year expansion, roman numerals,
-    /// semicolon/decimal cleanup) only helps the English eSpeak/Kokoro path. Other
+    /// semicolon/decimal cleanup) is applied before the English Kokoro frontend. Other
     /// languages (e.g. Arabic Piper) must never have Western number words or
     /// English-specific punctuation rewrites spliced into their synthesis text.
     pub(super) fn english_text_normalization(&self) -> bool {
@@ -481,6 +481,12 @@ const SILMA_VOICES: &[VoiceDefinition] = &[VoiceDefinition {
     speaker_id: 0,
 }];
 
+const DISTILL_VOICES: &[VoiceDefinition] = &[VoiceDefinition {
+    id: "af_msa",
+    name: "Default voice",
+    speaker_id: 0,
+}];
+
 const IDENTITY_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = &[TextPreprocessorDefinition {
     id: TEXT_PREPROCESSOR_NONE,
     name: "Original text",
@@ -494,7 +500,7 @@ const SILMA_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = &[TextPreprocess
 }];
 
 #[cfg(feature = "native-text-preprocessing-core")]
-const PIPER_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = &[
+const ARABIC_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = &[
     TextPreprocessorDefinition {
         id: TEXT_PREPROCESSOR_NONE,
         name: "Original text",
@@ -503,16 +509,16 @@ const PIPER_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = &[
     TextPreprocessorDefinition {
         id: TEXT_PREPROCESSOR_LIBTASHKEEL,
         name: "Auto diacritization",
-        description: "Restore Arabic tashkeel with Libtashkeel before Piper synthesis.",
+        description: "Restore Arabic tashkeel with Libtashkeel before synthesis.",
     },
 ];
 #[cfg(not(feature = "native-text-preprocessing-core"))]
-const PIPER_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = IDENTITY_TEXT_PREPROCESSORS;
+const ARABIC_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = IDENTITY_TEXT_PREPROCESSORS;
 
 #[cfg(feature = "native-text-preprocessing-core")]
-const PIPER_DEFAULT_TEXT_PREPROCESSOR: &str = TEXT_PREPROCESSOR_LIBTASHKEEL;
+const ARABIC_DEFAULT_TEXT_PREPROCESSOR: &str = TEXT_PREPROCESSOR_LIBTASHKEEL;
 #[cfg(not(feature = "native-text-preprocessing-core"))]
-const PIPER_DEFAULT_TEXT_PREPROCESSOR: &str = TEXT_PREPROCESSOR_NONE;
+const ARABIC_DEFAULT_TEXT_PREPROCESSOR: &str = TEXT_PREPROCESSOR_NONE;
 
 const KOKORO_REQUIRED_FILES: &[&str] = &[
     "model.onnx",
@@ -534,6 +540,24 @@ const KOKORO_ESPEAK_REQUIRED_FILES: &[&str] = &[
     "espeak-ng-data/phonindex",
     "espeak-ng-data/phondata",
     "espeak-ng-data/intonations",
+];
+
+// Each distill installs independently, including the data required by native/OOV phonemization.
+const KOKORO_DISTILL_REQUIRED_FILES: &[&str] = &[
+    "model.onnx",
+    "voices.bin",
+    "tokens.txt",
+    "MODEL_SOURCE.json",
+    "MODEL_CARD.md",
+    "NOTICE.txt",
+    "LICENSE-APACHE-2.0",
+    "COPYING-GPL-3.0",
+    "espeak-ng-data/phontab",
+    "espeak-ng-data/phonindex",
+    "espeak-ng-data/phondata",
+    "espeak-ng-data/intonations",
+    "espeak-ng-data/en_dict",
+    "espeak-ng-data/ar_dict",
 ];
 
 const KOKORO_ZH_REQUIRED_FILES: &[&str] = &[
@@ -572,6 +596,9 @@ const SILMA_REQUIRED_FILES: &[&str] = &[
     "models--silma-ai--silma-tts/snapshots/d2515317033803648ecb8844765db9e583afecf9/vocab.txt",
 ];
 
+// Stable model identities also select their training-compatible phoneme adapters.
+pub(super) const KOKORO_7M_MODEL_ID: &str = "sherpa-onnx/kokoro-7m-distill-en-fp32";
+pub(super) const NABRA_7M_MODEL_ID: &str = "sherpa-onnx/nabra-7m-distill-ar-fp32";
 pub(super) const DEFAULT_MODEL_ID: &str = "sherpa-onnx/kokoro-multi-lang-v1_0";
 pub(super) const KOKORO_ZH_MODEL_ID: &str = "sherpa-onnx/kokoro-multi-lang-v1_0-zh";
 pub(super) const SILMA_MODEL_ID: &str = "silma-ai/silma-tts";
@@ -766,8 +793,47 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         required_files: PIPER_REQUIRED_FILES,
         default_voice: "kareem",
         voices: PIPER_KAREEM_VOICES,
-        default_text_preprocessor: PIPER_DEFAULT_TEXT_PREPROCESSOR,
-        text_preprocessors: PIPER_TEXT_PREPROCESSORS,
+        default_text_preprocessor: ARABIC_DEFAULT_TEXT_PREPROCESSOR,
+        text_preprocessors: ARABIC_TEXT_PREPROCESSORS,
+    },
+    // Append alternatives after the existing roster to preserve fallback selection order.
+    ModelDefinition {
+        id: KOKORO_7M_MODEL_ID,
+        directory_name: "kokoro-7m-distill-en-fp32",
+        display_name: "Kokoro 7M",
+        backend: TtsModelBackend::SherpaOnnx,
+        family: TtsModelFamily::Kokoro,
+        sherpa_family: Some(SherpaModelFamily::Kokoro),
+        language: "en-US",
+        language_label: "English",
+        supertonic_lang: None,
+        source_label: "oddadmix / marwanelamami Kokoro 7M FP32",
+        download: KOKORO_7M_DISTILL_EN_FP32,
+        model_file: "model.onnx",
+        required_files: KOKORO_DISTILL_REQUIRED_FILES,
+        default_voice: "af_msa",
+        voices: DISTILL_VOICES,
+        default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
+        text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
+    },
+    ModelDefinition {
+        id: NABRA_7M_MODEL_ID,
+        directory_name: "nabra-7m-distill-ar-fp32",
+        display_name: "Nabra 7M",
+        backend: TtsModelBackend::SherpaOnnx,
+        family: TtsModelFamily::Kokoro,
+        sherpa_family: Some(SherpaModelFamily::Kokoro),
+        language: "ar",
+        language_label: "Arabic (Modern Standard)",
+        supertonic_lang: None,
+        source_label: "oddadmix / marwanelamami Nabra 7M FP32",
+        download: NABRA_7M_DISTILL_AR_FP32,
+        model_file: "model.onnx",
+        required_files: KOKORO_DISTILL_REQUIRED_FILES,
+        default_voice: "af_msa",
+        voices: DISTILL_VOICES,
+        default_text_preprocessor: ARABIC_DEFAULT_TEXT_PREPROCESSOR,
+        text_preprocessors: ARABIC_TEXT_PREPROCESSORS,
     },
     ModelDefinition {
         id: SILMA_MODEL_ID,
@@ -821,6 +887,37 @@ mod tests {
             model_definition(DEFAULT_MODEL_ID).unwrap().family,
             TtsModelFamily::Kokoro
         );
+    }
+
+    /// Single-voice entries must not inherit Heart's speaker index or change Arabic defaults.
+    #[test]
+    fn distills_are_independent_models_with_their_own_voice_and_preprocessing() {
+        let english = model_definition(KOKORO_7M_MODEL_ID).unwrap();
+        let arabic = model_definition(NABRA_7M_MODEL_ID).unwrap();
+        for model in [english, arabic] {
+            assert_eq!(model.voices.len(), 1);
+            assert_eq!(model.speaker_id("af_msa").unwrap(), 0);
+            assert!(model.speaker_id("af_heart").is_err());
+            assert!(model.speaker_id("kareem").is_err());
+            assert!(model.required_files.contains(&"espeak-ng-data/en_dict"));
+            assert!(model.required_files.contains(&"espeak-ng-data/ar_dict"));
+            assert_ne!(
+                model.directory_name,
+                model_definition(DEFAULT_MODEL_ID).unwrap().directory_name
+            );
+        }
+        assert_ne!(english.directory_name, arabic.directory_name);
+        assert_ne!(english.download.url, arabic.download.url);
+        assert_eq!(english.default_text_preprocessor, TEXT_PREPROCESSOR_NONE);
+        assert_eq!(
+            arabic.default_text_preprocessor,
+            ARABIC_DEFAULT_TEXT_PREPROCESSOR
+        );
+        assert_eq!(
+            arabic.text_preprocessors.len(),
+            ARABIC_TEXT_PREPROCESSORS.len()
+        );
+        assert!(arabic.supports_text_preprocessor(TEXT_PREPROCESSOR_NONE));
     }
 
     #[test]

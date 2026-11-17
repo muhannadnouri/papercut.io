@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use super::cache::wav_metadata;
 use super::config::{AUDIOBOOK_MANIFEST_VERSION, CACHE_VERSION};
 use super::file_commit::commit_staged_file;
+use super::generation::synthesis_revision;
 use super::models::{DEFAULT_MODEL_ID, SILMA_MODEL_ID};
 use super::paths::{
     audiobooks_dir, chunk_path, chunk_source_signature, create_native_audiobook_id,
@@ -49,6 +50,8 @@ pub(super) struct NativeAudiobookManifest {
     pub(super) thread_count: i32,
     #[serde(default)]
     pub(super) silma_nfe_step: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) synthesis_revision: Option<String>,
     pub(super) chunks: Vec<NativeTtsInputChunk>,
     pub(super) generated_at_ms: u128,
     pub(super) source_signature: String,
@@ -76,6 +79,7 @@ fn default_text_preprocessor() -> String {
 ///
 /// Resume/status can then discover an interrupted job from disk using only a
 /// source signature. Timing totals remain empty until all chunk WAVs are valid.
+/// Save callers must first pass `prepare_save` under the writer lease.
 pub(super) fn write_pending_manifest(
     dir: &Path,
     request: &NativeAudiobookSaveRequest,
@@ -96,6 +100,7 @@ pub(super) fn write_pending_manifest(
         speed: request.speed,
         thread_count: request.thread_count.unwrap_or(0),
         silma_nfe_step: request.silma_nfe_step,
+        synthesis_revision: synthesis_revision(&request.model_id),
         chunks: chunks.to_vec(),
         generated_at_ms,
         source_signature: chunk_source_signature(chunks),
@@ -114,11 +119,13 @@ pub(super) fn write_pending_manifest(
 /// prior derived track is invalidated because Save or Import changed canonical data.
 /// Returns the canonical `(audio_duration_sec, wav_bytes)` totals it persisted so
 /// callers report the manifest's measured values rather than re-deriving them.
+/// Imports pass `None` for synthesis provenance; repairing existing audio must use `read_or_rebuild_manifest_index`.
 pub(super) fn write_manifest(
     dir: &Path,
     request: &NativeAudiobookSaveRequest,
     chunks: &[NativeTtsInputChunk],
     thread_count: i32,
+    synthesis_revision: Option<String>,
 ) -> Result<(f64, usize), String> {
     let generated_at_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -142,6 +149,7 @@ pub(super) fn write_manifest(
         speed: request.speed,
         thread_count,
         silma_nfe_step: request.silma_nfe_step,
+        synthesis_revision,
         chunks: chunks.to_vec(),
         generated_at_ms,
         source_signature: chunk_source_signature(chunks),
@@ -192,6 +200,7 @@ pub(super) fn read_manifest(dir: &Path) -> Result<NativeAudiobookManifest, Strin
 /// A current pending manifest intentionally has no timing index while generation
 /// is incomplete. Once every WAV exists, this recovery path rebuilds metadata
 /// from headers and commits it without regenerating or decoding audio.
+/// Preserve synthesis provenance: index repair is not evidence that the current engine generated the WAVs.
 pub(super) fn read_or_rebuild_manifest_index(
     dir: &Path,
 ) -> Result<NativeAudiobookManifest, String> {
@@ -687,6 +696,7 @@ mod tests {
             speed: 1.0,
             thread_count: Some(1),
             silma_nfe_step: None,
+            restart_generation_token: None,
         };
 
         write_pending_manifest(&dir, &request, &chunks).expect("write pending manifest");
@@ -712,7 +722,14 @@ mod tests {
             fs::write(path, wav).expect("write test WAV");
         }
 
-        write_manifest(&dir, &request, &chunks, 1).expect("write complete manifest");
+        write_manifest(
+            &dir,
+            &request,
+            &chunks,
+            1,
+            synthesis_revision(&request.model_id),
+        )
+        .expect("write complete manifest");
         let complete = read_manifest(&dir).expect("read complete manifest");
         assert!(manifest_has_complete_index(&complete));
         assert_eq!(complete.playback_chunks.len(), chunks.len());
@@ -731,7 +748,14 @@ mod tests {
             .expect_err("reject mismatched WAV totals")
             .contains("WAV metadata does not match"));
 
-        write_manifest(&dir, &request, &chunks, 1).expect("restore complete manifest");
+        write_manifest(
+            &dir,
+            &request,
+            &chunks,
+            1,
+            synthesis_revision(&request.model_id),
+        )
+        .expect("restore complete manifest");
         fs::write(chunk_path(&dir, 0, &chunks[0]), b"not a WAV").expect("write invalid WAV");
         assert!(validate_transferred_audiobook(&dir, audiobook_id)
             .expect_err("reject invalid WAV")

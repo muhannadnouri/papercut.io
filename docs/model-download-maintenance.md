@@ -37,6 +37,39 @@ full check subsequently passed on September 29, 2026. Notification delivery
 still needs maintainer confirmation, and packaged-app validation remains part
 of the application rollout below.
 
+## Upstream changes and checksum pins
+
+A version name or Git tag is not a byte-identity guarantee. Even recompressing an
+unchanged tarball changes its archive SHA-256. Do not remove checksum checks or
+automatically trust a new upstream digest to avoid a download error: that would
+silently replace reviewed inputs. September's fix kept verification and put
+Kokoro behind the owner-controlled immutable mirror, with availability monitoring.
+
+The Stage 4 distill source files are pinned to exact Hugging Face **commit** URLs,
+not moving branch URLs. Later upstream commits do not move those pins. Their
+source/assembly evidence lives beside the other TTS inputs in
+`src-tauri/tts/qualification-artifacts.json`; these private proofs are deliberately
+not production download entries. Before exposing either candidate, prepare final
+complete archives using the existing Papercut immutable-release convention, keep
+those bytes available, and add only the final URLs/sizes/hashes to
+`model-manifest.json`. No asset is published by this frontend pass.
+
+The phoneme adapter additionally verifies the reviewed token/voice files: the
+frontend must not consume a different training vocabulary/style pack just because
+it uses the same marketing version. These checks inspect installed local bytes;
+they do not poll upstream or update a user's model. A legitimate replacement is a
+reviewed pin/contract update. New synthesis semantics need versioned model or
+per-model synthesis provenance, not an unreviewed checksum swap. Retain old assets
+for existing app versions. Pure outer-archive repackaging can preserve model
+identity only after proving the synthesis payload is unchanged.
+
+Changed/deleted **unmirrored** upstream assets remain an availability risk: new
+installs (or clean native builds for pinned build archives) can fail verification
+or fetching. Checksums prevent silent substitution; they cannot keep a deleted
+file online. Already installed model files and completed audiobook WAVs are not
+changed by an upstream commit. Kareem/Supertonic still have their existing upstream
+availability dependence; expanding their mirrors is separate from this pass.
+
 ## Activate after committing
 
 The workflows below only become operational once pushed. No model release,
@@ -57,7 +90,7 @@ by the source patch itself.
    archive, `SHA256SUMS.txt`, and the manifest. It never overwrites an existing
    release. If a draft already exists, inspect it rather than rerunning upload
    with `--clobber`.
-   Confirm that **mirror-draft** succeeded; a green run with only **smoke**
+   Confirm that **model-draft** succeeded (older runs used **mirror-draft**); a green run with only **smoke**
    completed does not prove the draft exists. After a workflow fix, start a new
    `prepare-mirror` run on `main` rather than rerunning an old run, which retains
    its original workflow revision.
@@ -96,17 +129,17 @@ node --test scripts/checks/__tests__/check-model-downloads-selftest.js
 node scripts/checks/check-model-downloads.js
 node scripts/checks/check-model-downloads.js --download-dir /tmp/papercut-models
 
-ORT_LIB_LOCATION="$PWD/src-tauri/target/sherpa-onnx-prebuilt/sherpa-onnx-v1.13.4-linux-x64-shared-lib/lib" \
+ORT_LIB_LOCATION="$PWD/src-tauri/target/sherpa-onnx-prebuilt/sherpa-onnx-v2.0.1-linux-x64-shared-lib/lib" \
   cargo test --manifest-path src-tauri/Cargo.toml --locked --features native-tts-shared --lib
 
 PAPERCUT_MODEL_ARCHIVE_DIR=/tmp/papercut-models \
-ORT_LIB_LOCATION="$PWD/src-tauri/target/sherpa-onnx-prebuilt/sherpa-onnx-v1.13.4-linux-x64-shared-lib/lib" \
+ORT_LIB_LOCATION="$PWD/src-tauri/target/sherpa-onnx-prebuilt/sherpa-onnx-v2.0.1-linux-x64-shared-lib/lib" \
   cargo test --manifest-path src-tauri/Cargo.toml --locked --features native-tts-shared \
   --lib model_archive_smoke -- --ignored --nocapture
 ```
 
 Before the mirror exists, add `--upstream` to the download command. For a
-Kokoro-only check, also use `--family kokoro` and set
+original multilingual Kokoro mirror check, use `--model-name kokoro-multi-lang-v1_0` and set
 `PAPERCUT_SMOKE_KOKORO_ONLY=1` for the Rust smoke test. These options are for
 artifact preparation, not substitutes for the production mirror check.
 Native tests require the normal Linux build dependencies. The ignored smoke
@@ -170,3 +203,47 @@ Resumable Kokoro downloads remain a separate improvement.
 References: [GitHub immutable releases](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases),
 [Actions notifications](https://docs.github.com/en/actions/concepts/workflows-and-actions/notifications-for-workflow-runs),
 [scheduled workflow behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+
+## Native build ownership after Stage 3c
+
+The working-tree registry integration uses unchanged published Sherpa Rust crates.
+Root `.cargo/config.toml` overrides the sys build script; `src-tauri/build/` owns
+platform linking, pinned archive preparation and runtime staging. No upstream
+Sherpa/Piper/eSpeak/ORT implementation is patched. The inactive tracked vendor
+crate has been removed; future upgrades use the registry bindings and app-owned
+integration rather than a vendored sys fork.
+
+For a later native runtime upgrade, review the exact Cargo wrapper/sys version and
+lock, the release-name mapping in `build/sherpa.rs`, `tts/native-artifacts.json`,
+Piper pins/version mapping in `build/phonemizer.rs`, Node version constants and
+versioned Tauri/CI resource paths together. Preserve iOS aggregate archives and
+Android source/AAR receipts; do not assume desktop archive layouts apply to mobile.
+Re-run the build-plumbing tests and packaging/source/notice/audit checks, plus the
+native platform and single-ORT layout gates in the
+[integration report](sherpa-no-fork-proof.md). New target triples need Cargo links
+overrides too. Normal commands run from the repo root; external Cargo callers
+must explicitly load that config. Use `CARGO_TARGET_DIR` for custom desktop bundle
+roots so Node cache paths agree with Cargo.
+
+
+## Paired distill artifact preparation
+
+Stage 4c of [the upgrade plan](sherpa-onnx-upgrade.md#stage-4c--paired-artifacts-and-catalog-integration-november-15)
+records the exact candidate hashes and open publication gates. Model/source inputs
+are pinned in `src-tauri/tts/qualification-artifacts.json`; final complete archive
+identities are in `model-manifest.json`. `prepare-model-archives.js --out <directory>
+--check-manifest` assembles the English/Arabic pair and their corresponding-source
+companion reproducibly from fresh immutable inputs. The app never runs this tool.
+
+The existing workflow's `prepare-distills` mode qualifies the committed pair and
+creates a non-overwriting draft. Publishing the immutable non-latest model release
+is separately authorized; metadata/full-download checks must then pass before
+merge. The original mirror mode still targets only the original multilingual
+archive. `--family kokoro` intentionally covers both original and distill archives;
+`--model-name` selects one exact archive for preparation/diagnostics.
+
+For a cold standalone production archive test, set `PAPERCUT_MODEL_ARCHIVE_DIR` and
+`PAPERCUT_SMOKE_ARCHIVE_NAME=kokoro-7m-distill-en-fp32` (then
+`nabra-7m-distill-ar-fp32`) when running `model_archive_smoke`. Missing archive
+filters fail instead of silently skipping qualification. Separate processes prove
+neither model borrows another installed model's phonemizer data.

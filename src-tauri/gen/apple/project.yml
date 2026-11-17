@@ -96,7 +96,9 @@ targets:
             iphoneos) SHERPA_ONNX_IOS_SLICE=ios-arm64 ;;
             *) SHERPA_ONNX_IOS_SLICE=ios-arm64 ;;
           esac
-          export SHERPA_ONNX_LIB_DIR="$(cd "${SRCROOT:?}/../.." && pwd)/tts/runtime/sherpa-onnx-ios/cargo-libs/$SHERPA_ONNX_IOS_SLICE"
+          # Resolve the selected SDK slice through the same versioned path helper as preparation.
+          SHERPA_ONNX_LIB_DIR="$(cd "${SRCROOT:?}/../../.." && node --input-type=module -e 'import { iosSherpaLibDir } from "./scripts/lib/ios/sherpa.js"; process.stdout.write(iosSherpaLibDir(process.argv[1]));' "$SHERPA_ONNX_IOS_SLICE")" || exit 1
+          export SHERPA_ONNX_LIB_DIR
           export ORT_LIB_LOCATION="$SHERPA_ONNX_LIB_DIR"
           npm run -- tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}
         name: Build Rust Code

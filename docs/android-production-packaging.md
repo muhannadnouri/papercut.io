@@ -4,6 +4,26 @@ Updated 2026-11-04 on task/android-production-packaging. Production packaging is
 implemented and locally checked; the F-Droid publication gates remain below.
 No production release or F-Droid submission has been made.
 
+**Sherpa Stage 3b update (November 12, 2026, working tree under review):**
+Native TTS now builds Sherpa 2.0.1 (`af2d8d81dbfa61c4cea4c568da78f3982edca005`)
+and Piper phonemize 1.5.9 (`dae4d2d831f9f0817355f7c0e8abd98c2fb0a49d`)
+from unchanged source through `scripts/lib/android/source.js`; the F-Droid
+entrypoint delegates to that same recipe. NDK 30.0.16248370/API 26 and Maven ORT
+1.27.0 are retained. Both arm64-v8a and x86_64 outputs have source/tool/ABI/hash
+receipts. Only `libsherpa-onnx-c-api.so` and `libpiper_phonemize_core.so` are staged;
+Gradle supplies `libonnxruntime.so`. There is no new Android prebuilt fallback.
+Explicit stale/missing source inputs fail closed. Default developer/emulator
+preparation builds the same recipe on cache miss.
+
+Notices now include utf8proc and the external Piper/eSpeak provenance. The
+corresponding-source tool packages the pinned Piper source archive and its pinned
+eSpeak/ucd dependency archive; neither source is locally patched. The inventory
+records current native pins separately from historical evidence below. Prior
+APK hashes, reproducibility matches, scanner results and publication checks are
+**historical**, not proof for this runtime. Repeat required package/F-Droid and
+reproducibility gates before publication; this pass publishes nothing. See the
+[Stage 3b handoff](sherpa-onnx-upgrade.md#stage-3b-handoff--november-12-2026).
+
 For command discovery, start with the [script command map](../scripts/README.md).
 Android entry scripts are in scripts/android/; the native source recipe and
 optional OCR/PDF probes are in scripts/fdroid/. Tests sit in adjacent __tests__/
