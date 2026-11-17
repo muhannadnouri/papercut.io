@@ -91,7 +91,7 @@
   min-height: 3rem;
   padding: 0.5rem 0.25rem;
   background: transparent;
-  color: var(--text-heading);
+  color: var(--accent-text);
 }
 
 .app-settings-row-copy {
@@ -181,8 +181,17 @@
 
 /* Wrap the control when the label and its useful minimum width no longer fit. */
 .app-setting-select,
-.app-theme-cycle {
+.app-theme-cycle,
+.app-setting-control {
   flex: 1 1 9rem;
+}
+
+.app-setting-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
 .app-setting-select .app-select-value {

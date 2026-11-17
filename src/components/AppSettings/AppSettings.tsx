@@ -248,32 +248,34 @@ export function AppSettings({
             {zoom.supported && (
               <div className="app-setting">
                 <span id="app-setting-zoom">{t('settings.zoom')}</span>
-                <div className="app-zoom-control" role="group" aria-labelledby="app-setting-zoom">
-                  <button
-                    type="button"
-                    aria-label={t('settings.zoomDecrease')}
-                    title={t('settings.zoomDecrease')}
-                    disabled={zoom.value <= MIN_ZOOM}
-                    onClick={() => zoom.setValue(zoom.value - ZOOM_STEP)}
-                  >
-                    &minus;
-                  </button>
-                  <output aria-live="polite">{zoom.value}%</output>
-                  <button
-                    type="button"
-                    aria-label={t('settings.zoomIncrease')}
-                    title={t('settings.zoomIncrease')}
-                    disabled={zoom.value >= MAX_ZOOM}
-                    onClick={() => zoom.setValue(zoom.value + ZOOM_STEP)}
-                  >
-                    +
-                  </button>
+                <div className="app-setting-control">
+                  <div className="app-zoom-control" role="group" aria-labelledby="app-setting-zoom">
+                    <button
+                      type="button"
+                      aria-label={t('settings.zoomDecrease')}
+                      title={t('settings.zoomDecrease')}
+                      disabled={zoom.value <= MIN_ZOOM}
+                      onClick={() => zoom.setValue(zoom.value - ZOOM_STEP)}
+                    >
+                      &minus;
+                    </button>
+                    <output aria-live="polite">{zoom.value}%</output>
+                    <button
+                      type="button"
+                      aria-label={t('settings.zoomIncrease')}
+                      title={t('settings.zoomIncrease')}
+                      disabled={zoom.value >= MAX_ZOOM}
+                      onClick={() => zoom.setValue(zoom.value + ZOOM_STEP)}
+                    >
+                      +
+                    </button>
+                  </div>
+                  {zoom.value !== DEFAULT_ZOOM && (
+                    <button className="app-zoom-reset" type="button" onClick={() => zoom.setValue(DEFAULT_ZOOM)}>
+                      {t('settings.zoomReset')}
+                    </button>
+                  )}
                 </div>
-                {zoom.value !== DEFAULT_ZOOM && (
-                  <button className="app-zoom-reset" type="button" onClick={() => zoom.setValue(DEFAULT_ZOOM)}>
-                    {t('settings.zoomReset')}
-                  </button>
-                )}
               </div>
             )}
           </section>

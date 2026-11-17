@@ -12,14 +12,18 @@ existing task views; preference controls apply their changes immediately.
 | About | Legal & Notices and Version |
 
 The whole destination row is clickable. Chevrons indicate another view and mirror
-in RTL. The search destination has a stable accessible name and a separate changing
+in RTL. Non-destructive destination labels and chevrons use the accent color;
+section headings stay neutral, search status stays muted, and erase review stays
+red. The search destination has a stable accessible name and a separate changing
 status description; opening it does not activate, download, or index anything.
 Erase review still requires its existing summary and acknowledgement, refuses
 active jobs, and explains the limits of transfer backups. See [app-reset.md](app-reset.md).
 
 Preference labels and controls share a row when space permits, then wrap using
 CSS flex layout rather than a fixed phone-width breakpoint. Selected language text
-can wrap. The root settings close control, preference controls, and Settings cog
+can wrap. The compact Zoom control shares the starting edge of Language and
+Theme; its Reset action wraps within that same control column when necessary.
+The root settings close control, preference controls, and Settings cog
 have a coarse-pointer minimum of 3rem; destination and developer rows also have a
 3rem minimum. At a 16px root size this is 48 CSS pixels, not a verified physical
 48dp measurement on Android. The existing shared navigation header stays pinned
@@ -56,6 +60,24 @@ informs the touch-target check, with installed-device validation still required.
 - Browser checks cover search/legal/erase Back and Close, developer label activation,
   focus return, disabled erase before acknowledgement, no preparation/erase requests,
   desktop Zoom visibility, and browser-only Settings. No real transfer, download, or deletion was run.
+
+## Alignment and destination-color follow-up
+
+The follow-up changes only root destination color and the Zoom control's layout
+container. Shared task buttons, navigation, zoom limits/storage, and native behavior
+are unchanged. No locale changes or dependencies are needed.
+
+- 14 existing Settings tests, touched-file ESLint, locale parity, TypeScript,
+  production Vite/Pagefind build, and whitespace checks pass.
+- A real-component Chromium fixture with mocked native IPC checks 64 combinations:
+  four widths (320/393/800/1280px), English/Arabic/French/Portuguese, light/dark,
+  and Zoom at 100%/110%. Language, Theme, and compact Zoom share their starting edge
+  within 1 CSS pixel, including RTL and the visible Reset action; no horizontal
+  body overflow appears. The zoom widget remains narrower than its control column.
+- Computed colors confirm accent destination labels/chevrons, neutral section
+  headings, muted search status, and red erase review. Keyboard focus remains visible;
+  Android-user-agent preview still hides Zoom. Desktop and mobile previews were
+  visually inspected. Actual WebView scaling and device acceptance remain pending.
 
 ## Next stage: installed-device acceptance
 
