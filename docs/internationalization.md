@@ -94,6 +94,68 @@ localized marketing page.
 message families as English, including the CLDR plural categories required by
 each locale, and runs automatically during `npm run build`.
 
+## Bundled reader fonts
+
+ReaderSettings offers Literata, original Atkinson Hyperlegible, Source Sans 3,
+Merriweather, System Serif, System Sans, and the existing Arabic families. Source
+Sans 3 and Merriweather are additional choices; the default remains Literata for
+non-Arabic locales and Readex Pro for Arabic. Explicit font choices survive reload
+and locale changes. App-wide UI fonts and PDF page fonts are unchanged.
+
+The two new families use unmodified upright and italic variable TTFs from Google
+Fonts commit
+[`7af0d90b4d532ffa4b041937b560c6df4e7b1e95`](https://github.com/google/fonts/tree/7af0d90b4d532ffa4b041937b560c6df4e7b1e95/ofl).
+Files and their original OFL notices are under `public/fonts/reader/source-sans-3/`
+and `public/fonts/reader/merriweather/`. Both are bundled for offline use. They are
+not downloaded from a font service at runtime or subset/converted locally.
+
+| Family | File | SHA-256 |
+| --- | --- | --- |
+| Source Sans 3 | `SourceSans3[wght].ttf` | `042fe2cc0b933e328410d7acbd0aa6a1873dca5aef81875f4bc214b08825c7b9` |
+| Source Sans 3 | `SourceSans3-Italic[wght].ttf` | `39e3ab05ccd7cb94907c31005bb5bec1d5432f0b096a2b782976e217a540eb6c` |
+| Merriweather | `Merriweather[opsz,wdth,wght].ttf` | `d0ed0e359e396af7ad05e73dffd11a3a4c326ea0d0283c56bd9361cb2cc86a96` |
+| Merriweather | `Merriweather-Italic[opsz,wdth,wght].ttf` | `f68a8f4989258679e4fbaf50aa42400132b5373c2d9d2514ba82ef6e85947a0b` |
+
+The TTF pairs add 1,041,712 bytes for Source Sans 3 and 9,219,248 bytes for
+Merriweather (10,260,960 total), plus licenses. These are raw asset sizes, not
+installer-size increases. Source Sans 3 exposes weights 200–900; Merriweather
+exposes 300–900, with its existing upstream optical-size/width axes retained.
+Normal and italic CSS faces declare their supported weight ranges. No weight,
+width, or optical-size control has been added to ReaderSettings.
+
+The new Latin families do not provide Arabic, Hindi, or Chinese glyph coverage;
+unsupported characters continue through the existing CSS/platform fallback. They
+are explicit choices, not new universal fallback families. Atkinson Hyperlegible
+Next and the other research candidates are not included.
+
+Font copyright and OFL text are included in `THIRD_PARTY_NOTICES.md` and the
+packaged Android notices. The Android notice generator's explicit family list
+includes both additions. The font licenses remain separate from Papercut's MIT
+source license; the existing Android combined-work licensing statement is unchanged.
+The source OFL files and generated excerpts retain upstream whitespace verbatim.
+
+### Validation and remaining acceptance
+
+- The earlier offline specimen comparison passed 48 size/matching/viewport cases.
+  That was an emulation check, not proof of physical-panel comfort.
+- All 15 focused ReaderSettings and notice-helper tests pass; new regressions
+  cover both new stored font values across locale defaults. Locale parity, TypeScript,
+  touched-file ESLint, and the production Vite/Pagefind build pass.
+- Font binaries and licenses match the pinned comparison hashes, and the built
+  `dist/fonts/reader/` copies retain the same bytes. Packaged notices are generated
+  with the existing tool and include the new font copyright/license blocks only.
+- A real-component Chromium fixture verifies both selectors, actual custom-font
+  rendering for normal/bold/italic text, saved choices after reload and locale
+  changes, default restoration on Reset, narrow 320px RTL layout, and stable text
+  anchor nodes. Local font requests succeed (including normal cached responses),
+  with no page errors. This does not certify native bookmark/playback behavior.
+- [ ] Review normal/bold/italic text on actual low-density desktop and small
+  high-density mobile displays, including text scaling, mixed-script fallback,
+  night themes, and long passages.
+- [ ] In the installed app, verify reflow, existing bookmarks, Find and playback
+  highlighting after font switches and reload. Record actual results before
+  accepting the release; local browser checks are not native/device acceptance.
+
 ## Remaining Stages
 
 - [x] Migrate shared dialogs and common actions.
