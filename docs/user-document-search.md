@@ -125,6 +125,7 @@ Reader typography is intentionally owned by the shared DOM reader, not by each u
 - The reader bundles offline fonts under `public/fonts/reader/` so desktop and Android do not collapse every serif choice into the same platform fallback.
 - Literata is the default long-form reading face for non-Arabic interface locales; Arabic defaults the reader to Readex Pro. Explicit reader font choices remain independent of later interface-language changes. Atkinson Hyperlegible is available for accessibility-focused reading, and system serif/sans remain available for users who prefer platform defaults.
 - Naskh Arabic, Droid Arabic Naskh, Scheherazade New, and Readex Pro are exposed as explicit Arabic-focused options. They are not inserted into every stack because Arabic font metrics can change spacing and line flow in documents that previously rendered better with their platform fallback.
+- Reflowable reader text supports 8–40px in 1px steps; the default remains 16px. The same limits apply to controls and restored settings. PDF page scale remains separate.
 - Font, spacing, width, and page-color controls are reader presentation only. They do not rewrite stored reflowable reading HTML, search sections, TTS chunks, saved audiobook metadata, or highlight locators.
 
 ## Import Pipeline

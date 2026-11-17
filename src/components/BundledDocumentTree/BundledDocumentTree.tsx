@@ -11,6 +11,7 @@ import {
   TreeItemContent,
   type Key,
 } from 'react-aria-components'
+import { ChevronIcon } from '../ChevronIcon/ChevronIcon'
 import type { DocumentInfo } from '../../types/search'
 import {
   buildBundledDocumentTree,
@@ -180,7 +181,7 @@ export function BundledDocumentTree({
         <TreeItemContent>
           <div className="uploaded-library-content">
             <Button slot="chevron" className="uploaded-library-chevron">
-              &#9656;
+              <ChevronIcon />
             </Button>
             <div className="uploaded-library-row">
               {filterMode ? (

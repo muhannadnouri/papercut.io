@@ -60,7 +60,7 @@ interface StoredReaderSettings extends Partial<ReaderSettingsState> {
 export const READER_SETTING_LIMITS = {
   fontSizePx: {
     min: 8,
-    max: 24,
+    max: 40,
     step: 1,
     suffix: 'px',
   },
