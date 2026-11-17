@@ -1,4 +1,20 @@
 @font-face {
+  font-family: "Papercut Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/ui/inter/Inter[opsz,wght].ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Papercut Inter";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/ui/inter/Inter-Italic[opsz,wght].ttf") format("truetype");
+}
+
+@font-face {
   font-family: "Papercut Literata";
   font-style: normal;
   font-weight: 200 900;
@@ -128,7 +144,7 @@
 }
 
 :root {
-  --ui-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --ui-font: "Papercut Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --color-scheme: light;
   --app-bg: #f8fafc;
   --app-bg-alt: #f1f5f9;
@@ -291,6 +307,11 @@ html[data-theme="dark"] {
 html {
   background: var(--app-bg);
   color: var(--text);
+}
+
+/* Keep Chinese punctuation and Han characters in the same native font. */
+html[lang^="zh"] {
+  --ui-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 html[lang="ar"] {

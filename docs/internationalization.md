@@ -156,6 +156,21 @@ The source OFL files and generated excerpts retain upstream whitespace verbatim.
   highlighting after font switches and reload. Record actual results before
   accepting the release; local browser checks are not native/device acceptance.
 
+## App-wide font preview
+
+A November 17, 2026 trial compares the current system font with Source Sans 3.
+It runs a separate production snapshot with a temporary font override. The app's
+committed default is unchanged. Arabic retains Readex Pro and reader text retains
+its selected font.
+
+The browser check covers Library, Search, Settings, and the reader in both modes:
+128 cases across 320/393/1280px, normal/enlarged text, English/Arabic, and light/dark.
+No horizontal overflow was found. Source Sans 3 looks more compact at the current
+sizes; this is a useful comparison, not proof that it is easier to read.
+
+Before rollout, review both fonts on the actual monitor and phone. Native dialogs
+are absent from this browser preview, and Windows/macOS still need testing.
+
 ## Remaining Stages
 
 - [x] Migrate shared dialogs and common actions.
@@ -166,3 +181,27 @@ The source OFL files and generated excerpts retain upstream whitespace verbatim.
 - [x] Replace expected native English command errors with stable error codes.
 - [x] Add Spanish, French, Italian, Brazilian Portuguese, Hindi, and Simplified Chinese.
 - [ ] Complete native-speaker and desktop/mobile visual review.
+
+## UI font integration
+
+Inter is the default non-Arabic UI font, with a Chinese exception. Arabic retains
+Readex Pro; Chinese uses the native font stack so curly quotes and Han characters
+stay together. Reader fonts are unchanged. Inter is bundled with its OFL notice.
+
+### Owner smoke acceptance — November 17, 2026
+
+The owner reports that all tests in the current typography smoke pass passed on
+latest AppImage and Android APK builds. This includes the requested screen/label,
+light/dark, scaling/layout, locale, symbol, reader persistence/reflow, bookmark,
+Find/playback highlighting, and Android TalkBack checks. An AppImage screenshot
+of the Audiobooks tab was supplied; the Android result is owner-reported without
+a screenshot. These are owner-tested native results, separate from the prior
+Chromium checks. Exact artifact hashes and device/OS versions were not supplied.
+
+The earlier reader acceptance items above are covered by this report to the
+extent of the current smoke checklist. It does not complete native-speaker review
+for every locale or Windows/macOS acceptance.
+
+The existing font weights remain unchanged. The separate proposal to trial a
+lighter Audio Setup title, audio section labels, and dropdown weights has not
+been implemented or authorized by this smoke result.
