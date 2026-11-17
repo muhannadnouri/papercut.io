@@ -800,6 +800,11 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* Let the page reveal a scope list whose bottom extends behind mobile navigation. */
+.panel.search-scope-panel .panel-body {
+  overscroll-behavior-y: auto;
+}
+
 .panel.document-browser-panel .uploaded-library-tree,
 .panel.document-browser-panel .documents-scroll {
   max-height: none;
