@@ -120,7 +120,8 @@ remain subject to their own acceptance evidence.
 
 ## Settings layout
 
-The flat Settings layout and its installed-device acceptance checklist are in
-[settings-ux.md](settings-ux.md). Local browser fixtures verify responsive geometry
-and navigation with mocked native calls; Android/WebView, TalkBack, and real task
-flows remain unchecked until results are recorded there.
+Check Settings with large text, landscape, RTL, and TalkBack on Android; verify
+destination names, focus, scrolling, and touch targets. On desktop, check Zoom and
+Reset alignment. Verify search consent/status, transfer Back, and erase Cancel.
+Local browser checks used mocked native calls; installed-device acceptance remains
+pending.
