@@ -75,7 +75,7 @@ disposable data only. Desktop dev and release builds share one profile, so on Li
 macOS, then Android and iOS. Record untested platforms explicitly.
 
 1. Import a PDF with recognized text, an EPUB and a folder. Add a bookmark, save an
-   audiobook, install a voice and change the theme. Open Settings > Reset App Data > Review Data to
+   audiobook, install a voice and change the theme. Open Settings > Library & Data > Review Data to
    Erase. Expect a spinner and message until the summary loads.
    Expect correct counts and total size, and a disabled **Erase Everything** button. On
    desktop, expect both folder paths to be correct, selectable and left to right. On
@@ -117,3 +117,10 @@ Record failures with reproduction steps and exported diagnostics before further
 changes. This checklist closes the review-fix smoke pass only; broader performance,
 platform, accessibility, and release gates in [play-anywhere.md](play-anywhere.md)
 remain subject to their own acceptance evidence.
+
+## Settings layout
+
+The flat Settings layout and its installed-device acceptance checklist are in
+[settings-ux.md](settings-ux.md). Local browser fixtures verify responsive geometry
+and navigation with mocked native calls; Android/WebView, TalkBack, and real task
+flows remain unchecked until results are recorded there.

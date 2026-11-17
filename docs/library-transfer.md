@@ -629,8 +629,9 @@ not a new CI or complete smoke result.
 ### Current Flow
 
 App Settings owns the entry point because transfer is device-level data
-management rather than another document format. A **Data** section opens a
-dedicated **Transfer Library** dialog organized by the user's role:
+management rather than another document format. The **Library & Data** section has a
+**Transfer Library** destination row that opens a dedicated dialog organized by
+the user's role:
 
 - **Send** presents content selection, then nearby-device selection and pairing,
   and keeps **Save Transfer File** under an expandable fallback on selection;

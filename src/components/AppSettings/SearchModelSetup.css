@@ -288,12 +288,6 @@ details.search-model-panel[open] > * + * {
   margin-top: 0.5rem;
 }
 
-.app-settings-search-summary {
-  margin: 0;
-  text-align: start;
-  color: var(--text-body);
-  font-size: 0.8rem;
-}
 
 @media (max-width: 600px) {
   .search-model-selection {
