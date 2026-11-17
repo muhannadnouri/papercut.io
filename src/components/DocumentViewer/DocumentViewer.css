@@ -23,6 +23,7 @@
 }
 
 .app-reader-pdf {
+  container: pdf-reader / inline-size;
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
@@ -786,10 +787,16 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   text-align: center;
 }
 
-@media (min-width: 1100px) {
-  .app-reader-pdf .doc-header {
+@media (min-width: 768px) {
+  .app-reader-pdf:not(.app-reader-pdf-fullscreen) {
+    padding-top: 0.75rem;
+  }
+}
+
+@container pdf-reader (min-width: 44em) {
+  .app-reader-pdf:not(.app-reader-pdf-fullscreen) .doc-header {
     grid-template-areas: "back viewer controls";
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 }
 
@@ -815,6 +822,10 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
   .app-reader-pdf {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .app-reader-pdf:not(.app-reader-pdf-fullscreen) {
+    padding-top: var(--mobile-safe-top-space);
   }
 
   .app-reader-pdf .doc-header {
