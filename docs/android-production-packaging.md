@@ -611,10 +611,13 @@ npm run prepare:license-notices
 npm run prepare:license-notices -- --check
 ~~~
 
-The notice command uses the active r30 Sherpa dependency tree and fetches
-hash-verified ORT notices and the pinned Supertonic and Kareem archives to
-extract their license evidence. npm attribution uses the lockfile and
-version-specific license declarations where the lockfile omits them. Review
+The notice command uses the active r30 Sherpa dependency tree and verifies
+the committed ORT evidence under `src-tauri/licensing/onnxruntime/`. If those
+files are missing, restore them from the checkout. Generation uses the exact
+verified bytes. The command separately downloads the hash-pinned Supertonic
+and Kareem archives as needed to extract their license evidence. npm attribution
+uses the lockfile and version-specific license declarations where the lockfile
+omits them. Review
 the notice diff before committing. Ordinary builds package the committed file.
 
 CI now gates on this equality: the `build-android` job runs the `--check`

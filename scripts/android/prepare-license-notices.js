@@ -323,21 +323,27 @@ export async function verifyOrtLicenseEvidence() {
     "LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
     "ThirdPartyNotices.txt": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2",
   }
+  const evidence = new Map()
   for (const [file, sha256] of Object.entries(ortFiles)) {
     const text = await readFile(join(ORT_EVIDENCE, file))
     assert.equal(createHash("sha256").update(text).digest("hex"), sha256,
       "ONNX Runtime license evidence changed: " + file)
+    evidence.set(join(ORT_EVIDENCE, file), text)
   }
+  return evidence
 }
 
 async function prepareNoticeEvidence() {
-  await verifyOrtLicenseEvidence()
+  const ortEvidence = await verifyOrtLicenseEvidence()
 
   const inventory = JSON.parse(await readFile(join(ROOT, "docs/android-source-inventory.json"), "utf8"))
   const supertonic = await modelNotice(inventory.optionalModels.voices, "sherpa-onnx-supertonic-3-tts-int8-2026-05-11", "LICENSE")
   await writeFile(join(NOTICE_EVIDENCE, "supertonic-LICENSE"), supertonic)
   const kareem = await modelNotice(inventory.optionalModels.voices, "vits-piper-ar_JO-kareem-medium", "MODEL_CARD")
-  return "Piper Kareem model card (verbatim, from the pinned archive):\n\n" + kareem
+  return {
+    kareem: "Piper Kareem model card (verbatim, from the pinned archive):\n\n" + kareem,
+    ortEvidence,
+  }
 }
 
 async function modelNotice(voices, model, file) {
@@ -353,15 +359,16 @@ async function modelNotice(voices, model, file) {
   return execFileSync("tar", ["-xOjf", archive, model + "/" + file], { encoding: "utf8" })
 }
 
-async function componentTexts() {
+export async function componentTexts(ortEvidence) {
   const blocks = []
   const missing = []
   for (const component of COMPONENTS) {
     const sources = []
     for (const entry of component.entries ?? []) {
-      assert(existsSync(entry.file), "Missing license source: " + rel(entry.file))
+      const verified = ortEvidence.get(entry.file)
+      assert(verified || existsSync(entry.file), "Missing license source: " + rel(entry.file))
       sources.push({
-        text: (await readFile(entry.file, "utf8")).trimEnd() + "\n",
+        text: (verified ? verified.toString("utf8") : await readFile(entry.file, "utf8")).trimEnd() + "\n",
         attribution: entry.attribution,
       })
     }
@@ -472,8 +479,8 @@ export function packageAttribution(graph, kind) {
 
 async function main() {
   const { values } = parseArgs({ options: { check: { type: "boolean" } } })
-  const kareem = await prepareNoticeEvidence()
-  const [{ blocks, missing }, graphs] = await Promise.all([componentTexts(), packageGraphs()])
+  const { kareem, ortEvidence } = await prepareNoticeEvidence()
+  const [{ blocks, missing }, graphs] = await Promise.all([componentTexts(ortEvidence), packageGraphs()])
   assert(!missing.length, "Required license sources missing: " + missing.join(", "))
 
   const out = []

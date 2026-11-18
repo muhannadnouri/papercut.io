@@ -1,3 +1,5 @@
+import * as fs from "node:fs"
+import * as fsPromises from "node:fs/promises"
 import {
   cp,
   mkdtemp,
@@ -14,6 +16,9 @@ import {
   it,
   vi,
 } from "vitest"
+
+vi.mock("node:fs", { spy: true })
+vi.mock("node:fs/promises", { spy: true })
 
 const state = vi.hoisted(() => ({ root: "" }))
 vi.mock("../../lib/paths.js", async importOriginal => ({
@@ -123,5 +128,35 @@ it("verifies committed ORT evidence without cache or network and rejects missing
     await expect(verifyOrtLicenseEvidence()).rejects.toThrow("ENOENT")
   } finally {
     fetch.mockRestore()
+  }
+})
+
+it("renders the verified ORT bytes even if the evidence files change or disappear afterward", async () => {
+  const { verifyOrtLicenseEvidence, componentTexts } = await import("../prepare-license-notices.js")
+  const evidence = join(directory, "src-tauri/licensing/onnxruntime")
+  await cp(new URL("../../../src-tauri/licensing/onnxruntime/", import.meta.url), evidence, { recursive: true })
+  const verified = await verifyOrtLicenseEvidence()
+  await writeFile(join(evidence, "ThirdPartyNotices.txt"), "unverified replacement")
+  await rm(join(evidence, "LICENSE"))
+  const read = vi.spyOn(fsPromises, "readFile").mockImplementation(async path => {
+    if (String(path).startsWith(evidence)) {
+      throw new Error("ORT evidence must not be reread")
+    }
+    return "Other component license"
+  })
+  const exists = vi.spyOn(fs, "existsSync").mockReturnValue(true)
+  const list = vi.spyOn(fs, "readdirSync").mockReturnValue([])
+  try {
+    const { blocks } = await componentTexts(verified)
+    const sources = blocks.flatMap(block => block.sources)
+    for (const [path, bytes] of verified) {
+      const source = sources.find(source => source.attribution.startsWith(
+        path.endsWith("ThirdPartyNotices.txt") ? "ONNX Runtime 8f027" : "ONNX Runtime source "))
+      expect(source.text).toBe(bytes.toString("utf8").trimEnd() + "\n")
+    }
+  } finally {
+    read.mockRestore()
+    exists.mockRestore()
+    list.mockRestore()
   }
 })
