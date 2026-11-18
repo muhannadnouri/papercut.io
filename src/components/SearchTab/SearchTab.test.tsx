@@ -188,6 +188,8 @@ it('keeps semantic-off search bounded with no result tabs or conceptual notices'
     },
   })
   expect(container.querySelector('[role="tablist"]')).toBeNull()
+  expect(container.querySelectorAll('input[name="search-mode"]')).toHaveLength(2)
+  expect(container.querySelector('.search-matching-trigger')).toBeNull()
   expect(container.querySelectorAll('.result-card')).toHaveLength(10)
   expect(container.textContent).not.toContain('search.conceptual.failed')
   await click(container.querySelector('.result-list-more button')!)
@@ -204,7 +206,9 @@ it('uses linked tabs with one active focus target, hides inactive evidence and s
   expect(panel('keyword').getAttribute('aria-labelledby')).toBe(tab('keyword').id)
   expect(panel('conceptual').hasAttribute('inert')).toBe(true)
   expect(panel('conceptual').hidden).toBe(true)
-  expect(container.querySelectorAll('input[name="search-mode"]')).toHaveLength(2)
+  expect(container.querySelector('input[name="search-mode"]')).toBeNull()
+  expect(container.querySelector('.search-matching-trigger')).not.toBeNull()
+  expect(tab('keyword').querySelector('.search-keyword-mode')!.textContent).toBe('search.input.allWordsMode')
   for (const view of ['keyword', 'conceptual'] as const) {
     const icon = tab(view).querySelector('.search-result-tab-icon')!
     const label = tab(view).querySelector('span[dir="auto"]')!
@@ -471,14 +475,20 @@ it('groups the selector and keyword options before the shared scope while preser
   const helper = container.querySelector('#search-input-help')!
   const scope = container.querySelector('.search-scope')!
   expect(toolbar.contains(tab('keyword'))).toBe(true)
-  expect(toolbar.contains(container.querySelector('.search-mode'))).toBe(true)
+  const matching = container.querySelector<HTMLElement>('.search-matching-trigger')!
+  expect(toolbar.contains(matching)).toBe(true)
+  expect(tab('keyword').contains(matching)).toBe(false)
   expect(toolbar.contains(helper)).toBe(false)
   expect(toolbar.contains(scope)).toBe(false)
   expect(input.compareDocumentPosition(toolbar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(toolbar.compareDocumentPosition(helper) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(helper.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(scope.compareDocumentPosition(panel('keyword')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  await click(container.querySelectorAll<HTMLInputElement>('input[name="search-mode"]')[1])
+  await click(matching)
+  expect(value.onModeChange).not.toHaveBeenCalled()
+  const broader = [...document.querySelectorAll<HTMLElement>('[role^="menuitem"]')]
+    .find(item => item.textContent!.includes('search.input.broaderMode'))!
+  await click(broader)
   expect(value.onModeChange).toHaveBeenCalledWith('broader')
   expect(value.onSubmitSearch).not.toHaveBeenCalled()
   await render({
@@ -496,10 +506,12 @@ it('groups the selector and keyword options before the shared scope while preser
   expect(scope.querySelector('.panel-toggle')!.getAttribute('aria-expanded')).toBe('true')
   expect(toolbar.contains(tab('conceptual'))).toBe(true)
   expect(toolbar.querySelector('input[name="search-mode"]')).toBeNull()
+  expect(toolbar.querySelector('.search-matching-trigger')).toBeNull()
   expect(document.getElementById('search-input-help')!.textContent).toBe('search.input.helpConceptual')
   expect(input.value).toBe(value.query)
   await click(tab('keyword'))
-  expect(container.querySelectorAll<HTMLInputElement>('input[name="search-mode"]')[1].checked).toBe(true)
+  expect(tab('keyword').querySelector('.search-keyword-mode')!.textContent).toBe('search.input.broaderMode')
+  expect(container.querySelector('.search-matching-trigger')).not.toBeNull()
 })
 
 it('keeps examples in empty Keyword view, hides them in Conceptual and preserves explicit query/submission behavior', async () => {

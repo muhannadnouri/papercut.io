@@ -1,3 +1,4 @@
+import { SearchIcon } from '../icons'
 import {
   useState,
   useRef,
@@ -611,10 +612,7 @@ export function DocumentViewer({
                 setTimeout(() => findInputRef.current?.focus(), 0)
               }}
             >
-              <svg className="find-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <circle cx="11" cy="11" r="7" />
-                <path d="m16 16 5 5" />
-              </svg>
+              <SearchIcon className="find-icon" />
               <span className="find-label">{t('reader.find')}</span>
             </button>
           </div>

@@ -476,11 +476,23 @@ show their icon/title above **Search Settings**; the cog precedes its text. Sett
 opens directly, preserves query/scope/results, and restores focus to the opener or
 Settings cog if setup removed it. Other empty/loading/error states stay distinct.
 
-The compact tonal Keyword/Conceptual selector and Keyword-only All Words/Broader
-radios are centered under the query, before helper/examples and the shared filter.
+The compact tonal Keyword/Conceptual selector is centered under the query,
+before helper/examples and the shared filter. With conceptual search enabled,
+Keyword shows the current matching choice beneath its label. An adjacent,
+separate menu button offers All Words/Broader; opening or dismissing it does not
+change matching. The choice is retained when visiting Conceptual, where the menu
+is hidden. With conceptual search disabled, the existing native matching radios
+remain without a view selector.
 Only that control row sticks, respecting the same safe-area inset as scroll restoration.
-Desktop segments have a 36px minimum, or 44px with any coarse pointer. Icons sit
-physically left of labels; text direction remains automatic. Switching views starts
+Tabs and the matching-menu trigger have a 44px minimum height. The sibling controls
+share a CSS grid without nesting a menu button inside a tab. The selector has an
+explicit 22rem width, capped to available space, so initial outer sizing does not
+rely on the tab subgrid's intrinsic width. The matching button has no divider.
+Shared Search, Conceptual, and downward-chevron SVG components live in
+`src/components/icons/index.tsx`; the query and reader Find buttons reuse SearchIcon.
+Text can grow/wrap;
+decorative tab icons yield space when available width is small relative to UI text.
+When visible, icons sit physically left of labels; text direction remains automatic. Switching views starts
 no query and never merges ranking. Each view retains its ten-card batch window,
 expanded evidence and scroll place while mounted; new submitted queries/scopes reset
 them. App retains the selected view during navigation; async completion never selects
@@ -488,6 +500,10 @@ another. Hidden panels stay mounted/inert. Keyword examples fill only, without s
 Conceptual hides them. Keyword retains the two-line welcome, ready Conceptual a short
 query prompt. Helpers omit repeated library scope and numeric rules without changing
 retrieval semantics.
+
+On November 17, 2026, the owner reported that smoke tests for the compact selector,
+initial desktop layout correction, divider removal, and shared icons passed as
+intended. This records owner acceptance separately from the automated checks.
 
 Conceptual cards contain plain authored text, no invented marks/counts. **Passage &
 Nearby Text** initially shows the match and nearest available neighbour on each side,

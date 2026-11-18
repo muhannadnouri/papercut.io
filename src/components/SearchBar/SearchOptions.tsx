@@ -19,7 +19,7 @@ export function SearchOptions({ resultSelector, keywordOptions, mode, query, dis
   return <>
     <div className={`search-options-toolbar${resultSelector ? ' search-options-toolbar-sticky' : ''}`}>
       {resultSelector}
-      {keywordOptions && <fieldset className="search-mode">
+      {keywordOptions && !resultSelector && <fieldset className="search-mode">
         <legend>{t('search.input.modeLabel')}</legend>
         <label>
           <input type="radio" name="search-mode" checked={mode === 'all'} onChange={() => onModeChange('all')} />
