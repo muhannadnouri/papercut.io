@@ -1,0 +1,22 @@
+{
+  "html": "<!doctype html><html lang=\"en\"><head><title>Papercut Outline EPUB 3</title></head><body><h1 data-papercut-section=\"0\">Papercut Outline EPUB 3</h1><section class=\"epub-chapter\" id=\"chapter-0\"><h1 data-papercut-section=\"1\">Field notes</h1><h2 id=\"ch0-ridge\" data-papercut-section=\"2\">Morning on the ridge</h2><p data-papercut-section=\"3\">Walk upstream.</p><h2 id=\"ch0-valley\" data-papercut-section=\"4\">Evening in the valley</h2><p data-papercut-section=\"5\">Follow the river.</p></section></body></html>",
+  "assetPaths": {},
+  "outline": [
+    {
+      "label": "Walking routes",
+      "target": null,
+      "children": [
+        {
+          "label": "High trail",
+          "target": "ch0-ridge",
+          "children": []
+        },
+        {
+          "label": "Low trail",
+          "target": "ch0-valley",
+          "children": []
+        }
+      ]
+    }
+  ]
+}

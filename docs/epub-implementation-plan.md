@@ -169,7 +169,7 @@ impractical.
 
 ## Publisher table of contents for EPUB
 
-**Steps 1–6 implemented on `task/epub-outline`. Step 7 covers end-to-end acceptance and performance.**
+**Steps 1–6 are implemented on `task/epub-outline`. Stage 7 automated checks cover import through restored reader navigation. Installed-device acceptance and performance measurements are pending.**
 
 The next reader feature lets someone open an EPUB, discover its publisher-provided contents,
 and jump to a named chapter or subsection. The spine supplies file order. The contents
@@ -251,8 +251,7 @@ source command. “High trail” and “Low trail” resolve to the distinct “
 and “Evening in the valley” headings in restored HTML. The same test covers a checksum
 mismatch, malformed JSON, a missing destination, and duplicate restore. Run it with
 `cargo test --manifest-path src-tauri/Cargo.toml --lib image_free_epub_restores`.
-This exercises the shared package and document path. Device-to-device UI acceptance
-and tapping the restored entries follow the reader work in step 6.
+This exercises the shared package and document path. The installed-device checks below exercise the system picker and nearby transfer UI.
 
 Step 6 places an icon-only **Contents** button immediately before **Find** when the
 opened EPUB supplies usable entries. The button shares the PDF contents glyph and has
@@ -260,6 +259,30 @@ a localized accessible name and hover/focus tooltip. The dialog mounts outside t
 article. Its nested lists preserve publisher order and leave unlinked groups out of
 the tab sequence. Choosing a destination tells audio follow the reader is browsing,
 closes the dialog, and moves focus to the passage using the existing reader scroll path.
+
+**Stage 7 automated verification.** The Rust round trip imports the EPUB 3 ZIP, exports a
+v5 package, restores into a separate empty library, and reopens the book through
+`document_uploads_get_source`. The recipient's SQLite search finds “valley” and returns
+zero documents for “trail” and “routes”. The test compares the serialized reader response
+with the [shared browser fixture](../scripts/fixtures/epub/publisher-outline-3.reader.json).
+Chromium mounts that same HTML and outline at 1200px in English and 320px in Arabic
+with 24px text. Both publisher entries move focus to distinct visible headings. Find
+matches “Evening in the valley” and finds zero occurrences of “Low trail”. Audiobook
+chunk text includes the body heading and excludes all three publisher labels.
+
+To repeat the cross-language check, run both commands from the repository root with
+Chromium available. Both browser cases should execute.
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml --lib image_free_epub_restores
+node_modules/.bin/vitest run src/tts/playAnywhere/readerControls.browser.test.ts -t 'navigates EPUB'
+```
+
+The broader checks cover EPUB 2 NCX and EPUB 3 nav parsing, existing in-spine links,
+limits, damaged sidecars, duplicate restore, stale reader loads, empty-outline visibility,
+bookmarks, PDF controls and audio-follow browsing. The round trip uses Tauri's mock
+runtime with real files and SQLite. Actual native picker, screen reader and playback
+interactions belong to the device checks.
 
 For a manual smoke test, import the [EPUB 3 fixture](../scripts/fixtures/epub/publisher-outline-3.epub)
 and [EPUB 2 fixture](../scripts/fixtures/epub/publisher-outline-2.epub) into a fresh test
@@ -274,6 +297,18 @@ library. Reimporting an identical book reuses its existing stored metadata.
   With a screen reader, check the button name, nested list and destination focus.
 - Open an EPUB without usable contents and then a plain HTML upload. Only eligible books
   should have the new button. Open a PDF with an outline and exercise its existing control.
+
+- In an installed build, export the library and restore into a fresh profile or second
+  device. Repeat over Nearby if shipping both entry points. With audio playing, jump
+  to a different subsection. Playback should keep its position and allow browsing until
+  you choose Return to audio. Set a bookmark there, reopen, and check the passage.
+- On the same lower-memory phone, compare a build from `275a67d0` with the candidate
+  using the same large EPUB and fresh libraries. Record device/OS, book size, outline
+  entry count, import-to-ready and reopen-to-readable times. On the candidate also
+  measure tap-to-visible Contents, including first open. The baseline has no Contents
+  latency to measure. Keep cold and warm runs separate.
+- For discoverability, ask a first-time reader to jump to a named chapter without
+  pointing out the icon. Record whether they reach it unaided.
 
 1. **Build the distinguishing fixture first.** Extend the Rust tests in
    `src-tauri/src/document_uploads/epub/mod.rs`. The current in-spine `nav.xhtml` fixture

@@ -115,6 +115,27 @@ fn image_free_epub_restores_publisher_targets_into_a_fresh_library() {
         Some(true),
     ))
     .unwrap();
+    // Chromium opens this same reader response. Keep the browser fixture tied to what restore delivers.
+    let browser_fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../scripts/fixtures/epub/publisher-outline-3.reader.json"
+    ))
+    .unwrap();
+    assert_eq!(serde_json::to_value(&reopened).unwrap(), browser_fixture);
+
+    // A match on body text proves that a label miss is meaningful on the rebuilt recipient index.
+    for (query, expected) in [("valley", 1), ("trail", 0), ("routes", 0)] {
+        let response = tauri::async_runtime::block_on(commands::document_uploads_search(
+            recipient.handle().clone(),
+            serde_json::from_value(serde_json::json!({"query":query})).unwrap(),
+            tauri::ipc::Channel::new(|_| Ok(())),
+        ))
+        .unwrap();
+        assert_eq!(
+            response.results.len(),
+            expected,
+            "restored search for {query}"
+        );
+    }
     let [group] = reopened.outline.as_slice() else {
         panic!("expected restored publisher group")
     };
