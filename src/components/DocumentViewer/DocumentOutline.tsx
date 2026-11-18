@@ -44,10 +44,12 @@ export function DocumentOutline({ entries, onNavigate }: DocumentOutlineProps) {
     flushSync(() => setOpen(false))
     const target = onNavigate('#' + id)
     if (target) {
-      if (target.tabIndex < 0 && !target.hasAttribute('tabindex')) {
-        target.tabIndex = -1
-      }
       target.focus({ preventScroll: true })
+      // A named anchor without href can report tabIndex 0 yet ignore focus().
+      if (target.ownerDocument.activeElement !== target && !target.hasAttribute('tabindex')) {
+        target.tabIndex = -1
+        target.focus({ preventScroll: true })
+      }
     }
   }
 

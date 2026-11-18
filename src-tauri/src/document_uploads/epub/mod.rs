@@ -17,8 +17,10 @@ mod assets;
 mod inline_svg;
 mod outline;
 mod stored_outline;
-pub(super) use stored_outline::{read_outline, restore_outline, store_outline};
-pub(crate) use stored_outline::{MAX_OUTLINE_BYTES, OUTLINE_FILE_NAME};
+pub(super) use stored_outline::{read_outline, store_outline};
+pub(crate) use stored_outline::{
+    read_outline_bytes, validate_transfer_outline, MAX_OUTLINE_BYTES, OUTLINE_FILE_NAME,
+};
 mod paths;
 mod render;
 mod rewrite;
@@ -87,7 +89,7 @@ pub(crate) fn parse_epub_document(
             &package.manifest,
             &mut image_assets,
         );
-        let (language, direction) = extract_xhtml_metadata(&raw);
+        let (language, direction, body_id) = extract_xhtml_metadata(&raw);
         let body = extract_body_inner(&raw).unwrap_or(raw.as_str());
         let sanitized = sanitize_epub_fragment(body);
         let image_paths = collect_image_paths(&sanitized, chapter_path);
@@ -101,7 +103,7 @@ pub(crate) fn parse_epub_document(
         chapter_drafts.push(ChapterDraft {
             index,
             path: chapter_path.clone(),
-            anchors: collect_fragment_anchors(&sanitized),
+            anchors: collect_fragment_anchors(&sanitized, body_id),
             sanitized,
             image_paths,
             language,
@@ -342,27 +344,25 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
 }
 
 /// Read root/body metadata before EPUB chapter wrappers are discarded.
-fn extract_xhtml_metadata(html: &str) -> (Option<String>, Option<String>) {
-    let Ok(doc) = Document::parse(html) else {
-        return (None, None);
+fn extract_xhtml_metadata(html: &str) -> (Option<String>, Option<String>, Option<String>) {
+    use kuchikiki::{parse_html, traits::TendrilSink};
+
+    // Spine chapters may be HTML as well as XHTML. Read the attributes as the reader would,
+    // even if a valid HTML void tag or named entity would stop an XML parser.
+    let doc = parse_html().one(html).document_node;
+    let (Ok(root), Ok(body)) = (doc.select_first("html"), doc.select_first("body")) else {
+        return (None, None, None);
     };
-    let root = doc.root_element();
-    let body = doc
-        .descendants()
-        .find(|node| node.tag_name().name().eq_ignore_ascii_case("body"));
+    let root = root.attributes.borrow();
+    let body = body.attributes.borrow();
     let language = document_language(
-        body.and_then(|node| {
-            node.attribute("lang")
-                .or_else(|| node.attribute((XML_NAMESPACE, "lang")))
-        })
-        .or_else(|| root.attribute("lang"))
-        .or_else(|| root.attribute((XML_NAMESPACE, "lang"))),
+        body.get("lang")
+            .or(body.get("xml:lang"))
+            .or(root.get("lang"))
+            .or(root.get("xml:lang")),
     );
-    let direction = document_direction(
-        body.and_then(|node| node.attribute("dir"))
-            .or_else(|| root.attribute("dir")),
-    );
-    (language, direction)
+    let direction = document_direction(body.get("dir").or(root.get("dir")));
+    (language, direction, body.get("id").map(str::to_owned))
 }
 
 fn document_language(value: Option<&str>) -> Option<String> {
@@ -664,9 +664,10 @@ mod tests {
         assert_eq!(package.language.as_deref(), Some("ar"));
         assert_eq!(package.direction.as_deref(), Some("rtl"));
 
-        let (language, direction) = extract_xhtml_metadata(
-            r#"<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" dir="ltr"><body lang="ar" dir="rtl"><p>نص</p></body></html>"#,
+        let (language, direction, body_id) = extract_xhtml_metadata(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" dir="ltr"><body lang="ar" dir="rtl" id="opening"><br><p>نص</p></body></html>"#,
         );
+        assert_eq!(body_id.as_deref(), Some("opening"));
         assert_eq!(language.as_deref(), Some("ar"));
         assert_eq!(direction.as_deref(), Some("rtl"));
 

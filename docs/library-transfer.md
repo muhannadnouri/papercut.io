@@ -461,7 +461,11 @@ outline also selects v5. Packages without outlines keep the previous v1/v4 expor
 selection. A v5 export requires a receiver with v5 support. The nearby protocol
 transports the same package as file export.
 
-Restore checks the 32 MiB sidecar limit, checksum, JSON tree limits, and target
+Before packaging an outline, export checks its JSON tree and destinations against the
+sanitized reading copy. A damaged sidecar stops export and the error names the book.
+A missing sidecar is a normal EPUB without an outline.
+
+Restore independently checks the 32 MiB sidecar limit, checksum, JSON tree limits, and target
 syntax. Each destination must identify exactly one element by ID or name in
 the sanitized reader body. A malformed manifest rejects the package. An invalid
 outline payload fails its new document before storage, and valid sibling documents

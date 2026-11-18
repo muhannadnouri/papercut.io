@@ -240,6 +240,16 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
           while(!inView() && performance.now()<deadline) await paint();
           visible.push(inView());
         }
+        // Old EPUBs place an empty named anchor before the passage. Chromium reports tabIndex 0 on it.
+        const heading=document.getElementById(targets[1]);
+        const marker=document.createElement('a');
+        marker.name=heading.id;
+        heading.removeAttribute('id');
+        heading.before(marker);
+        const namedList=await open();
+        namedList.querySelectorAll('li button')[1].click();
+        await paint();
+        const namedFocus=document.activeElement===marker && marker.tabIndex===-1;
         const browse=window.browseCount;
         document.querySelector('.find-btn').click();
         await paint();
@@ -259,7 +269,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
         };
         const bodyFound=await find('Evening in the valley',1);
         const labelAbsent=await find('Low trail',0);
-        parent.postMessage({type:'capture-result',result:{bodyFound,labelAbsent,spoken,reachable,focusEntered,group,labels,cancelled,focused,visible,
+        parent.postMessage({type:'capture-result',result:{namedFocus,bodyFound,labelAbsent,spoken,reachable,focusEntered,group,labels,cancelled,focused,visible,
           beside:trigger.nextElementSibling.matches('.find-btn'),fits:panel.left>=0 && panel.right<=innerWidth+1,
           overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,browse,
           clean:!document.querySelector('article').textContent.includes('Low trail')}},'*');
@@ -268,6 +278,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
     expect(result.spoken).toContain('Evening in the valley')
     expect(result.spoken).not.toMatch(/Walking routes|High trail|Low trail/i)
     expect(result).toMatchObject({
+      namedFocus: true,
       bodyFound: true,
       labelAbsent: true,
       reachable: true,
@@ -280,7 +291,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
       beside: true,
       fits: true,
       overflow: false,
-      browse: 2,
+      browse: 3,
       clean: true,
     })
   }, 30_000)

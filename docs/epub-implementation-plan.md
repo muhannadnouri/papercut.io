@@ -171,12 +171,11 @@ impractical.
 
 **Steps 1–6 are implemented on `task/epub-outline`. Stage 7 automated checks cover import through restored reader navigation. Installed-device acceptance and performance measurements are pending.**
 
-The next reader feature lets someone open an EPUB, discover its publisher-provided contents,
-and jump to a named chapter or subsection. The spine supplies file order. The contents
-document supplies reader-facing labels, groups, and destinations, including multiple targets
-in one file. Today, a contents page in the spine can survive as clickable reading HTML.
-The importer discards the original archive and does not persist a separate navigation tree.
-An EPUB 3 navigation document outside the spine is therefore especially important to capture at import.
+The reader opens the publisher’s table of contents and jumps to named chapters and
+subsections. Earlier imports kept clickable contents pages that appeared in the spine,
+but discarded off-spine navigation with the original archive. New imports resolve the
+publisher’s destinations while the archive is open and store usable entries in
+`outline.json` beside the reading copy.
 
 The first release covers newly imported EPUBs and their library transfers. Show the icon
 only when at least one authored destination works. Books without usable contents still open
@@ -222,7 +221,10 @@ Step 2 extracts the publisher tree into the in-memory parsed document. Both fixt
 exercise the import entry point and verify group labels, parent destinations, leaf order,
 and exact targets against the sanitized reader. A declared NCX supplies the outline
 when EPUB 3 navigation yields no usable rows. Broken and ambiguous fragments lose their
-jump while valid children survive.
+jump while valid children survive. Distinct publisher IDs, including non-Latin IDs,
+map to distinct generated targets. Links to the original body ID use the chapter
+wrapper. A repeated publisher ID remains ambiguous. Contents and in-text links
+share the same mapping.
 
 The parser currently caps each navigation resource at 4 MiB, XML nodes at 100,000,
 entries at 10,000, nesting at 32 levels, and each normalized label at 4,096 UTF-8 bytes.
@@ -292,6 +294,11 @@ library. Reimporting an identical book reuses its existing stored metadata.
   icon and leave the passage in place.
 - Reopen it and select “High trail”, then “Low trail”. Expect “Morning on the ridge”,
   then “Evening in the valley” below the header. Repeat after a library transfer.
+- Import the [publisher anchor fixture](../scripts/fixtures/epub/publisher-anchors.epub).
+  Select **Opening**, **First section**, and **Last section**. Expect **Book opening**,
+  **Prologue**, and **Epilogue**, respectively. Try the in-text **Jump to epilogue** and
+  **Return to opening** links too. Choose **Legacy marker** with a keyboard or screen
+  reader and continue reading from “Legacy passage”. Repeat after restore.
 - On a narrow screen with large text, try the entries by touch and keyboard. With an
   Arabic interface, check the panel opens on the right and publisher labels read correctly.
   With a screen reader, check the button name, nested list and destination focus.

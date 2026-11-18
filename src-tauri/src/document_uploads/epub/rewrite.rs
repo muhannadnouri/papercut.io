@@ -13,8 +13,13 @@ use super::paths::{archive_base_dir, percent_decode, resolve_archive_path, split
 
 const WRAPPER_ID: &str = "papercut-epub-fragment-root";
 
-/// Maps each normalized anchor to its original spelling. A collision leaves the value empty.
-pub(super) type FragmentAnchors = HashMap<String, Option<String>>;
+/// Keep publisher spellings for lookup. Only repeated spellings are ambiguous.
+pub(super) enum Anchor {
+    Body,
+    Element,
+    Duplicate,
+}
+pub(super) type FragmentAnchors = HashMap<String, Anchor>;
 pub(super) type ChapterTargets = HashMap<String, (usize, FragmentAnchors)>;
 
 /// Collect sanitized `id`/`name` anchors before rewriting links.
@@ -22,13 +27,16 @@ pub(super) type ChapterTargets = HashMap<String, (usize, FragmentAnchors)>;
 /// Link rewriting is a two-pass process: first learn which fragment targets exist
 /// per spine item, then rewrite hrefs. A DOM walk avoids the edge cases that made
 /// the previous string scanner fragile around quoting and malformed tags.
-pub(super) fn collect_fragment_anchors(html: &str) -> FragmentAnchors {
+pub(super) fn collect_fragment_anchors(html: &str, body_id: Option<String>) -> FragmentAnchors {
     let document = parse_fragment(html);
     let Some(root) = fragment_root(&document) else {
         return FragmentAnchors::new();
     };
 
     let mut anchors = FragmentAnchors::new();
+    if let Some(id) = body_id {
+        anchors.insert(id, Anchor::Body);
+    }
     if let Ok(nodes) = root.select("*") {
         for node in nodes {
             if node.as_node() == &root {
@@ -39,9 +47,9 @@ pub(super) fn collect_fragment_anchors(html: &str) -> FragmentAnchors {
             let name = attrs.get("name").filter(|name| Some(*name) != id);
             for value in id.into_iter().chain(name) {
                 anchors
-                    .entry(safe_anchor(value))
-                    .and_modify(|entry| *entry = None)
-                    .or_insert_with(|| Some(value.to_owned()));
+                    .entry(value.to_owned())
+                    .and_modify(|entry| *entry = Anchor::Duplicate)
+                    .or_insert(Anchor::Element);
             }
         }
     }
@@ -235,14 +243,12 @@ pub(super) fn resolve_target(
     };
     let (index, anchors) = targets.get(&target_path)?;
     if let Some(fragment) = fragment.filter(|v| !v.is_empty()).map(percent_decode) {
-        let anchor = safe_anchor(&fragment);
-        if let Some(original) = anchors.get(&anchor) {
-            if !exact || original.as_ref() == Some(&fragment) {
-                return Some(format!("ch{index}-{anchor}"));
-            }
-        }
-        if exact {
-            return None;
+        match anchors.get(&fragment) {
+            Some(Anchor::Body) => return Some(format!("chapter-{index}")),
+            Some(Anchor::Element) => return Some(prefix_anchor(*index, &fragment)),
+            Some(Anchor::Duplicate) if !exact => return Some(prefix_anchor(*index, &fragment)),
+            _ if exact => return None,
+            _ => {}
         }
     }
     Some(format!("chapter-{index}"))
@@ -283,28 +289,22 @@ fn is_unsafe_url(value: &str) -> bool {
 
 /// Prefix an imported anchor with chapter index to prevent cross-chapter id collisions.
 fn prefix_anchor(chapter_index: usize, value: &str) -> String {
-    format!("ch{chapter_index}-{}", safe_anchor(value))
-}
-
-/// Convert arbitrary EPUB anchor text into a deterministic HTML id fragment.
-///
-/// We keep common id characters and replace everything else with `-`; callers use
-/// the same normalization for both collected targets and rewritten hrefs.
-fn safe_anchor(value: &str) -> String {
-    let decoded = percent_decode(value);
-    let mut out = String::with_capacity(decoded.len());
-    for ch in decoded.chars() {
-        if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ':' | '.') {
-            out.push(ch);
-        } else {
-            out.push('-');
-        }
+    // Reserve a prefix for encoded UTF-8 bytes, including literal IDs starting with that prefix.
+    // A percent sign in an ID is literal. Only the incoming href is URL-decoded.
+    if !value.is_empty()
+        && !value.starts_with("_u_")
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b':' | b'.'))
+    {
+        return format!("ch{chapter_index}-{value}");
     }
-    if out.is_empty() {
-        "anchor".into()
-    } else {
-        out
+    use std::fmt::Write;
+    let mut id = format!("ch{chapter_index}-_u_");
+    for byte in value.bytes() {
+        write!(id, "{byte:02x}").expect("writing to a String");
     }
+    id
 }
 
 /// Mark images before sanitization can erase their original URL or SVG markup.

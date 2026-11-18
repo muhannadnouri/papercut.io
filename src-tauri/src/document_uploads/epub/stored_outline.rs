@@ -33,10 +33,18 @@ pub(in crate::document_uploads) fn store_outline(
 
 /// A missing sidecar is normal. Return other errors so the reader can log them and still open the HTML.
 pub(in crate::document_uploads) fn read_outline(dir: &Path) -> Result<Vec<OutlineEntry>, String> {
+    match read_outline_bytes(dir)? {
+        Some(bytes) => decode_outline(&bytes),
+        None => Ok(Vec::new()),
+    }
+}
+
+/// Keep absence distinct from an empty or invalid declared payload during export.
+pub(crate) fn read_outline_bytes(dir: &Path) -> Result<Option<Vec<u8>>, String> {
     let path = dir.join(OUTLINE_FILE_NAME);
     let metadata = match fs::symlink_metadata(&path) {
         Ok(value) => value,
-        Err(e) if e.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) if e.kind() == ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(e.to_string()),
     };
     if !metadata.is_file() || metadata.len() > MAX_OUTLINE_BYTES as u64 {
@@ -46,7 +54,7 @@ pub(in crate::document_uploads) fn read_outline(dir: &Path) -> Result<Vec<Outlin
     fs::File::open(path)
         .and_then(|f| f.take(MAX_OUTLINE_BYTES as u64 + 1).read_to_end(&mut bytes))
         .map_err(|e| e.to_string())?;
-    decode_outline(&bytes)
+    Ok(Some(bytes))
 }
 
 /// Local reads and transfer restore enforce the same sidecar contract.
@@ -63,7 +71,7 @@ fn decode_outline(bytes: &[u8]) -> Result<Vec<OutlineEntry>, String> {
 }
 
 /// A transferred target must resolve uniquely inside the restored, sanitized reader body.
-pub(in crate::document_uploads) fn restore_outline(
+pub(crate) fn validate_transfer_outline(
     bytes: &[u8],
     html: &str,
 ) -> Result<Vec<OutlineEntry>, String> {

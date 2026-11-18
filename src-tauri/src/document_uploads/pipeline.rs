@@ -288,7 +288,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
         if parsed.format != "epub" {
             return Err("Only EPUBs can carry an outline".into());
         }
-        parsed.outline = super::epub::restore_outline(&bytes, &parsed.view_html)?;
+        parsed.outline = super::epub::validate_transfer_outline(&bytes, &parsed.view_html)?;
     }
     parsed.assets = transferred_assets;
     for asset in legacy_assets {

@@ -189,7 +189,8 @@ mod tests {
                 (
                     2,
                     collect_fragment_anchors(
-                        r#"<p id="same"></p><p id="x y"></p><p id="x-y"></p>"#,
+                        r#"<p id="same"></p><p id="x y"></p><p id="x y"></p>"#,
+                        None,
                     ),
                 ),
             ),
@@ -197,7 +198,7 @@ mod tests {
                 "b.xhtml".into(),
                 (
                     4,
-                    collect_fragment_anchors(r#"<p id="same"></p><p id="two words"></p>"#),
+                    collect_fragment_anchors(r#"<p id="same"></p><p id="two words"></p>"#, None),
                 ),
             ),
         ]);
@@ -217,6 +218,26 @@ mod tests {
                 ("Second entry", Some("ch4-same"))
             ]
         );
+    }
+
+    #[test]
+    fn reserved_encoding_and_literal_percent_ids_stay_distinct() {
+        let targets = ChapterTargets::from([(
+            "c.xhtml".into(),
+            (
+                0,
+                collect_fragment_anchors(
+                    r#"<p id="x y"></p><p id="x-y"></p><p id="%61"></p><p id="a"></p><p id="_u_253631"></p><p id="opening"></p>"#,
+                    Some("opening".into()),
+                ),
+            ),
+        )]);
+        let ids: std::collections::HashSet<_> = ["#x%20y", "#x-y", "#%2561", "#a", "#_u_253631"]
+            .map(|href| resolve_target(href, "c.xhtml", &targets, true).unwrap())
+            .into_iter()
+            .collect();
+        assert_eq!(ids.len(), 5);
+        assert!(resolve_target("#opening", "c.xhtml", &targets, true).is_none());
     }
 
     #[test]

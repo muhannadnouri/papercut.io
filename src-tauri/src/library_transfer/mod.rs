@@ -551,20 +551,39 @@ fn prepare_document<R: Runtime>(
     let mut outline = None;
     if document.format == "epub" {
         let dir = upload_dir(app, &document.id)?;
-        let sidecar = dir.join(crate::document_uploads::OUTLINE_FILE_NAME);
-        match fs::symlink_metadata(&sidecar) {
-            Ok(meta)
-                if meta.is_file()
-                    && meta.len() <= crate::document_uploads::MAX_OUTLINE_BYTES as u64 =>
-            {
-                let mut reader = BufReader::new(File::open(&sidecar).map_err(|e| e.to_string())?);
-                let (sha256, bytes) = sha256_reader(&mut reader)?;
-                outline = Some(TransferOutline { bytes, sha256 });
-                payloads.insert(document_outline_path(&document.id), sidecar);
+        // Only outline-bearing books need a destination check. Hash the exact sidecar bytes we validate.
+        let invalid_outline =
+            |error: String| format!("Cannot export outline for {}: {error}", document.title);
+        if let Some(bytes) =
+            crate::document_uploads::read_outline_bytes(&dir).map_err(invalid_outline)?
+        {
+            if source_bytes > package::MAX_DOCUMENT_SOURCE_BYTES {
+                return Err(invalid_outline(
+                    "Document source exceeds the transfer limit".into(),
+                ));
             }
-            Ok(_) => return Err("Invalid stored EPUB outline file".into()),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => return Err(e.to_string()),
+            reader.rewind().map_err(|e| e.to_string())?;
+            let mut html = String::new();
+            reader
+                .take(source_bytes + 1)
+                .read_to_string(&mut html)
+                .map_err(|e| invalid_outline(e.to_string()))?;
+            if html.len() as u64 != source_bytes {
+                return Err(invalid_outline(
+                    "Document source changed during export".into(),
+                ));
+            }
+            crate::document_uploads::validate_transfer_outline(
+                &bytes,
+                &crate::document_uploads::sanitize_html(&html),
+            )
+            .map_err(invalid_outline)?;
+            let (sha256, bytes) = sha256_reader(&mut bytes.as_slice())?;
+            outline = Some(TransferOutline { bytes, sha256 });
+            payloads.insert(
+                document_outline_path(&document.id),
+                dir.join(crate::document_uploads::OUTLINE_FILE_NAME),
+            );
         }
         let mut stored_assets: Vec<_> = stored_reader_asset_paths(&dir)?.into_iter().collect();
         stored_assets.sort_unstable_by(|left, right| left.0.cmp(&right.0));
