@@ -226,12 +226,14 @@ pub(crate) struct UploadedDocumentSourceRequest {
     pub(crate) document_url: String,
 }
 
-/// Sanitized reader HTML plus validated local image paths for the WebView.
+/// Reader payload. Source-only callers omit the optional navigation metadata.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentSource {
     pub(crate) html: String,
     pub(crate) asset_paths: std::collections::HashMap<String, String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) outline: Vec<super::parsed::OutlineEntry>,
 }
 
 /// Request to run an FTS search over uploaded documents.

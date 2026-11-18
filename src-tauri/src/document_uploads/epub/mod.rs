@@ -16,6 +16,8 @@ use super::parsed::{ParsedDocument, ParsedDocumentCover};
 mod assets;
 mod inline_svg;
 mod outline;
+mod stored_outline;
+pub(super) use stored_outline::{read_outline, store_outline};
 mod paths;
 mod render;
 mod rewrite;

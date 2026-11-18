@@ -12,6 +12,7 @@ import {
   it,
   vi,
 } from 'vitest'
+import type { ReaderDocument } from '../viewers/types'
 import { useDocumentViewerState } from './useDocumentViewerState'
 
 afterEach(() => {
@@ -20,7 +21,7 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
-function setup(loadHtmlDocument: (url: string) => Promise<string>) {
+function setup(loadReaderDocument: (url: string) => Promise<ReaderDocument>) {
   const container = document.createElement('div')
   document.body.append(container)
   const root = createRoot(container)
@@ -30,7 +31,7 @@ function setup(loadHtmlDocument: (url: string) => Promise<string>) {
     const state = useDocumentViewerState({
       activeTab: 'library',
       documentsLoading: false,
-      loadHtmlDocument,
+      loadReaderDocument,
     })
     useEffect(() => {
       latest = state
@@ -54,6 +55,13 @@ function setup(loadHtmlDocument: (url: string) => Promise<string>) {
   }
 }
 
+async function loadSampleDocument(): Promise<ReaderDocument> {
+  return {
+    html: '<p>Loaded</p>',
+    outline: [],
+  }
+}
+
 function seedBookmark(url: string, textOffset: number) {
   window.localStorage.setItem(`papercut:reader-bookmark:${url}`, JSON.stringify({
     updatedAtMs: 1,
@@ -62,10 +70,48 @@ function seedBookmark(url: string, textOffset: number) {
 }
 
 describe('useDocumentViewerState restoring open', () => {
+  it('keeps the outline with the active source across close and out-of-order loads', async () => {
+    let finishFirst!: (source: ReaderDocument) => void
+    const pending = new Promise<ReaderDocument>(resolve => {
+      finishFirst = resolve
+    })
+    const second = {
+      html: 'Second',
+      outline: [{
+        label: 'Second chapter',
+        target: 'chapter-0',
+        children: [],
+      }],
+    }
+    const app = setup(url => url === '/first' ? pending : Promise.resolve(second))
+    await app.render()
+    try {
+      await act(async () => {
+        void app.state.openDocument('/first')
+      })
+      act(() => app.state.clearSelectedDocument({ restoreBrowseScroll: false }))
+      await act(async () => {
+        await app.state.openDocument('/second')
+      })
+      await act(async () => {
+        finishFirst({
+          html: 'First',
+          outline: [],
+        })
+      })
+      expect(app.state.docContent).toBe('Second')
+      expect(app.state.docOutline).toEqual(second.outline)
+      act(() => app.state.clearSelectedDocument({ restoreBrowseScroll: false }))
+      expect(app.state.docOutline).toEqual([])
+    } finally {
+      await app.unmount()
+    }
+  })
+
   it('owns the failsafe per restore and clears it on completion and unmount', async () => {
     vi.useFakeTimers()
     seedBookmark('/book.html', 240)
-    const app = setup(async () => '<p>Loaded</p>')
+    const app = setup(loadSampleDocument)
     await app.render()
     try {
       await act(async () => {
@@ -104,7 +150,7 @@ describe('useDocumentViewerState restoring open', () => {
 
   it('holds a bookmarked restore open in the restoring phase until completed', async () => {
     seedBookmark('/book.html', 240)
-    const app = setup(async () => '<p>Loaded</p>')
+    const app = setup(loadSampleDocument)
     await app.render()
 
     await act(async () => {
@@ -125,7 +171,7 @@ describe('useDocumentViewerState restoring open', () => {
   })
 
   it('opens straight to idle when the document has no bookmark', async () => {
-    const app = setup(async () => '<p>Loaded</p>')
+    const app = setup(loadSampleDocument)
     await app.render()
 
     await act(async () => {
@@ -139,7 +185,7 @@ describe('useDocumentViewerState restoring open', () => {
 
   it('opens straight to idle when restore is not requested', async () => {
     seedBookmark('/book.html', 240)
-    const app = setup(async () => '<p>Loaded</p>')
+    const app = setup(loadSampleDocument)
     await app.render()
 
     await act(async () => {
@@ -152,7 +198,7 @@ describe('useDocumentViewerState restoring open', () => {
 
   it('ignores a completion from an earlier restore of the same URL', async () => {
     seedBookmark('/book.html', 240)
-    const app = setup(async () => '<p>Loaded</p>')
+    const app = setup(loadSampleDocument)
     await app.render()
 
     await act(async () => {

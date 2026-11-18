@@ -17,7 +17,7 @@ pub(crate) struct ParsedDocument {
 }
 
 /// A publisher-labeled entry. Its target is a reader ID without the leading hash, or absent for a group.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct OutlineEntry {
     pub(crate) label: String,
     pub(crate) target: Option<String>,

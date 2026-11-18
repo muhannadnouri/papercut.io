@@ -8,6 +8,10 @@ use super::super::parsed::OutlineEntry;
 use super::rewrite::{resolve_target, ChapterTargets};
 use super::{normalize_text, read_zip_text_limited, ParsedPackage};
 
+pub(super) const MAX_ENTRIES: usize = 10_000;
+pub(super) const MAX_DEPTH: usize = 32;
+pub(super) const MAX_LABEL_BYTES: usize = 4096;
+
 const XHTML: &str = "http://www.w3.org/1999/xhtml";
 const EPUB: &str = "http://www.idpf.org/2007/ops";
 const NCX: &str = "http://www.daisy.org/z3986/2005/ncx/";
@@ -71,7 +75,8 @@ impl Format {
                 .children()
                 .find(|n| n.has_tag_name((NCX, "navMap")))?,
         };
-        self.entries(list, path, targets, 1, &mut 10_000)
+        let mut remaining = MAX_ENTRIES;
+        self.entries(list, path, targets, 1, &mut remaining)
     }
 
     /// Keep reachable children under broken links. Exceeding a limit discards this resource's entire tree.
@@ -89,7 +94,7 @@ impl Format {
             Self::Ncx => (NCX, "navPoint"),
         };
         for item in list.children().filter(|n| n.has_tag_name(tag)) {
-            if depth > 32 {
+            if depth > MAX_DEPTH {
                 return None;
             }
             *remaining = remaining.checked_sub(1)?;
@@ -134,7 +139,7 @@ impl Format {
                 })
                 .collect();
             let label = normalize_text(&text);
-            if label.len() > 4096 {
+            if label.len() > MAX_LABEL_BYTES {
                 return None;
             }
             if label.is_empty() {

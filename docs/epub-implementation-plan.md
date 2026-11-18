@@ -169,7 +169,7 @@ impractical.
 
 ## Publisher table of contents for EPUB
 
-**Steps 1–3 complete on `task/epub-outline`. Step 4 adds local outline storage and retrieval.**
+**Steps 1–4 complete on `task/epub-outline`. Step 5 adds library transfer support.**
 
 The next reader feature lets someone open an EPUB, discover its publisher-provided contents,
 and jump to a named chapter or subsection. The spine supplies file order. The contents
@@ -222,7 +222,7 @@ Step 2 extracts the publisher tree into the in-memory parsed document. Both fixt
 exercise the import entry point and verify group labels, parent destinations, leaf order,
 and exact targets against the sanitized reader. A declared NCX supplies the outline
 when EPUB 3 navigation yields no usable rows. Broken and ambiguous fragments lose their
-jump while valid children survive. The reader and transfer code do not yet consume this tree.
+jump while valid children survive.
 
 The parser currently caps each navigation resource at 4 MiB, XML nodes at 100,000,
 entries at 10,000, nesting at 32 levels, and each normalized label at 4,096 UTF-8 bytes.
@@ -233,6 +233,17 @@ back to the declared NCX. With both resources missing or malformed, the book sti
 produces reading HTML and indexable chapter text. Run the six cases with
 `cargo test --manifest-path src-tauri/Cargo.toml --lib epub::outline::limits_tests`.
 Manual reader checks begin when Contents becomes visible in step 6.
+
+Step 4 writes the nonempty tree as a JSON array in `outline.json` alongside
+`source.html`, before indexing and under the same failure cleanup. The stored file
+has a 32 MiB ceiling to allow for JSON escaping and entry fields. Reopening checks
+file type, size, tree limits, and generated target syntax. A missing or damaged
+sidecar leaves the chapter text readable. The reader opts into the outline with
+`includeOutline` on the existing `document_uploads_get_source` call. The active
+reader state accepts or discards HTML and outline together using its request ID.
+Search and audiobook callers keep their HTML string API. An isolated mock-app test
+covers import, reopen, duplicate reuse, delete, and rollback on a sidecar write failure.
+The Contents control and transfer round trip remain scheduled for steps 6 and 5 respectively.
 
 1. **Build the distinguishing fixture first.** Extend the Rust tests in
    `src-tauri/src/document_uploads/epub/mod.rs`. The current in-spine `nav.xhtml` fixture

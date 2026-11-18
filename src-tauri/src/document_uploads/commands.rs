@@ -154,15 +154,18 @@ pub async fn document_uploads_find_pdf_text<R: Runtime>(
         .map_err(|err| format!("PDF Find task failed: {err}"))?
 }
 
-/// Read the stored sanitized source HTML for an uploaded document URL.
+/// Only the active reader requests the optional EPUB outline alongside its HTML.
 #[tauri::command]
 pub async fn document_uploads_get_source<R: Runtime>(
     app: tauri::AppHandle<R>,
     request: UploadedDocumentSourceRequest,
+    include_outline: Option<bool>,
 ) -> Result<UploadedDocumentSource, String> {
-    tauri::async_runtime::spawn_blocking(move || get_source(&app, request))
-        .await
-        .map_err(|err| format!("Document upload source task failed: {err}"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        get_source(&app, request, include_outline.unwrap_or(false))
+    })
+    .await
+    .map_err(|err| format!("Document upload source task failed: {err}"))?
 }
 
 /// Read one retained EPUB cover through the validated upload boundary.

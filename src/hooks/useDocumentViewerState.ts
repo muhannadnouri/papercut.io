@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import type { ReaderDocument } from '../viewers/types'
 import type { SearchOpenTarget } from '../types/search'
 import { readReaderBookmark } from './useReaderBookmark'
 
@@ -29,7 +30,7 @@ type BrowseScrollSnapshot = {
 interface UseDocumentViewerStateOptions {
   activeTab: string
   documentsLoading: boolean
-  loadHtmlDocument: (url: string) => Promise<string>
+  loadReaderDocument: (url: string) => Promise<ReaderDocument>
 }
 
 interface OpenDocumentOptions {
@@ -44,17 +45,18 @@ function getDocumentBrowserPanelBody(tab: string): HTMLElement | null {
 /**
  * Owns the reader transition state that is shared by Library/Search/Audiobooks:
  * capture browse scroll, open one document at a time, ignore stale loads, and
- * restore the list position after the reader closes.
+ * restore the list position after the reader closes. HTML and outline share a
+ * request ID so a late response cannot pair one book with another book’s destinations.
  */
 export function useDocumentViewerState({
   activeTab,
   documentsLoading,
-  loadHtmlDocument,
+  loadReaderDocument,
 }: UseDocumentViewerStateOptions) {
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null)
   const [searchOpenTarget, setSearchOpenTarget] = useState<SearchOpenTarget | null>(null)
   const [restoreBookmark, setRestoreBookmark] = useState(false)
-  const [docContent, setDocContent] = useState('')
+  const [readerDocument, setReaderDocument] = useState<ReaderDocument | null>(null)
   const [documentLoad, setDocumentLoad] = useState<DocumentLoadState>({ status: 'idle' })
   const openDocumentRequestRef = useRef(0)
   const documentOpeningRef = useRef(false)
@@ -79,7 +81,7 @@ export function useDocumentViewerState({
     setSelectedDoc(null)
     setSearchOpenTarget(null)
     setRestoreBookmark(false)
-    setDocContent('')
+    setReaderDocument(null)
     setDocumentLoad({ status: 'idle' })
   }, [])
 
@@ -136,7 +138,7 @@ export function useDocumentViewerState({
     setSearchOpenTarget(target ?? null)
     setRestoreBookmark(Boolean(options?.restoreBookmark))
     setSelectedDoc(url)
-    setDocContent('')
+    setReaderDocument(null)
     setDocumentLoad({
       status: 'loading',
       url,
@@ -145,12 +147,12 @@ export function useDocumentViewerState({
     window.scrollTo({ top: 0 })
 
     try {
-      const html = await loadHtmlDocument(url)
+      const source = await loadReaderDocument(url)
       if (openDocumentRequestRef.current !== requestId) {
         return
       }
       documentOpeningRef.current = false
-      setDocContent(html)
+      setReaderDocument(source)
       if (options?.restoreBookmark && readReaderBookmark(url)) {
         // Paint the destination, not the top: the viewer mounts hidden while
         // the bookmark anchor index builds and the seek completes, then the
@@ -170,7 +172,7 @@ export function useDocumentViewerState({
       }
       const message = err instanceof Error ? err.message : String(err)
       documentOpeningRef.current = false
-      setDocContent('')
+      setReaderDocument(null)
       setDocumentLoad({
         status: 'error',
         url,
@@ -178,7 +180,7 @@ export function useDocumentViewerState({
       })
       console.error('Failed to load document:', err)
     }
-  }, [activeTab, loadHtmlDocument])
+  }, [activeTab, loadReaderDocument])
 
   const completeRestoringDocument = useCallback(() => {
     setDocumentLoad((prev) => prev === documentLoad && prev.status === 'restoring' ? { status: 'idle' } : prev)
@@ -187,7 +189,8 @@ export function useDocumentViewerState({
   return {
     clearSelectedDocument,
     completeRestoringDocument,
-    docContent,
+    docContent: readerDocument?.html ?? '',
+    docOutline: readerDocument?.outline ?? [],
     documentLoad,
     documentOpening: documentLoad.status === 'loading',
     openDocument,
