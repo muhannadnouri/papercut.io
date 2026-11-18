@@ -664,6 +664,7 @@
     }
   },
   "reader": {
+    "contents": "目录",
     "back": "后退",
     "find": "寻找",
     "openingDocument": "打开文档...",

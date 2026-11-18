@@ -1,3 +1,4 @@
+import { OutlineIcon } from '../components/icons'
 import { useTranslation } from 'react-i18next'
 import {
   Button,
@@ -236,12 +237,7 @@ export function PdfControls({
             title={t('reader.pdf.outline')}
             onClick={() => onOutlineChange(!outlineOpen)}
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M9 6h11M9 12h11M9 18h11" />
-              <circle cx="4" cy="6" r="1" />
-              <circle cx="4" cy="12" r="1" />
-              <circle cx="4" cy="18" r="1" />
-            </svg>
+            <OutlineIcon />
           </button>
         )}
         <button

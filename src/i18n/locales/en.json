@@ -671,6 +671,7 @@
     }
   },
   "reader": {
+    "contents": "Table of contents",
     "back": "Back",
     "find": "Find",
     "openingDocument": "Opening Document...",

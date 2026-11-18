@@ -169,7 +169,7 @@ impractical.
 
 ## Publisher table of contents for EPUB
 
-**Steps 1–5 complete on `task/epub-outline`. Step 6 adds the reader Contents control.**
+**Steps 1–6 implemented on `task/epub-outline`. Step 7 covers end-to-end acceptance and performance.**
 
 The next reader feature lets someone open an EPUB, discover its publisher-provided contents,
 and jump to a named chapter or subsection. The spine supplies file order. The contents
@@ -232,7 +232,7 @@ multibyte labels. A compressed navigation file whose inflated size exceeds 4 MiB
 back to the declared NCX. With both resources missing or malformed, the book still
 produces reading HTML and indexable chapter text. Run the six cases with
 `cargo test --manifest-path src-tauri/Cargo.toml --lib epub::outline::limits_tests`.
-Manual reader checks begin when Contents becomes visible in step 6.
+The manual reader checks below use the same distinguishing fixtures.
 
 Step 4 writes the nonempty tree as a JSON array in `outline.json` alongside
 `source.html`, before indexing and under the same failure cleanup. The stored file
@@ -253,6 +253,27 @@ mismatch, malformed JSON, a missing destination, and duplicate restore. Run it w
 `cargo test --manifest-path src-tauri/Cargo.toml --lib image_free_epub_restores`.
 This exercises the shared package and document path. Device-to-device UI acceptance
 and tapping the restored entries follow the reader work in step 6.
+
+Step 6 places an icon-only **Contents** button immediately before **Find** when the
+opened EPUB supplies usable entries. The button shares the PDF contents glyph and has
+a localized accessible name and hover/focus tooltip. The dialog mounts outside the
+article. Its nested lists preserve publisher order and leave unlinked groups out of
+the tab sequence. Choosing a destination tells audio follow the reader is browsing,
+closes the dialog, and moves focus to the passage using the existing reader scroll path.
+
+For a manual smoke test, import the [EPUB 3 fixture](../scripts/fixtures/epub/publisher-outline-3.epub)
+and [EPUB 2 fixture](../scripts/fixtures/epub/publisher-outline-2.epub) into a fresh test
+library. Reimporting an identical book reuses its existing stored metadata.
+
+- From a passage, open Contents beside Find. Escape or Close should return focus to the
+  icon and leave the passage in place.
+- Reopen it and select “High trail”, then “Low trail”. Expect “Morning on the ridge”,
+  then “Evening in the valley” below the header. Repeat after a library transfer.
+- On a narrow screen with large text, try the entries by touch and keyboard. With an
+  Arabic interface, check the panel opens on the right and publisher labels read correctly.
+  With a screen reader, check the button name, nested list and destination focus.
+- Open an EPUB without usable contents and then a plain HTML upload. Only eligible books
+  should have the new button. Open a PDF with an outline and exercise its existing control.
 
 1. **Build the distinguishing fixture first.** Extend the Rust tests in
    `src-tauri/src/document_uploads/epub/mod.rs`. The current in-spine `nav.xhtml` fixture

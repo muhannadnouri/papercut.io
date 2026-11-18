@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { resolveViewer } from '../../viewers/registry'
 import type {
   AudioFollowPolicy,
+  OutlineEntry,
   ViewerBookmarkApi,
   ViewerFindApi,
   ViewerTextTargetApi,
@@ -21,6 +22,7 @@ import { ScrollTopButton } from '../ScrollTopButton/ScrollTopButton'
 import { ReaderSettings } from '../ReaderSettings/ReaderSettings'
 import { useReaderSettings } from '../ReaderSettings/useReaderSettings'
 import { ExternalLinkPrompt } from '../ExternalLinkPrompt/ExternalLinkPrompt'
+import { DocumentOutline } from './DocumentOutline'
 import { ReaderBookmarkButton } from './ReaderBookmarkButton'
 import {
   getExternalLinkUrl,
@@ -70,6 +72,7 @@ interface DocumentViewerProps {
   url: string
   format?: string
   content: string
+  outline?: OutlineEntry[]
   className?: string
   appControls?: ReactNode
   headerControls?: ReactNode
@@ -95,6 +98,7 @@ export function DocumentViewer({
   url,
   format,
   content,
+  outline,
   className = '',
   appControls,
   headerControls,
@@ -416,6 +420,7 @@ export function DocumentViewer({
 
     onReaderBrowse?.()
     scrollToReaderElement(target)
+    return target
   }, [onReaderBrowse])
 
   useEffect(() => {
@@ -602,6 +607,9 @@ export function DocumentViewer({
             {appControls}
             {plugin.id !== 'pdf' && (
               <ReaderSettings disabled={loading} {...readerSettingsProps} />
+            )}
+            {format === 'epub' && !loading && !loadError && outline && outline.length > 0 && (
+              <DocumentOutline entries={outline} onNavigate={scrollToHash} />
             )}
             <button
               className="find-btn"

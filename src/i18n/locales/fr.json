@@ -678,6 +678,7 @@
     }
   },
   "reader": {
+    "contents": "Table des matières",
     "back": "Dos",
     "find": "Trouver",
     "openingDocument": "Document d'ouverture...",

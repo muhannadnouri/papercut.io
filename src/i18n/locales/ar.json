@@ -699,6 +699,7 @@
     }
   },
   "reader": {
+    "contents": "جدول المحتويات",
     "back": "رجوع",
     "find": "بحث",
     "openingDocument": "جارٍ فتح المستند...",

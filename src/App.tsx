@@ -168,6 +168,7 @@ function App() {
     clearSelectedDocument,
     completeRestoringDocument,
     docContent,
+    docOutline,
     documentLoad,
     documentOpening,
     openDocument,
@@ -525,6 +526,7 @@ function App() {
             url={selectedDoc}
             format={selectedFormat}
             content={docContent}
+            outline={docOutline}
             className={hasFloatingAudioControls ? 'app-audio-floating' : ''}
             appControls={(
               <AppSettings

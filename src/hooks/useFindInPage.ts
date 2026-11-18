@@ -246,6 +246,10 @@ export function useFindInPage(
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      // A modal owns Escape and keyboard focus while it covers the reader.
+      if (e.defaultPrevented || (e.target instanceof Element && e.target.closest('[aria-modal="true"]'))) {
+        return
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault()
         setShowFind(true)

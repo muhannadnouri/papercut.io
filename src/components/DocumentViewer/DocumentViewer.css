@@ -184,7 +184,8 @@
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
-.find-btn {
+.find-btn,
+.document-outline-trigger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -201,7 +202,8 @@
   white-space: nowrap;
 }
 
-.find-btn:focus-visible {
+.find-btn:focus-visible,
+.document-outline-trigger:focus-visible {
   border-color: transparent;
   color: var(--accent-text);
   background: var(--surface-accent);
@@ -667,7 +669,8 @@ html[dir="rtl"] .back-icon {
 
 @media (hover: hover) and (pointer: fine) {
   .back-button:hover,
-  .find-btn:hover:not(:disabled) {
+  .find-btn:hover:not(:disabled),
+  .document-outline-trigger:hover {
     border-color: transparent;
     color: var(--accent-text);
     background: var(--surface-accent);
@@ -964,4 +967,77 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
 .document-html-content .reader-image-error::before {
   content: attr(data-message);
+}
+
+.document-outline-trigger {
+  position: relative;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+}
+
+.document-outline-tip {
+  display: none;
+  position: absolute;
+  inset-block-start: calc(100% + 0.25rem);
+  inset-inline-end: 0;
+  z-index: 1;
+  padding: 0.35rem 0.6rem;
+  border-radius: var(--radius-control);
+  color: var(--text-heading);
+  background: var(--surface);
+  box-shadow: 0 2px 8px var(--shadow-dialog);
+  pointer-events: none;
+}
+
+.document-outline-trigger:focus-visible .document-outline-tip {
+  display: block;
+}
+
+@media (hover: hover) {
+  .document-outline-trigger:hover .document-outline-tip {
+    display: block;
+  }
+}
+
+.document-outline-dialog {
+  width: min(100%, 24rem);
+  margin-inline-end: auto;
+}
+
+.document-outline-dialog ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.document-outline-dialog ol ol {
+  padding-inline-start: 0.875rem;
+}
+
+/* Keep deep publisher hierarchies readable when large text leaves only a narrow column. */
+.document-outline-dialog ol ol ol ol ol {
+  padding-inline-start: 0;
+}
+
+.document-outline-dialog li > :is(button, strong) {
+  display: block;
+  width: 100%;
+  padding: 0.55rem;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.document-outline-dialog li > button {
+  min-height: 2.75rem;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--accent-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.document-outline-dialog li > button:is(:hover, :focus-visible) {
+  background: var(--surface-accent);
 }

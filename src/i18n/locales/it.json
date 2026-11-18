@@ -678,6 +678,7 @@
     }
   },
   "reader": {
+    "contents": "Indice",
     "back": "Indietro",
     "find": "Trovare",
     "openingDocument": "Apertura documento...",

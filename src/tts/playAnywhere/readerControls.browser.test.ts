@@ -64,7 +64,7 @@ beforeAll(async () => {
       createRoot(slot).render(<PdfControls ready currentPage={1} pages={228} zoom={80} fitMode="page-width" fullscreen={false} hasOutline outlineOpen={false} spreadMode="single"
         onFitChange={noop} onFullscreenChange={noop} onOutlineChange={noop} onPageChange={noop} onPageNext={noop} onPagePrevious={noop} onSpreadChange={mode=>{window.pdfSpreadRequested=mode}} onZoomChange={noop}/>);
     }
-    export async function mountHeader(locale, tools=false, playbackStatus='idle', savedAudio=true, missingSetup=false) {
+    export async function mountHeader(locale, tools=false, playbackStatus='idle', savedAudio=true, missingSetup=false, outline=[]) {
       await i18n.changeLanguage(locale);
       document.documentElement.dir=locale==='ar'?'rtl':'ltr';
       const noop=()=>{};
@@ -77,7 +77,9 @@ beforeAll(async () => {
         }, []);
         const active = ['playing','paused','loading'].includes(status);
         return <DocumentViewer
-        url="fixture.html" content={tools?'<p>Synthetic reader text remains readable while its tools stay compact.</p>'.repeat(60):'<p>Synthetic header layout.</p>'}
+        url="fixture.html" format={outline.length?'epub':'html'} outline={outline}
+        onReaderBrowse={outline.length?()=>{window.browseCount=(window.browseCount||0)+1}:undefined}
+        content={outline.length?'<h2 id="ch0-ridge">Morning</h2><h2 id="ch0-valley">Evening</h2>':tools?'<p>Synthetic reader text remains readable while its tools stay compact.</p>'.repeat(60):'<p>Synthetic header layout.</p>'}
         className={active?'app-audio-floating':''}
         floatingControls={tools && savedAudio && !active ? <ReaderPassageAction pending={false} onSnapshotSelection={()=>false} onPlayFromHere={noop} onPlayFromSelection={noop}/> : undefined}
         onClose={()=>{window.backRequested=true}}
@@ -195,6 +197,69 @@ afterAll(() => {
   }
 })
 describe.skipIf(!browser)('Reader controls in Chromium', () => {
+  it.each([
+    [320, 24, 'ar'], [1200, 16, 'en'],
+  ] as const)('navigates EPUB Contents at %ipx and %ipx text (%s)', async (width, font, locale) => {
+    const frame = join(directory, 'document-outline.html')
+    writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>${css}
+      html{font-size:${font}px}article .document-html-content h2{margin-block-start:90vh}article.document-html-surface{padding-bottom:120vh}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async () => {
+        const targets=['ch0-ridge','ch0-valley'];
+        const entries=[{label:'Walking routes',target:null,children:targets.map((target,i)=>({
+          label:i?'Low trail':'High trail',target,children:[]}))}];
+        await ReaderControls.mountHeader('${locale}',false,'idle',true,false,entries);
+        const paint=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        while(!document.querySelector('.document-outline-trigger')) await paint();
+        await document.fonts.ready;
+        const trigger=document.querySelector('.document-outline-trigger');
+        const box=trigger.getBoundingClientRect();
+        const reachable=document.elementFromPoint(box.x+box.width/2,box.y+box.height/2)?.closest('button')===trigger;
+        const open=async()=>{trigger.click();await paint();return document.querySelector('.document-outline-dialog')};
+        const dialog=await open(), panel=dialog.getBoundingClientRect();
+        const focusEntered=document.activeElement===dialog.querySelector('.app-dialog-close');
+        const group=dialog.querySelector('li > strong')?.textContent;
+        const labels=[...dialog.querySelectorAll('li button')].map(el=>el.textContent);
+        const position=scrollY;
+        document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+        await paint();
+        const cancelled=document.activeElement===trigger && !document.querySelector('.document-outline-dialog') && scrollY===position;
+        const focused=[], visible=[];
+        for(let i=0;i<targets.length;i++){
+          const list=await open();
+          list.querySelectorAll('li button')[i].click();
+          await paint();
+          const target=document.activeElement;
+          focused.push(target.id);
+          const inView=()=>{
+            const top=target.getBoundingClientRect().top;
+            return scrollY>0 && top>=Math.max(0,document.querySelector('.doc-header').getBoundingClientRect().bottom)-1 && top<innerHeight;
+          };
+          const deadline=performance.now()+2000;
+          while(!inView() && performance.now()<deadline) await paint();
+          visible.push(inView());
+        }
+        parent.postMessage({type:'capture-result',result:{reachable,focusEntered,group,labels,cancelled,focused,visible,
+          beside:trigger.nextElementSibling.matches('.find-btn'),fits:panel.left>=0 && panel.right<=innerWidth+1,
+          overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,browse:window.browseCount,
+          clean:!document.querySelector('article').textContent.includes('Low trail')}},'*');
+      })();</script>`)
+    expect(await runBrowserFixture(directory, frame, width)).toMatchObject({
+      reachable: true,
+      focusEntered: true,
+      group: 'Walking routes',
+      labels: ['High trail', 'Low trail'],
+      cancelled: true,
+      focused: ['ch0-ridge', 'ch0-valley'],
+      visible: [true, true],
+      beside: true,
+      fits: true,
+      overflow: false,
+      browse: 2,
+      clean: true,
+    })
+  }, 30_000)
+
   it.each([
     [320, 16, 'en'], [393, 32, 'en'], [767, 32, 'en'], [768, 32, 'ar'],
     [800, 16, 'en'], [800, 16, 'en', true], [900, 20, 'fr'], [1100, 16, 'ar'], [1366, 16, 'en'],
