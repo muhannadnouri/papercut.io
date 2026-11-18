@@ -1,4 +1,5 @@
 import {
+  cp,
   mkdtemp,
   mkdir,
   rm,
@@ -17,7 +18,9 @@ import {
 const state = vi.hoisted(() => ({ root: "" }))
 vi.mock("../../lib/paths.js", async importOriginal => ({
   ...await importOriginal(),
-  ROOT: state.root,
+  get ROOT() {
+    return state.root
+  },
 }))
 
 let directory
@@ -104,4 +107,21 @@ it("requires reviewed license-file evidence for registry crates after upgrades",
     version: "0.1.0",
     source: null,
   })).toBeUndefined()
+})
+
+it("verifies committed ORT evidence without cache or network and rejects missing or changed files", async () => {
+  const { verifyOrtLicenseEvidence } = await import("../prepare-license-notices.js")
+  const evidence = join(directory, "src-tauri/licensing/onnxruntime")
+  await cp(new URL("../../../src-tauri/licensing/onnxruntime/", import.meta.url), evidence, { recursive: true })
+  const fetch = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Network disabled"))
+  try {
+    await verifyOrtLicenseEvidence()
+    expect(fetch).not.toHaveBeenCalled()
+    await writeFile(join(evidence, "ThirdPartyNotices.txt"), "changed")
+    await expect(verifyOrtLicenseEvidence()).rejects.toThrow("ONNX Runtime license evidence changed: ThirdPartyNotices.txt")
+    await rm(join(evidence, "LICENSE"))
+    await expect(verifyOrtLicenseEvidence()).rejects.toThrow("ENOENT")
+  } finally {
+    fetch.mockRestore()
+  }
 })
