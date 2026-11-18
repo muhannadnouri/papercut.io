@@ -8,16 +8,16 @@ use std::{
 use super::super::parsed::OutlineEntry;
 use super::outline::{MAX_DEPTH, MAX_ENTRIES, MAX_LABEL_BYTES};
 
-const FILE_NAME: &str = "outline.json";
+pub(crate) const OUTLINE_FILE_NAME: &str = "outline.json";
 // Allow JSON escaping and entry fields for a navigation source bounded at 4 MiB.
-const MAX_JSON_BYTES: usize = 32 * 1024 * 1024;
+pub(crate) const MAX_OUTLINE_BYTES: usize = 32 * 1024 * 1024;
 
 /// Omit empty outlines, including when repairing a partially missing upload.
 pub(in crate::document_uploads) fn store_outline(
     dir: &Path,
     outline: &[OutlineEntry],
 ) -> Result<(), String> {
-    let path = dir.join(FILE_NAME);
+    let path = dir.join(OUTLINE_FILE_NAME);
     if outline.is_empty() {
         return match fs::remove_file(path) {
             Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
@@ -25,7 +25,7 @@ pub(in crate::document_uploads) fn store_outline(
         };
     }
     let bytes = serde_json::to_vec(outline).map_err(|e| e.to_string())?;
-    if bytes.len() > MAX_JSON_BYTES {
+    if bytes.len() > MAX_OUTLINE_BYTES {
         return Err("EPUB outline exceeds storage limit".into());
     }
     fs::write(path, bytes).map_err(|e| format!("Failed to write EPUB outline: {e}"))
@@ -33,26 +33,73 @@ pub(in crate::document_uploads) fn store_outline(
 
 /// A missing sidecar is normal. Return other errors so the reader can log them and still open the HTML.
 pub(in crate::document_uploads) fn read_outline(dir: &Path) -> Result<Vec<OutlineEntry>, String> {
-    let path = dir.join(FILE_NAME);
+    let path = dir.join(OUTLINE_FILE_NAME);
     let metadata = match fs::symlink_metadata(&path) {
         Ok(value) => value,
         Err(e) if e.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
         Err(e) => return Err(e.to_string()),
     };
-    if !metadata.is_file() || metadata.len() > MAX_JSON_BYTES as u64 {
+    if !metadata.is_file() || metadata.len() > MAX_OUTLINE_BYTES as u64 {
         return Err("Invalid EPUB outline file".into());
     }
     let mut bytes = Vec::new();
     fs::File::open(path)
-        .and_then(|f| f.take(MAX_JSON_BYTES as u64 + 1).read_to_end(&mut bytes))
+        .and_then(|f| f.take(MAX_OUTLINE_BYTES as u64 + 1).read_to_end(&mut bytes))
         .map_err(|e| e.to_string())?;
-    if bytes.len() > MAX_JSON_BYTES {
+    decode_outline(&bytes)
+}
+
+/// Local reads and transfer restore enforce the same sidecar contract.
+fn decode_outline(bytes: &[u8]) -> Result<Vec<OutlineEntry>, String> {
+    if bytes.len() > MAX_OUTLINE_BYTES {
         return Err("EPUB outline exceeds storage limit".into());
     }
-    let entries: Vec<OutlineEntry> = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+    let entries: Vec<OutlineEntry> = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
     let mut remaining = MAX_ENTRIES;
     if !valid_entries(&entries, 1, &mut remaining) {
         return Err("Invalid EPUB outline entries".into());
+    }
+    Ok(entries)
+}
+
+/// A transferred target must resolve uniquely inside the restored, sanitized reader body.
+pub(in crate::document_uploads) fn restore_outline(
+    bytes: &[u8],
+    html: &str,
+) -> Result<Vec<OutlineEntry>, String> {
+    use kuchikiki::{parse_html, traits::TendrilSink};
+    use std::collections::HashMap;
+
+    let entries = decode_outline(bytes)?;
+    if entries.is_empty() {
+        return Err("Declared EPUB outline is empty".into());
+    }
+    let mut matches = HashMap::new();
+    let mut pending: Vec<_> = entries.iter().collect();
+    while let Some(entry) = pending.pop() {
+        if let Some(id) = &entry.target {
+            matches.insert(id.as_str(), 0usize);
+        }
+        pending.extend(&entry.children);
+    }
+    let dom = parse_html().one(html).document_node;
+    for node in dom
+        .select("body [id], body [name]")
+        .expect("static selector")
+    {
+        let attrs = node.attributes.borrow();
+        let id = attrs.get("id");
+        for name in id
+            .into_iter()
+            .chain(attrs.get("name").filter(|name| Some(*name) != id))
+        {
+            if let Some(count) = matches.get_mut(name) {
+                *count += 1;
+            }
+        }
+    }
+    if matches.values().any(|&n| n != 1) {
+        return Err("Transferred EPUB outline destination is missing or ambiguous".into());
     }
     Ok(entries)
 }

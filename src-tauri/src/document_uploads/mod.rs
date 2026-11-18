@@ -45,6 +45,7 @@ mod text;
 mod types;
 
 pub(crate) use batch::import_scanner_source;
+pub(crate) use epub::{MAX_OUTLINE_BYTES, OUTLINE_FILE_NAME};
 pub(crate) use state::DocumentUploadState;
 pub(crate) use store::schedule_search_index_rebuild;
 

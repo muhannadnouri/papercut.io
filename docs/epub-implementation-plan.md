@@ -169,7 +169,7 @@ impractical.
 
 ## Publisher table of contents for EPUB
 
-**Steps 1–4 complete on `task/epub-outline`. Step 5 adds library transfer support.**
+**Steps 1–5 complete on `task/epub-outline`. Step 6 adds the reader Contents control.**
 
 The next reader feature lets someone open an EPUB, discover its publisher-provided contents,
 and jump to a named chapter or subsection. The spine supplies file order. The contents
@@ -243,7 +243,16 @@ sidecar leaves the chapter text readable. The reader opts into the outline with
 reader state accepts or discards HTML and outline together using its request ID.
 Search and audiobook callers keep their HTML string API. An isolated mock-app test
 covers import, reopen, duplicate reuse, delete, and rollback on a sidecar write failure.
-The Contents control and transfer round trip remain scheduled for steps 6 and 5 respectively.
+
+Step 5 transfers the sidecar in the shared [v5 library package](library-transfer.md).
+The automated round trip imports the image-free EPUB 3 fixture, writes and reopens an
+actual package, restores its document into a fresh mock-app library, and calls the reader
+source command. “High trail” and “Low trail” resolve to the distinct “Morning on the ridge”
+and “Evening in the valley” headings in restored HTML. The same test covers a checksum
+mismatch, malformed JSON, a missing destination, and duplicate restore. Run it with
+`cargo test --manifest-path src-tauri/Cargo.toml --lib image_free_epub_restores`.
+This exercises the shared package and document path. Device-to-device UI acceptance
+and tapping the restored entries follow the reader work in step 6.
 
 1. **Build the distinguishing fixture first.** Extend the Rust tests in
    `src-tauri/src/document_uploads/epub/mod.rs`. The current in-spine `nav.xhtml` fixture

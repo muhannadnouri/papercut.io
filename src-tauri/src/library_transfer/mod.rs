@@ -6,6 +6,8 @@
 
 pub(crate) mod diagnostics;
 pub(crate) mod network;
+#[cfg(test)]
+mod outline_tests;
 mod package;
 
 pub use network::LibraryTransferState;
@@ -32,12 +34,12 @@ use crate::document_uploads::{
 };
 use crate::native_tts::lock_audiobook_directory;
 use package::{
-    audiobook_file_path, copy_audiobook_file, document_asset_path, document_source_path,
-    open_archive, read_document_asset, read_document_source, read_manifest, sha256_reader,
-    write_package, TransferAudiobook, TransferAudiobookFile, TransferDocument,
-    TransferDocumentAsset, TransferDocumentLocation, TransferFolder, TransferManifest,
-    TransferOrganization, MAX_AUDIOBOOKS, MAX_DOCUMENTS, MAX_PACKAGE_BYTES, PACKAGE_KIND,
-    PACKAGE_VERSION,
+    audiobook_file_path, copy_audiobook_file, document_asset_path, document_outline_path,
+    document_source_path, open_archive, read_document_asset, read_document_source, read_manifest,
+    read_payload, sha256_reader, write_package, TransferAudiobook, TransferAudiobookFile,
+    TransferDocument, TransferDocumentAsset, TransferDocumentLocation, TransferFolder,
+    TransferManifest, TransferOrganization, TransferOutline, IMAGE_PACKAGE_VERSION, MAX_AUDIOBOOKS,
+    MAX_DOCUMENTS, MAX_PACKAGE_BYTES, OUTLINE_PACKAGE_VERSION, PACKAGE_KIND,
 };
 
 const PACKAGE_EXTENSION: &str = "papercut-library";
@@ -473,54 +475,7 @@ fn prepare_manifest(
         .iter()
         .filter(|document| selected_document_ids.contains(&document.id))
     {
-        let source_kind = StoredSourceKind::from_str(&document.source_kind)?;
-        let path = upload_source_path(app, &document.id, source_kind)?;
-        let mut reader = BufReader::new(File::open(&path).map_err(|err| {
-            format!("Failed to open uploaded document {}: {err}", path.display())
-        })?);
-        let (source_sha256, source_bytes) = sha256_reader(&mut reader)?;
-        let source_path = document_source_path(&document.id, source_kind.as_str());
-        let mut assets = Vec::new();
-        if document.format == "epub" {
-            let mut stored_assets: Vec<_> =
-                stored_reader_asset_paths(&upload_dir(app, &document.id)?)?
-                    .into_iter()
-                    .collect();
-            stored_assets.sort_unstable_by(|left, right| left.0.cmp(&right.0));
-            for (file_name, stored_path) in stored_assets {
-                let stored_path = PathBuf::from(stored_path);
-                let mut reader = BufReader::new(File::open(&stored_path).map_err(|err| {
-                    format!(
-                        "Failed to open uploaded document reader image {}: {err}",
-                        stored_path.display()
-                    )
-                })?);
-                let (sha256, bytes) = sha256_reader(&mut reader)?;
-                let path = document_asset_path(&document.id, &file_name);
-                payloads.insert(path.clone(), stored_path);
-                assets.push(TransferDocumentAsset {
-                    file_name,
-                    path,
-                    bytes,
-                    sha256,
-                });
-            }
-        }
-        transfer_documents.push(TransferDocument {
-            id: document.id.clone(),
-            title: document.title.clone(),
-            original_file_name: document.original_file_name.clone(),
-            format: document.format.clone(),
-            source_kind: source_kind.as_str().into(),
-            imported_at_ms: u64::try_from(document.imported_at_ms)
-                .map_err(|_| "Uploaded document timestamp is invalid".to_string())?,
-            original_bytes: document.bytes,
-            source_path: source_path.clone(),
-            source_bytes,
-            source_sha256,
-            assets,
-        });
-        payloads.insert(source_path, path);
+        transfer_documents.push(prepare_document(app, document, &mut payloads)?);
     }
 
     let mut transfer_audiobooks = Vec::with_capacity(selected_audiobooks.len());
@@ -553,15 +508,7 @@ fn prepare_manifest(
 
     let manifest = TransferManifest {
         kind: PACKAGE_KIND.into(),
-        schema_version: if transfer_audiobooks.is_empty()
-            && transfer_documents
-                .iter()
-                .all(|document| document.source_kind == "html" && document.assets.is_empty())
-        {
-            1
-        } else {
-            PACKAGE_VERSION
-        },
+        schema_version: export_version(&transfer_documents, transfer_audiobooks.is_empty()),
         created_at_ms: u64::try_from(now_ms()?)
             .map_err(|_| "System timestamp is invalid".to_string())?,
         documents: transfer_documents,
@@ -569,6 +516,93 @@ fn prepare_manifest(
         audiobooks: transfer_audiobooks,
     };
     Ok(PreparedPackage { manifest, payloads })
+}
+
+/// Only outline-bearing exports need v5. Preserve the previous v1/v4 selection otherwise.
+fn export_version(documents: &[TransferDocument], no_audiobooks: bool) -> u32 {
+    if documents.iter().any(|d| d.outline.is_some()) {
+        OUTLINE_PACKAGE_VERSION
+    } else if no_audiobooks
+        && documents
+            .iter()
+            .all(|d| d.source_kind == "html" && d.assets.is_empty())
+    {
+        1
+    } else {
+        IMAGE_PACKAGE_VERSION
+    }
+}
+
+/// Hash the selected document's canonical files for both portable and nearby exports.
+fn prepare_document<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    document: &UploadedDocument,
+    payloads: &mut HashMap<String, PathBuf>,
+) -> Result<TransferDocument, String> {
+    let source_kind = StoredSourceKind::from_str(&document.source_kind)?;
+    let path = upload_source_path(app, &document.id, source_kind)?;
+    let mut reader =
+        BufReader::new(File::open(&path).map_err(|err| {
+            format!("Failed to open uploaded document {}: {err}", path.display())
+        })?);
+    let (source_sha256, source_bytes) = sha256_reader(&mut reader)?;
+    let source_path = document_source_path(&document.id, source_kind.as_str());
+    let mut assets = Vec::new();
+    let mut outline = None;
+    if document.format == "epub" {
+        let dir = upload_dir(app, &document.id)?;
+        let sidecar = dir.join(crate::document_uploads::OUTLINE_FILE_NAME);
+        match fs::symlink_metadata(&sidecar) {
+            Ok(meta)
+                if meta.is_file()
+                    && meta.len() <= crate::document_uploads::MAX_OUTLINE_BYTES as u64 =>
+            {
+                let mut reader = BufReader::new(File::open(&sidecar).map_err(|e| e.to_string())?);
+                let (sha256, bytes) = sha256_reader(&mut reader)?;
+                outline = Some(TransferOutline { bytes, sha256 });
+                payloads.insert(document_outline_path(&document.id), sidecar);
+            }
+            Ok(_) => return Err("Invalid stored EPUB outline file".into()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e.to_string()),
+        }
+        let mut stored_assets: Vec<_> = stored_reader_asset_paths(&dir)?.into_iter().collect();
+        stored_assets.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+        for (file_name, stored_path) in stored_assets {
+            let stored_path = PathBuf::from(stored_path);
+            let mut reader = BufReader::new(File::open(&stored_path).map_err(|err| {
+                format!(
+                    "Failed to open uploaded document reader image {}: {err}",
+                    stored_path.display()
+                )
+            })?);
+            let (sha256, bytes) = sha256_reader(&mut reader)?;
+            let path = document_asset_path(&document.id, &file_name);
+            payloads.insert(path.clone(), stored_path);
+            assets.push(TransferDocumentAsset {
+                file_name,
+                path,
+                bytes,
+                sha256,
+            });
+        }
+    }
+    payloads.insert(source_path.clone(), path);
+    Ok(TransferDocument {
+        id: document.id.clone(),
+        title: document.title.clone(),
+        original_file_name: document.original_file_name.clone(),
+        format: document.format.clone(),
+        source_kind: source_kind.as_str().into(),
+        imported_at_ms: u64::try_from(document.imported_at_ms)
+            .map_err(|_| "Uploaded document timestamp is invalid".to_string())?,
+        original_bytes: document.bytes,
+        source_path,
+        source_bytes,
+        source_sha256,
+        assets,
+        outline,
+    })
 }
 
 /// Resolve the explicit document set before any source is opened or hashed.
@@ -671,6 +705,72 @@ fn validate_audiobook_selection(audiobook_ids: &[String]) -> Result<HashSet<&str
     Ok(selected)
 }
 
+/// Skip existing IDs before reading any payload so duplicates keep local reader state.
+fn restore_document<R: Runtime, T: Read + Seek>(
+    app: &tauri::AppHandle<R>,
+    archive: &mut ZipArchive<T>,
+    document: &TransferDocument,
+    existing_ids: &HashSet<String>,
+) -> Result<bool, String> {
+    if existing_ids.contains(&document.id) {
+        return Ok(false);
+    }
+    let source = read_document_source(archive, document)?;
+    let assets = document
+        .assets
+        .iter()
+        .map(|asset| {
+            Ok(ParsedDocumentAsset {
+                file_name: asset.file_name.clone(),
+                bytes: read_document_asset(archive, asset)?,
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    match StoredSourceKind::from_str(&document.source_kind)? {
+        StoredSourceKind::Html => {
+            let source_html = String::from_utf8(source).map_err(|_| {
+                format!(
+                    "Library-transfer document is not UTF-8: {}",
+                    document.source_path
+                )
+            })?;
+            restore_transferred_document(
+                app,
+                document.id.clone(),
+                source_html,
+                document.title.clone(),
+                document.original_file_name.clone(),
+                document.format.clone(),
+                document.imported_at_ms as u128,
+                document.original_bytes,
+                assets,
+                document
+                    .outline
+                    .as_ref()
+                    .map(|o| {
+                        read_payload(
+                            archive,
+                            &document_outline_path(&document.id),
+                            o.bytes,
+                            &o.sha256,
+                        )
+                    })
+                    .transpose()?,
+            )
+        }
+        StoredSourceKind::Pdf => restore_transferred_pdf(
+            app,
+            document.id.clone(),
+            document.title.clone(),
+            document.original_file_name.clone(),
+            source,
+            document.imported_at_ms as u128,
+            document.original_bytes,
+        ),
+    }?;
+    Ok(true)
+}
+
 /// Import documents independently so one damaged payload does not discard valid
 /// siblings. Organization is applied only to ids newly created by this import.
 fn restore_manifest<T: Read + std::io::Seek>(
@@ -711,64 +811,9 @@ fn restore_manifest<T: Read + std::io::Seek>(
             Some(document.title.clone()),
             forwarder,
         );
-        if existing_ids.contains(&document.id) {
-            skipped += 1;
-            report_transfer_progress(
-                app,
-                operation,
-                "importingDocuments",
-                None,
-                Some((index + 1, document_total)),
-                None,
-                forwarder,
-            );
-            continue;
-        }
-        let result = (|| {
-            let source = read_document_source(archive, document)?;
-            let assets = document
-                .assets
-                .iter()
-                .map(|asset| {
-                    Ok(ParsedDocumentAsset {
-                        file_name: asset.file_name.clone(),
-                        bytes: read_document_asset(archive, asset)?,
-                    })
-                })
-                .collect::<Result<Vec<_>, String>>()?;
-            match StoredSourceKind::from_str(&document.source_kind)? {
-                StoredSourceKind::Html => {
-                    let source_html = String::from_utf8(source).map_err(|_| {
-                        format!(
-                            "Library-transfer document is not UTF-8: {}",
-                            document.source_path
-                        )
-                    })?;
-                    restore_transferred_document(
-                        app,
-                        document.id.clone(),
-                        source_html,
-                        document.title.clone(),
-                        document.original_file_name.clone(),
-                        document.format.clone(),
-                        document.imported_at_ms as u128,
-                        document.original_bytes,
-                        assets,
-                    )
-                }
-                StoredSourceKind::Pdf => restore_transferred_pdf(
-                    app,
-                    document.id.clone(),
-                    document.title.clone(),
-                    document.original_file_name.clone(),
-                    source,
-                    document.imported_at_ms as u128,
-                    document.original_bytes,
-                ),
-            }
-        })();
-        match result {
-            Ok(_) => imported_ids.push(document.id.clone()),
+        match restore_document(app, archive, document, &existing_ids) {
+            Ok(true) => imported_ids.push(document.id.clone()),
+            Ok(false) => skipped += 1,
             Err(error) => failures.push(LibraryTransferFailure {
                 item: document.title.clone(),
                 error,
@@ -1294,11 +1339,29 @@ fn required_space_bytes(payload_bytes: u64) -> Result<u64, String> {
         .ok_or_else(|| "Library transfer storage estimate is too large".to_string())
 }
 
+/// Source text needs index space on restore. Images and outlines each occupy one file.
+fn document_storage_bytes(document: &TransferDocument, source_copies: u64) -> Result<u64, String> {
+    let overflow = || "Library transfer storage estimate is too large".to_string();
+    let mut total = document
+        .source_bytes
+        .checked_mul(source_copies)
+        .ok_or_else(overflow)?;
+    for size in document
+        .assets
+        .iter()
+        .map(|a| a.bytes)
+        .chain(document.outline.iter().map(|o| o.bytes))
+    {
+        total = total.checked_add(size).ok_or_else(overflow)?;
+    }
+    Ok(total)
+}
+
 fn manifest_payload_bytes(manifest: &TransferManifest) -> Result<u64, String> {
     let mut bytes = 0u64;
     for document in &manifest.documents {
         bytes = bytes
-            .checked_add(document.source_bytes)
+            .checked_add(document_storage_bytes(document, 1)?)
             .ok_or_else(|| "Library transfer storage estimate is too large".to_string())?;
     }
     for audiobook in &manifest.audiobooks {
@@ -1324,10 +1387,7 @@ fn ensure_restore_space(
         if existing_document_ids.contains(&document.id) {
             continue;
         }
-        let document_bytes = document
-            .source_bytes
-            .checked_mul(DOCUMENT_STORAGE_MULTIPLIER)
-            .ok_or_else(|| "Library transfer storage estimate is too large".to_string())?;
+        let document_bytes = document_storage_bytes(document, DOCUMENT_STORAGE_MULTIPLIER)?;
         required = required
             .checked_add(document_bytes)
             .ok_or_else(|| "Library transfer storage estimate is too large".to_string())?;

@@ -262,6 +262,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     imported_at_ms: u128,
     bytes: u64,
     transferred_assets: Vec<ParsedDocumentAsset>,
+    outline_bytes: Option<Vec<u8>>,
 ) -> Result<UploadedDocument, String> {
     let source_kind = StoredSourceKind::Html;
     let url = upload_url(&id, source_kind);
@@ -283,6 +284,12 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     let mut parsed = parse_html_document(&source_html);
     parsed.title = title;
     parsed.format = format;
+    if let Some(bytes) = outline_bytes {
+        if parsed.format != "epub" {
+            return Err("Only EPUBs can carry an outline".into());
+        }
+        parsed.outline = super::epub::restore_outline(&bytes, &parsed.view_html)?;
+    }
     parsed.assets = transferred_assets;
     for asset in legacy_assets {
         if !parsed
