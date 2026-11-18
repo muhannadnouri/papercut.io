@@ -893,6 +893,7 @@ mod tests {
                 file_name: "cover.png",
                 bytes: b"not an image".to_vec(),
             }),
+            outline: Vec::new(),
             assets: Vec::new(),
         };
         let mut db = Connection::open_in_memory().expect("open database without upload schema");

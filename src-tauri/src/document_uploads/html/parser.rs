@@ -54,6 +54,7 @@ pub(crate) fn parsed_html_document(
         view_html,
         sections,
         cover: None,
+        outline: Vec::new(),
         assets: Vec::new(),
     }
 }

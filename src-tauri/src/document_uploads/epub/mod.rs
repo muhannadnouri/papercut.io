@@ -15,6 +15,7 @@ use super::parsed::{ParsedDocument, ParsedDocumentCover};
 
 mod assets;
 mod inline_svg;
+mod outline;
 mod paths;
 mod render;
 mod rewrite;
@@ -65,13 +66,6 @@ pub(crate) fn parse_epub_document(
             file_name: cover.file_name,
             bytes: cover.bytes,
         });
-    let chapter_indexes: HashMap<String, usize> = package
-        .spine_paths
-        .iter()
-        .enumerate()
-        .map(|(index, path)| (path.clone(), index))
-        .collect();
-
     let mut image_assets = LoadedImageAssets::default();
     let mut chapter_drafts = Vec::new();
     let mut referenced_image_paths = HashSet::new();
@@ -128,14 +122,16 @@ pub(crate) fn parse_epub_document(
     }) {
         return Err("EPUB did not contain readable text or supported images".into());
     }
-    let readable_paths: HashSet<String> = chapter_drafts
-        .iter()
-        .map(|chapter| chapter.path.clone())
+    let targets = chapter_drafts
+        .iter_mut()
+        .map(|chapter| {
+            (
+                chapter.path.clone(),
+                (chapter.index, std::mem::take(&mut chapter.anchors)),
+            )
+        })
         .collect();
-    let anchor_indexes: HashMap<String, HashSet<String>> = chapter_drafts
-        .iter()
-        .map(|chapter| (chapter.path.clone(), chapter.anchors.clone()))
-        .collect();
+    let outline = outline::load(&mut archive, &package, &targets);
 
     let mut chapters = Vec::new();
     for chapter in chapter_drafts {
@@ -143,9 +139,7 @@ pub(crate) fn parse_epub_document(
             &chapter.sanitized,
             &chapter.path,
             chapter.index,
-            &chapter_indexes,
-            &readable_paths,
-            &anchor_indexes,
+            &targets,
             &image_assets,
         );
         chapters.push(render_chapter(
@@ -172,6 +166,7 @@ pub(crate) fn parse_epub_document(
         return Err("EPUB did not contain readable sections".into());
     }
     parsed.cover = cover;
+    parsed.outline = outline;
     parsed.assets = image_assets.files;
     Ok(parsed)
 }
@@ -181,6 +176,8 @@ struct ParsedPackage {
     language: Option<String>,
     direction: Option<String>,
     spine_paths: Vec<String>,
+    nav: Option<String>,
+    ncx: Option<String>,
     manifest: Vec<ManifestItem>,
     cover: Option<ManifestItem>,
 }
@@ -189,7 +186,7 @@ struct ChapterDraft {
     index: usize,
     path: String,
     sanitized: String,
-    anchors: HashSet<String>,
+    anchors: rewrite::FragmentAnchors,
     image_paths: HashSet<String>,
     language: Option<String>,
     direction: Option<String>,
@@ -268,6 +265,7 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
         .filter(|id| !id.is_empty())
         .map(ToOwned::to_owned);
 
+    let mut nav = None;
     let mut manifest_by_id = HashMap::new();
     let mut manifest = Vec::new();
     let mut cover = None;
@@ -281,17 +279,19 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
         let Some(href) = item.attribute("href") else {
             continue;
         };
-        let is_epub3_cover = item
+        let properties = item
             .attribute("properties")
             .unwrap_or_default()
-            .split_ascii_whitespace()
-            .any(|property| property == "cover-image");
+            .split_ascii_whitespace();
         let media_type = item.attribute("media-type").unwrap_or_default().to_string();
         let item = ManifestItem {
             href: resolve_archive_path(&base, href)?,
             media_type,
         };
-        if cover.is_none() && is_epub3_cover {
+        if nav.is_none() && properties.clone().any(|p| p == "nav") {
+            nav = Some(item.href.clone());
+        }
+        if cover.is_none() && properties.clone().any(|p| p == "cover-image") {
             cover = Some(item.clone());
         }
         manifest_by_id.insert(id.to_string(), item.clone());
@@ -321,7 +321,16 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
         }
     }
 
+    let ncx = doc
+        .root_element()
+        .children()
+        .find(|n| n.has_tag_name("spine"))
+        .and_then(|n| n.attribute("toc"))
+        .and_then(|id| manifest_by_id.get(id))
+        .map(|item| item.href.clone());
     Ok(ParsedPackage {
+        nav,
+        ncx,
         title,
         language,
         direction,
@@ -716,46 +725,29 @@ mod tests {
 
         let epub3 = include_bytes!("../../../../scripts/fixtures/epub/publisher-outline-3.epub");
         let epub2 = include_bytes!("../../../../scripts/fixtures/epub/publisher-outline-2.epub");
-        for (bytes, nav_path, link_tag, target_attr) in [
-            (epub3.as_slice(), "OPS/guide/list.xhtml", "a", "href"),
-            (epub2.as_slice(), "OPS/guide/list.ncx", "content", "src"),
+        for (bytes, parent_target) in [
+            (epub3.as_slice(), None),
+            (epub2.as_slice(), Some("chapter-0")),
         ] {
-            let mut archive = ZipArchive::new(Cursor::new(bytes)).unwrap();
-            let xml = read_zip_text_limited(&mut archive, nav_path, MAX_OPF_BYTES).unwrap();
-            let nav = Document::parse(&xml).unwrap();
             let parsed = parse_epub_document(bytes, "Fallback").unwrap();
             let reader = super::super::html::sanitize_html(&parsed.view_html);
             let document = parse_html().one(reader.as_str()).document_node;
-            let mut subsections = nav.descendants().filter(|node| {
-                node.has_tag_name(link_tag)
-                    && node.attribute(target_attr).is_some_and(|s| s.contains('#'))
-            });
-            for (label, fragment, heading) in [
-                ("High trail", "ridge", "Morning on the ridge"),
-                ("Low trail", "valley", "Evening in the valley"),
-            ] {
-                let link = subsections.next().expect("publisher subsection");
-                let publisher_label = if link_tag == "a" {
-                    link.text()
-                } else {
-                    link.parent()
-                        .unwrap()
-                        .children()
-                        .find(|n| n.has_tag_name("navLabel"))
-                        .and_then(|n| n.descendants().find(|n| n.has_tag_name("text")))
-                        .and_then(|n| n.text())
-                };
-                assert_eq!(publisher_label, Some(label));
-                assert_eq!(
-                    link.attribute(target_attr).unwrap(),
-                    format!("../text/notes.xhtml#{fragment}")
-                );
-                let target = document
-                    .select_first(&format!("h2#ch0-{fragment}"))
-                    .unwrap();
+            let [group] = parsed.outline.as_slice() else {
+                panic!("expected one publisher group")
+            };
+            assert_eq!(group.label, "Walking routes");
+            assert_eq!(group.target.as_deref(), parent_target);
+            assert_eq!(group.children.len(), 2);
+            for (entry, (label, id, heading)) in group.children.iter().zip([
+                ("High trail", "ch0-ridge", "Morning on the ridge"),
+                ("Low trail", "ch0-valley", "Evening in the valley"),
+            ]) {
+                assert_eq!(entry.label, label);
+                assert_eq!(entry.target.as_deref(), Some(id));
+                assert!(entry.children.is_empty());
+                let target = document.select_first(&format!("h2#{id}")).unwrap();
                 assert_eq!(target.as_node().text_contents(), heading);
             }
-            assert!(subsections.next().is_none());
             for label in ["Walking routes", "High trail", "Low trail"] {
                 assert!(!reader.contains(label));
                 assert!(parsed.sections.iter().all(|section| {

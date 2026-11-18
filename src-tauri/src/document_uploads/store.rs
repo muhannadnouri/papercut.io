@@ -1857,6 +1857,7 @@ mod tests {
                 })
                 .collect(),
             cover: None,
+            outline: Vec::new(),
             assets: Vec::new(),
         }
     }

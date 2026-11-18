@@ -202,6 +202,7 @@ fn library_evaluation_preserves_source_quotes_scope_and_spelling_retry_read_only
                 body_ranges: None,
             }],
             cover: None,
+            outline: Vec::new(),
             assets: Vec::new(),
         };
         upsert_document(
@@ -357,6 +358,7 @@ fn index_documents(root: &Path, documents: &[Document]) {
                 })
                 .collect(),
             cover: None,
+            outline: Vec::new(),
             assets: Vec::new(),
         };
         upsert_document(
@@ -742,6 +744,7 @@ fn normalized_pdf_search_keeps_page_locator_after_ocr_replacement() {
             body_ranges: None,
         }],
         cover: None,
+        outline: Vec::new(),
         assets: Vec::new(),
     };
     upsert_document(
@@ -845,6 +848,7 @@ fn typo_retry_protects_quotes_scripts_identifiers_and_literal_results() {
             body_ranges: None,
         }],
         cover: None,
+        outline: Vec::new(),
         assets: Vec::new(),
     };
     upsert_document(

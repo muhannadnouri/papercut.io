@@ -13,6 +13,14 @@ pub(crate) struct ParsedDocument {
     pub(crate) sections: Vec<ParsedSection>,
     pub(crate) cover: Option<ParsedDocumentCover>,
     pub(crate) assets: Vec<ParsedDocumentAsset>,
+    pub(crate) outline: Vec<OutlineEntry>,
+}
+
+#[derive(Debug, PartialEq)]
+pub(crate) struct OutlineEntry {
+    pub(crate) label: String,
+    pub(crate) target: Option<String>,
+    pub(crate) children: Vec<OutlineEntry>,
 }
 
 /// One bounded raster cover selected from format metadata during import.

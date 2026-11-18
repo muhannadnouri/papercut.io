@@ -169,7 +169,7 @@ impractical.
 
 ## Publisher table of contents for EPUB
 
-**Step 1 complete on `task/epub-outline`. Step 2 is publisher outline extraction.**
+**Steps 1 and 2 complete on `task/epub-outline`. Step 3 covers parser limits and failure handling.**
 
 The next reader feature lets someone open an EPUB, discover its publisher-provided contents,
 and jump to a named chapter or subsection. The spine supplies file order. The contents
@@ -216,8 +216,18 @@ navigation document with the non-linked group “Walking routes”. The
 links to the chapter opening. Both put “High trail” before “Low trail” and link to distinct
 fragments from a sibling directory. The parser regression checks these authored links,
 the corresponding sanitized reader headings, and exclusion of navigation labels from
-reader and section text. In step 2, assert the extracted tree against these same cases,
-including the different parent destinations.
+reader and section text.
+
+Step 2 extracts the publisher tree into the in-memory parsed document. Both fixtures
+exercise the import entry point and verify group labels, parent destinations, leaf order,
+and exact targets against the sanitized reader. A declared NCX supplies the outline
+when EPUB 3 navigation yields no usable rows. Broken and ambiguous fragments lose their
+jump while valid children survive. The reader and transfer code do not yet consume this tree.
+
+The parser currently caps each navigation resource at 4 MiB, XML nodes at 100,000,
+entries at 10,000, nesting at 32 levels, and each normalized label at 4,096 UTF-8 bytes.
+Step 3 should test acceptance at each limit, rejection above it, fallback to a declared
+NCX, and successful import of the readable book when neither optional resource is usable.
 
 1. **Build the distinguishing fixture first.** Extend the Rust tests in
    `src-tauri/src/document_uploads/epub/mod.rs`. The current in-spine `nav.xhtml` fixture
