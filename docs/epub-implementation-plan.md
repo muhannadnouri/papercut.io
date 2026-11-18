@@ -169,7 +169,7 @@ impractical.
 
 ## Publisher table of contents for EPUB
 
-**Plan approved November 18, 2026. Awaiting the owner's go-ahead to begin step 1 on `task/epub-outline`.**
+**Step 1 complete on `task/epub-outline`. Step 2 is publisher outline extraction.**
 
 The next reader feature lets someone open an EPUB, discover its publisher-provided contents,
 and jump to a named chapter or subsection. The spine supplies file order. The contents
@@ -207,6 +207,17 @@ in effect, so use a fresh test library when comparing builds.
   [epub.js loader](https://github.com/futurepress/epub.js/blob/master/src/book.js#L493-L523)
 
 ### Implementation sequence after approval
+
+Step 1 supplies two small, image-free books for parser, reader, and later transfer tests.
+Both have one spine chapter. Its headings are “Morning on the ridge” and “Evening in the valley”.
+The [EPUB 3 fixture](../scripts/fixtures/epub/publisher-outline-3.epub) has an off-spine
+navigation document with the non-linked group “Walking routes”. The
+[EPUB 2 fixture](../scripts/fixtures/epub/publisher-outline-2.epub) has an NCX whose parent
+links to the chapter opening. Both put “High trail” before “Low trail” and link to distinct
+fragments from a sibling directory. The parser regression checks these authored links,
+the corresponding sanitized reader headings, and exclusion of navigation labels from
+reader and section text. In step 2, assert the extracted tree against these same cases,
+including the different parent destinations.
 
 1. **Build the distinguishing fixture first.** Extend the Rust tests in
    `src-tauri/src/document_uploads/epub/mod.rs`. The current in-spine `nav.xhtml` fixture

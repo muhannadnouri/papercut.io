@@ -711,6 +711,62 @@ mod tests {
     }
 
     #[test]
+    fn publisher_outline_fixtures_preserve_precise_targets_and_separate_labels() {
+        use kuchikiki::{parse_html, traits::TendrilSink};
+
+        let epub3 = include_bytes!("../../../../scripts/fixtures/epub/publisher-outline-3.epub");
+        let epub2 = include_bytes!("../../../../scripts/fixtures/epub/publisher-outline-2.epub");
+        for (bytes, nav_path, link_tag, target_attr) in [
+            (epub3.as_slice(), "OPS/guide/list.xhtml", "a", "href"),
+            (epub2.as_slice(), "OPS/guide/list.ncx", "content", "src"),
+        ] {
+            let mut archive = ZipArchive::new(Cursor::new(bytes)).unwrap();
+            let xml = read_zip_text_limited(&mut archive, nav_path, MAX_OPF_BYTES).unwrap();
+            let nav = Document::parse(&xml).unwrap();
+            let parsed = parse_epub_document(bytes, "Fallback").unwrap();
+            let reader = super::super::html::sanitize_html(&parsed.view_html);
+            let document = parse_html().one(reader.as_str()).document_node;
+            let mut subsections = nav.descendants().filter(|node| {
+                node.has_tag_name(link_tag)
+                    && node.attribute(target_attr).is_some_and(|s| s.contains('#'))
+            });
+            for (label, fragment, heading) in [
+                ("High trail", "ridge", "Morning on the ridge"),
+                ("Low trail", "valley", "Evening in the valley"),
+            ] {
+                let link = subsections.next().expect("publisher subsection");
+                let publisher_label = if link_tag == "a" {
+                    link.text()
+                } else {
+                    link.parent()
+                        .unwrap()
+                        .children()
+                        .find(|n| n.has_tag_name("navLabel"))
+                        .and_then(|n| n.descendants().find(|n| n.has_tag_name("text")))
+                        .and_then(|n| n.text())
+                };
+                assert_eq!(publisher_label, Some(label));
+                assert_eq!(
+                    link.attribute(target_attr).unwrap(),
+                    format!("../text/notes.xhtml#{fragment}")
+                );
+                let target = document
+                    .select_first(&format!("h2#ch0-{fragment}"))
+                    .unwrap();
+                assert_eq!(target.as_node().text_contents(), heading);
+            }
+            assert!(subsections.next().is_none());
+            for label in ["Walking routes", "High trail", "Low trail"] {
+                assert!(!reader.contains(label));
+                assert!(parsed.sections.iter().all(|section| {
+                    !section.text.contains(label)
+                        && !section.heading.as_deref().unwrap_or("").contains(label)
+                }));
+            }
+        }
+    }
+
+    #[test]
     fn epub_fixture_rewrites_toc_cross_chapter_links_and_images() {
         let bytes = fixture_epub();
         let parsed = parse_epub_document(&bytes, "Fallback").unwrap();
