@@ -125,3 +125,18 @@ destination names, focus, scrolling, and touch targets. On desktop, check Zoom a
 Reset alignment. Verify search consent/status, transfer Back, and erase Cancel.
 Local browser checks used mocked native calls; installed-device acceptance remains
 pending.
+
+## Temporary npm audit exception
+
+The CI npm audit checks the full dependency tree. Until December 1, 2026 at
+00:00 UTC, the gate accepts only
+[GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) for
+the transitive development copy of `picomatch` 4.0.7 and findings caused solely
+by it. CI prints the full report. Other high or critical findings still fail
+the job. GitHub listed no patched release when the exception was added, and
+the production dependency audit reported zero vulnerabilities.
+
+When a compatible patched release ships, update the lockfile, verify
+`npm audit --audit-level=high`, and restore the direct audit command in CI.
+Remove the temporary checker and its self-test at the same time. If the
+advisory is still active at expiry, the gate fails again.
