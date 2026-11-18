@@ -249,7 +249,11 @@ const COMPONENTS = [
     title: "SIL Open Font License",
     required: true,
     entries: [
-      ["atkinson-hyperlegible", "literata", "noto-naskh-arabic", "readex-pro", "scheherazade-new"].map(family => ({
+      [{
+        file: join(ROOT, "public/fonts/ui/inter/OFL.txt"),
+        attribution: "Inter UI font",
+      }],
+      ["atkinson-hyperlegible", "literata", "noto-naskh-arabic", "readex-pro", "scheherazade-new", "source-sans-3", "merriweather"].map(family => ({
         file: join(ROOT, "public/fonts/reader", family, "OFL.txt"),
         attribution: family + " font",
       })),

@@ -59,7 +59,11 @@ export function FindBar({
       )}
       <button className="find-nav-btn" onClick={onPrev} disabled={matchCount === 0} title={t('reader.findBar.previous')} aria-label={t('reader.findBar.previous')}>&#9650;</button>
       <button className="find-nav-btn" onClick={onNext} disabled={matchCount === 0} title={t('reader.findBar.next')} aria-label={t('reader.findBar.next')}>&#9660;</button>
-      <button className="find-close" onClick={onClose} aria-label={t('reader.findBar.close')}>&times;</button>
+      <button className="find-close" onClick={onClose} aria-label={t('reader.findBar.close')}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="m6 6 12 12M18 6 6 18" />
+        </svg>
+      </button>
     </div>
   )
 }

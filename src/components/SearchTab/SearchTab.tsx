@@ -1,4 +1,9 @@
 import {
+  SearchIcon,
+  ConceptualIcon,
+  ChevronDownIcon,
+} from '../icons'
+import {
   useLayoutEffect,
   useRef,
   useState,
@@ -8,6 +13,11 @@ import {
   TabList,
   Tab,
   TabPanel,
+  Button,
+  Menu,
+  MenuItem,
+  MenuTrigger,
+  Popover,
 } from 'react-aria-components'
 import { useTranslation } from 'react-i18next'
 import type {
@@ -183,28 +193,28 @@ export function SearchTab({
   />
 
   const resultSelector = semanticEnabled ? (
-    <TabList className="search-result-tabs" aria-label={t('search.results.views')}>
-      <Tab id="keyword" className="search-result-tab">
-        <svg className="search-result-tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <circle cx="11" cy="11" r="7" />
-          <path d="m16 16 5 5" />
-        </svg>
-        <span dir="auto">{t('search.results.keyword')}{submittedQuery && !loading && !searchFailed
-          ? ` (${t('search.results.count', { count: keywordCount })})` : ''}</span>
-        {loading && <span className="spinner" role="img" aria-label={t('search.results.searching')} />}
-      </Tab>
-      <Tab id="conceptual" className="search-result-tab">
-        <svg className="search-result-tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <circle cx="5" cy="12" r="3" />
-          <circle cx="18" cy="5" r="3" />
-          <circle cx="18" cy="19" r="3" />
-          <path d="m8 10.5 7-4m-7 7 7 4" />
-        </svg>
-        <span dir="auto">{t('search.results.conceptual')}{conceptualState?.phase === 'ready'
-          ? ` (${t('search.results.count', { count: conceptualState.response?.results.length ?? 0 })})` : ''}</span>
-        {conceptualState?.phase === 'loading' && <span className="spinner" role="img" aria-label={t('search.conceptual.loading')} />}
-      </Tab>
-    </TabList>
+    <div className="search-result-selector" data-keyword-active={view === 'keyword'}>
+      <TabList className="search-result-tabs" aria-label={t('search.results.views')}>
+        <Tab id="keyword" className="search-result-tab search-keyword-tab">
+          <SearchIcon className="search-result-tab-icon" />
+          <span className="search-keyword-label">
+            <span dir="auto">{t('search.results.keyword')}{submittedQuery && !loading && !searchFailed
+              ? ` (${t('search.results.count', { count: keywordCount })})` : ''}</span>
+            {view === 'keyword' && <span className="search-keyword-mode" dir="auto">
+              {t(mode === 'all' ? 'search.input.allWordsMode' : 'search.input.broaderMode')}
+            </span>}
+          </span>
+          {loading && <span className="spinner" role="img" aria-label={t('search.results.searching')} />}
+        </Tab>
+        <Tab id="conceptual" className="search-result-tab">
+          <ConceptualIcon className="search-result-tab-icon" />
+          <span dir="auto">{t('search.results.conceptual')}{conceptualState?.phase === 'ready'
+            ? ` (${t('search.results.count', { count: conceptualState.response?.results.length ?? 0 })})` : ''}</span>
+          {conceptualState?.phase === 'loading' && <span className="spinner" role="img" aria-label={t('search.conceptual.loading')} />}
+        </Tab>
+      </TabList>
+      {view === 'keyword' && <KeywordMatchingMenu mode={mode} onChange={onModeChange} />}
+    </div>
   ) : undefined
   const searchOptions = <SearchOptions resultSelector={resultSelector} keywordOptions={view === 'keyword'}
     mode={mode} onModeChange={onModeChange} query={query} disabled={disabled} onChange={onChangeQuery} />
@@ -270,5 +280,38 @@ export function SearchTab({
         </TabPanel>
       </Tabs> : <>{searchOptions}{searchScope}{keywordResults}</>}
     </section>
+  )
+}
+
+function KeywordMatchingMenu({ mode, onChange }: { mode: SearchMode;
+  onChange: (mode: SearchMode) => void }) {
+  const { t } = useTranslation()
+  return (
+    <div className="search-keyword-matching">
+      <MenuTrigger>
+        <Button className="search-matching-trigger"
+          aria-label={`${t('search.input.modeLabel')}: ${t(mode === 'all' ? 'search.input.allWordsMode' : 'search.input.broaderMode')}`}>
+          <ChevronDownIcon />
+        </Button>
+        <Popover className="search-matching-popover" placement="bottom start" offset={6} containerPadding={8} shouldFlip>
+          <Menu className="search-matching-menu" aria-label={t('search.input.modeLabel')}
+            selectionMode="single" selectedKeys={[mode]} onAction={(key) => {
+              if (key === 'all' || key === 'broader') {
+                onChange(key)
+              }
+            }}>
+            {(['all', 'broader'] as const).map((value) => (
+              <MenuItem key={value} id={value} className="search-matching-option"
+                textValue={t(value === 'all' ? 'search.input.allWordsMode' : 'search.input.broaderMode')}>
+                {({ isSelected }) => <>
+                  <span aria-hidden="true">{isSelected ? '✓' : ''}</span>
+                  <span>{t(value === 'all' ? 'search.input.allWordsMode' : 'search.input.broaderMode')}</span>
+                </>}
+              </MenuItem>
+            ))}
+          </Menu>
+        </Popover>
+      </MenuTrigger>
+    </div>
   )
 }

@@ -899,9 +899,28 @@ the reader height left by optional Find and Diagnostics UI instead of using a
 fixed viewport percentage. Wide layouts tighten the PDF header spacing while
 narrow layouts use one reader-action row plus the PDF toolbar and do not reserve
 the main app navigation's unused bottom padding.
-At desktop widths of 1100 CSS pixels and above, the existing PDF toolbar is
-portaled into the reader header's centered slot; smaller layouts retain a
-separate centered row without duplicating viewer state or controls.
+The existing PDF toolbar stays portaled into one reader-header slot. Header
+layout queries the reader's available content width in `em`, so increased UI text
+also raises the space required for inline controls. At 44em and above it shares a
+row with Back and the app/audio actions; narrower layouts keep a separate row.
+The PDF groups can still wrap if additional audio actions leave less room.
+Secondary fit, spread, outline, and fullscreen commands remain in More until
+66em is available, when the full inline group replaces More. No command becomes
+unavailable between those layouts. Page and zoom groups wrap when necessary,
+including enlarged-text layouts, without duplicating viewer state or callbacks.
+The More trigger highlights while its menu is open. Normal PDF top spacing is
+12px on desktop; narrow layouts retain the shared safe-top allowance without the
+main app's extra 20px padding (values at the default 16px root size).
+
+The responsive-header browser checks include real PDF, OCR, and audio controls
+at narrow/intermediate/wide widths, enlarged UI text, LTR/RTL, and translated
+labels. They check bounds within clipping ancestors, with a deliberately clipped
+zoom group as a detection control, and require inline controls in the wide case
+and More in the intermediate case. These checks cover header layout rather than
+PDF rendering or native safe-area behavior. On November 17, 2026, the owner reported that all
+requested smoke tests for this responsive-header pass passed on Android and
+AppImage builds. This records owner-tested native acceptance separately from the
+Chromium checks; artifact hashes and device/OS versions were not supplied.
 The production frontend build, locale check,
 TypeScript check, and 25 focused tests pass. A full local Rust check remains
 blocked in this shell by the missing `javascriptcoregtk-4.1` development

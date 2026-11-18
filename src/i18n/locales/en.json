@@ -712,6 +712,8 @@
       "fonts": {
         "literata": "Literata",
         "atkinson": "Atkinson Hyperlegible",
+        "sourceSans3": "Source Sans 3",
+        "merriweather": "Merriweather",
         "systemSerif": "System Serif",
         "systemSans": "System Sans",
         "naskhArabic": "Noto Naskh Arabic",
@@ -743,7 +745,7 @@
       "view": "Page view",
       "fitWidth": "Fit Width",
       "fitPage": "Fit Page",
-      "twoPageSpread": "Two-page spread",
+      "twoPageSpread": "Two-Page Spread",
       "enterFullscreen": "Enter Full Screen",
       "exitFullscreen": "Exit Full Screen",
       "outline": "Document Outline",

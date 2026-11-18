@@ -174,7 +174,9 @@
 
 .document-import-option {
   display: grid;
-  gap: 0.15rem;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.6rem;
   width: 100%;
   padding: 0.65rem 0.8rem;
   border: none;
@@ -185,6 +187,25 @@
   font-size: 0.85rem;
   font-weight: 600;
   text-align: start;
+}
+
+.document-import-option-icon {
+  display: block;
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.document-import-option-copy {
+  display: grid;
+  grid-column: 2;
+  min-width: 0;
+  gap: 0.15rem;
+  overflow-wrap: anywhere;
 }
 
 .document-import-option:last-child {
@@ -798,6 +819,11 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+/* Let the page reveal a scope list whose bottom extends behind mobile navigation. */
+.panel.search-scope-panel .panel-body {
+  overscroll-behavior-y: auto;
 }
 
 .panel.document-browser-panel .uploaded-library-tree,

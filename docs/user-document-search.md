@@ -46,9 +46,9 @@ Frontend:
 
 - `src/uploads/DocumentUploads.ts` is the small client API for user-upload commands and shared TypeScript types, including the persisted processing/ready/recognition-required text status. Uploaded search gives each native invocation its own Tauri channel for sparse semantic progress, so overlapping searches cannot consume each other's stages.
 - `src/App.tsx` wires upload/search state into reusable hooks and components, and provides source loading for uploaded URLs.
-- `src/components/DocumentsPanel/DocumentsPanel.tsx` owns the document dropdown UI, including the option-driven Import menu, Saved audio filtering, uploaded-document management, active filter chips, and the persisted Gallery/List preference. Gallery is the default for users without a saved preference; `LibraryGalleryView` derives EPUB/PDF books from the existing format field, preserves bundled HTML folders in its Documents category, and keeps other HTML documents in the shared dense list. Newly imported EPUBs retain declared EPUB 2/3 raster covers and expose persisted display-sized thumbnails to visible gallery cards through a validated, size-bounded read command. Existing retained covers are thumbnailed lazily, while coverless imports keep the generated title placeholder.
+- `src/components/DocumentsPanel/DocumentsPanel.tsx` owns the document dropdown UI, including the option-driven Import menu, Saved audio filtering, uploaded-document management, active filter chips, and the persisted Gallery/List preference. The Import menu pairs decorative source icons with its text labels and descriptions; available actions still follow platform capabilities. Gallery is the default for users without a saved preference; `LibraryGalleryView` derives EPUB/PDF books from the existing format field, preserves bundled HTML folders in its Documents category, and keeps other HTML documents in the shared dense list. Newly imported EPUBs retain declared EPUB 2/3 raster covers and expose persisted display-sized thumbnails to visible gallery cards through a validated, size-bounded read command. Existing retained covers are thumbnailed lazily, while coverless imports keep the generated title placeholder.
 - `src/components/DocumentBrowser/bundledDocuments.ts` derives the read-only bundled-document hierarchy from canonical `/documents/...` URLs, and `src/components/BundledDocumentTree/BundledDocumentTree.tsx` renders it consistently in the Library list, Gallery Documents category, and Search scope. Vite and Pagefind already preserve those paths, so bundled folders do not need a second manifest or SQLite organization records.
-- `src/components/UploadedLibraryTree/UploadedLibraryTree.tsx` renders uploaded-document organization using React Aria Components tree primitives. `src/components/SearchScope/SearchScope.tsx` reuses the same tree for the Search tab's **Filter By Document** panel. Active text, Saved Audio, and Saved Bookmarks filters hide empty branches and temporarily expand the ancestor folders of matching documents without replacing the user's saved expansion state. Uploaded-folder rows use a familiar folder icon and larger coarse-pointer disclosure targets to remain distinct from documents in browse and Manage modes. Library **Manage** keeps its contextual select-all, move, batch-delete, and create/rename/recursive-delete actions visible while the document list scrolls. Document and folder selection remain mutually exclusive so each action has one clear target type.
+- `src/components/UploadedLibraryTree/UploadedLibraryTree.tsx` renders uploaded-document organization using React Aria Components tree primitives. `src/components/SearchScope/SearchScope.tsx` reuses the same tree for the Search tab's **Filter By Document** panel. The Search scope keeps its bounded list but allows vertical scrolling to continue onto the page at list boundaries, so lower rows can be brought above the floating mobile navigation. Library scroll containment is unchanged. Owner smoke tests for this scrolling fix passed on November 17, 2026. Active text, Saved Audio, and Saved Bookmarks filters hide empty branches and temporarily expand the ancestor folders of matching documents without replacing the user's saved expansion state. Uploaded-folder rows use a familiar folder icon and larger coarse-pointer disclosure targets to remain distinct from documents in browse and Manage modes. Library **Manage** keeps its contextual select-all, move, batch-delete, and create/rename/recursive-delete actions visible while the document list scrolls. Document and folder selection remain mutually exclusive so each action has one clear target type.
 - `src/components/DocumentInfoDialog/DocumentInfoDialog.tsx` displays retained upload metadata and edits only the app-owned display title. Rust updates the document row and duplicated FTS titles in one SQLite transaction; source bytes and saved-audiobook title snapshots remain unchanged.
 - `src/components/DocumentViewer/DocumentViewer.tsx` owns the reader shell, viewer plugin resolution, in-document Find, same-document link scrolling, scroll-to-top behavior, and the slots used by TTS controls/diagnostics. `src/viewers/PdfViewer.tsx` adapts PDF.js rendering, Find, bookmarks, page/zoom controls, and TTS highlights without loading PDF support during non-PDF startup.
 - `src/pdf/pdfImport.ts` incrementally extracts PDF pages through PDF.js, persists one bounded page layer at a time, finalizes the shared search index, and reuses the first rendered page for a gallery thumbnail.
@@ -125,6 +125,7 @@ Reader typography is intentionally owned by the shared DOM reader, not by each u
 - The reader bundles offline fonts under `public/fonts/reader/` so desktop and Android do not collapse every serif choice into the same platform fallback.
 - Literata is the default long-form reading face for non-Arabic interface locales; Arabic defaults the reader to Readex Pro. Explicit reader font choices remain independent of later interface-language changes. Atkinson Hyperlegible is available for accessibility-focused reading, and system serif/sans remain available for users who prefer platform defaults.
 - Naskh Arabic, Droid Arabic Naskh, Scheherazade New, and Readex Pro are exposed as explicit Arabic-focused options. They are not inserted into every stack because Arabic font metrics can change spacing and line flow in documents that previously rendered better with their platform fallback.
+- Reflowable reader text supports 8–40px in 1px steps; the default remains 16px. The same limits apply to controls and restored settings. PDF page scale remains separate.
 - Font, spacing, width, and page-color controls are reader presentation only. They do not rewrite stored reflowable reading HTML, search sections, TTS chunks, saved audiobook metadata, or highlight locators.
 
 ## Import Pipeline
@@ -475,11 +476,25 @@ show their icon/title above **Search Settings**; the cog precedes its text. Sett
 opens directly, preserves query/scope/results, and restores focus to the opener or
 Settings cog if setup removed it. Other empty/loading/error states stay distinct.
 
-The compact tonal Keyword/Conceptual selector and Keyword-only All Words/Broader
-radios are centered under the query, before helper/examples and the shared filter.
+The compact tonal Keyword/Conceptual selector is centered under the query,
+before helper/examples and the shared filter. With conceptual search enabled,
+Keyword shows the current matching choice beneath its label. An adjacent,
+separate menu button offers All Words/Broader; opening or dismissing it does not
+change matching. The choice is retained when visiting Conceptual, where the menu
+is hidden. With conceptual search disabled, the existing native matching radios
+remain without a view selector.
 Only that control row sticks, respecting the same safe-area inset as scroll restoration.
-Desktop segments have a 36px minimum, or 44px with any coarse pointer. Icons sit
-physically left of labels; text direction remains automatic. Switching views starts
+Tabs and the matching-menu trigger have a 44px minimum height. The sibling controls
+share a CSS grid without nesting a menu button inside a tab. The selector has an
+explicit 22rem width, capped to available space, so initial outer sizing does not
+rely on the tab subgrid's intrinsic width. Runtimes without subgrid use equal
+outer tracks and the same reserved trigger width; the trigger remains a sibling
+control. The matching button has no divider.
+Shared Search, Conceptual, and downward-chevron SVG components live in
+`src/components/icons/index.tsx`; the query and reader Find buttons reuse SearchIcon.
+Text can grow/wrap;
+decorative tab icons yield space when available width is small relative to UI text.
+When visible, icons sit physically left of labels; text direction remains automatic. Switching views starts
 no query and never merges ranking. Each view retains its ten-card batch window,
 expanded evidence and scroll place while mounted; new submitted queries/scopes reset
 them. App retains the selected view during navigation; async completion never selects
@@ -487,6 +502,10 @@ another. Hidden panels stay mounted/inert. Keyword examples fill only, without s
 Conceptual hides them. Keyword retains the two-line welcome, ready Conceptual a short
 query prompt. Helpers omit repeated library scope and numeric rules without changing
 retrieval semantics.
+
+On November 17, 2026, the owner reported that smoke tests for the compact selector,
+initial desktop layout correction, divider removal, and shared icons passed as
+intended. This records owner acceptance separately from the automated checks.
 
 Conceptual cards contain plain authored text, no invented marks/counts. **Passage &
 Nearby Text** initially shows the match and nearest available neighbour on each side,

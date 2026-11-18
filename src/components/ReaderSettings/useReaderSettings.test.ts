@@ -33,6 +33,22 @@ describe('reader font defaults', () => {
       explicit: true,
     })
   })
+
+  it.each([
+    '"Papercut Source Sans 3", sans-serif',
+    '"Papercut Merriweather", serif',
+  ])('restores %s as an explicit choice across locale defaults', (fontFamily) => {
+    for (const defaultFontFamily of [DEFAULT_READER_SETTINGS.fontFamily, readexPro]) {
+      expect(resolveReaderFontPreference(fontFamily, true, defaultFontFamily)).toEqual({
+        fontFamily,
+        explicit: true,
+      })
+      expect(resolveReaderFontPreference(fontFamily, undefined, defaultFontFamily)).toEqual({
+        fontFamily,
+        explicit: true,
+      })
+    }
+  })
 })
 
 describe('normalizeReaderPageTheme', () => {

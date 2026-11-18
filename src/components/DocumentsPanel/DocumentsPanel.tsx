@@ -240,8 +240,11 @@ export function DocumentsPanel({
                         aria-label={option.detail ? `${label}. ${option.detail}` : label}
                         onAction={option.onSelect}
                       >
-                        <span>{label}</span>
-                        {option.detail && <small>{option.detail}</small>}
+                        <ImportOptionIcon id={option.id} />
+                        <span className="document-import-option-copy">
+                          <span>{label}</span>
+                          {option.detail && <small>{option.detail}</small>}
+                        </span>
                       </MenuItem>
                     )
                   })}
@@ -443,4 +446,19 @@ function savePreference(key: string, value: string): void {
   } catch {
     // The view still changes when preference persistence is unavailable.
   }
+}
+
+function ImportOptionIcon({ id }: { id: string }) {
+  const paths: Record<string, string> = {
+    batch: 'M8 3h8l5 5v13H8ZM16 3v5h5M5 7H3v14',
+    folder: 'M3 6h6l3 3h9v10H3Z',
+    paste: 'M9 5H5v16h14V5h-4M9 3h6v4H9ZM8 11h8M8 15h6',
+    scan: 'M7 3H3v4M17 3h4v4M21 17v4h-4M7 21H3v-4M8 7h8v10H8Z',
+    photos: 'M3 4h18v16H3ZM3 16l6-6 5 5 3-3 4 4',
+  }
+  return paths[id] ? (
+    <svg className="document-import-option-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d={paths[id]} />
+    </svg>
+  ) : null
 }

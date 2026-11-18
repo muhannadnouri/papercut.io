@@ -705,6 +705,8 @@
       "fonts": {
         "literata": "Literata",
         "atkinson": "Atkinson Hyperlegible",
+        "sourceSans3": "Source Sans 3",
+        "merriweather": "Merriweather",
         "systemSerif": "System Serif",
         "systemSans": "System Sans",
         "naskhArabic": "Noto Naskh Arabic",

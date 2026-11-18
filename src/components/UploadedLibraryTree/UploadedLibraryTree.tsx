@@ -22,6 +22,8 @@ import {
   type UploadedLibraryOrganization,
 } from '../../uploads/DocumentUploads'
 import { useAppConfirmation } from '../AppDialog/useAppConfirmation'
+import { TrashIcon } from '../TrashIcon/TrashIcon'
+import { ChevronIcon } from '../ChevronIcon/ChevronIcon'
 import { TextInputDialog } from '../TextInputDialog/TextInputDialog'
 import {
   buildLibraryTree,
@@ -501,11 +503,12 @@ export function UploadedLibraryTree({
             <div className="uploaded-library-toolbar-actions">
               {organizing && (
                 <button
-                  className="uploaded-library-edit-btn"
+                  className="uploaded-library-edit-btn uploaded-library-icon-action"
                   type="button"
                   disabled={busy || mutationDisabled}
                   onClick={() => openFolderDialog(null)}
                 >
+                  <FolderIcon className="uploaded-library-action-icon" />
                   {t('library.tree.newFolder')}
                 </button>
               )}
@@ -588,10 +591,11 @@ export function UploadedLibraryTree({
                   </label>
                   <button
                     type="button"
-                    className="uploaded-library-batch-delete"
+                    className="uploaded-library-batch-delete uploaded-library-icon-action"
                     disabled={!canDeleteDocuments}
                     onClick={deleteSelectedDocuments}
                   >
+                    <TrashIcon className="uploaded-library-action-icon" />
                     {t('common.delete')}
                   </button>
                 </div>
@@ -613,6 +617,7 @@ export function UploadedLibraryTree({
                     title={t('library.tree.deleteSelectedFolder')}
                     onClick={deleteSelectedFolder}
                   >
+                    <TrashIcon className="uploaded-library-action-icon" />
                     {t(selectedFolderHasContents
                       ? 'library.tree.deleteFolderContents'
                       : 'library.tree.deleteFolder')}
@@ -866,13 +871,14 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
             )}
             {options.editMode && !options.filterMode && node.kind === 'folder' && node.depth < 4 && (
               <button
-                className="document-row-action document-row-action-secondary"
+                className="document-row-action document-row-action-secondary uploaded-library-icon-action"
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation()
                   options.openFolderDialog(node.id, node.title)
                 }}
               >
+                <FolderIcon className="uploaded-library-action-icon" />
                 {options.t('library.tree.newSubfolder')}
               </button>
             )}
@@ -884,18 +890,10 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
   )
 }
 
-function ChevronIcon() {
+function FolderIcon({ className = 'uploaded-library-folder-icon' }: { className?: string }) {
   return (
-    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path d="m6 3 5 5-5 5" />
-    </svg>
-  )
-}
-
-function FolderIcon() {
-  return (
-    <svg className="uploaded-library-folder-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M3 6.5h6l2 2h10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+    <svg className={className} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M2 4h4l2 2h6v7H2Z" />
     </svg>
   )
 }

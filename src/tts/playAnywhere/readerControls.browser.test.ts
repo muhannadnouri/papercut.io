@@ -46,7 +46,24 @@ beforeAll(async () => {
     import {readerTextViewport} from ${JSON.stringify(resolve('src/tts/playAnywhere/htmlTextTarget.ts'))};
     import {createTextTargetPreparation} from ${JSON.stringify(resolve('src/tts/playAnywhere/prepareTextTarget.ts'))};
     import {chunkAudiobookSaveHtmlWithSpans} from ${JSON.stringify(resolve('src/tts/utils/text.ts'))};
+    import {PdfControls} from ${JSON.stringify(resolve('src/viewers/PdfControls.tsx'))};
+    import {PdfRecognitionPrompt} from ${JSON.stringify(resolve('src/pdf/ocr/PdfRecognitionPrompt.tsx'))};
     export const viewport = readerTextViewport;
+    export async function mountPdfHeader(locale, savedAudio=false) {
+      await mountHeader(locale, false, 'idle', savedAudio);
+      while (!document.querySelector('.doc-header')) await new Promise(requestAnimationFrame);
+      const app=document.querySelector('.app-reader');
+      app.classList.add('app-reader-pdf');
+      const slot=document.createElement('div');
+      slot.className='viewer-toolbar-slot';
+      document.querySelector('.doc-header').append(slot);
+      const noop=()=>{};
+      const ocr=document.createElement('span');
+      document.querySelector('.header-control-group-audio').prepend(ocr);
+      createRoot(ocr).render(<PdfRecognitionPrompt documentUrl="fixture.pdf" textStatus="recognition-available" status={{status:'idle',message:''}} onCancel={noop} onRecognize={noop} onAccept={noop}/>);
+      createRoot(slot).render(<PdfControls ready currentPage={1} pages={228} zoom={80} fitMode="page-width" fullscreen={false} hasOutline outlineOpen={false} spreadMode="single"
+        onFitChange={noop} onFullscreenChange={noop} onOutlineChange={noop} onPageChange={noop} onPageNext={noop} onPagePrevious={noop} onSpreadChange={mode=>{window.pdfSpreadRequested=mode}} onZoomChange={noop}/>);
+    }
     export async function mountHeader(locale, tools=false, playbackStatus='idle', savedAudio=true, missingSetup=false) {
       await i18n.changeLanguage(locale);
       document.documentElement.dir=locale==='ar'?'rtl':'ltr';
@@ -178,6 +195,83 @@ afterAll(() => {
   }
 })
 describe.skipIf(!browser)('Reader controls in Chromium', () => {
+  it.each([
+    [320, 16, 'en'], [393, 32, 'en'], [767, 32, 'en'], [768, 32, 'ar'],
+    [800, 16, 'en'], [800, 16, 'en', true], [900, 20, 'fr'], [1100, 16, 'ar'], [1366, 16, 'en'],
+  ])('keeps PDF commands available without header collisions at %ipx/%ipx/%s', async (width, font, locale, savedAudio = false) => {
+    const frame = join(directory, 'pdf-header.html')
+    writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>${css}html{font-size:${font}px}body{margin:0}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async () => {
+        await ReaderControls.mountPdfHeader(${JSON.stringify(locale)}, ${savedAudio});
+        while (!document.querySelector('.pdf-view-options-trigger') || !document.querySelector('.pdf-recognition-trigger')) await new Promise(requestAnimationFrame);
+        await document.fonts.ready;
+        await new Promise(requestAnimationFrame);
+        const box=e=>e.getBoundingClientRect();
+        const visible=e=>box(e).width>0 && box(e).height>0;
+        const controls=[...document.querySelectorAll('.doc-header button,.doc-header input')].filter(visible);
+        const overlap=controls.some((a,i)=>controls.slice(i+1).some(b=>{
+          const x=box(a),y=box(b);
+          return x.left<y.right-.5 && x.right>y.left+.5 && x.top<y.bottom-.5 && x.bottom>y.top+.5;
+        }));
+        const clippedControls=()=>controls.filter(control=>{
+          const b=box(control);
+          for(let ancestor=control.parentElement;ancestor;ancestor=ancestor.parentElement){
+            const style=getComputedStyle(ancestor),a=box(ancestor);
+            const left=a.left+ancestor.clientLeft,top=a.top+ancestor.clientTop;
+            if((/hidden|clip|auto|scroll/.test(style.overflowX) && (b.left<left-.5 || b.right>left+ancestor.clientWidth+.5)) ||
+               (/hidden|clip|auto|scroll/.test(style.overflowY) && (b.top<top-.5 || b.bottom>top+ancestor.clientHeight+.5))) return true;
+          }
+          return false;
+        }).map(control=>control.getAttribute('aria-label') || control.title || control.className);
+        const clipped=clippedControls();
+        const zoom=document.querySelector('.pdf-zoom-controls');
+        const oldZoomStyle=zoom.getAttribute('style');
+        zoom.style.maxWidth='20px';
+        const detectsClipping=clippedControls().length>0;
+        if(oldZoomStyle===null) zoom.removeAttribute('style'); else zoom.setAttribute('style',oldZoomStyle);
+        const more=visible(document.querySelector('.pdf-view-options-trigger'));
+        const spread=visible(document.querySelector('.pdf-spread-toggle'));
+        let menuWorks=true;
+        if (more) {
+          document.querySelector('.pdf-view-options-trigger').click();
+          while (!document.querySelector('.pdf-view-option')) await new Promise(requestAnimationFrame);
+          const items=[...document.querySelectorAll('.pdf-view-option')];
+          menuWorks=items.length===5;
+          items[2].click();
+          await new Promise(requestAnimationFrame);
+          menuWorks=menuWorks && window.pdfSpreadRequested==='spread';
+        }
+        const toolbar=box(document.querySelector('.viewer-toolbar-slot'));
+        const back=box(document.querySelector('.header-left'));
+        const currentHeight=box(document.querySelector('.doc-header')).height;
+        const oldLayout=document.createElement('style');
+        oldLayout.textContent='.app-reader-pdf .doc-header{grid-template-areas:"back controls" "viewer viewer"!important;grid-template-columns:auto minmax(0,1fr)!important}';
+        document.head.append(oldLayout);
+        const twoRowHeight=box(document.querySelector('.doc-header')).height;
+        oldLayout.remove();
+        parent.postMessage({type:'capture-result',result:{clipped,detectsClipping,overlap,menuWorks,currentHeight,twoRowHeight,overflow:document.documentElement.scrollWidth>innerWidth,more,spread,sameRow:Math.abs((toolbar.top+toolbar.bottom)/2-(back.top+back.bottom)/2)<1,toolbarHeight:toolbar.height,headerHeight:box(document.querySelector('.doc-header')).height,toolbarWidth:toolbar.width,backWidth:back.width,rightWidth:box(document.querySelector('.header-right')).width,headerWidth:box(document.querySelector('.doc-header')).width}},'*');
+      })();</script>`)
+    const result = await runBrowserFixture(directory, frame, width)
+    expect(result.clipped).toEqual([])
+    expect(result.detectsClipping).toBe(true)
+    expect(result.menuWorks).toBe(true)
+    expect(result.overlap).toBe(false)
+    expect(result.overflow).toBe(false)
+    expect(Boolean(result.more) !== Boolean(result.spread)).toBe(true)
+    if (width === 1366 && font === 16) {
+      expect(result.spread).toBe(true)
+      expect(result.more).toBe(false)
+    }
+    if (width === 800 && font === 16 && !savedAudio) {
+      expect(result.more).toBe(true)
+      expect(result, JSON.stringify(result)).toMatchObject({ sameRow: true })
+      expect(Number(result.toolbarHeight), JSON.stringify(result)).toBeLessThan(50)
+      expect(Number(result.headerHeight)).toBeLessThan(70)
+      expect(Number(result.currentHeight)).toBeLessThan(Number(result.twoRowHeight))
+    }
+  }, 30_000)
+
   it('reveals the same bookmarked reader without shifting its destination', async () => {
     const frame = join(directory, 'bookmark-restore.html')
     writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>${css}body{margin:0}.document-html-content{font-family:Arial!important}</style>

@@ -33,6 +33,8 @@ export interface ReaderRangeConfig {
 // font metrics can noticeably change spacing in mixed-language documents.
 const READER_FONT_STACKS = {
   literata: '"Papercut Literata", serif',
+  sourceSans3: '"Papercut Source Sans 3", sans-serif',
+  merriweather: '"Papercut Merriweather", serif',
   atkinson: '"Papercut Atkinson Hyperlegible", sans-serif',
   systemSerif: 'ui-serif, Georgia, "Times New Roman", serif',
   systemSans: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -58,7 +60,7 @@ interface StoredReaderSettings extends Partial<ReaderSettingsState> {
 export const READER_SETTING_LIMITS = {
   fontSizePx: {
     min: 8,
-    max: 24,
+    max: 40,
     step: 1,
     suffix: 'px',
   },
@@ -84,6 +86,14 @@ export const FONT_FAMILY_OPTIONS = [
   {
     labelKey: 'reader.settings.fonts.atkinson',
     value: READER_FONT_STACKS.atkinson,
+  },
+  {
+    labelKey: 'reader.settings.fonts.sourceSans3',
+    value: READER_FONT_STACKS.sourceSans3,
+  },
+  {
+    labelKey: 'reader.settings.fonts.merriweather',
+    value: READER_FONT_STACKS.merriweather,
   },
   {
     labelKey: 'reader.settings.fonts.systemSerif',
