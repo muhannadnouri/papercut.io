@@ -16,6 +16,7 @@ pub(crate) struct ParsedDocument {
     pub(crate) outline: Vec<OutlineEntry>,
 }
 
+/// A publisher-labeled entry. Its target is a reader ID without the leading hash, or absent for a group.
 #[derive(Debug, PartialEq)]
 pub(crate) struct OutlineEntry {
     pub(crate) label: String,

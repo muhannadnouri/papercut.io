@@ -37,9 +37,8 @@ const XML_NAMESPACE: &str = "http://www.w3.org/XML/1998/namespace";
 
 /// Parse an EPUB archive into Papercut's format-neutral document shape.
 ///
-/// EPUB import deliberately produces one sanitized generated HTML document instead
-/// of retaining the raw archive. That keeps search, Find, and TTS highlight logic
-/// on the same path as HTML uploads while leaving room for a richer viewer later.
+/// Search, Find, and narration share the generated reading HTML. Publisher outline
+/// entries are returned separately and point to anchors in that reading copy.
 pub(crate) fn parse_epub_document(
     bytes: &[u8],
     fallback_title: &str,
@@ -229,9 +228,8 @@ fn parse_container_path(xml: &str) -> Result<String, String> {
 
 /// Parse OPF metadata, manifest, and spine into normalized archive paths.
 ///
-/// The spine controls reading order; ZIP entry order is ignored. Manifest hrefs
-/// are resolved eagerly so later chapter/image/link code works with one canonical
-/// archive-path form.
+/// The spine controls reading order. Resolve declared navigation files through the
+/// manifest because the publisher can provide contents outside the spine.
 fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPackage, String> {
     let doc =
         Document::parse(opf).map_err(|err| format!("Invalid EPUB package document: {err}"))?;

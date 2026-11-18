@@ -12,6 +12,7 @@ const XHTML: &str = "http://www.w3.org/1999/xhtml";
 const EPUB: &str = "http://www.idpf.org/2007/ops";
 const NCX: &str = "http://www.daisy.org/z3986/2005/ncx/";
 
+/// Prefer EPUB 3 navigation, then try the declared NCX. An empty result lets import continue.
 pub(super) fn load<R: Read + Seek>(
     archive: &mut ZipArchive<R>,
     package: &ParsedPackage,
@@ -38,6 +39,7 @@ enum Format {
 }
 
 impl Format {
+    /// Read the contents hierarchy from the EPUB 3 TOC nav or EPUB 2 NCX navMap.
     fn parse(self, xml: &str, path: &str, targets: &ChapterTargets) -> Option<Vec<OutlineEntry>> {
         // Accept common XHTML/NCX doctypes without enabling publisher-defined entities.
         if xml.contains("<!ENTITY") {
@@ -72,6 +74,7 @@ impl Format {
         self.entries(list, path, targets, 1, &mut 10_000)
     }
 
+    /// Keep reachable children under broken links. Exceeding a limit discards this resource's entire tree.
     fn entries(
         self,
         list: Node,
@@ -153,6 +156,9 @@ impl Format {
         Some(entries)
     }
 }
+
+#[cfg(test)]
+mod limits_tests;
 
 #[cfg(test)]
 mod tests {

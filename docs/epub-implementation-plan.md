@@ -169,7 +169,7 @@ impractical.
 
 ## Publisher table of contents for EPUB
 
-**Steps 1 and 2 complete on `task/epub-outline`. Step 3 covers parser limits and failure handling.**
+**Steps 1–3 complete on `task/epub-outline`. Step 4 adds local outline storage and retrieval.**
 
 The next reader feature lets someone open an EPUB, discover its publisher-provided contents,
 and jump to a named chapter or subsection. The spine supplies file order. The contents
@@ -226,8 +226,13 @@ jump while valid children survive. The reader and transfer code do not yet consu
 
 The parser currently caps each navigation resource at 4 MiB, XML nodes at 100,000,
 entries at 10,000, nesting at 32 levels, and each normalized label at 4,096 UTF-8 bytes.
-Step 3 should test acceptance at each limit, rejection above it, fallback to a declared
-NCX, and successful import of the readable book when neither optional resource is usable.
+Step 3 verifies each limit at the boundary and one unit above through the normal EPUB
+import parser. The tests count entries across sibling groups and measure normalized
+multibyte labels. A compressed navigation file whose inflated size exceeds 4 MiB falls
+back to the declared NCX. With both resources missing or malformed, the book still
+produces reading HTML and indexable chapter text. Run the six cases with
+`cargo test --manifest-path src-tauri/Cargo.toml --lib epub::outline::limits_tests`.
+Manual reader checks begin when Contents becomes visible in step 6.
 
 1. **Build the distinguishing fixture first.** Extend the Rust tests in
    `src-tauri/src/document_uploads/epub/mod.rs`. The current in-spine `nav.xhtml` fixture

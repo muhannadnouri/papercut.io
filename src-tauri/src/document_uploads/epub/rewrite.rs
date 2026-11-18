@@ -13,6 +13,7 @@ use super::paths::{archive_base_dir, percent_decode, resolve_archive_path, split
 
 const WRAPPER_ID: &str = "papercut-epub-fragment-root";
 
+/// Maps each normalized anchor to its original spelling. A collision leaves the value empty.
 pub(super) type FragmentAnchors = HashMap<String, Option<String>>;
 pub(super) type ChapterTargets = HashMap<String, (usize, FragmentAnchors)>;
 
@@ -37,7 +38,6 @@ pub(super) fn collect_fragment_anchors(html: &str) -> FragmentAnchors {
             let id = attrs.get("id");
             let name = attrs.get("name").filter(|name| Some(*name) != id);
             for value in id.into_iter().chain(name) {
-                // An outline must identify one exact source anchor after ID normalization.
                 anchors
                     .entry(safe_anchor(value))
                     .and_modify(|entry| *entry = None)
