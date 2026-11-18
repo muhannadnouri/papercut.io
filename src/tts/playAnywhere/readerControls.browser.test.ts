@@ -214,6 +214,8 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
         await document.fonts.ready;
         const trigger=document.querySelector('.document-outline-trigger');
         const box=trigger.getBoundingClientRect();
+        const settingsBox=document.querySelector('.reader-settings-btn').getBoundingClientRect();
+        const matchesAa=box.width===settingsBox.width && box.height===settingsBox.height;
         const reachable=document.elementFromPoint(box.x+box.width/2,box.y+box.height/2)?.closest('button')===trigger;
         const open=async()=>{trigger.click();await paint();return document.querySelector('.document-outline-dialog')};
         const dialog=await open(), panel=dialog.getBoundingClientRect();
@@ -269,15 +271,19 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
         };
         const bodyFound=await find('Evening in the valley',1);
         const labelAbsent=await find('Low trail',0);
-        parent.postMessage({type:'capture-result',result:{namedFocus,bodyFound,labelAbsent,spoken,reachable,focusEntered,group,labels,cancelled,focused,visible,
+        parent.postMessage({type:'capture-result',result:{matchesAa,title:dialog.querySelector("h2").textContent,namedFocus,bodyFound,labelAbsent,spoken,reachable,focusEntered,group,labels,cancelled,focused,visible,
           beside:trigger.nextElementSibling.matches('.find-btn'),fits:panel.left>=0 && panel.right<=innerWidth+1,
           overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,browse,
           clean:!document.querySelector('article').textContent.includes('Low trail')}},'*');
       })();</script>`)
     const result = await runBrowserFixture(directory, frame, width)
+    if (locale === 'en') {
+      expect(result.title).toBe('Table of Contents')
+    }
     expect(result.spoken).toContain('Evening in the valley')
     expect(result.spoken).not.toMatch(/Walking routes|High trail|Low trail/i)
     expect(result).toMatchObject({
+      matchesAa: true,
       namedFocus: true,
       bodyFound: true,
       labelAbsent: true,

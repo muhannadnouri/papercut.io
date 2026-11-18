@@ -184,13 +184,22 @@
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
+.reader-settings-btn,
+.document-outline-trigger {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.find-btn {
+  min-height: 2.35rem;
+}
+
 .find-btn,
 .document-outline-trigger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  min-height: 2.35rem;
   background: var(--control-surface);
   border: 1px solid transparent;
   border-radius: var(--radius-control);
@@ -816,6 +825,12 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 }
 
 @media (max-width: 767px) {
+  .reader-settings-btn,
+  .document-outline-trigger {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
   .app-reader {
     padding-inline: 0.35rem;
     background: var(--reader-surface);
@@ -971,8 +986,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
 .document-outline-trigger {
   position: relative;
-  width: 2.75rem;
-  min-height: 2.75rem;
+  flex-shrink: 0;
   padding: 0;
 }
 

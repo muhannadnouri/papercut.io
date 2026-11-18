@@ -169,7 +169,7 @@ impractical.
 
 ## Publisher table of contents for EPUB
 
-**Steps 1–6 are implemented on `task/epub-outline`. Stage 7 automated checks cover import through restored reader navigation. Installed-device acceptance and performance measurements are pending.**
+**Steps 1–6 are implemented on `task/epub-outline`. Stage 7 automated checks cover import through restored reader navigation. The owner reported that the manual smoke checks passed, including scrolling a publisher outline and jumping to sections in an installed build. Large-book timings are not recorded here.**
 
 The reader opens the publisher’s table of contents and jumps to named chapters and
 subsections. Earlier imports kept clickable contents pages that appeared in the spine,
@@ -185,7 +185,7 @@ in effect, so use a fresh test library when comparing builds.
 ### Product and design decisions
 
 - Put one icon-only button beside Find in the reflowable reader header. Reuse the PDF
-  outline glyph (three bullets and lines). Use the localized name **Table of contents**
+  outline glyph (three bullets and lines). Use the localized name **Table of Contents**
   for assistive technology, the hover/focus tooltip, and the panel title. Keep the
   button directly reachable on phones. NN/g favors visible labels for recognition,
   so test this compact design on touchscreens where hover cannot help.
