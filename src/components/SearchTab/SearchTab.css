@@ -182,3 +182,16 @@
     padding-inline: 0.4rem;
   }
 }
+
+/* Equal outer tracks keep the sibling trigger aligned without subgrid. */
+@supports not (grid-template-columns: subgrid) {
+  .search-result-selector,
+  .search-result-tabs {
+    grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr);
+  }
+
+  .search-result-selector[data-keyword-active="false"],
+  .search-result-selector[data-keyword-active="false"] .search-result-tabs {
+    grid-template-columns: minmax(0, 1fr) 0 minmax(0, 1fr);
+  }
+}

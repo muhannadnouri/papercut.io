@@ -914,8 +914,10 @@ main app's extra 20px padding (values at the default 16px root size).
 
 The responsive-header browser checks include real PDF, OCR, and audio controls
 at narrow/intermediate/wide widths, enlarged UI text, LTR/RTL, and translated
-labels. These automated checks cover header layout rather than PDF rendering or
-native safe-area behavior. On November 17, 2026, the owner reported that all
+labels. They check bounds within clipping ancestors, with a deliberately clipped
+zoom group as a detection control, and require inline controls in the wide case
+and More in the intermediate case. These checks cover header layout rather than
+PDF rendering or native safe-area behavior. On November 17, 2026, the owner reported that all
 requested smoke tests for this responsive-header pass passed on Android and
 AppImage builds. This records owner-tested native acceptance separately from the
 Chromium checks; artifact hashes and device/OS versions were not supplied.

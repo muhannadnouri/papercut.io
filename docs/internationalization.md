@@ -100,7 +100,8 @@ ReaderSettings offers Literata, original Atkinson Hyperlegible, Source Sans 3,
 Merriweather, System Serif, System Sans, and the existing Arabic families. Source
 Sans 3 and Merriweather are additional choices; the default remains Literata for
 non-Arabic locales and Readex Pro for Arabic. Explicit font choices survive reload
-and locale changes. App-wide UI fonts and PDF page fonts are unchanged.
+and locale changes. PDF page fonts are unchanged. App-wide UI typography is
+covered separately under [UI font integration](#ui-font-integration).
 
 The two new families use unmodified upright and italic variable TTFs from Google
 Fonts commit

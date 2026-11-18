@@ -487,7 +487,9 @@ Only that control row sticks, respecting the same safe-area inset as scroll rest
 Tabs and the matching-menu trigger have a 44px minimum height. The sibling controls
 share a CSS grid without nesting a menu button inside a tab. The selector has an
 explicit 22rem width, capped to available space, so initial outer sizing does not
-rely on the tab subgrid's intrinsic width. The matching button has no divider.
+rely on the tab subgrid's intrinsic width. Runtimes without subgrid use equal
+outer tracks and the same reserved trigger width; the trigger remains a sibling
+control. The matching button has no divider.
 Shared Search, Conceptual, and downward-chevron SVG components live in
 `src/components/icons/index.tsx`; the query and reader Find buttons reuse SearchIcon.
 Text can grow/wrap;

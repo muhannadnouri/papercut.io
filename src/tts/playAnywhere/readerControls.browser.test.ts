@@ -214,6 +214,22 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
           const x=box(a),y=box(b);
           return x.left<y.right-.5 && x.right>y.left+.5 && x.top<y.bottom-.5 && x.bottom>y.top+.5;
         }));
+        const clippedControls=()=>controls.filter(control=>{
+          const b=box(control);
+          for(let ancestor=control.parentElement;ancestor;ancestor=ancestor.parentElement){
+            const style=getComputedStyle(ancestor),a=box(ancestor);
+            const left=a.left+ancestor.clientLeft,top=a.top+ancestor.clientTop;
+            if((/hidden|clip|auto|scroll/.test(style.overflowX) && (b.left<left-.5 || b.right>left+ancestor.clientWidth+.5)) ||
+               (/hidden|clip|auto|scroll/.test(style.overflowY) && (b.top<top-.5 || b.bottom>top+ancestor.clientHeight+.5))) return true;
+          }
+          return false;
+        }).map(control=>control.getAttribute('aria-label') || control.title || control.className);
+        const clipped=clippedControls();
+        const zoom=document.querySelector('.pdf-zoom-controls');
+        const oldZoomStyle=zoom.getAttribute('style');
+        zoom.style.maxWidth='20px';
+        const detectsClipping=clippedControls().length>0;
+        if(oldZoomStyle===null) zoom.removeAttribute('style'); else zoom.setAttribute('style',oldZoomStyle);
         const more=visible(document.querySelector('.pdf-view-options-trigger'));
         const spread=visible(document.querySelector('.pdf-spread-toggle'));
         let menuWorks=true;
@@ -234,13 +250,19 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
         document.head.append(oldLayout);
         const twoRowHeight=box(document.querySelector('.doc-header')).height;
         oldLayout.remove();
-        parent.postMessage({type:'capture-result',result:{overlap,menuWorks,currentHeight,twoRowHeight,overflow:document.documentElement.scrollWidth>innerWidth,more,spread,sameRow:Math.abs((toolbar.top+toolbar.bottom)/2-(back.top+back.bottom)/2)<1,toolbarHeight:toolbar.height,headerHeight:box(document.querySelector('.doc-header')).height,toolbarWidth:toolbar.width,backWidth:back.width,rightWidth:box(document.querySelector('.header-right')).width,headerWidth:box(document.querySelector('.doc-header')).width}},'*');
+        parent.postMessage({type:'capture-result',result:{clipped,detectsClipping,overlap,menuWorks,currentHeight,twoRowHeight,overflow:document.documentElement.scrollWidth>innerWidth,more,spread,sameRow:Math.abs((toolbar.top+toolbar.bottom)/2-(back.top+back.bottom)/2)<1,toolbarHeight:toolbar.height,headerHeight:box(document.querySelector('.doc-header')).height,toolbarWidth:toolbar.width,backWidth:back.width,rightWidth:box(document.querySelector('.header-right')).width,headerWidth:box(document.querySelector('.doc-header')).width}},'*');
       })();</script>`)
     const result = await runBrowserFixture(directory, frame, width)
+    expect(result.clipped).toEqual([])
+    expect(result.detectsClipping).toBe(true)
     expect(result.menuWorks).toBe(true)
     expect(result.overlap).toBe(false)
     expect(result.overflow).toBe(false)
     expect(Boolean(result.more) !== Boolean(result.spread)).toBe(true)
+    if (width === 1366 && font === 16) {
+      expect(result.spread).toBe(true)
+      expect(result.more).toBe(false)
+    }
     if (width === 800 && font === 16 && !savedAudio) {
       expect(result.more).toBe(true)
       expect(result, JSON.stringify(result)).toMatchObject({ sameRow: true })
