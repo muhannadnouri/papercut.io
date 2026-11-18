@@ -1,6 +1,6 @@
 # Erase all data
 
-Settings > Reset App Data > **Review Data to Erase** opens a confirmation view, and its
+Settings > Library & Data > **Review Data to Erase** opens a confirmation view, and its
 **Erase Everything** button removes everything Papercut stores on the
 device and returns the app to its starting state. It is available in native builds
 only. It can't be undone, and it isn't a secure overwrite: it deletes files through
@@ -99,6 +99,6 @@ case, and a native review of the non-English strings.
 4. Remove `forgetNativeAudio` from `src/tts/playback/nativeMobileAudio.ts`.
 5. Move `src/renderApp.tsx` back to `src/main.tsx`, restoring `import './index.css'` and
    dropping `AppResetNotice`.
-6. In `AppSettings.tsx`, `AppSettings.css` and `App.tsx`, remove the erase section, view
+6. In `AppSettings.tsx`, `AppSettings.css` and `App.tsx`, remove the erase row, view
    and `eraseBlockedBy`.
 7. Remove `settings.erase` from all 8 locale files.

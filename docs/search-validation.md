@@ -282,7 +282,9 @@ env XDG_DATA_HOME="$task_smoke_dir/data" XDG_CONFIG_HOME="$task_smoke_dir/config
   starts no download, load or index. Providerless builds expose unavailability, retain
   Keyword and allow disabling a saved opt-in. While off, no conceptual selector, cards
   or fallback notice appear. Browser preview has no native controls.
-- [ ] **M02 — Settings structure and naming.** Root summary/Manage opens the task view;
+- [ ] **M02 — Settings structure and naming.** The root Search section has one
+  Semantic Search (Experimental) destination row; its current status is the accessible
+  description, and the whole row opens the task view;
   no introduction follows Semantic Search (Experimental). Semantic Search comes before
   Download Model/Manage Model and conditional Library Index. One clickable status/switch
   row has the fixed accessible name Semantic Search, changing descriptions and valid

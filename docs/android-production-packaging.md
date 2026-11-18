@@ -611,10 +611,13 @@ npm run prepare:license-notices
 npm run prepare:license-notices -- --check
 ~~~
 
-The notice command uses the active r30 Sherpa dependency tree and fetches
-hash-verified ORT notices and the pinned Supertonic and Kareem archives to
-extract their license evidence. npm attribution uses the lockfile and
-version-specific license declarations where the lockfile omits them. Review
+The notice command uses the active r30 Sherpa dependency tree and verifies
+the committed ORT evidence under `src-tauri/licensing/onnxruntime/`. If those
+files are missing, restore them from the checkout. Generation uses the exact
+verified bytes. The command separately downloads the hash-pinned Supertonic
+and Kareem archives as needed to extract their license evidence. npm attribution
+uses the lockfile and version-specific license declarations where the lockfile
+omits them. Review
 the notice diff before committing. Ordinary builds package the committed file.
 
 CI now gates on this equality: the `build-android` job runs the `--check`
@@ -666,6 +669,19 @@ combined-work statement reads:
 > applicable GPL terms. Papercut's original source retains MIT notices; other
 > dependencies retain their notices. Matching corresponding source and build
 > instructions will accompany each release.
+
+ONNX Runtime's exact `LICENSE` and `ThirdPartyNotices.txt` evidence is committed
+under `src-tauri/licensing/onnxruntime/`, recovered from source revision
+`8f0278c77bf44b0cc83c098c6c722b92a36ac4b5`. The original source locations are
+[`LICENSE`](https://github.com/microsoft/onnxruntime/blob/8f0278c77bf44b0cc83c098c6c722b92a36ac4b5/LICENSE)
+and [`ThirdPartyNotices.txt`](https://github.com/microsoft/onnxruntime/blob/8f0278c77bf44b0cc83c098c6c722b92a36ac4b5/ThirdPartyNotices.txt).
+Their SHA-256 hashes remain pinned in `verifyOrtLicenseEvidence()`; generation
+fails if either file is missing or changed. The live Raw URL returned HTTP 404
+during the November 18, 2026 CI investigation, so notice checks now read these exact
+local bytes rather than fetching them. Other source/model preparation still
+uses pinned downloads. When upgrading ORT, review its source revision, both
+evidence files and hashes, the AAR pin, and regenerated notices together.
+CI continues to run `node scripts/android/prepare-license-notices.js --check`.
 
 The source package/notices must actually exist before publication. Preserve exact
 Papercut/native/transitive revisions, build scripts, locks, patches and relevant

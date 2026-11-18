@@ -230,7 +230,9 @@ jobs:
         run: npm ci
 
       - name: Audit npm dependencies
-        run: npm audit --audit-level=high
+        run: |
+          node --test scripts/checks/__tests__/check-npm-audit-selftest.mjs
+          node scripts/checks/check-npm-audit.mjs
 
       - name: Lint policy regression check
         run: npm run test:lint-policy

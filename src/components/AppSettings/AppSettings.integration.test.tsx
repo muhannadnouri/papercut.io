@@ -40,11 +40,12 @@ let container: HTMLDivElement
 let semantic: SemanticSearchController
 function Harness({ completed = false }: { completed?: boolean }) {
   const [searchOpen, setSearchOpen] = useState(false)
+  const [developerMode, setDeveloperMode] = useState(false)
   return <>
     <input aria-label="Query" defaultValue="draft query" />
     {!completed && <button onClick={() => setSearchOpen(true)}>Search Settings</button>}
     <AppSettings eraseBlockedBy={null} searchOpen={searchOpen} onSearchOpenChange={setSearchOpen} semanticSearch={semantic}
-      themeChoice="light" onThemeChange={vi.fn()} developerMode={false} onDeveloperModeChange={vi.fn()} onLibraryImported={vi.fn()} />
+      themeChoice="light" onThemeChange={vi.fn()} developerMode={developerMode} onDeveloperModeChange={setDeveloperMode} onLibraryImported={vi.fn()} />
   </>
 }
 
@@ -130,6 +131,43 @@ function assertNoPreparationStarted() {
   expect(semantic.setEnabled).not.toHaveBeenCalled()
   expect(vi.mocked(invoke).mock.calls.every(([command]) => ['search_embedding_status', 'search_embedding_cache_status'].includes(command))).toBe(true)
 }
+
+it('opens search from its named status row without starting work and refreshes the description on Back', async () => {
+  await act(() => container.querySelector<HTMLButtonElement>('.app-settings-btn')!.focus())
+  await click(container.querySelector('.app-settings-btn')!)
+  const destination = container.querySelector<HTMLButtonElement>('.app-settings-search-action')!
+  expect(document.getElementById(destination.getAttribute('aria-labelledby')!)?.textContent).toBe('settings.semantic.title')
+  expect(document.getElementById(destination.getAttribute('aria-describedby')!)?.textContent).toBe('settings.semantic.summary.needsIndex')
+  expect(container.textContent).not.toContain('settings.semantic.manage')
+  await click(destination)
+  expect(container.querySelector('.app-settings-search-dialog')).not.toBeNull()
+  assertNoPreparationStarted()
+  semantic.index!.indexedDocuments = semantic.index!.eligibleDocuments
+  await click(container.querySelector('[aria-label="common.back"]')!)
+  expect(container.querySelector('#app-settings-search-status')?.textContent).toBe('settings.semantic.summary.ready')
+  await click(container.querySelector('[aria-label="common.close"]')!)
+  expect(document.activeElement).toBe(container.querySelector('.app-settings-btn'))
+})
+
+it('keeps related destinations together and the developer label directly operable', async () => {
+  await click(container.querySelector('.app-settings-btn')!)
+  const data = container.querySelector('.app-settings-data')!
+  expect([...data.querySelectorAll('button')].map(button => button.textContent)).toEqual([
+    'settings.transferLibrary',
+    'settings.erase.open',
+  ])
+  expect(data.querySelector('.app-settings-erase-action')).not.toBeNull()
+  const about = container.querySelector('.app-settings-about')!
+  expect(about.textContent).toContain('settings.legalAndNotices')
+  expect(about.querySelector('.app-settings-version')?.textContent).toBe('settings.version1.9.2')
+  expect(container.querySelector('.app-settings-developer h3')).toBeNull()
+  const developer = container.querySelector<HTMLLabelElement>('.app-setting-toggle')!
+  expect(developer.textContent).toBe('settings.developerMode')
+  await click(developer)
+  expect(developer.querySelector('input')?.checked).toBe(true)
+  expect(container.querySelector('details')).toBeNull()
+  expect(vi.mocked(invoke)).not.toHaveBeenCalled()
+})
 
 it('opens search setup directly, returns to root Settings on Back, then restores the original opener on Close', async () => {
   await openSearch()

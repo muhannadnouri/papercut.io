@@ -350,6 +350,16 @@ bytes are not retained by Papercut.
 
 ### Remaining Dependency Alerts
 
+**November 18, 2026 follow-up (PR #97 branch, pending merge):** commit
+`0c87a3f5` updates the npm lockfile and clears the minimatch audit finding.
+The separate picomatch advisory has a narrowly scoped development dependency
+exception until **December 1, 2026 at 00:00 UTC**; see
+[the audit policy and removal steps](bug-squash-smoke-tests.md#temporary-npm-audit-exception).
+This exception is not a patched-package claim. Verify GitHub alert closure on
+the merged revision. GLib and rand were not re-evaluated in this pass and retain
+the dispositions below. The November 2 findings and registry metadata below
+are historical evidence, not the current npm audit result.
+
 The November 2, 2026 review used `task/patch-vuln-warnings` at `dedd3a66`.
 The branch includes Dependabot #86's exact ZIP lockfile commit followed by the
 application validation fix; this does not merge the dependency PR into `main`.
@@ -629,8 +639,9 @@ not a new CI or complete smoke result.
 ### Current Flow
 
 App Settings owns the entry point because transfer is device-level data
-management rather than another document format. A **Data** section opens a
-dedicated **Transfer Library** dialog organized by the user's role:
+management rather than another document format. The **Library & Data** section has a
+**Transfer Library** destination row that opens a dedicated dialog organized by
+the user's role:
 
 - **Send** presents content selection, then nearby-device selection and pairing,
   and keeps **Save Transfer File** under an expandable fallback on selection;

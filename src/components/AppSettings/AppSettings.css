@@ -51,29 +51,19 @@
   text-align: start;
 }
 
-.app-settings-data {
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
-}
-
-.app-settings-developer {
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
-}
-
+.app-settings-search,
+.app-settings-data,
+.app-settings-developer,
 .app-settings-about {
   padding-top: 0.75rem;
   border-top: 1px solid var(--border);
 }
 
-/* Extra distance keeps this action apart from the benign settings around it. */
-.app-settings-erase {
-  margin-block-start: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
-}
-
+/* Keep reset review distinct from transfer, even within the same data group. */
 .app-settings-data-action.app-settings-erase-action {
+  margin-block-start: 0.25rem;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
   color: var(--danger-strong);
 }
 
@@ -94,7 +84,41 @@
   cursor: pointer;
 }
 
+.app-settings-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  min-height: 3rem;
+  padding: 0.5rem 0.25rem;
+  background: transparent;
+  color: var(--accent-text);
+}
+
+.app-settings-row-copy {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.app-settings-search-summary {
+  text-align: start;
+  color: var(--text-body);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.app-settings-row-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.app-settings-row > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .app-settings-data-icon {
+  flex-shrink: 0;
   width: 1.1rem;
   height: 1.1rem;
   fill: none;
@@ -134,8 +158,45 @@
   overflow-wrap: anywhere;
 }
 
-.app-setting-select {
-  grid-column: 2 / 4;
+.app-settings-dialog .app-setting {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.app-settings-dialog .app-setting > span:first-child {
+  flex: 1 1 5.25rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.app-settings-dialog .app-setting-toggle {
+  flex-wrap: nowrap;
+  min-height: 3rem;
+}
+
+.app-settings-dialog .app-setting-toggle .app-switch {
+  flex: 0 0 2.35rem;
+}
+
+/* Wrap the control when the label and its useful minimum width no longer fit. */
+.app-setting-select,
+.app-theme-cycle,
+.app-setting-control {
+  flex: 1 1 9rem;
+}
+
+.app-setting-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.app-setting-select .app-select-value {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .app-setting-select .app-select-button {
@@ -152,13 +213,12 @@
 }
 
 .app-theme-cycle {
-  grid-column: 2 / 4;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.3rem;
   min-height: 2.35rem;
-  padding: 0 0.75rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
   background: var(--accent);
@@ -248,6 +308,10 @@
     background: var(--surface-accent);
   }
 
+  .app-settings-data-action.app-settings-erase-action:hover {
+    color: var(--danger-strong);
+  }
+
   .app-setting-select .app-select-button:hover:not(:disabled) {
     border-color: transparent;
     background: var(--surface-accent);
@@ -262,22 +326,6 @@
     border-color: transparent;
     background: var(--surface-accent);
     color: var(--accent-text);
-  }
-}
-
-@media (pointer: coarse) {
-  .app-settings-btn {
-    width: 2.75rem;
-    height: 2.75rem;
-    min-width: 2.75rem;
-    min-height: 2.75rem;
-  }
-
-  .app-settings-data-action,
-  .app-theme-cycle,
-  .app-zoom-control button,
-  .app-zoom-reset {
-    min-height: 2.75rem;
   }
 }
 
@@ -297,8 +345,7 @@
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
   color: var(--text-muted);
   font-size: 0.78rem;
 }
@@ -341,7 +388,7 @@
   box-shadow: inset 0 0 0 2px var(--accent);
 }
 
-.app-settings-legal-chevron {
+.app-settings-chevron {
   width: 0.5rem;
   height: 0.5rem;
   border-block-start: 2px solid currentcolor;
@@ -349,7 +396,7 @@
   rotate: 45deg;
 }
 
-[dir='rtl'] .app-settings-legal-chevron {
+[dir='rtl'] .app-settings-chevron {
   rotate: -135deg;
 }
 
@@ -425,19 +472,26 @@
   }
 }
 
-@media (max-width: 420px) {
-  .app-setting {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.35rem;
+@media (pointer: coarse) {
+  .app-settings-btn,
+  .app-settings-dialog .app-dialog-navigation button {
+    min-width: 3rem;
+    min-height: 3rem;
   }
 
-  .app-setting-select,
-  .app-theme-cycle {
-    grid-column: 1;
+  .app-settings-data-action {
+    min-height: 2.75rem;
   }
 
-  .app-setting-toggle {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.75rem;
+  .app-settings-row,
+  .app-setting-select .app-select-button,
+  .app-theme-cycle,
+  .app-zoom-control button,
+  .app-zoom-reset {
+    min-height: 3rem;
+  }
+
+  .app-zoom-control {
+    grid-template-columns: 3rem 3.5rem 3rem;
   }
 }

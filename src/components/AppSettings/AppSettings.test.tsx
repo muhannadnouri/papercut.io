@@ -76,6 +76,10 @@ function elements(node: ReactNode = tree): ReactElement<Record<string, unknown>>
   return Children.toArray(node).flatMap(child => isValidElement<Record<string, unknown>>(child)
     ? [child, ...elements((child.props.children ?? null) as ReactNode)] : [])
 }
+function buttonWithText(text: string) {
+  return elements().find(node => node.type === 'button' && elements(node).some(child =>
+    Children.toArray(child.props.children as ReactNode).includes(text)))!
+}
 beforeEach(() => {
   slots.values = []
   slots.cursor = 0
@@ -96,7 +100,7 @@ it('keeps model/index controls out of general Settings and restores the summary 
   ;(settings.props.onClick as () => void)()
   expect(render()).toContain('settings.semantic.summary.off')
   expect(render()).not.toContain('model-and-index-controls')
-  const manage = elements().find(node => node.type === 'button' && node.props.children === 'settings.semantic.manage')!
+  const manage = elements().find(node => node.props['aria-labelledby'] === 'app-settings-search-title')!
   ;(manage.props.onClick as () => void)()
   expect(render()).toContain('model-and-index-controls')
   const dialog = elements().find(node => node.props.className === 'app-settings-search-dialog')!
@@ -115,7 +119,7 @@ it('uses Close at root and Back one level at a time in legal Settings', () => {
   expect(root.props.showCloseButton).toBe(true)
   expect(root.props.onBack).toBeUndefined()
   expect(root.props.actions).toBeUndefined()
-  const openLegal = () => (elements().find(node => node.type === 'button' && node.props.children === 'settings.legalAndNotices')!.props.onClick as () => void)()
+  const openLegal = () => (buttonWithText('settings.legalAndNotices').props.onClick as () => void)()
   openLegal()
   render()
   ;(elements().find(node => node.props.className === 'app-settings-legal-notice-link')!.props.onClick as () => void)()
@@ -144,7 +148,7 @@ it('closes the search view through its existing dialog cancellation boundary', (
   const button = elements().find(node => node.props['aria-label'] === 'settings.button')!
   ;(button.props.onClick as () => void)()
   render()
-  const manage = elements().find(node => node.type === 'button' && node.props.children === 'settings.semantic.manage')!
+  const manage = elements().find(node => node.props['aria-labelledby'] === 'app-settings-search-title')!
   ;(manage.props.onClick as () => void)()
   render()
   const dialog = elements().find(node => node.props.className === 'app-settings-search-dialog')!
@@ -169,13 +173,13 @@ it('separates transfer Back to Settings from closing the entire flow', () => {
   const openTransfer = () => {
     ;(elements().find(node => node.props['aria-label'] === 'settings.button')!.props.onClick as () => void)()
     render()
-    ;(elements().find(node => node.type === 'button' && Children.toArray(node.props.children as ReactNode).includes('settings.transferLibrary'))!.props.onClick as () => void)()
+    ;(buttonWithText('settings.transferLibrary').props.onClick as () => void)()
     render()
     return elements().find(node => node.props.onImported)!
   }
   ;(openTransfer().props.onBack as () => void)()
   expect(render()).toContain('settings.title')
-  ;(elements().find(node => node.type === 'button' && Children.toArray(node.props.children as ReactNode).includes('settings.transferLibrary'))!.props.onClick as () => void)()
+  ;(buttonWithText('settings.transferLibrary').props.onClick as () => void)()
   render()
   ;(elements().find(node => node.props.onImported)!.props.onClose as () => void)()
   expect(render()).not.toContain('settings.title')

@@ -184,7 +184,7 @@ export function AppSettings({
                   onClick={() => setSelectedLegalNotice(notice.id)}
                 >
                   <span>{notice.title}</span>
-                  <span className="app-settings-legal-chevron" aria-hidden="true" />
+                  <span className="app-settings-chevron" aria-hidden="true" />
                 </button>
               ))}
             </nav>
@@ -207,12 +207,12 @@ export function AppSettings({
 
       {open && !searchOpen && !legalNoticesOpen && !eraseOpen && (
         <AppDialog
-          key="general" fallbackFocusRef={settingsButton} title={t('settings.title')}
+          key="general" className="app-settings-dialog" fallbackFocusRef={settingsButton} title={t('settings.title')}
           showCloseButton
           onCancel={closeSettings}
         >
-          <section className="app-settings-section" aria-labelledby="app-settings-appearance">
-            <h3 id="app-settings-appearance">{t('settings.appearance')}</h3>
+          <section className="app-settings-section" aria-labelledby="app-settings-preferences">
+            <h3 id="app-settings-preferences">{t('settings.preferences')}</h3>
 
             <div className="app-setting">
               <span id="app-setting-language">{t('settings.language')}</span>
@@ -248,63 +248,88 @@ export function AppSettings({
             {zoom.supported && (
               <div className="app-setting">
                 <span id="app-setting-zoom">{t('settings.zoom')}</span>
-                <div className="app-zoom-control" role="group" aria-labelledby="app-setting-zoom">
-                  <button
-                    type="button"
-                    aria-label={t('settings.zoomDecrease')}
-                    title={t('settings.zoomDecrease')}
-                    disabled={zoom.value <= MIN_ZOOM}
-                    onClick={() => zoom.setValue(zoom.value - ZOOM_STEP)}
-                  >
-                    &minus;
-                  </button>
-                  <output aria-live="polite">{zoom.value}%</output>
-                  <button
-                    type="button"
-                    aria-label={t('settings.zoomIncrease')}
-                    title={t('settings.zoomIncrease')}
-                    disabled={zoom.value >= MAX_ZOOM}
-                    onClick={() => zoom.setValue(zoom.value + ZOOM_STEP)}
-                  >
-                    +
-                  </button>
+                <div className="app-setting-control">
+                  <div className="app-zoom-control" role="group" aria-labelledby="app-setting-zoom">
+                    <button
+                      type="button"
+                      aria-label={t('settings.zoomDecrease')}
+                      title={t('settings.zoomDecrease')}
+                      disabled={zoom.value <= MIN_ZOOM}
+                      onClick={() => zoom.setValue(zoom.value - ZOOM_STEP)}
+                    >
+                      &minus;
+                    </button>
+                    <output aria-live="polite">{zoom.value}%</output>
+                    <button
+                      type="button"
+                      aria-label={t('settings.zoomIncrease')}
+                      title={t('settings.zoomIncrease')}
+                      disabled={zoom.value >= MAX_ZOOM}
+                      onClick={() => zoom.setValue(zoom.value + ZOOM_STEP)}
+                    >
+                      +
+                    </button>
+                  </div>
+                  {zoom.value !== DEFAULT_ZOOM && (
+                    <button className="app-zoom-reset" type="button" onClick={() => zoom.setValue(DEFAULT_ZOOM)}>
+                      {t('settings.zoomReset')}
+                    </button>
+                  )}
                 </div>
-                {zoom.value !== DEFAULT_ZOOM && (
-                  <button className="app-zoom-reset" type="button" onClick={() => zoom.setValue(DEFAULT_ZOOM)}>
-                    {t('settings.zoomReset')}
-                  </button>
-                )}
               </div>
             )}
           </section>
+
+          {tauriRuntime && (
+            <section className="app-settings-section app-settings-search" aria-labelledby="app-settings-search">
+              <h3 id="app-settings-search">{t('settings.search')}</h3>
+              <button
+                type="button"
+                className="app-settings-data-action app-settings-row app-settings-search-action"
+                aria-labelledby="app-settings-search-title"
+                aria-describedby="app-settings-search-status"
+                onClick={() => setSearchOpen(true)}
+              >
+                <span className="app-settings-row-copy">
+                  <span id="app-settings-search-title">{t('settings.semantic.title')}</span>
+                  <span id="app-settings-search-status" className="app-settings-search-summary">
+                    {t(`settings.semantic.summary.${semanticSearchStatus(semanticSearch)}`)}
+                  </span>
+                </span>
+                <span className="app-settings-chevron" aria-hidden="true" />
+              </button>
+            </section>
+          )}
 
           {tauriRuntime && (
             <section className="app-settings-section app-settings-data" aria-labelledby="app-settings-data">
               <h3 id="app-settings-data">{t('settings.data')}</h3>
               <button
                 type="button"
-                className="app-settings-data-action"
+                className="app-settings-data-action app-settings-row"
                 onClick={() => {
                   setOpen(false)
                   setTransferOpen(true)
                 }}
               >
-                <TransferIcon />
-                {t('settings.transferLibrary')}
+                <span className="app-settings-row-label"><TransferIcon />{t('settings.transferLibrary')}</span>
+                <span className="app-settings-chevron" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="app-settings-data-action app-settings-row app-settings-erase-action"
+                onClick={() => setEraseOpen(true)}
+              >
+                <span className="app-settings-row-label">
+                  <TrashIcon className="app-settings-data-icon" />
+                  {t('settings.erase.open')}
+                </span>
+                <span className="app-settings-chevron" aria-hidden="true" />
               </button>
             </section>
           )}
 
-          {tauriRuntime && <section className="app-settings-section app-settings-data" aria-labelledby="app-settings-search">
-            <h3 id="app-settings-search">{t('settings.semantic.title')}</h3>
-            <p className="app-settings-search-summary">{t(`settings.semantic.summary.${semanticSearchStatus(semanticSearch)}`)}</p>
-            <button type="button" className="app-settings-data-action" onClick={() => setSearchOpen(true)}>
-              {t('settings.semantic.manage')}
-            </button>
-          </section>}
-
-          <section className="app-settings-section app-settings-developer" aria-labelledby="app-settings-developer">
-            <h3 id="app-settings-developer">{t('settings.developer')}</h3>
+          <div className="app-settings-developer">
             <label className="app-setting app-setting-toggle">
               <span>{t('settings.developerMode')}</span>
               <span className="app-switch">
@@ -316,37 +341,23 @@ export function AppSettings({
                 <span aria-hidden="true" />
               </span>
             </label>
-          </section>
-
-          {tauriRuntime && (
-            <section className="app-settings-section app-settings-erase" aria-labelledby="app-settings-erase">
-              <h3 id="app-settings-erase">{t('settings.erase.section')}</h3>
-              <button
-                type="button"
-                className="app-settings-data-action app-settings-erase-action"
-                onClick={() => setEraseOpen(true)}
-              >
-                <TrashIcon className="app-settings-data-icon" />
-                {t('settings.erase.open')}
-              </button>
-            </section>
-          )}
+          </div>
 
           <section className="app-settings-section app-settings-about" aria-labelledby="app-settings-about">
             <h3 id="app-settings-about">{t('settings.about')}</h3>
             <button
               type="button"
-              className="app-settings-data-action"
+              className="app-settings-data-action app-settings-row"
               onClick={() => setLegalNoticesOpen(true)}
             >
-              {t('settings.legalAndNotices')}
+              <span>{t('settings.legalAndNotices')}</span>
+              <span className="app-settings-chevron" aria-hidden="true" />
             </button>
+            <div className="app-settings-version">
+              <span>{t('settings.version')}</span>
+              <strong>{versionLabel}</strong>
+            </div>
           </section>
-
-          <div className="app-settings-version">
-            <span>{t('settings.version')}</span>
-            <strong>{versionLabel}</strong>
-          </div>
         </AppDialog>
       )}
 

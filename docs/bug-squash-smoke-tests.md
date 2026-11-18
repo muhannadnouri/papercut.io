@@ -75,7 +75,7 @@ disposable data only. Desktop dev and release builds share one profile, so on Li
 macOS, then Android and iOS. Record untested platforms explicitly.
 
 1. Import a PDF with recognized text, an EPUB and a folder. Add a bookmark, save an
-   audiobook, install a voice and change the theme. Open Settings > Reset App Data > Review Data to
+   audiobook, install a voice and change the theme. Open Settings > Library & Data > Review Data to
    Erase. Expect a spinner and message until the summary loads.
    Expect correct counts and total size, and a disabled **Erase Everything** button. On
    desktop, expect both folder paths to be correct, selectable and left to right. On
@@ -117,3 +117,26 @@ Record failures with reproduction steps and exported diagnostics before further
 changes. This checklist closes the review-fix smoke pass only; broader performance,
 platform, accessibility, and release gates in [play-anywhere.md](play-anywhere.md)
 remain subject to their own acceptance evidence.
+
+## Settings layout
+
+Check Settings with large text, landscape, RTL, and TalkBack on Android; verify
+destination names, focus, scrolling, and touch targets. On desktop, check Zoom and
+Reset alignment. Verify search consent/status, transfer Back, and erase Cancel.
+Local browser checks used mocked native calls; installed-device acceptance remains
+pending.
+
+## Temporary npm audit exception
+
+The CI npm audit checks the full dependency tree. Until December 1, 2026 at
+00:00 UTC, the gate accepts only
+[GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) for
+the transitive development copy of `picomatch` 4.0.7 and findings caused solely
+by it. CI prints the full report. Other high or critical findings still fail
+the job. GitHub listed no patched release when the exception was added, and
+the production dependency audit reported zero vulnerabilities.
+
+When a compatible patched release ships, update the lockfile, verify
+`npm audit --audit-level=high`, and restore the direct audit command in CI.
+Remove the temporary checker and its self-test at the same time. If the
+advisory is still active at expiry, the gate fails again.
