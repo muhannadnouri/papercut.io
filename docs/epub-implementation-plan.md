@@ -392,6 +392,143 @@ and verify that the header has no empty control. For touch discovery, ask a firs
 reader to “jump to Chapter 4” without naming the icon. Record whether they find it unaided.
 Report any device, assistive-technology, performance, or usability checks still outstanding.
 
+## Heading outline for uploaded HTML
+
+**Status.** Stages 1–4 and automated stage 5 verification are complete. HTML
+Contents follows section ordinals in the active article, and EPUB Contents follows
+publisher fragments. Switching uploads while the dialog is open dismisses the old
+list even when both uploads reuse ordinals. Installed WebView and audible playback
+acceptance remain with the manual checks below.
+
+An HTML upload can supply its own navigation through the semantic headings in its
+sanitized reading copy. Show the existing icon-only **Table of Contents** button beside
+Find when the article has at least two usable headings, counting nested entries.
+Skip headings inside navigation regions. Compute the list in the reader so an existing
+or restored upload can use it the next time it opens. The stored publisher outline
+remains authoritative for EPUB, including when it contains just one entry.
+
+1. **Define eligibility and lock down the examples.** In the viewer tests, distinguish
+   an uploaded HTML document using the upload URL check and HTML source format.
+   EPUB uploads also have HTML reader URLs, and bundled pages use the HTML viewer.
+   Cover zero headings, one usable heading plus several navigation headings, and
+   two usable headings with one nested inside the other's outline entry. Only the
+   last HTML case gets the button. Retain coverage for EPUBs with and without an
+   authored outline and for switching to bundled content or PDF.
+
+2. **Build the heading tree from the mounted article.** Read native `h1` through
+   `h6` elements in document order. For each, collapse whitespace in its text content,
+   require a nonempty label and a valid existing `data-papercut-section` ordinal,
+   and exclude navigation ancestors. Check native `nav` and the sanitized tokens
+   `role="navigation"`, `role="doc-toc"`, and `epub:type="toc"` by token membership.
+   Keep legitimate headings such as “References”. Attach each entry to the nearest
+   preceding heading of smaller rank, or to the root when there is none. An
+   `h2, h4, h2` sequence produces two siblings with one child under the first.
+   Test inline markup, RTL text, empty labels, missing locators and repeated labels.
+   Two “Examples” headings with different ordinals must remain independently selectable.
+   The [HTML importer](../src-tauri/src/document_uploads/html/parser.rs) already
+   assigns those ordinals. Reading them avoids rewriting HTML or generating IDs.
+
+3. **Connect collection to the reader lifecycle.** Collect once when the eligible
+   document's content is mounted. Bind the result to the loaded document and content
+   so a switch or failed load cannot display the previous list or jump to the same
+   ordinal in another document. Opening the dialog, typing in Find, and playback
+   updates should reuse the list. Keep collection scoped to the article so dialog
+   labels and app headings never appear. Exercise fast switches between two uploads
+   that reuse ordinals, including while Contents is open.
+
+4. **Reuse the dialog and destination handling.** Let the caller of
+   [DocumentOutline](../src/components/DocumentViewer/DocumentOutline.tsx) interpret
+   the selected target. Keep fragment construction and lookup with the EPUB caller.
+   For HTML, use the existing [section selector and scroll helper](../src/components/DocumentViewer/readerTarget.ts)
+   against the active reader, then return the destination element to the dialog's
+   existing focus handling. Retain browse-during-playback behavior. Verify keyboard
+   selection lands on the second of two identically named headings below the header,
+   the app URL stays stable, and Escape returns focus to Contents without moving the
+   passage. Render the list only while open. This stage needs no package dependency,
+   sidecar, database migration, or transfer-format change.
+
+5. **Verify import, restore, and cost before release.** Run the focused viewer and
+   reader-target tests and `npm run build:typecheck`. In a desktop build, import an
+   HTML file with nested headings without IDs, a navigation heading, and a working
+   fragment link. Open Contents, jump by keyboard, follow the authored link, use
+   Find, set and reopen a bookmark, and browse during narration. Restore the upload
+   into a fresh library and repeat the jump. Recheck the EPUB publisher fixture.
+   Measure reader-open time before and after the change on the same device with a
+   long document containing few headings and another containing thousands. Measure
+   first Contents open separately and record file size, heading count, and runtime.
+   Review the measurements before proposing a cap or virtualization.
+
+**Acceptance example.** An upload with a menu heading and two body headings named
+“Setup” shows exactly two entries. Selecting the second focuses the second body
+heading, including after transfer and restore. An upload with only the menu and one
+body heading opens with no Contents button.
+
+### Stage 5 verification
+
+The [HTML fixture](../scripts/fixtures/reader/html-outline.html) has repeated Setup
+headings without IDs, a line break and inline emphasis in “Trail supplies”, a menu
+heading, and a second Setup inside two initially closed disclosures.
+The native test imports it through the upload command, writes and reopens the normal
+v1 transfer ZIP, restores to a separate library, and checks the reader response on
+both sides against the [same fixture response](../scripts/fixtures/reader/html-outline.reader.json).
+Neither library needs an outline sidecar. Chromium consumes that response directly
+and verifies the four expected entries, Escape, keyboard selection of the second
+Setup, expansion of both disclosures before scroll and focus, and Find for “ranger”.
+The authored-link check returns to the menu, verifies the river paragraph is offscreen,
+then clicks its link and waits for that paragraph to land below the header.
+
+The stage 5 release AppImage also opened the original HTML fixture in an isolated
+Wayland session and wrote the expected river passage to its private library. Packaged UI navigation
+and audible playback remain manual checks.
+
+After the disclosure and label fixes, the Rust library suite passed 311 tests with
+four ignored. All 104 selected reader
+and browser tests passed, including EPUB navigation, bookmark save and return, and
+browsing during playback. Browser playback tests exercise controls and state. Actual
+speech output is part of the installed-app check.
+
+**Large HTML timings.** Headless Chromium 157 on CachyOS, Intel Core Ultra 5 325,
+1200 × 600 viewport. Each input contained 12,000 indexed blocks with short repeated
+passage text. Every 1,500th or fourth block was an h2. Five fresh Chromium processes
+per build and input reused the benchmark profile; build order alternated between trials.
+Times below are median milliseconds, with observed min–max in parentheses.
+
+| Headings | Reader HTML bytes | Reader open on main, 9e5422b8 | Reader open on stage 4, 4065882 | First Contents open on stage 4 |
+| ---: | ---: | ---: | ---: | ---: |
+| 8 | 1,429,796 | 386 (374–437) | 388 (384–410) | 43 (33–51) |
+| 3,000 | 1,435,780 | 404 (384–417) | 396 (386–400) | 181 (170–189) |
+
+The production React fixture timed mount through the animation frame after the last
+paragraph appeared. It timed first trigger click through the frame after the dialog
+appeared and checked the rendered entry count. Source HTML was already in memory;
+these measurements exclude file import, native IPC, and app startup. The reader-open
+ranges overlap. Rendering 3,000 buttons added a noticeable first-open delay. Keep
+the complete list for now; measure a representative long document on the slowest
+supported device before deciding whether the dialog needs a rendering change.
+
+**Manual acceptance in the installed app**
+
+1. Close any running Papercut instance, launch the rebuilt AppImage and import the revised
+   HTML fixture above. Open Contents beside Find. Expect **Trail field guide**, **Setup**,
+   **Trail supplies**, **Setup** in that order, with Trail supplies nested
+   under the first Setup. “Trail menu” should appear only in the document.
+2. Press Escape and check focus returns to Contents without moving the passage.
+   Leave **River crossing** and **Arrival** collapsed. Reopen Contents with the keyboard
+   and select the second Setup. Both disclosures should open and the heading should
+   receive focus below the header, above “Meet the ranger at the river.” Return to the
+   menu at the top and select **Jump to the river**. The river paragraph should land
+   below the header. Use Find for “ranger”.
+3. Save a bookmark at the river passage, close the reader and return to the bookmark.
+   With narration playing elsewhere, select the second Setup. Check that audio keeps
+   playing at its original passage and **Return to audio** brings reading focus back.
+   A narrow window or larger reader font makes passage changes easier to see.
+4. Export and restore into an empty test library or a second device. Reopen the HTML
+   document and repeat the second Setup jump. Open the [EPUB publisher fixture](../scripts/fixtures/epub/publisher-outline-3.epub)
+   and verify **Low trail** still goes to “Evening in the valley”.
+5. On a lower-powered device, try a large HTML upload if available. Check the first
+   Contents open and keyboard or touch responsiveness. Record device, document size,
+   and heading count if there is a noticeable stall.
+
 ## Remaining Follow-Ups
 
 1. Keep durable metadata changes as explicit schema migrations; cover metadata introduced schema version 3 without rebuilding existing search or organization rows.

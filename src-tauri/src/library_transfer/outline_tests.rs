@@ -15,7 +15,7 @@ fn library(root: &Path) -> tauri::App<tauri::test::MockRuntime> {
         .unwrap()
 }
 
-/// An image-free fixture makes the outline the only reason to select v5.
+/// Image-free HTML stays on v1; an EPUB publisher outline selects v5.
 /// Reopen the written ZIP so restore sees exactly what a recipient would receive.
 fn export_book(
     sender: &tauri::AppHandle<tauri::test::MockRuntime>,
@@ -39,7 +39,10 @@ fn export_book(
         organization: TransferOrganization::default(),
         audiobooks: vec![],
     };
-    assert_eq!(manifest.schema_version, 5);
+    assert_eq!(
+        manifest.schema_version,
+        if book.format == "html" { 1 } else { 5 }
+    );
     let mut zip = Cursor::new(Vec::new());
     write_package(&mut zip, &manifest, |path| {
         if path == document_outline_path(&book.id) {
@@ -242,6 +245,57 @@ fn publisher_body_unicode_and_named_anchors_survive_transfer() {
         assert!(dom.select_first("a[href='#chapter-0']").is_ok());
         assert_eq!(legacy.target.as_deref(), Some("ch0-legacy"));
         assert!(dom.select_first("a[name='ch0-legacy']").is_ok());
+    }
+    fs::remove_dir_all(root).unwrap();
+}
+
+/// HTML rebuilds Contents from reader DOM locators. Exercise both libraries so
+/// losing a heading, its nesting rank, or its destination during restore fails here.
+#[test]
+fn html_heading_locators_survive_file_transfer_without_a_sidecar() {
+    let root = std::env::temp_dir().join(format!(
+        "papercut-html-outline-{}-{}",
+        std::process::id(),
+        now_ms().unwrap()
+    ));
+    let sender = library(&root.join("sender"));
+    let recipient = library(&root.join("recipient"));
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/fixtures/reader/html-outline.html");
+    let imported = tauri::async_runtime::block_on(commands::document_uploads_import_paths(
+        sender.handle().clone(),
+        sender.state(),
+        serde_json::from_value(serde_json::json!({"paths":[fixture]})).unwrap(),
+    ))
+    .unwrap();
+    let [book] = imported.imported.as_slice() else {
+        panic!("import failed: {:?}", imported.failures)
+    };
+    assert_eq!(book.format, "html");
+    let (mut archive, document) = export_book(sender.handle(), book, None);
+    assert!(document.outline.is_none());
+    assert!(
+        restore_document(recipient.handle(), &mut archive, &document, &HashSet::new()).unwrap()
+    );
+
+    for app in [&sender, &recipient] {
+        let source = tauri::async_runtime::block_on(commands::document_uploads_get_source(
+            app.handle().clone(),
+            serde_json::from_value(serde_json::json!({"documentUrl":book.url})).unwrap(),
+            Some(true),
+        ))
+        .unwrap();
+        assert!(source.outline.is_empty());
+        assert!(!upload_dir(app.handle(), &book.id)
+            .unwrap()
+            .join(crate::document_uploads::OUTLINE_FILE_NAME)
+            .exists());
+        // The browser test opens this exact response, including the recipient's section ordinals.
+        let expected: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../scripts/fixtures/reader/html-outline.reader.json"
+        ))
+        .unwrap();
+        assert_eq!(serde_json::to_value(source).unwrap(), expected);
     }
     fs::remove_dir_all(root).unwrap();
 }

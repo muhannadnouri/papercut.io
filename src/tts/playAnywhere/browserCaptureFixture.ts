@@ -36,7 +36,7 @@ if (process.env.CI && !browser) {
   throw new Error('Viewport capture tests require Chrome/Chromium; set CHROME_BIN.')
 }
 
-export async function runBrowserFixture(directory: string, frame: string, width = 620, screenshotPath?: string, accessibilityPath?: string) {
+export async function runBrowserFixture(directory: string, frame: string, width = 620, screenshotPath?: string, accessibilityPath?: string, keys?: ('Enter' | 'Tab' | 'Escape')[]) {
   // A DevTools pipe waits for real asynchronous layout; dump-dom virtual time can stop between RAFs.
   const child = spawn(browser!, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-background-networking',
     '--allow-file-access-from-files', '--disable-dev-shm-usage', '--no-first-run', '--remote-debugging-pipe',
@@ -116,6 +116,31 @@ export async function runBrowserFixture(directory: string, frame: string, width 
     }, sessionId)
     await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.captureResult=new Promise(resolve=>{addEventListener('message',({data})=>{if(data?.type==='capture-result')resolve(JSON.stringify(data.result))});addEventListener('error',event=>resolve(JSON.stringify({error:event.message})));addEventListener('unhandledrejection',event=>resolve(JSON.stringify({error:String(event.reason)})))});` }, sessionId)
     await send('Page.navigate', { url: pathToFileURL(frame).href }, sessionId)
+    if (keys) {
+      // Foreground the page before waiting on its animation frames.
+      await send('Page.bringToFront', {}, sessionId)
+      // The fixture focuses its starting control after React mounts. Trusted key events
+      // exercise native button activation and tab order in the browser.
+      await send('Runtime.evaluate', {
+        expression: '(async () => { while (!window.keyboardReady) await new Promise(requestAnimationFrame); await window.keyboardReady })()',
+        awaitPromise: true,
+      }, sessionId)
+      for (const key of keys) {
+        for (const type of ['keyDown', 'keyUp']) {
+          await send('Input.dispatchKeyEvent', {
+            text: type === 'keyDown' && key === 'Enter' ? '\r' : undefined,
+            type,
+            key,
+            code: key,
+            windowsVirtualKeyCode: {
+              Enter: 13,
+              Tab: 9,
+              Escape: 27,
+            }[key],
+          }, sessionId)
+        }
+      }
+    }
     const evaluated = await send('Runtime.evaluate', {
       expression: 'window.captureResult',
       awaitPromise: true,

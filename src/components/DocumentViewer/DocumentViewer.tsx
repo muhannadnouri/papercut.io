@@ -22,6 +22,8 @@ import { ScrollTopButton } from '../ScrollTopButton/ScrollTopButton'
 import { ReaderSettings } from '../ReaderSettings/ReaderSettings'
 import { useReaderSettings } from '../ReaderSettings/useReaderSettings'
 import { ExternalLinkPrompt } from '../ExternalLinkPrompt/ExternalLinkPrompt'
+import { isUploadedHtmlDocumentUrl } from '../../uploads/DocumentUploads'
+import { useHtmlOutline } from './useHtmlOutline'
 import { DocumentOutline } from './DocumentOutline'
 import { ReaderBookmarkButton } from './ReaderBookmarkButton'
 import {
@@ -124,6 +126,9 @@ export function DocumentViewer({
   const fullscreenPointerActivityRef = useRef(0)
   const fullscreenTouchStartRef = useRef<(PointerPosition & { id: number }) | null>(null)
   const plugin = resolveViewer(url, format)
+  const htmlUploadReady = format === 'html' && isUploadedHtmlDocumentUrl(url) && !loading && !loadError
+  const htmlOutline = useHtmlOutline(htmlUploadReady ? url : undefined, content)
+  const readerOutline = format === 'epub' ? outline : htmlOutline.entries
   const getTextTargetViewport = useCallback(() => {
     const shell = readerShellRef.current
     return shell ? readerTextViewport(shell) : null
@@ -423,6 +428,19 @@ export function DocumentViewer({
     return target
   }, [onReaderBrowse])
 
+  function navigateOutline(target: string) {
+    if (format === 'epub') {
+      return scrollToHash('#' + target)
+    }
+    const selector = readerSectionSelector(Number(target))
+    const section = selector && readerRef.current?.querySelector<HTMLElement>(selector)
+    if (section) {
+      onReaderBrowse?.()
+      scrollToReaderElement(section)
+      return section
+    }
+  }
+
   useEffect(() => {
     if (plugin.id === 'pdf' || loading || loadError || !content || !searchTarget) {
       return
@@ -608,8 +626,8 @@ export function DocumentViewer({
             {plugin.id !== 'pdf' && (
               <ReaderSettings disabled={loading} {...readerSettingsProps} />
             )}
-            {format === 'epub' && !loading && !loadError && outline && outline.length > 0 && (
-              <DocumentOutline entries={outline} onNavigate={scrollToHash} />
+            {!loading && !loadError && readerOutline && readerOutline.length > 0 && (
+              <DocumentOutline entries={readerOutline} onNavigate={navigateOutline} />
             )}
             <button
               className="find-btn"
@@ -687,6 +705,7 @@ export function DocumentViewer({
               format={format}
               content={content}
               contentRef={readerRef}
+              htmlBodyRef={htmlOutline.bodyRef}
               toolbarTarget={viewerToolbarTarget}
               searchTarget={searchTarget}
               pdfTtsHighlightSpans={pdfTtsHighlightSpans}

@@ -78,7 +78,7 @@ beforeAll(async () => {
         }, []);
         const active = ['playing','paused','loading'].includes(status);
         return <DocumentViewer
-        url="fixture.html" format={book?'epub':'html'} outline={book?.outline}
+        url={book?.url ?? "fixture.html"} format={book?.format ?? (book?'epub':'html')} outline={book?.outline}
         onReaderBrowse={book?()=>{window.browseCount=(window.browseCount||0)+1}:undefined}
         content={book?book.html:tools?'<p>Synthetic reader text remains readable while its tools stay compact.</p>'.repeat(60):'<p>Synthetic header layout.</p>'}
         className={active?'app-audio-floating':''}
@@ -197,7 +197,79 @@ afterAll(() => {
     })
   }
 })
-describe.skipIf(!browser)('Reader controls in Chromium', () => {
+// Let the capture helper's 15-second deadline and browser cleanup finish before the next case uses its profile.
+describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, () => {
+  it('selects the second matching HTML heading by keyboard and cancels back to Contents', async () => {
+    const frame = join(directory, 'html-contents.html')
+    const restored = readFileSync('scripts/fixtures/reader/html-outline.reader.json', 'utf8')
+    writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css}
+      .document-html-content h2{margin-top:100vh}.document-html-content{padding-bottom:120vh}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      const paint=()=>new Promise(requestAnimationFrame);
+      window.keyboardReady=(async()=>{
+        await ReaderControls.mountHeader('en',false,'idle',true,false,{url:'/uploads/ab.html',format:'html',
+          ...${restored}});
+        while(!document.querySelector('.document-outline-trigger')) await paint();
+        const trigger=document.querySelector('.document-outline-trigger');
+        const url=location.href;
+        const disclosures=[...document.querySelectorAll('article details')];
+        const initiallyClosed=disclosures.length===2 && disclosures.every(el=>!el.open);
+        trigger.focus();
+        let cancelled=false, labels=[];
+        document.addEventListener('keydown', event=>{
+          if(event.key==='Escape') labels=[...document.querySelectorAll('.document-outline-dialog nav button')].map(el=>el.textContent);
+          if(event.key==='Enter' && event.target===trigger && trigger.dataset.opened) {
+            cancelled=!document.querySelector('[role=dialog]') && scrollY===0;
+          }
+          if(event.key==='Enter' && event.target===trigger) trigger.dataset.opened='1';
+        });
+        document.addEventListener('focusin',async event=>{
+          if(!event.target.matches('article h2')) return;
+          const heading=event.target;
+          const headerBottom=()=>document.querySelector('.doc-header').getBoundingClientRect().bottom;
+          const atDestination=el=>{
+            const top=el.getBoundingClientRect().top;
+            return top>=headerBottom()-1 && Math.abs(top-120)<2;
+          };
+          const waitForJump=async el=>{
+            const deadline=performance.now()+2000;
+            while(!atDestination(el) && performance.now()<deadline) await paint();
+            return atDestination(el);
+          };
+          const reached=await waitForJump(heading), browse=window.browseCount;
+          const revealed=initiallyClosed && disclosures.every(el=>el.open) && document.activeElement===heading;
+          const river=document.getElementById('river');
+          const link=document.querySelector('article nav a[href="#river"]');
+          link.scrollIntoView({block:'center',behavior:'instant'});
+          const startedAway=river.getBoundingClientRect().top>innerHeight;
+          link.click();
+          const followed=startedAway && await waitForJump(river) && window.browseCount>browse && location.href===url;
+          document.querySelector('.find-btn').click();
+          await paint();
+          const input=document.querySelector('.find-input');
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'ranger');
+          input.dispatchEvent(new Event('input',{bubbles:true}));
+          const findDeadline=performance.now()+2000;
+          while(!CSS.highlights.get('find-match')?.size && performance.now()<findDeadline) await paint();
+          parent.postMessage({type:'capture-result',result:{labels,passage:heading.nextElementSibling.textContent,visible:reached,revealed,
+            followed,found:CSS.highlights.get('find-match')?.size,cancelled,closed:!document.querySelector('[role=dialog]'),stableUrl:url===location.href,browse}},'*');
+        });
+      })();</script>`)
+    const result = await runBrowserFixture(directory, frame, 1000, undefined, undefined, ['Enter', 'Escape', 'Enter', 'Tab', 'Tab', 'Tab', 'Tab', 'Enter'])
+    expect(result).toEqual({
+      labels: ['Trail field guide', 'Setup', 'Trail supplies', 'Setup'],
+      passage: 'Meet the ranger at the river.',
+      revealed: true,
+      followed: true,
+      found: 1,
+      visible: true,
+      cancelled: true,
+      closed: true,
+      stableUrl: true,
+      browse: 1,
+    })
+  })
+
   it.each([
     [320, 24, 'ar'], [1200, 16, 'en'],
   ] as const)('navigates EPUB Contents at %ipx and %ipx text (%s)', async (width, font, locale) => {
