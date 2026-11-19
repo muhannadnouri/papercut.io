@@ -93,6 +93,7 @@ export interface ViewerProps {
   format?: string
   content?: string
   contentRef?: React.RefObject<HTMLElement | null>
+  htmlBodyRef?: (body: HTMLDivElement | null) => void
   toolbarTarget?: HTMLElement | null
   searchTarget?: SearchOpenTarget | null
   audioFollowPolicy?: AudioFollowPolicy

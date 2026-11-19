@@ -13,6 +13,7 @@ export const HtmlViewer = memo(function HtmlViewer({
   url,
   content,
   contentRef,
+  htmlBodyRef,
   onBookmarkApiChange,
   onTextTargetApiChange,
   getTextTargetViewport,
@@ -70,7 +71,7 @@ export const HtmlViewer = memo(function HtmlViewer({
       lang={document.language}
       dir={document.direction}
     >
-      <div className="document-html-content" dangerouslySetInnerHTML={body} />
+      <div ref={htmlBodyRef} className="document-html-content" dangerouslySetInnerHTML={body} />
     </article>
   )
 })

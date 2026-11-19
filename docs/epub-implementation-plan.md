@@ -394,13 +394,15 @@ Report any device, assistive-technology, performance, or usability checks still 
 
 ## Heading outline for uploaded HTML
 
-**Status.** Stages 1 and 2 are complete. The [heading collector](../src/components/DocumentViewer/htmlOutline.ts)
-reads the article without changing its markup and returns a nested tree once two usable
-headings qualify. Its three DOM tests pass, including navigation token lists, a skipped
-rank, duplicate labels with distinct ordinals, and a nested heading that meets the
-threshold. The focused run passed nine tests with one expected stage 1 failure:
-the viewer still hides Contents for eligible HTML. Stage 3 connects collection to the
-reader lifecycle. Stage 4 wires the header and jump behavior.
+**Status.** Stages 1–3 are complete. The [heading collector](../src/components/DocumentViewer/htmlOutline.ts)
+runs when the sanitized body of a ready HTML upload mounts or its source changes.
+The [lifecycle test](../src/components/DocumentViewer/useHtmlOutline.test.tsx) mounts
+the HTML viewer and checks the first commit after switching URLs or replacing content
+at the same URL. Old entries disappear even when both sources use ordinal zero.
+Unrelated renders reuse the entries, and leaving the ready source clears them.
+The focused run passed ten tests with one expected stage 1 failure: the header
+still hides Contents for eligible HTML. Stage 4 connects the header and jump behavior
+and can exercise a document switch while the HTML Contents dialog is open.
 
 An HTML upload can supply its own navigation through the semantic headings in its
 sanitized reading copy. Show the existing icon-only **Table of Contents** button beside
