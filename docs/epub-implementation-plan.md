@@ -394,13 +394,13 @@ Report any device, assistive-technology, performance, or usability checks still 
 
 ## Heading outline for uploaded HTML
 
-**Status.** Stage 1 eligibility tests are in place. The focused viewer and reader-target
-run passed six tests and reproduced one expected failure: an uploaded HTML article
-with two usable headings renders, but the header still hides Contents. Keep that
-assertion active through reader integration. The zero-heading and navigation-heading
-cases currently pass with the HTML button hidden; verify them again once it can appear.
-The format-switch test covers the shared header with a mocked viewer registry.
-Stage 2 starts with heading extraction and tree tests.
+**Status.** Stages 1 and 2 are complete. The [heading collector](../src/components/DocumentViewer/htmlOutline.ts)
+reads the article without changing its markup and returns a nested tree once two usable
+headings qualify. Its three DOM tests pass, including navigation token lists, a skipped
+rank, duplicate labels with distinct ordinals, and a nested heading that meets the
+threshold. The focused run passed nine tests with one expected stage 1 failure:
+the viewer still hides Contents for eligible HTML. Stage 3 connects collection to the
+reader lifecycle. Stage 4 wires the header and jump behavior.
 
 An HTML upload can supply its own navigation through the semantic headings in its
 sanitized reading copy. Show the existing icon-only **Table of Contents** button beside

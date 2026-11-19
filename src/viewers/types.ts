@@ -2,7 +2,7 @@ import type React from 'react'
 import type { PdfTtsSourceSpan } from '../tts/types'
 import type { SearchOpenTarget } from '../types/search'
 
-/** A target is a reader-local ID such as ch0-valley. A null target groups child entries. */
+/** EPUB targets are reader-local IDs. HTML heading targets are section ordinals as strings. Null groups child entries. */
 export interface OutlineEntry {
   label: string
   target: string | null
