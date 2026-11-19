@@ -197,7 +197,8 @@ afterAll(() => {
     })
   }
 })
-describe.skipIf(!browser)('Reader controls in Chromium', () => {
+// Let the capture helper's 15-second deadline and browser cleanup finish before the next case uses its profile.
+describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, () => {
   it('selects the second matching HTML heading by keyboard and cancels back to Contents', async () => {
     const frame = join(directory, 'html-contents.html')
     const restored = readFileSync('scripts/fixtures/reader/html-outline.reader.json', 'utf8')

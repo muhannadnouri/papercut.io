@@ -117,13 +117,14 @@ export async function runBrowserFixture(directory: string, frame: string, width 
     await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.captureResult=new Promise(resolve=>{addEventListener('message',({data})=>{if(data?.type==='capture-result')resolve(JSON.stringify(data.result))});addEventListener('error',event=>resolve(JSON.stringify({error:event.message})));addEventListener('unhandledrejection',event=>resolve(JSON.stringify({error:String(event.reason)})))});` }, sessionId)
     await send('Page.navigate', { url: pathToFileURL(frame).href }, sessionId)
     if (keys) {
+      // Foreground the page before waiting on its animation frames.
+      await send('Page.bringToFront', {}, sessionId)
       // The fixture focuses its starting control after React mounts. Trusted key events
       // exercise native button activation and tab order in the browser.
       await send('Runtime.evaluate', {
         expression: '(async () => { while (!window.keyboardReady) await new Promise(requestAnimationFrame); await window.keyboardReady })()',
         awaitPromise: true,
       }, sessionId)
-      await send('Page.bringToFront', {}, sessionId)
       for (const key of keys) {
         for (const type of ['keyDown', 'keyUp']) {
           await send('Input.dispatchKeyEvent', {
