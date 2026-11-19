@@ -10,6 +10,24 @@ function inNavigation(heading: HTMLElement, article: HTMLElement): boolean {
   return false
 }
 
+/** A line break contributes a space even in collapsed content, where rendered text
+ * is unavailable. Inline formatting can split a word across several text nodes. */
+function headingLabel(heading: HTMLElement): string {
+  let text = heading.textContent
+  if (heading.childElementCount && heading.querySelector('br')) {
+    text = ''
+    const walker = heading.ownerDocument.createTreeWalker(heading, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.nodeName === 'BR') {
+        text += ' '
+      } else if (node.nodeType === Node.TEXT_NODE) {
+        text += node.nodeValue
+      }
+    }
+  }
+  return text.replace(/\s+/g, ' ').trim()
+}
+
 /** Read existing section ordinals from the mounted article. Counting usable headings
  * before returning the tree lets a single top-level heading with children qualify. */
 export function buildHtmlOutline(article: HTMLElement): OutlineEntry[] {
@@ -25,7 +43,7 @@ export function buildHtmlOutline(article: HTMLElement): OutlineEntry[] {
     if (target !== String(ordinal) || !Number.isSafeInteger(ordinal) || ordinal < 0 || inNavigation(heading, article)) {
       continue
     }
-    const label = heading.textContent?.replace(/\s+/g, ' ').trim()
+    const label = headingLabel(heading)
     if (!label) {
       continue
     }

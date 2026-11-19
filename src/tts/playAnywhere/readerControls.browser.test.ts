@@ -211,6 +211,8 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
         while(!document.querySelector('.document-outline-trigger')) await paint();
         const trigger=document.querySelector('.document-outline-trigger');
         const url=location.href;
+        const disclosures=[...document.querySelectorAll('article details')];
+        const initiallyClosed=disclosures.length===2 && disclosures.every(el=>!el.open);
         trigger.focus();
         let cancelled=false, labels=[];
         document.addEventListener('keydown', event=>{
@@ -223,13 +225,24 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
         document.addEventListener('focusin',async event=>{
           if(!event.target.matches('article h2')) return;
           const heading=event.target;
-          const visible=()=>heading.getBoundingClientRect().top>=document.querySelector('.doc-header').getBoundingClientRect().bottom
-            && heading.getBoundingClientRect().top<innerHeight;
-          const deadline=performance.now()+2000;
-          while(!visible() && performance.now()<deadline) await paint();
-          const reached=visible(), browse=window.browseCount;
-          document.querySelector('article a[href="#river"]').click();
-          const followed=window.browseCount>browse && location.href===url;
+          const headerBottom=()=>document.querySelector('.doc-header').getBoundingClientRect().bottom;
+          const atDestination=el=>{
+            const top=el.getBoundingClientRect().top;
+            return top>=headerBottom()-1 && Math.abs(top-120)<2;
+          };
+          const waitForJump=async el=>{
+            const deadline=performance.now()+2000;
+            while(!atDestination(el) && performance.now()<deadline) await paint();
+            return atDestination(el);
+          };
+          const reached=await waitForJump(heading), browse=window.browseCount;
+          const revealed=initiallyClosed && disclosures.every(el=>el.open) && document.activeElement===heading;
+          const river=document.getElementById('river');
+          const link=document.querySelector('article nav a[href="#river"]');
+          link.scrollIntoView({block:'center',behavior:'instant'});
+          const startedAway=river.getBoundingClientRect().top>innerHeight;
+          link.click();
+          const followed=startedAway && await waitForJump(river) && window.browseCount>browse && location.href===url;
           document.querySelector('.find-btn').click();
           await paint();
           const input=document.querySelector('.find-input');
@@ -237,14 +250,15 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
           input.dispatchEvent(new Event('input',{bubbles:true}));
           const findDeadline=performance.now()+2000;
           while(!CSS.highlights.get('find-match')?.size && performance.now()<findDeadline) await paint();
-          parent.postMessage({type:'capture-result',result:{labels,passage:heading.nextElementSibling.textContent,visible:reached,
+          parent.postMessage({type:'capture-result',result:{labels,passage:heading.nextElementSibling.textContent,visible:reached,revealed,
             followed,found:CSS.highlights.get('find-match')?.size,cancelled,closed:!document.querySelector('[role=dialog]'),stableUrl:url===location.href,browse}},'*');
         });
       })();</script>`)
     const result = await runBrowserFixture(directory, frame, 1000, undefined, undefined, ['Enter', 'Escape', 'Enter', 'Tab', 'Tab', 'Tab', 'Tab', 'Enter'])
     expect(result).toEqual({
-      labels: ['Trail field guide', 'Setup', 'Supplies', 'Setup'],
+      labels: ['Trail field guide', 'Setup', 'Trail supplies', 'Setup'],
       passage: 'Meet the ranger at the river.',
+      revealed: true,
       followed: true,
       found: 1,
       visible: true,

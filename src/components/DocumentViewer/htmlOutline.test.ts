@@ -67,3 +67,10 @@ it('requires two nonempty headings with usable section ordinals', () => {
     <h4 data-papercut-section="-1">Negative</h4>
     <h5 data-papercut-section="9007199254740992">Unsafe integer</h5>`)).toEqual([])
 })
+
+it('separates words across line breaks but keeps inline word fragments together', () => {
+  const entries = outline(`
+    <h2 data-papercut-section="0">Chapter<em><br></em><br>Two</h2>
+    <h2 data-papercut-section="1">Key<em>board</em></h2>`)
+  expect(entries.map(entry => entry.label)).toEqual(['Chapter Two', 'Keyboard'])
+})

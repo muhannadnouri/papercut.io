@@ -135,6 +135,13 @@ export function scrollToReaderRange(range: Range): void {
 }
 
 export function scrollToReaderElement(element: Element): void {
+  // Reveal the passage before measuring it. The first summary is already visible
+  // when closed, so jumping into its label should preserve that disclosure's state.
+  for (let details = element.parentElement?.closest('details'); details; details = details.parentElement?.closest('details')) {
+    if (!details.open && !details.querySelector(':scope > summary')?.contains(element)) {
+      details.open = true
+    }
+  }
   const targetTop = window.scrollY + element.getBoundingClientRect().top
   window.scrollTo({
     top: Math.max(targetTop - 120, 0),

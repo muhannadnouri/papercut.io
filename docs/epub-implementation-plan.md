@@ -466,19 +466,23 @@ body heading opens with no Contents button.
 ### Stage 5 verification
 
 The [HTML fixture](../scripts/fixtures/reader/html-outline.html) has repeated Setup
-headings without IDs, a nested Supplies heading, a menu heading, and a fragment link.
+headings without IDs, a line break and inline emphasis in “Trail supplies”, a menu
+heading, and a second Setup inside two initially closed disclosures.
 The native test imports it through the upload command, writes and reopens the normal
 v1 transfer ZIP, restores to a separate library, and checks the reader response on
 both sides against the [same fixture response](../scripts/fixtures/reader/html-outline.reader.json).
 Neither library needs an outline sidecar. Chromium consumes that response directly
 and verifies the four expected entries, Escape, keyboard selection of the second
-Setup, passage focus below the header, the authored link and Find for “ranger”.
+Setup, expansion of both disclosures before scroll and focus, and Find for “ranger”.
+The authored-link check returns to the menu, verifies the river paragraph is offscreen,
+then clicks its link and waits for that paragraph to land below the header.
 
-The release AppImage also opened the HTML fixture in an isolated Wayland session
-and wrote the expected river passage to its private library. Packaged UI navigation
+The stage 5 release AppImage also opened the original HTML fixture in an isolated
+Wayland session and wrote the expected river passage to its private library. Packaged UI navigation
 and audible playback remain manual checks.
 
-The Rust library suite passed 311 tests with four ignored. All 102 selected reader
+After the disclosure and label fixes, the Rust library suite passed 311 tests with
+four ignored. All 104 selected reader
 and browser tests passed, including EPUB navigation, bookmark save and return, and
 browsing during playback. Browser playback tests exercise controls and state. Actual
 speech output is part of the installed-app check.
@@ -504,12 +508,16 @@ supported device before deciding whether the dialog needs a rendering change.
 
 **Manual acceptance in the installed app**
 
-1. Import the HTML fixture above. Open Contents beside Find. Expect **Trail field
-   guide**, **Setup**, **Supplies**, **Setup** in that order, with Supplies nested
+1. Close any running Papercut instance, launch the rebuilt AppImage and import the revised
+   HTML fixture above. Open Contents beside Find. Expect **Trail field guide**, **Setup**,
+   **Trail supplies**, **Setup** in that order, with Trail supplies nested
    under the first Setup. “Trail menu” should appear only in the document.
 2. Press Escape and check focus returns to Contents without moving the passage.
-   Reopen with the keyboard and select the second Setup. Look for “Meet the ranger
-   at the river.” Try **Jump to the river** from the menu and use Find for “ranger”.
+   Leave **River crossing** and **Arrival** collapsed. Reopen Contents with the keyboard
+   and select the second Setup. Both disclosures should open and the heading should
+   receive focus below the header, above “Meet the ranger at the river.” Return to the
+   menu at the top and select **Jump to the river**. The river paragraph should land
+   below the header. Use Find for “ranger”.
 3. Save a bookmark at the river passage, close the reader and return to the bookmark.
    With narration playing elsewhere, select the second Setup. Check that audio keeps
    playing at its original passage and **Return to audio** brings reading focus back.
