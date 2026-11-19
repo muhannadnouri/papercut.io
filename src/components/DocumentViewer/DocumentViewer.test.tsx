@@ -93,7 +93,7 @@ it('reveals the same restored HTML viewer and preserves its success notice', asy
   }
 })
 
-it('removes Contents when the next EPUB has no outline or the reader switches to HTML', async () => {
+it('shows publisher Contents only for EPUB and clears it across document switches', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   vi.stubGlobal('CSS', {})
   const host = document.createElement('div')
@@ -105,15 +105,55 @@ it('removes Contents when the next EPUB has no outline or the reader switches to
     children: [],
   }]
   try {
-    for (const [format, outline, visible] of [
-      ['epub', entries, true],
-      ['epub', [], false],
-      ['html', entries, false],
+    // EPUB uploads also use .html URLs. A mounted HTML surface alone is insufficient.
+    const content = '<h1 data-papercut-section="0">Opening</h1><h2 data-papercut-section="1">Setup</h2>'
+    for (const [url, format, outline, visible] of [
+      ['/uploads/aa.html', 'epub', entries, true],
+      ['/uploads/bb.html', 'epub', [], false],
+      ['/book.html', 'html', entries, false],
+      ['/uploads/cc.pdf', 'pdf', [], false],
     ] as const) {
-      await act(async () => root.render(<DocumentViewer url={`/book.${format}`} format={format}
-        content="<h1 id='chapter-0'>Opening</h1>" outline={[...outline]} onClose={() => {}} />))
+      await act(async () => root.render(<DocumentViewer url={url} format={format}
+        content={content} outline={[...outline]} onClose={() => {}} />))
       expect(Boolean(host.querySelector('.document-outline-trigger'))).toBe(visible)
     }
+  } finally {
+    await act(async () => root.unmount())
+    host.remove()
+    vi.unstubAllGlobals()
+  }
+})
+
+const bodyHeading = '<h2 data-papercut-section="0">Setup</h2>'
+const navigationHeadings = '<nav><h2 data-papercut-section="1">Menu</h2><h3 data-papercut-section="2">Links</h3></nav>'
+
+it.each([
+  {
+    example: 'no headings',
+    content: '<p>Introduction</p>',
+    visible: false,
+  },
+  {
+    example: 'one body heading plus navigation headings',
+    content: bodyHeading + navigationHeadings,
+    visible: false,
+  },
+  {
+    example: 'two body headings of different ranks',
+    content: bodyHeading + '<h3 data-papercut-section="1">Install</h3>',
+    visible: true,
+  },
+])('applies the HTML Contents threshold to $example', async ({ content, visible }) => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  vi.stubGlobal('CSS', {})
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  try {
+    await act(async () => root.render(<DocumentViewer url="/uploads/ab.html" format="html"
+      content={content} outline={[]} onClose={() => {}} />))
+    expect(host.querySelector('article')?.querySelector('p, h2')).toBeTruthy()
+    expect(Boolean(host.querySelector('.document-outline-trigger'))).toBe(visible)
   } finally {
     await act(async () => root.unmount())
     host.remove()

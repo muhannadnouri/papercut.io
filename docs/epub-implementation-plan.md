@@ -394,7 +394,13 @@ Report any device, assistive-technology, performance, or usability checks still 
 
 ## Heading outline for uploaded HTML
 
-**Status.** Product behavior agreed. Implementation sequence pending review.
+**Status.** Stage 1 eligibility tests are in place. The focused viewer and reader-target
+run passed six tests and reproduced one expected failure: an uploaded HTML article
+with two usable headings renders, but the header still hides Contents. Keep that
+assertion active through reader integration. The zero-heading and navigation-heading
+cases currently pass with the HTML button hidden; verify them again once it can appear.
+The format-switch test covers the shared header with a mocked viewer registry.
+Stage 2 starts with heading extraction and tree tests.
 
 An HTML upload can supply its own navigation through the semantic headings in its
 sanitized reading copy. Show the existing icon-only **Table of Contents** button beside
