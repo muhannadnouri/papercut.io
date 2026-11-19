@@ -529,6 +529,58 @@ supported device before deciding whether the dialog needs a rendering change.
    Contents open and keyboard or touch responsiveness. Record device, document size,
    and heading count if there is a noticeable stall.
 
+## Collapsible Contents for HTML and EPUB
+
+Plan for review. The shared [DocumentOutline](../src/components/DocumentViewer/DocumentOutline.tsx)
+already receives ordered entries with a label, an optional destination, and children.
+Use that tree to give readers a chapter overview and keep each destination one click
+away whenever its row is visible. All expansion state belongs to the reader UI.
+
+1. **Set the initial view.** Count entries across all levels, including publisher
+   groups. At 20 or fewer, open every branch. At 21 or more, start branches closed.
+   Apply the single-title exception structurally: when there is exactly one root
+   with children, open it one level so the chapters are visible. This works even
+   when the title is translated or repeated. A flat outline always shows all rows.
+   Determine the default once per outline and stop counting as soon as 21 is reached.
+2. **Give each row the appropriate controls.** A parent with a destination gets
+   two sibling buttons. Its label jumps to the passage and closes Contents through
+   the existing selection handler. Its leading chevron toggles children and keeps
+   the dialog open. A group without a destination gets one full-row toggle with a
+   chevron and label. A leaf with a destination keeps its single jump button.
+3. **Reuse the library tree icon.** Render the existing decorative
+   [ChevronIcon](../src/components/ChevronIcon/ChevronIcon.tsx) used by both
+   library trees. Follow the [library disclosure styling](../src/components/UploadedLibraryTree/UploadedLibraryTree.css)
+   for its size, stroke, and direction. Point the closed icon toward the text
+   (right in LTR, left in RTL) and the open icon down. Scope the row and focus
+   styling to the Contents dialog. Give the toggle a touch target independent
+   of the icon size so tapping a wrapped heading reliably selects the intended action.
+4. **Keep expansion local to the open document.** Store branch choices in
+   DocumentOutline above the conditionally mounted dialog. Key choices by position
+   in the ordered tree so repeated labels and destinationless groups are independent.
+   Multiple branches may stay open. Closing a parent preserves its descendants'
+   choices, and reopening Contents restores the same view. Use the reader's document
+   identity to reset the dialog and choices on a document switch. Reuse the
+   existing HTML heading and EPUB publisher targets for jumps.
+5. **Verify keyboard and screen-reader behavior.** Keep the nested ordered lists.
+   Give disclosure buttons a localized action name including the entry label and
+   expose `aria-expanded`. Enter and Space toggle in place and retain focus.
+   Render only visible descendants so collapsed rows leave both the accessibility
+   tree and Tab order. Escape returns focus to Contents; selecting a destination
+   focuses the passage. Update existing browser checks to distinguish disclosure
+   buttons from destination buttons by accessible name and role.
+6. **Test the defaults and the full interaction.** Cover the 20/21 boundary,
+   a long flat outline, a single title with nested chapters, duplicate labels,
+   and a publisher group. Verify independent branches, descendant-state retention,
+   close/reopen, and switching documents while Contents is open. In Chromium,
+   exercise both HTML and EPUB: toggling preserves the article scroll position,
+   and activating a child reaches the intended passage. Run the relevant reader
+   tests, locale parity, TypeScript, and lint checks.
+7. **Review on desktop and at phone width.** Open a long EPUB and a nested HTML
+   document. Scan the initial overview, expand two chapters, navigate to a child,
+   reopen Contents, then switch documents. Check touch and keyboard operation,
+   wrapped labels at larger text sizes, visible focus, and chevron direction in RTL.
+   Use this pass to assess the cutoff and single-title exception before shipping.
+
 ## Remaining Follow-Ups
 
 1. Keep durable metadata changes as explicit schema migrations; cover metadata introduced schema version 3 without rebuilding existing search or organization rows.
