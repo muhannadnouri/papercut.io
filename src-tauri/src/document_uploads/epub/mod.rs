@@ -60,7 +60,7 @@ pub(crate) fn parse_epub_document(
     let opf = read_zip_text_limited(&mut archive, &opf_path, MAX_OPF_BYTES)?;
     let package = parse_opf(&opf, &opf_path, fallback_title)?;
 
-    if package.spine_paths.is_empty() {
+    if package.spine_items.is_empty() {
         return Err("EPUB package has no readable spine items".into());
     }
 
@@ -74,7 +74,8 @@ pub(crate) fn parse_epub_document(
     let mut chapter_drafts = Vec::new();
     let mut referenced_image_paths = HashSet::new();
     let mut total_chapter_text_bytes = 0u64;
-    for (index, chapter_path) in package.spine_paths.iter().enumerate() {
+    for (index, item) in package.spine_items.iter().enumerate() {
+        let chapter_path = &item.href;
         let raw = read_zip_text_limited(&mut archive, chapter_path, MAX_CHAPTER_TEXT_BYTES)?;
         total_chapter_text_bytes = total_chapter_text_bytes
             .checked_add(raw.len() as u64)
@@ -82,14 +83,19 @@ pub(crate) fn parse_epub_document(
         if total_chapter_text_bytes > MAX_TOTAL_CHAPTER_TEXT_BYTES {
             return Err("EPUB chapter text is too large to import".into());
         }
-        let raw = inline_svg::externalize_inline_svgs(
-            &raw,
-            chapter_path,
-            &mut archive,
-            &package.manifest,
-            &mut image_assets,
-        );
-        let (language, direction, body_id) = extract_xhtml_metadata(&raw);
+        let xml = parse_chapter_xml(&raw);
+        let (language, direction, body_id) =
+            extract_chapter_metadata(&raw, &item.media_type, xml.as_ref());
+        let raw = match xml {
+            Some(document) => inline_svg::externalize_inline_svgs(
+                &document,
+                chapter_path,
+                &mut archive,
+                &package.manifest,
+                &mut image_assets,
+            ),
+            None => raw,
+        };
         let body = extract_body_inner(&raw).unwrap_or(raw.as_str());
         let sanitized = sanitize_epub_fragment(body);
         let image_paths = collect_image_paths(&sanitized, chapter_path);
@@ -179,7 +185,7 @@ struct ParsedPackage {
     title: String,
     language: Option<String>,
     direction: Option<String>,
-    spine_paths: Vec<String>,
+    spine_items: Vec<ManifestItem>,
     nav: Option<String>,
     ncx: Option<String>,
     manifest: Vec<ManifestItem>,
@@ -308,7 +314,7 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
             .cloned();
     }
 
-    let mut spine_paths = Vec::new();
+    let mut spine_items = Vec::new();
     for itemref in doc
         .descendants()
         .filter(|node| node.tag_name().name() == "itemref")
@@ -320,7 +326,7 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
             continue;
         };
         if is_readable_spine_item(&item.media_type, &item.href) {
-            spine_paths.push(item.href.clone());
+            spine_items.push(item.clone());
         }
     }
 
@@ -337,18 +343,57 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
         title,
         language,
         direction,
-        spine_paths,
+        spine_items,
         manifest,
         cover,
     })
 }
 
-/// Read root/body metadata before EPUB chapter wrappers are discarded.
-fn extract_xhtml_metadata(html: &str) -> (Option<String>, Option<String>, Option<String>) {
+/// Share one XML tree between chapter metadata and inline SVG extraction. Ordinary
+/// doctypes are common in EPUBs, but expanded entities would invalidate SVG source ranges.
+fn parse_chapter_xml(raw: &str) -> Option<Document<'_>> {
+    if raw.contains("<!ENTITY") {
+        return None;
+    }
+    Document::parse_with_options(
+        raw,
+        roxmltree::ParsingOptions {
+            allow_dtd: true,
+            ..Default::default()
+        },
+    )
+    .ok()
+}
+
+/// XHTML permits a self-closing style element that an HTML parser would treat as
+/// the start of raw text. Declared HTML and malformed chapters keep HTML recovery.
+fn extract_chapter_metadata(
+    html: &str,
+    media_type: &str,
+    xml: Option<&Document>,
+) -> (Option<String>, Option<String>, Option<String>) {
     use kuchikiki::{parse_html, traits::TendrilSink};
 
-    // Spine chapters may be HTML as well as XHTML. Read the attributes as the reader would,
-    // even if a valid HTML void tag or named entity would stop an XML parser.
+    let xhtml_root = xml
+        .filter(|_| !media_type.eq_ignore_ascii_case("text/html"))
+        .map(Document::root_element)
+        .filter(|root| root.has_tag_name("html"));
+    if let Some(root) = xhtml_root {
+        if let Some(body) = root.children().find(|node| {
+            node.has_tag_name("body") && node.tag_name().namespace() == root.tag_name().namespace()
+        }) {
+            let language = body
+                .attribute("lang")
+                .or(body.attribute((XML_NAMESPACE, "lang")))
+                .or(root.attribute("lang"))
+                .or(root.attribute((XML_NAMESPACE, "lang")));
+            return (
+                document_language(language),
+                document_direction(body.attribute("dir").or(root.attribute("dir"))),
+                body.attribute("id").map(str::to_owned),
+            );
+        }
+    }
     let doc = parse_html().one(html).document_node;
     let (Ok(root), Ok(body)) = (doc.select_first("html"), doc.select_first("body")) else {
         return (None, None, None);
@@ -654,6 +699,58 @@ mod tests {
     }
 
     #[test]
+    fn imports_body_outline_target_after_self_closing_style() {
+        let opf = r#"<package><manifest>
+            <item id="nav" href="nav.xhtml" properties="nav" media-type="application/xhtml+xml"/>
+            <item id="c" href="chapter.xhtml" media-type="application/xhtml+xml"/>
+            </manifest><spine><itemref idref="c"/></spine></package>"#;
+        let nav = r#"<nav xmlns="http://www.w3.org/1999/xhtml" xmlns:e="http://www.idpf.org/2007/ops" e:type="toc"><ol><li><a href="chapter.xhtml#opening">Opening</a></li></ol></nav>"#;
+        let chapter = r#"<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="en" dir="ltr"><head><style/></head><body xml:lang="ar" dir="rtl" id="opening"><p>نص الفصل</p></body></html>"#;
+        let mut book = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        for (path, content) in [
+            ("mimetype", "application/epub+zip"),
+            (CONTAINER_PATH, container_xml()),
+            ("OPS/package.opf", opf),
+            ("OPS/nav.xhtml", nav),
+            ("OPS/chapter.xhtml", chapter),
+        ] {
+            book.start_file(
+                path,
+                SimpleFileOptions::default().compression_method(CompressionMethod::Stored),
+            )
+            .unwrap();
+            book.write_all(content.as_bytes()).unwrap();
+        }
+        let bytes = book.finish().unwrap().into_inner();
+        let parsed = parse_epub_document(&bytes, "Fixture").unwrap();
+        let [entry] = parsed.outline.as_slice() else {
+            panic!("expected the body target to resolve")
+        };
+        assert_eq!(entry.target.as_deref(), Some("chapter-0"));
+        assert!(parsed
+            .view_html
+            .contains(r#"id="chapter-0" data-source="OPS/chapter.xhtml" lang="ar" dir="rtl""#));
+        assert!(parsed
+            .sections
+            .iter()
+            .any(|section| section.text.contains("نص الفصل")));
+    }
+
+    #[test]
+    fn declared_html_keeps_case_insensitive_attributes_even_when_well_formed_xml() {
+        let raw = r#"<html><body LANG="ar" DIR="rtl" ID="opening"></body></html>"#;
+        let xml = parse_chapter_xml(raw).unwrap();
+        assert_eq!(
+            extract_chapter_metadata(raw, "text/html", Some(&xml)),
+            (
+                Some("ar".into()),
+                Some("rtl".into()),
+                Some("opening".into())
+            )
+        );
+    }
+
+    #[test]
     fn preserves_package_and_chapter_language_direction() {
         let package = parse_opf(
             r#"<package dir="rtl"><metadata><title>Arabic Book</title><language>ar</language></metadata><manifest><item id="c1" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/></spine></package>"#,
@@ -664,8 +761,11 @@ mod tests {
         assert_eq!(package.language.as_deref(), Some("ar"));
         assert_eq!(package.direction.as_deref(), Some("rtl"));
 
-        let (language, direction, body_id) = extract_xhtml_metadata(
-            r#"<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" dir="ltr"><body lang="ar" dir="rtl" id="opening"><br><p>نص</p></body></html>"#,
+        let raw = r#"<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" dir="ltr"><body lang="ar" dir="rtl" id="opening"><br><p>نص</p></body></html>"#;
+        let (language, direction, body_id) = extract_chapter_metadata(
+            raw,
+            "application/xhtml+xml",
+            parse_chapter_xml(raw).as_ref(),
         );
         assert_eq!(body_id.as_deref(), Some("opening"));
         assert_eq!(language.as_deref(), Some("ar"));
