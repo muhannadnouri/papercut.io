@@ -542,6 +542,12 @@ away whenever its row is visible. All expansion state belongs to the reader UI.
    with children, open it one level so the chapters are visible. This works even
    when the title is translated or repeated. A flat outline always shows all rows.
    Determine the default once per outline and stop counting as soon as 21 is reached.
+
+   Stage 1 implemented the shared [initial expansion rule](../src/components/DocumentViewer/outlineExpansion.ts).
+   Its unit tests cover the 20/21 boundary with nested entries, destinationless
+   groups, and a single root with or without a jump target. Stage 2 will apply
+   this rule in the dialog alongside controls for reopening collapsed sections.
+
 2. **Give each row the appropriate controls.** A parent with a destination gets
    two sibling buttons. Its label jumps to the passage and closes Contents through
    the existing selection handler. Its leading chevron toggles children and keeps
