@@ -428,6 +428,19 @@ export function DocumentViewer({
     return target
   }, [onReaderBrowse])
 
+  function navigateOutline(target: string) {
+    if (format === 'epub') {
+      return scrollToHash('#' + target)
+    }
+    const selector = readerSectionSelector(Number(target))
+    const section = selector && readerRef.current?.querySelector<HTMLElement>(selector)
+    if (section) {
+      onReaderBrowse?.()
+      scrollToReaderElement(section)
+      return section
+    }
+  }
+
   useEffect(() => {
     if (plugin.id === 'pdf' || loading || loadError || !content || !searchTarget) {
       return
@@ -613,8 +626,8 @@ export function DocumentViewer({
             {plugin.id !== 'pdf' && (
               <ReaderSettings disabled={loading} {...readerSettingsProps} />
             )}
-            {format === 'epub' && !loading && !loadError && readerOutline && readerOutline.length > 0 && (
-              <DocumentOutline entries={readerOutline} onNavigate={scrollToHash} />
+            {!loading && !loadError && readerOutline && readerOutline.length > 0 && (
+              <DocumentOutline entries={readerOutline} onNavigate={navigateOutline} />
             )}
             <button
               className="find-btn"

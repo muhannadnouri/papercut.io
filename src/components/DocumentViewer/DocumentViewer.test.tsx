@@ -160,3 +160,33 @@ it.each([
     vi.unstubAllGlobals()
   }
 })
+
+it('dismisses an open HTML outline when the next upload reuses its section ordinals', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  vi.stubGlobal('CSS', {})
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  async function render(url: string, label: string) {
+    await act(async () => root.render(<DocumentViewer url={url} format="html"
+      content={`<h2 data-papercut-section="0">${label}</h2><h3 data-papercut-section="1">Details</h3>`}
+      onClose={() => {}} />))
+  }
+  async function open() {
+    await act(async () => host.querySelector<HTMLButtonElement>('.document-outline-trigger')!.click())
+    return document.querySelector('[role="dialog"]')
+  }
+  try {
+    await render('/uploads/aa.html', 'First upload')
+    expect((await open())?.textContent).toContain('First upload')
+    await render('/uploads/bb.html', 'Second upload')
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    const dialog = await open()
+    expect(dialog?.textContent).toContain('Second upload')
+    expect(dialog?.textContent).not.toContain('First upload')
+  } finally {
+    await act(async () => root.unmount())
+    host.remove()
+    vi.unstubAllGlobals()
+  }
+})

@@ -13,10 +13,10 @@ import { OutlineIcon } from '../icons'
 
 interface DocumentOutlineProps {
   entries: OutlineEntry[]
-  onNavigate: (hash: string) => HTMLElement | undefined
+  onNavigate: (target: string) => HTMLElement | undefined
 }
 
-/** Preserve publisher order and grouping. Only entries with a destination take keyboard focus. */
+/** Preserve source order and grouping. Only entries with a destination take keyboard focus. */
 function OutlineList({ entries, onSelect }: {
   entries: OutlineEntry[]
   onSelect: (id: string) => void
@@ -42,7 +42,7 @@ export function DocumentOutline({ entries, onNavigate }: DocumentOutlineProps) {
    * Focusing the passage without scrolling leaves header clearance to the reader's navigation code. */
   function select(id: string) {
     flushSync(() => setOpen(false))
-    const target = onNavigate('#' + id)
+    const target = onNavigate(id)
     if (target) {
       target.focus({ preventScroll: true })
       // A named anchor without href can report tabIndex 0 yet ignore focus().

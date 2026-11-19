@@ -394,15 +394,17 @@ Report any device, assistive-technology, performance, or usability checks still 
 
 ## Heading outline for uploaded HTML
 
-**Status.** Stages 1–3 are complete. The [heading collector](../src/components/DocumentViewer/htmlOutline.ts)
-runs when the sanitized body of a ready HTML upload mounts or its source changes.
-The [lifecycle test](../src/components/DocumentViewer/useHtmlOutline.test.tsx) mounts
-the HTML viewer and checks the first commit after switching URLs or replacing content
-at the same URL. Old entries disappear even when both sources use ordinal zero.
-Unrelated renders reuse the entries, and leaving the ready source clears them.
-The focused run passed ten tests with one expected stage 1 failure: the header
-still hides Contents for eligible HTML. Stage 4 connects the header and jump behavior
-and can exercise a document switch while the HTML Contents dialog is open.
+**Status.** Stages 1–4 are complete. Contents now resolves an HTML heading's
+section ordinal inside the current article. The same dialog still follows EPUB
+fragment destinations. All 12 focused viewer, lifecycle, collector, and target tests
+pass, including the original two-heading eligibility case. Switching uploads while
+Contents is open dismisses the old dialog even when both uploads use the same ordinals.
+
+Three focused Chromium cases also pass. The HTML case uses Enter, Escape, and Tab
+to cancel back to the trigger and then select the second of two identically labeled
+headings. It checks focus, header clearance, browse notification, and URL stability.
+The other two cases exercise EPUB destinations in English and Arabic. Stage 5 covers
+installed-app import and restore, reader-tool smoke tests, and performance measurements.
 
 An HTML upload can supply its own navigation through the semantic headings in its
 sanitized reading copy. Show the existing icon-only **Table of Contents** button beside

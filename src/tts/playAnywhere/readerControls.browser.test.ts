@@ -78,7 +78,7 @@ beforeAll(async () => {
         }, []);
         const active = ['playing','paused','loading'].includes(status);
         return <DocumentViewer
-        url="fixture.html" format={book?'epub':'html'} outline={book?.outline}
+        url={book?.url ?? "fixture.html"} format={book?.format ?? (book?'epub':'html')} outline={book?.outline}
         onReaderBrowse={book?()=>{window.browseCount=(window.browseCount||0)+1}:undefined}
         content={book?book.html:tools?'<p>Synthetic reader text remains readable while its tools stay compact.</p>'.repeat(60):'<p>Synthetic header layout.</p>'}
         className={active?'app-audio-floating':''}
@@ -198,6 +198,48 @@ afterAll(() => {
   }
 })
 describe.skipIf(!browser)('Reader controls in Chromium', () => {
+  it('selects the second matching HTML heading by keyboard and cancels back to Contents', async () => {
+    const frame = join(directory, 'html-contents.html')
+    writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css}
+      .document-html-content h2{margin-top:100vh}.document-html-content{padding-bottom:120vh}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      const paint=()=>new Promise(requestAnimationFrame);
+      window.keyboardReady=(async()=>{
+        await ReaderControls.mountHeader('en',false,'idle',true,false,{url:'/uploads/ab.html',format:'html',
+          html:'<h2 data-papercut-section="0">Setup</h2><h2 data-papercut-section="1">Setup</h2>'});
+        while(!document.querySelector('.document-outline-trigger')) await paint();
+        const trigger=document.querySelector('.document-outline-trigger');
+        const url=location.href;
+        trigger.focus();
+        let cancelled=false;
+        document.addEventListener('keydown', event=>{
+          if(event.key==='Enter' && event.target===trigger && trigger.dataset.opened) {
+            cancelled=!document.querySelector('[role=dialog]') && scrollY===0;
+          }
+          if(event.key==='Enter' && event.target===trigger) trigger.dataset.opened='1';
+        });
+        document.addEventListener('focusin',async event=>{
+          if(!event.target.matches('article h2')) return;
+          const heading=event.target;
+          const visible=()=>heading.getBoundingClientRect().top>=document.querySelector('.doc-header').getBoundingClientRect().bottom
+            && heading.getBoundingClientRect().top<innerHeight;
+          const deadline=performance.now()+2000;
+          while(!visible() && performance.now()<deadline) await paint();
+          parent.postMessage({type:'capture-result',result:{ordinal:heading.dataset.papercutSection,visible:visible(),
+            cancelled,closed:!document.querySelector('[role=dialog]'),stableUrl:url===location.href,browse:window.browseCount}},'*');
+        });
+      })();</script>`)
+    const result = await runBrowserFixture(directory, frame, 1000, undefined, undefined, ['Enter', 'Escape', 'Enter', 'Tab', 'Tab', 'Enter'])
+    expect(result).toEqual({
+      ordinal: '1',
+      visible: true,
+      cancelled: true,
+      closed: true,
+      stableUrl: true,
+      browse: 1,
+    })
+  })
+
   it.each([
     [320, 24, 'ar'], [1200, 16, 'en'],
   ] as const)('navigates EPUB Contents at %ipx and %ipx text (%s)', async (width, font, locale) => {
