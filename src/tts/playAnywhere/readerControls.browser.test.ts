@@ -200,19 +200,21 @@ afterAll(() => {
 describe.skipIf(!browser)('Reader controls in Chromium', () => {
   it('selects the second matching HTML heading by keyboard and cancels back to Contents', async () => {
     const frame = join(directory, 'html-contents.html')
+    const restored = readFileSync('scripts/fixtures/reader/html-outline.reader.json', 'utf8')
     writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css}
       .document-html-content h2{margin-top:100vh}.document-html-content{padding-bottom:120vh}</style>
       <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
       const paint=()=>new Promise(requestAnimationFrame);
       window.keyboardReady=(async()=>{
         await ReaderControls.mountHeader('en',false,'idle',true,false,{url:'/uploads/ab.html',format:'html',
-          html:'<h2 data-papercut-section="0">Setup</h2><h2 data-papercut-section="1">Setup</h2>'});
+          ...${restored}});
         while(!document.querySelector('.document-outline-trigger')) await paint();
         const trigger=document.querySelector('.document-outline-trigger');
         const url=location.href;
         trigger.focus();
-        let cancelled=false;
+        let cancelled=false, labels=[];
         document.addEventListener('keydown', event=>{
+          if(event.key==='Escape') labels=[...document.querySelectorAll('.document-outline-dialog nav button')].map(el=>el.textContent);
           if(event.key==='Enter' && event.target===trigger && trigger.dataset.opened) {
             cancelled=!document.querySelector('[role=dialog]') && scrollY===0;
           }
@@ -225,13 +227,26 @@ describe.skipIf(!browser)('Reader controls in Chromium', () => {
             && heading.getBoundingClientRect().top<innerHeight;
           const deadline=performance.now()+2000;
           while(!visible() && performance.now()<deadline) await paint();
-          parent.postMessage({type:'capture-result',result:{ordinal:heading.dataset.papercutSection,visible:visible(),
-            cancelled,closed:!document.querySelector('[role=dialog]'),stableUrl:url===location.href,browse:window.browseCount}},'*');
+          const reached=visible(), browse=window.browseCount;
+          document.querySelector('article a[href="#river"]').click();
+          const followed=window.browseCount>browse && location.href===url;
+          document.querySelector('.find-btn').click();
+          await paint();
+          const input=document.querySelector('.find-input');
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'ranger');
+          input.dispatchEvent(new Event('input',{bubbles:true}));
+          const findDeadline=performance.now()+2000;
+          while(!CSS.highlights.get('find-match')?.size && performance.now()<findDeadline) await paint();
+          parent.postMessage({type:'capture-result',result:{labels,passage:heading.nextElementSibling.textContent,visible:reached,
+            followed,found:CSS.highlights.get('find-match')?.size,cancelled,closed:!document.querySelector('[role=dialog]'),stableUrl:url===location.href,browse}},'*');
         });
       })();</script>`)
-    const result = await runBrowserFixture(directory, frame, 1000, undefined, undefined, ['Enter', 'Escape', 'Enter', 'Tab', 'Tab', 'Enter'])
+    const result = await runBrowserFixture(directory, frame, 1000, undefined, undefined, ['Enter', 'Escape', 'Enter', 'Tab', 'Tab', 'Tab', 'Tab', 'Enter'])
     expect(result).toEqual({
-      ordinal: '1',
+      labels: ['Trail field guide', 'Setup', 'Supplies', 'Setup'],
+      passage: 'Meet the ranger at the river.',
+      followed: true,
+      found: 1,
       visible: true,
       cancelled: true,
       closed: true,

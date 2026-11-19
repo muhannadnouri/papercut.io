@@ -394,17 +394,11 @@ Report any device, assistive-technology, performance, or usability checks still 
 
 ## Heading outline for uploaded HTML
 
-**Status.** Stages 1–4 are complete. Contents now resolves an HTML heading's
-section ordinal inside the current article. The same dialog still follows EPUB
-fragment destinations. All 12 focused viewer, lifecycle, collector, and target tests
-pass, including the original two-heading eligibility case. Switching uploads while
-Contents is open dismisses the old dialog even when both uploads use the same ordinals.
-
-Three focused Chromium cases also pass. The HTML case uses Enter, Escape, and Tab
-to cancel back to the trigger and then select the second of two identically labeled
-headings. It checks focus, header clearance, browse notification, and URL stability.
-The other two cases exercise EPUB destinations in English and Arabic. Stage 5 covers
-installed-app import and restore, reader-tool smoke tests, and performance measurements.
+**Status.** Stages 1–4 and automated stage 5 verification are complete. HTML
+Contents follows section ordinals in the active article, and EPUB Contents follows
+publisher fragments. Switching uploads while the dialog is open dismisses the old
+list even when both uploads reuse ordinals. Installed WebView and audible playback
+acceptance remain with the manual checks below.
 
 An HTML upload can supply its own navigation through the semantic headings in its
 sanitized reading copy. Show the existing icon-only **Table of Contents** button beside
@@ -468,6 +462,64 @@ remains authoritative for EPUB, including when it contains just one entry.
 “Setup” shows exactly two entries. Selecting the second focuses the second body
 heading, including after transfer and restore. An upload with only the menu and one
 body heading opens with no Contents button.
+
+### Stage 5 verification
+
+The [HTML fixture](../scripts/fixtures/reader/html-outline.html) has repeated Setup
+headings without IDs, a nested Supplies heading, a menu heading, and a fragment link.
+The native test imports it through the upload command, writes and reopens the normal
+v1 transfer ZIP, restores to a separate library, and checks the reader response on
+both sides against the [same fixture response](../scripts/fixtures/reader/html-outline.reader.json).
+Neither library needs an outline sidecar. Chromium consumes that response directly
+and verifies the four expected entries, Escape, keyboard selection of the second
+Setup, passage focus below the header, the authored link and Find for “ranger”.
+
+The release AppImage also opened the HTML fixture in an isolated Wayland session
+and wrote the expected river passage to its private library. Packaged UI navigation
+and audible playback remain manual checks.
+
+The Rust library suite passed 311 tests with four ignored. All 102 selected reader
+and browser tests passed, including EPUB navigation, bookmark save and return, and
+browsing during playback. Browser playback tests exercise controls and state. Actual
+speech output is part of the installed-app check.
+
+**Large HTML timings.** Headless Chromium 157 on CachyOS, Intel Core Ultra 5 325,
+1200 × 600 viewport. Each input contained 12,000 indexed blocks with short repeated
+passage text. Every 1,500th or fourth block was an h2. Five fresh Chromium processes
+per build and input reused the benchmark profile; build order alternated between trials.
+Times below are median milliseconds, with observed min–max in parentheses.
+
+| Headings | Reader HTML bytes | Reader open on main, 9e5422b8 | Reader open on stage 4, 4065882 | First Contents open on stage 4 |
+| ---: | ---: | ---: | ---: | ---: |
+| 8 | 1,429,796 | 386 (374–437) | 388 (384–410) | 43 (33–51) |
+| 3,000 | 1,435,780 | 404 (384–417) | 396 (386–400) | 181 (170–189) |
+
+The production React fixture timed mount through the animation frame after the last
+paragraph appeared. It timed first trigger click through the frame after the dialog
+appeared and checked the rendered entry count. Source HTML was already in memory;
+these measurements exclude file import, native IPC, and app startup. The reader-open
+ranges overlap. Rendering 3,000 buttons added a noticeable first-open delay. Keep
+the complete list for now; measure a representative long document on the slowest
+supported device before deciding whether the dialog needs a rendering change.
+
+**Manual acceptance in the installed app**
+
+1. Import the HTML fixture above. Open Contents beside Find. Expect **Trail field
+   guide**, **Setup**, **Supplies**, **Setup** in that order, with Supplies nested
+   under the first Setup. “Trail menu” should appear only in the document.
+2. Press Escape and check focus returns to Contents without moving the passage.
+   Reopen with the keyboard and select the second Setup. Look for “Meet the ranger
+   at the river.” Try **Jump to the river** from the menu and use Find for “ranger”.
+3. Save a bookmark at the river passage, close the reader and return to the bookmark.
+   With narration playing elsewhere, select the second Setup. Check that audio keeps
+   playing at its original passage and **Return to audio** brings reading focus back.
+   A narrow window or larger reader font makes passage changes easier to see.
+4. Export and restore into an empty test library or a second device. Reopen the HTML
+   document and repeat the second Setup jump. Open the [EPUB publisher fixture](../scripts/fixtures/epub/publisher-outline-3.epub)
+   and verify **Low trail** still goes to “Evening in the valley”.
+5. On a lower-powered device, try a large HTML upload if available. Check the first
+   Contents open and keyboard or touch responsiveness. Record device, document size,
+   and heading count if there is a noticeable stall.
 
 ## Remaining Follow-Ups
 
