@@ -678,6 +678,7 @@
     }
   },
   "reader": {
+    "contents": "Sumário",
     "back": "Voltar",
     "find": "Encontrar",
     "openingDocument": "Abrindo documento...",

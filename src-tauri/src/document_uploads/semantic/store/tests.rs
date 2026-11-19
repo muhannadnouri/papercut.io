@@ -1600,6 +1600,7 @@ fn put(db: &mut Connection, id: &str, title: &str, texts: &[&str]) {
             })
             .collect(),
         cover: None,
+        outline: Vec::new(),
         assets: Vec::new(),
     };
     upsert_document(

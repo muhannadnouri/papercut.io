@@ -2,6 +2,19 @@ import type React from 'react'
 import type { PdfTtsSourceSpan } from '../tts/types'
 import type { SearchOpenTarget } from '../types/search'
 
+/** A target is a reader-local ID such as ch0-valley. A null target groups child entries. */
+export interface OutlineEntry {
+  label: string
+  target: string | null
+  children: OutlineEntry[]
+}
+
+/** One reader-open result keeps the text and its destinations tied to the same source. */
+export interface ReaderDocument {
+  html: string
+  outline: OutlineEntry[]
+}
+
 export interface ViewerFindResult {
   currentIndex: number
   matchCount: number

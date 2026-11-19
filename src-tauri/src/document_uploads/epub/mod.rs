@@ -15,6 +15,12 @@ use super::parsed::{ParsedDocument, ParsedDocumentCover};
 
 mod assets;
 mod inline_svg;
+mod outline;
+mod stored_outline;
+pub(super) use stored_outline::{read_outline, store_outline};
+pub(crate) use stored_outline::{
+    read_outline_bytes, validate_transfer_outline, MAX_OUTLINE_BYTES, OUTLINE_FILE_NAME,
+};
 mod paths;
 mod render;
 mod rewrite;
@@ -36,9 +42,8 @@ const XML_NAMESPACE: &str = "http://www.w3.org/XML/1998/namespace";
 
 /// Parse an EPUB archive into Papercut's format-neutral document shape.
 ///
-/// EPUB import deliberately produces one sanitized generated HTML document instead
-/// of retaining the raw archive. That keeps search, Find, and TTS highlight logic
-/// on the same path as HTML uploads while leaving room for a richer viewer later.
+/// Search, Find, and narration share the generated reading HTML. Publisher outline
+/// entries are returned separately and point to anchors in that reading copy.
 pub(crate) fn parse_epub_document(
     bytes: &[u8],
     fallback_title: &str,
@@ -55,7 +60,7 @@ pub(crate) fn parse_epub_document(
     let opf = read_zip_text_limited(&mut archive, &opf_path, MAX_OPF_BYTES)?;
     let package = parse_opf(&opf, &opf_path, fallback_title)?;
 
-    if package.spine_paths.is_empty() {
+    if package.spine_items.is_empty() {
         return Err("EPUB package has no readable spine items".into());
     }
 
@@ -65,18 +70,12 @@ pub(crate) fn parse_epub_document(
             file_name: cover.file_name,
             bytes: cover.bytes,
         });
-    let chapter_indexes: HashMap<String, usize> = package
-        .spine_paths
-        .iter()
-        .enumerate()
-        .map(|(index, path)| (path.clone(), index))
-        .collect();
-
     let mut image_assets = LoadedImageAssets::default();
     let mut chapter_drafts = Vec::new();
     let mut referenced_image_paths = HashSet::new();
     let mut total_chapter_text_bytes = 0u64;
-    for (index, chapter_path) in package.spine_paths.iter().enumerate() {
+    for (index, item) in package.spine_items.iter().enumerate() {
+        let chapter_path = &item.href;
         let raw = read_zip_text_limited(&mut archive, chapter_path, MAX_CHAPTER_TEXT_BYTES)?;
         total_chapter_text_bytes = total_chapter_text_bytes
             .checked_add(raw.len() as u64)
@@ -84,14 +83,19 @@ pub(crate) fn parse_epub_document(
         if total_chapter_text_bytes > MAX_TOTAL_CHAPTER_TEXT_BYTES {
             return Err("EPUB chapter text is too large to import".into());
         }
-        let raw = inline_svg::externalize_inline_svgs(
-            &raw,
-            chapter_path,
-            &mut archive,
-            &package.manifest,
-            &mut image_assets,
-        );
-        let (language, direction) = extract_xhtml_metadata(&raw);
+        let xml = parse_chapter_xml(&raw);
+        let (language, direction, body_id) =
+            extract_chapter_metadata(&raw, &item.media_type, xml.as_ref());
+        let raw = match xml {
+            Some(document) => inline_svg::externalize_inline_svgs(
+                &document,
+                chapter_path,
+                &mut archive,
+                &package.manifest,
+                &mut image_assets,
+            ),
+            None => raw,
+        };
         let body = extract_body_inner(&raw).unwrap_or(raw.as_str());
         let sanitized = sanitize_epub_fragment(body);
         let image_paths = collect_image_paths(&sanitized, chapter_path);
@@ -105,7 +109,7 @@ pub(crate) fn parse_epub_document(
         chapter_drafts.push(ChapterDraft {
             index,
             path: chapter_path.clone(),
-            anchors: collect_fragment_anchors(&sanitized),
+            anchors: collect_fragment_anchors(&sanitized, body_id),
             sanitized,
             image_paths,
             language,
@@ -128,14 +132,16 @@ pub(crate) fn parse_epub_document(
     }) {
         return Err("EPUB did not contain readable text or supported images".into());
     }
-    let readable_paths: HashSet<String> = chapter_drafts
-        .iter()
-        .map(|chapter| chapter.path.clone())
+    let targets = chapter_drafts
+        .iter_mut()
+        .map(|chapter| {
+            (
+                chapter.path.clone(),
+                (chapter.index, std::mem::take(&mut chapter.anchors)),
+            )
+        })
         .collect();
-    let anchor_indexes: HashMap<String, HashSet<String>> = chapter_drafts
-        .iter()
-        .map(|chapter| (chapter.path.clone(), chapter.anchors.clone()))
-        .collect();
+    let outline = outline::load(&mut archive, &package, &targets);
 
     let mut chapters = Vec::new();
     for chapter in chapter_drafts {
@@ -143,9 +149,7 @@ pub(crate) fn parse_epub_document(
             &chapter.sanitized,
             &chapter.path,
             chapter.index,
-            &chapter_indexes,
-            &readable_paths,
-            &anchor_indexes,
+            &targets,
             &image_assets,
         );
         chapters.push(render_chapter(
@@ -172,6 +176,7 @@ pub(crate) fn parse_epub_document(
         return Err("EPUB did not contain readable sections".into());
     }
     parsed.cover = cover;
+    parsed.outline = outline;
     parsed.assets = image_assets.files;
     Ok(parsed)
 }
@@ -180,7 +185,9 @@ struct ParsedPackage {
     title: String,
     language: Option<String>,
     direction: Option<String>,
-    spine_paths: Vec<String>,
+    spine_items: Vec<ManifestItem>,
+    nav: Option<String>,
+    ncx: Option<String>,
     manifest: Vec<ManifestItem>,
     cover: Option<ManifestItem>,
 }
@@ -189,7 +196,7 @@ struct ChapterDraft {
     index: usize,
     path: String,
     sanitized: String,
-    anchors: HashSet<String>,
+    anchors: rewrite::FragmentAnchors,
     image_paths: HashSet<String>,
     language: Option<String>,
     direction: Option<String>,
@@ -232,9 +239,8 @@ fn parse_container_path(xml: &str) -> Result<String, String> {
 
 /// Parse OPF metadata, manifest, and spine into normalized archive paths.
 ///
-/// The spine controls reading order; ZIP entry order is ignored. Manifest hrefs
-/// are resolved eagerly so later chapter/image/link code works with one canonical
-/// archive-path form.
+/// The spine controls reading order. Resolve declared navigation files through the
+/// manifest because the publisher can provide contents outside the spine.
 fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPackage, String> {
     let doc =
         Document::parse(opf).map_err(|err| format!("Invalid EPUB package document: {err}"))?;
@@ -268,6 +274,7 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
         .filter(|id| !id.is_empty())
         .map(ToOwned::to_owned);
 
+    let mut nav = None;
     let mut manifest_by_id = HashMap::new();
     let mut manifest = Vec::new();
     let mut cover = None;
@@ -281,17 +288,19 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
         let Some(href) = item.attribute("href") else {
             continue;
         };
-        let is_epub3_cover = item
+        let properties = item
             .attribute("properties")
             .unwrap_or_default()
-            .split_ascii_whitespace()
-            .any(|property| property == "cover-image");
+            .split_ascii_whitespace();
         let media_type = item.attribute("media-type").unwrap_or_default().to_string();
         let item = ManifestItem {
             href: resolve_archive_path(&base, href)?,
             media_type,
         };
-        if cover.is_none() && is_epub3_cover {
+        if nav.is_none() && properties.clone().any(|p| p == "nav") {
+            nav = Some(item.href.clone());
+        }
+        if cover.is_none() && properties.clone().any(|p| p == "cover-image") {
             cover = Some(item.clone());
         }
         manifest_by_id.insert(id.to_string(), item.clone());
@@ -305,7 +314,7 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
             .cloned();
     }
 
-    let mut spine_paths = Vec::new();
+    let mut spine_items = Vec::new();
     for itemref in doc
         .descendants()
         .filter(|node| node.tag_name().name() == "itemref")
@@ -317,42 +326,88 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
             continue;
         };
         if is_readable_spine_item(&item.media_type, &item.href) {
-            spine_paths.push(item.href.clone());
+            spine_items.push(item.clone());
         }
     }
 
+    let ncx = doc
+        .root_element()
+        .children()
+        .find(|n| n.has_tag_name("spine"))
+        .and_then(|n| n.attribute("toc"))
+        .and_then(|id| manifest_by_id.get(id))
+        .map(|item| item.href.clone());
     Ok(ParsedPackage {
+        nav,
+        ncx,
         title,
         language,
         direction,
-        spine_paths,
+        spine_items,
         manifest,
         cover,
     })
 }
 
-/// Read root/body metadata before EPUB chapter wrappers are discarded.
-fn extract_xhtml_metadata(html: &str) -> (Option<String>, Option<String>) {
-    let Ok(doc) = Document::parse(html) else {
-        return (None, None);
+/// Share one XML tree between chapter metadata and inline SVG extraction. Ordinary
+/// doctypes are common in EPUBs, but expanded entities would invalidate SVG source ranges.
+fn parse_chapter_xml(raw: &str) -> Option<Document<'_>> {
+    if raw.contains("<!ENTITY") {
+        return None;
+    }
+    Document::parse_with_options(
+        raw,
+        roxmltree::ParsingOptions {
+            allow_dtd: true,
+            ..Default::default()
+        },
+    )
+    .ok()
+}
+
+/// XHTML permits a self-closing style element that an HTML parser would treat as
+/// the start of raw text. Declared HTML and malformed chapters keep HTML recovery.
+fn extract_chapter_metadata(
+    html: &str,
+    media_type: &str,
+    xml: Option<&Document>,
+) -> (Option<String>, Option<String>, Option<String>) {
+    use kuchikiki::{parse_html, traits::TendrilSink};
+
+    let xhtml_root = xml
+        .filter(|_| !media_type.eq_ignore_ascii_case("text/html"))
+        .map(Document::root_element)
+        .filter(|root| root.has_tag_name("html"));
+    if let Some(root) = xhtml_root {
+        if let Some(body) = root.children().find(|node| {
+            node.has_tag_name("body") && node.tag_name().namespace() == root.tag_name().namespace()
+        }) {
+            let language = body
+                .attribute("lang")
+                .or(body.attribute((XML_NAMESPACE, "lang")))
+                .or(root.attribute("lang"))
+                .or(root.attribute((XML_NAMESPACE, "lang")));
+            return (
+                document_language(language),
+                document_direction(body.attribute("dir").or(root.attribute("dir"))),
+                body.attribute("id").map(str::to_owned),
+            );
+        }
+    }
+    let doc = parse_html().one(html).document_node;
+    let (Ok(root), Ok(body)) = (doc.select_first("html"), doc.select_first("body")) else {
+        return (None, None, None);
     };
-    let root = doc.root_element();
-    let body = doc
-        .descendants()
-        .find(|node| node.tag_name().name().eq_ignore_ascii_case("body"));
+    let root = root.attributes.borrow();
+    let body = body.attributes.borrow();
     let language = document_language(
-        body.and_then(|node| {
-            node.attribute("lang")
-                .or_else(|| node.attribute((XML_NAMESPACE, "lang")))
-        })
-        .or_else(|| root.attribute("lang"))
-        .or_else(|| root.attribute((XML_NAMESPACE, "lang"))),
+        body.get("lang")
+            .or(body.get("xml:lang"))
+            .or(root.get("lang"))
+            .or(root.get("xml:lang")),
     );
-    let direction = document_direction(
-        body.and_then(|node| node.attribute("dir"))
-            .or_else(|| root.attribute("dir")),
-    );
-    (language, direction)
+    let direction = document_direction(body.get("dir").or(root.get("dir")));
+    (language, direction, body.get("id").map(str::to_owned))
 }
 
 fn document_language(value: Option<&str>) -> Option<String> {
@@ -644,6 +699,58 @@ mod tests {
     }
 
     #[test]
+    fn imports_body_outline_target_after_self_closing_style() {
+        let opf = r#"<package><manifest>
+            <item id="nav" href="nav.xhtml" properties="nav" media-type="application/xhtml+xml"/>
+            <item id="c" href="chapter.xhtml" media-type="application/xhtml+xml"/>
+            </manifest><spine><itemref idref="c"/></spine></package>"#;
+        let nav = r#"<nav xmlns="http://www.w3.org/1999/xhtml" xmlns:e="http://www.idpf.org/2007/ops" e:type="toc"><ol><li><a href="chapter.xhtml#opening">Opening</a></li></ol></nav>"#;
+        let chapter = r#"<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="en" dir="ltr"><head><style/></head><body xml:lang="ar" dir="rtl" id="opening"><p>نص الفصل</p></body></html>"#;
+        let mut book = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        for (path, content) in [
+            ("mimetype", "application/epub+zip"),
+            (CONTAINER_PATH, container_xml()),
+            ("OPS/package.opf", opf),
+            ("OPS/nav.xhtml", nav),
+            ("OPS/chapter.xhtml", chapter),
+        ] {
+            book.start_file(
+                path,
+                SimpleFileOptions::default().compression_method(CompressionMethod::Stored),
+            )
+            .unwrap();
+            book.write_all(content.as_bytes()).unwrap();
+        }
+        let bytes = book.finish().unwrap().into_inner();
+        let parsed = parse_epub_document(&bytes, "Fixture").unwrap();
+        let [entry] = parsed.outline.as_slice() else {
+            panic!("expected the body target to resolve")
+        };
+        assert_eq!(entry.target.as_deref(), Some("chapter-0"));
+        assert!(parsed
+            .view_html
+            .contains(r#"id="chapter-0" data-source="OPS/chapter.xhtml" lang="ar" dir="rtl""#));
+        assert!(parsed
+            .sections
+            .iter()
+            .any(|section| section.text.contains("نص الفصل")));
+    }
+
+    #[test]
+    fn declared_html_keeps_case_insensitive_attributes_even_when_well_formed_xml() {
+        let raw = r#"<html><body LANG="ar" DIR="rtl" ID="opening"></body></html>"#;
+        let xml = parse_chapter_xml(raw).unwrap();
+        assert_eq!(
+            extract_chapter_metadata(raw, "text/html", Some(&xml)),
+            (
+                Some("ar".into()),
+                Some("rtl".into()),
+                Some("opening".into())
+            )
+        );
+    }
+
+    #[test]
     fn preserves_package_and_chapter_language_direction() {
         let package = parse_opf(
             r#"<package dir="rtl"><metadata><title>Arabic Book</title><language>ar</language></metadata><manifest><item id="c1" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/></spine></package>"#,
@@ -654,9 +761,13 @@ mod tests {
         assert_eq!(package.language.as_deref(), Some("ar"));
         assert_eq!(package.direction.as_deref(), Some("rtl"));
 
-        let (language, direction) = extract_xhtml_metadata(
-            r#"<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" dir="ltr"><body lang="ar" dir="rtl"><p>نص</p></body></html>"#,
+        let raw = r#"<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" dir="ltr"><body lang="ar" dir="rtl" id="opening"><br><p>نص</p></body></html>"#;
+        let (language, direction, body_id) = extract_chapter_metadata(
+            raw,
+            "application/xhtml+xml",
+            parse_chapter_xml(raw).as_ref(),
         );
+        assert_eq!(body_id.as_deref(), Some("opening"));
         assert_eq!(language.as_deref(), Some("ar"));
         assert_eq!(direction.as_deref(), Some("rtl"));
 
@@ -708,6 +819,45 @@ mod tests {
             .err()
             .expect("duplicate central-directory name");
         assert!(error.contains("duplicate file names"), "{error}");
+    }
+
+    #[test]
+    fn publisher_outline_fixtures_preserve_precise_targets_and_separate_labels() {
+        use kuchikiki::{parse_html, traits::TendrilSink};
+
+        let epub3 = include_bytes!("../../../../scripts/fixtures/epub/publisher-outline-3.epub");
+        let epub2 = include_bytes!("../../../../scripts/fixtures/epub/publisher-outline-2.epub");
+        for (bytes, parent_target) in [
+            (epub3.as_slice(), None),
+            (epub2.as_slice(), Some("chapter-0")),
+        ] {
+            let parsed = parse_epub_document(bytes, "Fallback").unwrap();
+            let reader = super::super::html::sanitize_html(&parsed.view_html);
+            let document = parse_html().one(reader.as_str()).document_node;
+            let [group] = parsed.outline.as_slice() else {
+                panic!("expected one publisher group")
+            };
+            assert_eq!(group.label, "Walking routes");
+            assert_eq!(group.target.as_deref(), parent_target);
+            assert_eq!(group.children.len(), 2);
+            for (entry, (label, id, heading)) in group.children.iter().zip([
+                ("High trail", "ch0-ridge", "Morning on the ridge"),
+                ("Low trail", "ch0-valley", "Evening in the valley"),
+            ]) {
+                assert_eq!(entry.label, label);
+                assert_eq!(entry.target.as_deref(), Some(id));
+                assert!(entry.children.is_empty());
+                let target = document.select_first(&format!("h2#{id}")).unwrap();
+                assert_eq!(target.as_node().text_contents(), heading);
+            }
+            for label in ["Walking routes", "High trail", "Low trail"] {
+                assert!(!reader.contains(label));
+                assert!(parsed.sections.iter().all(|section| {
+                    !section.text.contains(label)
+                        && !section.heading.as_deref().unwrap_or("").contains(label)
+                }));
+            }
+        }
     }
 
     #[test]

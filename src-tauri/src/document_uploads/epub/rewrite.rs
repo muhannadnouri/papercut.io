@@ -13,29 +13,43 @@ use super::paths::{archive_base_dir, percent_decode, resolve_archive_path, split
 
 const WRAPPER_ID: &str = "papercut-epub-fragment-root";
 
+/// Keep publisher spellings for lookup. Only repeated spellings are ambiguous.
+pub(super) enum Anchor {
+    Body,
+    Element,
+    Duplicate,
+}
+pub(super) type FragmentAnchors = HashMap<String, Anchor>;
+pub(super) type ChapterTargets = HashMap<String, (usize, FragmentAnchors)>;
+
 /// Collect sanitized `id`/`name` anchors before rewriting links.
 ///
 /// Link rewriting is a two-pass process: first learn which fragment targets exist
 /// per spine item, then rewrite hrefs. A DOM walk avoids the edge cases that made
 /// the previous string scanner fragile around quoting and malformed tags.
-pub(super) fn collect_fragment_anchors(html: &str) -> HashSet<String> {
+pub(super) fn collect_fragment_anchors(html: &str, body_id: Option<String>) -> FragmentAnchors {
     let document = parse_fragment(html);
     let Some(root) = fragment_root(&document) else {
-        return HashSet::new();
+        return FragmentAnchors::new();
     };
 
-    let mut anchors = HashSet::new();
+    let mut anchors = FragmentAnchors::new();
+    if let Some(id) = body_id {
+        anchors.insert(id, Anchor::Body);
+    }
     if let Ok(nodes) = root.select("*") {
         for node in nodes {
             if node.as_node() == &root {
                 continue;
             }
             let attrs = node.attributes.borrow();
-            if let Some(value) = attrs.get("id") {
-                anchors.insert(safe_anchor(value));
-            }
-            if let Some(value) = attrs.get("name") {
-                anchors.insert(safe_anchor(value));
+            let id = attrs.get("id");
+            let name = attrs.get("name").filter(|name| Some(*name) != id);
+            for value in id.into_iter().chain(name) {
+                anchors
+                    .entry(value.to_owned())
+                    .and_modify(|entry| *entry = Anchor::Duplicate)
+                    .or_insert(Anchor::Element);
             }
         }
     }
@@ -71,9 +85,7 @@ pub(super) fn rewrite_epub_fragment(
     html: &str,
     current_path: &str,
     chapter_index: usize,
-    chapter_indexes: &HashMap<String, usize>,
-    readable_paths: &HashSet<String>,
-    anchor_indexes: &HashMap<String, HashSet<String>>,
+    targets: &ChapterTargets,
     image_assets: &LoadedImageAssets,
 ) -> String {
     let document = parse_fragment(html);
@@ -98,13 +110,7 @@ pub(super) fn rewrite_epub_fragment(
             }
 
             match tag_name.as_str() {
-                "a" => rewrite_anchor_attrs(
-                    &mut attrs,
-                    current_path,
-                    chapter_indexes,
-                    readable_paths,
-                    anchor_indexes,
-                ),
+                "a" => rewrite_anchor_attrs(&mut attrs, current_path, targets),
                 "img" => rewrite_image_attrs(&mut attrs, current_path, image_assets),
                 _ => rewrite_generic_attrs(&mut attrs),
             }
@@ -161,22 +167,14 @@ fn remove_active_or_layout_attrs(attrs: &mut kuchikiki::Attributes) {
 fn rewrite_anchor_attrs(
     attrs: &mut kuchikiki::Attributes,
     current_path: &str,
-    chapter_indexes: &HashMap<String, usize>,
-    readable_paths: &HashSet<String>,
-    anchor_indexes: &HashMap<String, HashSet<String>>,
+    targets: &ChapterTargets,
 ) {
     let Some(href) = attrs.get("href").map(ToOwned::to_owned) else {
         return;
     };
-    match rewrite_internal_href(
-        &href,
-        current_path,
-        chapter_indexes,
-        readable_paths,
-        anchor_indexes,
-    ) {
+    match resolve_target(&href, current_path, targets, false) {
         Some(value) => {
-            attrs.insert("href", value);
+            attrs.insert("href", format!("#{value}"));
         }
         None => {
             attrs.remove("href");
@@ -214,17 +212,13 @@ fn rewrite_generic_attrs(attrs: &mut kuchikiki::Attributes) {
     attrs.remove("src");
 }
 
-/// Rewrite an EPUB-local link into a generated-reader hash.
-///
-/// Examples: `chapter.xhtml#note` becomes `#ch3-note`, while `chapter.xhtml`
-/// becomes `#chapter-3`. If a fragment does not exist but the target chapter is
-/// readable, we point to that chapter rather than leaving a dead footnote link.
-fn rewrite_internal_href(
+/// Return the generated reader ID. Ordinary links fall back to the chapter
+/// start for missing fragments; outline entries require an exact destination.
+pub(super) fn resolve_target(
     href: &str,
     current_path: &str,
-    chapter_indexes: &HashMap<String, usize>,
-    readable_paths: &HashSet<String>,
-    anchor_indexes: &HashMap<String, HashSet<String>>,
+    targets: &ChapterTargets,
+    exact: bool,
 ) -> Option<String> {
     if is_unsafe_url(href)
         || href.starts_with("http://")
@@ -234,33 +228,30 @@ fn rewrite_internal_href(
         return None;
     }
     let (path_part, fragment) = split_href(href);
+    if exact
+        && path_part
+            .split('/')
+            .next()
+            .is_some_and(|part| part.contains(':'))
+    {
+        return None;
+    }
     let target_path = if path_part.is_empty() {
         current_path.to_string()
     } else {
         resolve_archive_path(&archive_base_dir(current_path), path_part).ok()?
     };
-    if !readable_paths.contains(&target_path) {
-        return None;
-    }
-    let target_index = *chapter_indexes.get(&target_path)?;
-    let chapter_href = || Some(format!("#chapter-{target_index}"));
-    match fragment
-        .map(percent_decode)
-        .filter(|value| !value.is_empty())
-    {
-        Some(fragment) => {
-            let anchor = safe_anchor(&fragment);
-            if anchor_indexes
-                .get(&target_path)
-                .is_some_and(|anchors| anchors.contains(&anchor))
-            {
-                Some(format!("#{}", prefix_anchor(target_index, &fragment)))
-            } else {
-                chapter_href()
-            }
+    let (index, anchors) = targets.get(&target_path)?;
+    if let Some(fragment) = fragment.filter(|v| !v.is_empty()).map(percent_decode) {
+        match anchors.get(&fragment) {
+            Some(Anchor::Body) => return Some(format!("chapter-{index}")),
+            Some(Anchor::Element) => return Some(prefix_anchor(*index, &fragment)),
+            Some(Anchor::Duplicate) if !exact => return Some(prefix_anchor(*index, &fragment)),
+            _ if exact => return None,
+            _ => {}
         }
-        None => chapter_href(),
     }
+    Some(format!("chapter-{index}"))
 }
 
 /// Rewrite a local image `src` to its generated stored filename, or drop it.
@@ -298,28 +289,22 @@ fn is_unsafe_url(value: &str) -> bool {
 
 /// Prefix an imported anchor with chapter index to prevent cross-chapter id collisions.
 fn prefix_anchor(chapter_index: usize, value: &str) -> String {
-    format!("ch{chapter_index}-{}", safe_anchor(value))
-}
-
-/// Convert arbitrary EPUB anchor text into a deterministic HTML id fragment.
-///
-/// We keep common id characters and replace everything else with `-`; callers use
-/// the same normalization for both collected targets and rewritten hrefs.
-fn safe_anchor(value: &str) -> String {
-    let decoded = percent_decode(value);
-    let mut out = String::with_capacity(decoded.len());
-    for ch in decoded.chars() {
-        if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ':' | '.') {
-            out.push(ch);
-        } else {
-            out.push('-');
-        }
+    // Reserve a prefix for encoded UTF-8 bytes, including literal IDs starting with that prefix.
+    // A percent sign in an ID is literal. Only the incoming href is URL-decoded.
+    if !value.is_empty()
+        && !value.starts_with("_u_")
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b':' | b'.'))
+    {
+        return format!("ch{chapter_index}-{value}");
     }
-    if out.is_empty() {
-        "anchor".into()
-    } else {
-        out
+    use std::fmt::Write;
+    let mut id = format!("ch{chapter_index}-_u_");
+    for byte in value.bytes() {
+        write!(id, "{byte:02x}").expect("writing to a String");
     }
+    id
 }
 
 /// Mark images before sanitization can erase their original URL or SVG markup.
@@ -419,15 +404,7 @@ mod image_issue_tests {
             assets.errors.insert(path.into(), reason);
         }
         let annotated = super::super::sanitize_epub_fragment(raw);
-        let html = rewrite_epub_fragment(
-            &annotated,
-            "OPS/ch.xhtml",
-            0,
-            &HashMap::new(),
-            &HashSet::new(),
-            &HashMap::new(),
-            &assets,
-        );
+        let html = rewrite_epub_fragment(&annotated, "OPS/ch.xhtml", 0, &HashMap::new(), &assets);
         let warnings = image_import_warnings(&html);
         assert_eq!(warnings.values().sum::<usize>(), 10);
         assert_eq!(warnings.get("unsupported"), Some(&2));

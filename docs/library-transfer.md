@@ -141,6 +141,7 @@ The package carries selected canonical user data:
 
 - sanitized, normalized `source.html` for each generic HTML, EPUB, TXT, or Markdown upload;
 - content-hashed reader-image assets referenced by transferred EPUB reading HTML;
+- publisher-provided EPUB outlines, when present beside the reading copy;
 - stable document ids, display titles, optional original filenames, and import metadata;
 - uploaded-library folders and document placement metadata;
 - optional completed-audiobook manifests, canonical chunk WAVs, and imported
@@ -453,7 +454,25 @@ documents/<document-id>/assets/<generated-image-name>
 The receiver validates each generated filename, canonical path, size, and
 checksum before restoring it. Versions 1 through 3 remain import-compatible.
 
-All versions are limited to 500 documents. Versions 2 through 4 are also limited to 500
+Version 5 adds `documents/<document-id>/outline.json`. Each EPUB carrying an
+outline declares its byte count and SHA-256 in an optional `outline` object.
+Both ends derive the filename from the document ID. An image-free EPUB with an
+outline also selects v5. Packages without outlines keep the previous v1/v4 export
+selection. A v5 export requires a receiver with v5 support. The nearby protocol
+transports the same package as file export.
+
+Before packaging an outline, export checks its JSON tree and destinations against the
+sanitized reading copy. A damaged sidecar stops export and the error names the book.
+A missing sidecar is a normal EPUB without an outline.
+
+Restore independently checks the 32 MiB sidecar limit, checksum, JSON tree limits, and target
+syntax. Each destination must identify exactly one element by ID or name in
+the sanitized reader body. A malformed manifest rejects the package. An invalid
+outline payload fails its new document before storage, and valid sibling documents
+can still import. Existing document IDs keep their local files, including when
+the local outline is absent.
+
+All versions are limited to 500 documents. Versions 2 through 5 are also limited to 500
 completed audiobooks and 100,000 audiobook files, with an 8 GiB expanded package
 limit. EPUB reader images retain the import limits of 5 MB per image and 100 MB
 per document. Before the library-package ZIP reader allocates entry metadata,

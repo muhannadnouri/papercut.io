@@ -1,3 +1,7 @@
+import type {
+  OutlineEntry,
+  ReaderDocument,
+} from '../viewers/types'
 import type { SearchMode } from '../types/search'
 
 export type UploadedDocumentTextStatus =
@@ -90,6 +94,7 @@ export type UploadedDocumentSearchStage =
   | 'buildingResults'
 
 interface UploadedDocumentSource {
+  outline?: OutlineEntry[]
   html: string
   assetPaths: Record<string, string>
 }
@@ -362,12 +367,22 @@ export async function findUploadedDocumentOccurrences(
   })
 }
 
+/** Background source reads skip navigation metadata and retain the HTML string contract. */
 export async function getUploadedDocumentSource(documentUrl: string): Promise<string> {
+  return (await getUploadedReaderDocument(documentUrl, false)).html
+}
+
+/** Load HTML and optional navigation in one request scoped to the opened upload. */
+export async function getUploadedReaderDocument(documentUrl: string, includeOutline = true): Promise<ReaderDocument> {
   const mod = await import('@tauri-apps/api/core')
   const source = await mod.invoke<UploadedDocumentSource>('document_uploads_get_source', {
     request: { documentUrl },
+    includeOutline,
   })
-  return resolveUploadedDocumentAssets(source, mod.convertFileSrc)
+  return {
+    html: resolveUploadedDocumentAssets(source, mod.convertFileSrc),
+    outline: source.outline ?? [],
+  }
 }
 
 /**

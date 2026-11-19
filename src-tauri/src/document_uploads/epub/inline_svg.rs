@@ -19,28 +19,14 @@ const XLINK_NS: &str = "http://www.w3.org/1999/xlink";
 
 /// Preserve complete SVG compositions, including their viewport and local raster
 /// images. Generated SVG is used only as an external img, like manifest SVGs.
-/// Malformed XHTML keeps the existing forgiving HTML import path.
 pub(super) fn externalize_inline_svgs<R: Read + Seek>(
-    raw: &str,
+    document: &Document,
     chapter_path: &str,
     archive: &mut ZipArchive<R>,
     manifest: &[ManifestItem],
     assets: &mut LoadedImageAssets,
 ) -> String {
-    // EPUB XHTML commonly declares a doctype. roxmltree never fetches external
-    // DTDs; reject entity declarations so source ranges remain unexpanded.
-    if raw.contains("<!ENTITY") {
-        return raw.to_string();
-    }
-    let Ok(document) = Document::parse_with_options(
-        raw,
-        roxmltree::ParsingOptions {
-            allow_dtd: true,
-            ..Default::default()
-        },
-    ) else {
-        return raw.to_string();
-    };
+    let raw = document.input_text();
     let mut replacements = Vec::new();
     for node in document.descendants().filter(|node| {
         node.has_tag_name((SVG_NS, "svg"))
@@ -231,7 +217,7 @@ mod tests {
         }];
         let mut assets = LoadedImageAssets::default();
         let converted = externalize_inline_svgs(
-            raw,
+            &super::super::parse_chapter_xml(raw).unwrap(),
             "OPS/text/chapter.xhtml",
             &mut archive(),
             &manifest,
@@ -273,7 +259,7 @@ mod tests {
         }];
         let mut assets = LoadedImageAssets::default();
         let converted = externalize_inline_svgs(
-            raw,
+            &super::super::parse_chapter_xml(raw).unwrap(),
             "OPS/chapter.xhtml",
             &mut archive(),
             &manifest,
@@ -311,7 +297,13 @@ mod tests {
         let raw = format!(r#"<html xml:base="elsewhere/"><svg xmlns="{SVG_NS}"/></html>"#);
         let mut assets = LoadedImageAssets::default();
         assert_eq!(
-            externalize_inline_svgs(&raw, "OPS/ch.xhtml", &mut archive(), &[], &mut assets),
+            externalize_inline_svgs(
+                &super::super::parse_chapter_xml(&raw).unwrap(),
+                "OPS/ch.xhtml",
+                &mut archive(),
+                &[],
+                &mut assets
+            ),
             raw
         );
         assert!(assets.files.is_empty());
@@ -319,11 +311,7 @@ mod tests {
             "<broken",
             "<!DOCTYPE html [<!ENTITY x 'expanded'>]><html>&x;</html>",
         ] {
-            assert_eq!(
-                externalize_inline_svgs(raw, "OPS/ch.xhtml", &mut archive(), &[], &mut assets),
-                raw
-            );
-            assert!(assets.files.is_empty());
+            assert!(super::super::parse_chapter_xml(raw).is_none());
         }
     }
 }

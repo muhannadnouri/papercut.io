@@ -23,6 +23,7 @@ import { ScanSetupDialog } from './document-scanner/ScanSetupDialog'
 import type { DocumentScanSetup } from './document-scanner/documentScanner'
 import { PdfRecognitionPrompt } from './pdf/ocr/PdfRecognitionPrompt'
 import { AudiobooksTab } from './components/AudiobooksTab/AudiobooksTab'
+import type { ReaderDocument } from './viewers/types'
 import { DocumentViewer } from './components/DocumentViewer/DocumentViewer'
 import {
   TabNav,
@@ -60,6 +61,7 @@ import { ReaderPassageAction } from './tts/playAnywhere/ReaderPassageAction'
 import { useAudiobookManager } from './tts/hooks/useAudiobookManager'
 import {
   getUploadedDocumentSource,
+  getUploadedReaderDocument,
   isUploadedHtmlDocumentUrl,
   isUploadedPdfDocumentUrl,
   type UploadedDocumentDeleteBatchResult,
@@ -75,6 +77,41 @@ function isBundledDocumentUrl(url: string): boolean {
       candidate.pathname.startsWith('/documents/')
   } catch {
     return false
+  }
+}
+
+/** PDFs load their own bytes. Only bundled, same-origin document URLs may reach fetch. */
+async function loadOtherDocumentHtml(url: string): Promise<string> {
+  if (isUploadedPdfDocumentUrl(url)) {
+    return ''
+  }
+  if (isUserUploadUrl(url)) {
+    return getImportedAudiobookSource(url)
+  }
+  if (!isBundledDocumentUrl(url)) {
+    throw new Error('Unsupported document URL')
+  }
+
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error('Failed to load document')
+  }
+  return response.text()
+}
+
+/** Search and audiobook generation need source text and can skip the EPUB sidecar read. */
+function loadHtmlDocument(url: string): Promise<string> {
+  return isUploadedHtmlDocumentUrl(url) ? getUploadedDocumentSource(url) : loadOtherDocumentHtml(url)
+}
+
+/** Uploaded EPUBs have HTML reader URLs. Rust knows which of those uploads have an outline. */
+async function loadReaderDocument(url: string): Promise<ReaderDocument> {
+  if (isUploadedHtmlDocumentUrl(url)) {
+    return getUploadedReaderDocument(url)
+  }
+  return {
+    html: await loadOtherDocumentHtml(url),
+    outline: [],
   }
 }
 
@@ -118,27 +155,6 @@ function App() {
   } = useUploadedLibrary()
   const semanticSearch = useSemanticSearch(uploadedDocuments)
 
-  const loadHtmlDocument = useCallback(async (url: string): Promise<string> => {
-    if (isUploadedHtmlDocumentUrl(url)) {
-      return getUploadedDocumentSource(url)
-    }
-    if (isUploadedPdfDocumentUrl(url)) {
-      return ''
-    }
-    if (isUserUploadUrl(url)) {
-      return getImportedAudiobookSource(url)
-    }
-    if (!isBundledDocumentUrl(url)) {
-      throw new Error('Unsupported document URL')
-    }
-
-    const response = await fetch(url)
-    if (!response.ok) {
-      throw new Error('Failed to load document')
-    }
-    return response.text()
-  }, [])
-
   const handleUserUploadsChanged = useCallback(() => {
     setUserUploads(getUserUploads())
   }, [])
@@ -152,6 +168,7 @@ function App() {
     clearSelectedDocument,
     completeRestoringDocument,
     docContent,
+    docOutline,
     documentLoad,
     documentOpening,
     openDocument,
@@ -161,7 +178,7 @@ function App() {
   } = useDocumentViewerState({
     activeTab,
     documentsLoading,
-    loadHtmlDocument,
+    loadReaderDocument,
   })
 
   const audiobook = useAudiobookManager({
@@ -509,6 +526,7 @@ function App() {
             url={selectedDoc}
             format={selectedFormat}
             content={docContent}
+            outline={docOutline}
             className={hasFloatingAudioControls ? 'app-audio-floating' : ''}
             appControls={(
               <AppSettings

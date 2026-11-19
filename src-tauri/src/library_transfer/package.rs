@@ -13,7 +13,8 @@ use zip::{CompressionMethod, ZipArchive, ZipWriter};
 use crate::document_uploads::is_reader_asset_file_name;
 
 pub(super) const PACKAGE_KIND: &str = "papercut-library";
-pub(super) const PACKAGE_VERSION: u32 = 4;
+pub(super) const OUTLINE_PACKAGE_VERSION: u32 = 5;
+pub(super) const IMAGE_PACKAGE_VERSION: u32 = 4;
 const DOCUMENTS_ONLY_PACKAGE_VERSION: u32 = 1;
 const AUDIOBOOK_PACKAGE_VERSION: u32 = 2;
 const PDF_PACKAGE_VERSION: u32 = 3;
@@ -29,7 +30,7 @@ const MAX_NATIVE_AUDIOBOOK_MANIFEST_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_IMPORTED_AUDIOBOOK_SOURCE_BYTES: u64 = 256 * 1024 * 1024;
 const MAX_IMPORTED_AUDIOBOOK_METADATA_BYTES: u64 = 4 * 1024 * 1024;
 pub(super) const MAX_PACKAGE_BYTES: u64 = 8 * 1024 * 1024 * 1024;
-const MAX_DOCUMENT_SOURCE_BYTES: u64 = 128 * 1024 * 1024;
+pub(super) const MAX_DOCUMENT_SOURCE_BYTES: u64 = 128 * 1024 * 1024;
 const MAX_DOCUMENT_ASSET_BYTES: u64 = 5 * 1024 * 1024;
 const MAX_DOCUMENT_ASSETS_BYTES: u64 = 100 * 1024 * 1024;
 const MAX_DOCUMENT_ASSETS: usize = 10_000;
@@ -70,6 +71,14 @@ pub(super) struct TransferDocument {
     pub(super) source_sha256: String,
     #[serde(default)]
     pub(super) assets: Vec<TransferDocumentAsset>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) outline: Option<TransferOutline>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(super) struct TransferOutline {
+    pub(super) bytes: u64,
+    pub(super) sha256: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -142,6 +151,14 @@ pub(super) fn document_asset_path(id: &str, file_name: &str) -> String {
     format!("documents/{id}/assets/{file_name}")
 }
 
+/// The manifest supplies the document ID; outline payload paths are always derived locally.
+pub(super) fn document_outline_path(id: &str) -> String {
+    format!(
+        "documents/{id}/{}",
+        crate::document_uploads::OUTLINE_FILE_NAME
+    )
+}
+
 pub(super) fn audiobook_file_path(storage_key: &str, relative_path: &str) -> String {
     format!("audiobooks/{storage_key}/{relative_path}")
 }
@@ -204,6 +221,16 @@ where
             &document.source_sha256,
             &mut open_payload,
         )?;
+        if let Some(outline) = &document.outline {
+            write_payload(
+                &mut archive,
+                options,
+                &document_outline_path(&document.id),
+                outline.bytes,
+                &outline.sha256,
+                &mut open_payload,
+            )?;
+        }
         for asset in &document.assets {
             write_payload(
                 &mut archive,
@@ -489,55 +516,44 @@ pub(super) fn read_document_source<R: Read + Seek>(
     archive: &mut ZipArchive<R>,
     document: &TransferDocument,
 ) -> Result<Vec<u8>, String> {
-    let mut entry = archive.by_name(&document.source_path).map_err(|_| {
-        format!(
-            "Library-transfer payload is missing: {}",
-            document.source_path
-        )
-    })?;
-    if entry.is_dir() || entry.size() != document.source_bytes {
-        return Err(format!(
-            "Library-transfer payload size does not match: {}",
-            document.source_path
-        ));
-    }
-    let mut bytes = Vec::with_capacity(entry.size() as usize);
-    entry
-        .read_to_end(&mut bytes)
-        .map_err(|err| format!("Failed to read {}: {err}", document.source_path))?;
-    let checksum = format!("{:x}", Sha256::digest(&bytes));
-    if checksum != document.source_sha256 {
-        return Err(format!(
-            "Library-transfer payload checksum does not match: {}",
-            document.source_path
-        ));
-    }
-    Ok(bytes)
+    read_payload(
+        archive,
+        &document.source_path,
+        document.source_bytes,
+        &document.source_sha256,
+    )
 }
 
-/// Read one v4 EPUB image only after manifest validation established its safe
-/// generated name and bounded size; verify the payload again before persistence.
 pub(super) fn read_document_asset<R: Read + Seek>(
     archive: &mut ZipArchive<R>,
     asset: &TransferDocumentAsset,
 ) -> Result<Vec<u8>, String> {
-    let mut entry = archive
-        .by_name(&asset.path)
-        .map_err(|_| format!("Library-transfer payload is missing: {}", asset.path))?;
-    if entry.is_dir() || entry.size() != asset.bytes {
+    read_payload(archive, &asset.path, asset.bytes, &asset.sha256)
+}
+
+/// Enforce the validated manifest size on both the ZIP declaration and decompressed stream.
+pub(super) fn read_payload<R: Read + Seek>(
+    archive: &mut ZipArchive<R>,
+    path: &str,
+    size: u64,
+    sha256: &str,
+) -> Result<Vec<u8>, String> {
+    let entry = archive
+        .by_name(path)
+        .map_err(|_| format!("Library-transfer payload is missing: {path}"))?;
+    if entry.is_dir() || entry.size() != size {
         return Err(format!(
-            "Library-transfer payload size does not match: {}",
-            asset.path
+            "Library-transfer payload size does not match: {path}"
         ));
     }
-    let mut bytes = Vec::with_capacity(entry.size() as usize);
+    let mut bytes = Vec::with_capacity(size as usize);
     entry
+        .take(size + 1)
         .read_to_end(&mut bytes)
-        .map_err(|err| format!("Failed to read {}: {err}", asset.path))?;
-    if format!("{:x}", Sha256::digest(&bytes)) != asset.sha256 {
+        .map_err(|err| format!("Failed to read {path}: {err}"))?;
+    if bytes.len() as u64 != size || format!("{:x}", Sha256::digest(&bytes)) != sha256 {
         return Err(format!(
-            "Library-transfer payload checksum does not match: {}",
-            asset.path
+            "Library-transfer payload checksum does not match: {path}"
         ));
     }
     Ok(bytes)
@@ -593,7 +609,8 @@ fn validate_manifest(manifest: &TransferManifest) -> Result<(), String> {
             DOCUMENTS_ONLY_PACKAGE_VERSION
                 | AUDIOBOOK_PACKAGE_VERSION
                 | PDF_PACKAGE_VERSION
-                | PACKAGE_VERSION
+                | IMAGE_PACKAGE_VERSION
+                | OUTLINE_PACKAGE_VERSION
         )
     {
         return Err(format!(
@@ -631,7 +648,7 @@ fn validate_manifest(manifest: &TransferManifest) -> Result<(), String> {
         if manifest.schema_version < PDF_PACKAGE_VERSION && document.source_kind != "html" {
             return Err("Library-transfer package versions 1 and 2 cannot contain PDFs".into());
         }
-        if manifest.schema_version < PACKAGE_VERSION && !document.assets.is_empty() {
+        if manifest.schema_version < IMAGE_PACKAGE_VERSION && !document.assets.is_empty() {
             return Err(
                 "Library-transfer package versions 1 through 3 cannot contain document assets"
                     .into(),
@@ -672,6 +689,19 @@ fn validate_manifest(manifest: &TransferManifest) -> Result<(), String> {
         total_source_bytes = total_source_bytes
             .checked_add(document.source_bytes)
             .ok_or_else(|| "Library-transfer package is too large".to_string())?;
+        if let Some(outline) = &document.outline {
+            if manifest.schema_version < OUTLINE_PACKAGE_VERSION
+                || document.format != "epub"
+                || outline.bytes == 0
+                || outline.bytes > crate::document_uploads::MAX_OUTLINE_BYTES as u64
+            {
+                return Err("Invalid transferred EPUB outline declaration".into());
+            }
+            validate_sha256(&outline.sha256)?;
+            total_source_bytes = total_source_bytes
+                .checked_add(outline.bytes)
+                .ok_or("Library-transfer package is too large")?;
+        }
         if total_source_bytes > MAX_PACKAGE_BYTES {
             return Err("Library-transfer package expands beyond the supported size".into());
         }
@@ -890,6 +920,12 @@ fn validate_archive_entries<R: Read + Seek>(
     archive: &mut ZipArchive<R>,
     manifest: &TransferManifest,
 ) -> Result<(), String> {
+    let outline_paths: Vec<_> = manifest
+        .documents
+        .iter()
+        .filter(|d| d.outline.is_some())
+        .map(|d| document_outline_path(&d.id))
+        .collect();
     let mut expected: HashSet<&str> = manifest
         .documents
         .iter()
@@ -907,6 +943,7 @@ fn validate_archive_entries<R: Read + Seek>(
             .iter()
             .flat_map(|audiobook| audiobook.files.iter().map(|file| file.path.as_str())),
     );
+    expected.extend(outline_paths.iter().map(String::as_str));
     expected.insert(MANIFEST_PATH);
     let mut seen = HashSet::new();
     for index in 0..archive.len() {
@@ -1393,6 +1430,55 @@ mod tests {
     }
 
     #[test]
+    fn outlines_require_v5_epub_and_a_bounded_payload() {
+        let mut manifest = test_manifest(b"<p>Chapter</p>");
+        assert_eq!(super::super::export_version(&manifest.documents, true), 1);
+        assert_eq!(super::super::export_version(&manifest.documents, false), 4);
+        manifest.documents[0].format = "epub".into();
+        manifest.documents[0].outline = Some(TransferOutline {
+            bytes: 10,
+            sha256: "a".repeat(64),
+        });
+        for version in 1..=4 {
+            manifest.schema_version = version;
+            assert!(validate_manifest(&manifest).is_err());
+        }
+        manifest.schema_version = 5;
+        assert!(validate_manifest(&manifest).is_ok());
+        manifest.documents[0].format = "html".into();
+        assert!(validate_manifest(&manifest).is_err());
+        manifest.documents[0].format = "epub".into();
+        for size in [0, crate::document_uploads::MAX_OUTLINE_BYTES as u64 + 1] {
+            manifest.documents[0].outline.as_mut().unwrap().bytes = size;
+            assert!(validate_manifest(&manifest).is_err());
+        }
+    }
+
+    #[test]
+    fn space_estimates_count_outline_and_images_once() {
+        let manifest = test_manifest(b"1234567");
+        let mut document = manifest.documents.into_iter().next().unwrap();
+        document.outline = Some(TransferOutline {
+            bytes: 5,
+            sha256: "a".repeat(64),
+        });
+        document.assets.push(TransferDocumentAsset {
+            file_name: "image.png".into(),
+            path: "image.png".into(),
+            bytes: 3,
+            sha256: "b".repeat(64),
+        });
+        assert_eq!(
+            super::super::document_storage_bytes(&document, 1).unwrap(),
+            15
+        );
+        assert_eq!(
+            super::super::document_storage_bytes(&document, 3).unwrap(),
+            29
+        );
+    }
+
+    #[test]
     fn package_v4_round_trips_epub_reader_images() {
         for (extension, image) in [
             ("png", b"PNG fixture".as_slice()),
@@ -1532,7 +1618,7 @@ mod tests {
         let id = "a".repeat(64);
         TransferManifest {
             kind: PACKAGE_KIND.into(),
-            schema_version: PACKAGE_VERSION,
+            schema_version: IMAGE_PACKAGE_VERSION,
             created_at_ms: 1,
             documents: vec![TransferDocument {
                 source_path: document_source_path(&id, "html"),
@@ -1546,6 +1632,7 @@ mod tests {
                 source_bytes: source.len() as u64,
                 source_sha256: format!("{:x}", Sha256::digest(source)),
                 assets: Vec::new(),
+                outline: None,
             }],
             organization: TransferOrganization::default(),
             audiobooks: Vec::new(),

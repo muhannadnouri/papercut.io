@@ -262,6 +262,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     imported_at_ms: u128,
     bytes: u64,
     transferred_assets: Vec<ParsedDocumentAsset>,
+    outline_bytes: Option<Vec<u8>>,
 ) -> Result<UploadedDocument, String> {
     let source_kind = StoredSourceKind::Html;
     let url = upload_url(&id, source_kind);
@@ -283,6 +284,12 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     let mut parsed = parse_html_document(&source_html);
     parsed.title = title;
     parsed.format = format;
+    if let Some(bytes) = outline_bytes {
+        if parsed.format != "epub" {
+            return Err("Only EPUBs can carry an outline".into());
+        }
+        parsed.outline = super::epub::validate_transfer_outline(&bytes, &parsed.view_html)?;
+    }
     parsed.assets = transferred_assets;
     for asset in legacy_assets {
         if !parsed
@@ -329,7 +336,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     })
 }
 
-/// Validate an optional cover before storing its bytes or metadata, then keep
+/// Store source, optional outline, and assets before indexing. Keep
 /// filesystem and SQLite failures from leaving an incomplete upload directory.
 /// A process crash can still interrupt the two storage systems.
 fn write_and_index_document(
@@ -350,6 +357,9 @@ fn write_and_index_document(
             parsed.view_html.as_bytes(),
         )
         .map_err(|err| format!("Failed to write imported document source: {err}"))?;
+        if parsed.format == "epub" {
+            super::epub::store_outline(dir, &parsed.outline)?;
+        }
         write_reader_assets(dir, &parsed.assets)?;
         if let Some(cover) = parsed.cover.take() {
             match write_thumbnail(dir, &cover.bytes) {
@@ -387,10 +397,11 @@ fn write_and_index_document(
     Ok(())
 }
 
-/// Resolve an uploaded document URL to its stored source file and return its HTML.
+/// Load sanitized HTML and, for an EPUB reader open, its optional navigation tree.
 pub(crate) fn get_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedDocumentSourceRequest,
+    include_outline: bool,
 ) -> Result<UploadedDocumentSource, String> {
     let (id, source_kind) = upload_reference_from_url(&request.document_url)?;
     if source_kind != StoredSourceKind::Html {
@@ -435,7 +446,19 @@ pub(crate) fn get_source<R: Runtime>(
         html = add_section_locators(&html);
     }
     let asset_paths = stored_reader_asset_paths(&dir)?;
-    Ok(UploadedDocumentSource { html, asset_paths })
+    let outline = if include_outline && document.format == "epub" {
+        super::epub::read_outline(&dir).unwrap_or_else(|error| {
+            log::warn!("Ignoring unreadable EPUB outline: {error}");
+            Vec::new()
+        })
+    } else {
+        Vec::new()
+    };
+    Ok(UploadedDocumentSource {
+        html,
+        asset_paths,
+        outline,
+    })
 }
 
 /// Store a derived legacy-upgrade source without overwriting canonical
@@ -794,6 +817,115 @@ mod tests {
     }
 
     #[test]
+    fn epub_outline_follows_import_reopen_duplicate_and_delete() {
+        let root = std::env::temp_dir().join(format!(
+            "papercut-outline-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut context = tauri::test::mock_context(tauri::test::noop_assets());
+        context.config_mut().identifier = root.to_str().unwrap().to_owned();
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_fs::init())
+            .build(context)
+            .unwrap();
+        let app = app.handle();
+        assert_eq!(
+            super::super::storage::uploads_root(app).unwrap(),
+            root.join("document_uploads")
+        );
+        let fixture_dir =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/fixtures/epub");
+        let import = |name: &str| {
+            super::import_epub_source(
+                app,
+                super::FilePath::Path(fixture_dir.join(name)),
+                None,
+                &mut |_| {},
+            )
+        };
+        let uploaded = import("publisher-outline-3.epub").unwrap();
+        let dir = super::upload_dir(app, &uploaded.id).unwrap();
+        let sidecar = dir.join("outline.json");
+        let read = |include| {
+            super::get_source(
+                app,
+                super::UploadedDocumentSourceRequest {
+                    document_url: uploaded.url.clone(),
+                },
+                include,
+            )
+            .unwrap()
+        };
+        let source = read(true);
+        assert_eq!(
+            source.outline[0].children[1].target.as_deref(),
+            Some("ch0-valley")
+        );
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&fs::read(&sidecar).unwrap()).unwrap(),
+            serde_json::to_value(&source.outline).unwrap()
+        );
+        assert!(read(false).outline.is_empty());
+        assert!(!source.html.contains("Low trail"));
+        for invalid in [
+            "broken json",
+            r#"[{"label":"Wrong target","target":"../bad","children":[]}]"#,
+        ] {
+            fs::write(&sidecar, invalid).unwrap();
+            let reopened = read(true);
+            assert!(reopened.outline.is_empty());
+            assert_eq!(reopened.html, source.html);
+        }
+        assert_eq!(import("publisher-outline-3.epub").unwrap().id, uploaded.id);
+        assert!(read(true).outline.is_empty()); // Duplicates reuse the existing source.
+        fs::remove_file(&sidecar).unwrap();
+        assert!(read(true).outline.is_empty());
+        fs::write(&sidecar, serde_json::to_vec(&source.outline).unwrap()).unwrap();
+        super::delete_upload(
+            app,
+            super::UploadedDocumentDeleteRequest {
+                document_url: uploaded.url.clone(),
+            },
+        )
+        .unwrap();
+        assert!(!dir.exists());
+
+        fs::create_dir_all(&sidecar).unwrap(); // Force the sidecar write to fail after source.html is written.
+        assert!(import("publisher-outline-3.epub")
+            .unwrap_err()
+            .contains("write EPUB outline"));
+        assert!(!dir.exists());
+        assert!(
+            super::find_upload_by_id(&super::open_db(app).unwrap(), &uploaded.id)
+                .unwrap()
+                .is_none()
+        );
+        let original = fs::File::open(fixture_dir.join("publisher-outline-3.epub")).unwrap();
+        let mut archive = zip::ZipArchive::new(original).unwrap();
+        let without_nav = root.join("missing-nav.epub");
+        let mut writer = zip::ZipWriter::new(fs::File::create(&without_nav).unwrap());
+        for index in 0..archive.len() {
+            let member = archive.by_index(index).unwrap();
+            if member.name().unwrap() != "OPS/guide/list.xhtml" {
+                writer.raw_copy_file(member).unwrap();
+            }
+        }
+        drop(writer.finish().unwrap());
+        let plain =
+            super::import_epub_source(app, super::FilePath::Path(without_nav), None, &mut |_| {})
+                .unwrap();
+        assert!(!super::upload_dir(app, &plain.id)
+            .unwrap()
+            .join("outline.json")
+            .exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn epub_import_preserves_stored_reader_section_targets() {
         let root = std::env::temp_dir().join(format!(
             "papercut-epub-reader-{}-{}",
@@ -893,6 +1025,7 @@ mod tests {
                 file_name: "cover.png",
                 bytes: b"not an image".to_vec(),
             }),
+            outline: Vec::new(),
             assets: Vec::new(),
         };
         let mut db = Connection::open_in_memory().expect("open database without upload schema");

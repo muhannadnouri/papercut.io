@@ -186,6 +186,7 @@ pub(crate) fn finalize_pdf_index<R: Runtime>(
         view_html: String::new(),
         sections,
         cover,
+        outline: Vec::new(),
         assets: Vec::new(),
     };
     upsert_document(

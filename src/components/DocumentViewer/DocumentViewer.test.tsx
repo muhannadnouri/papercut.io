@@ -92,3 +92,31 @@ it('reveals the same restored HTML viewer and preserves its success notice', asy
     vi.unstubAllGlobals()
   }
 })
+
+it('removes Contents when the next EPUB has no outline or the reader switches to HTML', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  vi.stubGlobal('CSS', {})
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  const entries = [{
+    label: 'Section',
+    target: 'chapter-0',
+    children: [],
+  }]
+  try {
+    for (const [format, outline, visible] of [
+      ['epub', entries, true],
+      ['epub', [], false],
+      ['html', entries, false],
+    ] as const) {
+      await act(async () => root.render(<DocumentViewer url={`/book.${format}`} format={format}
+        content="<h1 id='chapter-0'>Opening</h1>" outline={[...outline]} onClose={() => {}} />))
+      expect(Boolean(host.querySelector('.document-outline-trigger'))).toBe(visible)
+    }
+  } finally {
+    await act(async () => root.unmount())
+    host.remove()
+    vi.unstubAllGlobals()
+  }
+})

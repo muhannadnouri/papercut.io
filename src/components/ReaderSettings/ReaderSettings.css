@@ -6,8 +6,6 @@
 .reader-settings-btn {
   display: inline-grid;
   place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
   padding: 0;
   background: var(--control-surface);
   border: 1px solid transparent;
@@ -284,12 +282,6 @@
 }
 
 @media (max-width: 767px) {
-  .reader-settings-btn {
-    width: 2.5rem;
-    height: 2.5rem;
-    padding: 0;
-  }
-
   .reader-settings-popover {
     width: calc(100vw - 2rem);
   }
