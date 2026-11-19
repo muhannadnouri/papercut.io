@@ -392,6 +392,73 @@ and verify that the header has no empty control. For touch discovery, ask a firs
 reader to “jump to Chapter 4” without naming the icon. Record whether they find it unaided.
 Report any device, assistive-technology, performance, or usability checks still outstanding.
 
+## Heading outline for uploaded HTML
+
+**Status.** Product behavior agreed. Implementation sequence pending review.
+
+An HTML upload can supply its own navigation through the semantic headings in its
+sanitized reading copy. Show the existing icon-only **Table of Contents** button beside
+Find when the article has at least two usable headings, counting nested entries.
+Skip headings inside navigation regions. Compute the list in the reader so an existing
+or restored upload can use it the next time it opens. The stored publisher outline
+remains authoritative for EPUB, including when it contains just one entry.
+
+1. **Define eligibility and lock down the examples.** In the viewer tests, distinguish
+   an uploaded HTML document using the upload URL check and HTML source format.
+   EPUB uploads also have HTML reader URLs, and bundled pages use the HTML viewer.
+   Cover zero headings, one usable heading plus several navigation headings, and
+   two usable headings with one nested inside the other's outline entry. Only the
+   last HTML case gets the button. Retain coverage for EPUBs with and without an
+   authored outline and for switching to bundled content or PDF.
+
+2. **Build the heading tree from the mounted article.** Read native `h1` through
+   `h6` elements in document order. For each, collapse whitespace in its text content,
+   require a nonempty label and a valid existing `data-papercut-section` ordinal,
+   and exclude navigation ancestors. Check native `nav` and the sanitized tokens
+   `role="navigation"`, `role="doc-toc"`, and `epub:type="toc"` by token membership.
+   Keep legitimate headings such as “References”. Attach each entry to the nearest
+   preceding heading of smaller rank, or to the root when there is none. An
+   `h2, h4, h2` sequence produces two siblings with one child under the first.
+   Test inline markup, RTL text, empty labels, missing locators and repeated labels.
+   Two “Examples” headings with different ordinals must remain independently selectable.
+   The [HTML importer](../src-tauri/src/document_uploads/html/parser.rs) already
+   assigns those ordinals. Reading them avoids rewriting HTML or generating IDs.
+
+3. **Connect collection to the reader lifecycle.** Collect once when the eligible
+   document's content is mounted. Bind the result to the loaded document and content
+   so a switch or failed load cannot display the previous list or jump to the same
+   ordinal in another document. Opening the dialog, typing in Find, and playback
+   updates should reuse the list. Keep collection scoped to the article so dialog
+   labels and app headings never appear. Exercise fast switches between two uploads
+   that reuse ordinals, including while Contents is open.
+
+4. **Reuse the dialog and destination handling.** Let the caller of
+   [DocumentOutline](../src/components/DocumentViewer/DocumentOutline.tsx) interpret
+   the selected target. Keep fragment construction and lookup with the EPUB caller.
+   For HTML, use the existing [section selector and scroll helper](../src/components/DocumentViewer/readerTarget.ts)
+   against the active reader, then return the destination element to the dialog's
+   existing focus handling. Retain browse-during-playback behavior. Verify keyboard
+   selection lands on the second of two identically named headings below the header,
+   the app URL stays stable, and Escape returns focus to Contents without moving the
+   passage. Render the list only while open. This stage needs no package dependency,
+   sidecar, database migration, or transfer-format change.
+
+5. **Verify import, restore, and cost before release.** Run the focused viewer and
+   reader-target tests and `npm run build:typecheck`. In a desktop build, import an
+   HTML file with nested headings without IDs, a navigation heading, and a working
+   fragment link. Open Contents, jump by keyboard, follow the authored link, use
+   Find, set and reopen a bookmark, and browse during narration. Restore the upload
+   into a fresh library and repeat the jump. Recheck the EPUB publisher fixture.
+   Measure reader-open time before and after the change on the same device with a
+   long document containing few headings and another containing thousands. Measure
+   first Contents open separately and record file size, heading count, and runtime.
+   Review the measurements before proposing a cap or virtualization.
+
+**Acceptance example.** An upload with a menu heading and two body headings named
+“Setup” shows exactly two entries. Selecting the second focuses the second body
+heading, including after transfer and restore. An upload with only the menu and one
+body heading opens with no Contents button.
+
 ## Remaining Follow-Ups
 
 1. Keep durable metadata changes as explicit schema migrations; cover metadata introduced schema version 3 without rebuilding existing search or organization rows.
