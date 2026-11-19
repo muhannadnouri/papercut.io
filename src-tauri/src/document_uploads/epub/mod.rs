@@ -862,6 +862,8 @@ mod tests {
 
     #[test]
     fn epub_fixture_rewrites_toc_cross_chapter_links_and_images() {
+        use kuchikiki::{parse_html, traits::TendrilSink};
+
         let bytes = fixture_epub();
         let parsed = parse_epub_document(&bytes, "Fallback").unwrap();
         assert!(parsed.view_html.contains("href=\"#ch1-start\""));
@@ -895,6 +897,13 @@ mod tests {
         assert!(!parsed.view_html.contains("svg-script-sentinel"));
         let sanitized = super::super::html::sanitize_html(&parsed.view_html);
         assert_eq!(sanitized.matches(&svg.file_name).count(), 2);
+        let document = parse_html().one(sanitized).document_node;
+        assert!(document
+            .select_first(r#"img[alt="Diagram"][width="880"][height="540"][loading="lazy"]"#)
+            .is_ok());
+        assert!(document
+            .select_first(r#"img[alt="Diagram again"][width="75"]:not([height])"#)
+            .is_ok());
         let mut archive = ZipArchive::new(Cursor::new(&bytes)).unwrap();
         assert!(load_cover_asset(
             &mut archive,
@@ -1129,7 +1138,7 @@ mod tests {
         }
     }
 
-    const SVG_FIXTURE: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50"><style>text{fill:red}</style><text x="5" y="25">Diagram</text><script>/*svg-script-sentinel*/</script></svg>"#;
+    const SVG_FIXTURE: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" width="880px" height="540" viewBox="0 0 100 50"><style>text{fill:red}</style><text x="5" y="25">Diagram</text><script>/*svg-script-sentinel*/</script></svg>"#;
 
     /// Build a minimal nested-path EPUB fixture with local raster and SVG images.
     fn fixture_epub() -> Vec<u8> {
@@ -1161,7 +1170,7 @@ mod tests {
                 .unwrap();
             zip.start_file("OPS/text/photos.xhtml", deflated).unwrap();
             zip.write_all(
-                b"<html><body><img src='../images/photo.png' alt='Photo-only section'/><img src='../images/diagram.svg' alt='Diagram again'/></body></html>",
+                b"<html><body><img src='../images/photo.png' alt='Photo-only section'/><img src='../images/diagram.svg' alt='Diagram again' width='75'/></body></html>",
             )
             .unwrap();
             zip.start_file("OPS/text/missing-image.xhtml", deflated)

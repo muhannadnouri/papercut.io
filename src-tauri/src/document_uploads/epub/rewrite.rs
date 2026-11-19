@@ -194,7 +194,14 @@ fn rewrite_image_attrs(
         Ok(file_name) => {
             attrs.remove("data-papercut-image-error");
             attrs.remove("src");
-            attrs.insert("data-papercut-asset", file_name.clone());
+            // Reserve space before lazy loading so a Contents jump keeps its measured destination.
+            if attrs.get("width").is_none() && attrs.get("height").is_none() {
+                if let Some((width, height)) = image_assets.svg_dimensions.get(&file_name) {
+                    attrs.insert("width", width.to_string());
+                    attrs.insert("height", height.to_string());
+                }
+            }
+            attrs.insert("data-papercut-asset", file_name);
             attrs.insert("loading", "lazy".into());
             attrs.insert("decoding", "async".into());
         }

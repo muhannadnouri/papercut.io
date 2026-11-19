@@ -17,6 +17,7 @@ pub(super) struct LoadedImageAssets {
     pub(super) paths: HashMap<String, String>,
     pub(super) errors: HashMap<String, &'static str>,
     pub(super) files: Vec<ParsedDocumentAsset>,
+    pub(super) svg_dimensions: HashMap<String, (u16, u16)>,
     stored_names: HashSet<String>,
     total_bytes: u64,
 }
@@ -30,12 +31,38 @@ impl LoadedImageAssets {
         }
         self.paths.insert(path, asset.file_name.clone());
         if is_new {
+            if asset.file_name.ends_with(".svg") {
+                if let Some(dimensions) = svg_pixel_dimensions(&asset.bytes) {
+                    self.svg_dimensions
+                        .insert(asset.file_name.clone(), dimensions);
+                }
+            }
             self.total_bytes += size;
             self.stored_names.insert(asset.file_name.clone());
             self.files.push(asset);
         }
         true
     }
+}
+
+/// A viewBox describes drawing coordinates, not a preferred display size.
+/// Only explicit positive pixel sizes can safely become HTML width/height hints.
+fn svg_pixel_dimensions(bytes: &[u8]) -> Option<(u16, u16)> {
+    let document = roxmltree::Document::parse(std::str::from_utf8(bytes).ok()?).ok()?;
+    let root = document.root_element();
+    if !root.has_tag_name(("http://www.w3.org/2000/svg", "svg")) {
+        return None;
+    }
+    let pixels = |name| {
+        let value = root.attribute(name)?.trim();
+        value
+            .strip_suffix("px")
+            .unwrap_or(value)
+            .parse::<u16>()
+            .ok()
+            .filter(|n| *n > 0)
+    };
+    Some((pixels("width")?, pixels("height")?))
 }
 
 pub(super) struct LoadedCover {
@@ -229,6 +256,18 @@ pub(super) fn inline_raster_parts(value: &str) -> Option<(&'static str, &str)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn relative_or_missing_svg_dimensions_do_not_set_a_display_size() {
+        for attributes in [
+            r#"viewBox="0 0 880 540""#,
+            r#"width="100%" height="540""#,
+            r#"width="880" height="0""#,
+        ] {
+            let svg = format!(r#"<svg xmlns="http://www.w3.org/2000/svg" {attributes}/>"#);
+            assert_eq!(svg_pixel_dimensions(svg.as_bytes()), None, "{attributes}");
+        }
+    }
 
     #[test]
     fn manifest_omissions_record_reasons() {

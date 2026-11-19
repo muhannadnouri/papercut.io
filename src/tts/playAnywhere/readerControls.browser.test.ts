@@ -270,6 +270,39 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
     })
   })
 
+  it('lands at the EPUB heading on the first Contents jump past a lazy SVG', async () => {
+    const frame = join(directory, 'cold-outline.html')
+    writeFileSync(join(directory, 'figure.svg'), '<svg xmlns="http://www.w3.org/2000/svg" width="880" height="540"/>')
+    writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css}
+      .document-html-content .lead{height:12000px}.document-html-content{padding-bottom:150vh}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async()=>{
+        const book={html:'<p class="lead">Opening passage</p><figure><img loading="lazy" decoding="async" width="880" height="540" src="./figure.svg"></figure><section id="ch0-tools"><h2>Perception Tools</h2></section>',
+          outline:[{label:'Perception Tools',target:'ch0-tools',children:[]}]};
+        await ReaderControls.mountHeader('en',false,'idle',true,false,book);
+        const paint=()=>new Promise(requestAnimationFrame);
+        while(!document.querySelector('.document-outline-trigger')) await paint();
+        await document.fonts.ready;
+        document.querySelector('.document-outline-trigger').click();
+        while(!document.querySelector('.document-outline-dialog nav button')) await paint();
+        const image=document.querySelector('article img');
+        const cold=!image.complete && scrollY===0;
+        const settled=new Promise(resolve=>document.addEventListener('scrollend',resolve,{once:true}));
+        document.querySelector('.document-outline-dialog nav button').click();
+        await settled;
+        await image.decode();
+        await paint();
+        const top=document.querySelector('#ch0-tools h2').getBoundingClientRect().top;
+        parent.postMessage({type:'capture-result',result:{cold,top}},'*');
+      })().catch(error=>parent.postMessage({type:'capture-result',result:{error:String(error)}},'*'));</script>`)
+    const result = await runBrowserFixture(directory, frame, 955) as {
+      cold: boolean
+      top: number
+    }
+    expect(result.cold).toBe(true)
+    expect(Math.abs(result.top - 120)).toBeLessThanOrEqual(1)
+  })
+
   it.each([
     [320, 24, 'ar'], [1200, 16, 'en'],
   ] as const)('navigates EPUB Contents at %ipx and %ipx text (%s)', async (width, font, locale) => {
