@@ -2,6 +2,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type Ref,
 } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
@@ -17,6 +18,8 @@ import './LibraryGalleryView.css'
 export type LibraryGalleryCategory = 'books' | 'documents'
 
 interface LibraryGalleryViewProps {
+  toolbarRef?: Ref<HTMLDivElement>
+  onManage?: () => void
   category: LibraryGalleryCategory
   bookmarkedDocumentUrls: ReadonlySet<string>
   collapsedAuthors: Set<string>
@@ -37,6 +40,8 @@ interface LibraryGalleryViewProps {
  * document list for formats that do not have useful cover art. */
 export function LibraryGalleryView({
   category,
+  toolbarRef,
+  onManage,
   bookmarkedDocumentUrls,
   collapsedAuthors,
   docFilterLower,
@@ -60,17 +65,25 @@ export function LibraryGalleryView({
 
   return (
     <div className="library-gallery-view">
-      <div className="library-gallery-categories" role="group" aria-label={t('library.documents.categoryLabel')}>
-        <CategoryButton
-          active={category === 'books'}
-          label={t('library.documents.books', { count: books.length })}
-          onClick={() => onCategoryChange('books')}
-        />
-        <CategoryButton
-          active={category === 'documents'}
-          label={t('library.documents.documentCategory', { count: documentCount })}
-          onClick={() => onCategoryChange('documents')}
-        />
+      <div className="library-gallery-toolbar" ref={toolbarRef}>
+        <div className="library-gallery-categories" role="group" aria-label={t('library.documents.categoryLabel')}>
+          <CategoryButton
+            active={category === 'books'}
+            label={t('library.documents.books', { count: books.length })}
+            onClick={() => onCategoryChange('books')}
+          />
+          <CategoryButton
+            active={category === 'documents'}
+            label={t('library.documents.documentCategory', { count: documentCount })}
+            onClick={() => onCategoryChange('documents')}
+          />
+        </div>
+        {onManage && (
+          <button type="button" className="uploaded-library-edit-btn library-gallery-manage"
+            disabled={documentOpening || mutationDisabled} onClick={onManage}>
+            {t('library.tree.organize')}
+          </button>
+        )}
       </div>
 
       {category === 'books' ? (

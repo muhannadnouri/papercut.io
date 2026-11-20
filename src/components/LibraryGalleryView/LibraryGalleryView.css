@@ -19,7 +19,7 @@
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .library-gallery-category:last-child {
@@ -73,9 +73,22 @@
   padding-block-end: 0.75rem;
 }
 
+.library-gallery-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.75rem;
+}
+
 .library-gallery-categories {
-  width: min(calc(100% - 2.5rem), 22rem);
-  margin: 0.75rem auto;
+  width: min(100%, 22rem);
+}
+
+.library-gallery-toolbar .library-gallery-manage {
+  min-height: 2.25rem;
+  margin: 0;
 }
 
 .library-gallery-category {
@@ -274,11 +287,6 @@ html[data-theme="dark"] .library-book-cover {
   .library-view-toggle {
     width: 2.75rem;
     height: 2.75rem;
-  }
-
-  .library-gallery-categories {
-    width: min(calc(100% - 1.5rem), 22rem);
-    margin-inline: auto;
   }
 
   .library-gallery-category {

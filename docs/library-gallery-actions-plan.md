@@ -8,12 +8,13 @@ Flat browse rows in `DocumentList` now use one native button containing the full
 
 The Chromium regression uses a long mixed-direction title at a 320px viewport. It exercises title and View clicks, native Tab/Enter/Space input, a disabled opening row, an independent Delete action, and title-to-checkbox selection in Search Scope mode.
 
-## 2. Enter and leave the existing manager from Gallery
+## 2. Enter and leave the existing manager from Gallery (complete)
 
-- In `LibraryGalleryView`, place **Manage** at the trailing edge of the category row, outside the category button group. Reuse the List-view translation `library.tree.organize`. Allow the action to wrap on a narrow screen while keeping both category buttons together.
-- Let `DocumentsPanel` own the temporary transition. Enter the existing `UploadedLibraryTree` in management mode with **User Uploads** expanded, focus its **Done** control, and start with an empty selection. The manager operates on uploaded books and documents across both categories. Preserve the text, bookmark, and saved-audio filters. Bundled documents stay outside the management tree.
-- Keep selection, folder actions, confirmations, saved-audio protection, and operation status in the existing tree. Preserve its busy and import-reset behavior. On Done, restore the original gallery category and filters and return focus to Manage. Opening the manager must never write a new Gallery/List preference. Entering Manage from List continues to return to List.
-- Offer the gallery entry only when the organizational data and callbacks are available and the tree can render. Cover folders without documents, filtered results with no manageable uploads, and deleting the last visible upload. If the tree disappears, return to Gallery and focus the active category button when Manage is unavailable.
+**Manage** uses the same translation as List and sits beside the Books / Documents group in a wrapping toolbar. `DocumentsPanel` opens a temporary management view without writing the saved library view or category. It keeps the text, bookmark, and saved-audio filters and presents the existing User Uploads tree across both categories. Selecting, moving, deleting, and confirming still run through that tree.
+
+Gallery entry starts with the uploads root expanded, an empty selection, and focus on **Done**. Done restores the gallery and focuses **Manage**. If the last manageable item disappears, focus returns to the active category. Empty folders support management when visible. Import startup exits gallery management, consistent with List's edit reset.
+
+Component regressions cover entry from both categories with a text filter, focus on entry and return, unchanged view preference, loss of the final upload, folder-only availability, and ordinary List management. Stage 3 handles removing inline Delete where this route is available.
 
 ## 3. Remove redundant browse-row Delete actions
 

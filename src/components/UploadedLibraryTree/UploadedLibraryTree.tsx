@@ -41,6 +41,8 @@ interface UploadedLibraryTreeProps {
   filterActive?: boolean
   documentOpening?: boolean
   mutationDisabled?: boolean
+  /** Gallery enters directly in edit mode and owns the return destination. */
+  onDone?: () => void
   resetEditing?: boolean
   openingDocumentUrl?: string
   savedAudiobookDocumentUrls?: ReadonlySet<string>
@@ -76,6 +78,7 @@ export function UploadedLibraryTree({
   documentOpening = false,
   mutationDisabled = false,
   resetEditing = false,
+  onDone,
   openingDocumentUrl,
   savedAudiobookDocumentUrls = new Set(),
   managementStatus,
@@ -92,7 +95,7 @@ export function UploadedLibraryTree({
   onViewDocument,
 }: UploadedLibraryTreeProps) {
   const { t, i18n } = useTranslation()
-  const [editMode, setEditMode] = useState(false)
+  const [editMode, setEditMode] = useState(Boolean(onDone))
   const [selectedKeys, setSelectedKeys] = useState<Set<Key>>(new Set())
   const [expandedKeys, setExpandedKeys] = useState<Set<Key>>(new Set())
   const [rootCollapsed, setRootCollapsed] = useState(false)
@@ -516,8 +519,13 @@ export function UploadedLibraryTree({
                 className="uploaded-library-edit-btn"
                 type="button"
                 disabled={busy || mutationDisabled}
+                autoFocus={Boolean(onDone)}
                 aria-pressed={editMode}
                 onClick={() => {
+                  if (onDone) {
+                    onDone()
+                    return
+                  }
                   setEditMode((value) => !value)
                   setSelectedKeys(new Set())
                   setFolderDialog(null)

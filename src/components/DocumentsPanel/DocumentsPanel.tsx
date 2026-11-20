@@ -1,4 +1,6 @@
 import {
+  useLayoutEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -13,9 +15,10 @@ import {
 } from 'react-aria-components'
 import type { DocumentInfo } from '../../types/search'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
-import type {
-  UploadedDocumentDeleteBatchResult,
-  UploadedLibraryOrganization,
+import {
+  isUploadedDocumentUrl,
+  type UploadedDocumentDeleteBatchResult,
+  type UploadedLibraryOrganization,
 } from '../../uploads/DocumentUploads'
 import { BookmarkIcon } from '../BookmarkIndicator/BookmarkIndicator'
 import { filterBookmarkedGroups } from '../BookmarkIndicator/bookmarkFilters'
@@ -116,7 +119,10 @@ export function DocumentsPanel({
   const [galleryCategory, setGalleryCategory] = useState<LibraryGalleryCategory>(
     loadCategory,
   )
-  const view = preferredView
+  const [managingGallery, setManagingGallery] = useState(false)
+  const galleryToolbar = useRef<HTMLDivElement>(null)
+  const restoreGalleryFocus = useRef(false)
+  const view = managingGallery ? 'manage' : preferredView
   const activeImport = importOptions.find((option) => option.statusLabel)
   const hasImportOptions = importOptions.length > 0
   const importBusy = importStatuses.some((item) => item.status === 'importing')
@@ -145,7 +151,28 @@ export function DocumentsPanel({
   const showUploadedTree = canShowUploadedTree && (
     !contentFilterActive || uploadDocs.length > 0
   )
-  const manageStatusIndex = view === 'list' && showUploadedTree
+  const canManageGallery = showUploadedTree && (
+    uploadDocs.some((doc) => isUploadedDocumentUrl(doc.url)) ||
+    (!contentFilterActive && Boolean(libraryOrganization?.folders.length))
+  )
+
+  // Filters and the last deletion can remove the manager while it has focus.
+  useLayoutEffect(() => {
+    if (managingGallery) {
+      restoreGalleryFocus.current = true
+      if (!canManageGallery || importBusy || !showDocuments || documentsLoading) {
+        setManagingGallery(false)
+      }
+    } else if (restoreGalleryFocus.current) {
+      restoreGalleryFocus.current = false
+      const toolbar = galleryToolbar.current
+      const target = toolbar?.querySelector<HTMLButtonElement>('.library-gallery-manage:enabled') ??
+        toolbar?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')
+      target?.focus()
+    }
+  }, [managingGallery, canManageGallery, importBusy, showDocuments, documentsLoading])
+
+  const manageStatusIndex = view !== 'gallery' && showUploadedTree
     ? importStatuses.findIndex((item) => item.manageContext)
     : -1
   const hasFolderTree = bundledDocs.length > 0 ||
@@ -254,19 +281,21 @@ export function DocumentsPanel({
           </div>
         )}
         <div className="document-view-options">
-          <button
-            type="button"
-            className="library-view-toggle"
-            aria-label={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
-            title={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
-            onClick={() => {
-              const nextView = view === 'gallery' ? 'list' : 'gallery'
-              setPreferredView(nextView)
-              savePreference(VIEW_STORAGE_KEY, nextView)
-            }}
-          >
-            <ViewIcon view={view === 'gallery' ? 'list' : 'gallery'} />
-          </button>
+          {!managingGallery && (
+            <button
+              type="button"
+              className="library-view-toggle"
+              aria-label={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
+              title={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
+              onClick={() => {
+                const nextView = view === 'gallery' ? 'list' : 'gallery'
+                setPreferredView(nextView)
+                savePreference(VIEW_STORAGE_KEY, nextView)
+              }}
+            >
+              <ViewIcon view={view === 'gallery' ? 'list' : 'gallery'} />
+            </button>
+          )}
           <button
             type="button"
             className="audio-filter-toggle bookmark-filter-toggle"
@@ -298,6 +327,8 @@ export function DocumentsPanel({
       {view === 'gallery' ? (
         <LibraryGalleryView
           category={galleryCategory}
+          toolbarRef={galleryToolbar}
+          onManage={canManageGallery ? () => setManagingGallery(true) : undefined}
           collapsedAuthors={collapsedAuthors}
           docFilterLower={docFilterLower}
           groupedDocs={visibleGroups}
@@ -326,6 +357,7 @@ export function DocumentsPanel({
               documentOpening={documentOpening}
               mutationDisabled={operationBusy}
               resetEditing={importBusy}
+              onDone={managingGallery ? () => setManagingGallery(false) : undefined}
               openingDocumentUrl={openingDocumentUrl}
               savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
               managementStatus={manageStatusIndex >= 0
@@ -342,7 +374,7 @@ export function DocumentsPanel({
             />
           )}
 
-          {bundledDocs.length > 0 && (
+          {!managingGallery && bundledDocs.length > 0 && (
             <BundledDocumentTree
               documents={bundledDocs}
               filterActive={contentFilterActive}
@@ -352,7 +384,7 @@ export function DocumentsPanel({
             />
           )}
 
-          {(documentListGroups.length > 0 || !hasFolderTree) && (
+          {!managingGallery && (documentListGroups.length > 0 || !hasFolderTree) && (
             <DocumentList
               groupedDocs={documentListGroups}
               collapsedAuthors={collapsedAuthors}
