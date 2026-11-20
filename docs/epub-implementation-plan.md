@@ -581,6 +581,15 @@ Use that tree to let readers browse chapters in place and jump directly to visib
    choices, and reopening Contents restores the same view. Use the reader's document
    identity to reset the dialog and choices on a document switch. Reuse the
    existing HTML heading and EPUB publisher targets for jumps.
+
+   Stage 4 verified the existing document-scoped state through the reader UI.
+   In a long EPUB outline, expanding the second of two identically named branches
+   survives collapsing and reopening their parent, jumping to a leaf, and reopening
+   Contents. Switching books while the dialog is open closes it and restores the
+   new book's initial expansion even when both books supply the same outline.
+   The HTML switch test also verifies that a collapsed heading in one upload
+   starts expanded in the next short outline with the same section ordinals.
+
 5. **Verify keyboard and screen-reader behavior.** Keep the nested ordered lists.
    Give disclosure buttons a localized action name including the entry label and
    expose `aria-expanded`. Enter and Space toggle in place and retain focus.
