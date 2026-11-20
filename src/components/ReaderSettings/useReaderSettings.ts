@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next'
 
 const READER_SETTINGS_KEY = 'papercut.readerSettings.v1'
 
-export const READER_PAGE_THEMES = ['default', 'gray', 'black'] as const
+export const READER_PAGE_THEMES = ['default', 'sepia', 'gray', 'black'] as const
 export type ReaderPageTheme = typeof READER_PAGE_THEMES[number]
 
 export interface ReaderSettingsState {

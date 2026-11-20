@@ -12,9 +12,17 @@ import {
   vi,
 } from 'vitest'
 import { ReaderSettings } from './ReaderSettings'
-import { DEFAULT_READER_SETTINGS } from './useReaderSettings'
+import {
+  DEFAULT_READER_SETTINGS,
+  useReaderSettings,
+} from './useReaderSettings'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: { language: 'en' },
+  }),
+}))
 
 let root: Root
 let container: HTMLDivElement
@@ -121,4 +129,33 @@ it('keeps a wide panel inside the viewport on narrow windows', async () => {
   // Lining up with the button's end edge would put the panel at -58px; it is clamped to the 8px margin.
   expect(panel()!.style.left).toBe('8px')
   expect(panel()!.style.top).toBe('138px')
+})
+
+function SavedReaderSettings() {
+  const { readerSettingsProps } = useReaderSettings()
+  return <ReaderSettings {...readerSettingsProps} />
+}
+
+it('restores each saved page color on a fresh mount and falls back for unknown values', async () => {
+  const storageKey = 'papercut.readerSettings.v1'
+  async function reopen(key: string) {
+    await act(() => root.render(<SavedReaderSettings key={key} />))
+    await act(() => button().click())
+    return panel()!.querySelector<HTMLInputElement>('input[name="reader-page-theme"]:checked')!.value
+  }
+
+  try {
+    expect(await reopen('first')).toBe('default')
+    for (const theme of ['sepia', 'gray', 'black', 'default']) {
+      const option = panel()!.querySelector<HTMLInputElement>(`input[value="${theme}"]`)
+      expect(option).toBeTruthy()
+      await act(() => option!.click())
+      expect(JSON.parse(localStorage.getItem(storageKey)!).pageTheme).toBe(theme)
+      expect(await reopen(theme)).toBe(theme)
+    }
+    localStorage.setItem(storageKey, JSON.stringify({ pageTheme: 'unknown' }))
+    expect(await reopen('unknown')).toBe('default')
+  } finally {
+    localStorage.removeItem(storageKey)
+  }
 })

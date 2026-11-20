@@ -699,6 +699,7 @@
       "pageColor": "页面颜色",
       "pageThemes": {
         "default": "默认",
+        "sepia": "棕褐色",
         "gray": "灰色",
         "black": "黑色"
       },

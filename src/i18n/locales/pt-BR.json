@@ -713,6 +713,7 @@
       "pageColor": "Cor da página",
       "pageThemes": {
         "default": "Padrão",
+        "sepia": "Sépia",
         "gray": "Cinza",
         "black": "Preto"
       },

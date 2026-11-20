@@ -36,7 +36,7 @@ if (process.env.CI && !browser) {
   throw new Error('Viewport capture tests require Chrome/Chromium; set CHROME_BIN.')
 }
 
-export async function runBrowserFixture(directory: string, frame: string, width = 620, screenshotPath?: string, accessibilityPath?: string, keys?: ('Enter' | 'Tab' | 'Escape' | 'Space')[]) {
+export async function runBrowserFixture(directory: string, frame: string, width = 620, screenshotPath?: string, accessibilityPath?: string, keys?: ('Enter' | 'Tab' | 'Escape' | 'Space' | 'ArrowDown')[]) {
   // A DevTools pipe waits for real asynchronous layout; dump-dom virtual time can stop between RAFs.
   const child = spawn(browser!, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-background-networking',
     '--allow-file-access-from-files', '--disable-dev-shm-usage', '--no-first-run', '--remote-debugging-pipe',
@@ -133,6 +133,7 @@ export async function runBrowserFixture(directory: string, frame: string, width 
             key: key === 'Space' ? ' ' : key,
             code: key,
             windowsVirtualKeyCode: {
+              ArrowDown: 40,
               Enter: 13,
               Tab: 9,
               Space: 32,

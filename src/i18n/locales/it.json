@@ -713,6 +713,7 @@
       "pageColor": "Colore pagina",
       "pageThemes": {
         "default": "Predefinito",
+        "sepia": "Seppia",
         "gray": "Grigio",
         "black": "Nero"
       },

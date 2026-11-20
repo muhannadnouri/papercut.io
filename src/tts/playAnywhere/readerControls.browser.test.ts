@@ -1,5 +1,6 @@
 // @vitest-environment node
 import {
+  copyFileSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -48,8 +49,14 @@ beforeAll(async () => {
     import {chunkAudiobookSaveHtmlWithSpans} from ${JSON.stringify(resolve('src/tts/utils/text.ts'))};
     import {PdfControls} from ${JSON.stringify(resolve('src/viewers/PdfControls.tsx'))};
     import {PdfRecognitionPrompt} from ${JSON.stringify(resolve('src/pdf/ocr/PdfRecognitionPrompt.tsx'))};
+    export {highlightTtsChunk, highlightTtsWord} from ${JSON.stringify(resolve('src/tts/alignment/highlightRanges.ts'))};
     export {chunkAudiobookSaveHtmlWithSpans};
     export const viewport = readerTextViewport;
+    export async function openBookSequence() {
+      await i18n.changeLanguage('en');
+      const root=createRoot(document.getElementById('header-fixture'));
+      return (url,format,content)=>root.render(<DocumentViewer url={url} format={format} content={content} onClose={()=>{}} />);
+    }
     export async function mountPdfHeader(locale, savedAudio=false) {
       await mountHeader(locale, false, 'idle', savedAudio);
       while (!document.querySelector('.doc-header')) await new Promise(requestAnimationFrame);
@@ -199,6 +206,189 @@ afterAll(() => {
 })
 // Let the capture helper's 15-second deadline and browser cleanup finish before the next case uses its profile.
 describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, () => {
+  it('uses native radio navigation in a narrow RTL page-color picker', async () => {
+    const frame = join(directory, 'page-color-keys.html')
+    writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css}
+      html {font-size:24px}</style><div id="header-fixture"></div>
+      <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      window.keyboardReady=(async()=>{
+        document.documentElement.dataset.theme='dark';
+        await ReaderControls.mountHeader('ar');
+        const trigger=()=>document.querySelector('.reader-settings-btn');
+        while(!trigger()) await new Promise(requestAnimationFrame);
+        trigger().click();
+        const selected=()=>document.querySelector('[name="reader-page-theme"]:checked');
+        while(!selected()) await new Promise(requestAnimationFrame);
+        const choices=[...document.querySelectorAll('.reader-page-theme-option')];
+        const boxes=choices.map(label=>label.getBoundingClientRect());
+        const [first,second,third,fourth]=boxes;
+        const pane=document.querySelector('.reader-settings-popover').getBoundingClientRect();
+        const inside=(inner,outer)=>inner.left>=outer.left-1 && inner.right<=outer.right+1 &&
+          inner.top>=outer.top-1 && inner.bottom<=outer.bottom+1;
+        const fit=choices.every((label,i)=>[...label.children].every(el=>inside(el.getBoundingClientRect(),boxes[i])) &&
+          label.scrollWidth<=label.clientWidth+1 && inside(boxes[i],pane));
+        selected().focus();
+        let focusRing;
+        document.addEventListener('keydown',event=>{
+          if(event.key==='Tab') focusRing=getComputedStyle(selected().closest('label')).outlineStyle;
+        });
+        document.addEventListener('keyup',event=>{
+          if(event.key!=='Tab') return;
+          const radio=selected();
+          const page=getComputedStyle(document.querySelector('.document-html-surface'));
+          parent.postMessage({type:'capture-result',result:{
+            pageColor:page.backgroundColor, ink:page.color, pageScheme:page.colorScheme,
+            toolbarScheme:getComputedStyle(trigger()).colorScheme,
+            labels:choices.map(label=>label.textContent.trim()),
+            rtlGrid:first.left>=second.right && first.top===second.top && third.left===first.left &&
+              fourth.left===second.left && third.top===fourth.top && third.top>=first.bottom,
+            fit:fit && pane.left>=0 && pane.right<=innerWidth+1,
+            choice:radio.value, nativeDot:getComputedStyle(radio).opacity==='1' && radio.getBoundingClientRect().width>0,
+            focusRing, focusMoved:!choices.some(label=>label.contains(document.activeElement)),
+            ringAfterTab:getComputedStyle(radio.closest('label')).outlineStyle
+          }},'*');
+        });
+      })();</script>`)
+    expect(await runBrowserFixture(directory, frame, 320, undefined, undefined, ['ArrowDown', 'Tab'])).toEqual({
+      pageColor: 'rgb(245, 235, 215)',
+      ink: 'rgb(57, 47, 37)',
+      pageScheme: 'light',
+      toolbarScheme: 'dark',
+      labels: ['افتراضي', 'سيبيا', 'رمادي', 'أسود'],
+      rtlGrid: true,
+      fit: true,
+      choice: 'sepia',
+      nativeDot: true,
+      focusRing: 'solid',
+      focusMoved: true,
+      ringAfterTab: 'none',
+    })
+  })
+
+  it.each(['light', 'dark'])('keeps Sepia text and highlights readable in the %s app', async theme => {
+    const frame = join(directory, 'sepia-contrast.html')
+    writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async()=>{
+        localStorage.setItem('papercut.readerSettings.v1',JSON.stringify({pageTheme:'sepia'}));
+        document.documentElement.dataset.theme=${JSON.stringify(theme)};
+        await ReaderControls.mountHeader('en',false,'idle',true,false,{format:'html',
+          html:'<p>Body <a href="#caption">Link</a></p><blockquote>Quote</blockquote><pre><code>Code</code></pre>'+
+            '<figure><figcaption id="caption">Caption text</figcaption></figure><table><tr><th>Header</th>'+
+            '<td bgcolor="black"><font color="white">Legacy</font></td></tr></table><mark data-search-target>Destination</mark>'});
+        while(!document.querySelector('article figcaption')) await new Promise(requestAnimationFrame);
+        const root=document.querySelector('.document-html-content');
+        const caption=root.querySelector('figcaption');
+        const range=document.createRange();
+        range.selectNodeContents(caption);
+        const rows={};
+        function channels(color) {return color.match(/[0-9.]+/g).map(Number)}
+        function over(top,base) {
+          const [r,g,b,a=1]=channels(top);
+          return [r,g,b].map((v,i)=>v*a+base[i]*(1-a));
+        }
+        function luminance(rgb) {
+          return rgb.reduce((sum,v,i)=>{
+            const c=v/255;
+            return sum+[0.2126,0.7152,0.0722][i]*(c<=0.04045?c/12.92:((c+0.055)/1.055)**2.4);
+          },0);
+        }
+        function measure(name,el,layers=[]) {
+          const ancestors=[];
+          for(let node=el;node;node=node.parentElement) ancestors.unshift(node);
+          let bg=ancestors.reduce((base,node)=>over(getComputedStyle(node).backgroundColor,base),[255,255,255]);
+          let fg=getComputedStyle(el).color;
+          for(const layer of layers){
+            const style=getComputedStyle(el,'::highlight('+layer+')');
+            if(channels(style.backgroundColor)[3]===0) throw Error('Missing '+layer+' fill');
+            bg=over(style.backgroundColor,bg);
+            fg=style.color;
+          }
+          const a=luminance(bg), b=luminance(over(fg,bg));
+          rows[name]=(Math.max(a,b)+0.05)/(Math.min(a,b)+0.05);
+        }
+        for(const tag of ['p','a','blockquote','code','figcaption','th','mark','font']) measure(tag,root.querySelector(tag));
+        for(const name of ['find-match','find-current','search-target']){
+          CSS.highlights.set(name,new Highlight(range));
+          measure(name,caption,[name]);
+          CSS.highlights.delete(name);
+        }
+        const segments={current:null}, alignment={current:null}, chunks=[{text:caption.textContent}];
+        ReaderControls.highlightTtsChunk(caption,0,chunks,true,0,segments,alignment);
+        ReaderControls.highlightTtsWord(caption,0,chunks,true,0,0,segments,alignment);
+        for(const name of ['tts-current','tts-current-word']){
+          if(!CSS.highlights.get(name)?.size) throw Error('Missing '+name+' range');
+        }
+        measure('sentence',caption,['tts-current']);
+        measure('word over sentence',caption,['tts-current','tts-current-word']);
+        parent.postMessage({type:'capture-result',result:{rows,legacyInk:getComputedStyle(root.querySelector('font')).color,
+          legacyFill:getComputedStyle(root.querySelector('td')).backgroundColor}},'*');
+      })();</script>`)
+    const result = await runBrowserFixture(directory, frame) as {
+      rows: Record<string, number>
+      legacyInk: string
+      legacyFill: string
+    }
+    for (const [name, ratio] of Object.entries(result.rows)) {
+      expect(ratio, name).toBeGreaterThanOrEqual(4.5)
+    }
+    expect(result.legacyInk).toBe('rgb(57, 47, 37)')
+    expect(result.legacyFill).toBe('rgba(0, 0, 0, 0)')
+  })
+
+  it('carries Sepia across reflowable books and isolates the PDF viewer', async () => {
+    const frame = join(directory, 'page-color-formats.html')
+    copyFileSync('scripts/fixtures/pdf/extraction-inline-columns.pdf', join(directory, 'printed.pdf'))
+    writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async()=>{
+        document.documentElement.dataset.theme='dark';
+        const open=await ReaderControls.openBookSequence();
+        async function waitFor(selector) {
+          while(!document.querySelector(selector)){
+            const error=document.querySelector('.pdf-viewer-error');
+            if(error) throw Error(error.textContent);
+            await new Promise(requestAnimationFrame);
+          }
+          return document.querySelector(selector);
+        }
+        open('first.html','html','<p>Opening</p>');
+        (await waitFor('.reader-settings-btn')).click();
+        (await waitFor('input[value="sepia"]')).click();
+        const colors=[];
+        for(const [format,tag] of [['epub','figure'],['txt','p'],['markdown','pre']]){
+          const illustration=format==='epub' ? '<img alt="Blue square" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22%3E%3Crect width=%2212%22 height=%2212%22 fill=%22blue%22/%3E%3C/svg%3E">' : '';
+          open(format+'.html',format,'<'+tag+' id="'+format+'">Passage'+illustration+'</'+tag+'>');
+          const passage=await waitFor('#'+format);
+          colors.push(getComputedStyle(passage.closest('article')).backgroundColor);
+          if(illustration){
+            const img=passage.querySelector('img');
+            await img.decode();
+            for(let node=img;node;node=node.parentElement){
+              if(getComputedStyle(node).filter!=='none') throw Error('Sepia filtered the illustration');
+            }
+          }
+        }
+        open('printed.pdf','pdf',null);
+        await waitFor('.pdf-viewer canvas');
+        const pdfIsolated=!document.querySelector('.app-reader').hasAttribute('data-reader-theme') &&
+          !document.querySelector('.reader-settings-btn');
+        open('last.html','html','<p id="last">Another book</p>');
+        await waitFor('#last');
+        colors.push(getComputedStyle(document.querySelector('article')).backgroundColor);
+        if(!document.querySelector('input[value="default"]')) document.querySelector('.reader-settings-btn').click();
+        (await waitFor('input[value="default"]')).click();
+        await waitFor('.app-reader[data-reader-theme="default"]');
+        parent.postMessage({type:'capture-result',result:{colors,pdfIsolated,
+          restored:getComputedStyle(document.querySelector('article')).backgroundColor}},'*');
+      })();</script>`)
+    expect(await runBrowserFixture(directory, frame)).toEqual({
+      colors: Array(4).fill('rgb(245, 235, 215)'),
+      pdfIsolated: true,
+      restored: 'rgb(18, 20, 23)',
+    })
+  })
+
   it('selects the second matching HTML heading by keyboard and cancels back to Contents', async () => {
     const frame = join(directory, 'html-contents.html')
     const restored = readFileSync('scripts/fixtures/reader/html-outline.reader.json', 'utf8')

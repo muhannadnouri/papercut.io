@@ -245,6 +245,28 @@ html[dir="rtl"] .back-icon {
   margin-top: 1rem;
 }
 
+.app-reader[data-reader-theme="sepia"] {
+  --reader-surface: #f5ebd7;
+  --reader-text: #392f25;
+  --reader-muted: #685744;
+  --reader-heading: #30261c;
+  --reader-link: #245674;
+  --reader-link-hover: #183e55;
+  --reader-border: #bba98d;
+  --reader-subtle: #ebe0ca;
+  --reader-accent-border: #876d4f;
+  --reader-highlight-find: #f4dd93;
+  --reader-highlight-current: #e7ae52;
+  --reader-highlight-current-text: var(--reader-text);
+  /* The word is painted over the sentence. Opaque fills keep caption ink legible where they overlap. */
+  --highlight-tts: #f5e0e7;
+  --highlight-tts-word: #f1cde5;
+}
+
+.app-reader[data-reader-theme="sepia"] .document-html-surface {
+  color-scheme: light;
+}
+
 .app-reader[data-reader-theme="gray"] {
   --reader-surface: #4a494f;
   --reader-text: #dedcdf;
@@ -748,15 +770,12 @@ html[dir="rtl"] .back-icon {
   color: var(--reader-highlight-current-text);
 }
 
-/* Legacy imported audiobook bundles can restore pre-CSS HTML such as
-   <font color> and table bgcolor. In dark mode those fixed colors can create
-   white islands with pale text, so keep old presentational colors from
-   overriding the themed reader surface. */
+/* Restored HTML can carry legacy presentation colors that clash with the chosen page palette. */
 html[data-theme="dark"] .document-html-content :where(font[color], [color]) {
   color: inherit;
 }
 
-.app-reader:is([data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-content :where(font[color], [color]) {
+.app-reader:is([data-reader-theme="sepia"], [data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-content :where(font[color], [color]) {
   color: inherit;
 }
 
@@ -764,7 +783,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   background-color: transparent;
 }
 
-.app-reader:is([data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-content :where([bgcolor]) {
+.app-reader:is([data-reader-theme="sepia"], [data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-content :where([bgcolor]) {
   background-color: transparent;
 }
 
