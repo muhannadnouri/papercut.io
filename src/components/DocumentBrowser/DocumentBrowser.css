@@ -614,7 +614,8 @@
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
-.document-row-action:disabled {
+.document-row-action:disabled,
+.document-item-open:disabled .document-row-action-view {
   border-color: var(--border);
   background: var(--surface-muted);
   color: var(--text-soft);
@@ -809,7 +810,35 @@
   }
 }
 
-/* Browse rows have no checkbox and no row-level click target. */
+.document-item-open {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: inherit;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.document-item-open .document-row-action-view {
+  display: inline-flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.document-item-open:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.document-item-open:disabled {
+  cursor: not-allowed;
+}
+
 .document-item-browse {
   cursor: default;
 }
