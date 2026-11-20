@@ -734,6 +734,7 @@
       "pageColor": "لون الصفحة",
       "pageThemes": {
         "default": "افتراضي",
+        "sepia": "سيبيا",
         "gray": "رمادي",
         "black": "أسود"
       },

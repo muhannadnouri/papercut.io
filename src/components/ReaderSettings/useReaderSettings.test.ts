@@ -55,7 +55,9 @@ describe('normalizeReaderPageTheme', () => {
   it('keeps supported themes and repairs stale persisted values', () => {
     expect(normalizeReaderPageTheme('gray')).toBe('gray')
     expect(normalizeReaderPageTheme('black')).toBe('black')
-    expect(normalizeReaderPageTheme('sepia')).toBe('default')
+    expect(normalizeReaderPageTheme('sepia')).toBe('sepia')
+    expect(normalizeReaderPageTheme('unknown')).toBe('default')
+    expect(normalizeReaderPageTheme(undefined)).toBe('default')
   })
 })
 

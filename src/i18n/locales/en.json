@@ -706,6 +706,7 @@
       "pageColor": "Page Color",
       "pageThemes": {
         "default": "Default",
+        "sepia": "Sepia",
         "gray": "Gray",
         "black": "Black"
       },

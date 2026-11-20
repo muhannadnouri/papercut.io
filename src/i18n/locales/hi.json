@@ -706,6 +706,7 @@
       "pageColor": "पृष्ठ का रंग",
       "pageThemes": {
         "default": "डिफ़ॉल्ट",
+        "sepia": "सेपिया",
         "gray": "धूसर",
         "black": "काला"
       },
