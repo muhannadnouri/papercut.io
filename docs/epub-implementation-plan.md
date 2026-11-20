@@ -615,11 +615,41 @@ Use that tree to let readers browse chapters in place and jump directly to visib
    exercise both HTML and EPUB: toggling preserves the article scroll position,
    and activating a leaf reaches the intended passage. Run the relevant reader
    tests, locale parity, TypeScript, and lint checks.
+
+   Stage 6 verified the same 21-entry hierarchy through both reader paths in
+   Chromium: HTML collected headings from the article, and EPUB used publisher
+   entries. From partway through the article, expanding, collapsing, and reopening
+   a chapter preserved the reading position. Selecting a leaf closed Contents,
+   focused its heading, and landed within 2 CSS pixels of the 120 px reader offset.
+   A rendered flat HTML outline exposed all 21 leaves in order. Native transfer
+   checks also passed for restored HTML heading locators and EPUB destinations.
+
 7. **Review on desktop and at phone width.** Open a long EPUB and a nested HTML
    document. Scan the initial overview, expand two chapters, navigate to a child,
    reopen Contents, then switch documents. Check touch and keyboard operation,
    wrapped labels at larger text sizes, visible focus, and chevron direction in RTL.
    Use this pass to assess the cutoff and single-title exception before shipping.
+
+   Manual checklist:
+
+   - [ ] Open a short nested outline and a long one. Check that 20 entries start
+     expanded and 21 start collapsed below the overview. A lone title opens one
+     level. In a long flat outline, all headings are directly selectable.
+   - [ ] In both HTML and EPUB, start partway down the article. Tap a parent
+     label, then its chevron. Each toggles the whole row and keeps your place.
+     Select a leaf and verify its heading is visible after scrolling settles.
+   - [ ] Expand two chapters, change a nested branch, then collapse and reopen
+     its parent. Check both chapters' choices after a jump and after reopening
+     Contents. Switch documents with Contents open and verify the new defaults.
+   - [ ] Use Tab, Space, Enter, and Escape. Verify visible focus, hidden children
+     skipped, Escape returning to Contents, and leaf selection focusing the passage.
+     With a screen reader, listen for the branch label and state and try browsing
+     its children before and after collapse.
+   - [ ] On a phone or at phone width, try wrapped labels with enlarged text
+     in LTR and RTL. Tap near the row edges. Closed chevrons point toward the
+     label, open chevrons point down, and the dialog fits horizontally.
+   - [ ] Try finding a subsection, then try starting at a chapter's introductory
+     prose. Record any friction with leaf-only jumps or the initial overview.
 
 ## Remaining Follow-Ups
 

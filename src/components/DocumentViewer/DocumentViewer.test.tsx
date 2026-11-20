@@ -296,3 +296,25 @@ it('retains nested EPUB choices through parent collapse and a leaf jump, then re
     vi.unstubAllGlobals()
   }
 })
+
+it('shows every leaf in a long flat HTML outline without disclosure controls', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  vi.stubGlobal('CSS', {})
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  const labels = Array.from({ length: 21 }, (_, index) => `Section ${index + 1}`)
+  const content = labels.map((label, i) => `<h2 data-papercut-section="${i}">${label}</h2>`).join('')
+  try {
+    await act(async () => root.render(<DocumentViewer url="/uploads/aa.html" format="html"
+      content={content} onClose={() => {}} />))
+    await act(async () => host.querySelector<HTMLButtonElement>('.document-outline-trigger')!.click())
+    const nav = document.querySelector<HTMLElement>('[role="dialog"] nav')!
+    expect(nav.querySelector('[aria-expanded]')).toBeNull()
+    expect(Array.from(nav.querySelectorAll('button'), row => row.textContent)).toEqual(labels)
+  } finally {
+    await act(async () => root.unmount())
+    host.remove()
+    vi.unstubAllGlobals()
+  }
+})

@@ -317,6 +317,52 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
     expect(exposed.some(node => node.name?.value === 'Inner passage')).toBe(reopen)
   })
 
+  it.each(['html', 'epub'])('preserves the reading position while browsing a long %s Contents outline', async format => {
+    const frame = join(directory, 'long-outline.html')
+    writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css}
+      article h3{margin-block-start:60vh}.document-html-content{padding-bottom:150vh}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async()=>{
+        const leaves=Array.from({length:19},(_,i)=>({label:'Passage '+i,target:'passage-'+i,children:[]}));
+        const html='<h1 data-papercut-section="0">Title</h1><h2 data-papercut-section="1">Chapter</h2>'+
+          leaves.map((leaf,i)=>'<h3 id="'+leaf.target+'" data-papercut-section="'+(i+2)+'">'+leaf.label+'</h3>').join('');
+        const book={url:'/uploads/ab.html',format:'${format}',html};
+        if(book.format==='epub') book.outline=[{label:'Title',target:null,children:[{label:'Chapter',target:null,children:leaves}]}];
+        await ReaderControls.mountHeader('en',false,'idle',true,false,book);
+        const paint=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        while(!document.querySelector('.document-outline-trigger')) await paint();
+        await document.fonts.ready;
+        window.scrollTo({top:400,behavior:'instant'});
+        const start=scrollY;
+        document.querySelector('.document-outline-trigger').click();
+        await paint();
+        const nav=document.querySelector('.document-outline-dialog nav');
+        const [title,chapter]=nav.querySelectorAll('button');
+        const defaults=nav.querySelectorAll('button').length===2 && title.ariaExpanded==='true' && chapter.ariaExpanded==='false';
+        const positions=[scrollY];
+        for(let i=0;i<3;i++){
+          chapter.click();await paint();positions.push(scrollY);
+        }
+        const browsing=start>0 && positions.every(y=>y===start) && !window.browseCount;
+        const leaf=[...nav.querySelectorAll('button')].find(button=>button.textContent==='Passage 12');
+        leaf.click();
+        const target=document.getElementById('passage-12');
+        const landed=()=>Math.abs(target.getBoundingClientRect().top-120)<2;
+        const deadline=performance.now()+2500;
+        while(!landed() && performance.now()<deadline) await paint();
+        parent.postMessage({type:'capture-result',result:{defaults,browsing,landed:landed(),focused:document.activeElement===target,
+          closed:!nav.isConnected,browse:window.browseCount}},'*');
+      })().catch(error=>parent.postMessage({type:'capture-result',result:{error:String(error)}},'*'));</script>`)
+    expect(await runBrowserFixture(directory, frame, 955)).toEqual({
+      defaults: true,
+      browsing: true,
+      landed: true,
+      focused: true,
+      closed: true,
+      browse: 1,
+    })
+  })
+
   it('lands at the EPUB heading on the first Contents jump past a lazy SVG', async () => {
     const frame = join(directory, 'cold-outline.html')
     writeFileSync(join(directory, 'figure.svg'), '<svg xmlns="http://www.w3.org/2000/svg" width="880" height="540"/>')
