@@ -270,6 +270,53 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
     })
   })
 
+  it.each([false, true])('exposes only visible Contents entries to Tab and accessibility APIs (reopen=%s)', async reopen => {
+    const frame = join(directory, 'outline-keys.html')
+    const snapshot = join(directory, 'outline-keys.json')
+    writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      window.keyboardReady=(async()=>{
+        const leaf=(label,target)=>({label,target,children:[]});
+        const book={html:'<p id="a">Passage A</p><p id="b">Passage B</p>',
+          outline:[{label:'Chapter',target:null,children:[leaf('Inner passage','a')]},leaf('Next chapter','b')]};
+        await ReaderControls.mountHeader('en',false,'idle',true,false,book);
+        while(!document.querySelector('.document-outline-trigger')) await new Promise(requestAnimationFrame);
+        document.querySelector('.document-outline-trigger').focus();
+        const states=[];
+        document.addEventListener('keydown',event=>{
+          if(event.target.matches('nav button[aria-expanded]')) states.push(event.target.getAttribute('aria-expanded'));
+        });
+        document.addEventListener('focusin',event=>{
+          if(event.target.matches('.document-outline-dialog nav button:not([aria-expanded])')){
+            parent.postMessage({type:'capture-result',result:{states,focused:event.target.textContent}},'*');
+          }
+        });
+      })();</script>`)
+    const result = await runBrowserFixture(directory, frame, 620, undefined, snapshot,
+      reopen ? ['Enter', 'Tab', 'Space', 'Enter', 'Tab'] : ['Enter', 'Tab', 'Space', 'Tab'])
+    expect(result).toEqual({
+      states: reopen ? ['true', 'false', 'true'] : ['true', 'false'],
+      focused: reopen ? 'Inner passage' : 'Next chapter',
+    })
+
+    interface AccessibleNode {
+      ignored: boolean
+      role?: { value: string }
+      name?: { value: string }
+      properties?: {
+        name: string
+        value: { value: unknown }
+      }[]
+    }
+    const tree: { nodes: AccessibleNode[] } = JSON.parse(readFileSync(snapshot, 'utf8'))
+    const exposed = tree.nodes.filter(node => !node.ignored)
+    const buttons = exposed.filter(node => node.role?.value === 'button')
+    const branch = buttons.find(node => node.name?.value === (reopen ? 'Collapse Chapter' : 'Expand Chapter'))
+    expect(branch?.properties?.find(property => property.name === 'expanded')?.value.value).toBe(reopen)
+    expect(buttons.some(node => node.name?.value === 'Next chapter')).toBe(true)
+    expect(exposed.some(node => node.name?.value === 'Inner passage')).toBe(reopen)
+  })
+
   it('lands at the EPUB heading on the first Contents jump past a lazy SVG', async () => {
     const frame = join(directory, 'cold-outline.html')
     writeFileSync(join(directory, 'figure.svg'), '<svg xmlns="http://www.w3.org/2000/svg" width="880" height="540"/>')

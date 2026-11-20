@@ -597,6 +597,17 @@ Use that tree to let readers browse chapters in place and jump directly to visib
    tree and Tab order. Escape returns focus to Contents; selecting a destination
    focuses the passage. Update existing browser checks to distinguish disclosure
    buttons from destination buttons by accessible name and role.
+
+   Stage 5 verified native button activation in Chromium. Space collapsed a
+   focused branch and Enter reopened it on the same control. Tab reached the
+   next sibling while collapsed and the first child after reopening. Paired
+   accessibility-tree snapshots showed the branch's localized button name and
+   expanded state in both cases. Its child disappeared from the exposed tree
+   on collapse while the sibling remained accessible. The HTML keyboard check
+   also covers Escape returning focus to Contents and leaf activation focusing
+   the destination heading. These checks cover what Chromium exposes to
+   assistive technology; spoken output still needs a manual screen-reader check.
+
 6. **Test the defaults and the full interaction.** Cover the 20/21 boundary,
    a long flat outline, a single title with nested chapters, duplicate labels,
    and a publisher group. Verify independent branches, descendant-state retention,
