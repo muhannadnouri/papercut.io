@@ -1065,7 +1065,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   stroke-linejoin: round;
 }
 
-.document-outline-dialog:dir(rtl) [aria-expanded="false"] svg {
+html[dir="rtl"] .document-outline-dialog [aria-expanded="false"] svg {
   transform: rotate(180deg);
 }
 

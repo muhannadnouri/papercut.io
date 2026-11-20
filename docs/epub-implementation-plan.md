@@ -258,8 +258,9 @@ This exercises the shared package and document path. The installed-device checks
 Step 6 places an icon-only **Contents** button immediately before **Find** when the
 opened EPUB supplies usable entries. The button shares the PDF contents glyph and has
 a localized accessible name and hover/focus tooltip. The dialog mounts outside the
-article. Its nested lists preserve publisher order and leave unlinked groups out of
-the tab sequence. Choosing a destination tells audio follow the reader is browsing,
+article. Its nested lists preserve publisher order. Tab reaches each visible parent,
+including unlinked publisher groups. Enter or Space toggles its children in place.
+Choosing a leaf with a destination tells audio follow the reader is browsing,
 closes the dialog, and moves focus to the passage using the existing reader scroll path.
 
 **Stage 7 automated verification.** The Rust round trip imports the EPUB 3 ZIP, exports a
@@ -371,7 +372,7 @@ library. Reimporting an identical book reuses its existing stored metadata.
    so audio follow yields to the user's jump. Render the list outside the document content
    root and mount it only while open. Use a dismissible leading-edge panel on wide screens
    and enough width for wrapping long labels on phones. Use semantic nested lists and a
-   keyboard-operable control per destination. Announce expanded state and the controlled
+   keyboard-operable controls for parents and linked leaves. Announce expanded state and the controlled
    panel. On selection, close and move reading focus to the exact target without a second
    scroll. On Escape or Close, restore trigger focus and preserve reading position.
    Translate app labels in all eight locales and preserve publisher text and RTL direction.
@@ -531,7 +532,7 @@ supported device before deciding whether the dialog needs a rendering change.
 
 ## Collapsible Contents for HTML and EPUB
 
-Plan for review. The shared [DocumentOutline](../src/components/DocumentViewer/DocumentOutline.tsx)
+The shared [DocumentOutline](../src/components/DocumentViewer/DocumentOutline.tsx)
 already receives ordered entries with a label, an optional destination, and children.
 Use that tree to let readers browse chapters in place and jump directly to visible leaves. All expansion state belongs to the reader UI.
 
@@ -630,25 +631,25 @@ Use that tree to let readers browse chapters in place and jump directly to visib
    wrapped labels at larger text sizes, visible focus, and chevron direction in RTL.
    Use this pass to assess the cutoff and single-title exception before shipping.
 
-   Manual checklist:
+   The project owner reported that the stage 7 manual smoke checklist passed.
 
-   - [ ] Open a short nested outline and a long one. Check that 20 entries start
+   - [x] Open a short nested outline and a long one. Check that 20 entries start
      expanded and 21 start collapsed below the overview. A lone title opens one
      level. In a long flat outline, all headings are directly selectable.
-   - [ ] In both HTML and EPUB, start partway down the article. Tap a parent
+   - [x] In both HTML and EPUB, start partway down the article. Tap a parent
      label, then its chevron. Each toggles the whole row and keeps your place.
      Select a leaf and verify its heading is visible after scrolling settles.
-   - [ ] Expand two chapters, change a nested branch, then collapse and reopen
+   - [x] Expand two chapters, change a nested branch, then collapse and reopen
      its parent. Check both chapters' choices after a jump and after reopening
      Contents. Switch documents with Contents open and verify the new defaults.
-   - [ ] Use Tab, Space, Enter, and Escape. Verify visible focus, hidden children
+   - [x] Use Tab, Space, Enter, and Escape. Verify visible focus, hidden children
      skipped, Escape returning to Contents, and leaf selection focusing the passage.
      With a screen reader, listen for the branch label and state and try browsing
      its children before and after collapse.
-   - [ ] On a phone or at phone width, try wrapped labels with enlarged text
+   - [x] On a phone or at phone width, try wrapped labels with enlarged text
      in LTR and RTL. Tap near the row edges. Closed chevrons point toward the
      label, open chevrons point down, and the dialog fits horizontally.
-   - [ ] Try finding a subsection, then try starting at a chapter's introductory
+   - [x] Try finding a subsection, then try starting at a chapter's introductory
      prose. Record any friction with leaf-only jumps or the initial overview.
 
 ## Remaining Follow-Ups
