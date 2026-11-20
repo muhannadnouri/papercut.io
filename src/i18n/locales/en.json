@@ -671,6 +671,8 @@
     }
   },
   "reader": {
+    "expandSection": "Expand {{label}}",
+    "collapseSection": "Collapse {{label}}",
     "contents": "Table of Contents",
     "back": "Back",
     "find": "Find",

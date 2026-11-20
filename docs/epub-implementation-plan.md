@@ -258,8 +258,9 @@ This exercises the shared package and document path. The installed-device checks
 Step 6 places an icon-only **Contents** button immediately before **Find** when the
 opened EPUB supplies usable entries. The button shares the PDF contents glyph and has
 a localized accessible name and hover/focus tooltip. The dialog mounts outside the
-article. Its nested lists preserve publisher order and leave unlinked groups out of
-the tab sequence. Choosing a destination tells audio follow the reader is browsing,
+article. Its nested lists preserve publisher order. Tab reaches each visible parent,
+including unlinked publisher groups. Enter or Space toggles its children in place.
+Choosing a leaf with a destination tells audio follow the reader is browsing,
 closes the dialog, and moves focus to the passage using the existing reader scroll path.
 
 **Stage 7 automated verification.** The Rust round trip imports the EPUB 3 ZIP, exports a
@@ -371,7 +372,7 @@ library. Reimporting an identical book reuses its existing stored metadata.
    so audio follow yields to the user's jump. Render the list outside the document content
    root and mount it only while open. Use a dismissible leading-edge panel on wide screens
    and enough width for wrapping long labels on phones. Use semantic nested lists and a
-   keyboard-operable control per destination. Announce expanded state and the controlled
+   keyboard-operable controls for parents and linked leaves. Announce expanded state and the controlled
    panel. On selection, close and move reading focus to the exact target without a second
    scroll. On Escape or Close, restore trigger focus and preserve reading position.
    Translate app labels in all eight locales and preserve publisher text and RTL direction.
@@ -528,6 +529,128 @@ supported device before deciding whether the dialog needs a rendering change.
 5. On a lower-powered device, try a large HTML upload if available. Check the first
    Contents open and keyboard or touch responsiveness. Record device, document size,
    and heading count if there is a noticeable stall.
+
+## Collapsible Contents for HTML and EPUB
+
+The shared [DocumentOutline](../src/components/DocumentViewer/DocumentOutline.tsx)
+already receives ordered entries with a label, an optional destination, and children.
+Use that tree to let readers browse chapters in place and jump directly to visible leaves. All expansion state belongs to the reader UI.
+
+1. **Set the initial view.** Count entries across all levels, including publisher
+   groups. At 20 or fewer, open every branch. At 21 or more, start branches closed.
+   Apply the single-title exception structurally: when there is exactly one root
+   with children, open it one level so the chapters are visible. This works even
+   when the title is translated or repeated. A flat outline always shows all rows.
+   Determine the default once per outline and stop counting as soon as 21 is reached.
+
+   Stage 1 implemented the shared [initial expansion rule](../src/components/DocumentViewer/outlineExpansion.ts).
+   Its unit tests cover the 20/21 boundary with nested entries, destinationless
+   groups, and a single root with or without a jump target.
+
+2. **Use one action per row.** A parent is one full-width disclosure button,
+   including its label and leading chevron. Activating either toggles its children,
+   keeps Contents open, and preserves the reading position. This also applies to
+   parents with an authored destination. Only leaves with a destination jump;
+   selecting one closes Contents and focuses the passage. A destinationless leaf
+   is plain text. The tradeoff is that introductory prose before the first child
+   of a chapter is reachable by reading or scrolling, without a dedicated Contents row.
+
+   Stage 2 implemented the revised interaction. The HTML reader regression clicks
+   a parent label and its chevron, then selects the sole leaf and verifies passage
+   focus. Chromium checks keyboard selection of a leaf and EPUB group disclosure.
+
+3. **Reuse the library tree icon.** Render the existing decorative
+   [ChevronIcon](../src/components/ChevronIcon/ChevronIcon.tsx) used by both
+   library trees. Follow the [library disclosure styling](../src/components/UploadedLibraryTree/UploadedLibraryTree.css)
+   for its size, stroke, and direction. Point the closed icon toward the text
+   (right in LTR, left in RTL) and the open icon down. Scope the row and focus
+   styling to the Contents dialog. Give the toggle a touch target independent
+   of the icon size so the wrapped label and surrounding row activate the same toggle.
+
+   Stage 3 verified the rendered dialog at 320 CSS pixels wide in Chromium with
+   English at 16 px and Arabic at 24 px. Parent and leaf labels wrapped within
+   their rows. Both buttons filled the row, measured at least 44 × 44 CSS pixels,
+   and accepted hits near opposite corners. The leading chevron pointed toward
+   the label when closed and down when open in both directions. Its rounded
+   stroke matches the library trees. The owner also confirmed the revised
+   stage 2 interaction in manual smoke testing.
+
+4. **Keep expansion local to the open document.** Store branch choices in
+   DocumentOutline above the conditionally mounted dialog. Key choices by position
+   in the ordered tree so repeated labels and destinationless groups are independent.
+   Multiple branches may stay open. Closing a parent preserves its descendants'
+   choices, and reopening Contents restores the same view. Use the reader's document
+   identity to reset the dialog and choices on a document switch. Reuse the
+   existing HTML heading and EPUB publisher targets for jumps.
+
+   Stage 4 verified the existing document-scoped state through the reader UI.
+   In a long EPUB outline, expanding the second of two identically named branches
+   survives collapsing and reopening their parent, jumping to a leaf, and reopening
+   Contents. Switching books while the dialog is open closes it and restores the
+   new book's initial expansion even when both books supply the same outline.
+   The HTML switch test also verifies that a collapsed heading in one upload
+   starts expanded in the next short outline with the same section ordinals.
+
+5. **Verify keyboard and screen-reader behavior.** Keep the nested ordered lists.
+   Give disclosure buttons a localized action name including the entry label and
+   expose `aria-expanded`. Enter and Space toggle in place and retain focus.
+   Render only visible descendants so collapsed rows leave both the accessibility
+   tree and Tab order. Escape returns focus to Contents; selecting a destination
+   focuses the passage. Update existing browser checks to distinguish disclosure
+   buttons from destination buttons by accessible name and role.
+
+   Stage 5 verified native button activation in Chromium. Space collapsed a
+   focused branch and Enter reopened it on the same control. Tab reached the
+   next sibling while collapsed and the first child after reopening. Paired
+   accessibility-tree snapshots showed the branch's localized button name and
+   expanded state in both cases. Its child disappeared from the exposed tree
+   on collapse while the sibling remained accessible. The HTML keyboard check
+   also covers Escape returning focus to Contents and leaf activation focusing
+   the destination heading. These checks cover what Chromium exposes to
+   assistive technology; spoken output still needs a manual screen-reader check.
+
+6. **Test the defaults and the full interaction.** Cover the 20/21 boundary,
+   a long flat outline, a single title with nested chapters, duplicate labels,
+   and a publisher group. Verify independent branches, descendant-state retention,
+   close/reopen, and switching documents while Contents is open. In Chromium,
+   exercise both HTML and EPUB: toggling preserves the article scroll position,
+   and activating a leaf reaches the intended passage. Run the relevant reader
+   tests, locale parity, TypeScript, and lint checks.
+
+   Stage 6 verified the same 21-entry hierarchy through both reader paths in
+   Chromium: HTML collected headings from the article, and EPUB used publisher
+   entries. From partway through the article, expanding, collapsing, and reopening
+   a chapter preserved the reading position. Selecting a leaf closed Contents,
+   focused its heading, and landed within 2 CSS pixels of the 120 px reader offset.
+   A rendered flat HTML outline exposed all 21 leaves in order. Native transfer
+   checks also passed for restored HTML heading locators and EPUB destinations.
+
+7. **Review on desktop and at phone width.** Open a long EPUB and a nested HTML
+   document. Scan the initial overview, expand two chapters, navigate to a child,
+   reopen Contents, then switch documents. Check touch and keyboard operation,
+   wrapped labels at larger text sizes, visible focus, and chevron direction in RTL.
+   Use this pass to assess the cutoff and single-title exception before shipping.
+
+   The project owner reported that the stage 7 manual smoke checklist passed.
+
+   - [x] Open a short nested outline and a long one. Check that 20 entries start
+     expanded and 21 start collapsed below the overview. A lone title opens one
+     level. In a long flat outline, all headings are directly selectable.
+   - [x] In both HTML and EPUB, start partway down the article. Tap a parent
+     label, then its chevron. Each toggles the whole row and keeps your place.
+     Select a leaf and verify its heading is visible after scrolling settles.
+   - [x] Expand two chapters, change a nested branch, then collapse and reopen
+     its parent. Check both chapters' choices after a jump and after reopening
+     Contents. Switch documents with Contents open and verify the new defaults.
+   - [x] Use Tab, Space, Enter, and Escape. Verify visible focus, hidden children
+     skipped, Escape returning to Contents, and leaf selection focusing the passage.
+     With a screen reader, listen for the branch label and state and try browsing
+     its children before and after collapse.
+   - [x] On a phone or at phone width, try wrapped labels with enlarged text
+     in LTR and RTL. Tap near the row edges. Closed chevrons point toward the
+     label, open chevrons point down, and the dialog fits horizontally.
+   - [x] Try finding a subsection, then try starting at a chapter's introductory
+     prose. Record any friction with leaf-only jumps or the initial overview.
 
 ## Remaining Follow-Ups
 

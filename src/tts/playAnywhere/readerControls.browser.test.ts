@@ -270,6 +270,99 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
     })
   })
 
+  it.each([false, true])('exposes only visible Contents entries to Tab and accessibility APIs (reopen=%s)', async reopen => {
+    const frame = join(directory, 'outline-keys.html')
+    const snapshot = join(directory, 'outline-keys.json')
+    writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      window.keyboardReady=(async()=>{
+        const leaf=(label,target)=>({label,target,children:[]});
+        const book={html:'<p id="a">Passage A</p><p id="b">Passage B</p>',
+          outline:[{label:'Chapter',target:null,children:[leaf('Inner passage','a')]},leaf('Next chapter','b')]};
+        await ReaderControls.mountHeader('en',false,'idle',true,false,book);
+        while(!document.querySelector('.document-outline-trigger')) await new Promise(requestAnimationFrame);
+        document.querySelector('.document-outline-trigger').focus();
+        const states=[];
+        document.addEventListener('keydown',event=>{
+          if(event.target.matches('nav button[aria-expanded]')) states.push(event.target.getAttribute('aria-expanded'));
+        });
+        document.addEventListener('focusin',event=>{
+          if(event.target.matches('.document-outline-dialog nav button:not([aria-expanded])')){
+            parent.postMessage({type:'capture-result',result:{states,focused:event.target.textContent}},'*');
+          }
+        });
+      })();</script>`)
+    const result = await runBrowserFixture(directory, frame, 620, undefined, snapshot,
+      reopen ? ['Enter', 'Tab', 'Space', 'Enter', 'Tab'] : ['Enter', 'Tab', 'Space', 'Tab'])
+    expect(result).toEqual({
+      states: reopen ? ['true', 'false', 'true'] : ['true', 'false'],
+      focused: reopen ? 'Inner passage' : 'Next chapter',
+    })
+
+    interface AccessibleNode {
+      ignored: boolean
+      role?: { value: string }
+      name?: { value: string }
+      properties?: {
+        name: string
+        value: { value: unknown }
+      }[]
+    }
+    const tree: { nodes: AccessibleNode[] } = JSON.parse(readFileSync(snapshot, 'utf8'))
+    const exposed = tree.nodes.filter(node => !node.ignored)
+    const buttons = exposed.filter(node => node.role?.value === 'button')
+    const branch = buttons.find(node => node.name?.value === (reopen ? 'Collapse Chapter' : 'Expand Chapter'))
+    expect(branch?.properties?.find(property => property.name === 'expanded')?.value.value).toBe(reopen)
+    expect(buttons.some(node => node.name?.value === 'Next chapter')).toBe(true)
+    expect(exposed.some(node => node.name?.value === 'Inner passage')).toBe(reopen)
+  })
+
+  it.each(['html', 'epub'])('preserves the reading position while browsing a long %s Contents outline', async format => {
+    const frame = join(directory, 'long-outline.html')
+    writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css}
+      article h3{margin-block-start:60vh}.document-html-content{padding-bottom:150vh}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async()=>{
+        const leaves=Array.from({length:19},(_,i)=>({label:'Passage '+i,target:'passage-'+i,children:[]}));
+        const html='<h1 data-papercut-section="0">Title</h1><h2 data-papercut-section="1">Chapter</h2>'+
+          leaves.map((leaf,i)=>'<h3 id="'+leaf.target+'" data-papercut-section="'+(i+2)+'">'+leaf.label+'</h3>').join('');
+        const book={url:'/uploads/ab.html',format:'${format}',html};
+        if(book.format==='epub') book.outline=[{label:'Title',target:null,children:[{label:'Chapter',target:null,children:leaves}]}];
+        await ReaderControls.mountHeader('en',false,'idle',true,false,book);
+        const paint=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        while(!document.querySelector('.document-outline-trigger')) await paint();
+        await document.fonts.ready;
+        window.scrollTo({top:400,behavior:'instant'});
+        const start=scrollY;
+        document.querySelector('.document-outline-trigger').click();
+        await paint();
+        const nav=document.querySelector('.document-outline-dialog nav');
+        const [title,chapter]=nav.querySelectorAll('button');
+        const defaults=nav.querySelectorAll('button').length===2 && title.ariaExpanded==='true' && chapter.ariaExpanded==='false';
+        const positions=[scrollY];
+        for(let i=0;i<3;i++){
+          chapter.click();await paint();positions.push(scrollY);
+        }
+        const browsing=start>0 && positions.every(y=>y===start) && !window.browseCount;
+        const leaf=[...nav.querySelectorAll('button')].find(button=>button.textContent==='Passage 12');
+        leaf.click();
+        const target=document.getElementById('passage-12');
+        const landed=()=>Math.abs(target.getBoundingClientRect().top-120)<2;
+        const deadline=performance.now()+2500;
+        while(!landed() && performance.now()<deadline) await paint();
+        parent.postMessage({type:'capture-result',result:{defaults,browsing,landed:landed(),focused:document.activeElement===target,
+          closed:!nav.isConnected,browse:window.browseCount}},'*');
+      })().catch(error=>parent.postMessage({type:'capture-result',result:{error:String(error)}},'*'));</script>`)
+    expect(await runBrowserFixture(directory, frame, 955)).toEqual({
+      defaults: true,
+      browsing: true,
+      landed: true,
+      focused: true,
+      closed: true,
+      browse: 1,
+    })
+  })
+
   it('lands at the EPUB heading on the first Contents jump past a lazy SVG', async () => {
     const frame = join(directory, 'cold-outline.html')
     writeFileSync(join(directory, 'figure.svg'), '<svg xmlns="http://www.w3.org/2000/svg" width="880" height="540"/>')
@@ -304,6 +397,60 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
   })
 
   it.each([
+    [16, 'en'], [24, 'ar'],
+  ] as const)('keeps wrapped Contents rows reachable at 320px with %ipx text (%s)', async (font, locale) => {
+    const frame = join(directory, 'outline-layout.html')
+    writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css} html{font-size:${font}px}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async()=>{
+        const label='${locale}'==='ar'?'دليل قراءة الفصول والأقسام الفرعية في المستند':'Reading chapters and subsections in a long document';
+        const book={html:'<h2 id="end">End</h2>',outline:[{label,target:null,children:[{label,target:'end',children:[]}]}]};
+        await ReaderControls.mountHeader('${locale}',false,'idle',true,false,book);
+        const paint=()=>new Promise(requestAnimationFrame);
+        while(!document.querySelector('.document-outline-trigger')) await paint();
+        document.querySelector('.document-outline-trigger').click();
+        while(!document.querySelector('.document-outline-dialog nav button')) await paint();
+        await document.fonts.ready;
+        const dialog=document.querySelector('.document-outline-dialog');
+        const [parentRow,leaf]=dialog.querySelectorAll('nav button');
+        const icon=parentRow.querySelector('svg');
+        const angle=()=>new DOMMatrix(getComputedStyle(icon).transform);
+        const pointsDown=angle().b===1;
+        const iconBox=icon.getBoundingClientRect(), textBox=parentRow.querySelector('bdi').getBoundingClientRect();
+        const leading='${locale}'==='ar'?iconBox.left>=textBox.right:iconBox.right<=textBox.left;
+        const rows=[parentRow,leaf].map(button=>{
+          const box=button.getBoundingClientRect(), list=button.parentElement.getBoundingClientRect();
+          const range=document.createRange();
+          range.selectNodeContents(button.querySelector('bdi'));
+          const lines=Array.from(range.getClientRects());
+          const hit=(x,y)=>document.elementFromPoint(x,y)?.closest('button')===button;
+          return {wrapped:new Set(lines.map(line=>Math.round(line.top))).size>1,
+            fits:lines.every(line=>line.left>=box.left-1 && line.right<=box.right+1 && line.bottom<=box.bottom+1)
+              && box.left>=0 && box.right<=innerWidth && dialog.scrollWidth<=dialog.clientWidth+1,
+            target:box.width>=44 && box.height>=44 && Math.abs(box.width-list.width)<=1,
+            reachable:hit(box.left+4,box.top+4) && hit(box.right-4,box.bottom-4)};
+        });
+        parentRow.click();
+        await paint();
+        parent.postMessage({type:'capture-result',result:{rows,leading,pointsDown,
+          closedDirection:angle().a===('${locale}'==='ar'?-1:1)}},'*');
+      })().catch(error=>parent.postMessage({type:'capture-result',result:{error:String(error)}},'*'));</script>`)
+    const result = await runBrowserFixture(directory, frame, 320)
+    const expectedRow = {
+      wrapped: true,
+      fits: true,
+      target: true,
+      reachable: true,
+    }
+    expect(result).toEqual({
+      rows: [expectedRow, expectedRow],
+      leading: true,
+      pointsDown: true,
+      closedDirection: true,
+    })
+  })
+
+  it.each([
     [320, 24, 'ar'], [1200, 16, 'en'],
   ] as const)('navigates EPUB Contents at %ipx and %ipx text (%s)', async (width, font, locale) => {
     const frame = join(directory, 'document-outline.html')
@@ -325,8 +472,15 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
         const open=async()=>{trigger.click();await paint();return document.querySelector('.document-outline-dialog')};
         const dialog=await open(), panel=dialog.getBoundingClientRect();
         const focusEntered=document.activeElement===dialog.querySelector('.app-dialog-close');
-        const group=dialog.querySelector('li > strong')?.textContent;
-        const labels=[...dialog.querySelectorAll('li button')].map(el=>el.textContent);
+        const groupToggle=dialog.querySelector('li button[aria-expanded]');
+        const group=groupToggle.textContent;
+        groupToggle.click();
+        await paint();
+        const groupCollapsed=groupToggle.getAttribute('aria-expanded')==='false' &&
+          !dialog.querySelector('li button:not([aria-expanded])') && !window.browseCount;
+        groupToggle.click();
+        await paint();
+        const labels=[...dialog.querySelectorAll('li button:not([aria-expanded])')].map(el=>el.textContent);
         const spoken=ReaderControls.chunkAudiobookSaveHtmlWithSpans(book.html).map(chunk=>chunk.text).join(' ');
         const position=scrollY;
         document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
@@ -335,7 +489,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
         const focused=[], visible=[];
         for(let i=0;i<targets.length;i++){
           const list=await open();
-          list.querySelectorAll('li button')[i].click();
+          list.querySelectorAll('li button:not([aria-expanded])')[i].click();
           await paint();
           const target=document.activeElement;
           focused.push(target.id);
@@ -354,7 +508,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
         heading.removeAttribute('id');
         heading.before(marker);
         const namedList=await open();
-        namedList.querySelectorAll('li button')[1].click();
+        namedList.querySelectorAll('li button:not([aria-expanded])')[1].click();
         await paint();
         const namedFocus=document.activeElement===marker && marker.tabIndex===-1;
         const browse=window.browseCount;
@@ -376,7 +530,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
         };
         const bodyFound=await find('Evening in the valley',1);
         const labelAbsent=await find('Low trail',0);
-        parent.postMessage({type:'capture-result',result:{matchesAa,title:dialog.querySelector("h2").textContent,namedFocus,bodyFound,labelAbsent,spoken,reachable,focusEntered,group,labels,cancelled,focused,visible,
+        parent.postMessage({type:'capture-result',result:{matchesAa,title:dialog.querySelector("h2").textContent,namedFocus,bodyFound,labelAbsent,spoken,reachable,focusEntered,group,groupCollapsed,labels,cancelled,focused,visible,
           beside:trigger.nextElementSibling.matches('.find-btn'),fits:panel.left>=0 && panel.right<=innerWidth+1,
           overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,browse,
           clean:!document.querySelector('article').textContent.includes('Low trail')}},'*');
@@ -395,6 +549,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
       reachable: true,
       focusEntered: true,
       group: 'Walking routes',
+      groupCollapsed: true,
       labels: ['High trail', 'Low trail'],
       cancelled: true,
       focused: ['ch0-ridge', 'ch0-valley'],

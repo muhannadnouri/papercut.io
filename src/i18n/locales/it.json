@@ -678,6 +678,8 @@
     }
   },
   "reader": {
+    "expandSection": "Espandi {{label}}",
+    "collapseSection": "Comprimi {{label}}",
     "contents": "Indice",
     "back": "Indietro",
     "find": "Trovare",
