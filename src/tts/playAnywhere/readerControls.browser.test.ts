@@ -205,6 +205,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
       html {font-size:24px}</style><div id="header-fixture"></div>
       <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
       window.keyboardReady=(async()=>{
+        document.documentElement.dataset.theme='dark';
         await ReaderControls.mountHeader('ar');
         const trigger=()=>document.querySelector('.reader-settings-btn');
         while(!trigger()) await new Promise(requestAnimationFrame);
@@ -227,7 +228,10 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
         document.addEventListener('keyup',event=>{
           if(event.key!=='Tab') return;
           const radio=selected();
+          const page=getComputedStyle(document.querySelector('.document-html-surface'));
           parent.postMessage({type:'capture-result',result:{
+            pageColor:page.backgroundColor, ink:page.color, pageScheme:page.colorScheme,
+            toolbarScheme:getComputedStyle(trigger()).colorScheme,
             labels:choices.map(label=>label.textContent.trim()),
             rtlGrid:first.left>=second.right && first.top===second.top && third.left===first.left &&
               fourth.left===second.left && third.top===fourth.top && third.top>=first.bottom,
@@ -239,6 +243,10 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
         });
       })();</script>`)
     expect(await runBrowserFixture(directory, frame, 320, undefined, undefined, ['ArrowDown', 'Tab'])).toEqual({
+      pageColor: 'rgb(245, 235, 215)',
+      ink: 'rgb(57, 47, 37)',
+      pageScheme: 'light',
+      toolbarScheme: 'dark',
       labels: ['افتراضي', 'سيبيا', 'رمادي', 'أسود'],
       rtlGrid: true,
       fit: true,
