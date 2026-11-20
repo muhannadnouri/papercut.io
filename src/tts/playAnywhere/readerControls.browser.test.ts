@@ -48,6 +48,7 @@ beforeAll(async () => {
     import {chunkAudiobookSaveHtmlWithSpans} from ${JSON.stringify(resolve('src/tts/utils/text.ts'))};
     import {PdfControls} from ${JSON.stringify(resolve('src/viewers/PdfControls.tsx'))};
     import {PdfRecognitionPrompt} from ${JSON.stringify(resolve('src/pdf/ocr/PdfRecognitionPrompt.tsx'))};
+    export {highlightTtsChunk, highlightTtsWord} from ${JSON.stringify(resolve('src/tts/alignment/highlightRanges.ts'))};
     export {chunkAudiobookSaveHtmlWithSpans};
     export const viewport = readerTextViewport;
     export async function mountPdfHeader(locale, savedAudio=false) {
@@ -256,6 +257,77 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
       focusMoved: true,
       ringAfterTab: 'none',
     })
+  })
+
+  it.each(['light', 'dark'])('keeps Sepia text and highlights readable in the %s app', async theme => {
+    const frame = join(directory, 'sepia-contrast.html')
+    writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async()=>{
+        localStorage.setItem('papercut.readerSettings.v1',JSON.stringify({pageTheme:'sepia'}));
+        document.documentElement.dataset.theme=${JSON.stringify(theme)};
+        await ReaderControls.mountHeader('en',false,'idle',true,false,{format:'html',
+          html:'<p>Body <a href="#caption">Link</a></p><blockquote>Quote</blockquote><pre><code>Code</code></pre>'+
+            '<figure><figcaption id="caption">Caption text</figcaption></figure><table><tr><th>Header</th>'+
+            '<td bgcolor="black"><font color="white">Legacy</font></td></tr></table><mark data-search-target>Destination</mark>'});
+        while(!document.querySelector('article figcaption')) await new Promise(requestAnimationFrame);
+        const root=document.querySelector('.document-html-content');
+        const caption=root.querySelector('figcaption');
+        const range=document.createRange();
+        range.selectNodeContents(caption);
+        const rows={};
+        function channels(color) {return color.match(/[0-9.]+/g).map(Number)}
+        function over(top,base) {
+          const [r,g,b,a=1]=channels(top);
+          return [r,g,b].map((v,i)=>v*a+base[i]*(1-a));
+        }
+        function luminance(rgb) {
+          return rgb.reduce((sum,v,i)=>{
+            const c=v/255;
+            return sum+[0.2126,0.7152,0.0722][i]*(c<=0.04045?c/12.92:((c+0.055)/1.055)**2.4);
+          },0);
+        }
+        function measure(name,el,layers=[]) {
+          const ancestors=[];
+          for(let node=el;node;node=node.parentElement) ancestors.unshift(node);
+          let bg=ancestors.reduce((base,node)=>over(getComputedStyle(node).backgroundColor,base),[255,255,255]);
+          let fg=getComputedStyle(el).color;
+          for(const layer of layers){
+            const style=getComputedStyle(el,'::highlight('+layer+')');
+            if(channels(style.backgroundColor)[3]===0) throw Error('Missing '+layer+' fill');
+            bg=over(style.backgroundColor,bg);
+            fg=style.color;
+          }
+          const a=luminance(bg), b=luminance(over(fg,bg));
+          rows[name]=(Math.max(a,b)+0.05)/(Math.min(a,b)+0.05);
+        }
+        for(const tag of ['p','a','blockquote','code','figcaption','th','mark','font']) measure(tag,root.querySelector(tag));
+        for(const name of ['find-match','find-current','search-target']){
+          CSS.highlights.set(name,new Highlight(range));
+          measure(name,caption,[name]);
+          CSS.highlights.delete(name);
+        }
+        const segments={current:null}, alignment={current:null}, chunks=[{text:caption.textContent}];
+        ReaderControls.highlightTtsChunk(caption,0,chunks,true,0,segments,alignment);
+        ReaderControls.highlightTtsWord(caption,0,chunks,true,0,0,segments,alignment);
+        for(const name of ['tts-current','tts-current-word']){
+          if(!CSS.highlights.get(name)?.size) throw Error('Missing '+name+' range');
+        }
+        measure('sentence',caption,['tts-current']);
+        measure('word over sentence',caption,['tts-current','tts-current-word']);
+        parent.postMessage({type:'capture-result',result:{rows,legacyInk:getComputedStyle(root.querySelector('font')).color,
+          legacyFill:getComputedStyle(root.querySelector('td')).backgroundColor}},'*');
+      })();</script>`)
+    const result = await runBrowserFixture(directory, frame) as {
+      rows: Record<string, number>
+      legacyInk: string
+      legacyFill: string
+    }
+    for (const [name, ratio] of Object.entries(result.rows)) {
+      expect(ratio, name).toBeGreaterThanOrEqual(4.5)
+    }
+    expect(result.legacyInk).toBe('rgb(57, 47, 37)')
+    expect(result.legacyFill).toBe('rgba(0, 0, 0, 0)')
   })
 
   it('selects the second matching HTML heading by keyboard and cancels back to Contents', async () => {

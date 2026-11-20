@@ -258,6 +258,9 @@ html[dir="rtl"] .back-icon {
   --reader-highlight-find: #f4dd93;
   --reader-highlight-current: #e7ae52;
   --reader-highlight-current-text: var(--reader-text);
+  /* The word is painted over the sentence. Opaque fills keep caption ink legible where they overlap. */
+  --highlight-tts: #f5e0e7;
+  --highlight-tts-word: #f1cde5;
 }
 
 .app-reader[data-reader-theme="sepia"] .document-html-surface {
@@ -767,15 +770,12 @@ html[dir="rtl"] .back-icon {
   color: var(--reader-highlight-current-text);
 }
 
-/* Legacy imported audiobook bundles can restore pre-CSS HTML such as
-   <font color> and table bgcolor. In dark mode those fixed colors can create
-   white islands with pale text, so keep old presentational colors from
-   overriding the themed reader surface. */
+/* Restored HTML can carry legacy presentation colors that clash with the chosen page palette. */
 html[data-theme="dark"] .document-html-content :where(font[color], [color]) {
   color: inherit;
 }
 
-.app-reader:is([data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-content :where(font[color], [color]) {
+.app-reader:is([data-reader-theme="sepia"], [data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-content :where(font[color], [color]) {
   color: inherit;
 }
 
@@ -783,7 +783,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   background-color: transparent;
 }
 
-.app-reader:is([data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-content :where([bgcolor]) {
+.app-reader:is([data-reader-theme="sepia"], [data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-content :where([bgcolor]) {
   background-color: transparent;
 }
 
