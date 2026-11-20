@@ -119,10 +119,12 @@ export function DocumentsPanel({
   const [galleryCategory, setGalleryCategory] = useState<LibraryGalleryCategory>(
     loadCategory,
   )
-  const [managingGallery, setManagingGallery] = useState(false)
+  const [managing, setManaging] = useState(false)
   const galleryToolbar = useRef<HTMLDivElement>(null)
-  const restoreGalleryFocus = useRef(false)
-  const view = managingGallery ? 'manage' : preferredView
+  const listManageButton = useRef<HTMLButtonElement>(null)
+  const filterInput = useRef<HTMLInputElement>(null)
+  const restoreBrowseFocus = useRef(false)
+  const view = managing ? 'manage' : preferredView
   const activeImport = importOptions.find((option) => option.statusLabel)
   const hasImportOptions = importOptions.length > 0
   const importBusy = importStatuses.some((item) => item.status === 'importing')
@@ -151,26 +153,28 @@ export function DocumentsPanel({
   const showUploadedTree = canShowUploadedTree && (
     !contentFilterActive || uploadDocs.length > 0
   )
-  const canManageGallery = showUploadedTree && (
+  const canManage = showUploadedTree && (
     uploadDocs.some((doc) => isUploadedDocumentUrl(doc.url)) ||
     (!contentFilterActive && Boolean(libraryOrganization?.folders.length))
   )
 
   // Filters and the last deletion can remove the manager while it has focus.
   useLayoutEffect(() => {
-    if (managingGallery) {
-      restoreGalleryFocus.current = true
-      if (!canManageGallery || importBusy || !showDocuments || documentsLoading) {
-        setManagingGallery(false)
+    if (managing) {
+      restoreBrowseFocus.current = true
+      if (!canManage || importBusy || !showDocuments || documentsLoading) {
+        setManaging(false)
       }
-    } else if (restoreGalleryFocus.current) {
-      restoreGalleryFocus.current = false
+    } else if (restoreBrowseFocus.current) {
+      restoreBrowseFocus.current = false
       const toolbar = galleryToolbar.current
       const target = toolbar?.querySelector<HTMLButtonElement>('.library-gallery-manage:enabled') ??
         toolbar?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')
-      target?.focus()
+      const listManage = listManageButton.current
+      const returnTarget = target ?? (listManage?.disabled ? null : listManage) ?? filterInput.current
+      returnTarget?.focus()
     }
-  }, [managingGallery, canManageGallery, importBusy, showDocuments, documentsLoading])
+  }, [managing, canManage, importBusy, showDocuments, documentsLoading])
 
   const manageStatusIndex = view !== 'gallery' && showUploadedTree
     ? importStatuses.findIndex((item) => item.manageContext)
@@ -223,6 +227,7 @@ export function DocumentsPanel({
     >
       <div className="documents-list-header">
         <input
+          ref={filterInput}
           type="text"
           dir="auto"
           className="document-filter-input"
@@ -281,7 +286,7 @@ export function DocumentsPanel({
           </div>
         )}
         <div className="document-view-options">
-          {!managingGallery && (
+          {!managing && (
             <button
               type="button"
               className="library-view-toggle"
@@ -328,7 +333,7 @@ export function DocumentsPanel({
         <LibraryGalleryView
           category={galleryCategory}
           toolbarRef={galleryToolbar}
-          onManage={canManageGallery ? () => setManagingGallery(true) : undefined}
+          onManage={canManage ? () => setManaging(true) : undefined}
           collapsedAuthors={collapsedAuthors}
           docFilterLower={docFilterLower}
           groupedDocs={visibleGroups}
@@ -356,8 +361,9 @@ export function DocumentsPanel({
               filterActive={contentFilterActive}
               documentOpening={documentOpening}
               mutationDisabled={operationBusy}
-              resetEditing={importBusy}
-              onDone={managingGallery ? () => setManagingGallery(false) : undefined}
+              editMode={managing}
+              onEditModeChange={setManaging}
+              editButtonRef={listManageButton}
               openingDocumentUrl={openingDocumentUrl}
               savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
               managementStatus={manageStatusIndex >= 0
@@ -374,7 +380,7 @@ export function DocumentsPanel({
             />
           )}
 
-          {!managingGallery && bundledDocs.length > 0 && (
+          {!managing && bundledDocs.length > 0 && (
             <BundledDocumentTree
               documents={bundledDocs}
               filterActive={contentFilterActive}
@@ -384,7 +390,7 @@ export function DocumentsPanel({
             />
           )}
 
-          {!managingGallery && (documentListGroups.length > 0 || !hasFolderTree) && (
+          {!managing && (documentListGroups.length > 0 || !hasFolderTree) && (
             <DocumentList
               groupedDocs={documentListGroups}
               collapsedAuthors={collapsedAuthors}

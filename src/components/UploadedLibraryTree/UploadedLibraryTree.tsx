@@ -3,6 +3,7 @@ import {
   useMemo,
   useState,
   type ReactNode,
+  type Ref,
 } from 'react'
 import {
   Trans,
@@ -41,9 +42,9 @@ interface UploadedLibraryTreeProps {
   filterActive?: boolean
   documentOpening?: boolean
   mutationDisabled?: boolean
-  /** Gallery enters directly in edit mode and owns the return destination. */
-  onDone?: () => void
-  resetEditing?: boolean
+  editMode?: boolean
+  onEditModeChange?: (editing: boolean) => void
+  editButtonRef?: Ref<HTMLButtonElement>
   openingDocumentUrl?: string
   savedAudiobookDocumentUrls?: ReadonlySet<string>
   /** Existing Manage operation status, placed here so sticky controls keep it visible. */
@@ -77,8 +78,9 @@ export function UploadedLibraryTree({
   filterActive = false,
   documentOpening = false,
   mutationDisabled = false,
-  resetEditing = false,
-  onDone,
+  editMode = false,
+  onEditModeChange,
+  editButtonRef,
   openingDocumentUrl,
   savedAudiobookDocumentUrls = new Set(),
   managementStatus,
@@ -95,7 +97,6 @@ export function UploadedLibraryTree({
   onViewDocument,
 }: UploadedLibraryTreeProps) {
   const { t, i18n } = useTranslation()
-  const [editMode, setEditMode] = useState(Boolean(onDone))
   const [selectedKeys, setSelectedKeys] = useState<Set<Key>>(new Set())
   const [expandedKeys, setExpandedKeys] = useState<Set<Key>>(new Set())
   const [rootCollapsed, setRootCollapsed] = useState(false)
@@ -156,16 +157,15 @@ export function UploadedLibraryTree({
     setActionError('')
   }, [selectedKeys, editMode])
 
-  // A batch import owns the shared library mutation slot, so leave manage
-  // mode and close any pending folder edit before new documents arrive.
   useEffect(() => {
-    if (!resetEditing) {
-      return
+    if (editMode) {
+      setRootCollapsed(false)
+    } else {
+      setSelectedKeys(new Set())
+      setFolderDialog(null)
+      setFolderDialogError('')
     }
-    setEditMode(false)
-    setSelectedKeys(new Set())
-    setFolderDialog(null)
-  }, [resetEditing])
+  }, [editMode])
 
   const runEditAction = async (action: () => Promise<void> | void) => {
     if (mutationDisabled) {
@@ -519,18 +519,10 @@ export function UploadedLibraryTree({
                 className="uploaded-library-edit-btn"
                 type="button"
                 disabled={busy || mutationDisabled}
-                autoFocus={Boolean(onDone)}
+                ref={editButtonRef}
+                autoFocus={editMode}
                 aria-pressed={editMode}
-                onClick={() => {
-                  if (onDone) {
-                    onDone()
-                    return
-                  }
-                  setEditMode((value) => !value)
-                  setSelectedKeys(new Set())
-                  setFolderDialog(null)
-                  setFolderDialogError('')
-                }}
+                onClick={() => onEditModeChange?.(!editMode)}
               >
                 {editMode ? t('common.done') : t('library.tree.organize')}
               </button>

@@ -22,8 +22,19 @@ Gallery → Documents now passes the single-delete callback to browse rows only 
 
 Component tests cover entering Manage with an empty selection, selecting one upload, cancelling its confirmation, and confirming deletion for that upload alone. A saved-audio case verifies that View Audiobooks opens without calling deletion. Separate Gallery and List fallback cases verify that inline Delete calls the single-document handler for the chosen row.
 
-## 4. Verify the complete interaction
+## 4. Verify the complete interaction (complete)
 
-- Exercise both Books → Manage → Done and Documents → Manage → Done. Check keyboard focus, filtered results, visible counts, and the saved view preference after reopening the library.
-- Check a narrow Arabic RTL layout with enlarged text and a desktop LTR layout. The category group, Manage label, long titles, View affordance, and focus indicators should fit and remain operable.
-- Run the affected DocumentsPanel, Gallery, tree, and Search Scope tests, the relevant Chromium regressions, type checking, and the frontend build. Manually open an uploaded document by title and by View, then manage a disposable upload and return to the same gallery. After acceptance, update the gallery behavior in `docs/user-document-search.md`.
+Both entry points now open one uploads-only Manage mode owned by `DocumentsPanel`. The uploaded tree owns selections and folder operations. During management the panel hides the view switch and other document sources. Done returns to the entry view and restores focus. The Gallery category selector stays centered independently of Manage. Manage sits at the trailing edge in wide panels and moves below the selector when the panel is narrower than 38rem.
+
+Chromium exercises Books and Documents through Manage and Done at 900px in English and 320px in Arabic with 24px root text, checking control positions and focus. Component tests cover entering from a collapsed List root and the visibility of bundled titles and the view switch on entry and return.
+
+### Manual acceptance checklist (passed)
+
+The desktop and narrow RTL smoke checks passed. The separate Manage row on narrow screens remains a visual concern for branch review.
+
+- [x] On desktop, open Gallery → Documents. Open an upload by title, return, and open it again with View.
+- [x] From Books, activate Manage by keyboard. Check that Done has focus, both kinds of uploads are available, and the bundled documents and view switch are hidden. Activate Done and check focus returns to Manage in Books.
+- [x] Repeat from Documents with a filter matching an upload. Check the filter, visible counts, and active category after Done. Reopen the library and check the saved view and category.
+- [x] Switch to List, collapse User Uploads, then activate Manage. Check that uploads expand, bundled titles and the view switch disappear, and Done restores List and focus.
+- [x] Select a disposable upload, cancel deletion, then confirm deletion of that upload only. Check that the library count updates.
+- [x] In Arabic with large text at a narrow width, check that both category labels fit, Manage appears below them on the left, and keyboard focus stays visible through Manage → Done.

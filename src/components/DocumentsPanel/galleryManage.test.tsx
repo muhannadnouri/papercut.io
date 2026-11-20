@@ -141,13 +141,38 @@ it('offers Manage for an empty folder only when it is visible and organizing is 
   expect(button(manage)).toBeNull()
 })
 
-it('leaves ordinary List management in List', async () => {
-  localStorage.setItem('papercut.library-view.v1', 'list')
-  await render()
-  await act(() => button('.uploaded-library-edit-btn[aria-pressed="false"]').click())
+it.each(['gallery', 'list'])('shows only uploads in Manage and restores the %s browser', async view => {
+  const bundled = {
+    title: 'Papercut guide',
+    url: '/documents/Papercut/guide.html',
+    source: 'bundled',
+  } as const
+  const docs = [...uploads, bundled]
+  localStorage.setItem('papercut.library-view.v1', view)
+  localStorage.setItem('papercut.library-gallery-category.v1', 'documents')
+  await render({
+    allDocuments: docs,
+    groupedDocs: [{
+      author: 'Library',
+      docs,
+    }],
+  })
+  const entry = view === 'gallery' ? manage : '.uploaded-library-edit-btn[aria-pressed="false"]'
+  expect(host.textContent).toContain(bundled.title)
+  if (view === 'list') {
+    await act(() => button('.uploaded-library-heading').click())
+  }
+  button(entry).focus()
+  await act(() => button(entry).click())
+  expect(document.activeElement).toBe(button(done))
+  expect(host.textContent).toContain(uploads[0].title)
+  expect(host.textContent).not.toContain(bundled.title)
+  expect(button('.library-view-toggle')).toBeNull()
   await act(() => button(done).click())
-  expect(button('.uploaded-library-edit-btn[aria-pressed="false"]')).toBeTruthy()
-  expect(host.querySelector('.library-gallery-view')).toBeNull()
+  expect(document.activeElement).toBe(button(entry))
+  expect(host.textContent).toContain(bundled.title)
+  expect(button('.library-view-toggle')).toBeTruthy()
+  expect(localStorage.getItem('papercut.library-view.v1')).toBe(view)
 })
 
 it('returns to browsing when import starts and prevents re-entry while it is busy', async () => {
