@@ -1,5 +1,6 @@
 // @vitest-environment node
 import {
+  copyFileSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -51,6 +52,11 @@ beforeAll(async () => {
     export {highlightTtsChunk, highlightTtsWord} from ${JSON.stringify(resolve('src/tts/alignment/highlightRanges.ts'))};
     export {chunkAudiobookSaveHtmlWithSpans};
     export const viewport = readerTextViewport;
+    export async function openBookSequence() {
+      await i18n.changeLanguage('en');
+      const root=createRoot(document.getElementById('header-fixture'));
+      return (url,format,content)=>root.render(<DocumentViewer url={url} format={format} content={content} onClose={()=>{}} />);
+    }
     export async function mountPdfHeader(locale, savedAudio=false) {
       await mountHeader(locale, false, 'idle', savedAudio);
       while (!document.querySelector('.doc-header')) await new Promise(requestAnimationFrame);
@@ -328,6 +334,59 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
     }
     expect(result.legacyInk).toBe('rgb(57, 47, 37)')
     expect(result.legacyFill).toBe('rgba(0, 0, 0, 0)')
+  })
+
+  it('carries Sepia across reflowable books and isolates the PDF viewer', async () => {
+    const frame = join(directory, 'page-color-formats.html')
+    copyFileSync('scripts/fixtures/pdf/extraction-inline-columns.pdf', join(directory, 'printed.pdf'))
+    writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async()=>{
+        document.documentElement.dataset.theme='dark';
+        const open=await ReaderControls.openBookSequence();
+        async function waitFor(selector) {
+          while(!document.querySelector(selector)){
+            const error=document.querySelector('.pdf-viewer-error');
+            if(error) throw Error(error.textContent);
+            await new Promise(requestAnimationFrame);
+          }
+          return document.querySelector(selector);
+        }
+        open('first.html','html','<p>Opening</p>');
+        (await waitFor('.reader-settings-btn')).click();
+        (await waitFor('input[value="sepia"]')).click();
+        const colors=[];
+        for(const [format,tag] of [['epub','figure'],['txt','p'],['markdown','pre']]){
+          const illustration=format==='epub' ? '<img alt="Blue square" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22%3E%3Crect width=%2212%22 height=%2212%22 fill=%22blue%22/%3E%3C/svg%3E">' : '';
+          open(format+'.html',format,'<'+tag+' id="'+format+'">Passage'+illustration+'</'+tag+'>');
+          const passage=await waitFor('#'+format);
+          colors.push(getComputedStyle(passage.closest('article')).backgroundColor);
+          if(illustration){
+            const img=passage.querySelector('img');
+            await img.decode();
+            for(let node=img;node;node=node.parentElement){
+              if(getComputedStyle(node).filter!=='none') throw Error('Sepia filtered the illustration');
+            }
+          }
+        }
+        open('printed.pdf','pdf',null);
+        await waitFor('.pdf-viewer canvas');
+        const pdfIsolated=!document.querySelector('.app-reader').hasAttribute('data-reader-theme') &&
+          !document.querySelector('.reader-settings-btn');
+        open('last.html','html','<p id="last">Another book</p>');
+        await waitFor('#last');
+        colors.push(getComputedStyle(document.querySelector('article')).backgroundColor);
+        if(!document.querySelector('input[value="default"]')) document.querySelector('.reader-settings-btn').click();
+        (await waitFor('input[value="default"]')).click();
+        await waitFor('.app-reader[data-reader-theme="default"]');
+        parent.postMessage({type:'capture-result',result:{colors,pdfIsolated,
+          restored:getComputedStyle(document.querySelector('article')).backgroundColor}},'*');
+      })();</script>`)
+    expect(await runBrowserFixture(directory, frame)).toEqual({
+      colors: Array(4).fill('rgb(245, 235, 215)'),
+      pdfIsolated: true,
+      restored: 'rgb(18, 20, 23)',
+    })
   })
 
   it('selects the second matching HTML heading by keyboard and cancels back to Contents', async () => {
