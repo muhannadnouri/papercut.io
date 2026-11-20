@@ -24,13 +24,15 @@ Component tests cover entering Manage with an empty selection, selecting one upl
 
 ## 4. Verify the complete interaction (complete)
 
-Both entry points now open one uploads-only Manage mode owned by `DocumentsPanel`. The uploaded tree owns selections and folder operations. During management the panel hides the view switch and other document sources. Done returns to the entry view and restores focus. The Gallery category selector stays centered independently of Manage. Manage sits at the trailing edge in wide panels and moves below the selector when the panel is narrower than 38rem.
+Both entry points now open one uploads-only Manage mode owned by `DocumentsPanel`. The uploaded tree owns selections and folder operations. During management the panel hides the view switch and other document sources. Done returns to the entry view and restores focus. Wide panels center the Gallery selector independently. In compact panels the selector shares a row with Manage and can shrink. Manage wraps when space is too tight for both. Decorative book and page icons precede the translated category labels.
 
-Chromium exercises Books and Documents through Manage and Done at 900px in English and 320px in Arabic with 24px root text, checking control positions and focus. Component tests cover entering from a collapsed List root and the visibility of bundled titles and the view switch on entry and return.
+Chromium exercises Books and Documents through Manage and Done at 460px, 644px, and 900px in English and 320px in Arabic with 24px root text, checking control positions and focus. Component tests cover entering from a collapsed List root and the visibility of bundled titles and the view switch on entry and return.
+
+When filtering removes the last match, the manager closes and an already-focused filter keeps keyboard focus. When the final upload is deleted and no folders remain, List keeps the dismissible result and hides Manage. Component regressions cover filtering down to zero and back, and the final deletion notice.
 
 ### Manual acceptance checklist (passed)
 
-The desktop and narrow RTL smoke checks passed. The separate Manage row on narrow screens remains a visual concern for branch review.
+The desktop and narrow RTL smoke checks passed before the review fixes. The owner also verified the revised native toolbar at both reported widths (460px and 644px). The revised toolbar and focus behavior have automated coverage.
 
 - [x] On desktop, open Gallery → Documents. Open an upload by title, return, and open it again with View.
 - [x] From Books, activate Manage by keyboard. Check that Done has focus, both kinds of uploads are available, and the bundled documents and view switch are hidden. Activate Done and check focus returns to Manage in Books.

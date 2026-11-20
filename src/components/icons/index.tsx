@@ -38,3 +38,19 @@ export function OutlineIcon({ className }: IconProps) {
     </svg>
   )
 }
+
+export function BookIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 6C9 4 5 4 2 5v14c3-1 7-1 10 1 3-2 7-2 10-1V5c-3-1-7-1-10 1Zm0 0v14" />
+    </svg>
+  )
+}
+
+export function DocumentIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M5 3h9l5 5v13H5Zm9 0v6h5M8 13h8M8 17h6" />
+    </svg>
+  )
+}

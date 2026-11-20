@@ -167,6 +167,9 @@ export function DocumentsPanel({
       }
     } else if (restoreBrowseFocus.current) {
       restoreBrowseFocus.current = false
+      if (document.activeElement !== document.body && !document.activeElement?.matches(':disabled')) {
+        return
+      }
       const toolbar = galleryToolbar.current
       const target = toolbar?.querySelector<HTMLButtonElement>('.library-gallery-manage:enabled') ??
         toolbar?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')
@@ -362,7 +365,7 @@ export function DocumentsPanel({
               documentOpening={documentOpening}
               mutationDisabled={operationBusy}
               editMode={managing}
-              onEditModeChange={setManaging}
+              onEditModeChange={canManage ? setManaging : undefined}
               editButtonRef={listManageButton}
               openingDocumentUrl={openingDocumentUrl}
               savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}

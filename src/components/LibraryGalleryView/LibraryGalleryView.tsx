@@ -12,6 +12,10 @@ import { BookmarkIndicator } from '../BookmarkIndicator/BookmarkIndicator'
 import { BundledDocumentTree } from '../BundledDocumentTree/BundledDocumentTree'
 import { splitDocumentGroupsBySource } from '../DocumentBrowser/documentGroups'
 import { DocumentList } from '../DocumentList/DocumentList'
+import {
+  BookIcon,
+  DocumentIcon,
+} from '../icons'
 import { isBookDocument } from './libraryCategories'
 import './LibraryGalleryView.css'
 
@@ -68,11 +72,13 @@ export function LibraryGalleryView({
       <div className="library-gallery-toolbar" ref={toolbarRef}>
         <div className="library-gallery-categories" role="group" aria-label={t('library.documents.categoryLabel')}>
           <CategoryButton
+            category="books"
             active={category === 'books'}
             label={t('library.documents.books', { count: books.length })}
             onClick={() => onCategoryChange('books')}
           />
           <CategoryButton
+            category="documents"
             active={category === 'documents'}
             label={t('library.documents.documentCategory', { count: documentCount })}
             onClick={() => onCategoryChange('documents')}
@@ -140,7 +146,8 @@ export function LibraryGalleryView({
   )
 }
 
-function CategoryButton({ active, label, onClick }: { active: boolean;
+function CategoryButton({ category, active, label, onClick }: { category: LibraryGalleryCategory;
+  active: boolean;
   label: string;
   onClick: () => void }) {
   return (
@@ -150,7 +157,8 @@ function CategoryButton({ active, label, onClick }: { active: boolean;
       aria-pressed={active}
       onClick={onClick}
     >
-      {label}
+      {category === 'books' ? <BookIcon /> : <DocumentIcon />}
+      <span>{label}</span>
     </button>
   )
 }

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import {
   act,
+  useState,
   type ComponentProps,
 } from 'react'
 import {
@@ -106,6 +107,54 @@ it('returns focus to the active category when the last matching upload disappear
   })
   expect(button(manage)).toBeNull()
   expect(document.activeElement).toBe(button('.library-gallery-category.active'))
+})
+
+it('keeps filter focus when typing through zero matches and backspacing to recover', async () => {
+  function FilteredPanel() {
+    const [query, setQuery] = useState('Saved')
+    const matches = uploads.filter(doc => doc.title.toLowerCase().includes(query.toLowerCase()))
+    return <DocumentsPanel {...props} documentFilter={query} docFilterLower={query.toLowerCase()}
+      groupedDocs={[{
+        author: 'Uploads',
+        docs: matches,
+      }]} onFilterChange={setQuery} />
+  }
+  await act(() => root.render(<FilteredPanel />))
+  await act(() => button(manage).click())
+  const input = host.querySelector<HTMLInputElement>('.document-filter-input')!
+  input.focus()
+  const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+  for (const query of ['Savedx', 'Saved']) {
+    await act(() => {
+      setValue.call(input, query)
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    expect(document.activeElement).toBe(input)
+    expect(Boolean(button(manage))).toBe(query === 'Saved')
+  }
+})
+
+it('keeps the final deletion notice dismissible without offering List Manage', async () => {
+  localStorage.setItem('papercut.library-view.v1', 'list')
+  const onDismiss = vi.fn()
+  await render()
+  await act(() => button('.uploaded-library-edit-btn[aria-pressed]').click())
+  await render({
+    allDocuments: [],
+    groupedDocs: [],
+    documentFilter: '',
+    docFilterLower: '',
+    importStatuses: [{
+      status: 'deleted',
+      message: 'Deleted upload',
+      manageContext: true,
+      onDismiss,
+    }],
+  })
+  expect(host.querySelector('.uploaded-library [role=status]')?.textContent).toContain('Deleted upload')
+  expect(button('.uploaded-library-edit-btn[aria-pressed]')).toBeNull()
+  await act(() => button('.document-import-dismiss').click())
+  expect(onDismiss).toHaveBeenCalledOnce()
 })
 
 it('offers Manage for an empty folder only when it is visible and organizing is supported', async () => {

@@ -502,7 +502,7 @@ export function UploadedLibraryTree({
             >
               {allRootSelected ? t('common.deselectAll') : t('common.selectAll')}
             </button>
-          ) : (
+          ) : onEditModeChange && (
             <div className="uploaded-library-toolbar-actions">
               {organizing && (
                 <button
@@ -522,7 +522,7 @@ export function UploadedLibraryTree({
                 ref={editButtonRef}
                 autoFocus={editMode}
                 aria-pressed={editMode}
-                onClick={() => onEditModeChange?.(!editMode)}
+                onClick={() => onEditModeChange(!editMode)}
               >
                 {editMode ? t('common.done') : t('library.tree.organize')}
               </button>

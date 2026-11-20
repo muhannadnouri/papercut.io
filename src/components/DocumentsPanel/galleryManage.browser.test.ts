@@ -35,6 +35,7 @@ it.skipIf(!browser)('keeps both gallery categories and Manage usable on desktop 
         const narrow = innerWidth === 320;
         await changeAppLocale(narrow ? 'ar' : 'en');
         document.documentElement.style.fontSize = narrow ? '24px' : '16px';
+        if ([460,644].includes(innerWidth)) q('#root').style.marginInline = innerWidth === 644 ? '18px' : '15px';
         const docs = [{source:'upload', format:'epub', url:'/uploads/aa.html', title:'Book'},
                       {source:'upload', format:'html', url:'/uploads/bb.html', title:'Document'}];
         const noop = () => {};
@@ -57,9 +58,13 @@ it.skipIf(!browser)('keeps both gallery categories and Manage usable on desktop 
             const r = el.getBoundingClientRect();
             return r.width > 0 && r.left >= 0 && r.right <= innerWidth && el.scrollWidth <= el.clientWidth + 1;
           };
-          const aligned = narrow ? action.top >= group.bottom && Math.abs(action.left-bar.left)<2
-            : action.left > group.right && Math.abs(action.right-bar.right)<2;
-          const layout = aligned && Math.abs(group.left+group.right-bar.left-bar.right)<2
+          const aligned = narrow ? (action.top >= group.bottom || action.right <= group.left) && Math.abs(action.left-bar.left)<2
+            : action.left > group.right && Math.abs(action.right-bar.right)<2 && action.top < group.bottom && action.bottom > group.top;
+          const centered = innerWidth !== 900 || Math.abs(group.left+group.right-bar.left-bar.right)<2;
+          const icon = category().querySelector('svg[aria-hidden=true]').getBoundingClientRect();
+          const label = category().querySelector('span').getBoundingClientRect();
+          const leadingIcon = icon.width > 0 && (narrow ? icon.left >= label.right : icon.right <= label.left);
+          const layout = aligned && centered && leadingIcon
             && Array.from(q('.library-gallery-toolbar').querySelectorAll('button')).every(fits);
           q(manage).click();
           await frame();
@@ -85,7 +90,7 @@ it.skipIf(!browser)('keeps both gallery categories and Manage usable on desktop 
         jsxDev: false,
       },
     })
-    for (const [width, direction] of [[900, 'ltr'], [320, 'rtl']] as const) {
+    for (const [width, direction] of [[900, 'ltr'], [644, 'ltr'], [460, 'ltr'], [320, 'rtl']] as const) {
       const result = await runBrowserFixture(directory, join(directory, 'dist/index.html'), width)
       expect(result).toEqual({
         direction,
