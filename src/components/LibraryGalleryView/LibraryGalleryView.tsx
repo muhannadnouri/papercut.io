@@ -128,7 +128,7 @@ export function LibraryGalleryView({
               emptyMessage={groupedDocs.length === 0 ? emptyMessage : t('library.documents.emptyCategoryDocuments')}
               onToggleAuthor={onToggleAuthor}
               onViewDocument={onViewDocument}
-              onDeleteDocument={onDeleteDocument}
+              onDeleteDocument={onManage ? undefined : onDeleteDocument}
               deleteDisabled={documentOpening || mutationDisabled}
               openingDocumentUrl={openingDocumentUrl}
               viewDisabled={documentOpening}

@@ -16,11 +16,11 @@ Gallery entry starts with the uploads root expanded, an empty selection, and foc
 
 Component regressions cover entry from both categories with a text filter, focus on entry and return, unchanged view preference, loss of the final upload, folder-only availability, and ordinary List management. Stage 3 handles removing inline Delete where this route is available.
 
-## 3. Remove redundant browse-row Delete actions
+## 3. Remove redundant browse-row Delete actions (complete)
 
-Once the round trip works, stop passing the inline deletion action for uploads that can be managed through the tree. Keep single-document Delete available to callers that supply deletion without the organization capabilities. Use the same availability decision for the gallery entry and its replacement of inline Delete so a deletable upload always has a reachable action.
+Gallery → Documents now passes the single-delete callback to browse rows only when the gallery has no Manage entry. With Manage available, deletion goes through the existing upload tree. List already routes manageable uploads through that tree. Callers that provide only single-document deletion keep their inline Delete action in both views.
 
-Test the normal path and the single-delete fallback separately. In the manager, verify that selecting a document enables the existing deletion flow, cancelling leaves it present, and saved-audio protection still applies. Confirm that browsing or selecting a category never selects an upload for deletion.
+Component tests cover entering Manage with an empty selection, selecting one upload, cancelling its confirmation, and confirming deletion for that upload alone. A saved-audio case verifies that View Audiobooks opens without calling deletion. Separate Gallery and List fallback cases verify that inline Delete calls the single-document handler for the chosen row.
 
 ## 4. Verify the complete interaction
 
