@@ -533,8 +533,7 @@ supported device before deciding whether the dialog needs a rendering change.
 
 Plan for review. The shared [DocumentOutline](../src/components/DocumentViewer/DocumentOutline.tsx)
 already receives ordered entries with a label, an optional destination, and children.
-Use that tree to give readers a chapter overview and keep each destination one click
-away whenever its row is visible. All expansion state belongs to the reader UI.
+Use that tree to let readers browse chapters in place and jump directly to visible leaves. All expansion state belongs to the reader UI.
 
 1. **Set the initial view.** Count entries across all levels, including publisher
    groups. At 20 or fewer, open every branch. At 21 or more, start branches closed.
@@ -545,21 +544,27 @@ away whenever its row is visible. All expansion state belongs to the reader UI.
 
    Stage 1 implemented the shared [initial expansion rule](../src/components/DocumentViewer/outlineExpansion.ts).
    Its unit tests cover the 20/21 boundary with nested entries, destinationless
-   groups, and a single root with or without a jump target. Stage 2 will apply
-   this rule in the dialog alongside controls for reopening collapsed sections.
+   groups, and a single root with or without a jump target.
 
-2. **Give each row the appropriate controls.** A parent with a destination gets
-   two sibling buttons. Its label jumps to the passage and closes Contents through
-   the existing selection handler. Its leading chevron toggles children and keeps
-   the dialog open. A group without a destination gets one full-row toggle with a
-   chevron and label. A leaf with a destination keeps its single jump button.
+2. **Use one action per row.** A parent is one full-width disclosure button,
+   including its label and leading chevron. Activating either toggles its children,
+   keeps Contents open, and preserves the reading position. This also applies to
+   parents with an authored destination. Only leaves with a destination jump;
+   selecting one closes Contents and focuses the passage. A destinationless leaf
+   is plain text. The tradeoff is that introductory prose before the first child
+   of a chapter is reachable by reading or scrolling, without a dedicated Contents row.
+
+   Stage 2 implemented the revised interaction. The HTML reader regression clicks
+   a parent label and its chevron, then selects the sole leaf and verifies passage
+   focus. Chromium checks keyboard selection of a leaf and EPUB group disclosure.
+
 3. **Reuse the library tree icon.** Render the existing decorative
    [ChevronIcon](../src/components/ChevronIcon/ChevronIcon.tsx) used by both
    library trees. Follow the [library disclosure styling](../src/components/UploadedLibraryTree/UploadedLibraryTree.css)
    for its size, stroke, and direction. Point the closed icon toward the text
    (right in LTR, left in RTL) and the open icon down. Scope the row and focus
    styling to the Contents dialog. Give the toggle a touch target independent
-   of the icon size so tapping a wrapped heading reliably selects the intended action.
+   of the icon size so the wrapped label and surrounding row activate the same toggle.
 4. **Keep expansion local to the open document.** Store branch choices in
    DocumentOutline above the conditionally mounted dialog. Key choices by position
    in the ordered tree so repeated labels and destinationless groups are independent.
@@ -579,7 +584,7 @@ away whenever its row is visible. All expansion state belongs to the reader UI.
    and a publisher group. Verify independent branches, descendant-state retention,
    close/reopen, and switching documents while Contents is open. In Chromium,
    exercise both HTML and EPUB: toggling preserves the article scroll position,
-   and activating a child reaches the intended passage. Run the relevant reader
+   and activating a leaf reaches the intended passage. Run the relevant reader
    tests, locale parity, TypeScript, and lint checks.
 7. **Review on desktop and at phone width.** Open a long EPUB and a nested HTML
    document. Scan the initial overview, expand two chapters, navigate to a child,

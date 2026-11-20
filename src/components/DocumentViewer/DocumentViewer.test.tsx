@@ -190,3 +190,41 @@ it('dismisses an open HTML outline when the next upload reuses its section ordin
     vi.unstubAllGlobals()
   }
 })
+
+it('toggles a navigable parent from its label or chevron and only jumps from its leaf', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  vi.stubGlobal('CSS', {})
+  const scroll = vi.fn()
+  vi.stubGlobal('scrollTo', scroll)
+  const browse = vi.fn()
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  try {
+    await act(async () => root.render(<DocumentViewer url="/uploads/aa.html" format="html"
+      content={bodyHeading + '<h3 data-papercut-section="1">Details</h3>'} onReaderBrowse={browse} onClose={() => {}} />))
+    await act(async () => host.querySelector<HTMLButtonElement>('.document-outline-trigger')!.click())
+    const nav = document.querySelector<HTMLElement>('[role="dialog"] nav')!
+    const toggle = nav.querySelector<HTMLButtonElement>('button[aria-expanded]')!
+    expect(toggle.getAttribute('aria-label')).toBe('Collapse Setup')
+    expect(toggle.querySelector('bdi')?.textContent).toBe('Setup')
+    await act(async () => toggle.querySelector('bdi')!.click())
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(Array.from(nav.querySelectorAll('button'), button => button.textContent)).toEqual(['Setup'])
+    await act(async () => toggle.querySelector('svg')!.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    expect(browse).not.toHaveBeenCalled()
+    expect(scroll).not.toHaveBeenCalled()
+    const leaves = nav.querySelectorAll<HTMLButtonElement>('button:not([aria-expanded])')
+    expect(Array.from(leaves, button => button.textContent)).toEqual(['Details'])
+    await act(async () => leaves[0].click())
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(document.activeElement).toBe(host.querySelector('article h3'))
+    expect(browse).toHaveBeenCalledOnce()
+    expect(scroll).toHaveBeenCalled()
+  } finally {
+    await act(async () => root.unmount())
+    host.remove()
+    vi.unstubAllGlobals()
+  }
+})

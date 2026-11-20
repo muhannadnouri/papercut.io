@@ -671,6 +671,8 @@
     }
   },
   "reader": {
+    "expandSection": "{{label}} को फैलाएँ",
+    "collapseSection": "{{label}} को समेटें",
     "contents": "विषय-सूची",
     "back": "पीछे",
     "find": "खोजो",

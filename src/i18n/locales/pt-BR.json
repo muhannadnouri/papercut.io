@@ -678,6 +678,8 @@
     }
   },
   "reader": {
+    "expandSection": "Expandir {{label}}",
+    "collapseSection": "Recolher {{label}}",
     "contents": "Sumário",
     "back": "Voltar",
     "find": "Encontrar",

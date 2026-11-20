@@ -699,6 +699,8 @@
     }
   },
   "reader": {
+    "expandSection": "توسيع {{label}}",
+    "collapseSection": "طي {{label}}",
     "contents": "جدول المحتويات",
     "back": "رجوع",
     "find": "بحث",

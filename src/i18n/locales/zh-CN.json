@@ -664,6 +664,8 @@
     }
   },
   "reader": {
+    "expandSection": "展开{{label}}",
+    "collapseSection": "折叠{{label}}",
     "contents": "目录",
     "back": "后退",
     "find": "寻找",

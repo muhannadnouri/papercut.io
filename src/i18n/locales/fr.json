@@ -678,6 +678,8 @@
     }
   },
   "reader": {
+    "expandSection": "Développer {{label}}",
+    "collapseSection": "Réduire {{label}}",
     "contents": "Table des matières",
     "back": "Dos",
     "find": "Trouver",

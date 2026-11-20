@@ -325,8 +325,15 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
         const open=async()=>{trigger.click();await paint();return document.querySelector('.document-outline-dialog')};
         const dialog=await open(), panel=dialog.getBoundingClientRect();
         const focusEntered=document.activeElement===dialog.querySelector('.app-dialog-close');
-        const group=dialog.querySelector('li > strong')?.textContent;
-        const labels=[...dialog.querySelectorAll('li button')].map(el=>el.textContent);
+        const groupToggle=dialog.querySelector('li button[aria-expanded]');
+        const group=groupToggle.textContent;
+        groupToggle.click();
+        await paint();
+        const groupCollapsed=groupToggle.getAttribute('aria-expanded')==='false' &&
+          !dialog.querySelector('li button:not([aria-expanded])') && !window.browseCount;
+        groupToggle.click();
+        await paint();
+        const labels=[...dialog.querySelectorAll('li button:not([aria-expanded])')].map(el=>el.textContent);
         const spoken=ReaderControls.chunkAudiobookSaveHtmlWithSpans(book.html).map(chunk=>chunk.text).join(' ');
         const position=scrollY;
         document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
@@ -335,7 +342,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
         const focused=[], visible=[];
         for(let i=0;i<targets.length;i++){
           const list=await open();
-          list.querySelectorAll('li button')[i].click();
+          list.querySelectorAll('li button:not([aria-expanded])')[i].click();
           await paint();
           const target=document.activeElement;
           focused.push(target.id);
@@ -354,7 +361,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
         heading.removeAttribute('id');
         heading.before(marker);
         const namedList=await open();
-        namedList.querySelectorAll('li button')[1].click();
+        namedList.querySelectorAll('li button:not([aria-expanded])')[1].click();
         await paint();
         const namedFocus=document.activeElement===marker && marker.tabIndex===-1;
         const browse=window.browseCount;
@@ -376,7 +383,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
         };
         const bodyFound=await find('Evening in the valley',1);
         const labelAbsent=await find('Low trail',0);
-        parent.postMessage({type:'capture-result',result:{matchesAa,title:dialog.querySelector("h2").textContent,namedFocus,bodyFound,labelAbsent,spoken,reachable,focusEntered,group,labels,cancelled,focused,visible,
+        parent.postMessage({type:'capture-result',result:{matchesAa,title:dialog.querySelector("h2").textContent,namedFocus,bodyFound,labelAbsent,spoken,reachable,focusEntered,group,groupCollapsed,labels,cancelled,focused,visible,
           beside:trigger.nextElementSibling.matches('.find-btn'),fits:panel.left>=0 && panel.right<=innerWidth+1,
           overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,browse,
           clean:!document.querySelector('article').textContent.includes('Low trail')}},'*');
@@ -395,6 +402,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
       reachable: true,
       focusEntered: true,
       group: 'Walking routes',
+      groupCollapsed: true,
       labels: ['High trail', 'Low trail'],
       cancelled: true,
       focused: ['ch0-ridge', 'ch0-valley'],

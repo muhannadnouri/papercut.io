@@ -1,5 +1,6 @@
 import {
   useId,
+  useMemo,
   useState,
 } from 'react'
 import {
@@ -9,26 +10,13 @@ import {
 import { useTranslation } from 'react-i18next'
 import type { OutlineEntry } from '../../viewers/types'
 import { AppDialog } from '../AppDialog/AppDialog'
+import { ChevronIcon } from '../ChevronIcon/ChevronIcon'
+import { initialOutlineExpansionDepth } from './outlineExpansion'
 import { OutlineIcon } from '../icons'
 
 interface DocumentOutlineProps {
   entries: OutlineEntry[]
   onNavigate: (target: string) => HTMLElement | undefined
-}
-
-/** Preserve source order and grouping. Only entries with a destination take keyboard focus. */
-function OutlineList({ entries, onSelect }: {
-  entries: OutlineEntry[]
-  onSelect: (id: string) => void
-}) {
-  return <ol>
-    {entries.map(({ label, target, children }, index) => (
-      <li key={index}>
-        {target ? <button type="button" onClick={() => onSelect(target)}><bdi>{label}</bdi></button> : <strong><bdi>{label}</bdi></strong>}
-        {children.length > 0 && <OutlineList entries={children} onSelect={onSelect} />}
-      </li>
-    ))}
-  </ol>
 }
 
 /** Portal the list outside the reader article and header so Find, narration and header layout ignore it. */
@@ -37,6 +25,41 @@ export function DocumentOutline({ entries, onNavigate }: DocumentOutlineProps) {
   const [open, setOpen] = useState(false)
   const panelId = useId()
   const title = t('reader.contents')
+
+  const expandedDepth = useMemo(() => initialOutlineExpansionDepth(entries), [entries])
+  const [toggled, setToggled] = useState<Set<string>>(() => new Set())
+
+  function toggle(path: string) {
+    setToggled(previous => {
+      const next = new Set(previous)
+      if (next.has(path)) {
+        next.delete(path)
+      } else {
+        next.add(path)
+      }
+      return next
+    })
+  }
+
+  /** Position identifies a branch even when labels repeat or a publisher group has no destination. */
+  function renderList(items: OutlineEntry[], parentPath: string, depth: number) {
+    return <ol>
+      {items.map(({ label, target, children }, index) => {
+        const path = parentPath + '/' + index
+        const expanded = (depth < expandedDepth) !== toggled.has(path)
+        return <li key={path}>
+          {children.length > 0 ? <button type="button" aria-expanded={expanded}
+            aria-label={t(expanded ? 'reader.collapseSection' : 'reader.expandSection', { label })}
+            onClick={() => toggle(path)}>
+            <ChevronIcon /><bdi>{label}</bdi>
+          </button> : target
+            ? <button type="button" onClick={() => select(target)}><bdi>{label}</bdi></button>
+            : <strong><bdi>{label}</bdi></strong>}
+          {children.length > 0 && expanded && renderList(children, path, depth + 1)}
+        </li>
+      })}
+    </ol>
+  }
 
   /** Finish dialog focus restoration and release its scroll lock before jumping.
    * Focusing the passage without scrolling leaves header clearance to the reader's navigation code. */
@@ -66,7 +89,7 @@ export function DocumentOutline({ entries, onNavigate }: DocumentOutlineProps) {
     </button>
     {open && createPortal(
       <AppDialog title={title} className="document-outline-dialog" showCloseButton onCancel={() => setOpen(false)}>
-        <nav id={panelId} aria-label={title}><OutlineList entries={entries} onSelect={select} /></nav>
+        <nav id={panelId} aria-label={title}>{renderList(entries, '', 0)}</nav>
       </AppDialog>, document.body,
     )}
   </>

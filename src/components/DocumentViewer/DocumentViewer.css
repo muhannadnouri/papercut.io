@@ -1034,15 +1034,11 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   padding-inline-start: 0;
 }
 
-.document-outline-dialog li > :is(button, strong) {
-  display: block;
+.document-outline-dialog li > button {
   width: 100%;
   padding: 0.55rem;
   overflow-wrap: anywhere;
   text-align: start;
-}
-
-.document-outline-dialog li > button {
   min-height: 2.75rem;
   border: 0;
   border-radius: var(--radius-control);
@@ -1050,6 +1046,29 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   color: var(--accent-text);
   font: inherit;
   cursor: pointer;
+}
+
+.document-outline-dialog li > button[aria-expanded] {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.document-outline-dialog li > button svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.document-outline-dialog:dir(rtl) [aria-expanded="false"] svg {
+  transform: rotate(180deg);
+}
+
+.document-outline-dialog [aria-expanded="true"] svg {
+  transform: rotate(90deg);
 }
 
 .document-outline-dialog li > button:is(:hover, :focus-visible) {

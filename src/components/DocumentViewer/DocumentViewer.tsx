@@ -627,7 +627,7 @@ export function DocumentViewer({
               <ReaderSettings disabled={loading} {...readerSettingsProps} />
             )}
             {!loading && !loadError && readerOutline && readerOutline.length > 0 && (
-              <DocumentOutline entries={readerOutline} onNavigate={navigateOutline} />
+              <DocumentOutline key={url} entries={readerOutline} onNavigate={navigateOutline} />
             )}
             <button
               className="find-btn"
