@@ -565,6 +565,15 @@ Use that tree to let readers browse chapters in place and jump directly to visib
    (right in LTR, left in RTL) and the open icon down. Scope the row and focus
    styling to the Contents dialog. Give the toggle a touch target independent
    of the icon size so the wrapped label and surrounding row activate the same toggle.
+
+   Stage 3 verified the rendered dialog at 320 CSS pixels wide in Chromium with
+   English at 16 px and Arabic at 24 px. Parent and leaf labels wrapped within
+   their rows. Both buttons filled the row, measured at least 44 × 44 CSS pixels,
+   and accepted hits near opposite corners. The leading chevron pointed toward
+   the label when closed and down when open in both directions. Its rounded
+   stroke matches the library trees. The owner also confirmed the revised
+   stage 2 interaction in manual smoke testing.
+
 4. **Keep expansion local to the open document.** Store branch choices in
    DocumentOutline above the conditionally mounted dialog. Key choices by position
    in the ordered tree so repeated labels and destinationless groups are independent.

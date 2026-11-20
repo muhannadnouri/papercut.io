@@ -304,6 +304,60 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
   })
 
   it.each([
+    [16, 'en'], [24, 'ar'],
+  ] as const)('keeps wrapped Contents rows reachable at 320px with %ipx text (%s)', async (font, locale) => {
+    const frame = join(directory, 'outline-layout.html')
+    writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css} html{font-size:${font}px}</style>
+      <div id="header-fixture"></div><script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      (async()=>{
+        const label='${locale}'==='ar'?'دليل قراءة الفصول والأقسام الفرعية في المستند':'Reading chapters and subsections in a long document';
+        const book={html:'<h2 id="end">End</h2>',outline:[{label,target:null,children:[{label,target:'end',children:[]}]}]};
+        await ReaderControls.mountHeader('${locale}',false,'idle',true,false,book);
+        const paint=()=>new Promise(requestAnimationFrame);
+        while(!document.querySelector('.document-outline-trigger')) await paint();
+        document.querySelector('.document-outline-trigger').click();
+        while(!document.querySelector('.document-outline-dialog nav button')) await paint();
+        await document.fonts.ready;
+        const dialog=document.querySelector('.document-outline-dialog');
+        const [parentRow,leaf]=dialog.querySelectorAll('nav button');
+        const icon=parentRow.querySelector('svg');
+        const angle=()=>new DOMMatrix(getComputedStyle(icon).transform);
+        const pointsDown=angle().b===1;
+        const iconBox=icon.getBoundingClientRect(), textBox=parentRow.querySelector('bdi').getBoundingClientRect();
+        const leading='${locale}'==='ar'?iconBox.left>=textBox.right:iconBox.right<=textBox.left;
+        const rows=[parentRow,leaf].map(button=>{
+          const box=button.getBoundingClientRect(), list=button.parentElement.getBoundingClientRect();
+          const range=document.createRange();
+          range.selectNodeContents(button.querySelector('bdi'));
+          const lines=Array.from(range.getClientRects());
+          const hit=(x,y)=>document.elementFromPoint(x,y)?.closest('button')===button;
+          return {wrapped:new Set(lines.map(line=>Math.round(line.top))).size>1,
+            fits:lines.every(line=>line.left>=box.left-1 && line.right<=box.right+1 && line.bottom<=box.bottom+1)
+              && box.left>=0 && box.right<=innerWidth && dialog.scrollWidth<=dialog.clientWidth+1,
+            target:box.width>=44 && box.height>=44 && Math.abs(box.width-list.width)<=1,
+            reachable:hit(box.left+4,box.top+4) && hit(box.right-4,box.bottom-4)};
+        });
+        parentRow.click();
+        await paint();
+        parent.postMessage({type:'capture-result',result:{rows,leading,pointsDown,
+          closedDirection:angle().a===('${locale}'==='ar'?-1:1)}},'*');
+      })().catch(error=>parent.postMessage({type:'capture-result',result:{error:String(error)}},'*'));</script>`)
+    const result = await runBrowserFixture(directory, frame, 320)
+    const expectedRow = {
+      wrapped: true,
+      fits: true,
+      target: true,
+      reachable: true,
+    }
+    expect(result).toEqual({
+      rows: [expectedRow, expectedRow],
+      leading: true,
+      pointsDown: true,
+      closedDirection: true,
+    })
+  })
+
+  it.each([
     [320, 24, 'ar'], [1200, 16, 'en'],
   ] as const)('navigates EPUB Contents at %ipx and %ipx text (%s)', async (width, font, locale) => {
     const frame = join(directory, 'document-outline.html')

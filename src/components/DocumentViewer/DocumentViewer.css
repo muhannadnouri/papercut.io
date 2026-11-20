@@ -1061,6 +1061,8 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .document-outline-dialog:dir(rtl) [aria-expanded="false"] svg {
