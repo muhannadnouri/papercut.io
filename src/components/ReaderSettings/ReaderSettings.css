@@ -53,6 +53,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.65rem;
   width: min(22rem, calc(100vw - 2rem));
   padding: 0.85rem;
@@ -129,7 +130,7 @@
 
 .reader-page-theme-options {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.4rem;
 }
 
@@ -155,14 +156,18 @@
 }
 
 .reader-page-theme-option:has(input:focus-visible) {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--shadow-focus);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
 }
 
 .reader-page-theme-option input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--accent-strong);
+}
+
+.reader-page-theme-option > span:last-child {
+  overflow-wrap: anywhere;
 }
 
 .reader-page-theme-swatch {
@@ -175,6 +180,10 @@
 
 .reader-page-theme-swatch-default {
   background: linear-gradient(135deg, #fff 0 50%, #121417 50%);
+}
+
+.reader-page-theme-swatch-sepia {
+  background: #f5ebd7;
 }
 
 .reader-page-theme-swatch-gray {

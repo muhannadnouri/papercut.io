@@ -199,6 +199,57 @@ afterAll(() => {
 })
 // Let the capture helper's 15-second deadline and browser cleanup finish before the next case uses its profile.
 describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, () => {
+  it('uses native radio navigation in a narrow RTL page-color picker', async () => {
+    const frame = join(directory, 'page-color-keys.html')
+    writeFileSync(frame, `<!doctype html><meta charset="utf-8"><style>${css}
+      html {font-size:24px}</style><div id="header-fixture"></div>
+      <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
+      window.keyboardReady=(async()=>{
+        await ReaderControls.mountHeader('ar');
+        const trigger=()=>document.querySelector('.reader-settings-btn');
+        while(!trigger()) await new Promise(requestAnimationFrame);
+        trigger().click();
+        const selected=()=>document.querySelector('[name="reader-page-theme"]:checked');
+        while(!selected()) await new Promise(requestAnimationFrame);
+        const choices=[...document.querySelectorAll('.reader-page-theme-option')];
+        const boxes=choices.map(label=>label.getBoundingClientRect());
+        const [first,second,third,fourth]=boxes;
+        const pane=document.querySelector('.reader-settings-popover').getBoundingClientRect();
+        const inside=(inner,outer)=>inner.left>=outer.left-1 && inner.right<=outer.right+1 &&
+          inner.top>=outer.top-1 && inner.bottom<=outer.bottom+1;
+        const fit=choices.every((label,i)=>[...label.children].every(el=>inside(el.getBoundingClientRect(),boxes[i])) &&
+          label.scrollWidth<=label.clientWidth+1 && inside(boxes[i],pane));
+        selected().focus();
+        let focusRing;
+        document.addEventListener('keydown',event=>{
+          if(event.key==='Tab') focusRing=getComputedStyle(selected().closest('label')).outlineStyle;
+        });
+        document.addEventListener('keyup',event=>{
+          if(event.key!=='Tab') return;
+          const radio=selected();
+          parent.postMessage({type:'capture-result',result:{
+            labels:choices.map(label=>label.textContent.trim()),
+            rtlGrid:first.left>=second.right && first.top===second.top && third.left===first.left &&
+              fourth.left===second.left && third.top===fourth.top && third.top>=first.bottom,
+            fit:fit && pane.left>=0 && pane.right<=innerWidth+1,
+            choice:radio.value, nativeDot:getComputedStyle(radio).opacity==='1' && radio.getBoundingClientRect().width>0,
+            focusRing, focusMoved:!choices.some(label=>label.contains(document.activeElement)),
+            ringAfterTab:getComputedStyle(radio.closest('label')).outlineStyle
+          }},'*');
+        });
+      })();</script>`)
+    expect(await runBrowserFixture(directory, frame, 320, undefined, undefined, ['ArrowDown', 'Tab'])).toEqual({
+      labels: ['افتراضي', 'سيبيا', 'رمادي', 'أسود'],
+      rtlGrid: true,
+      fit: true,
+      choice: 'sepia',
+      nativeDot: true,
+      focusRing: 'solid',
+      focusMoved: true,
+      ringAfterTab: 'none',
+    })
+  })
+
   it('selects the second matching HTML heading by keyboard and cancels back to Contents', async () => {
     const frame = join(directory, 'html-contents.html')
     const restored = readFileSync('scripts/fixtures/reader/html-outline.reader.json', 'utf8')
