@@ -98,7 +98,7 @@ it.skipIf(!browser)('groups Import and Manage in both views and restores focus a
       },
     })
     for (const [width, direction] of [[900, 'ltr'], [644, 'ltr'], [460, 'ltr'], [320, 'rtl']] as const) {
-      const result = await runBrowserFixture(directory, join(directory, 'dist/index.html'), width)
+      const result = await runBrowserFixture(join(directory, String(width)), join(directory, 'dist/index.html'), width)
       expect(result, width + 'px').toEqual({
         direction,
         results: Array(3).fill({
