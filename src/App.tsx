@@ -145,7 +145,7 @@ function App() {
     importDocumentPhotos,
     importPastedText,
     scanDocument,
-    moveLibraryDocuments,
+    moveLibraryItems,
     refreshUploadedLibrary,
     recognizeDocumentText,
     renameLibraryFolder,
@@ -723,7 +723,7 @@ function App() {
             onDeleteDocuments={handleDeleteUploadedDocuments}
             onDeleteLibraryFolder={handleDeleteUploadedLibraryFolder}
             onDismissDocumentImportStatus={dismissDocumentImportStatus}
-            onMoveLibraryDocuments={moveLibraryDocuments}
+            onMoveLibraryItems={moveLibraryItems}
             onRecognizeDocument={recognizeDocumentText}
             onRenameLibraryFolder={renameLibraryFolder}
             onToggleAuthor={toggleLibraryAuthor}

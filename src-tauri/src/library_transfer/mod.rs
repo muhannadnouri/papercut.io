@@ -26,11 +26,11 @@ use tauri_plugin_fs::{FsExt, OpenOptions};
 use zip::ZipArchive;
 
 use crate::document_uploads::{
-    create_folder, list_organization, list_uploads, move_documents, now_ms,
+    create_folder, list_organization, list_uploads, move_items, now_ms,
     restore_transferred_document, restore_transferred_pdf, stored_reader_asset_paths, upload_dir,
     upload_id_from_url, upload_source_path, ParsedDocumentAsset, StoredSourceKind,
     UploadedDocument, UploadedLibraryCreateFolderRequest, UploadedLibraryFolder,
-    UploadedLibraryMoveDocumentsRequest,
+    UploadedLibraryMoveItemsRequest,
 };
 use crate::native_tts::lock_audiobook_directory;
 use package::{
@@ -1150,9 +1150,10 @@ fn merge_organization<R: Runtime>(
     }
 
     for (folder_id, document_ids) in groups {
-        if let Err(error) = move_documents(
+        if let Err(error) = move_items(
             app,
-            UploadedLibraryMoveDocumentsRequest {
+            UploadedLibraryMoveItemsRequest {
+                folder_ids: Vec::new(),
                 document_ids,
                 folder_id,
             },

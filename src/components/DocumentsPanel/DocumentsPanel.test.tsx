@@ -136,7 +136,7 @@ describe('document list filters', () => {
         onDeleteDocuments={async () => null}
         onDeleteLibraryFolder={async () => null}
         onFilterChange={() => undefined}
-        onMoveLibraryDocuments={() => undefined}
+        onMoveLibraryItems={() => undefined}
         onRenameLibraryFolder={() => undefined}
         onToggleAuthor={() => undefined}
         onToggleShow={() => undefined}
@@ -179,7 +179,7 @@ describe('document list filters', () => {
         onDeleteDocuments={async () => null}
         onDeleteLibraryFolder={async () => null}
         onFilterChange={() => undefined}
-        onMoveLibraryDocuments={() => undefined}
+        onMoveLibraryItems={() => undefined}
         onRenameLibraryFolder={() => undefined}
         onToggleAuthor={() => undefined}
         onToggleShow={() => undefined}

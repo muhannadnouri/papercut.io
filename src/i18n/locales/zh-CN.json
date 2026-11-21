@@ -295,10 +295,13 @@
       "newSubfolder": "新建子文件夹",
       "rename": "重命名",
       "deleteFolder": "删除文件夹",
-      "deleteFolderContents": "删除文件夹及其内容",
-      "moveDocuments": "移动文档",
-      "chooseDestination": "选择目标文件夹...",
-      "folderSelected": "已选择 1 个文件夹",
+      "move": "移动",
+      "moveToFolder": "移动到文件夹",
+      "confirmMoveItems": "将所选项目移动到此处？",
+      "moveFolderContents": "每个文件夹都会连同其所有文档和子文件夹一起移动，包括当前筛选条件隐藏的项目。",
+      "confirmMove": "将这些文档移动到此文件夹？",
+      "moveHere": "移动到此处",
+      "folderActionsFor": "文件夹“{{title}}”的操作",
       "selectDocumentsOnly": "仅选择文档...",
       "selectDocumentsFirst": "首先选择文档...",
       "root": "根",
@@ -307,7 +310,7 @@
       "selectAllIn": "选择{{title}}中的全部",
       "filterBy": "按 {{title}} 筛选",
       "deleteSelectedFolder": "删除选定的文件夹。",
-      "selectedCount_other": "已选择 {{count, number}} 个"
+      "selectedCount_other": "已选择 {{count, number}} 个文档"
     },
     "folderDialog": {
       "renameTitle": "重命名文件夹",

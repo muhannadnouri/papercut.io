@@ -53,7 +53,7 @@ pub(crate) use store::schedule_search_index_rebuild;
 
 // Library transfer consumes this narrow storage API so its removable package
 // module never duplicates document parsing, sanitization, indexing, or folder rules.
-pub(crate) use organization::{create_folder, list_organization, move_documents};
+pub(crate) use organization::{create_folder, list_organization, move_items};
 pub(crate) use parsed::{is_reader_asset_file_name, ParsedDocumentAsset};
 pub(crate) use pdf::restore_transferred_pdf;
 #[cfg(feature = "native-tts-core")]
@@ -72,7 +72,7 @@ pub(crate) use store::list_uploads;
 pub(crate) use types::UploadedDocumentLocation;
 pub(crate) use types::{
     UploadedDocument, UploadedDocumentBatchResult, UploadedLibraryCreateFolderRequest,
-    UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest, UploadedLibraryOrganization,
+    UploadedLibraryFolder, UploadedLibraryMoveItemsRequest, UploadedLibraryOrganization,
 };
 
 pub(crate) use html::sanitize_html;
