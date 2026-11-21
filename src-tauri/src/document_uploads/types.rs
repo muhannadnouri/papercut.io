@@ -370,20 +370,13 @@ pub(crate) struct UploadedLibraryDeleteFolderRequest {
     pub(crate) folder_id: String,
 }
 
-/// Request to move uploaded documents into a target folder, or root when absent.
+/// Request to move selected folder subtrees and documents into a target folder, or root when absent.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct UploadedLibraryMoveDocumentsRequest {
+pub(crate) struct UploadedLibraryMoveItemsRequest {
+    pub(crate) folder_ids: Vec<String>,
     pub(crate) document_ids: Vec<String>,
     pub(crate) folder_id: Option<String>,
-}
-
-/// Request to move one folder under another folder, or root when absent.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct UploadedLibraryMoveFolderRequest {
-    pub(crate) folder_id: String,
-    pub(crate) parent_id: Option<String>,
 }
 
 /// One item in a manual library ordering request.

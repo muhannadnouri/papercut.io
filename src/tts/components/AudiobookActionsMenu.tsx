@@ -1,3 +1,4 @@
+import { MoreActionsIcon } from '../../components/icons'
 import {
   Button,
   Menu,
@@ -45,7 +46,7 @@ export function AudiobookActionsMenu({
           isDisabled={disabled}
           aria-label={label}
         >
-          <AudiobookMoreActionsIcon />
+          <MoreActionsIcon className="audiobook-actions-icon" />
         </Button>
         <Popover
           className="audiobook-actions-popover"
@@ -89,15 +90,5 @@ export function AudiobookActionsMenu({
         </Popover>
       </MenuTrigger>
     </div>
-  )
-}
-
-function AudiobookMoreActionsIcon() {
-  return (
-    <svg className="audiobook-actions-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <circle cx="12" cy="5" r="2" />
-      <circle cx="12" cy="12" r="2" />
-      <circle cx="12" cy="19" r="2" />
-    </svg>
   )
 }

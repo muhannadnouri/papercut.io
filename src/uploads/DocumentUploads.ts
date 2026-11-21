@@ -578,22 +578,13 @@ export async function deleteUploadedLibraryFolder(folderId: string): Promise<Upl
   })
 }
 
-export async function moveUploadedDocuments(documentIds: string[], folderId: string | null): Promise<UploadedLibraryOrganization> {
+export async function moveUploadedLibraryItems(documentIds: string[], folderIds: string[], folderId: string | null): Promise<UploadedLibraryOrganization> {
   const invoke = await loadTauriInvoke()
-  return invoke<UploadedLibraryOrganization>('document_uploads_move_documents', {
+  return invoke<UploadedLibraryOrganization>('document_uploads_move_items', {
     request: {
+      folderIds,
       documentIds,
       folderId,
-    },
-  })
-}
-
-export async function moveUploadedLibraryFolder(folderId: string, parentId: string | null): Promise<UploadedLibraryOrganization> {
-  const invoke = await loadTauriInvoke()
-  return invoke<UploadedLibraryOrganization>('document_uploads_move_folder', {
-    request: {
-      folderId,
-      parentId,
     },
   })
 }
