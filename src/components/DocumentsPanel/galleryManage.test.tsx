@@ -351,7 +351,8 @@ it('keeps folder checkboxes and bulk actions in sync across collapsed branches',
   expect(box('Select Archive').checked).toBe(false)
 })
 
-it.each([true, false])('moves explicit folders intact and individual files separately (folder selection: %s)', async selectFolder => {
+it.each(['visible folder', 'folder hidden after selection', 'individual documents'])('confirms and moves the exact selection: %s', async scenario => {
+  const selectFolder = scenario !== 'individual documents'
   const moveDocs = vi.fn()
   const outside = {
     ...uploads[0],
@@ -366,8 +367,12 @@ it.each([true, false])('moves explicit folders intact and individual files separ
     createdAtMs: 0,
     updatedAtMs: 0,
   }
-  await render({
-    allDocuments: [...uploads, outside],
+  const setup: Partial<typeof props> = {
+    allDocuments: [...uploads, outside, {
+      ...uploads[1],
+      title: 'Unrelated',
+      url: '/uploads/dd.html',
+    }],
     documentFilter: selectFolder ? 'book' : 'saved',
     docFilterLower: selectFolder ? 'book' : 'saved',
     groupedDocs: [{
@@ -400,11 +405,25 @@ it.each([true, false])('moves explicit folders intact and individual files separ
         },
       ],
     },
-  })
+  }
+  await render(setup)
   await act(() => button(manage).click())
   if (selectFolder) {
     expect(host.textContent).not.toContain(uploads[1].title)
     await act(() => button('[aria-label="Select A"]').click())
+    if (scenario === 'folder hidden after selection') {
+      await render({
+        ...setup,
+        documentFilter: 'Other',
+        docFilterLower: 'other',
+        groupedDocs: [{
+          author: 'Uploads',
+          docs: [outside],
+        }],
+      })
+      expect(host.querySelector('[aria-label="Select A"]')).toBeNull()
+      expect(host.querySelector('.uploaded-library-selection-count')?.textContent).toBe('Folders (1)')
+    }
     await act(() => button('.uploaded-library-selection-actions button').click())
     expect(button('.uploaded-library-selection-actions button').textContent).toBe('Deselect All')
   } else {

@@ -139,11 +139,12 @@ export function UploadedLibraryTree({
     : expandedKeys
   const allRootSelected = rootDocuments.length > 0 && rootDocuments.every((doc) => selectedFilters?.has(doc.url))
   const selectedDocuments = documentNodes.filter(node => selectedKeys.has(node.key))
-  const selectedFolders = Array.from(nodeByKey.values()).filter((node): node is FolderNode =>
+  // Checking a folder selects its entire subtree even if a later filter hides the folder itself.
+  const selectedFolders = Array.from(unfilteredTree.nodeByKey.values()).filter((node): node is FolderNode =>
     node.kind === 'folder' && selectedKeys.has(node.key))
   const coveredKeys = new Set<string>()
   for (const folder of selectedFolders) {
-    visitDescendants(unfilteredTree.nodeByKey.get(folder.key) ?? folder, child => coveredKeys.add(child.key))
+    visitDescendants(folder, child => coveredKeys.add(child.key))
   }
   const hasSelection = selectedDocuments.length + selectedFolders.length > 0
   const selectedDocumentIds = selectedDocuments.map(node => node.id)
