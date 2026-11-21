@@ -51,7 +51,7 @@ it.skipIf(!browser)('groups Import and Manage in both views and restores focus a
           documentFilter="" docFilterLower="" documentsLoading={false} onFilterChange={noop} onToggleShow={noop}
           importOptions={[{id:'batch', label:'Import files', onSelect:noop}]} onAudioSavedOnlyChange={noop}
           onToggleAuthor={noop} onViewDocument={noop} onCreateLibraryFolder={noop} onDeleteDocuments={noop}
-          onDeleteLibraryFolder={noop} onMoveLibraryDocuments={noop} onRenameLibraryFolder={noop}/>);
+          onDeleteLibraryFolder={noop} onMoveLibraryItems={noop} onRenameLibraryFolder={noop}/>);
         const manage = '.document-manage-btn';
         while (!q(manage)) await frame();
         const results = [];

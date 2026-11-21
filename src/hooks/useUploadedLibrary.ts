@@ -41,8 +41,7 @@ import {
   listUploadedDocuments,
   listenDocumentBatchProgress,
   listenDocumentDeleteProgress,
-  moveUploadedDocuments,
-  moveUploadedLibraryFolder,
+  moveUploadedLibraryItems,
   renameUploadedLibraryFolder,
   updateUploadedDocumentTitle,
   type UploadedDocument,
@@ -695,13 +694,9 @@ export function useUploadedLibrary() {
     runDeleteOperation(() => deleteUploadedLibraryFolder(folderId))
   ), [runDeleteOperation])
 
-  const moveLibraryFolder = useCallback((folderId: string, parentId: string | null) => runOrganizationMutation(async () => {
-    setUploadedLibraryOrganization(await moveUploadedLibraryFolder(folderId, parentId))
-  }), [runOrganizationMutation])
-
-  const moveLibraryDocuments = useCallback(async (documentIds: string[], folderId: string | null) => {
+  const moveLibraryItems = useCallback(async (documentIds: string[], folderIds: string[], folderId: string | null) => {
     await runOrganizationMutation(async () => {
-      setUploadedLibraryOrganization(await moveUploadedDocuments(documentIds, folderId))
+      setUploadedLibraryOrganization(await moveUploadedLibraryItems(documentIds, folderIds, folderId))
     })
   }, [runOrganizationMutation])
 
@@ -720,8 +715,7 @@ export function useUploadedLibrary() {
     importDocumentPhotos,
     importPastedText,
     scanDocument,
-    moveLibraryDocuments,
-    moveLibraryFolder,
+    moveLibraryItems,
     refreshUploadedLibrary,
     recognizeDocumentText,
     renameLibraryFolder,

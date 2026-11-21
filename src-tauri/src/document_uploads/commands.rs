@@ -8,9 +8,7 @@
 use tauri::{ipc::Channel, Runtime};
 
 use super::batch::{delete_batch, delete_folder, import_batch, import_folder, import_paths};
-use super::organization::{
-    create_folder, list_organization, move_documents, move_folder, rename_folder, reorder,
-};
+use super::organization::{create_folder, list_organization, move_items, rename_folder, reorder};
 use super::pdf::{
     finalize_pdf_index, get_pdf_narration_segments, get_pdf_page_text_layer, get_pdf_source_bytes,
     get_pdf_source_path, pdf_has_ocr_text, store_pdf_page_text, PageTextLayer, PdfFinalizeRequest,
@@ -27,9 +25,9 @@ use super::types::{
     UploadedDocumentSearchRequest, UploadedDocumentSearchResponse, UploadedDocumentSearchStage,
     UploadedDocumentSource, UploadedDocumentSourceRequest, UploadedDocumentTitleUpdateRequest,
     UploadedLibraryCreateFolderRequest, UploadedLibraryDeleteFolderRequest,
-    UploadedLibraryMoveDocumentsRequest, UploadedLibraryMoveFolderRequest,
-    UploadedLibraryOrganization, UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
-    UploadedPdfFindRequest, UploadedPdfFindResult,
+    UploadedLibraryMoveItemsRequest, UploadedLibraryOrganization,
+    UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest, UploadedPdfFindRequest,
+    UploadedPdfFindResult,
 };
 use super::DocumentUploadState;
 
@@ -331,26 +329,15 @@ pub async fn document_uploads_delete_folder<R: Runtime>(
         .map_err(|err| format!("Document folder delete task failed: {err}"))?
 }
 
-/// Move uploaded documents between folders by metadata only.
+/// Move one confirmed selection of documents and folders together.
 #[tauri::command]
-pub async fn document_uploads_move_documents<R: Runtime>(
+pub async fn document_uploads_move_items<R: Runtime>(
     app: tauri::AppHandle<R>,
-    request: UploadedLibraryMoveDocumentsRequest,
+    request: UploadedLibraryMoveItemsRequest,
 ) -> Result<UploadedLibraryOrganization, String> {
-    tauri::async_runtime::spawn_blocking(move || move_documents(&app, request))
+    tauri::async_runtime::spawn_blocking(move || move_items(&app, request))
         .await
         .map_err(|err| format!("Document move task failed: {err}"))?
-}
-
-/// Move a folder while preserving document URLs and preventing cycles.
-#[tauri::command]
-pub async fn document_uploads_move_folder<R: Runtime>(
-    app: tauri::AppHandle<R>,
-    request: UploadedLibraryMoveFolderRequest,
-) -> Result<UploadedLibraryOrganization, String> {
-    tauri::async_runtime::spawn_blocking(move || move_folder(&app, request))
-        .await
-        .map_err(|err| format!("Document folder move task failed: {err}"))?
 }
 
 /// Persist manual sibling order for one uploaded-library folder/root.

@@ -63,8 +63,7 @@ interface DocumentsPanelProps {
   onDeleteDocuments?: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
   onDeleteLibraryFolder?: (folderId: string) => Promise<UploadedDocumentDeleteBatchResult | null>
   onFilterChange: (value: string) => void
-  onMoveLibraryDocuments?: (documentIds: string[], folderId: string | null) => void | Promise<void>
-  onMoveLibraryFolder?: (folderId: string, parentId: string | null) => void | Promise<void>
+  onMoveLibraryItems?: (documentIds: string[], folderIds: string[], folderId: string | null) => void | Promise<void>
   onRenameLibraryFolder?: (folderId: string, name: string) => void | Promise<void>
   onToggleAuthor: (author: string) => void
   onToggleShow: () => void
@@ -95,8 +94,7 @@ export function DocumentsPanel({
   onDeleteDocuments,
   onDeleteLibraryFolder,
   onFilterChange,
-  onMoveLibraryDocuments,
-  onMoveLibraryFolder,
+  onMoveLibraryItems,
   onRenameLibraryFolder,
   onToggleAuthor,
   onToggleShow,
@@ -135,7 +133,7 @@ export function DocumentsPanel({
     onCreateLibraryFolder &&
     onDeleteDocuments &&
     onDeleteLibraryFolder &&
-    onMoveLibraryDocuments &&
+    onMoveLibraryItems &&
     onRenameLibraryFolder,
   )
   const documentListGroups = canShowUploadedTree ? otherGroups : nonBundledGroups
@@ -321,8 +319,7 @@ export function DocumentsPanel({
               onCreateFolder={onCreateLibraryFolder!}
               onDeleteDocuments={onDeleteDocuments!}
               onDeleteFolder={onDeleteLibraryFolder!}
-              onMoveDocuments={onMoveLibraryDocuments!}
-              onMoveFolder={onMoveLibraryFolder}
+              onMoveItems={onMoveLibraryItems!}
               onRenameFolder={onRenameLibraryFolder!}
               onViewAudiobooks={onViewAudiobooks}
               onViewDocumentInfo={onViewDocumentInfo}

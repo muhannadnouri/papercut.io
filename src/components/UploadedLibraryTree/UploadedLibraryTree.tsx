@@ -61,8 +61,7 @@ interface UploadedLibraryTreeProps {
   onCreateFolder?: (parentId: string | null, name: string) => Promise<void> | void
   onDeleteDocuments?: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
   onDeleteFolder?: (folderId: string) => Promise<UploadedDocumentDeleteBatchResult | null>
-  onMoveFolder?: (folderId: string, parentId: string | null) => Promise<void> | void
-  onMoveDocuments?: (documentIds: string[], folderId: string | null) => Promise<void> | void
+  onMoveItems?: (documentIds: string[], folderIds: string[], folderId: string | null) => Promise<void> | void
   onRenameFolder?: (folderId: string, name: string) => Promise<void> | void
   onToggleAllInGroup?: (docs: DocumentInfo[]) => void
   onToggleFilter?: (url: string) => void
@@ -95,8 +94,7 @@ export function UploadedLibraryTree({
   onCreateFolder,
   onDeleteFolder,
   onDeleteDocuments,
-  onMoveDocuments,
-  onMoveFolder,
+  onMoveItems,
   onRenameFolder,
   onToggleAllInGroup,
   onToggleFilter,
@@ -149,9 +147,9 @@ export function UploadedLibraryTree({
   }
   const hasSelection = selectedDocuments.length + selectedFolders.length > 0
   const selectedDocumentIds = selectedDocuments.map(node => node.id)
-  const canMoveDocuments = organizing && !mutationDisabled && hasSelection && (!selectedFolders.length || Boolean(onMoveFolder))
+  const canMoveDocuments = organizing && !mutationDisabled && hasSelection
   const canDeleteDocuments = !selectedFolders.length && canMoveDocuments && !busy && Boolean(onDeleteDocuments)
-  const allDocumentsSelected = documentNodes.length > 0 && selectedDocuments.length === documentNodes.length
+  const allDocumentsSelected = documentNodes.length > 0 && documentNodes.every(node => selectedKeys.has(node.key) || coveredKeys.has(node.key))
 
   useEffect(() => {
     setActionError('')
@@ -196,7 +194,8 @@ export function UploadedLibraryTree({
   }
 
   const selectAllDocuments = () => {
-    setSelectedKeys(new Set(documentNodes.map(node => node.key)))
+    const uncovered = documentNodes.filter(node => !coveredKeys.has(node.key))
+    setSelectedKeys(current => new Set([...current, ...uncovered.map(node => node.key)]))
   }
 
   const clearSelection = () => {
@@ -414,26 +413,13 @@ export function UploadedLibraryTree({
   }
 
   const moveSelectedItems = (documentIds: string[], folderIds: string[], destination: string | null) => {
-    if (!canMoveDocuments) {
-      return
-    }
-    if (!onMoveDocuments) {
+    if (!canMoveDocuments || !onMoveItems) {
       return
     }
     setActionError('')
     void (async () => {
       try {
-        await runEditAction(async () => {
-          for (const id of folderIds) {
-            if (!onMoveFolder) {
-              throw new Error('Folder move unavailable')
-            }
-            await onMoveFolder(id, destination)
-          }
-          if (documentIds.length) {
-            await onMoveDocuments(documentIds, destination)
-          }
-        })
+        await runEditAction(() => onMoveItems(documentIds, folderIds, destination))
         setMoving(false)
         clearSelection()
       } catch (err) {
