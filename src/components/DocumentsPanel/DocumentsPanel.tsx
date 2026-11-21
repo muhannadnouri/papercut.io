@@ -177,7 +177,7 @@ export function DocumentsPanel({
     }
   }, [managing, canManage, importBusy, showDocuments, documentsLoading])
 
-  const showManage = canManage && !managing
+  const switchToView = preferredView === 'gallery' ? 'list' : 'gallery'
   const manageStatusIndex = view !== 'gallery' && showUploadedTree
     ? importStatuses.findIndex((item) => item.manageContext)
     : -1
@@ -237,7 +237,7 @@ export function DocumentsPanel({
           value={documentFilter}
           onChange={(e) => onFilterChange(e.target.value)}
         />
-        {(hasImportOptions || showManage) && (
+        {(hasImportOptions || canManage) && (
           <div className="document-upload-actions">
             {hasImportOptions && (
               <MenuTrigger isOpen={importMenuOpen} onOpenChange={setImportMenuOpen}>
@@ -287,30 +287,28 @@ export function DocumentsPanel({
                 </Popover>
               </MenuTrigger>
             )}
-            {showManage && (
+            {canManage && (
               <Button ref={manageButton} className="document-import-btn document-manage-btn"
-                isDisabled={documentOpening || operationBusy} onPress={() => setManaging(true)}>
+                isDisabled={managing || documentOpening || operationBusy} onPress={() => setManaging(true)}>
                 {t('library.tree.organize')}
               </Button>
             )}
           </div>
         )}
         <div className="document-view-options">
-          {!managing && (
-            <button
-              type="button"
-              className="library-view-toggle"
-              aria-label={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
-              title={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
-              onClick={() => {
-                const nextView = view === 'gallery' ? 'list' : 'gallery'
-                setPreferredView(nextView)
-                savePreference(VIEW_STORAGE_KEY, nextView)
-              }}
-            >
-              <ViewIcon view={view === 'gallery' ? 'list' : 'gallery'} />
-            </button>
-          )}
+          <button
+            type="button"
+            className="library-view-toggle"
+            disabled={managing}
+            aria-label={switchToView === 'list' ? t('library.documents.listView') : t('library.documents.galleryView')}
+            title={switchToView === 'list' ? t('library.documents.listView') : t('library.documents.galleryView')}
+            onClick={() => {
+              setPreferredView(switchToView)
+              savePreference(VIEW_STORAGE_KEY, switchToView)
+            }}
+          >
+            <ViewIcon view={switchToView} />
+          </button>
           <button
             type="button"
             className="audio-filter-toggle bookmark-filter-toggle"

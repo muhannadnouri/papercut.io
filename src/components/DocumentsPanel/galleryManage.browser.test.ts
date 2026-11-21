@@ -75,10 +75,11 @@ it.skipIf(!browser)('groups Import and Manage in both views and restores focus a
           q(manage).click();
           await frame();
           const done = q('.uploaded-library-done');
-          const entered = fits(done) && document.activeElement === done && !q('.library-view-toggle');
+          const entered = fits(done) && document.activeElement === done && fits(q(manage)) && q(manage).disabled
+            && fits(q('.library-view-toggle')) && q('.library-view-toggle').disabled;
           done.click();
           await frame();
-          results.push({layout: Boolean(layout), entered, returned: document.activeElement === q(manage),
+          results.push({layout: Boolean(layout), entered, returned: document.activeElement === q(manage) && !q(manage).disabled && !q('.library-view-toggle').disabled,
             view: index === 2 ? !q('.library-gallery-view') : category().getAttribute('aria-pressed') === 'true'});
         }
         return {direction:document.documentElement.dir, results};
