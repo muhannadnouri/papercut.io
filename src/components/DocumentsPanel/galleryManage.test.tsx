@@ -349,9 +349,7 @@ it('keeps folder checkboxes and bulk actions in sync across collapsed branches',
   expect(box('Select all in Archive').checked).toBe(false)
 })
 
-it('blocks folder deletion when a filtered-out descendant has saved audio', async () => {
-  const deleteFolder = vi.fn()
-  const viewAudiobooks = vi.fn()
+async function renderFilteredShelf(overrides: Partial<typeof props>) {
   const folder = {
     id: 'parent',
     name: 'Shelf',
@@ -388,25 +386,54 @@ it('blocks folder deletion when a filtered-out descendant has saved audio', asyn
         },
       ],
     },
-    savedAudiobookDocumentUrls: new Set([uploads[1].url]),
-    onDeleteLibraryFolder: deleteFolder,
-    onViewAudiobooks: viewAudiobooks,
+    ...overrides,
   })
   await act(() => button(manage).click())
   expect(host.textContent).toContain(uploads[0].title)
   expect(host.textContent).not.toContain(uploads[1].title)
   await act(() => button('[aria-label="Select all in Shelf"]').click())
   expect(host.querySelector('.uploaded-library-selection-count')?.textContent).toBe('1 document selected')
-  async function deleteShelf() {
-    const trigger = button('[aria-label="Folder actions for Shelf"]')
-    expect(trigger.textContent).toBe('')
-    expect(trigger.querySelector('svg[aria-hidden="true"]')).toBeTruthy()
-    await act(() => trigger.click())
-    const action = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')]
-      .find(item => item.textContent === 'Delete Folder')
-    expect(action).toBeDefined()
-    await act(() => action!.click())
-  }
+}
+
+async function deleteShelf() {
+  const trigger = button('[aria-label="Folder actions for Shelf"]')
+  expect(trigger.textContent).toBe('')
+  expect(trigger.querySelector('svg[aria-hidden="true"]')).toBeTruthy()
+  await act(() => trigger.click())
+  const action = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')]
+    .find(item => item.textContent === 'Delete Folder')
+  expect(action).toBeDefined()
+  await act(() => action!.click())
+}
+
+it('confirms the full filtered folder scope and deletes only after confirmation', async () => {
+  const deleteFolder = vi.fn().mockResolvedValue(null)
+  await renderFilteredShelf({ onDeleteLibraryFolder: deleteFolder })
+  await deleteShelf()
+  const dialog = host.querySelector('[role="dialog"]')!
+  const details = Array.from(dialog.querySelectorAll('dt'), term => [
+    term.textContent, term.nextElementSibling?.textContent,
+  ])
+  expect(Object.fromEntries(details)).toMatchObject({
+    Folder: 'Shelf',
+    'Nested folders': '1',
+    Documents: '2',
+  })
+  await act(() => button('.app-dialog-cancel').click())
+  expect(deleteFolder).not.toHaveBeenCalled()
+  await deleteShelf()
+  await act(() => button('.app-dialog-submit-danger').click())
+  expect(deleteFolder).toHaveBeenCalledExactlyOnceWith('parent')
+})
+
+it('blocks folder deletion when a filtered-out descendant has saved audio', async () => {
+  const deleteFolder = vi.fn()
+  const viewAudiobooks = vi.fn()
+  await renderFilteredShelf({
+    savedAudiobookDocumentUrls: new Set([uploads[1].url]),
+    onDeleteLibraryFolder: deleteFolder,
+    onViewAudiobooks: viewAudiobooks,
+  })
   await deleteShelf()
   expect(host.querySelector('[role="dialog"]')?.textContent).toContain('Saved Audiobooks Use Documents in This Folder')
   await act(() => button('.app-dialog-cancel').click())

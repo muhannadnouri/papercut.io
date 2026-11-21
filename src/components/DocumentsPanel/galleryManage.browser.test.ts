@@ -100,6 +100,11 @@ it.skipIf(!browser)('groups Import and Manage in both views and restores focus a
           trigger.click();
           await frame();
           const menu = q('.uploaded-library-folder-menu');
+          const firstAction = menu.querySelector('[role="menuitem"]');
+          firstAction.focus();
+          firstAction.dispatchEvent(new KeyboardEvent('keydown', {key:'r', bubbles:true}));
+          await frame();
+          if (document.activeElement?.textContent !== 'Rename') throw Error('R should focus Rename');
           const width = menu.getBoundingClientRect().width;
           if (menu.querySelectorAll('[role="menuitem"]').length !== 3 || width <= 0 || width >= 200 ||
               menu.scrollWidth > menu.clientWidth + 1) {

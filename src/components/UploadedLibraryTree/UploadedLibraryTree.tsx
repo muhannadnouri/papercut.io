@@ -805,14 +805,17 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
                   <Menu aria-label={options.t('library.tree.folderActionsFor', { title: node.title })}
                     className="document-import-options uploaded-library-folder-menu">
                     {node.depth < 4 && (
-                      <MenuItem className="document-import-option" onAction={() => options.openFolderDialog(node.id, node.title)}>
+                      <MenuItem className="document-import-option" textValue={options.t('library.tree.newSubfolder')}
+                        onAction={() => options.openFolderDialog(node.id, node.title)}>
                         <FolderIcon className="uploaded-library-action-icon" />{options.t('library.tree.newSubfolder')}
                       </MenuItem>
                     )}
-                    <MenuItem className="document-import-option" onAction={() => options.renameFolder(node)}>
+                    <MenuItem className="document-import-option" textValue={options.t('library.tree.rename')}
+                      onAction={() => options.renameFolder(node)}>
                       <EditIcon />{options.t('library.tree.rename')}
                     </MenuItem>
-                    <MenuItem className="document-import-option" onAction={() => options.deleteFolder(node)}>
+                    <MenuItem className="document-import-option" textValue={options.t('library.tree.deleteFolder')}
+                      onAction={() => options.deleteFolder(node)}>
                       <TrashIcon className="uploaded-library-action-icon" />{options.t('library.tree.deleteFolder')}
                     </MenuItem>
                   </Menu>
