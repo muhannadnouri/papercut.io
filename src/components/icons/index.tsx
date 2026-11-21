@@ -64,3 +64,19 @@ export function MoreActionsIcon({ className }: IconProps) {
     </svg>
   )
 }
+
+export function MoveToFolderIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M3 10V5h6l3 3h9v12H3v-1M2 14h12m-4-4 4 4-4 4" />
+    </svg>
+  )
+}
+
+export function FolderIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M2 4h4l2 2h6v7H2Z" />
+    </svg>
+  )
+}

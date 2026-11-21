@@ -326,27 +326,105 @@ it('keeps folder checkboxes and bulk actions in sync across collapsed branches',
   })
   await act(() => button(manage).click())
   const box = (label: string) => host.querySelector<HTMLInputElement>('[aria-label="' + label + '"]')!
-  const shelf = box('Select all in Shelf')
+  const shelf = box('Select Shelf')
   expect(box('Select Saved book')).toBeNull()
   await act(() => shelf.click())
   expect(shelf.checked).toBe(true)
   const count = () => host.querySelector('.uploaded-library-selection-count')?.textContent
-  expect(count()).toBe('2 documents selected')
+  expect(count()).toBe('Folders (1)')
   await act(() => button('.uploaded-library-chevron').click())
-  expect(box('Select all in Archive').checked).toBe(true)
+  expect(box('Select Archive').checked).toBe(true)
+  expect(box('Select Saved book').disabled).toBe(true)
+  await act(() => shelf.click())
   await act(() => box('Select Saved book').click())
   expect(count()).toBe('1 document selected')
   expect(shelf.indeterminate).toBe(true)
-  expect(box('Select all in Archive').checked).toBe(true)
+  expect(box('Select Archive').checked).toBe(false)
   const bulk = () => button('.uploaded-library-selection-actions button')
-  expect(bulk().textContent).toBe('Select all documents')
+  expect(bulk().textContent).toBe('Select All')
   await act(() => bulk().click())
-  expect(shelf.indeterminate).toBe(false)
+  expect(shelf.indeterminate).toBe(true)
   expect(box('Select Saved book').checked).toBe(true)
   await act(() => bulk().click())
   expect(count()).toBe('0 documents selected')
   expect(shelf.checked).toBe(false)
-  expect(box('Select all in Archive').checked).toBe(false)
+  expect(box('Select Archive').checked).toBe(false)
+})
+
+it.each([true, false])('moves explicit folders intact and individual files separately (folder selection: %s)', async selectFolder => {
+  const moveDocs = vi.fn()
+  const moveFolder = vi.fn()
+  const a = {
+    id: 'a',
+    name: 'A',
+    depth: 0,
+    sortOrder: 0,
+    createdAtMs: 0,
+    updatedAtMs: 0,
+  }
+  await render({
+    documentFilter: selectFolder ? 'book' : 'saved',
+    docFilterLower: selectFolder ? 'book' : 'saved',
+    groupedDocs: [{
+      author: 'Uploads',
+      docs: selectFolder ? [uploads[0]] : [...uploads],
+    }],
+    onMoveLibraryFolder: moveFolder,
+    onMoveLibraryDocuments: moveDocs,
+    libraryOrganization: {
+      folders: [a, {
+        ...a,
+        id: 'nested',
+        name: 'Nested',
+        parentId: 'a',
+        depth: 1,
+      }, {
+        ...a,
+        id: 'b',
+        name: 'B',
+      }],
+      documentLocations: [
+        {
+          documentId: 'aa',
+          folderId: 'a',
+          sortOrder: 0,
+        },
+        {
+          documentId: 'bb',
+          folderId: 'nested',
+          sortOrder: 0,
+        },
+      ],
+    },
+  })
+  await act(() => button(manage).click())
+  if (selectFolder) {
+    expect(host.textContent).not.toContain(uploads[1].title)
+    await act(() => button('[aria-label="Select A"]').click())
+  } else {
+    for (const doc of uploads) {
+      await act(() => button('[aria-label="Select ' + doc.title + '"]').click())
+    }
+  }
+  await act(() => button('.uploaded-library-move-trigger').click())
+  const rows = [...host.querySelectorAll<HTMLButtonElement>('.uploaded-library-destination')]
+  expect(rows.find(row => row.textContent === 'A')?.disabled).toBe(selectFolder)
+  await act(() => rows.find(row => row.textContent === 'B')!.click())
+  await act(() => button('.app-dialog-submit').click())
+  const confirmation = host.querySelector('[role="dialog"]')!
+  expect(confirmation.textContent?.includes('including items hidden by the current filter')).toBe(selectFolder)
+  expect(Array.from(confirmation.querySelectorAll('li'), item => item.textContent).sort())
+    .toEqual(selectFolder ? ['A'] : uploads.map(doc => doc.title).sort())
+  expect(moveFolder).not.toHaveBeenCalled()
+  expect(moveDocs).not.toHaveBeenCalled()
+  await act(() => button('.app-dialog-submit').click())
+  if (selectFolder) {
+    expect(moveFolder).toHaveBeenCalledExactlyOnceWith('a', 'b')
+    expect(moveDocs).not.toHaveBeenCalled()
+  } else {
+    expect(moveDocs).toHaveBeenCalledExactlyOnceWith(expect.arrayContaining(['aa', 'bb']), 'b')
+    expect(moveFolder).not.toHaveBeenCalled()
+  }
 })
 
 async function renderFilteredShelf(overrides: Partial<typeof props>) {
@@ -391,9 +469,133 @@ async function renderFilteredShelf(overrides: Partial<typeof props>) {
   await act(() => button(manage).click())
   expect(host.textContent).toContain(uploads[0].title)
   expect(host.textContent).not.toContain(uploads[1].title)
-  await act(() => button('[aria-label="Select all in Shelf"]').click())
+  await act(() => button('[aria-label="Select Saved book"]').click())
   expect(host.querySelector('.uploaded-library-selection-count')?.textContent).toBe('1 document selected')
 }
+
+it('browses one level at a time and moves only after the destination and documents are confirmed', async () => {
+  const move = vi.fn().mockRejectedValueOnce(new Error('Move failed')).mockResolvedValue(undefined)
+  await renderFilteredShelf({ onMoveLibraryDocuments: move })
+  const open = () => button('.uploaded-library-task-actions button')
+  const dialog = () => host.querySelector('[role="dialog"]')
+  const path = () => dialog()?.querySelector('.uploaded-library-move-path')?.textContent
+  const destinations = () => Array.from(dialog()!.querySelectorAll<HTMLButtonElement>('.uploaded-library-destination'))
+  const descend = () => act(() => destinations()[0].click())
+  const confirm = () => act(() => button('.app-dialog-submit').click())
+
+  expect(open().textContent).toBe('Move')
+  expect(open().firstElementChild?.getAttribute('aria-hidden')).toBe('true')
+  open().focus()
+  await act(() => open().click())
+  expect(path()).toBe('Root')
+  expect(destinations().map(item => item.textContent)).toEqual(['Shelf'])
+  await descend()
+  expect(path()).toBe('Root / Shelf')
+  expect(button('.app-dialog-submit').disabled).toBe(true)
+  await confirm()
+  expect(move).not.toHaveBeenCalled()
+  expect(destinations().map(item => item.textContent)).toEqual(['Archive'])
+  await descend()
+  expect(path()).toBe('Root / Shelf / Archive')
+  expect(destinations()).toHaveLength(0)
+  const crumbs = Array.from(dialog()!.querySelectorAll<HTMLButtonElement>('.uploaded-library-move-path button'))
+  expect(crumbs.map(item => item.textContent)).toEqual(['Root', 'Shelf'])
+  expect(dialog()?.querySelector('bdi[aria-current="location"]')?.textContent).toBe('Archive')
+  await act(() => crumbs[1].click())
+  expect(path()).toBe('Root / Shelf')
+  await act(() => button('.app-dialog-close').click())
+  expect(document.activeElement).toBe(open())
+  expect(move).not.toHaveBeenCalled()
+
+  await act(() => open().click())
+  expect(path()).toBe('Root')
+  await descend()
+  await descend()
+  await confirm()
+  expect(dialog()?.querySelector('h2')?.textContent).toBe('Move these documents to this folder?')
+  expect(Array.from(dialog()!.querySelectorAll('li'), item => item.textContent)).toEqual([uploads[0].title])
+  expect(path()).toBe('Root / Shelf / Archive')
+  expect(move).not.toHaveBeenCalled()
+  await act(() => button('.app-dialog-actions .app-dialog-cancel').click())
+  expect(move).not.toHaveBeenCalled()
+  expect(destinations()).toHaveLength(0)
+  await confirm()
+  await confirm()
+  expect(dialog()?.querySelector('[role="alert"]')?.textContent).toBe('Move failed')
+  expect(path()).toBe('Root / Shelf / Archive')
+  await confirm()
+  expect(move.mock.calls).toEqual([[['aa'], 'child'], [['aa'], 'child']])
+  expect(dialog()).toBeNull()
+  expect(host.querySelector('.uploaded-library-selection-count')?.textContent).toBe('0 documents selected')
+
+  await act(() => button('[aria-label="Select Saved book"]').click())
+  await act(() => open().click())
+  await confirm()
+  expect(move).toHaveBeenCalledTimes(2)
+  await confirm()
+  expect(move).toHaveBeenLastCalledWith(['aa'], null)
+})
+
+it('lists every selected document before a bulk move', async () => {
+  const move = vi.fn()
+  const shelf = {
+    id: 'shelf',
+    name: 'Shelf',
+    depth: 0,
+    sortOrder: 0,
+    createdAtMs: 0,
+    updatedAtMs: 0,
+  }
+  await render({
+    onMoveLibraryDocuments: move,
+    libraryOrganization: {
+      folders: [shelf],
+      documentLocations: [],
+    },
+  })
+  await act(() => button(manage).click())
+  await act(() => button('.uploaded-library-selection-actions button').click())
+  await act(() => button('.uploaded-library-move-trigger').click())
+  expect(button('.app-dialog-submit').disabled).toBe(true)
+  await act(() => button('.uploaded-library-destination').click())
+  await act(() => button('.app-dialog-submit').click())
+  expect(Array.from(host.querySelectorAll('.uploaded-library-move-documents li'), li => li.textContent).sort())
+    .toEqual(uploads.map(doc => doc.title).sort())
+  expect(move).not.toHaveBeenCalled()
+  await act(() => button('.app-dialog-submit').click())
+  expect(move).toHaveBeenCalledExactlyOnceWith(['aa', 'bb'], 'shelf')
+})
+
+it('confirms and submits only incoming documents for a mixed selection at Root', async () => {
+  const move = vi.fn()
+  await render({
+    onMoveLibraryDocuments: move,
+    libraryOrganization: {
+      folders: [{
+        id: 'shelf',
+        name: 'Shelf',
+        depth: 0,
+        sortOrder: 0,
+        createdAtMs: 0,
+        updatedAtMs: 0,
+      }],
+      documentLocations: [{
+        documentId: 'aa',
+        folderId: 'shelf',
+        sortOrder: 0,
+      }],
+    },
+  })
+  await act(() => button(manage).click())
+  await act(() => button('.uploaded-library-selection-actions button').click())
+  await act(() => button('.uploaded-library-move-trigger').click())
+  await act(() => button('.app-dialog-submit').click())
+  expect(Array.from(host.querySelectorAll('.uploaded-library-move-documents li'), li => li.textContent))
+    .toEqual([uploads[0].title])
+  expect(move).not.toHaveBeenCalled()
+  await act(() => button('.app-dialog-submit').click())
+  expect(move).toHaveBeenCalledExactlyOnceWith(['aa'], null)
+})
 
 async function deleteShelf() {
   const trigger = button('[aria-label="Folder actions for Shelf"]')

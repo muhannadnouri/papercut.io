@@ -37,8 +37,6 @@ export function buildLibraryTree(
 ): {
   nodes: LibraryNode[]
   folders: UploadedLibraryFolder[]
-  folderOptions: { id: string;
-    label: string }[]
   nodeByKey: Map<string, LibraryNode>
 } {
   const collator = new Intl.Collator(options.locale, {
@@ -112,7 +110,6 @@ export function buildLibraryTree(
   return {
     nodes,
     folders: organization.folders,
-    folderOptions: buildFolderOptions(organization.folders, collator),
     nodeByKey,
   }
 }
@@ -174,34 +171,6 @@ function sortDocuments(
       (locations.get(a.uploadId)?.sortOrder ?? 0) - (locations.get(b.uploadId)?.sortOrder ?? 0) ||
       collator.compare(a.title, b.title)
     ))
-}
-
-/** Build move-target labels that include parent path context for duplicate names elsewhere. */
-function buildFolderOptions(
-  folders: UploadedLibraryFolder[],
-  collator: Intl.Collator,
-): { id: string;
-  label: string }[] {
-  const byId = new Map(folders.map((folder) => [folder.id, folder]))
-  return sortFolders(folders, collator).map((folder) => ({
-    id: folder.id,
-    label: folderPath(folder, byId),
-  }))
-}
-
-/** Walk parent pointers to display a folder path like `Parent / Child`. */
-function folderPath(folder: UploadedLibraryFolder, byId: Map<string, UploadedLibraryFolder>): string {
-  const parts = [folder.name]
-  let parentId = folder.parentId
-  while (parentId) {
-    const parent = byId.get(parentId)
-    if (!parent) {
-      break
-    }
-    parts.unshift(parent.name)
-    parentId = parent.parentId
-  }
-  return parts.join(' / ')
 }
 
 /** Extract the backend upload id from the app-local uploaded document URL. */

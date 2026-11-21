@@ -1,7 +1,13 @@
-import { MoreActionsIcon } from '../icons'
+import { MoveToFolderDialog } from './MoveToFolderDialog'
+import {
+  FolderIcon,
+  MoreActionsIcon,
+  MoveToFolderIcon,
+} from '../icons'
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -55,6 +61,7 @@ interface UploadedLibraryTreeProps {
   onCreateFolder?: (parentId: string | null, name: string) => Promise<void> | void
   onDeleteDocuments?: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
   onDeleteFolder?: (folderId: string) => Promise<UploadedDocumentDeleteBatchResult | null>
+  onMoveFolder?: (folderId: string, parentId: string | null) => Promise<void> | void
   onMoveDocuments?: (documentIds: string[], folderId: string | null) => Promise<void> | void
   onRenameFolder?: (folderId: string, name: string) => Promise<void> | void
   onToggleAllInGroup?: (docs: DocumentInfo[]) => void
@@ -89,6 +96,7 @@ export function UploadedLibraryTree({
   onDeleteFolder,
   onDeleteDocuments,
   onMoveDocuments,
+  onMoveFolder,
   onRenameFolder,
   onToggleAllInGroup,
   onToggleFilter,
@@ -97,9 +105,11 @@ export function UploadedLibraryTree({
   onViewDocument,
 }: UploadedLibraryTreeProps) {
   const { t, i18n } = useTranslation()
-  const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set())
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
   const [expandedKeys, setExpandedKeys] = useState<Set<Key>>(new Set())
   const [rootCollapsed, setRootCollapsed] = useState(false)
+  const doneRef = useRef<HTMLButtonElement>(null)
+  const [moving, setMoving] = useState(false)
   const [folderDialog, setFolderDialog] = useState<FolderDialogState | null>(null)
   const [folderDialogError, setFolderDialogError] = useState('')
   const [actionError, setActionError] = useState('')
@@ -109,7 +119,7 @@ export function UploadedLibraryTree({
   const editMode = Boolean(onDone)
   const organizing = mode === 'library' && editMode
   const locale = i18n.resolvedLanguage ?? i18n.language
-  const { nodes, folders, nodeByKey, folderOptions } = useMemo(
+  const { nodes, folders, nodeByKey } = useMemo(
     () => buildLibraryTree(documents, organization, {
       hideEmptyFolders: filterMode || filterActive,
       locale,
@@ -117,8 +127,8 @@ export function UploadedLibraryTree({
     [documents, filterActive, filterMode, locale, organization],
   )
   // Destructive counts must include documents hidden by active Library filters.
-  const unfilteredNodeByKey = useMemo(
-    () => buildLibraryTree(unfilteredDocuments, organization, { locale }).nodeByKey,
+  const unfilteredTree = useMemo(
+    () => buildLibraryTree(unfilteredDocuments, organization, { locale }),
     [locale, organization, unfilteredDocuments],
   )
   const rootDocuments = useMemo(() => nodes.flatMap(collectDocuments), [nodes])
@@ -130,21 +140,29 @@ export function UploadedLibraryTree({
     ? new Set(Array.from(nodeByKey.values()).filter((node) => node.kind === 'folder').map((node) => node.key))
     : expandedKeys
   const allRootSelected = rootDocuments.length > 0 && rootDocuments.every((doc) => selectedFilters?.has(doc.url))
-  const selectedDocuments = documentNodes.filter(node => selectedUrls.has(node.url))
+  const selectedDocuments = documentNodes.filter(node => selectedKeys.has(node.key))
+  const selectedFolders = Array.from(nodeByKey.values()).filter((node): node is FolderNode =>
+    node.kind === 'folder' && selectedKeys.has(node.key))
+  const coveredKeys = new Set<string>()
+  for (const folder of selectedFolders) {
+    visitDescendants(unfilteredTree.nodeByKey.get(folder.key) ?? folder, child => coveredKeys.add(child.key))
+  }
+  const hasSelection = selectedDocuments.length + selectedFolders.length > 0
   const selectedDocumentIds = selectedDocuments.map(node => node.id)
-  const canMoveDocuments = organizing && !mutationDisabled && selectedDocumentIds.length > 0
-  const canDeleteDocuments = canMoveDocuments && !busy && Boolean(onDeleteDocuments)
+  const canMoveDocuments = organizing && !mutationDisabled && hasSelection && (!selectedFolders.length || Boolean(onMoveFolder))
+  const canDeleteDocuments = !selectedFolders.length && canMoveDocuments && !busy && Boolean(onDeleteDocuments)
   const allDocumentsSelected = documentNodes.length > 0 && selectedDocuments.length === documentNodes.length
 
   useEffect(() => {
     setActionError('')
-  }, [selectedUrls, editMode])
+  }, [selectedKeys, editMode])
 
   useEffect(() => {
     if (editMode) {
       setRootCollapsed(false)
     } else {
-      setSelectedUrls(new Set())
+      setSelectedKeys(new Set())
+      setMoving(false)
       setFolderDialog(null)
       setFolderDialogError('')
     }
@@ -162,31 +180,27 @@ export function UploadedLibraryTree({
     }
   }
 
-  // The displayed tree contains matching documents even when their ancestors are collapsed.
-  const toggleSelection = (documents: DocumentInfo[]) => {
-    if (busy || mutationDisabled || documents.length === 0) {
+  // Selecting a folder replaces explicit selections below it, including ones hidden by a filter.
+  const toggleSelection = (node: LibraryNode) => {
+    if (busy || mutationDisabled || coveredKeys.has(node.key)) {
       return
     }
-    setSelectedUrls(current => {
-      const deselect = documents.every(doc => current.has(doc.url))
+    setSelectedKeys(current => {
       const next = new Set(current)
-      for (const doc of documents) {
-        if (deselect) {
-          next.delete(doc.url)
-        } else {
-          next.add(doc.url)
-        }
+      if (!next.delete(node.key)) {
+        next.add(node.key)
+        visitDescendants(unfilteredTree.nodeByKey.get(node.key) ?? node, child => next.delete(child.key))
       }
       return next
     })
   }
 
   const selectAllDocuments = () => {
-    setSelectedUrls(new Set(documentNodes.map(node => node.url)))
+    setSelectedKeys(new Set(documentNodes.map(node => node.key)))
   }
 
   const clearSelection = () => {
-    setSelectedUrls(new Set())
+    setSelectedKeys(new Set())
   }
 
   async function deletionBlockedBySavedAudio(documents: DocumentInfo[], kind: 'batch' | 'folder') {
@@ -236,10 +250,10 @@ export function UploadedLibraryTree({
           return
         }
         const failedUrls = new Set(result.failures.map((failure) => failure.documentUrl))
-        setSelectedUrls(new Set(
+        setSelectedKeys(new Set(
           selectedDocuments
             .filter((node) => failedUrls.has(node.url))
-            .map((node) => node.url),
+            .map((node) => node.key),
         ))
       } catch (err) {
         setActionError(err instanceof Error ? err.message : String(err))
@@ -278,7 +292,7 @@ export function UploadedLibraryTree({
       return
     }
     if (editMode) {
-      toggleSelection(collectDocuments(node))
+      toggleSelection(node)
       return
     }
     if (node.kind === 'folder') {
@@ -345,7 +359,7 @@ export function UploadedLibraryTree({
     if (busy || mutationDisabled || !onDeleteFolder) {
       return
     }
-    const fullFolder = unfilteredNodeByKey.get(folder.key)
+    const fullFolder = unfilteredTree.nodeByKey.get(folder.key)
     if (!fullFolder || fullFolder.kind !== 'folder') {
       return
     }
@@ -399,7 +413,7 @@ export function UploadedLibraryTree({
     })()
   }
 
-  const moveSelectedDocuments = (folderId: string | null) => {
+  const moveSelectedItems = (documentIds: string[], folderIds: string[], destination: string | null) => {
     if (!canMoveDocuments) {
       return
     }
@@ -409,7 +423,18 @@ export function UploadedLibraryTree({
     setActionError('')
     void (async () => {
       try {
-        await runEditAction(() => onMoveDocuments(selectedDocumentIds, folderId))
+        await runEditAction(async () => {
+          for (const id of folderIds) {
+            if (!onMoveFolder) {
+              throw new Error('Folder move unavailable')
+            }
+            await onMoveFolder(id, destination)
+          }
+          if (documentIds.length) {
+            await onMoveDocuments(documentIds, destination)
+          }
+        })
+        setMoving(false)
         clearSelection()
       } catch (err) {
         setActionError(err instanceof Error ? err.message : String(err))
@@ -468,6 +493,7 @@ export function UploadedLibraryTree({
                 {t('library.tree.newFolder')}
               </button>
               <button
+                ref={doneRef}
                 className="uploaded-library-edit-btn uploaded-library-done"
                 type="button"
                 disabled={busy || mutationDisabled}
@@ -491,46 +517,33 @@ export function UploadedLibraryTree({
             <div className="uploaded-library-context-actions">
               <div className="uploaded-library-selection-actions">
                 <strong className="uploaded-library-selection-count" aria-live="polite">
-                  {t('library.tree.selectedCount', { count: selectedDocumentIds.length })}
+                  {selectedFolders.length > 0 && <>{t('library.tree.folders')} ({selectedFolders.length.toLocaleString(locale)})</>}
+                  {selectedFolders.length > 0 && selectedDocuments.length > 0 && ' · '}
+                  {(!selectedFolders.length || selectedDocuments.length > 0) && t('library.tree.selectedCount', { count: selectedDocumentIds.length })}
                 </strong>
                 <button
                   type="button"
                   disabled={busy || mutationDisabled || documentNodes.length === 0}
                   onClick={allDocumentsSelected ? clearSelection : selectAllDocuments}
                 >
-                  {allDocumentsSelected ? t('common.deselectAll') : t('library.tree.selectAllDocuments')}
+                  {allDocumentsSelected ? t('common.deselectAll') : t('common.selectAll')}
                 </button>
-                {selectedDocuments.length > 0 && !allDocumentsSelected && (
+                {hasSelection && !allDocumentsSelected && (
                   <button type="button" disabled={busy || mutationDisabled} onClick={clearSelection}>
                     {t('common.deselectAll')}
                   </button>
                 )}
               </div>
-              {selectedDocumentIds.length > 0 && (
+              {hasSelection && (
                 <div className="uploaded-library-task-actions">
-                  <label className="uploaded-library-move">
-                    <span className="uploaded-library-action-label">{t('library.tree.moveDocuments')}</span>
-                    <select
-                      disabled={busy || mutationDisabled || !canMoveDocuments}
-                      defaultValue=""
-                      onChange={(event) => {
-                        const value = event.target.value
-                        if (!value) {
-                          return
-                        }
-                        event.target.value = ''
-                        moveSelectedDocuments(value === 'root' ? null : value)
-                      }}
-                    >
-                      <option value="">{t('library.tree.chooseDestination')}</option>
-                      <option value="root">{t('library.tree.root')}</option>
-                      {folderOptions.map((folder) => (
-                        <option key={folder.id} value={folder.id}>
-                          {folder.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <button type="button" className="uploaded-library-move-trigger uploaded-library-icon-action" disabled={busy || !canMoveDocuments}
+                    onClick={() => {
+                      setActionError('')
+                      setMoving(true)
+                    }}>
+                    <MoveToFolderIcon className="uploaded-library-action-icon" />
+                    {t('library.tree.move')}
+                  </button>
                   <button
                     type="button"
                     className="uploaded-library-batch-delete uploaded-library-icon-action"
@@ -543,7 +556,7 @@ export function UploadedLibraryTree({
                 </div>
               )}
             </div>
-            {actionError && (
+            {actionError && !moving && (
               <p className="uploaded-library-action-error" role="alert" dir="auto">
                 {actionError}
               </p>
@@ -577,7 +590,8 @@ export function UploadedLibraryTree({
             onViewDocument,
             openingDocumentUrl,
             selectedFilters,
-            selectedUrls,
+            selectedKeys,
+            coveredKeys,
             editActionsDisabled: busy || mutationDisabled,
             renameFolder,
             deleteFolder,
@@ -586,6 +600,14 @@ export function UploadedLibraryTree({
             openFolderDialog,
           }))}
         </Tree>
+      )}
+      {moving && organizing && (
+        <MoveToFolderDialog documents={selectedDocuments} folders={selectedFolders} roots={unfilteredTree.nodes} busy={busy} disabled={!canMoveDocuments}
+          error={actionError} fallbackFocusRef={doneRef}
+          onCancel={() => {
+            setMoving(false)
+            setActionError('')
+          }} onMove={moveSelectedItems} />
       )}
       {folderDialog && (
         <TextInputDialog
@@ -622,6 +644,17 @@ export function UploadedLibraryTree({
   )
 }
 
+function visitDescendants(node: LibraryNode, visit: (child: LibraryNode) => void) {
+  for (const child of node.children) {
+    visit(child)
+    visitDescendants(child, visit)
+  }
+}
+
+function hasSelectedDescendant(node: LibraryNode, keys: Set<string>): boolean {
+  return node.children.some(child => keys.has(child.key) || hasSelectedDescendant(child, keys))
+}
+
 type FolderNode = Extract<LibraryNode, { kind: 'folder' }>
 interface RenderNodeOptions {
   documentOpening: boolean
@@ -633,11 +666,12 @@ interface RenderNodeOptions {
   onToggleAllInGroup?: (docs: DocumentInfo[]) => void
   onToggleFilter?: (url: string) => void
   onToggleFolderExpanded: (key: string) => void
-  onToggleSelection: (documents: DocumentInfo[]) => void
+  onToggleSelection: (node: LibraryNode) => void
   onViewDocumentInfo?: (doc: DocumentInfo) => void
   onViewDocument?: (url: string) => void
   selectedFilters?: Set<string>
-  selectedUrls: Set<string>
+  coveredKeys: Set<string>
+  selectedKeys: Set<string>
   editActionsDisabled: boolean
   renameFolder: (folder: FolderNode) => void
   deleteFolder: (folder: FolderNode) => void
@@ -655,17 +689,16 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
   const opening = node.kind === 'document' && options.openingDocumentUrl === node.url
   const expanded = node.kind === 'folder' && options.expandedKeys.has(node.key)
   const selectionEnabled = options.editMode || options.filterMode
-  const documents = selectionEnabled ? collectDocuments(node) : []
-  const selection = options.editMode ? options.selectedUrls : options.selectedFilters
-  const checkedCount = documents.filter(doc => selection?.has(doc.url)).length
-  const selected = checkedCount > 0 && checkedCount === documents.length
-  const mixed = options.editMode && checkedCount > 0 && !selected
-  const selectionLabel = node.kind === 'folder'
-    ? options.t('library.tree.selectAllIn', { title: node.title })
-    : options.t(options.editMode ? 'library.tree.select' : 'library.tree.filterBy', { title: node.title })
+  const documents = options.filterMode ? collectDocuments(node) : []
+  const selected = options.editMode
+    ? options.selectedKeys.has(node.key) || options.coveredKeys.has(node.key)
+    : documents.length > 0 && documents.every(doc => options.selectedFilters?.has(doc.url))
+  const mixed = options.editMode && !selected && hasSelectedDescendant(node, options.selectedKeys)
+  const selectionLabel = options.t(options.editMode ? 'library.tree.select'
+    : node.kind === 'folder' ? 'library.tree.selectAllIn' : 'library.tree.filterBy', { title: node.title })
   const toggleNodeSelection = () => {
     if (options.editMode) {
-      options.onToggleSelection(documents)
+      options.onToggleSelection(node)
     } else if (node.kind === 'folder') {
       options.onToggleAllInGroup?.(documents)
     } else {
@@ -705,7 +738,7 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
                       input.indeterminate = mixed
                     }
                   }}
-                  disabled={documents.length === 0 || (options.editMode && options.editActionsDisabled)}
+                  disabled={options.editMode ? options.coveredKeys.has(node.key) || options.editActionsDisabled : !documents.length}
                   aria-label={selectionLabel}
                   onClick={(event) => event.stopPropagation()}
                   onChange={(event) => {
@@ -713,7 +746,7 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
                     toggleNodeSelection()
                   }}
                 />
-                {node.kind === 'folder' && <FolderIcon />}
+                {node.kind === 'folder' && <FolderIcon className="uploaded-library-folder-icon" />}
                 <span className="uploaded-library-selection-text">
                   <bdi>{node.title}</bdi>
                   {node.kind === 'document' && node.doc.textStatus === 'recognition-required' && (
@@ -733,7 +766,7 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
               </span>
             ) : node.kind === 'folder' ? (
               <>
-                <FolderIcon />
+                <FolderIcon className="uploaded-library-folder-icon" />
                 <button
                   className="uploaded-library-name uploaded-library-name-button"
                   type="button"
@@ -827,14 +860,6 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
       </TreeItemContent>
       {node.children.map((child) => renderNode(child, options))}
     </TreeItem>
-  )
-}
-
-function FolderIcon({ className = 'uploaded-library-folder-icon' }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path d="M2 4h4l2 2h6v7H2Z" />
-    </svg>
   )
 }
 

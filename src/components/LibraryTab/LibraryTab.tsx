@@ -68,6 +68,7 @@ interface LibraryTabProps {
   onImportPastedText: (title: string, text: string) => Promise<void>
   onScanDocument: () => void | Promise<void>
   onMoveLibraryDocuments: (documentIds: string[], folderId: string | null) => void | Promise<void>
+  onMoveLibraryFolder: (folderId: string, parentId: string | null) => void | Promise<void>
   onRecognizeDocument: (
     documentUrl: string,
     language?: PdfOcrLanguage,
@@ -114,6 +115,7 @@ export function LibraryTab({
   onImportPastedText,
   onScanDocument,
   onMoveLibraryDocuments,
+  onMoveLibraryFolder,
   onRecognizeDocument,
   onRenameLibraryFolder,
   onToggleAuthor,
@@ -252,6 +254,7 @@ export function LibraryTab({
         onDeleteDocuments={onDeleteDocuments}
         onDeleteLibraryFolder={onDeleteLibraryFolder}
         onMoveLibraryDocuments={onMoveLibraryDocuments}
+        onMoveLibraryFolder={onMoveLibraryFolder}
         onRenameLibraryFolder={onRenameLibraryFolder}
         onToggleAuthor={onToggleAuthor}
         onViewAudiobooks={onViewAudiobooks}

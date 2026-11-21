@@ -382,7 +382,13 @@ pub(crate) fn move_folder<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedLibraryMoveFolderRequest,
 ) -> Result<UploadedLibraryOrganization, String> {
-    let mut db = open_db(app)?;
+    move_folder_in_db(&mut open_db(app)?, request)
+}
+
+fn move_folder_in_db(
+    db: &mut Connection,
+    request: UploadedLibraryMoveFolderRequest,
+) -> Result<UploadedLibraryOrganization, String> {
     let tx = db
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(db_err)?;
@@ -440,8 +446,8 @@ pub(crate) fn move_folder<R: Runtime>(
     tx.commit().map_err(db_err)?;
 
     Ok(UploadedLibraryOrganization {
-        folders: list_folders(&db)?,
-        document_locations: list_document_locations(&db)?,
+        folders: list_folders(db)?,
+        document_locations: list_document_locations(db)?,
     })
 }
 
@@ -860,9 +866,8 @@ mod tests {
         assert_eq!(bounded.chars().count(), MAX_FOLDER_NAME_CHARS);
     }
 
-    #[test]
-    fn recursive_folder_delete_stays_scoped_and_requires_empty_documents() {
-        let mut db = Connection::open_in_memory().expect("open database");
+    fn database_with_folder_tree() -> Connection {
+        let db = Connection::open_in_memory().expect("open database");
         db.execute_batch(
             "PRAGMA foreign_keys = ON;
              CREATE TABLE uploaded_documents (id TEXT PRIMARY KEY, url TEXT NOT NULL);
@@ -891,6 +896,40 @@ mod tests {
              INSERT INTO uploaded_document_locations VALUES ('cc', 'other', 0);",
         )
         .expect("create folder tree");
+        db
+    }
+
+    #[test]
+    fn moving_folder_keeps_descendant_locations_and_updates_depth() {
+        let mut db = database_with_folder_tree();
+        let result = move_folder_in_db(
+            &mut db,
+            UploadedLibraryMoveFolderRequest {
+                folder_id: "root".into(),
+                parent_id: Some("other".into()),
+            },
+        )
+        .unwrap();
+        let moved = result.folders.iter().find(|f| f.id == "root").unwrap();
+        let child = result.folders.iter().find(|f| f.id == "child").unwrap();
+        assert_eq!(
+            (moved.parent_id.as_deref(), moved.depth),
+            (Some("other"), 1)
+        );
+        assert_eq!((child.parent_id.as_deref(), child.depth), (Some("root"), 2));
+        for (id, folder) in [("aa", "root"), ("bb", "child"), ("cc", "other")] {
+            let location = result
+                .document_locations
+                .iter()
+                .find(|l| l.document_id == id)
+                .unwrap();
+            assert_eq!(location.folder_id.as_deref(), Some(folder));
+        }
+    }
+
+    #[test]
+    fn recursive_folder_delete_stays_scoped_and_requires_empty_documents() {
+        let mut db = database_with_folder_tree();
 
         assert_eq!(
             folder_tree_document_urls(&db, "root").expect("list subtree documents"),

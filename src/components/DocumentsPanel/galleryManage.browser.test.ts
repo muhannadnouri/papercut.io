@@ -39,9 +39,14 @@ it.skipIf(!browser)('groups Import and Manage in both views and restores focus a
         if (innerWidth === 591) q('#root').style.marginInline = '13px';
         const docs = [{source:'upload', format:'epub', url:'/uploads/aa.html', title:'Book'},
                       {source:'upload', format:'html', url:'/uploads/bb.html', title:'Document'}];
+        const folders = [{id:'shelf',name:'Shelf',parentId:null,depth:0,sortOrder:0}];
+        if (innerWidth === 644) {
+          docs.push(...Array.from({length:32}, (_, i) => ({...docs[1], title:'Document '+i, url:'/uploads/'+(100+i)+'.html'})));
+          folders.push(...Array.from({length:32}, (_, i) => ({id:'folder'+i,name:'Folder '+i,parentId:'shelf',depth:1,sortOrder:i})));
+        }
         const noop = () => {};
         createRoot(q('#root')).render(<DocumentsPanel allDocuments={docs} groupedDocs={[{author:'Uploads',docs}]}
-          libraryOrganization={{folders:[{id:'shelf',name:'Shelf',parentId:null,depth:0,sortOrder:0}],
+          libraryOrganization={{folders,
             documentLocations:[{documentId:'aa',folderId:'shelf',sortOrder:0}]}} collapsedAuthors={new Set()} showDocuments
           documentFilter="" docFilterLower="" documentsLoading={false} onFilterChange={noop} onToggleShow={noop}
           importOptions={[{id:'batch', label:'Import files', onSelect:noop}]} onAudioSavedOnlyChange={noop}
@@ -84,6 +89,24 @@ it.skipIf(!browser)('groups Import and Manage in both views and restores focus a
           results.push({layout: Boolean(layout), entered, returned: document.activeElement === q(manage) && !q(manage).disabled && !q('.library-view-toggle').disabled,
             view: index === 2 ? !q('.library-gallery-view') : category().getAttribute('aria-pressed') === 'true'});
         }
+        if (innerWidth === 644) {
+          q(manage).click();
+          await frame();
+          q('.uploaded-library-selection-actions button').click();
+          await frame();
+          q('.uploaded-library-move-trigger').click();
+          await frame();
+          q('.uploaded-library-destination').click();
+          await frame();
+          const body = q('.app-dialog-body');
+          body.scrollTop = body.scrollHeight;
+          if (!body.scrollTop) throw Error('Expected a scrolled folder list');
+          q('.app-dialog-submit').click();
+          await frame();
+          const path = q('.uploaded-library-move-path').getBoundingClientRect();
+          if (path.top < body.getBoundingClientRect().top - 1 || path.bottom > body.getBoundingClientRect().bottom ||
+              document.activeElement !== q('.app-dialog-actions .app-dialog-cancel')) throw Error('Confirmation path clipped or Cancel unfocused');
+        }
         if (innerWidth === 591) {
           q(manage).click();
           await frame();
@@ -111,16 +134,35 @@ it.skipIf(!browser)('groups Import and Manage in both views and restores focus a
             throw Error('Folder actions should fit their labels without the Import menu minimum width: ' + [width,menu.scrollWidth,menu.clientWidth,menu.querySelectorAll('[role=menuitem]').length]);
           }
         }
+        if (narrow) {
+          q(manage).click();
+          await frame();
+          q('.uploaded-library-selection-actions button').click();
+          await frame();
+          q('.uploaded-library-move-trigger').click();
+          await frame();
+          const path = q('.uploaded-library-move-path');
+          const row = q('.uploaded-library-destination');
+          if (getComputedStyle(row.lastElementChild).transform !== 'matrix(-1, 0, 0, 1, 0, 0)') throw Error('RTL folder chevron');
+          // Enter opens Shelf. The next Tab and Enter activate its Root breadcrumb.
+          const clicked = new Promise(resolve => path.addEventListener('click', resolve, {once:true}));
+          row.focus();
+          window.keyboardReady = true;
+          await clicked;
+          await frame();
+          if (path.querySelector('button') || document.activeElement !== path ||
+              !q('.uploaded-library-destination') || q('.uploaded-library-move-documents')) throw Error('Keyboard return to Root');
+        }
         if (innerWidth === 900) {
           q(manage).click();
           await frame();
-          const box = q('[aria-label="Select all in Shelf"]');
+          const box = q('[aria-label="Select Shelf"]');
           box.focus();
           window.keyboardReady = true;
           await new Promise(resolve => box.addEventListener('change', resolve, {once:true}));
           await frame();
           if (!box.checked || !box.closest('[role=row]').classList.contains('uploaded-library-item-selected') ||
-              q('.uploaded-library-selection-count').textContent !== '1 document selected') {
+              q('.uploaded-library-selection-count').textContent !== 'Folders (1)') {
             throw Error('Space did not select the collapsed folder’s document');
           }
         }
@@ -141,7 +183,7 @@ it.skipIf(!browser)('groups Import and Manage in both views and restores focus a
     })
     for (const [width, direction] of [[900, 'ltr'], [644, 'ltr'], [591, 'ltr'], [460, 'ltr'], [320, 'rtl']] as const) {
       const result = await runBrowserFixture(join(directory, String(width)), join(directory, 'dist/index.html'), width,
-        undefined, undefined, width === 900 ? ['Space'] : undefined)
+        undefined, undefined, width === 900 ? ['Space'] : width === 320 ? ['Enter', 'Tab', 'Enter'] : undefined)
       expect(result, width + 'px').toEqual({
         direction,
         results: Array(3).fill({

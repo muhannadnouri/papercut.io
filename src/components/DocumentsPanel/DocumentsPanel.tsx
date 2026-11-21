@@ -64,6 +64,7 @@ interface DocumentsPanelProps {
   onDeleteLibraryFolder?: (folderId: string) => Promise<UploadedDocumentDeleteBatchResult | null>
   onFilterChange: (value: string) => void
   onMoveLibraryDocuments?: (documentIds: string[], folderId: string | null) => void | Promise<void>
+  onMoveLibraryFolder?: (folderId: string, parentId: string | null) => void | Promise<void>
   onRenameLibraryFolder?: (folderId: string, name: string) => void | Promise<void>
   onToggleAuthor: (author: string) => void
   onToggleShow: () => void
@@ -95,6 +96,7 @@ export function DocumentsPanel({
   onDeleteLibraryFolder,
   onFilterChange,
   onMoveLibraryDocuments,
+  onMoveLibraryFolder,
   onRenameLibraryFolder,
   onToggleAuthor,
   onToggleShow,
@@ -320,6 +322,7 @@ export function DocumentsPanel({
               onDeleteDocuments={onDeleteDocuments!}
               onDeleteFolder={onDeleteLibraryFolder!}
               onMoveDocuments={onMoveLibraryDocuments!}
+              onMoveFolder={onMoveLibraryFolder}
               onRenameFolder={onRenameLibraryFolder!}
               onViewAudiobooks={onViewAudiobooks}
               onViewDocumentInfo={onViewDocumentInfo}
