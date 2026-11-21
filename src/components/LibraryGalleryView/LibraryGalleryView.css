@@ -71,30 +71,12 @@
 }
 
 .library-gallery-view {
-  container-type: inline-size;
   padding-block-end: 0.75rem;
 }
 
-.library-gallery-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0.75rem;
-}
-
 .library-gallery-categories {
-  flex: 1 1 14rem;
-  max-width: 22rem;
-  min-width: 0;
-}
-
-.library-gallery-toolbar .library-gallery-manage {
-  justify-self: end;
-  min-height: 2.25rem;
-  margin: 0;
-  margin-inline-start: auto;
+  width: min(22rem, calc(100% - 1.5rem));
+  margin: 0.75rem auto;
 }
 
 .library-gallery-category {
@@ -110,17 +92,6 @@
   flex: none;
   width: 1rem;
   height: 1rem;
-}
-
-@container (min-width: 38rem) {
-  .library-gallery-toolbar {
-    display: grid;
-    grid-template-columns: 1fr 22rem 1fr;
-  }
-
-  .library-gallery-categories {
-    grid-column: 2;
-  }
 }
 
 .library-book-grid {

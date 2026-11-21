@@ -77,8 +77,8 @@ async function render(overrides: Partial<typeof props> = {}) {
 function button(selector: string) {
   return host.querySelector<HTMLButtonElement>(selector)!
 }
-const manage = '.library-gallery-manage'
-const done = '.uploaded-library-edit-btn[aria-pressed="true"]'
+const manage = '.document-manage-btn'
+const done = '.uploaded-library-done'
 
 it.each(['books', 'documents'])('returns from Manage to the filtered %s gallery and its trigger', async category => {
   localStorage.setItem('papercut.library-view.v1', 'gallery')
@@ -138,7 +138,7 @@ it('keeps the final deletion notice dismissible without offering List Manage', a
   localStorage.setItem('papercut.library-view.v1', 'list')
   const onDismiss = vi.fn()
   await render()
-  await act(() => button('.uploaded-library-edit-btn[aria-pressed]').click())
+  await act(() => button(manage).click())
   await render({
     allDocuments: [],
     groupedDocs: [],
@@ -152,7 +152,7 @@ it('keeps the final deletion notice dismissible without offering List Manage', a
     }],
   })
   expect(host.querySelector('.uploaded-library [role=status]')?.textContent).toContain('Deleted upload')
-  expect(button('.uploaded-library-edit-btn[aria-pressed]')).toBeNull()
+  expect(button(manage)).toBeNull()
   await act(() => button('.document-import-dismiss').click())
   expect(onDismiss).toHaveBeenCalledOnce()
 })
@@ -206,19 +206,19 @@ it.each(['gallery', 'list'])('shows only uploads in Manage and restores the %s b
       docs,
     }],
   })
-  const entry = view === 'gallery' ? manage : '.uploaded-library-edit-btn[aria-pressed="false"]'
+  expect(host.querySelector('.uploaded-library-toolbar-actions')).toBeNull()
   expect(host.textContent).toContain(bundled.title)
   if (view === 'list') {
     await act(() => button('.uploaded-library-heading').click())
   }
-  button(entry).focus()
-  await act(() => button(entry).click())
+  button(manage).focus()
+  await act(() => button(manage).click())
   expect(document.activeElement).toBe(button(done))
   expect(host.textContent).toContain(uploads[0].title)
   expect(host.textContent).not.toContain(bundled.title)
   expect(button('.library-view-toggle')).toBeNull()
   await act(() => button(done).click())
-  expect(document.activeElement).toBe(button(entry))
+  expect(document.activeElement).toBe(button(manage))
   expect(host.textContent).toContain(bundled.title)
   expect(button('.library-view-toggle')).toBeTruthy()
   expect(localStorage.getItem('papercut.library-view.v1')).toBe(view)

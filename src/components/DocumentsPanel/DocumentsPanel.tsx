@@ -120,8 +120,8 @@ export function DocumentsPanel({
     loadCategory,
   )
   const [managing, setManaging] = useState(false)
-  const galleryToolbar = useRef<HTMLDivElement>(null)
-  const listManageButton = useRef<HTMLButtonElement>(null)
+  const categoryGroup = useRef<HTMLDivElement>(null)
+  const manageButton = useRef<HTMLButtonElement>(null)
   const filterInput = useRef<HTMLInputElement>(null)
   const restoreBrowseFocus = useRef(false)
   const view = managing ? 'manage' : preferredView
@@ -170,15 +170,14 @@ export function DocumentsPanel({
       if (document.activeElement !== document.body && !document.activeElement?.matches(':disabled')) {
         return
       }
-      const toolbar = galleryToolbar.current
-      const target = toolbar?.querySelector<HTMLButtonElement>('.library-gallery-manage:enabled') ??
-        toolbar?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')
-      const listManage = listManageButton.current
-      const returnTarget = target ?? (listManage?.disabled ? null : listManage) ?? filterInput.current
+      const trigger = manageButton.current
+      const returnTarget = (trigger?.disabled ? null : trigger) ??
+        categoryGroup.current?.querySelector<HTMLButtonElement>('[aria-pressed="true"]') ?? filterInput.current
       returnTarget?.focus()
     }
   }, [managing, canManage, importBusy, showDocuments, documentsLoading])
 
+  const showManage = canManage && !managing
   const manageStatusIndex = view !== 'gallery' && showUploadedTree
     ? importStatuses.findIndex((item) => item.manageContext)
     : -1
@@ -238,54 +237,62 @@ export function DocumentsPanel({
           value={documentFilter}
           onChange={(e) => onFilterChange(e.target.value)}
         />
-        {hasImportOptions && (
-          <div className="document-import-menu">
-            <MenuTrigger isOpen={importMenuOpen} onOpenChange={setImportMenuOpen}>
-              <Button
-                className={`document-import-btn${importBusy ? ' document-import-btn-busy' : ''}`}
-                isDisabled={importDisabled}
-                aria-label={importBusy
-                  ? activeImport?.statusLabel ?? t('library.import.importingBatch')
-                  : undefined}
-              >
-                <span className="document-import-btn-label" aria-hidden={importBusy ? true : undefined}>
-                  {t('library.documents.import')}
-                  <span className={`toggle-arrow ${importMenuOpen ? 'open' : ''}`} aria-hidden="true">&#9662;</span>
-                </span>
-                {importBusy && <span className="spinner document-import-btn-spinner" aria-hidden="true" />}
+        {(hasImportOptions || showManage) && (
+          <div className="document-upload-actions">
+            {hasImportOptions && (
+              <MenuTrigger isOpen={importMenuOpen} onOpenChange={setImportMenuOpen}>
+                <Button
+                  className={`document-import-btn${importBusy ? ' document-import-btn-busy' : ''}`}
+                  isDisabled={importDisabled}
+                  aria-label={importBusy
+                    ? activeImport?.statusLabel ?? t('library.import.importingBatch')
+                    : undefined}
+                >
+                  <span className="document-import-btn-label" aria-hidden={importBusy ? true : undefined}>
+                    {t('library.documents.import')}
+                    <span className={`toggle-arrow ${importMenuOpen ? 'open' : ''}`} aria-hidden="true">&#9662;</span>
+                  </span>
+                  {importBusy && <span className="spinner document-import-btn-spinner" aria-hidden="true" />}
+                </Button>
+                <Popover
+                  className="document-import-popover"
+                  placement="bottom end"
+                  offset={6}
+                  containerPadding={8}
+                  shouldFlip
+                >
+                  <Menu className="document-import-options" aria-label={t('library.documents.import')}>
+                    {importOptions.map((option) => {
+                      const disabled = option.disabled || option.future || !option.onSelect
+                      const label = option.label + (option.future ? ` (${t('library.documents.future')})` : '')
+                      return (
+                        <MenuItem
+                          key={option.id}
+                          id={option.id}
+                          className="document-import-option"
+                          isDisabled={disabled}
+                          textValue={label}
+                          aria-label={option.detail ? `${label}. ${option.detail}` : label}
+                          onAction={option.onSelect}
+                        >
+                          <ImportOptionIcon id={option.id} />
+                          <span className="document-import-option-copy">
+                            <span>{label}</span>
+                            {option.detail && <small>{option.detail}</small>}
+                          </span>
+                        </MenuItem>
+                      )
+                    })}
+                  </Menu>
+                </Popover>
+              </MenuTrigger>
+            )}
+            {showManage && (
+              <Button ref={manageButton} className="document-import-btn document-manage-btn"
+                isDisabled={documentOpening || operationBusy} onPress={() => setManaging(true)}>
+                {t('library.tree.organize')}
               </Button>
-              <Popover
-                className="document-import-popover"
-                placement="bottom end"
-                offset={6}
-                containerPadding={8}
-                shouldFlip
-              >
-                <Menu className="document-import-options" aria-label={t('library.documents.import')}>
-                  {importOptions.map((option) => {
-                    const disabled = option.disabled || option.future || !option.onSelect
-                    const label = option.label + (option.future ? ` (${t('library.documents.future')})` : '')
-                    return (
-                      <MenuItem
-                        key={option.id}
-                        id={option.id}
-                        className="document-import-option"
-                        isDisabled={disabled}
-                        textValue={label}
-                        aria-label={option.detail ? `${label}. ${option.detail}` : label}
-                        onAction={option.onSelect}
-                      >
-                        <ImportOptionIcon id={option.id} />
-                        <span className="document-import-option-copy">
-                          <span>{label}</span>
-                          {option.detail && <small>{option.detail}</small>}
-                        </span>
-                      </MenuItem>
-                    )
-                  })}
-                </Menu>
-              </Popover>
-            </MenuTrigger>
+            )}
           </div>
         )}
         <div className="document-view-options">
@@ -335,8 +342,7 @@ export function DocumentsPanel({
       {view === 'gallery' ? (
         <LibraryGalleryView
           category={galleryCategory}
-          toolbarRef={galleryToolbar}
-          onManage={canManage ? () => setManaging(true) : undefined}
+          categoryGroupRef={categoryGroup}
           collapsedAuthors={collapsedAuthors}
           docFilterLower={docFilterLower}
           groupedDocs={visibleGroups}
@@ -350,7 +356,7 @@ export function DocumentsPanel({
             setGalleryCategory(category)
             savePreference(CATEGORY_STORAGE_KEY, category)
           }}
-          onDeleteDocument={onDeleteDocument}
+          onDeleteDocument={canManage ? undefined : onDeleteDocument}
           onToggleAuthor={onToggleAuthor}
           onViewDocument={onViewDocument}
         />
@@ -364,9 +370,7 @@ export function DocumentsPanel({
               filterActive={contentFilterActive}
               documentOpening={documentOpening}
               mutationDisabled={operationBusy}
-              editMode={managing}
-              onEditModeChange={canManage ? setManaging : undefined}
-              editButtonRef={listManageButton}
+              onDone={managing ? () => setManaging(false) : undefined}
               openingDocumentUrl={openingDocumentUrl}
               savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
               managementStatus={manageStatusIndex >= 0

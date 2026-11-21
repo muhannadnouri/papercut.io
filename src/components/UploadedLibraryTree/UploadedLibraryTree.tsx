@@ -3,7 +3,6 @@ import {
   useMemo,
   useState,
   type ReactNode,
-  type Ref,
 } from 'react'
 import {
   Trans,
@@ -42,9 +41,7 @@ interface UploadedLibraryTreeProps {
   filterActive?: boolean
   documentOpening?: boolean
   mutationDisabled?: boolean
-  editMode?: boolean
-  onEditModeChange?: (editing: boolean) => void
-  editButtonRef?: Ref<HTMLButtonElement>
+  onDone?: () => void
   openingDocumentUrl?: string
   savedAudiobookDocumentUrls?: ReadonlySet<string>
   /** Existing Manage operation status, placed here so sticky controls keep it visible. */
@@ -78,9 +75,7 @@ export function UploadedLibraryTree({
   filterActive = false,
   documentOpening = false,
   mutationDisabled = false,
-  editMode = false,
-  onEditModeChange,
-  editButtonRef,
+  onDone,
   openingDocumentUrl,
   savedAudiobookDocumentUrls = new Set(),
   managementStatus,
@@ -106,6 +101,7 @@ export function UploadedLibraryTree({
   const [busy, setBusy] = useState(false)
   const { confirm: confirmLibraryAction, dialog: libraryConfirmationDialog } = useAppConfirmation()
   const filterMode = mode === 'filter'
+  const editMode = Boolean(onDone)
   const organizing = mode === 'library' && editMode
   const locale = i18n.resolvedLanguage ?? i18n.language
   const { nodes, folders, nodeByKey, folderOptions } = useMemo(
@@ -502,29 +498,25 @@ export function UploadedLibraryTree({
             >
               {allRootSelected ? t('common.deselectAll') : t('common.selectAll')}
             </button>
-          ) : onEditModeChange && (
+          ) : onDone && (
             <div className="uploaded-library-toolbar-actions">
-              {organizing && (
-                <button
-                  className="uploaded-library-edit-btn uploaded-library-icon-action"
-                  type="button"
-                  disabled={busy || mutationDisabled}
-                  onClick={() => openFolderDialog(null)}
-                >
-                  <FolderIcon className="uploaded-library-action-icon" />
-                  {t('library.tree.newFolder')}
-                </button>
-              )}
               <button
-                className="uploaded-library-edit-btn"
+                className="uploaded-library-edit-btn uploaded-library-icon-action"
                 type="button"
                 disabled={busy || mutationDisabled}
-                ref={editButtonRef}
-                autoFocus={editMode}
-                aria-pressed={editMode}
-                onClick={() => onEditModeChange(!editMode)}
+                onClick={() => openFolderDialog(null)}
               >
-                {editMode ? t('common.done') : t('library.tree.organize')}
+                <FolderIcon className="uploaded-library-action-icon" />
+                {t('library.tree.newFolder')}
+              </button>
+              <button
+                className="uploaded-library-edit-btn uploaded-library-done"
+                type="button"
+                disabled={busy || mutationDisabled}
+                autoFocus
+                onClick={onDone}
+              >
+                {t('common.done')}
               </button>
             </div>
           )}

@@ -19,7 +19,7 @@ import {
   runBrowserFixture,
 } from '../../tts/playAnywhere/browserCaptureFixture'
 
-it.skipIf(!browser)('keeps both gallery categories and Manage usable on desktop and narrow RTL screens', async () => {
+it.skipIf(!browser)('groups Import and Manage in both views and restores focus after Done', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'papercut-gallery-manage-'))
   try {
     writeFileSync(join(directory, 'index.html'), `<!doctype html><meta charset="utf-8">
@@ -42,38 +42,44 @@ it.skipIf(!browser)('keeps both gallery categories and Manage usable on desktop 
         createRoot(q('#root')).render(<DocumentsPanel allDocuments={docs} groupedDocs={[{author:'Uploads',docs}]}
           libraryOrganization={{folders:[], documentLocations:[]}} collapsedAuthors={new Set()} showDocuments
           documentFilter="" docFilterLower="" documentsLoading={false} onFilterChange={noop} onToggleShow={noop}
+          importOptions={[{id:'batch', label:'Import files', onSelect:noop}]} onAudioSavedOnlyChange={noop}
           onToggleAuthor={noop} onViewDocument={noop} onCreateLibraryFolder={noop} onDeleteDocuments={noop}
           onDeleteLibraryFolder={noop} onMoveLibraryDocuments={noop} onRenameLibraryFolder={noop}/>);
-        const manage = '.library-gallery-manage';
+        const manage = '.document-manage-btn';
         while (!q(manage)) await frame();
         const results = [];
-        for (const index of [0,1]) {
+        for (const index of [0,1,2]) {
           const category = () => document.querySelectorAll('.library-gallery-category')[index];
-          category().click();
+          if (index === 2) q('.library-view-toggle').click();
+          else category().click();
           await frame();
-          const group = q('.library-gallery-categories').getBoundingClientRect();
+          const group = q('.library-gallery-categories')?.getBoundingClientRect();
           const action = q(manage).getBoundingClientRect();
-          const bar = q('.library-gallery-toolbar').getBoundingClientRect();
+          const bar = q('.documents-list-header').getBoundingClientRect();
+          const importButton = q('.document-upload-actions button:first-child').getBoundingClientRect();
           const fits = el => {
             const r = el.getBoundingClientRect();
             return r.width > 0 && r.left >= 0 && r.right <= innerWidth && el.scrollWidth <= el.clientWidth + 1;
           };
-          const aligned = narrow ? (action.top >= group.bottom || action.right <= group.left) && Math.abs(action.left-bar.left)<2
-            : action.left > group.right && Math.abs(action.right-bar.right)<2 && action.top < group.bottom && action.bottom > group.top;
-          const centered = innerWidth !== 900 || Math.abs(group.left+group.right-bar.left-bar.right)<2;
-          const icon = category().querySelector('svg[aria-hidden=true]').getBoundingClientRect();
-          const label = category().querySelector('span').getBoundingClientRect();
-          const leadingIcon = icon.width > 0 && (narrow ? icon.left >= label.right : icon.right <= label.left);
-          const layout = aligned && centered && leadingIcon
-            && Array.from(q('.library-gallery-toolbar').querySelectorAll('button')).every(fits);
+          const adjacent = Math.abs(importButton.top-action.top)<2 &&
+            (narrow ? importButton.left >= action.right : importButton.right <= action.left);
+          const centered = index === 2 ? !group : Math.abs(group.left+group.right-bar.left-bar.right)<2;
+          const controls = document.querySelectorAll('.documents-list-header button, .library-gallery-category');
+          const filter = q('.document-filter-input').getBoundingClientRect();
+          const compactLayout = innerWidth > 700 || filter.bottom <= action.top;
+          const icon = category()?.querySelector('svg[aria-hidden=true]')?.getBoundingClientRect();
+          const label = category()?.querySelector('span')?.getBoundingClientRect();
+          const leadingIcon = index === 2 || (icon && (narrow ? icon.left >= label.right : icon.right <= label.left));
+          const layout = compactLayout && leadingIcon && adjacent && centered && Array.from(controls).every(fits)
+            && q(manage).parentElement === q('.document-upload-actions') && !q('.uploaded-library-done');
           q(manage).click();
           await frame();
-          const done = q('.uploaded-library-edit-btn[aria-pressed=true]');
+          const done = q('.uploaded-library-done');
           const entered = fits(done) && document.activeElement === done && !q('.library-view-toggle');
           done.click();
           await frame();
-          results.push(layout && entered && document.activeElement === q(manage)
-            && category().getAttribute('aria-pressed') === 'true');
+          results.push({layout: Boolean(layout), entered, returned: document.activeElement === q(manage),
+            view: index === 2 ? !q('.library-gallery-view') : category().getAttribute('aria-pressed') === 'true'});
         }
         return {direction:document.documentElement.dir, results};
       }
@@ -92,9 +98,14 @@ it.skipIf(!browser)('keeps both gallery categories and Manage usable on desktop 
     })
     for (const [width, direction] of [[900, 'ltr'], [644, 'ltr'], [460, 'ltr'], [320, 'rtl']] as const) {
       const result = await runBrowserFixture(directory, join(directory, 'dist/index.html'), width)
-      expect(result).toEqual({
+      expect(result, width + 'px').toEqual({
         direction,
-        results: [true, true],
+        results: Array(3).fill({
+          layout: true,
+          entered: true,
+          returned: true,
+          view: true,
+        }),
       })
     }
   } finally {
