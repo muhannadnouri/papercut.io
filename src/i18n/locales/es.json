@@ -307,10 +307,10 @@
       "newSubfolder": "Nueva subcarpeta",
       "rename": "Rebautizar",
       "deleteFolder": "Eliminar carpeta",
-      "deleteFolderContents": "Eliminar carpeta y contenido",
       "moveDocuments": "Mover documentos",
       "chooseDestination": "Elegir destino...",
-      "folderSelected": "1 carpeta seleccionada",
+      "folderActionsFor": "Acciones de la carpeta {{title}}",
+      "selectAllDocuments": "Seleccionar todos los documentos",
       "selectDocumentsOnly": "Seleccionar sólo documentos...",
       "selectDocumentsFirst": "Seleccione documentos primero...",
       "root": "Raíz",
@@ -319,9 +319,9 @@
       "selectAllIn": "Seleccionar todo en {{title}}",
       "filterBy": "Filtrar por {{title}}",
       "deleteSelectedFolder": "Eliminar la carpeta seleccionada.",
-      "selectedCount_one": "{{count, number}} seleccionado",
-      "selectedCount_many": "{{count, number}} seleccionados",
-      "selectedCount_other": "{{count, number}} seleccionados"
+      "selectedCount_one": "{{count, number}} documento seleccionado",
+      "selectedCount_many": "{{count, number}} documentos seleccionados",
+      "selectedCount_other": "{{count, number}} documentos seleccionados"
     },
     "folderDialog": {
       "renameTitle": "Cambiar nombre de carpeta",

@@ -307,10 +307,10 @@
       "newSubfolder": "Nouveau sous-dossier",
       "rename": "Rebaptiser",
       "deleteFolder": "Supprimer le dossier",
-      "deleteFolderContents": "Supprimer le dossier et son contenu",
       "moveDocuments": "Déplacer des documents",
       "chooseDestination": "Choisir une destination...",
-      "folderSelected": "1 dossier sélectionné",
+      "folderActionsFor": "Actions du dossier {{title}}",
+      "selectAllDocuments": "Sélectionner tous les documents",
       "selectDocumentsOnly": "Sélectionnez Documents uniquement...",
       "selectDocumentsFirst": "Sélectionnez d'abord les documents...",
       "root": "Racine",
@@ -319,9 +319,9 @@
       "selectAllIn": "Tout sélectionner dans {{title}}",
       "filterBy": "Filtrer par {{title}}",
       "deleteSelectedFolder": "Supprimer le dossier sélectionné.",
-      "selectedCount_one": "{{count, number}} sélectionné",
-      "selectedCount_many": "{{count, number}} sélectionnés",
-      "selectedCount_other": "{{count, number}} sélectionnés"
+      "selectedCount_one": "{{count, number}} document sélectionné",
+      "selectedCount_many": "{{count, number}} documents sélectionnés",
+      "selectedCount_other": "{{count, number}} documents sélectionnés"
     },
     "folderDialog": {
       "renameTitle": "Renommer le dossier",

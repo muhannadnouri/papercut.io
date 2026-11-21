@@ -301,10 +301,10 @@
       "newSubfolder": "नया सबफ़ोल्डर",
       "rename": "नाम बदलें",
       "deleteFolder": "फ़ोल्डर हटाएँ",
-      "deleteFolderContents": "फ़ोल्डर और सामग्री हटाएँ",
       "moveDocuments": "दस्तावेज़ ले जाएँ",
       "chooseDestination": "गंतव्य चुनें...",
-      "folderSelected": "1 फ़ोल्डर चुना गया",
+      "folderActionsFor": "{{title}} फ़ोल्डर की कार्रवाइयाँ",
+      "selectAllDocuments": "सभी दस्तावेज़ चुनें",
       "selectDocumentsOnly": "केवल दस्तावेज़ चुनें...",
       "selectDocumentsFirst": "पहले दस्तावेज़ चुनें...",
       "root": "जड़",
@@ -313,8 +313,8 @@
       "selectAllIn": "{{title}} में सभी का चयन करें",
       "filterBy": "{{title}} द्वारा फ़िल्टर करें",
       "deleteSelectedFolder": "चयनित फ़ोल्डर हटाएँ.",
-      "selectedCount_one": "{{count, number}} चयनित",
-      "selectedCount_other": "{{count, number}} चयनित"
+      "selectedCount_one": "{{count, number}} दस्तावेज़ चयनित",
+      "selectedCount_other": "{{count, number}} दस्तावेज़ चयनित"
     },
     "folderDialog": {
       "renameTitle": "फ़ोल्डर का नाम बदलें",

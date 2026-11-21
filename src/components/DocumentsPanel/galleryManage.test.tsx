@@ -62,6 +62,7 @@ let root: Root
 let host: HTMLDivElement
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  vi.stubGlobal('CSS', { escape: (value: string) => value.replace(/[^a-zA-Z0-9_-]/g, character => `\\${character}`) })
   host = document.body.appendChild(document.createElement('div'))
   root = createRoot(host)
 })
@@ -289,6 +290,65 @@ it('offers View Audiobooks instead of deleting a managed upload with saved audio
   expect(batchDelete).not.toHaveBeenCalled()
 })
 
+it('keeps folder checkboxes and bulk actions in sync across collapsed branches', async () => {
+  const folder = {
+    id: 'parent',
+    name: 'Shelf',
+    depth: 0,
+    sortOrder: 0,
+    createdAtMs: 0,
+    updatedAtMs: 0,
+  }
+  await render({
+    documentFilter: '',
+    docFilterLower: '',
+    libraryOrganization: {
+      folders: [folder, {
+        ...folder,
+        id: 'child',
+        name: 'Archive',
+        parentId: folder.id,
+        depth: 1,
+      }],
+      documentLocations: [
+        {
+          documentId: 'aa',
+          folderId: folder.id,
+          sortOrder: 0,
+        },
+        {
+          documentId: 'bb',
+          folderId: 'child',
+          sortOrder: 0,
+        },
+      ],
+    },
+  })
+  await act(() => button(manage).click())
+  const box = (label: string) => host.querySelector<HTMLInputElement>('[aria-label="' + label + '"]')!
+  const shelf = box('Select all in Shelf')
+  expect(box('Select Saved book')).toBeNull()
+  await act(() => shelf.click())
+  expect(shelf.checked).toBe(true)
+  const count = () => host.querySelector('.uploaded-library-selection-count')?.textContent
+  expect(count()).toBe('2 documents selected')
+  await act(() => button('.uploaded-library-chevron').click())
+  expect(box('Select all in Archive').checked).toBe(true)
+  await act(() => box('Select Saved book').click())
+  expect(count()).toBe('1 document selected')
+  expect(shelf.indeterminate).toBe(true)
+  expect(box('Select all in Archive').checked).toBe(true)
+  const bulk = () => button('.uploaded-library-selection-actions button')
+  expect(bulk().textContent).toBe('Select all documents')
+  await act(() => bulk().click())
+  expect(shelf.indeterminate).toBe(false)
+  expect(box('Select Saved book').checked).toBe(true)
+  await act(() => bulk().click())
+  expect(count()).toBe('0 documents selected')
+  expect(shelf.checked).toBe(false)
+  expect(box('Select all in Archive').checked).toBe(false)
+})
+
 it('blocks folder deletion when a filtered-out descendant has saved audio', async () => {
   const deleteFolder = vi.fn()
   const viewAudiobooks = vi.fn()
@@ -335,12 +395,23 @@ it('blocks folder deletion when a filtered-out descendant has saved audio', asyn
   await act(() => button(manage).click())
   expect(host.textContent).toContain(uploads[0].title)
   expect(host.textContent).not.toContain(uploads[1].title)
-  await act(() => button('[aria-label="Select Shelf"]').click())
-  await act(() => button('.uploaded-library-delete-btn').click())
+  await act(() => button('[aria-label="Select all in Shelf"]').click())
+  expect(host.querySelector('.uploaded-library-selection-count')?.textContent).toBe('1 document selected')
+  async function deleteShelf() {
+    const trigger = button('[aria-label="Folder actions for Shelf"]')
+    expect(trigger.textContent).toBe('')
+    expect(trigger.querySelector('svg[aria-hidden="true"]')).toBeTruthy()
+    await act(() => trigger.click())
+    const action = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')]
+      .find(item => item.textContent === 'Delete Folder')
+    expect(action).toBeDefined()
+    await act(() => action!.click())
+  }
+  await deleteShelf()
   expect(host.querySelector('[role="dialog"]')?.textContent).toContain('Saved Audiobooks Use Documents in This Folder')
   await act(() => button('.app-dialog-cancel').click())
   expect(viewAudiobooks).not.toHaveBeenCalled()
-  await act(() => button('.uploaded-library-delete-btn').click())
+  await deleteShelf()
   await act(() => button('.app-dialog-submit').click())
   expect(viewAudiobooks).toHaveBeenCalledOnce()
   expect(deleteFolder).not.toHaveBeenCalled()

@@ -167,19 +167,6 @@
   color: var(--accent-strong);
 }
 
-.uploaded-library-actions .uploaded-library-secondary-action {
-  border-color: transparent;
-  background: var(--control-surface);
-  color: var(--accent-text);
-  font-weight: 600;
-}
-
-.uploaded-library-actions .uploaded-library-secondary-action:focus-visible {
-  border-color: transparent;
-  background: var(--surface-accent);
-  color: var(--accent-strong);
-}
-
 .uploaded-library-task-actions {
   display: flex;
   align-items: end;
@@ -219,26 +206,6 @@
   color: var(--danger);
   font-size: 0.78rem;
   line-height: 1.35;
-}
-
-.uploaded-library-delete-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-}
-
-.uploaded-library-delete-btn:not([aria-disabled="true"]) {
-  border-color: transparent;
-  background: var(--surface-danger);
-  color: var(--danger);
-  font-weight: 600;
-}
-
-.uploaded-library-delete-btn:not([aria-disabled="true"]):focus-visible {
-  border-color: transparent;
-  background: var(--surface-danger);
-  color: var(--danger-accent);
 }
 
 .uploaded-library-move {
@@ -323,10 +290,15 @@
   box-shadow: inset 3px 0 0 var(--accent-text);
 }
 
-.uploaded-library-item-selected .uploaded-library-content,
+.uploaded-library-item.uploaded-library-item-selected .uploaded-library-content,
 .uploaded-library-item-opening .uploaded-library-content {
   background: var(--surface-accent);
   box-shadow: inset 3px 0 0 var(--accent-text);
+}
+
+.uploaded-library-item[data-focus-visible] .uploaded-library-content {
+  outline: 2px solid var(--accent-text);
+  outline-offset: -2px;
 }
 
 .uploaded-library-row {
@@ -485,19 +457,7 @@
     color: var(--accent-strong);
   }
 
-  .uploaded-library-actions .uploaded-library-secondary-action:hover:not(:disabled) {
-    border-color: transparent;
-    background: var(--surface-accent);
-    color: var(--accent-strong);
-  }
-
   .uploaded-library-actions .uploaded-library-batch-delete:hover:not(:disabled) {
-    border-color: transparent;
-    background: var(--surface-danger);
-    color: var(--danger-accent);
-  }
-
-  .uploaded-library-delete-btn:not([aria-disabled="true"]):hover {
     border-color: transparent;
     background: var(--surface-danger);
     color: var(--danger-accent);
@@ -536,7 +496,7 @@
   font-weight: 600;
 }
 
-.uploaded-library-row .uploaded-library-document-edit {
+.uploaded-library-row .uploaded-library-icon-button {
   display: grid;
   place-items: center;
   width: 2rem;
@@ -544,7 +504,8 @@
   padding: 0;
 }
 
-.uploaded-library-document-edit svg {
+.uploaded-library-folder-menu svg,
+.uploaded-library-icon-button svg {
   display: block;
   width: 1rem;
   height: 1rem;
@@ -597,14 +558,14 @@
     padding: 0 0.45rem;
   }
 
-  .uploaded-library-row .uploaded-library-document-edit {
+  .uploaded-library-row .uploaded-library-icon-button {
     width: 2.75rem;
     min-width: 2.75rem;
     min-height: 2.75rem;
     padding: 0;
   }
 
-  .uploaded-library-document-edit svg {
+  .uploaded-library-icon-button svg {
     width: 1.15rem;
     height: 1.15rem;
   }
@@ -631,7 +592,7 @@
     min-height: 2.75rem;
   }
 
-  .uploaded-library-row .uploaded-library-document-edit {
+  .uploaded-library-row .uploaded-library-icon-button {
     width: 2.75rem;
     min-width: 2.75rem;
     min-height: 2.75rem;
@@ -656,7 +617,7 @@ html[dir="rtl"] .uploaded-library-item[data-focus-visible] .uploaded-library-con
 }
 
 html[dir="rtl"] .uploaded-library-item[data-selected] .uploaded-library-content,
-html[dir="rtl"] .uploaded-library-item-selected .uploaded-library-content,
+html[dir="rtl"] .uploaded-library-item.uploaded-library-item-selected .uploaded-library-content,
 html[dir="rtl"] .uploaded-library-item-opening .uploaded-library-content {
   box-shadow: inset -3px 0 0 var(--accent-text);
 }
@@ -678,4 +639,21 @@ html[dir="rtl"] .uploaded-library-item-opening .uploaded-library-content {
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.uploaded-library-icon-button .uploaded-library-more-icon {
+  width: 22px;
+  height: 22px;
+  fill: currentcolor;
+  stroke: none;
+}
+
+.document-import-options.uploaded-library-folder-menu {
+  min-width: 0;
+  width: max-content;
+  max-width: calc(100vw - 2rem);
+}
+
+.uploaded-library-folder-menu .document-import-option {
+  width: auto;
 }

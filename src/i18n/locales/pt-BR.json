@@ -307,10 +307,10 @@
       "newSubfolder": "Nova subpasta",
       "rename": "Renomear",
       "deleteFolder": "Excluir pasta",
-      "deleteFolderContents": "Excluir pasta e conteúdo",
       "moveDocuments": "Mover documentos",
       "chooseDestination": "Escolher destino...",
-      "folderSelected": "1 pasta selecionada",
+      "folderActionsFor": "Ações da pasta {{title}}",
+      "selectAllDocuments": "Selecionar todos os documentos",
       "selectDocumentsOnly": "Selecione apenas documentos...",
       "selectDocumentsFirst": "Selecione os documentos primeiro...",
       "root": "Raiz",
@@ -319,9 +319,9 @@
       "selectAllIn": "Selecione tudo em {{title}}",
       "filterBy": "Filtrar por {{title}}",
       "deleteSelectedFolder": "Exclua a pasta selecionada.",
-      "selectedCount_one": "{{count, number}} selecionado",
-      "selectedCount_many": "{{count, number}} selecionados",
-      "selectedCount_other": "{{count, number}} selecionados"
+      "selectedCount_one": "{{count, number}} documento selecionado",
+      "selectedCount_many": "{{count, number}} documentos selecionados",
+      "selectedCount_other": "{{count, number}} documentos selecionados"
     },
     "folderDialog": {
       "renameTitle": "Renomear pasta",
