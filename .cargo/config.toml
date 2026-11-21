@@ -1,0 +1,26 @@
+# Use published bindings; the app build script owns native linking and preparation.
+# Invoke Cargo inside this checkout, or pass this file explicitly with Cargo --config.
+[env]
+MACOSX_DEPLOYMENT_TARGET = "15.0"
+
+[target.x86_64-unknown-linux-gnu.sherpa-onnx]
+rustc-link-lib = []
+[target.aarch64-linux-android.sherpa-onnx]
+rustc-link-lib = []
+[target.x86_64-linux-android.sherpa-onnx]
+rustc-link-lib = []
+[target.aarch64-apple-ios.sherpa-onnx]
+rustc-link-lib = []
+[target.aarch64-apple-ios-sim.sherpa-onnx]
+rustc-link-lib = []
+[target.x86_64-apple-ios.sherpa-onnx]
+rustc-link-lib = []
+[target.aarch64-apple-darwin.sherpa-onnx]
+rustc-link-lib = []
+[target.x86_64-apple-darwin.sherpa-onnx]
+rustc-link-lib = []
+[target.x86_64-pc-windows-msvc.sherpa-onnx]
+rustc-link-lib = []
+
+[target.aarch64-unknown-linux-gnu.sherpa-onnx]
+rustc-link-lib = []

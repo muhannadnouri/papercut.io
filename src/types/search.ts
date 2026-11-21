@@ -19,12 +19,15 @@ export interface SearchMatchLocation {
   text?: string | null
 }
 
+export type SearchMode = 'all' | 'broader'
+
 export interface SearchTermMatch {
   term: string
   matchingSections: number
   sectionIndex?: number | null
   pageIndex?: number | null
   text?: string | null
+  matched?: boolean
 }
 
 export interface SearchResult {
@@ -55,7 +58,8 @@ export interface SearchOpenTarget {
 }
 
 export interface PagefindInstance {
-  search: (query: string) => Promise<{ results: { id: string; data: () => Promise<SearchResult> }[] }>
+  search: (query: string) => Promise<{ results: { id: string;
+    data: () => Promise<SearchResult> }[] }>
   destroy?: () => void
 }
 

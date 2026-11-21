@@ -1,6 +1,14 @@
 import { existsSync } from "node:fs"
-import { cp, mkdir, rm, stat } from "node:fs/promises"
+import {
+  cp,
+  mkdir,
+  rm,
+  stat,
+} from "node:fs/promises"
 import { join } from "node:path"
+
+import { PIPER_VERSION } from "../constants.js"
+import { nativeCacheDir } from "../native-paths.js"
 import {
   SHERPA_LINUX_CUDA_ARCHIVE,
   SHERPA_LINUX_CUDA_LIB_DIR,
@@ -21,7 +29,9 @@ const CUDA_REQUIRED_LIBS = [...SHERPA_REQUIRED_LIBS, ...SHERPA_LINUX_CUDA_PROVID
 
 // Download and verify the official CUDA 12/cuDNN 9 sherpa archive on demand.
 export async function ensureLinuxCudaSherpaLibs() {
-  if (await hasAllLibs(SHERPA_LINUX_CUDA_LIB_DIR, CUDA_REQUIRED_LIBS)) return
+  if (await hasAllLibs(SHERPA_LINUX_CUDA_LIB_DIR, CUDA_REQUIRED_LIBS)) {
+    return
+  }
 
   await mkdir(SHERPA_LINUX_PREBUILT_ROOT, { recursive: true })
   await downloadFile({
@@ -30,7 +40,10 @@ export async function ensureLinuxCudaSherpaLibs() {
     sha256: SHERPA_LINUX_CUDA_SHA256,
     label: "sherpa-linux-cuda-libs",
   })
-  await rm(SHERPA_LINUX_CUDA_ROOT, { recursive: true, force: true })
+  await rm(SHERPA_LINUX_CUDA_ROOT, {
+    recursive: true,
+    force: true,
+  })
   await extractTar({
     archive: SHERPA_LINUX_CUDA_ARCHIVE,
     destination: SHERPA_LINUX_PREBUILT_ROOT,
@@ -44,18 +57,25 @@ export async function ensureLinuxCudaSherpaLibs() {
 
 // Shared-link desktop builds must bundle sherpa libs next to the installed app.
 export async function copyLinuxSherpaLibs({ platform = process.env.TAURI_ENV_PLATFORM, linkMode = process.env.PAPERCUT_NATIVE_TTS_LINK } = {}) {
-  if (platform && platform !== "linux") return
-  if (linkMode === "static") return
+  if (platform && platform !== "linux") {
+    return
+  }
+  if (linkMode === "static") {
+    return
+  }
 
   const isCuda = process.env.PAPERCUT_SHERPA_VARIANT === "cuda"
-  const sourceDir = isCuda ? SHERPA_LINUX_CUDA_LIB_DIR : SHERPA_LINUX_SHARED_SOURCE_DIR
+  const sourceDir = process.env.SHERPA_ONNX_LIB_DIR || (isCuda ? SHERPA_LINUX_CUDA_LIB_DIR : SHERPA_LINUX_SHARED_SOURCE_DIR)
   const copyLibs = [
     ...SHERPA_REQUIRED_LIBS,
     ...SHERPA_LINUX_OPTIONAL_LIBS,
     ...(isCuda ? SHERPA_LINUX_CUDA_PROVIDER_LIBS : []),
   ]
   await assertLinuxSharedLibsExist(sourceDir, isCuda ? CUDA_REQUIRED_LIBS : SHERPA_REQUIRED_LIBS)
-  await rm(SHERPA_LINUX_SHARED_OUT_DIR, { recursive: true, force: true })
+  await rm(SHERPA_LINUX_SHARED_OUT_DIR, {
+    recursive: true,
+    force: true,
+  })
   await mkdir(SHERPA_LINUX_SHARED_OUT_DIR, { recursive: true })
 
   for (const lib of copyLibs) {
@@ -65,16 +85,25 @@ export async function copyLinuxSherpaLibs({ platform = process.env.TAURI_ENV_PLA
     }
   }
 
+  const piperDir = process.env.PIPER_PHONEMIZE_LIB_DIR || nativeCacheDir("piper-phonemize-prebuilt", `piper-phonemize-v${PIPER_VERSION}-linux-x64-shared-lib`)
+  const piper = join(piperDir, "libpiper_phonemize_core.so")
+  await cp(piper, join(SHERPA_LINUX_SHARED_OUT_DIR, "libpiper_phonemize_core.so"), { force: true })
   console.log("[sherpa-linux-libs] bundled shared libraries from " + sourceDir)
 }
 
 // Fail with build guidance instead of producing an installer missing runtime libs.
 async function assertLinuxSharedLibsExist(sourceDir, requiredLibs) {
-  if (!await hasAllLibs(sourceDir, requiredLibs)) {
-    throw new Error(
-      "Missing required sherpa-onnx libraries at " + sourceDir +
-      ". Build with the matching desktop command so its native archive is prepared before bundling.",
-    )
+  for (const lib of requiredLibs) {
+    try {
+      const info = await stat(join(sourceDir, lib))
+      if (!info.isFile() || !info.size) {
+        throw new Error(lib + " is not a non-empty library")
+      }
+    } catch (err) {
+      throw new Error(
+        "Missing " + lib + " at " + sourceDir + ". Build with --features native-tts-shared so the app prepares its Linux shared library archive before bundling. " + err,
+      )
+    }
   }
 }
 
@@ -82,7 +111,9 @@ async function hasAllLibs(sourceDir, requiredLibs) {
   for (const lib of requiredLibs) {
     try {
       const info = await stat(join(sourceDir, lib))
-      if (!info.isFile()) return false
+      if (!info.isFile() || !info.size) {
+        return false
+      }
     } catch {
       return false
     }

@@ -1,4 +1,7 @@
-import type { SearchOpenTarget, SearchTermMatch } from '../types/search'
+import type {
+  SearchOpenTarget,
+  SearchTermMatch,
+} from '../types/search'
 
 export function indexedSearchOpenTarget(
   target: Pick<SearchTermMatch, 'sectionIndex' | 'pageIndex'> & {

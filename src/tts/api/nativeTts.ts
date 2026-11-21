@@ -1,5 +1,14 @@
-import { createAudiobookId, type SavedAudiobookRecord } from '../storage/AudiobookLibrary'
-import { resolveSilmaNfeStep, resolveTextPreprocessor, type TtsModelInfo, type TtsOptions, type TtsChunk } from '../types'
+import {
+  createAudiobookId,
+  type SavedAudiobookRecord,
+} from '../storage/AudiobookLibrary'
+import {
+  resolveSilmaNfeStep,
+  resolveTextPreprocessor,
+  type TtsModelInfo,
+  type TtsOptions,
+  type TtsChunk,
+} from '../types'
 import { FALLBACK_TTS_MODELS } from '../models'
 
 const SAVE_PROGRESS_EVENT = 'tts-native-save-progress'
@@ -100,6 +109,9 @@ export interface NativeAudiobookStatus {
   cachedChunks: number
   totalChunks: number
   complete: boolean
+  requiresRegeneration?: boolean
+  regenerationReason?: 'source' | 'synthesis' | null
+  restartGenerationToken?: string | null
   dir: string
   audioDurationSec: number
   wavBytes: number
@@ -214,7 +226,12 @@ type NativeTtsInputChunk = Pick<TtsChunk, 'id' | 'text' | 'textHash' | 'sourceSp
 // highlighting without rediscovering DOM positions from text alone.
 function toNativeTtsChunk(chunk: TtsChunk): NativeTtsInputChunk {
   const textHash = typeof chunk.textHash === 'string' ? chunk.textHash : undefined
-  return { id: chunk.id, text: chunk.text, textHash, sourceSpan: chunk.sourceSpan }
+  return {
+    id: chunk.id,
+    text: chunk.text,
+    textHash,
+    sourceSpan: chunk.sourceSpan,
+  }
 }
 
 function toNativeTtsChunks(chunks: TtsChunk[]): NativeTtsInputChunk[] {
@@ -314,12 +331,15 @@ export async function installNativeTtsModel(modelId: string): Promise<NativeTtsM
 export async function listenNativeTtsModelInstallProgress(
   handler: (progress: NativeTtsModelInstallProgress) => void,
 ): Promise<() => void> {
-  if (!isNativeTtsRuntime()) return () => {}
+  if (!isNativeTtsRuntime()) {
+    return () => {}
+  }
   const mod = await import('@tauri-apps/api/event')
   return mod.listen<NativeTtsModelInstallProgress>(MODEL_INSTALL_PROGRESS_EVENT, (event) => {
     handler(event.payload)
   })
 }
+/** Status may repair/recover metadata without synthesis; its restart token is for fresh confirmation, never persistence. */
 export async function getNativeAudiobookStatus(
   documentUrl: string,
   chunks: TtsChunk[],
@@ -336,10 +356,11 @@ export async function getNativeAudiobookStatus(
 }
 
 export async function listNativeSavedAudiobooks(): Promise<SavedAudiobookRecord[]> {
-  if (!isNativeTtsRuntime()) return []
+  if (!isNativeTtsRuntime()) {
+    return []
+  }
   return invokeNative<SavedAudiobookRecord[]>('tts_list_saved_audiobooks')
 }
-
 
 export async function prepareNativeAudiobookPlayback(
   documentUrl: string,
@@ -361,7 +382,9 @@ export async function getNativeSavedAudiobookChunk(
   index: number,
   options: TtsOptions,
 ): Promise<NativeTtsChunkResult | null> {
-  if (!isNativeTtsRuntime()) return null
+  if (!isNativeTtsRuntime()) {
+    return null
+  }
   try {
     const response = await invokeNative<NativeTtsChunkResponse>('tts_get_native_audiobook_chunk', {
       request: {
@@ -384,6 +407,7 @@ export async function previewNativeTtsVoice(input: NativeTtsPreviewInput): Promi
   return base64ToArrayBuffer(response.wavBase64)
 }
 
+/** Native preflight rechecks transient restart consent under the writer lease; an earlier status check alone grants nothing. */
 export async function saveNativeAudiobook(
   input: {
     jobId: string
@@ -407,12 +431,15 @@ export async function saveNativeAudiobook(
       speed: input.options.speed,
       threadCount: input.options.threadCount,
       silmaNfeStep: resolveSilmaNfeStep(input.options),
+      restartGenerationToken: input.options.restartGenerationToken,
     },
   })
 }
 
 export async function cancelNativeAudiobookSave(jobId: string): Promise<void> {
-  if (!isNativeTtsRuntime()) return
+  if (!isNativeTtsRuntime()) {
+    return
+  }
   await invokeNative('tts_cancel_audiobook_save', { jobId })
 }
 
@@ -447,7 +474,71 @@ export async function exportNativeAudiobook(
 
 export async function importNativeAudiobook(): Promise<NativeAudiobookImportResult> {
   await requireNativeTtsCapabilities()
-  return invokeNative<NativeAudiobookImportResult>('tts_import_audiobook_native')
+  return invokeNative<NativeAudiobookImportResult>('tts_import_audiobook_native', {
+    source: null,
+  })
+}
+
+/** Import a bundle handed over by a platform open-with request. */
+export async function importNativeAudiobookFrom(
+  source: string,
+): Promise<NativeAudiobookImportResult> {
+  await requireNativeTtsCapabilities()
+  return invokeNative<NativeAudiobookImportResult>('tts_import_audiobook_native', {
+    source,
+  })
+}
+
+/** Routing hint only: no extensionless mobile provider URL can be trusted by
+ * name, so Rust reads the bundle magic straight off the source. */
+export async function audiobookSourceIsBundle(source: string): Promise<boolean> {
+  return invokeNative<boolean>('tts_audiobook_source_is_bundle', {
+    source,
+  })
+}
+
+/** Desktop paths and named provider URLs carry the extension; only opaque
+ * extensionless sources need the magic probe. */
+export function looksLikeAudiobookBundlePath(source: string): boolean {
+  return /\.papercut-audiobook$/i.test(source)
+}
+
+const DOCUMENT_OPEN_PATH_PATTERN = /\.(?:html?|epub|pdf|txt|md|markdown)$/i
+
+/** Split queued open-with sources into audiobook bundles and document
+ * imports. Extensionless mobile provider URLs are probed for the bundle
+ * magic; probe failures fall back to the document importer so an
+ * unavailable TTS backend cannot strand a file. */
+export async function partitionOpenDocumentSources(
+  sources: readonly string[],
+  probe: (source: string) => Promise<boolean> = audiobookSourceIsBundle,
+): Promise<{ bundles: string[];
+  documents: string[] }> {
+  const bundles: string[] = []
+  const documents: string[] = []
+  for (const source of sources) {
+    if (looksLikeAudiobookBundlePath(source)) {
+      bundles.push(source)
+      continue
+    }
+    if (DOCUMENT_OPEN_PATH_PATTERN.test(source)) {
+      documents.push(source)
+      continue
+    }
+    try {
+      if (await probe(source)) {
+        bundles.push(source)
+      } else {
+        documents.push(source)
+      }
+    } catch {
+      documents.push(source)
+    }
+  }
+  return {
+    bundles,
+    documents,
+  }
 }
 
 export async function deleteNativeAudiobook(input: {
@@ -482,7 +573,9 @@ export async function getImportedAudiobookMetadata(documentUrl: string): Promise
 export async function listenNativeAudiobookSaveProgress(
   handler: (progress: NativeAudiobookSaveProgress) => void,
 ): Promise<() => void> {
-  if (!isNativeTtsRuntime()) return () => {}
+  if (!isNativeTtsRuntime()) {
+    return () => {}
+  }
   const mod = await import('@tauri-apps/api/event')
   return mod.listen<NativeAudiobookSaveProgress>(SAVE_PROGRESS_EVENT, (event) => {
     handler(event.payload)
@@ -541,13 +634,21 @@ async function invokeNative<T>(
 
 // Accept object errors from current Rust commands and plain strings from older builds.
 function toNativeTtsError(error: unknown): NativeTtsError {
-  if (error instanceof NativeTtsError) return error
-  if (isNativeTtsErrorPayload(error)) return new NativeTtsError(error.code, error.message)
-  if (error instanceof Error) return new NativeTtsError('native-tts-failed', error.message)
+  if (error instanceof NativeTtsError) {
+    return error
+  }
+  if (isNativeTtsErrorPayload(error)) {
+    return new NativeTtsError(error.code, error.message)
+  }
+  if (error instanceof Error) {
+    return new NativeTtsError('native-tts-failed', error.message)
+  }
   if (typeof error === 'string') {
     try {
       const parsed: unknown = JSON.parse(error)
-      if (isNativeTtsErrorPayload(parsed)) return new NativeTtsError(parsed.code, parsed.message)
+      if (isNativeTtsErrorPayload(parsed)) {
+        return new NativeTtsError(parsed.code, parsed.message)
+      }
     } catch {
       // Older native builds reject with a plain diagnostic string.
     }
@@ -556,8 +657,11 @@ function toNativeTtsError(error: unknown): NativeTtsError {
   return new NativeTtsError('native-tts-failed', String(error))
 }
 
-function isNativeTtsErrorPayload(value: unknown): value is { code: string; message: string } {
-  if (!value || typeof value !== 'object') return false
+function isNativeTtsErrorPayload(value: unknown): value is { code: string;
+  message: string } {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
   const payload = value as Record<string, unknown>
   return typeof payload.code === 'string' && typeof payload.message === 'string'
 }

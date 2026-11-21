@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://api.fossabot.fossa.com/schemas/fossabot-config.v1.json
+version: 1
+
+defaults:
+  maxOpenPRs: 3
+  minimumReleaseAge: 7
+  securityCvssThreshold: 7.0

@@ -8,8 +8,12 @@
  */
 export function getInternalDocumentHash(href: string): string | null {
   const trimmed = href.trim()
-  if (!trimmed || trimmed === '#') return null
-  if (trimmed.startsWith('#')) return trimmed
+  if (!trimmed || trimmed === '#') {
+    return null
+  }
+  if (trimmed.startsWith('#')) {
+    return trimmed
+  }
 
   try {
     const target = new URL(trimmed, window.location.href)
@@ -39,12 +43,16 @@ export function getInternalDocumentHash(href: string): string | null {
  */
 export function getExternalLinkUrl(href: string): string | null {
   const trimmed = href.trim()
-  if (!trimmed || trimmed.startsWith('#')) return null
+  if (!trimmed || trimmed.startsWith('#')) {
+    return null
+  }
 
   try {
     const target = new URL(trimmed, window.location.href)
     const allowedProtocols = new Set(['http:', 'https:', 'mailto:', 'tel:'])
-    if (!allowedProtocols.has(target.protocol)) return null
+    if (!allowedProtocols.has(target.protocol)) {
+      return null
+    }
     return target.href
   } catch {
     return null

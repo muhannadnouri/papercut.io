@@ -13,6 +13,7 @@ use super::super::paths::{
     remove_dir_and_count_bytes,
 };
 use crate::document_uploads::sanitize_html;
+use crate::native_tts::lock_audiobook_directory;
 use crate::native_tts::types::{
     NativeAudiobookDeleteRequest, NativeAudiobookDeleteResponse,
     NativeImportedAudiobookMetadataResponse, NativeImportedAudiobookSourceRequest,
@@ -130,6 +131,7 @@ pub(crate) fn get_imported_audiobook_metadata(
 /// Always removes the per-audiobook audio directory. When `delete_user_upload`
 /// is set and the document is an import, also removes the stored source upload.
 /// Returns what was deleted and how many bytes were reclaimed.
+/// The book writer lease prevents deletion from racing an active save or confirmed restart.
 ///
 /// Rust note: `remove_dir_and_count_bytes` returns a `(bool, u64)` tuple
 /// (deleted?, bytes); `result.0` / `result.1` access those positional fields.
@@ -138,6 +140,7 @@ pub(crate) fn delete_audiobook_native(
     request: NativeAudiobookDeleteRequest,
 ) -> Result<NativeAudiobookDeleteResponse, String> {
     let audio_dir = audiobook_dir(&app, &request.audiobook_id)?;
+    let _book_lease = lock_audiobook_directory(&audio_dir)?;
     let (deleted_audio, audio_bytes) =
         remove_dir_and_count_bytes(&audio_dir, "audiobook audio cache")?;
 

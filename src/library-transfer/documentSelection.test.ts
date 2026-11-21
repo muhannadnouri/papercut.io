@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest'
-import { filterTransferDocuments, updateScopedSelection } from './documentSelection'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
+import {
+  filterTransferDocuments,
+  updateScopedSelection,
+} from './documentSelection'
 
 describe('library transfer document selection', () => {
   it('changes only the filtered scope and preserves hidden selections', () => {
@@ -11,9 +18,18 @@ describe('library transfer document selection', () => {
 
   it('intersects text matches with the selected-only view', () => {
     const documents = [
-      { id: 'a', title: 'Alpha Report' },
-      { id: 'b', title: 'Beta Report' },
-      { id: 'c', title: 'Notes' },
+      {
+        id: 'a',
+        title: 'Alpha Report',
+      },
+      {
+        id: 'b',
+        title: 'Beta Report',
+      },
+      {
+        id: 'c',
+        title: 'Notes',
+      },
     ]
 
     expect(filterTransferDocuments(documents, 'report', 'en', ['b', 'c'], true))

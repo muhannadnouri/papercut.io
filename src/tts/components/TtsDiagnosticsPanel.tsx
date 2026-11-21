@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import {
   clearTtsDiagnostics,
   getTtsDiagnostics,
@@ -20,7 +24,9 @@ type TtsDiagnosticLevelFilter = 'all' | TtsDiagnosticLevel
 export function TtsDiagnosticsPanel({ enabled = isDebugEnabled() }: TtsDiagnosticsPanelProps) {
   // Developer-only panel; hidden unless debug mode is enabled by the app state
   // or the URL/localStorage gate in utils/debugFlags.
-  if (!enabled) return null
+  if (!enabled) {
+    return null
+  }
 
   return <TtsDiagnosticsPanelBody />
 }
@@ -36,8 +42,12 @@ function TtsDiagnosticsPanelBody() {
   }, [])
 
   const filteredEvents = useMemo(() => events.filter((event) => {
-    if (level !== 'all' && event.level !== level) return false
-    if (category !== 'all' && getEventCategory(event) !== category) return false
+    if (level !== 'all' && event.level !== level) {
+      return false
+    }
+    if (category !== 'all' && getEventCategory(event) !== category) {
+      return false
+    }
     return true
   }), [category, events, level])
 
@@ -125,21 +135,33 @@ function TtsDiagnosticsPanelBody() {
 }
 
 function getEventCategory(event: TtsDiagnosticEvent): Exclude<TtsDiagnosticCategory, 'all'> {
-  if (event.label.startsWith('[tts-native]')) return 'native'
-  if (event.label.startsWith('[tts-save]')) return 'save'
-  if (event.label.startsWith('[tts-playback]')) return 'playback'
-  if (event.label.startsWith('[tts-highlight]')) return 'highlight'
+  if (event.label.startsWith('[tts-native]')) {
+    return 'native'
+  }
+  if (event.label.startsWith('[tts-save]')) {
+    return 'save'
+  }
+  if (event.label.startsWith('[tts-playback]')) {
+    return 'playback'
+  }
+  if (event.label.startsWith('[tts-highlight]')) {
+    return 'highlight'
+  }
   return 'other'
 }
 
 function summarizeLatest(event: TtsDiagnosticEvent | undefined): string {
-  if (!event) return 'No events'
+  if (!event) {
+    return 'No events'
+  }
   const actualDevice = event.data.actualDevice
   const rtf = event.data.realTimeFactor
   if (typeof actualDevice === 'string' && typeof rtf === 'number') {
     return actualDevice + ' / RTF ' + rtf
   }
-  if (typeof actualDevice === 'string' && actualDevice) return actualDevice
+  if (typeof actualDevice === 'string' && actualDevice) {
+    return actualDevice
+  }
   return event.label.replace('[tts-save] ', '')
 }
 
@@ -152,9 +174,15 @@ function formatTime(timestamp: number): string {
 }
 
 function formatValue(value: unknown): string {
-  if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(2)
-  if (typeof value === 'boolean') return value ? 'true' : 'false'
-  if (value === null || value === undefined || value === '') return '-'
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? String(value) : value.toFixed(2)
+  }
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false'
+  }
+  if (value === null || value === undefined || value === '') {
+    return '-'
+  }
   return String(value)
 }
 

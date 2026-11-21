@@ -192,11 +192,16 @@ fn existing_upload<R: Runtime>(
     id: &str,
 ) -> Result<Option<UploadedDocument>, String> {
     let db = open_db(app)?;
-    let Some(existing) = find_upload_by_id(&db, id)? else {
+    let Some(mut existing) = find_upload_by_id(&db, id)? else {
         return Ok(None);
     };
     let source_kind = StoredSourceKind::from_str(&existing.source_kind)?;
     let source_exists = upload_source_path(app, id, source_kind)?.is_file();
+    if source_exists && existing.format == "epub" {
+        let html = fs::read_to_string(upload_source_path(app, id, source_kind)?)
+            .map_err(|error| format!("Failed to read existing EPUB: {error}"))?;
+        existing.import_image_warnings = super::parsed::image_import_warnings(&html);
+    }
     Ok(source_exists.then_some(existing))
 }
 
@@ -228,6 +233,7 @@ fn persist_document<R: Runtime>(
         .map(|cover| cover.media_type.to_string());
 
     Ok(UploadedDocument {
+        import_image_warnings: super::parsed::image_import_warnings(&parsed.view_html),
         id,
         url,
         title: parsed.title,
@@ -256,6 +262,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     imported_at_ms: u128,
     bytes: u64,
     transferred_assets: Vec<ParsedDocumentAsset>,
+    outline_bytes: Option<Vec<u8>>,
 ) -> Result<UploadedDocument, String> {
     let source_kind = StoredSourceKind::Html;
     let url = upload_url(&id, source_kind);
@@ -277,6 +284,12 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     let mut parsed = parse_html_document(&source_html);
     parsed.title = title;
     parsed.format = format;
+    if let Some(bytes) = outline_bytes {
+        if parsed.format != "epub" {
+            return Err("Only EPUBs can carry an outline".into());
+        }
+        parsed.outline = super::epub::validate_transfer_outline(&bytes, &parsed.view_html)?;
+    }
     parsed.assets = transferred_assets;
     for asset in legacy_assets {
         if !parsed
@@ -308,6 +321,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
         .map(|cover| cover.media_type.to_string());
 
     Ok(UploadedDocument {
+        import_image_warnings: super::parsed::image_import_warnings(&parsed.view_html),
         id,
         url,
         title: parsed.title,
@@ -322,7 +336,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     })
 }
 
-/// Validate an optional cover before storing its bytes or metadata, then keep
+/// Store source, optional outline, and assets before indexing. Keep
 /// filesystem and SQLite failures from leaving an incomplete upload directory.
 /// A process crash can still interrupt the two storage systems.
 fn write_and_index_document(
@@ -343,6 +357,9 @@ fn write_and_index_document(
             parsed.view_html.as_bytes(),
         )
         .map_err(|err| format!("Failed to write imported document source: {err}"))?;
+        if parsed.format == "epub" {
+            super::epub::store_outline(dir, &parsed.outline)?;
+        }
         write_reader_assets(dir, &parsed.assets)?;
         if let Some(cover) = parsed.cover.take() {
             match write_thumbnail(dir, &cover.bytes) {
@@ -380,10 +397,11 @@ fn write_and_index_document(
     Ok(())
 }
 
-/// Resolve an uploaded document URL to its stored source file and return its HTML.
+/// Load sanitized HTML and, for an EPUB reader open, its optional navigation tree.
 pub(crate) fn get_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedDocumentSourceRequest,
+    include_outline: bool,
 ) -> Result<UploadedDocumentSource, String> {
     let (id, source_kind) = upload_reference_from_url(&request.document_url)?;
     if source_kind != StoredSourceKind::Html {
@@ -428,7 +446,19 @@ pub(crate) fn get_source<R: Runtime>(
         html = add_section_locators(&html);
     }
     let asset_paths = stored_reader_asset_paths(&dir)?;
-    Ok(UploadedDocumentSource { html, asset_paths })
+    let outline = if include_outline && document.format == "epub" {
+        super::epub::read_outline(&dir).unwrap_or_else(|error| {
+            log::warn!("Ignoring unreadable EPUB outline: {error}");
+            Vec::new()
+        })
+    } else {
+        Vec::new()
+    };
+    Ok(UploadedDocumentSource {
+        html,
+        asset_paths,
+        outline,
+    })
 }
 
 /// Store a derived legacy-upgrade source without overwriting canonical
@@ -719,6 +749,243 @@ mod tests {
     };
     use crate::document_uploads::parsed::{ParsedDocument, ParsedDocumentCover, ParsedSection};
 
+    // Exercise the same parser/persistence and sanitized reader source as import,
+    // without a picker, AppHandle or installed application data.
+    fn check_epub_reader_import(root: &std::path::Path, bytes: &[u8]) -> serde_json::Value {
+        let id = super::source_upload_id(bytes);
+        let url = super::upload_url(&id, super::StoredSourceKind::Html);
+        let mut parsed = super::parse_epub_document(bytes, "Evaluation book").unwrap();
+        assert_eq!(parsed.format, "epub");
+        let mut db = crate::document_uploads::store::open_db_in(root).unwrap();
+        let dir = root.join(&id);
+        write_and_index_document(
+            &dir,
+            &mut db,
+            &id,
+            &url,
+            &mut parsed,
+            None,
+            100,
+            bytes.len() as u64,
+        )
+        .unwrap();
+        let source = fs::read_to_string(dir.join("source.html")).unwrap();
+        assert_eq!(source, parsed.view_html);
+        let reader = super::sanitize_html(&source);
+        assert!(super::has_complete_section_locators(
+            &reader,
+            parsed.sections.len()
+        ));
+        let reopened = super::parse_html_document(&reader);
+        assert_eq!(reopened.sections.len(), parsed.sections.len());
+        let mut statement = db.prepare(
+            "SELECT ordinal, heading, text, page_index FROM uploaded_sections WHERE document_id = ?1 ORDER BY ordinal"
+        ).unwrap();
+        let stored = statement
+            .query_map([&id], |row| {
+                Ok((
+                    row.get::<_, usize>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<u32>>(3)?,
+                ))
+            })
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(stored.len(), parsed.sections.len());
+        for (index, (original, reopened)) in
+            parsed.sections.iter().zip(&reopened.sections).enumerate()
+        {
+            assert_eq!(
+                stored[index],
+                (
+                    index,
+                    original.heading.clone(),
+                    original.text.clone(),
+                    original.page_index
+                )
+            );
+            assert_eq!(original.heading, reopened.heading);
+            assert_eq!(original.text, reopened.text);
+        }
+        serde_json::json!({"id": id, "url": url, "title": parsed.title,
+            "format": parsed.format, "readerHtml": reader,
+            "sections": parsed.sections.iter().map(|section| serde_json::json!({
+                "heading": section.heading, "text": section.text, "page_index": section.page_index
+            })).collect::<Vec<_>>()})
+    }
+
+    #[test]
+    fn epub_outline_follows_import_reopen_duplicate_and_delete() {
+        let root = std::env::temp_dir().join(format!(
+            "papercut-outline-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut context = tauri::test::mock_context(tauri::test::noop_assets());
+        context.config_mut().identifier = root.to_str().unwrap().to_owned();
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_fs::init())
+            .build(context)
+            .unwrap();
+        let app = app.handle();
+        assert_eq!(
+            super::super::storage::uploads_root(app).unwrap(),
+            root.join("document_uploads")
+        );
+        let fixture_dir =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/fixtures/epub");
+        let import = |name: &str| {
+            super::import_epub_source(
+                app,
+                super::FilePath::Path(fixture_dir.join(name)),
+                None,
+                &mut |_| {},
+            )
+        };
+        let uploaded = import("publisher-outline-3.epub").unwrap();
+        let dir = super::upload_dir(app, &uploaded.id).unwrap();
+        let sidecar = dir.join("outline.json");
+        let read = |include| {
+            super::get_source(
+                app,
+                super::UploadedDocumentSourceRequest {
+                    document_url: uploaded.url.clone(),
+                },
+                include,
+            )
+            .unwrap()
+        };
+        let source = read(true);
+        assert_eq!(
+            source.outline[0].children[1].target.as_deref(),
+            Some("ch0-valley")
+        );
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&fs::read(&sidecar).unwrap()).unwrap(),
+            serde_json::to_value(&source.outline).unwrap()
+        );
+        assert!(read(false).outline.is_empty());
+        assert!(!source.html.contains("Low trail"));
+        for invalid in [
+            "broken json",
+            r#"[{"label":"Wrong target","target":"../bad","children":[]}]"#,
+        ] {
+            fs::write(&sidecar, invalid).unwrap();
+            let reopened = read(true);
+            assert!(reopened.outline.is_empty());
+            assert_eq!(reopened.html, source.html);
+        }
+        assert_eq!(import("publisher-outline-3.epub").unwrap().id, uploaded.id);
+        assert!(read(true).outline.is_empty()); // Duplicates reuse the existing source.
+        fs::remove_file(&sidecar).unwrap();
+        assert!(read(true).outline.is_empty());
+        fs::write(&sidecar, serde_json::to_vec(&source.outline).unwrap()).unwrap();
+        super::delete_upload(
+            app,
+            super::UploadedDocumentDeleteRequest {
+                document_url: uploaded.url.clone(),
+            },
+        )
+        .unwrap();
+        assert!(!dir.exists());
+
+        fs::create_dir_all(&sidecar).unwrap(); // Force the sidecar write to fail after source.html is written.
+        assert!(import("publisher-outline-3.epub")
+            .unwrap_err()
+            .contains("write EPUB outline"));
+        assert!(!dir.exists());
+        assert!(
+            super::find_upload_by_id(&super::open_db(app).unwrap(), &uploaded.id)
+                .unwrap()
+                .is_none()
+        );
+        let original = fs::File::open(fixture_dir.join("publisher-outline-3.epub")).unwrap();
+        let mut archive = zip::ZipArchive::new(original).unwrap();
+        let without_nav = root.join("missing-nav.epub");
+        let mut writer = zip::ZipWriter::new(fs::File::create(&without_nav).unwrap());
+        for index in 0..archive.len() {
+            let member = archive.by_index(index).unwrap();
+            if member.name().unwrap() != "OPS/guide/list.xhtml" {
+                writer.raw_copy_file(member).unwrap();
+            }
+        }
+        drop(writer.finish().unwrap());
+        let plain =
+            super::import_epub_source(app, super::FilePath::Path(without_nav), None, &mut |_| {})
+                .unwrap();
+        assert!(!super::upload_dir(app, &plain.id)
+            .unwrap()
+            .join("outline.json")
+            .exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn epub_import_preserves_stored_reader_section_targets() {
+        let root = std::env::temp_dir().join(format!(
+            "papercut-epub-reader-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let result = check_epub_reader_import(
+            &root,
+            include_bytes!("../../../scripts/fixtures/epub/image-diagnostics.epub"),
+        );
+        assert!(!result["sections"].as_array().unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    #[ignore = "requires external EPUB paths, empty library directory and new report path"]
+    fn search_v2_epub_import_evaluation() {
+        use std::io::Read;
+        let input = fs::read(std::env::var("PAPERCUT_EPUB_EVAL_INPUT").unwrap()).unwrap();
+        let input: serde_json::Value = serde_json::from_slice(&input).unwrap();
+        let paths: Vec<std::path::PathBuf> =
+            serde_json::from_value(input["files"].clone()).unwrap();
+        assert!(!paths.is_empty());
+        let root = std::env::var("PAPERCUT_EPUB_EVAL_LIBRARY").unwrap();
+        let root = std::path::Path::new(&root);
+        assert!(
+            fs::read_dir(root).unwrap().next().is_none(),
+            "library must be empty"
+        );
+        let mut seen = std::collections::HashSet::new();
+        let documents = paths
+            .iter()
+            .map(|path| {
+                let mut bytes = Vec::new();
+                fs::File::open(path)
+                    .unwrap()
+                    .take(super::MAX_EPUB_UPLOAD_BYTES + 1)
+                    .read_to_end(&mut bytes)
+                    .unwrap();
+                assert!(bytes.len() as u64 <= super::MAX_EPUB_UPLOAD_BYTES);
+                assert!(
+                    seen.insert(super::source_upload_id(&bytes)),
+                    "duplicate EPUB source"
+                );
+                let mut result = check_epub_reader_import(root, &bytes);
+                result["inputPath"] = serde_json::json!(path);
+                result
+            })
+            .collect::<Vec<_>>();
+        let output = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(std::env::var("PAPERCUT_EPUB_EVAL_OUTPUT").unwrap())
+            .unwrap();
+        serde_json::to_writer_pretty(output, &serde_json::json!({"documents":documents})).unwrap();
+    }
+
     #[test]
     fn stored_cover_names_are_fixed_to_safe_raster_types() {
         assert_eq!(stored_cover_file_name("image/png"), Some("cover.png"));
@@ -751,12 +1018,14 @@ mod tests {
                 heading: None,
                 text: "Test".into(),
                 page_index: None,
+                body_ranges: None,
             }],
             cover: Some(ParsedDocumentCover {
                 media_type: "image/png",
                 file_name: "cover.png",
                 bytes: b"not an image".to_vec(),
             }),
+            outline: Vec::new(),
             assets: Vec::new(),
         };
         let mut db = Connection::open_in_memory().expect("open database without upload schema");

@@ -1,4 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import {
   pdfNarrationToReadableSegments,
   pdfSourceSpansForChunk,
@@ -19,7 +24,10 @@ import {
 } from '../alignment/importedSourceSpans'
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import { isUserUploadUrl } from '../storage/UserUploads'
-import { SILMA_MODEL_ID, type TtsChunk } from '../types'
+import {
+  SILMA_MODEL_ID,
+  type TtsChunk,
+} from '../types'
 import {
   chunkAudiobookSaveHtmlWithSpans,
   chunkAudiobookSaveSegmentsWithSpans,
@@ -45,7 +53,25 @@ export function useAudiobookDocument({
   selectedDoc,
   onImportedMetadata,
 }: AudiobookDocumentOptions) {
-  const [chunks, setChunks] = useState<TtsChunk[] | null>(null)
+  const [prepared, setPrepared] = useState<{
+    documentUrl: string | null;
+    docContent: string;
+    modelId: string;
+    chunks: TtsChunk[];
+    source: 'canonical' | 'unverified-import'
+  } | null>(null)
+  const chunks = prepared?.documentUrl === selectedDoc && prepared.docContent === docContent && prepared.modelId === modelId
+    ? prepared.chunks : null
+  const canonicalChunks = prepared?.source === 'canonical' ? chunks : null
+  const setChunks = useCallback((value: TtsChunk[] | null, source: 'canonical' | 'unverified-import' = 'canonical') => {
+    setPrepared(value ? {
+      documentUrl: selectedDoc,
+      docContent,
+      modelId,
+      chunks: value,
+      source,
+    } : null)
+  }, [selectedDoc, docContent, modelId])
   const [importedHighlightStatus, setImportedHighlightStatus] = useState<ImportedHighlightStatus>('idle')
   const pdfSegmentsRef = useRef<{
     documentUrl: string
@@ -63,7 +89,9 @@ export function useAudiobookDocument({
     }
     pdfSegmentsRef.current = entry
     void entry.promise.catch(() => {
-      if (pdfSegmentsRef.current === entry) pdfSegmentsRef.current = null
+      if (pdfSegmentsRef.current === entry) {
+        pdfSegmentsRef.current = null
+      }
     })
     return entry.promise
   }, [])
@@ -83,10 +111,14 @@ export function useAudiobookDocument({
       setImportedHighlightStatus('idle')
       void getPdfSegments(selectedDoc)
         .then((segments) => {
-          if (!cancelled) setChunks(audiobookSaveChunksFromSegments(segments, modelId))
+          if (!cancelled) {
+            setChunks(audiobookSaveChunksFromSegments(segments, modelId))
+          }
         })
         .catch((error) => {
-          if (cancelled) return
+          if (cancelled) {
+            return
+          }
           logTtsDiagnostic('[tts] PDF narration preparation failed', {
             documentUrl: selectedDoc,
             error: error instanceof Error ? error.message : String(error),
@@ -110,7 +142,9 @@ export function useAudiobookDocument({
       setImportedHighlightStatus('preparing')
       void getImportedAudiobookMetadata(selectedDoc)
         .then((metadata) => {
-          if (cancelled) return
+          if (cancelled) {
+            return
+          }
           onImportedMetadata(metadata)
           setChunks(metadata.chunks)
           if (chunksHaveDurableSourceSpans(metadata.chunks)) {
@@ -125,14 +159,18 @@ export function useAudiobookDocument({
             return
           }
           cancelHighlightBuild = scheduleImportedHighlightBuild(() => {
-            if (cancelled) return
+            if (cancelled) {
+              return
+            }
             const rebuiltChunks = audiobookSaveChunksFromHtml(docContent, metadata.modelId)
             const graftedChunks = graftImportedSourceSpans(metadata.chunks, rebuiltChunks, {
               documentUrl: selectedDoc,
               modelId: metadata.modelId,
               textPreprocessor: metadata.textPreprocessor,
             })
-            if (cancelled) return
+            if (cancelled) {
+              return
+            }
             if (graftedChunks) {
               setChunks(graftedChunks)
               setImportedHighlightStatus('ready')
@@ -142,8 +180,10 @@ export function useAudiobookDocument({
           })
         })
         .catch(() => {
-          if (cancelled) return
-          setChunks(audiobookSaveChunksFromHtml(docContent, modelId))
+          if (cancelled) {
+            return
+          }
+          setChunks(audiobookSaveChunksFromHtml(docContent, modelId), 'unverified-import')
           setImportedHighlightStatus('unavailable')
         })
       return () => {
@@ -154,7 +194,7 @@ export function useAudiobookDocument({
 
     setImportedHighlightStatus('ready')
     setChunks(audiobookSaveChunksFromHtml(docContent, modelId))
-  }, [docContent, getPdfSegments, modelId, onImportedMetadata, selectedDoc])
+  }, [docContent, getPdfSegments, modelId, onImportedMetadata, selectedDoc, setChunks])
 
   const getChunksForDocument = useCallback(async (
     documentUrl: string,
@@ -174,17 +214,39 @@ export function useAudiobookDocument({
   }, [getPdfSegments, loadHtmlDocument, modelId])
 
   const getSelectedChunks = useCallback(async (): Promise<TtsChunk[]> => {
-    if (!selectedDoc) return []
+    if (!selectedDoc) {
+      return []
+    }
     return chunks ?? getChunksForDocument(selectedDoc)
   }, [chunks, getChunksForDocument, selectedDoc])
 
+  const getCanonicalChunks = useCallback(async (): Promise<TtsChunk[]> => {
+    if (canonicalChunks) {
+      return canonicalChunks
+    }
+    // A failed import read may leave display fallback chunks; target preparation must retry the manifest.
+    if (selectedDoc && isUserUploadUrl(selectedDoc)) {
+      return getChunksForDocument(selectedDoc)
+    }
+    return getSelectedChunks()
+  }, [canonicalChunks, getChunksForDocument, getSelectedChunks, selectedDoc])
+
   const reset = useCallback(() => {
     pdfSegmentsRef.current = null
-    setChunks(null)
+    setPrepared(null)
     setImportedHighlightStatus('idle')
   }, [])
 
-  return { chunks, getChunksForDocument, getSelectedChunks, importedHighlightStatus, reset }
+  return {
+    chunks,
+    canonicalChunks,
+    getCanonicalChunks,
+    getChunksForDocument,
+    getSelectedChunks,
+    getPdfSegments,
+    importedHighlightStatus,
+    reset,
+  }
 }
 
 /** Defers legacy span reconstruction so manifest-backed playback becomes available first. */
@@ -200,7 +262,10 @@ function scheduleImportedHighlightBuild(task: () => void): () => void {
 
 function audiobookSaveChunksFromHtml(html: string, modelId: string): TtsChunk[] {
   const profile = modelId === SILMA_MODEL_ID ? SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE : undefined
-  return buildRuntimeChunks(chunkAudiobookSaveHtmlWithSpans(html, profile), 'save-c')
+  return warnMissingSourceSpans(
+    buildRuntimeChunks(chunkAudiobookSaveHtmlWithSpans(html, profile), 'save-c'),
+    'html',
+  )
 }
 
 function audiobookSaveChunksFromSegments(
@@ -209,10 +274,24 @@ function audiobookSaveChunksFromSegments(
 ): TtsChunk[] {
   const profile = modelId === SILMA_MODEL_ID ? SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE : undefined
   const sourceChunks = chunkAudiobookSaveSegmentsWithSpans(segments, profile)
-  return buildRuntimeChunks(sourceChunks, 'save-c').map((chunk, index) => ({
+  return warnMissingSourceSpans(buildRuntimeChunks(sourceChunks, 'save-c').map((chunk, index) => ({
     ...chunk,
     pdfSourceSpans: pdfSourceSpansForChunk(segments, sourceChunks[index].sourceSpan),
-  }))
+  })), 'pdf')
+}
+
+/** Spanless chunks narrate fine but cannot route play-from-here; say so while
+ * the book is being saved instead of failing silently at playback time. */
+function warnMissingSourceSpans(chunks: TtsChunk[], source: 'html' | 'pdf'): TtsChunk[] {
+  const missing = chunks.filter(chunk => chunk.text.trim() && !chunk.sourceSpan).length
+  if (missing > 0) {
+    logTtsDiagnostic('[tts-save] chunks without source spans degrade play-from-here', {
+      chunks: chunks.length,
+      missing,
+      source,
+    }, 'warn')
+  }
+  return chunks
 }
 
 function buildRuntimeChunks(sourceChunks: SpeechChunk[], prefix: string): TtsChunk[] {

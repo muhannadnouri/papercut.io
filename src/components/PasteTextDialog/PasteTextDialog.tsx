@@ -1,4 +1,8 @@
-import { useCallback, useState, type FormEvent } from 'react'
+import {
+  useCallback,
+  useState,
+  type FormEvent,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { AppDialog } from '../AppDialog/AppDialog'
 import './PasteTextDialog.css'
@@ -20,12 +24,16 @@ export function PasteTextDialog({ onCancel, onSubmit }: PasteTextDialogProps) {
   const displayTitle = title.trim() || t('library.pasteText.defaultTitle')
 
   const handleCancel = useCallback(() => {
-    if (!busy) onCancel()
+    if (!busy) {
+      onCancel()
+    }
   }, [busy, onCancel])
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    if (!hasText || busy) return
+    if (!hasText || busy) {
+      return
+    }
     setBusy(true)
     setError(undefined)
     try {

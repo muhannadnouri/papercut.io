@@ -34,21 +34,36 @@ export function FindBar({
         value={query}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose()
-          else if (e.key === 'Enter' && e.shiftKey) { e.preventDefault(); onPrev() }
-          else if (e.key === 'Enter') { e.preventDefault(); onNext() }
+          if (e.key === 'Escape') {
+            // Handled here, so document-level Escape listeners (e.g. the Aa panel) leave it alone.
+            e.preventDefault()
+            onClose()
+          } else if (e.key === 'Enter' && e.shiftKey) {
+            e.preventDefault()
+            onPrev()
+          } else if (e.key === 'Enter') {
+            e.preventDefault()
+            onNext()
+          }
         }}
       />
       {query.trim().length > 0 && (
         <span className="find-count">
           {matchCount === 0
             ? t('reader.findBar.noMatches')
-            : t('reader.findBar.matchPosition', { current: currentIndex + 1, total: matchCount })}
+            : t('reader.findBar.matchPosition', {
+              current: currentIndex + 1,
+              total: matchCount,
+            })}
         </span>
       )}
       <button className="find-nav-btn" onClick={onPrev} disabled={matchCount === 0} title={t('reader.findBar.previous')} aria-label={t('reader.findBar.previous')}>&#9650;</button>
       <button className="find-nav-btn" onClick={onNext} disabled={matchCount === 0} title={t('reader.findBar.next')} aria-label={t('reader.findBar.next')}>&#9660;</button>
-      <button className="find-close" onClick={onClose} aria-label={t('reader.findBar.close')}>&times;</button>
+      <button className="find-close" onClick={onClose} aria-label={t('reader.findBar.close')}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="m6 6 12 12M18 6 6 18" />
+        </svg>
+      </button>
     </div>
   )
 }

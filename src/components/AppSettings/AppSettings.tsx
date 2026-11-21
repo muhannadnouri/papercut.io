@@ -1,8 +1,17 @@
-import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { getVersion } from '@tauri-apps/api/app'
 import { isTauri } from '@tauri-apps/api/core'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
+import { AppResetDialog } from '../../app-reset/AppResetDialog'
+import type { AppResetBlocker } from '../../app-reset/appReset'
 import type { ThemeChoice } from '../../hooks/useTheme'
 import {
   APP_LOCALE_OPTIONS,
@@ -14,6 +23,12 @@ import { openExternalUrl } from '../../utils/openExternalUrl'
 import { isMobileUserAgent } from '../../utils/platform'
 import { AppDialog } from '../AppDialog/AppDialog'
 import { AppSelect } from '../AppSelect/AppSelect'
+import { SettingsIcon } from '../SettingsIcon/SettingsIcon'
+import { TrashIcon } from '../TrashIcon/TrashIcon'
+import { SearchModelSetup } from './SearchModelSetup'
+import { SearchActivity } from '../../search-semantic/SearchActivity'
+import { semanticSearchStatus } from '../../search-semantic/semanticSearchStatus'
+import type { SemanticSearchController } from '../../search-semantic/useSemanticSearch'
 import aiAudioUseNotice from '../../../AI_AUDIO_USE_NOTICE.md?raw'
 import papercutLicense from '../../../LICENSE.md?raw'
 import thirdPartyNotices from '../../../THIRD_PARTY_NOTICES.md?raw'
@@ -44,6 +59,10 @@ interface AppSettingsProps {
   developerMode: boolean
   onDeveloperModeChange: (enabled: boolean) => void
   onLibraryImported: () => void | Promise<void>
+  semanticSearch: SemanticSearchController
+  searchOpen: boolean
+  onSearchOpenChange: (open: boolean) => void
+  eraseBlockedBy: AppResetBlocker | null
 }
 
 export function AppSettings({
@@ -52,6 +71,10 @@ export function AppSettings({
   developerMode,
   onDeveloperModeChange,
   onLibraryImported,
+  semanticSearch,
+  searchOpen,
+  onSearchOpenChange: setSearchOpen,
+  eraseBlockedBy,
 }: AppSettingsProps) {
   const { t } = useTranslation()
   const tauriRuntime = isTauri()
@@ -59,13 +82,17 @@ export function AppSettings({
   const [legalNoticesOpen, setLegalNoticesOpen] = useState(false)
   const [selectedLegalNotice, setSelectedLegalNotice] = useState<LegalNoticeId | null>(null)
   const [transferOpen, setTransferOpen] = useState(false)
+  const [eraseOpen, setEraseOpen] = useState(false)
   const [version, setVersion] = useState<string | null>(() => tauriRuntime ? null : '')
+  const settingsButton = useRef<HTMLButtonElement>(null)
   const zoom = useAppZoom()
   const closeSettings = useCallback(() => {
     setOpen(false)
+    setSearchOpen(false)
     setLegalNoticesOpen(false)
     setSelectedLegalNotice(null)
-  }, [])
+    setEraseOpen(false)
+  }, [setSearchOpen])
   const themeOption = {
     system: t('settings.themeSystem'),
     light: t('settings.themeLight'),
@@ -73,7 +100,9 @@ export function AppSettings({
   }[themeChoice]
 
   useEffect(() => {
-    if (!tauriRuntime || !open || version !== null) return
+    if (!tauriRuntime || !open || version !== null) {
+      return
+    }
     void getVersion()
       .then(setVersion)
       .catch(() => setVersion(''))
@@ -83,43 +112,65 @@ export function AppSettings({
     ? t('settings.versionLoading')
     : version || (tauriRuntime ? t('settings.versionUnavailable') : t('settings.webBuild'))
   const legalNotices = [
-    { id: 'ai-audio' as const, title: t('settings.aiAudioUseNotice') },
-    { id: 'papercut' as const, title: t('settings.papercutLicense') },
-    { id: 'third-party' as const, title: t('settings.thirdPartyNotices') },
+    {
+      id: 'ai-audio' as const,
+      title: t('settings.aiAudioUseNotice'),
+    },
+    {
+      id: 'papercut' as const,
+      title: t('settings.papercutLicense'),
+    },
+    {
+      id: 'third-party' as const,
+      title: t('settings.thirdPartyNotices'),
+    },
   ]
   const selectedNotice = legalNotices.find(({ id }) => id === selectedLegalNotice)
 
   return (
     <div className="app-settings">
+      {tauriRuntime && <SearchActivity semantic={semanticSearch} onManage={() => {
+        setOpen(true)
+        setSearchOpen(true)
+        setLegalNoticesOpen(false)
+      }} />}
+
       <button
         type="button"
         className="app-settings-btn"
+        ref={settingsButton}
         aria-label={t('settings.button')}
         aria-haspopup="dialog"
         title={t('settings.button')}
         onClick={() => setOpen(true)}
       >
-        <SettingsIcon />
+        <SettingsIcon className="app-settings-icon" />
       </button>
 
-      {open && legalNoticesOpen && (
+      {searchOpen && (
+        <AppDialog key="search" fallbackFocusRef={settingsButton} className="app-settings-search-dialog" title={t('settings.semantic.title')}
+          showCloseButton onCancel={closeSettings} onBack={() => {
+            setOpen(true)
+            setSearchOpen(false)
+          }}>
+          <SearchModelSetup semantic={semanticSearch} />
+        </AppDialog>
+      )}
+
+      {open && !searchOpen && legalNoticesOpen && (
         <AppDialog
           key={selectedLegalNotice ?? 'legal-notices'}
           className="app-settings-legal-dialog"
           title={selectedNotice?.title ?? t('settings.legalAndNotices')}
+          showCloseButton
           onCancel={closeSettings}
-          actions={(
-            <button
-              type="button"
-              className="app-dialog-cancel"
-              onClick={() => {
-                if (selectedLegalNotice) setSelectedLegalNotice(null)
-                else setLegalNoticesOpen(false)
-              }}
-            >
-              {t('common.back')}
-            </button>
-          )}
+          onBack={() => {
+            if (selectedLegalNotice) {
+              setSelectedLegalNotice(null)
+            } else {
+              setLegalNoticesOpen(false)
+            }
+          }}
         >
           {selectedLegalNotice ? (
             <LegalNoticeContent source={LEGAL_NOTICE_CONTENT[selectedLegalNotice]} />
@@ -133,7 +184,7 @@ export function AppSettings({
                   onClick={() => setSelectedLegalNotice(notice.id)}
                 >
                   <span>{notice.title}</span>
-                  <span className="app-settings-legal-chevron" aria-hidden="true" />
+                  <span className="app-settings-chevron" aria-hidden="true" />
                 </button>
               ))}
             </nav>
@@ -141,18 +192,27 @@ export function AppSettings({
         </AppDialog>
       )}
 
-      {open && !legalNoticesOpen && (
+      {open && !searchOpen && eraseOpen && (
+        <AppResetDialog
+          blockedBy={eraseBlockedBy}
+          fallbackFocusRef={settingsButton}
+          onBack={() => setEraseOpen(false)}
+          onClose={closeSettings}
+          onExportFirst={() => {
+            setOpen(false)
+            setTransferOpen(true)
+          }}
+        />
+      )}
+
+      {open && !searchOpen && !legalNoticesOpen && !eraseOpen && (
         <AppDialog
-          title={t('settings.title')}
+          key="general" className="app-settings-dialog" fallbackFocusRef={settingsButton} title={t('settings.title')}
+          showCloseButton
           onCancel={closeSettings}
-          actions={(
-            <button type="button" className="app-dialog-submit" onClick={closeSettings}>
-              {t('common.done')}
-            </button>
-          )}
         >
-          <section className="app-settings-section" aria-labelledby="app-settings-appearance">
-            <h3 id="app-settings-appearance">{t('settings.appearance')}</h3>
+          <section className="app-settings-section" aria-labelledby="app-settings-preferences">
+            <h3 id="app-settings-preferences">{t('settings.preferences')}</h3>
 
             <div className="app-setting">
               <span id="app-setting-language">{t('settings.language')}</span>
@@ -166,7 +226,9 @@ export function AppSettings({
                     : option.label,
                 }))}
                 ariaLabelledBy="app-setting-language"
-                onChange={(locale) => { void changeAppLocale(locale) }}
+                onChange={(locale) => {
+                  void changeAppLocale(locale)
+                }}
               />
             </div>
 
@@ -186,58 +248,91 @@ export function AppSettings({
             {zoom.supported && (
               <div className="app-setting">
                 <span id="app-setting-zoom">{t('settings.zoom')}</span>
-                <div className="app-zoom-control" role="group" aria-labelledby="app-setting-zoom">
-                  <button
-                    type="button"
-                    aria-label={t('settings.zoomDecrease')}
-                    title={t('settings.zoomDecrease')}
-                    disabled={zoom.value <= MIN_ZOOM}
-                    onClick={() => zoom.setValue(zoom.value - ZOOM_STEP)}
-                  >
-                    &minus;
-                  </button>
-                  <output aria-live="polite">{zoom.value}%</output>
-                  <button
-                    type="button"
-                    aria-label={t('settings.zoomIncrease')}
-                    title={t('settings.zoomIncrease')}
-                    disabled={zoom.value >= MAX_ZOOM}
-                    onClick={() => zoom.setValue(zoom.value + ZOOM_STEP)}
-                  >
-                    +
-                  </button>
+                <div className="app-setting-control">
+                  <div className="app-zoom-control" role="group" aria-labelledby="app-setting-zoom">
+                    <button
+                      type="button"
+                      aria-label={t('settings.zoomDecrease')}
+                      title={t('settings.zoomDecrease')}
+                      disabled={zoom.value <= MIN_ZOOM}
+                      onClick={() => zoom.setValue(zoom.value - ZOOM_STEP)}
+                    >
+                      &minus;
+                    </button>
+                    <output aria-live="polite">{zoom.value}%</output>
+                    <button
+                      type="button"
+                      aria-label={t('settings.zoomIncrease')}
+                      title={t('settings.zoomIncrease')}
+                      disabled={zoom.value >= MAX_ZOOM}
+                      onClick={() => zoom.setValue(zoom.value + ZOOM_STEP)}
+                    >
+                      +
+                    </button>
+                  </div>
+                  {zoom.value !== DEFAULT_ZOOM && (
+                    <button className="app-zoom-reset" type="button" onClick={() => zoom.setValue(DEFAULT_ZOOM)}>
+                      {t('settings.zoomReset')}
+                    </button>
+                  )}
                 </div>
-                {zoom.value !== DEFAULT_ZOOM && (
-                  <button className="app-zoom-reset" type="button" onClick={() => zoom.setValue(DEFAULT_ZOOM)}>
-                    {t('settings.zoomReset')}
-                  </button>
-                )}
               </div>
             )}
           </section>
+
+          {tauriRuntime && (
+            <section className="app-settings-section app-settings-search" aria-labelledby="app-settings-search">
+              <h3 id="app-settings-search">{t('settings.search')}</h3>
+              <button
+                type="button"
+                className="app-settings-data-action app-settings-row app-settings-search-action"
+                aria-labelledby="app-settings-search-title"
+                aria-describedby="app-settings-search-status"
+                onClick={() => setSearchOpen(true)}
+              >
+                <span className="app-settings-row-copy">
+                  <span id="app-settings-search-title">{t('settings.semantic.title')}</span>
+                  <span id="app-settings-search-status" className="app-settings-search-summary">
+                    {t(`settings.semantic.summary.${semanticSearchStatus(semanticSearch)}`)}
+                  </span>
+                </span>
+                <span className="app-settings-chevron" aria-hidden="true" />
+              </button>
+            </section>
+          )}
 
           {tauriRuntime && (
             <section className="app-settings-section app-settings-data" aria-labelledby="app-settings-data">
               <h3 id="app-settings-data">{t('settings.data')}</h3>
               <button
                 type="button"
-                className="app-settings-data-action"
+                className="app-settings-data-action app-settings-row"
                 onClick={() => {
                   setOpen(false)
                   setTransferOpen(true)
                 }}
               >
-                <TransferIcon />
-                {t('settings.transferLibrary')}
+                <span className="app-settings-row-label"><TransferIcon />{t('settings.transferLibrary')}</span>
+                <span className="app-settings-chevron" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="app-settings-data-action app-settings-row app-settings-erase-action"
+                onClick={() => setEraseOpen(true)}
+              >
+                <span className="app-settings-row-label">
+                  <TrashIcon className="app-settings-data-icon" />
+                  {t('settings.erase.open')}
+                </span>
+                <span className="app-settings-chevron" aria-hidden="true" />
               </button>
             </section>
           )}
 
-          <section className="app-settings-section app-settings-developer" aria-labelledby="app-settings-developer">
-            <h3 id="app-settings-developer">{t('settings.developer')}</h3>
+          <div className="app-settings-developer">
             <label className="app-setting app-setting-toggle">
               <span>{t('settings.developerMode')}</span>
-              <span className="app-settings-switch">
+              <span className="app-switch">
                 <input
                   type="checkbox"
                   checked={developerMode}
@@ -246,28 +341,32 @@ export function AppSettings({
                 <span aria-hidden="true" />
               </span>
             </label>
-          </section>
+          </div>
 
           <section className="app-settings-section app-settings-about" aria-labelledby="app-settings-about">
             <h3 id="app-settings-about">{t('settings.about')}</h3>
             <button
               type="button"
-              className="app-settings-data-action"
+              className="app-settings-data-action app-settings-row"
               onClick={() => setLegalNoticesOpen(true)}
             >
-              {t('settings.legalAndNotices')}
+              <span>{t('settings.legalAndNotices')}</span>
+              <span className="app-settings-chevron" aria-hidden="true" />
             </button>
+            <div className="app-settings-version">
+              <span>{t('settings.version')}</span>
+              <strong>{versionLabel}</strong>
+            </div>
           </section>
-
-          <div className="app-settings-version">
-            <span>{t('settings.version')}</span>
-            <strong>{versionLabel}</strong>
-          </div>
         </AppDialog>
       )}
 
       {transferOpen && (
         <LibraryTransferDialog
+          onClose={() => {
+            setTransferOpen(false)
+            closeSettings()
+          }}
           onBack={() => {
             setTransferOpen(false)
             setOpen(true)
@@ -276,15 +375,6 @@ export function AppSettings({
         />
       )}
     </div>
-  )
-}
-
-function SettingsIcon() {
-  return (
-    <svg className="app-settings-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
-      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.08A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.63 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.08A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.63a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.08A1.7 1.7 0 0 0 15 4.64a1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.36 9a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.08A1.7 1.7 0 0 0 19.4 15Z" />
-    </svg>
   )
 }
 
@@ -327,7 +417,9 @@ function LegalNoticeContent({ source }: { source: string }) {
     <div className="app-settings-legal-content" dir="ltr">
       {blocks.map((block, index) => {
         const heading = block.match(/^##\s+(.+)$/)
-        if (heading) return <h3 key={index}>{renderLegalInline(heading[1])}</h3>
+        if (heading) {
+          return <h3 key={index}>{renderLegalInline(heading[1])}</h3>
+        }
 
         return <p key={index}>{renderLegalInline(block.replace(/\s*\n\s*/g, ' '))}</p>
       })}
@@ -355,7 +447,9 @@ function renderLegalInline(text: string): ReactNode[] {
             key={index}
             type="button"
             className="app-settings-legal-link"
-            onClick={() => { void openExternalUrl(part) }}
+            onClick={() => {
+              void openExternalUrl(part)
+            }}
           >
             {part}
           </button>
@@ -377,15 +471,21 @@ function useAppZoom() {
   // Tauri applies WebView zoom outside the DOM, so restore it explicitly on
   // startup and after every preference change.
   useEffect(() => {
-    if (!supported) return
+    if (!supported) {
+      return
+    }
     void getCurrentWebview().setZoom(value / 100).catch(() => {})
   }, [supported, value])
 
   useEffect(() => {
-    if (!supported) return
+    if (!supported) {
+      return
+    }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (!event.ctrlKey && !event.metaKey) return
+      if (!event.ctrlKey && !event.metaKey) {
+        return
+      }
       if (event.key === '0') {
         event.preventDefault()
         setZoom(DEFAULT_ZOOM)
@@ -402,7 +502,11 @@ function useAppZoom() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [setZoom, supported, value])
 
-  return { supported, value, setValue: setZoom }
+  return {
+    supported,
+    value,
+    setValue: setZoom,
+  }
 }
 
 function loadZoom(): number {

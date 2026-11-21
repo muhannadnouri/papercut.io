@@ -367,7 +367,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"${PAPERCUT_SKIP_TAURI_IOS_XCODE_SCRIPT:-}\" = \"1\" ]; then\n  echo \"Skipping Tauri iOS xcode-script; libapp.a was prepared by CI\"\n  exit 0\nfi\ncase \"${PLATFORM_NAME:-}\" in\n  iphonesimulator) SHERPA_ONNX_IOS_SLICE=ios-arm64-simulator ;;\n  iphoneos) SHERPA_ONNX_IOS_SLICE=ios-arm64 ;;\n  *) SHERPA_ONNX_IOS_SLICE=ios-arm64 ;;\nesac\nexport SHERPA_ONNX_LIB_DIR=\"$(cd \"${SRCROOT:?}/../..\" && pwd)/tts/runtime/sherpa-onnx-ios/cargo-libs/$SHERPA_ONNX_IOS_SLICE\"\nexport ORT_LIB_LOCATION=\"$SHERPA_ONNX_LIB_DIR\"\nnpm run -- tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}";
+			shellScript = "if [ \"${PAPERCUT_SKIP_TAURI_IOS_XCODE_SCRIPT:-}\" = \"1\" ]; then\n  echo \"Skipping Tauri iOS xcode-script; libapp.a was prepared by CI\"\n  exit 0\nfi\ncase \"${PLATFORM_NAME:-}\" in\n  iphonesimulator) SHERPA_ONNX_IOS_SLICE=ios-arm64-simulator ;;\n  iphoneos) SHERPA_ONNX_IOS_SLICE=ios-arm64 ;;\n  *) SHERPA_ONNX_IOS_SLICE=ios-arm64 ;;\nesac\n# Resolve the selected SDK slice through the same versioned path helper as preparation.\nSHERPA_ONNX_LIB_DIR=\"$(cd \"${SRCROOT:?}/../../..\" && node --input-type=module -e 'import { iosSherpaLibDir } from \"./scripts/lib/ios/sherpa.js\"; process.stdout.write(iosSherpaLibDir(process.argv[1]));' \"$SHERPA_ONNX_IOS_SLICE\")\" || exit 1\nexport SHERPA_ONNX_LIB_DIR\nexport ORT_LIB_LOCATION=\"$SHERPA_ONNX_LIB_DIR\"\nnpm run -- tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -460,7 +460,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -553,7 +553,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

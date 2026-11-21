@@ -2,22 +2,33 @@ import {
   useState,
   useEffect,
   useCallback,
-  useMemo
+  useMemo,
 } from 'react'
 import { useTranslation } from 'react-i18next'
+import { isTauri } from '@tauri-apps/api/core'
 import './App.css'
 import { usePagefind } from './hooks/usePagefind'
 import { useSearch } from './hooks/useSearch'
+import { semanticSearchStatus } from './search-semantic/semanticSearchStatus'
+import { useSemanticSearch } from './search-semantic/useSemanticSearch'
+import { useConceptualSearch } from './search-semantic/useConceptualSearch'
 import { AppHeader } from './components/AppHeader/AppHeader'
-import { SearchTab } from './components/SearchTab/SearchTab'
+import {
+  SearchTab,
+  type SearchResultView,
+} from './components/SearchTab/SearchTab'
 import { LibraryTab } from './components/LibraryTab/LibraryTab'
 import { useDocumentScanner } from './document-scanner/useDocumentScanner'
 import { ScanSetupDialog } from './document-scanner/ScanSetupDialog'
 import type { DocumentScanSetup } from './document-scanner/documentScanner'
 import { PdfRecognitionPrompt } from './pdf/ocr/PdfRecognitionPrompt'
 import { AudiobooksTab } from './components/AudiobooksTab/AudiobooksTab'
+import type { ReaderDocument } from './viewers/types'
 import { DocumentViewer } from './components/DocumentViewer/DocumentViewer'
-import { TabNav, type AppTab } from './components/TabNav/TabNav'
+import {
+  TabNav,
+  type AppTab,
+} from './components/TabNav/TabNav'
 import { AppSettings } from './components/AppSettings/AppSettings'
 import { useAppConfirmation } from './components/AppDialog/useAppConfirmation'
 import { useDocumentFilters } from './hooks/useDocumentFilters'
@@ -25,21 +36,35 @@ import { useDocumentViewerState } from './hooks/useDocumentViewerState'
 import { useTheme } from './hooks/useTheme'
 import { useBookmarkedDocumentUrls } from './hooks/useReaderBookmark'
 import { useUploadedLibrary } from './hooks/useUploadedLibrary'
-import type { DocumentInfo, SearchOpenTarget } from './types/search'
+import { useOpenDocumentRequests } from './hooks/useOpenDocumentRequests'
+import type {
+  DocumentInfo,
+  SearchMode,
+  SearchOpenTarget,
+} from './types/search'
 import { clearPhraseFetchCache } from './utils/phraseSearch'
-import { isDebugEnabled, setDebugEnabled } from './utils/debugFlags'
+import {
+  isDebugEnabled,
+  setDebugEnabled,
+} from './utils/debugFlags'
 import { AudioControls } from './tts/components/AudioControls'
 import { AudioSetupDialog } from './tts/components/AudioSetupDialog'
 import { TtsDiagnosticsPanel } from './tts/components/TtsDiagnosticsPanel'
 import { getImportedAudiobookSource } from './tts/api/nativeTts'
-import { getUserUploads, isUserUploadUrl, type UserUploadDocument } from './tts/storage/UserUploads'
+import {
+  getUserUploads,
+  isUserUploadUrl,
+  type UserUploadDocument,
+} from './tts/storage/UserUploads'
+import { usePlayAnywhereReader } from './tts/playAnywhere/usePlayAnywhereReader'
+import { ReaderPassageAction } from './tts/playAnywhere/ReaderPassageAction'
 import { useAudiobookManager } from './tts/hooks/useAudiobookManager'
 import {
   getUploadedDocumentSource,
+  getUploadedReaderDocument,
   isUploadedHtmlDocumentUrl,
   isUploadedPdfDocumentUrl,
-  listenOpenDocumentRequests,
-  takeOpenDocumentSources,
+  type UploadedDocumentDeleteBatchResult,
 } from './uploads/DocumentUploads'
 
 function isBundledDocumentUrl(url: string): boolean {
@@ -55,17 +80,54 @@ function isBundledDocumentUrl(url: string): boolean {
   }
 }
 
+/** PDFs load their own bytes. Only bundled, same-origin document URLs may reach fetch. */
+async function loadOtherDocumentHtml(url: string): Promise<string> {
+  if (isUploadedPdfDocumentUrl(url)) {
+    return ''
+  }
+  if (isUserUploadUrl(url)) {
+    return getImportedAudiobookSource(url)
+  }
+  if (!isBundledDocumentUrl(url)) {
+    throw new Error('Unsupported document URL')
+  }
+
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error('Failed to load document')
+  }
+  return response.text()
+}
+
+/** Search and audiobook generation need source text and can skip the EPUB sidecar read. */
+function loadHtmlDocument(url: string): Promise<string> {
+  return isUploadedHtmlDocumentUrl(url) ? getUploadedDocumentSource(url) : loadOtherDocumentHtml(url)
+}
+
+/** Uploaded EPUBs have HTML reader URLs. Rust knows which of those uploads have an outline. */
+async function loadReaderDocument(url: string): Promise<ReaderDocument> {
+  if (isUploadedHtmlDocumentUrl(url)) {
+    return getUploadedReaderDocument(url)
+  }
+  return {
+    html: await loadOtherDocumentHtml(url),
+    outline: [],
+  }
+}
+
 function App() {
   const { t } = useTranslation()
   const theme = useTheme()
   const bookmarkedDocumentUrls = useBookmarkedDocumentUrls()
   const documentScanner = useDocumentScanner()
   const [activeTab, setActiveTab] = useState<AppTab>('library')
+  const [searchMode, setSearchMode] = useState<SearchMode>('all')
+  const [searchResultView, setSearchResultView] = useState<SearchResultView>('keyword')
+  const [searchSettingsOpen, setSearchSettingsOpen] = useState(false)
   const [userUploads, setUserUploads] = useState<UserUploadDocument[]>(() => getUserUploads())
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
   const [scanSetupSource, setScanSetupSource] = useState<'camera' | 'photos' | null>(null)
   const [readerAudioSetupOpen, setReaderAudioSetupOpen] = useState(false)
-  const [openDocumentRequest, setOpenDocumentRequest] = useState(0)
   const { pagefindRef, pagefindReady, allDocuments, documentsLoading } = usePagefind()
   const { confirm: confirmDocumentAction, dialog: documentConfirmationDialog } = useAppConfirmation()
   const {
@@ -83,7 +145,7 @@ function App() {
     importDocumentPhotos,
     importPastedText,
     scanDocument,
-    moveLibraryDocuments,
+    moveLibraryItems,
     refreshUploadedLibrary,
     recognizeDocumentText,
     renameLibraryFolder,
@@ -91,17 +153,7 @@ function App() {
     uploadedLibraryOrganization,
     updateDocumentTitle,
   } = useUploadedLibrary()
-
-  const loadHtmlDocument = useCallback(async (url: string): Promise<string> => {
-    if (isUploadedHtmlDocumentUrl(url)) return getUploadedDocumentSource(url)
-    if (isUploadedPdfDocumentUrl(url)) return ''
-    if (isUserUploadUrl(url)) return getImportedAudiobookSource(url)
-    if (!isBundledDocumentUrl(url)) throw new Error('Unsupported document URL')
-
-    const response = await fetch(url)
-    if (!response.ok) throw new Error('Failed to load document')
-    return response.text()
-  }, [])
+  const semanticSearch = useSemanticSearch(uploadedDocuments)
 
   const handleUserUploadsChanged = useCallback(() => {
     setUserUploads(getUserUploads())
@@ -114,7 +166,9 @@ function App() {
 
   const {
     clearSelectedDocument,
+    completeRestoringDocument,
     docContent,
+    docOutline,
     documentLoad,
     documentOpening,
     openDocument,
@@ -124,7 +178,7 @@ function App() {
   } = useDocumentViewerState({
     activeTab,
     documentsLoading,
-    loadHtmlDocument,
+    loadReaderDocument,
   })
 
   const audiobook = useAudiobookManager({
@@ -144,6 +198,8 @@ function App() {
     audiobookActionBusy,
     audiobookActionMessage,
     audiobookImport,
+    audiobookNotice,
+    dismissAudiobookNotice,
     audioSavedOnly,
     closeDocumentAudio,
     audiobooksPanelProps,
@@ -158,8 +214,20 @@ function App() {
     ttsHighlight,
   } = audiobook
 
+  const readerPlayback = usePlayAnywhereReader({
+    documentUrl: selectedDoc,
+    active: hasFloatingAudioControls || audioControlsProps.ttsState.currentChunkIndex !== null,
+    playFromHere: audiobook.playFromHere,
+    playFromBeginning: audiobook.playFromBeginning,
+    commandSignal: audiobook.commandSignal,
+  })
+
   const libraryDocuments = useMemo<DocumentInfo[]>(() => [
-    ...allDocuments.map((doc) => ({ ...doc, format: 'html', source: 'bundled' as const })),
+    ...allDocuments.map((doc) => ({
+      ...doc,
+      format: 'html',
+      source: 'bundled' as const,
+    })),
     ...uploadedDocuments.map((upload) => ({
       title: upload.title,
       url: upload.url,
@@ -173,8 +241,13 @@ function App() {
       coverMediaType: upload.coverMediaType,
       textStatus: upload.textStatus,
     })),
-    ...userUploads.map((upload) => ({ title: upload.title, url: upload.url, format: 'html', source: 'audiobook-upload' as const })),
-  ], [allDocuments, uploadedDocuments, userUploads]) 
+    ...userUploads.map((upload) => ({
+      title: upload.title,
+      url: upload.url,
+      format: 'html',
+      source: 'audiobook-upload' as const,
+    })),
+  ], [allDocuments, uploadedDocuments, userUploads])
 
   const searchFilters = useDocumentFilters(libraryDocuments)
   const libraryFilters = useDocumentFilters(libraryDocuments, { includeDocument: includeDocumentInList })
@@ -200,14 +273,16 @@ function App() {
 
   const searchableDocumentCount = useMemo(() => {
     const urls = new Set([
-      ...allDocuments.map((document) => document.url),
+      ...(searchMode === 'all' ? allDocuments.map((document) => document.url) : []),
       ...uploadedDocuments
         .filter((document) => document.textStatus === 'ready' || document.textStatus === 'recognition-available')
         .map((document) => document.url),
     ])
-    if (!searchScopeActive) return urls.size
+    if (!searchScopeActive) {
+      return urls.size
+    }
     return Array.from(searchScopeUrls).filter((url) => urls.has(url)).length
-  }, [allDocuments, searchScopeActive, searchScopeUrls, uploadedDocuments])
+  }, [allDocuments, searchMode, searchScopeActive, searchScopeUrls, uploadedDocuments])
 
   const {
     query,
@@ -217,15 +292,27 @@ function App() {
     searchFailed,
     searchPhase,
     submittedQuery,
+    searchRequest,
     lastSearchInfo,
     handleSearch,
     rerunSearch,
     submitSearch,
     removeResultsForUrl,
   } = useSearch(pagefindRef, {
+    mode: searchMode,
     loadDocumentSource: loadHtmlDocument,
     scopeUrls: searchScopeUrls,
     scopeActive: searchScopeActive,
+  })
+
+  const conceptualResults = useConceptualSearch({
+    semantic: semanticSearch,
+    submittedQuery,
+    searchRequest,
+    queryError,
+    scopeUrls: searchScopeUrls,
+    scopeActive: searchScopeActive,
+    library: uploadedDocuments,
   })
 
   useEffect(() => {
@@ -241,7 +328,7 @@ function App() {
     toggleAuthor: toggleLibraryAuthor,
     setShowDocuments,
     setDocumentFilter: setLibraryDocumentFilter,
-  } = libraryFilters 
+  } = libraryFilters
 
   const handleViewDocument = useCallback((url: string, target?: SearchOpenTarget, options?: { restoreBookmark?: boolean }) => {
     return openDocument(url, target, options, prepareDocumentOpen)
@@ -275,7 +362,9 @@ function App() {
   /** Apply the same post-import behavior to picker, drop, and Open With entry
    * points so one reflowable document opens while batches remain in Library. */
   const finishDocumentFileImport = useCallback(async (result: Awaited<ReturnType<typeof importDocumentBatch>>) => {
-    if (!result?.imported.length) return
+    if (!result?.imported.length) {
+      return
+    }
     setShowDocuments(true)
     if (result.selected === 1 &&
         result.imported.length === 1 &&
@@ -292,49 +381,26 @@ function App() {
     await finishDocumentFileImport(await importDocumentPaths(paths))
   }, [finishDocumentFileImport, importDocumentPaths])
 
-  /** Subscribe before draining the native queue so desktop and mobile cold or
-   * warm file-open requests share one race-free path into the Library importer. */
-  useEffect(() => {
-    if (!('__TAURI_INTERNALS__' in window)) return
-    let disposed = false
-    let unlisten: (() => void) | undefined
-    void listenOpenDocumentRequests(() => setOpenDocumentRequest((value) => value + 1))
-      .then((stop) => {
-        if (disposed) stop()
-        else {
-          unlisten = stop
-          setOpenDocumentRequest((value) => value + 1)
-        }
-      })
-      .catch((error) => console.warn('Unable to listen for document open requests:', error))
-    return () => {
-      disposed = true
-      unlisten?.()
-    }
-  }, [])
-
   const libraryOperationBusy = documentImport.status === 'importing' ||
     documentImport.status === 'recognizing' || documentImport.status === 'deleting'
+  const eraseBlockedBy = libraryOperationBusy ? 'imports' : audiobookActionBusy ? 'audio' : null
 
-  useEffect(() => {
-    if (openDocumentRequest === 0 || libraryOperationBusy) return
-    let disposed = false
-    void takeOpenDocumentSources().then(async (sources) => {
-      if (disposed || sources.length === 0) return
+  useOpenDocumentRequests({
+    busy: libraryOperationBusy || audiobookActionBusy,
+    onDocuments: async sources => {
       handleCloseDocument()
       setActiveTab('library')
       setShowDocuments(true)
       await finishDocumentFileImport(await importDocumentPaths(sources, 'open'))
-    }).catch((error) => console.warn('Unable to import document open request:', error))
-    return () => {
-      disposed = true
-    }
-  }, [openDocumentRequest, finishDocumentFileImport, handleCloseDocument, importDocumentPaths,
-    libraryOperationBusy, setShowDocuments])
+    },
+    onBundle: source => importAudiobookBundle(handleViewDocument, source),
+  })
 
   const handleImportDocumentFolder = useCallback(async () => {
     const result = await importDocumentFolder()
-    if (result?.imported.length) setShowDocuments(true)
+    if (result?.imported.length) {
+      setShowDocuments(true)
+    }
   }, [importDocumentFolder, setShowDocuments])
 
   const handleImportPastedText = useCallback(async (title: string, text: string) => {
@@ -345,12 +411,16 @@ function App() {
 
   const handleScanSetupSubmit = useCallback(async (setup: DocumentScanSetup) => {
     const source = scanSetupSource
-    if (!source) return
+    if (!source) {
+      return
+    }
     setScanSetupSource(null)
     const result = source === 'camera'
       ? await scanDocument(setup)
       : await importDocumentPhotos(setup)
-    if (result?.imported.length) setShowDocuments(true)
+    if (result?.imported.length) {
+      setShowDocuments(true)
+    }
   }, [importDocumentPhotos, scanDocument, scanSetupSource, setShowDocuments])
 
   const handleImportAudiobook = useCallback(async () => {
@@ -368,28 +438,39 @@ function App() {
   }, [setShowDocuments])
 
   const handleDeleteUploadedDocument = useCallback(async (doc: DocumentInfo) => {
-    if (doc.source !== 'upload') return
+    if (doc.source !== 'upload') {
+      return
+    }
     if (savedAudiobookDocumentUrls.has(doc.url)) {
       const viewAudiobooks = await confirmDocumentAction({
         title: t('library.savedAudioDependency.title'),
         description: t('library.savedAudioDependency.description'),
         confirmLabel: t('library.savedAudioDependency.viewAudiobooks'),
       })
-      if (viewAudiobooks) handleManageAudiobookSave()
+      if (viewAudiobooks) {
+        handleManageAudiobookSave()
+      }
       return
     }
 
     const confirmed = await confirmDocumentAction({
       title: t('library.confirmDeleteDocument.title'),
       description: t('library.confirmDeleteDocument.description'),
-      details: [{ label: t('library.confirmDeleteDocument.documentTitle'), value: <bdi>{doc.title}</bdi> }],
+      details: [{
+        label: t('library.confirmDeleteDocument.documentTitle'),
+        value: <bdi>{doc.title}</bdi>,
+      }],
       confirmLabel: t('library.confirmDeleteDocument.confirm'),
       tone: 'danger',
     })
-    if (!confirmed) return
+    if (!confirmed) {
+      return
+    }
 
     const deleted = await deleteUploadedLibraryDocument(doc)
-    if (!deleted) return
+    if (!deleted) {
+      return
+    }
     removeResultsForUrl(doc.url)
     clearPhraseFetchCache(doc.url)
     removeFilter(doc.url)
@@ -398,19 +479,37 @@ function App() {
     }
   }, [confirmDocumentAction, deleteUploadedLibraryDocument, handleCloseDocument, handleManageAudiobookSave, removeFilter, removeResultsForUrl, savedAudiobookDocumentUrls, selectedDoc, t])
 
-  const handleDeleteUploadedDocuments = useCallback(async (docs: DocumentInfo[]) => {
-    const result = await deleteUploadedLibraryDocuments(docs)
-    if (!result) return null
-
+  /** Remove every successfully deleted URL from transient search and scope
+   * state whether deletion began from document selection or a folder subtree. */
+  const applyDeletedDocumentResults = useCallback((result: UploadedDocumentDeleteBatchResult) => {
     const deletedUrls = new Set(result.deleted.map((document) => document.url))
     for (const url of deletedUrls) {
       removeResultsForUrl(url)
       clearPhraseFetchCache(url)
       removeFilter(url)
     }
-    if (selectedDoc && deletedUrls.has(selectedDoc)) handleCloseDocument()
+    if (selectedDoc && deletedUrls.has(selectedDoc)) {
+      handleCloseDocument()
+    }
+  }, [handleCloseDocument, removeFilter, removeResultsForUrl, selectedDoc])
+
+  const handleDeleteUploadedDocuments = useCallback(async (docs: DocumentInfo[]) => {
+    const result = await deleteUploadedLibraryDocuments(docs)
+    if (!result) {
+      return null
+    }
+    applyDeletedDocumentResults(result)
     return result
-  }, [deleteUploadedLibraryDocuments, handleCloseDocument, removeFilter, removeResultsForUrl, selectedDoc])
+  }, [applyDeletedDocumentResults, deleteUploadedLibraryDocuments])
+
+  const handleDeleteUploadedLibraryFolder = useCallback(async (folderId: string) => {
+    const result = await deleteLibraryFolder(folderId)
+    if (!result) {
+      return null
+    }
+    applyDeletedDocumentResults(result)
+    return result
+  }, [applyDeletedDocumentResults, deleteLibraryFolder])
 
   if (selectedDoc) {
     const recognitionIssueCount = documentImport.documentUrl === selectedDoc &&
@@ -427,6 +526,7 @@ function App() {
             url={selectedDoc}
             format={selectedFormat}
             content={docContent}
+            outline={docOutline}
             className={hasFloatingAudioControls ? 'app-audio-floating' : ''}
             appControls={(
               <AppSettings
@@ -435,6 +535,10 @@ function App() {
                 developerMode={ttsDiagnosticsEnabled}
                 onDeveloperModeChange={handleTtsDiagnosticsChange}
                 onLibraryImported={handleLibraryTransferImported}
+                semanticSearch={semanticSearch}
+                searchOpen={searchSettingsOpen}
+                onSearchOpenChange={setSearchSettingsOpen}
+                eraseBlockedBy={eraseBlockedBy}
               />
             )}
             headerControls={(
@@ -451,23 +555,50 @@ function App() {
                 )}
                 <AudioControls
                   {...audioControlsProps}
+                  playAnywhere={{
+                    browsing: readerPlayback.browsing,
+                    pending: readerPlayback.pending,
+                    capturing: readerPlayback.capturing,
+                    feedback: readerPlayback.feedback,
+                    onPlayFromHere: readerPlayback.playFromHere,
+                    onPlayFromBeginning: readerPlayback.playFromBeginning,
+                    onReturnToAudio: readerPlayback.returnToAudio,
+                    onSnapshotSelection: readerPlayback.snapshotSelection,
+                    onPlayFromSelection: readerPlayback.playFromSelection,
+                    onSelectionMenuClose: readerPlayback.clearSelection,
+                  }}
                   onManageSave={handleManageAudiobookSave}
                   onOpenAudioSetup={() => setReaderAudioSetupOpen(true)}
                 />
               </>
             )}
+            floatingControls={audioControlsProps.canPlayAudiobook && !hasFloatingAudioControls ? (
+              <ReaderPassageAction
+                pending={readerPlayback.pending}
+                onSnapshotSelection={readerPlayback.snapshotSelection}
+                onPlayFromHere={readerPlayback.playFromHere}
+                onPlayFromSelection={readerPlayback.playFromSelection}
+              />
+            ) : undefined}
             beforeDocument={(
               <TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />
             )}
             ttsHighlight={ttsHighlight}
+            audioFollowPolicy={readerPlayback.followPolicy}
+            onReaderBrowse={readerPlayback.browse}
+            onSelectionIntent={audioControlsProps.canPlayAudiobook ? readerPlayback.selectionActions : undefined}
+            onTextTargetApiChange={readerPlayback.register}
             searchTarget={searchOpenTarget}
             restoreBookmark={restoreBookmark}
             loading={documentLoad.status === 'loading' && documentLoad.url === selectedDoc}
+            restoringDocument={documentLoad.status === 'restoring' && documentLoad.url === selectedDoc}
+            onRestoringDocumentComplete={completeRestoringDocument}
             loadError={documentLoad.status === 'error' && documentLoad.url === selectedDoc ? documentLoad.message : undefined}
             onClose={handleCloseDocument}
           />
         </div>
         {audiobookActionBusy && <AppBusyOverlay message={audiobookActionMessage} />}
+        <AudiobookActionNotice notice={audiobookNotice} onDismiss={dismissAudiobookNotice} />
         {readerAudioSetupOpen && (
           <AudioSetupDialog
             audioSetup={{
@@ -476,7 +607,6 @@ function App() {
               onDiagnosticsChange: handleTtsDiagnosticsChange,
             }}
             title={t('tts.audiobooks.audioSetup')}
-            doneLabel={t('common.done')}
             onClose={() => setReaderAudioSetupOpen(false)}
           />
         )}
@@ -499,6 +629,10 @@ function App() {
             developerMode={ttsDiagnosticsEnabled}
             onDeveloperModeChange={handleTtsDiagnosticsChange}
             onLibraryImported={handleLibraryTransferImported}
+            semanticSearch={semanticSearch}
+            searchOpen={searchSettingsOpen}
+            onSearchOpenChange={setSearchSettingsOpen}
+            eraseBlockedBy={eraseBlockedBy}
           />
         )} />
       </div>
@@ -515,6 +649,19 @@ function App() {
 
         {activeTab === 'search' && (
           <SearchTab
+            semanticEnabled={semanticSearch.enabled}
+            semanticStatus={semanticSearch.provider?.downloadingFormat ? 'downloading'
+              : isTauri() && !semanticSearch.provider && !semanticSearch.statusError && !semanticSearch.operation ? 'checking'
+                : semanticSearchStatus(semanticSearch)}
+            hasStoredIndex={!!semanticSearch.index?.hasStoredIndex}
+            onOpenSearchSettings={() => setSearchSettingsOpen(true)}
+            conceptualState={conceptualResults}
+            resultView={searchResultView}
+            onResultViewChange={setSearchResultView}
+            searchRequest={searchRequest}
+            onViewConceptualResult={handleViewDocument}
+            mode={searchMode}
+            onModeChange={setSearchMode}
             query={query}
             queryError={queryError}
             disabled={!pagefindReady && uploadedDocuments.length === 0}
@@ -574,9 +721,9 @@ function App() {
             onCreateLibraryFolder={createLibraryFolder}
             onDeleteDocument={handleDeleteUploadedDocument}
             onDeleteDocuments={handleDeleteUploadedDocuments}
-            onDeleteLibraryFolder={deleteLibraryFolder}
+            onDeleteLibraryFolder={handleDeleteUploadedLibraryFolder}
             onDismissDocumentImportStatus={dismissDocumentImportStatus}
-            onMoveLibraryDocuments={moveLibraryDocuments}
+            onMoveLibraryItems={moveLibraryItems}
             onRecognizeDocument={recognizeDocumentText}
             onRenameLibraryFolder={renameLibraryFolder}
             onToggleAuthor={toggleLibraryAuthor}
@@ -611,15 +758,34 @@ function App() {
         )}
       </div>
       {audiobookActionBusy && <AppBusyOverlay message={audiobookActionMessage} />}
+      <AudiobookActionNotice notice={audiobookNotice} onDismiss={dismissAudiobookNotice} />
       {scanSetupSource && (
         <ScanSetupDialog
           source={scanSetupSource}
           onCancel={() => setScanSetupSource(null)}
-          onSubmit={(setup) => { void handleScanSetupSubmit(setup) }}
+          onSubmit={(setup) => {
+            void handleScanSetupSubmit(setup)
+          }}
         />
       )}
       {documentConfirmationDialog}
       {audiobook.confirmationDialog}
+    </div>
+  )
+}
+
+function AudiobookActionNotice({ notice, onDismiss }: {
+  notice: { status: 'success' | 'cancelled' | 'error';
+    message: string } | null
+  onDismiss: () => void
+}) {
+  const { t } = useTranslation()
+  return notice && (
+    <div className={'audiobook-action-toast audiobook-action-toast-' + notice.status}
+      role={notice.status === 'error' ? 'alert' : 'status'} aria-live="polite">
+      <span dir="auto">{notice.message}</span>
+      <button type="button" className="audiobook-action-toast-dismiss"
+        aria-label={t('tts.audiobooks.dismissNotice')} onClick={onDismiss}>×</button>
     </div>
   )
 }

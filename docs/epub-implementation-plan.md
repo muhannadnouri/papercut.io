@@ -43,19 +43,624 @@ field would duplicate state without improving navigation.
 
 ## Implemented MVP
 
-The MVP path is implemented with generated reading HTML, SQLite FTS indexing, Library import, existing TTS save/playback support, rewritten and target-validated internal EPUB links, retained safe local raster images, app-owned DOM reader link scrolling, section-ordinal search targets, structured import-stage feedback, and fixture coverage for TOC links, cross-chapter links, EPUB 2 footnotes/backlinks, image manifest assets, generated section extraction, sanitizer regressions, missing-fragment fallback, and empty-spine rejection. Reader images are stored as separate content-hashed files, resolved through Tauri's scoped asset protocol, and marked for lazy loading and asynchronous decoding so the continuous reading page does not decode every illustration at startup. Search targets reuse the section ordinal already stored in SQLite and a generated safe DOM marker, avoiding a locator column migration while remaining compatible with older imports.
+The MVP path is implemented with generated reading HTML, SQLite FTS indexing, Library import, existing TTS save/playback support, rewritten and target-validated internal EPUB links, retained local raster and external SVG images, app-owned DOM reader link scrolling, section-ordinal search targets, structured import-stage feedback, and fixture coverage for TOC links, cross-chapter links, EPUB 2 footnotes/backlinks, image manifest assets, generated section extraction, sanitizer regressions, missing-fragment fallback, and empty-spine rejection. Reader images are stored as separate content-hashed files, resolved through Tauri's scoped asset protocol, and marked for lazy loading and asynchronous decoding so the continuous reading page does not decode every illustration at startup. Search targets reuse the section ordinal already stored in SQLite and a generated safe DOM marker, avoiding a locator column migration while remaining compatible with older imports.
 
-The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite, and render helpers. It uses crate-backed percent/base64 decoding plus DOM-based fragment rewriting. Current EPUB image retention covers supported local raster images referenced by retained reader content, including image-only spine sections, under 5 MB per-image and 100 MB per-book limits. Older imports with inline raster data are upgraded non-destructively when opened. Newly imported EPUBs also resolve EPUB 3 `cover-image` properties and EPUB 2 `meta name="cover"` references, retain a declared raster cover under the existing 5 MB image cap, persist nullable cover media metadata, and generate a bounded gallery thumbnail. Existing imports remain valid without cover metadata; retained covers from earlier versions are thumbnailed lazily when first displayed.
+The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite, and render helpers. It uses crate-backed percent/base64 decoding plus DOM-based fragment rewriting. Current EPUB image retention covers supported local raster and external SVG images referenced by `img[src]` in retained reader content, plus supported inline SVG compositions converted to external images before sanitization, including image-only spine sections, under 5 MB per-image and 100 MB per-book limits. Older imports with inline raster data are upgraded non-destructively when opened. Newly imported EPUBs also resolve EPUB 3 `cover-image` properties and EPUB 2 `meta name="cover"` references, retain a declared raster cover under the existing 5 MB image cap, persist nullable cover media metadata, and generate a bounded gallery thumbnail. Existing imports remain valid without cover metadata; retained covers from earlier versions are thumbnailed lazily when first displayed.
+
+EPUB import validates all ZIP local headers against the central directory before
+reading the mimetype, container or book content. It uses ZIP 9.0.5's explicit
+`validate_header_consistency()` API: merely upgrading the crate does not enable
+this check for ordinary member reads. Conflicting header metadata, duplicate-name
+shadowing and overlapping entries reject the import with an archive error.
+Previously stored books are unaffected; malformed source archives that older
+versions tolerated may need to be repaired before importing. Existing EPUB 2/3,
+image, navigation, sanitization and size-limit tests remain active alongside
+malformed-header and duplicate-name regressions.
+
+## Image fidelity: staged repair
+
+Stage 1 retains external SVG illustrations through the existing content-hashed
+asset pipeline, including sanitization, scoped image URLs, and library transfer.
+SVG bytes are rendered only as external HTML `img` resources, never inserted into
+the reader DOM or embedded as an object/frame. This relies on the WebView's SVG
+image processing mode to disable scripts and external resource loading; it does
+not sanitize or flatten the SVG itself. Internal styles, text, and vector detail
+are preserved; SVGs requiring external fonts, styles, or nested files still need
+resource resolution in a later stage. Existing path validation, lazy loading, and 5 MB per-image / 100 MB
+per-book limits still apply. Gallery thumbnails remain raster-only. Transfer
+packages containing SVG assets require an updated recipient; older versions
+reject their unsupported asset names.
+
+Stage 2 converts inline SVG in well-formed XHTML into external SVG assets before
+HTML sanitization. It preserves the viewport, aspect-ratio rules, composition,
+internal CSS, inherited namespaces, root anchors, and available title/aria labels.
+Local manifest-declared raster images referenced by `href` or `xlink:href` are
+embedded as bounded data URLs inside the SVG; existing base64 raster data URLs
+also work. Nested inline SVG stays within its parent composition. Nothing is
+inserted as active SVG markup in the reader DOM, and no new dependency is needed.
+An SVG `image` element with neither `href` nor `xlink:href` is skipped during
+resource embedding, preserving the rest of the composition. A regression test
+checks that vector content survives and later local raster references are still
+embedded. Present but unresolved image references still reject conversion.
+
+Inline and manifest assets share deduplication and the existing per-image and
+per-book limits. The generated SVG must fit the per-image cap **after** base64
+expansion. XHTML doctypes are accepted without fetching external DTDs; entity
+declarations and malformed XML keep the old sanitized HTML fallback. Unresolved
+image references, nested external SVG image files, and `xml:base` are not converted.
+External CSS/font dependencies and publisher styles inherited from outside the
+SVG remain unsupported.
+
+Stage 3 reports unavailable images during import and in the reader. The stored
+reading HTML keeps a locale-neutral reason on each omitted `img`, including an
+unconverted inline SVG. Reasons distinguish missing or undeclared files,
+unsupported formats, remote resources, invalid paths, per-image and aggregate
+limits, failed SVG conversion, and otherwise unreadable images. Counts represent
+image occurrences, not unique files. Image-only chapters with failures remain in
+reading order when the book contains readable text or a retained image elsewhere.
+A book containing only unavailable images still fails import.
+
+The import result includes counts by reason. Library import shows document names
+and explanations and leaves that result visible until dismissed. These counts
+are derived from generated HTML without a schema migration; normal library
+listings do not scan source files. Duplicate EPUB imports read the existing
+source's diagnostics without reparsing the original archive. Markers also survive
+source sanitization and library transfer.
+
+Chapter sanitization owns the sequence: normalize XHTML empty elements once,
+annotate image omissions, then sanitize HTML. Callers pass the chapter body
+directly so diagnostics cannot be erased before annotation. Import dismissal and
+the Library summary use named warning checks and totals for readability.
+
+The reader replaces omitted or failed images with localized, accessible
+placeholders that preserve alternative text and anchors. CSS-generated labels
+avoid adding text nodes to search, bookmark, or narration offsets. Both already
+failed images and later load/decode failures are handled, while pending lazy
+images remain untouched. Explanations are translated in all eight app languages.
+
+This reports the supported image pipeline, not full EPUB visual equivalence.
+CSS backgrounds, object-based images, and missing dependencies inside an external
+SVG are not audited. A successfully decoded SVG can still lack external fonts or
+resources. Old imports can show generic placeholders for surviving source-less
+images, but markup erased by an older parser cannot be diagnosed retroactively.
+Runtime decode failures appear in the reader, not the earlier import summary.
+
+The generated EPUB regression covers reading-order chapter retention, local
+raster/external SVG assets, a missing-image diagnostic and an inline SVG cover
+with its original raster bytes and viewport. Asset references must also survive
+reader sanitization. It runs in the ordinary suite without a personal book or
+repository-root sample file:
+
+```sh
+cd src-tauri
+cargo test --lib generated_epub_retains_spine_images_and_embedded_cover
+```
+
+Earlier local Linux WebKitGTK verification decoded the parser's generated image
+assets, and the cover was visually checked. A separate SVG probe
+decoded while its script, event handler, external stylesheet, and nested external
+image made no requests. This was an isolated rendering check, not an end-to-end
+Papercut import or a Windows/mobile WebView check; those platforms still need
+release validation. Existing app data was left unchanged.
+
+Stage 3 verification covers parser omission reasons and size budgets, sanitizer
+round trips, warning-result dismissal behavior, and the sample's 115 retained
+images with no import warnings. The runnable reader check at
+`scripts/fixtures/reader/image-issues.html` uses the actual image observer and
+translations. Run `npm run dev` and open that path on the Vite server; it reports
+pass/fail for omitted, unresolved, cached, and live image failures, accessible
+labels, locale changes, unchanged text offsets, and listener cleanup. It also
+passed in Linux WebKitGTK. This is not a full Papercut import UI test.
+
+Next: manually verify the import summary and reader together using an EPUB with
+deliberately missing images, then perform platform smoke tests before release.
+The [image diagnostics test book and acceptance steps](../scripts/fixtures/epub/README.md)
+cover nine import omissions, one runtime decode failure, repeated references,
+and an image-only chapter alongside two working SVGs.
+Extend format coverage when another real book demonstrates a gap.
+
+Reprocessing and retaining original archives are explicitly deferred for the
+current single-user setup. Identical uploads return the existing entry, so
+upgrading or re-uploading alone does not restore images from an older import.
+Delete/reimport remains the manual option when losing that document's user state
+is acceptable. Revisit in-place repair when preserving bookmarks or other user
+state becomes necessary, or when supporting additional users makes manual repair
+impractical.
+
+## Publisher table of contents for EPUB
+
+**Steps 1–6 are implemented on `task/epub-outline`. Stage 7 automated checks cover import through restored reader navigation. The owner reported that the manual smoke checks passed, including scrolling a publisher outline and jumping to sections in an installed build. Large-book timings are not recorded here.**
+
+The reader opens the publisher’s table of contents and jumps to named chapters and
+subsections. Earlier imports kept clickable contents pages that appeared in the spine,
+but discarded off-spine navigation with the original archive. New imports resolve the
+publisher’s destinations while the archive is open and store usable entries in
+`outline.json` beside the reading copy.
+
+The first release covers newly imported EPUBs and their library transfers. Show the icon
+only when at least one authored destination works. Books without usable contents still open
+normally. Old uploads need no migration or archive retention. Duplicate detection remains
+in effect, so use a fresh test library when comparing builds.
+
+### Product and design decisions
+
+- Put one icon-only button beside Find in the reflowable reader header. Reuse the PDF
+  outline glyph (three bullets and lines). Use the localized name **Table of Contents**
+  for assistive technology, the hover/focus tooltip, and the panel title. Keep the
+  button directly reachable on phones. NN/g favors visible labels for recognition,
+  so test this compact design on touchscreens where hover cannot help.
+  [NN/g icon usability research](https://www.nngroup.com/articles/how-to-test-digital-icons/)
+- Show the publisher's ordered hierarchy. A non-linked group can contain usable children.
+  A link to a whole chapter goes to its beginning. A link naming a missing subsection loses
+  its jump, even when the chapter exists. Preserve its label as a group if children work.
+  This stricter rule applies only to outline entries. Ordinary EPUB links already have a
+  chapter-start fallback and readers rely on it.
+- Limit discovery to EPUB 3 navigation and EPUB 2 NCX. Calibre uses real headings when
+  the authored tree is empty. The epub.js loader can return empty navigation. Heading
+  inference is a product choice. Defer it for EPUB, along with guessing from filenames,
+  typography, or chapter numbering. A future HTML feature can use semantic headings
+  from the rendered document and reuse the interaction. PDF keeps its existing
+  PDF.js outline and destination service.
+  [EPUB 3 navigation](https://www.w3.org/TR/epub-33/#sec-nav-toc) ·
+  [Calibre viewer](https://github.com/kovidgoyal/calibre/blob/master/src/calibre/srv/render_book.py) ·
+  [epub.js loader](https://github.com/futurepress/epub.js/blob/master/src/book.js#L493-L523)
+
+### Implementation sequence after approval
+
+Step 1 supplies two small, image-free books for parser, reader, and later transfer tests.
+Both have one spine chapter. Its headings are “Morning on the ridge” and “Evening in the valley”.
+The [EPUB 3 fixture](../scripts/fixtures/epub/publisher-outline-3.epub) has an off-spine
+navigation document with the non-linked group “Walking routes”. The
+[EPUB 2 fixture](../scripts/fixtures/epub/publisher-outline-2.epub) has an NCX whose parent
+links to the chapter opening. Both put “High trail” before “Low trail” and link to distinct
+fragments from a sibling directory. The parser regression checks these authored links,
+the corresponding sanitized reader headings, and exclusion of navigation labels from
+reader and section text.
+
+Step 2 extracts the publisher tree into the in-memory parsed document. Both fixtures
+exercise the import entry point and verify group labels, parent destinations, leaf order,
+and exact targets against the sanitized reader. A declared NCX supplies the outline
+when EPUB 3 navigation yields no usable rows. Broken and ambiguous fragments lose their
+jump while valid children survive. Distinct publisher IDs, including non-Latin IDs,
+map to distinct generated targets. Links to the original body ID use the chapter
+wrapper. A repeated publisher ID remains ambiguous. Contents and in-text links
+share the same mapping.
+
+The parser currently caps each navigation resource at 4 MiB, XML nodes at 100,000,
+entries at 10,000, nesting at 32 levels, and each normalized label at 4,096 UTF-8 bytes.
+Step 3 verifies each limit at the boundary and one unit above through the normal EPUB
+import parser. The tests count entries across sibling groups and measure normalized
+multibyte labels. A compressed navigation file whose inflated size exceeds 4 MiB falls
+back to the declared NCX. With both resources missing or malformed, the book still
+produces reading HTML and indexable chapter text. Run the six cases with
+`cargo test --manifest-path src-tauri/Cargo.toml --lib epub::outline::limits_tests`.
+The manual reader checks below use the same distinguishing fixtures.
+
+Step 4 writes the nonempty tree as a JSON array in `outline.json` alongside
+`source.html`, before indexing and under the same failure cleanup. The stored file
+has a 32 MiB ceiling to allow for JSON escaping and entry fields. Reopening checks
+file type, size, tree limits, and generated target syntax. A missing or damaged
+sidecar leaves the chapter text readable. The reader opts into the outline with
+`includeOutline` on the existing `document_uploads_get_source` call. The active
+reader state accepts or discards HTML and outline together using its request ID.
+Search and audiobook callers keep their HTML string API. An isolated mock-app test
+covers import, reopen, duplicate reuse, delete, and rollback on a sidecar write failure.
+
+Step 5 transfers the sidecar in the shared [v5 library package](library-transfer.md).
+The automated round trip imports the image-free EPUB 3 fixture, writes and reopens an
+actual package, restores its document into a fresh mock-app library, and calls the reader
+source command. “High trail” and “Low trail” resolve to the distinct “Morning on the ridge”
+and “Evening in the valley” headings in restored HTML. The same test covers a checksum
+mismatch, malformed JSON, a missing destination, and duplicate restore. Run it with
+`cargo test --manifest-path src-tauri/Cargo.toml --lib image_free_epub_restores`.
+This exercises the shared package and document path. The installed-device checks below exercise the system picker and nearby transfer UI.
+
+Step 6 places an icon-only **Contents** button immediately before **Find** when the
+opened EPUB supplies usable entries. The button shares the PDF contents glyph and has
+a localized accessible name and hover/focus tooltip. The dialog mounts outside the
+article. Its nested lists preserve publisher order. Tab reaches each visible parent,
+including unlinked publisher groups. Enter or Space toggles its children in place.
+Choosing a leaf with a destination tells audio follow the reader is browsing,
+closes the dialog, and moves focus to the passage using the existing reader scroll path.
+
+**Stage 7 automated verification.** The Rust round trip imports the EPUB 3 ZIP, exports a
+v5 package, restores into a separate empty library, and reopens the book through
+`document_uploads_get_source`. The recipient's SQLite search finds “valley” and returns
+zero documents for “trail” and “routes”. The test compares the serialized reader response
+with the [shared browser fixture](../scripts/fixtures/epub/publisher-outline-3.reader.json).
+Chromium mounts that same HTML and outline at 1200px in English and 320px in Arabic
+with 24px text. Both publisher entries move focus to distinct visible headings. Find
+matches “Evening in the valley” and finds zero occurrences of “Low trail”. Audiobook
+chunk text includes the body heading and excludes all three publisher labels.
+
+To repeat the cross-language check, run both commands from the repository root with
+Chromium available. Both browser cases should execute.
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml --lib image_free_epub_restores
+node_modules/.bin/vitest run src/tts/playAnywhere/readerControls.browser.test.ts -t 'navigates EPUB'
+```
+
+The broader checks cover EPUB 2 NCX and EPUB 3 nav parsing, existing in-spine links,
+limits, damaged sidecars, duplicate restore, stale reader loads, empty-outline visibility,
+bookmarks, PDF controls and audio-follow browsing. The round trip uses Tauri's mock
+runtime with real files and SQLite. Actual native picker, screen reader and playback
+interactions belong to the device checks.
+
+For a manual smoke test, import the [EPUB 3 fixture](../scripts/fixtures/epub/publisher-outline-3.epub)
+and [EPUB 2 fixture](../scripts/fixtures/epub/publisher-outline-2.epub) into a fresh test
+library. Reimporting an identical book reuses its existing stored metadata.
+
+- From a passage, open Contents beside Find. Escape or Close should return focus to the
+  icon and leave the passage in place.
+- Reopen it and select “High trail”, then “Low trail”. Expect “Morning on the ridge”,
+  then “Evening in the valley” below the header. Repeat after a library transfer.
+- Import the [publisher anchor fixture](../scripts/fixtures/epub/publisher-anchors.epub).
+  Select **Opening**, **First section**, and **Last section**. Expect **Book opening**,
+  **Prologue**, and **Epilogue**, respectively. Try the in-text **Jump to epilogue** and
+  **Return to opening** links too. Choose **Legacy marker** with a keyboard or screen
+  reader and continue reading from “Legacy passage”. Repeat after restore.
+- On a narrow screen with large text, try the entries by touch and keyboard. With an
+  Arabic interface, check the panel opens on the right and publisher labels read correctly.
+  With a screen reader, check the button name, nested list and destination focus.
+- Open an EPUB without usable contents and then a plain HTML upload. Only eligible books
+  should have the new button. Open a PDF with an outline and exercise its existing control.
+
+- In an installed build, export the library and restore into a fresh profile or second
+  device. Repeat over Nearby if shipping both entry points. With audio playing, jump
+  to a different subsection. Playback should keep its position and allow browsing until
+  you choose Return to audio. Set a bookmark there, reopen, and check the passage.
+- On the same lower-memory phone, compare a build from `275a67d0` with the candidate
+  using the same large EPUB and fresh libraries. Record device/OS, book size, outline
+  entry count, import-to-ready and reopen-to-readable times. On the candidate also
+  measure tap-to-visible Contents, including first open. The baseline has no Contents
+  latency to measure. Keep cold and warm runs separate.
+- For discoverability, ask a first-time reader to jump to a named chapter without
+  pointing out the icon. Record whether they reach it unaided.
+
+1. **Build the distinguishing fixture first.** Extend the Rust tests in
+   `src-tauri/src/document_uploads/epub/mod.rs`. The current in-spine `nav.xhtml` fixture
+   proves ordinary link rewriting. Add an EPUB 3 fixture with a manifest-declared,
+   off-spine nav file in a different directory, a non-linked part label, and two
+   differently named subsections in one chapter. Give them labels absent from body text.
+   Assert publisher order, distinct generated destinations, and that both IDs exist in
+   the final sanitized reader source. Add an EPUB 2 NCX equivalent before completing extraction.
+2. **Extract while the ZIP and chapter maps are available.** Extend OPF parsing to locate
+   the manifest item with the `nav` property token and the NCX referenced by the spine's
+   `toc` ID. In EPUB 3 select the namespaced `epub:type` token `toc` and walk nested
+   ordered lists, skipping page lists and landmarks. For NCX walk `navMap/navPoint`,
+   reading `navLabel/text` and `content@src`. Try a declared NCX when EPUB 3 navigation
+   yields no usable entries. Resolve relative to the nav or NCX file. Reuse `paths.rs`
+   and the chapter/fragment maps in `rewrite.rs` for decoded, chapter-prefixed IDs.
+   Reject external targets and targets outside retained content. Test repeated source
+   IDs in different chapters, percent-encoded fragments, broken leaves, and working children
+   under a broken parent. Keep only plain display text, optional generated target ID,
+   and ordered children.
+3. **Bound optional metadata independently.** Use the existing bounded ZIP reader and XML
+   parser. Set documented ceilings for decompressed navigation bytes, entries, nesting,
+   and label length. Add boundary tests including malformed XML and excessive depth.
+   A missing, malformed, or over-budget optional contents resource can be omitted while
+   the readable book imports. Keep existing archive validation and fatal storage errors intact.
+   Reuse the existing chapter pass and avoid reparsing all chapters to resolve links.
+4. **Persist with the document and expose it to the active reader.** When at least one
+   authored destination survives validation, write a bounded `outline.json` beside
+   `source.html` in the upload directory. Omit the file for an empty outline. Carry the tree through
+   `parsed.rs` and write it in `pipeline.rs::write_and_index_document` under the same
+   failure cleanup as the source and assets. Verify duplicate import, failed write,
+   delete, and reopen. Keep labels outside reading HTML, FTS sections, and narration.
+   Keep `getUploadedDocumentSource` and its string contract for existing callers. Add an
+   EPUB-only outline read along the existing upload command and TypeScript adapter path,
+   using the document identity and a fixed local filename. Read once for the opened book,
+   clear on document change, and discard stale async results. Missing metadata gives an
+   empty result. Reading the book must remain possible if its optional metadata is damaged.
+5. **Prove transfer before polishing the UI.** Extend the document manifest, payload
+   collection, validation, and restore paths in `src-tauri/src/library_transfer/{mod,package}.rs`.
+   Use one fixed, checksummed per-document payload for EPUBs carrying contents. Version
+   the extension explicitly. Select the new package version whenever any selected document
+   carries an outline, including an image-free EPUB. For packages without outlines, keep
+   the existing export version selection. The current exporter can emit v1 for image-free books and
+   v4 for books with images. Preserve existing version gates, including v4 image support,
+   when adding the new version. Validate format, path, size, checksum, bounded tree shape,
+   and internal destinations against restored sanitized source. A declared corrupt payload
+   follows existing invalid-package handling. Exercise export and restore into an empty
+   library through the common portable/nearby package path. Reopen the restored book and
+   verify both subsection jumps, including for an image-free book. Cover packages without
+   outlines and duplicate restore. Update the package contract in `docs/library-transfer.md`.
+6. **Connect the control to reader navigation.** In `DocumentViewer.tsx` show the EPUB
+   button only for a nonempty usable tree. Share the small glyph from `PdfControls.tsx`.
+   Reuse the scoped hash lookup, fixed-header-aware scroll, and reader-browse notification
+   so audio follow yields to the user's jump. Render the list outside the document content
+   root and mount it only while open. Use a dismissible leading-edge panel on wide screens
+   and enough width for wrapping long labels on phones. Use semantic nested lists and a
+   keyboard-operable controls for parents and linked leaves. Announce expanded state and the controlled
+   panel. On selection, close and move reading focus to the exact target without a second
+   scroll. On Escape or Close, restore trigger focus and preserve reading position.
+   Translate app labels in all eight locales and preserve publisher text and RTL direction.
+7. **Verify the complete path.** Run targeted Rust parser, upload, and transfer tests,
+   frontend reader/toolbar tests, type checking, lint on touched files, and
+   `npm run check:i18n`. Cover absence, open/close, both distinct jumps, switching books
+   during a pending read, keyboard focus, and RTL layout at narrow widths and large text.
+   With the distinguishing fixture, prove the off-spine labels never enter Find, indexed
+   passages, or narrated text. Check existing in-spine links, bookmarks, audio follow,
+   PDF controls, and reading offsets. Record import time, reader-open time, and tap-to-panel
+   latency against the pre-change build on the same large EPUB and lower-memory phone.
+   Include book size and outline entry count so the measurements can be repeated.
+
+**Release acceptance.** Open the fixture locally and after transfer, select
+the second subsection, and verify its own heading is visible below the header. Dismissing
+without selection must preserve the original passage. Open a book with no usable entries
+and verify that the header has no empty control. For touch discovery, ask a first-time
+reader to “jump to Chapter 4” without naming the icon. Record whether they find it unaided.
+Report any device, assistive-technology, performance, or usability checks still outstanding.
+
+## Heading outline for uploaded HTML
+
+**Status.** Stages 1–4 and automated stage 5 verification are complete. HTML
+Contents follows section ordinals in the active article, and EPUB Contents follows
+publisher fragments. Switching uploads while the dialog is open dismisses the old
+list even when both uploads reuse ordinals. Installed WebView and audible playback
+acceptance remain with the manual checks below.
+
+An HTML upload can supply its own navigation through the semantic headings in its
+sanitized reading copy. Show the existing icon-only **Table of Contents** button beside
+Find when the article has at least two usable headings, counting nested entries.
+Skip headings inside navigation regions. Compute the list in the reader so an existing
+or restored upload can use it the next time it opens. The stored publisher outline
+remains authoritative for EPUB, including when it contains just one entry.
+
+1. **Define eligibility and lock down the examples.** In the viewer tests, distinguish
+   an uploaded HTML document using the upload URL check and HTML source format.
+   EPUB uploads also have HTML reader URLs, and bundled pages use the HTML viewer.
+   Cover zero headings, one usable heading plus several navigation headings, and
+   two usable headings with one nested inside the other's outline entry. Only the
+   last HTML case gets the button. Retain coverage for EPUBs with and without an
+   authored outline and for switching to bundled content or PDF.
+
+2. **Build the heading tree from the mounted article.** Read native `h1` through
+   `h6` elements in document order. For each, collapse whitespace in its text content,
+   require a nonempty label and a valid existing `data-papercut-section` ordinal,
+   and exclude navigation ancestors. Check native `nav` and the sanitized tokens
+   `role="navigation"`, `role="doc-toc"`, and `epub:type="toc"` by token membership.
+   Keep legitimate headings such as “References”. Attach each entry to the nearest
+   preceding heading of smaller rank, or to the root when there is none. An
+   `h2, h4, h2` sequence produces two siblings with one child under the first.
+   Test inline markup, RTL text, empty labels, missing locators and repeated labels.
+   Two “Examples” headings with different ordinals must remain independently selectable.
+   The [HTML importer](../src-tauri/src/document_uploads/html/parser.rs) already
+   assigns those ordinals. Reading them avoids rewriting HTML or generating IDs.
+
+3. **Connect collection to the reader lifecycle.** Collect once when the eligible
+   document's content is mounted. Bind the result to the loaded document and content
+   so a switch or failed load cannot display the previous list or jump to the same
+   ordinal in another document. Opening the dialog, typing in Find, and playback
+   updates should reuse the list. Keep collection scoped to the article so dialog
+   labels and app headings never appear. Exercise fast switches between two uploads
+   that reuse ordinals, including while Contents is open.
+
+4. **Reuse the dialog and destination handling.** Let the caller of
+   [DocumentOutline](../src/components/DocumentViewer/DocumentOutline.tsx) interpret
+   the selected target. Keep fragment construction and lookup with the EPUB caller.
+   For HTML, use the existing [section selector and scroll helper](../src/components/DocumentViewer/readerTarget.ts)
+   against the active reader, then return the destination element to the dialog's
+   existing focus handling. Retain browse-during-playback behavior. Verify keyboard
+   selection lands on the second of two identically named headings below the header,
+   the app URL stays stable, and Escape returns focus to Contents without moving the
+   passage. Render the list only while open. This stage needs no package dependency,
+   sidecar, database migration, or transfer-format change.
+
+5. **Verify import, restore, and cost before release.** Run the focused viewer and
+   reader-target tests and `npm run build:typecheck`. In a desktop build, import an
+   HTML file with nested headings without IDs, a navigation heading, and a working
+   fragment link. Open Contents, jump by keyboard, follow the authored link, use
+   Find, set and reopen a bookmark, and browse during narration. Restore the upload
+   into a fresh library and repeat the jump. Recheck the EPUB publisher fixture.
+   Measure reader-open time before and after the change on the same device with a
+   long document containing few headings and another containing thousands. Measure
+   first Contents open separately and record file size, heading count, and runtime.
+   Review the measurements before proposing a cap or virtualization.
+
+**Acceptance example.** An upload with a menu heading and two body headings named
+“Setup” shows exactly two entries. Selecting the second focuses the second body
+heading, including after transfer and restore. An upload with only the menu and one
+body heading opens with no Contents button.
+
+### Stage 5 verification
+
+The [HTML fixture](../scripts/fixtures/reader/html-outline.html) has repeated Setup
+headings without IDs, a line break and inline emphasis in “Trail supplies”, a menu
+heading, and a second Setup inside two initially closed disclosures.
+The native test imports it through the upload command, writes and reopens the normal
+v1 transfer ZIP, restores to a separate library, and checks the reader response on
+both sides against the [same fixture response](../scripts/fixtures/reader/html-outline.reader.json).
+Neither library needs an outline sidecar. Chromium consumes that response directly
+and verifies the four expected entries, Escape, keyboard selection of the second
+Setup, expansion of both disclosures before scroll and focus, and Find for “ranger”.
+The authored-link check returns to the menu, verifies the river paragraph is offscreen,
+then clicks its link and waits for that paragraph to land below the header.
+
+The stage 5 release AppImage also opened the original HTML fixture in an isolated
+Wayland session and wrote the expected river passage to its private library. Packaged UI navigation
+and audible playback remain manual checks.
+
+After the disclosure and label fixes, the Rust library suite passed 311 tests with
+four ignored. All 104 selected reader
+and browser tests passed, including EPUB navigation, bookmark save and return, and
+browsing during playback. Browser playback tests exercise controls and state. Actual
+speech output is part of the installed-app check.
+
+**Large HTML timings.** Headless Chromium 157 on CachyOS, Intel Core Ultra 5 325,
+1200 × 600 viewport. Each input contained 12,000 indexed blocks with short repeated
+passage text. Every 1,500th or fourth block was an h2. Five fresh Chromium processes
+per build and input reused the benchmark profile; build order alternated between trials.
+Times below are median milliseconds, with observed min–max in parentheses.
+
+| Headings | Reader HTML bytes | Reader open on main, 9e5422b8 | Reader open on stage 4, 4065882 | First Contents open on stage 4 |
+| ---: | ---: | ---: | ---: | ---: |
+| 8 | 1,429,796 | 386 (374–437) | 388 (384–410) | 43 (33–51) |
+| 3,000 | 1,435,780 | 404 (384–417) | 396 (386–400) | 181 (170–189) |
+
+The production React fixture timed mount through the animation frame after the last
+paragraph appeared. It timed first trigger click through the frame after the dialog
+appeared and checked the rendered entry count. Source HTML was already in memory;
+these measurements exclude file import, native IPC, and app startup. The reader-open
+ranges overlap. Rendering 3,000 buttons added a noticeable first-open delay. Keep
+the complete list for now; measure a representative long document on the slowest
+supported device before deciding whether the dialog needs a rendering change.
+
+**Manual acceptance in the installed app**
+
+1. Close any running Papercut instance, launch the rebuilt AppImage and import the revised
+   HTML fixture above. Open Contents beside Find. Expect **Trail field guide**, **Setup**,
+   **Trail supplies**, **Setup** in that order, with Trail supplies nested
+   under the first Setup. “Trail menu” should appear only in the document.
+2. Press Escape and check focus returns to Contents without moving the passage.
+   Leave **River crossing** and **Arrival** collapsed. Reopen Contents with the keyboard
+   and select the second Setup. Both disclosures should open and the heading should
+   receive focus below the header, above “Meet the ranger at the river.” Return to the
+   menu at the top and select **Jump to the river**. The river paragraph should land
+   below the header. Use Find for “ranger”.
+3. Save a bookmark at the river passage, close the reader and return to the bookmark.
+   With narration playing elsewhere, select the second Setup. Check that audio keeps
+   playing at its original passage and **Return to audio** brings reading focus back.
+   A narrow window or larger reader font makes passage changes easier to see.
+4. Export and restore into an empty test library or a second device. Reopen the HTML
+   document and repeat the second Setup jump. Open the [EPUB publisher fixture](../scripts/fixtures/epub/publisher-outline-3.epub)
+   and verify **Low trail** still goes to “Evening in the valley”.
+5. On a lower-powered device, try a large HTML upload if available. Check the first
+   Contents open and keyboard or touch responsiveness. Record device, document size,
+   and heading count if there is a noticeable stall.
+
+## Collapsible Contents for HTML and EPUB
+
+The shared [DocumentOutline](../src/components/DocumentViewer/DocumentOutline.tsx)
+already receives ordered entries with a label, an optional destination, and children.
+Use that tree to let readers browse chapters in place and jump directly to visible leaves. All expansion state belongs to the reader UI.
+
+1. **Set the initial view.** Count entries across all levels, including publisher
+   groups. At 20 or fewer, open every branch. At 21 or more, start branches closed.
+   Apply the single-title exception structurally: when there is exactly one root
+   with children, open it one level so the chapters are visible. This works even
+   when the title is translated or repeated. A flat outline always shows all rows.
+   Determine the default once per outline and stop counting as soon as 21 is reached.
+
+   Stage 1 implemented the shared [initial expansion rule](../src/components/DocumentViewer/outlineExpansion.ts).
+   Its unit tests cover the 20/21 boundary with nested entries, destinationless
+   groups, and a single root with or without a jump target.
+
+2. **Use one action per row.** A parent is one full-width disclosure button,
+   including its label and leading chevron. Activating either toggles its children,
+   keeps Contents open, and preserves the reading position. This also applies to
+   parents with an authored destination. Only leaves with a destination jump;
+   selecting one closes Contents and focuses the passage. A destinationless leaf
+   is plain text. The tradeoff is that introductory prose before the first child
+   of a chapter is reachable by reading or scrolling, without a dedicated Contents row.
+
+   Stage 2 implemented the revised interaction. The HTML reader regression clicks
+   a parent label and its chevron, then selects the sole leaf and verifies passage
+   focus. Chromium checks keyboard selection of a leaf and EPUB group disclosure.
+
+3. **Reuse the library tree icon.** Render the existing decorative
+   [ChevronIcon](../src/components/ChevronIcon/ChevronIcon.tsx) used by both
+   library trees. Follow the [library disclosure styling](../src/components/UploadedLibraryTree/UploadedLibraryTree.css)
+   for its size, stroke, and direction. Point the closed icon toward the text
+   (right in LTR, left in RTL) and the open icon down. Scope the row and focus
+   styling to the Contents dialog. Give the toggle a touch target independent
+   of the icon size so the wrapped label and surrounding row activate the same toggle.
+
+   Stage 3 verified the rendered dialog at 320 CSS pixels wide in Chromium with
+   English at 16 px and Arabic at 24 px. Parent and leaf labels wrapped within
+   their rows. Both buttons filled the row, measured at least 44 × 44 CSS pixels,
+   and accepted hits near opposite corners. The leading chevron pointed toward
+   the label when closed and down when open in both directions. Its rounded
+   stroke matches the library trees. The owner also confirmed the revised
+   stage 2 interaction in manual smoke testing.
+
+4. **Keep expansion local to the open document.** Store branch choices in
+   DocumentOutline above the conditionally mounted dialog. Key choices by position
+   in the ordered tree so repeated labels and destinationless groups are independent.
+   Multiple branches may stay open. Closing a parent preserves its descendants'
+   choices, and reopening Contents restores the same view. Use the reader's document
+   identity to reset the dialog and choices on a document switch. Reuse the
+   existing HTML heading and EPUB publisher targets for jumps.
+
+   Stage 4 verified the existing document-scoped state through the reader UI.
+   In a long EPUB outline, expanding the second of two identically named branches
+   survives collapsing and reopening their parent, jumping to a leaf, and reopening
+   Contents. Switching books while the dialog is open closes it and restores the
+   new book's initial expansion even when both books supply the same outline.
+   The HTML switch test also verifies that a collapsed heading in one upload
+   starts expanded in the next short outline with the same section ordinals.
+
+5. **Verify keyboard and screen-reader behavior.** Keep the nested ordered lists.
+   Give disclosure buttons a localized action name including the entry label and
+   expose `aria-expanded`. Enter and Space toggle in place and retain focus.
+   Render only visible descendants so collapsed rows leave both the accessibility
+   tree and Tab order. Escape returns focus to Contents; selecting a destination
+   focuses the passage. Update existing browser checks to distinguish disclosure
+   buttons from destination buttons by accessible name and role.
+
+   Stage 5 verified native button activation in Chromium. Space collapsed a
+   focused branch and Enter reopened it on the same control. Tab reached the
+   next sibling while collapsed and the first child after reopening. Paired
+   accessibility-tree snapshots showed the branch's localized button name and
+   expanded state in both cases. Its child disappeared from the exposed tree
+   on collapse while the sibling remained accessible. The HTML keyboard check
+   also covers Escape returning focus to Contents and leaf activation focusing
+   the destination heading. These checks cover what Chromium exposes to
+   assistive technology; spoken output still needs a manual screen-reader check.
+
+6. **Test the defaults and the full interaction.** Cover the 20/21 boundary,
+   a long flat outline, a single title with nested chapters, duplicate labels,
+   and a publisher group. Verify independent branches, descendant-state retention,
+   close/reopen, and switching documents while Contents is open. In Chromium,
+   exercise both HTML and EPUB: toggling preserves the article scroll position,
+   and activating a leaf reaches the intended passage. Run the relevant reader
+   tests, locale parity, TypeScript, and lint checks.
+
+   Stage 6 verified the same 21-entry hierarchy through both reader paths in
+   Chromium: HTML collected headings from the article, and EPUB used publisher
+   entries. From partway through the article, expanding, collapsing, and reopening
+   a chapter preserved the reading position. Selecting a leaf closed Contents,
+   focused its heading, and landed within 2 CSS pixels of the 120 px reader offset.
+   A rendered flat HTML outline exposed all 21 leaves in order. Native transfer
+   checks also passed for restored HTML heading locators and EPUB destinations.
+
+7. **Review on desktop and at phone width.** Open a long EPUB and a nested HTML
+   document. Scan the initial overview, expand two chapters, navigate to a child,
+   reopen Contents, then switch documents. Check touch and keyboard operation,
+   wrapped labels at larger text sizes, visible focus, and chevron direction in RTL.
+   Use this pass to assess the cutoff and single-title exception before shipping.
+
+   The project owner reported that the stage 7 manual smoke checklist passed.
+
+   - [x] Open a short nested outline and a long one. Check that 20 entries start
+     expanded and 21 start collapsed below the overview. A lone title opens one
+     level. In a long flat outline, all headings are directly selectable.
+   - [x] In both HTML and EPUB, start partway down the article. Tap a parent
+     label, then its chevron. Each toggles the whole row and keeps your place.
+     Select a leaf and verify its heading is visible after scrolling settles.
+   - [x] Expand two chapters, change a nested branch, then collapse and reopen
+     its parent. Check both chapters' choices after a jump and after reopening
+     Contents. Switch documents with Contents open and verify the new defaults.
+   - [x] Use Tab, Space, Enter, and Escape. Verify visible focus, hidden children
+     skipped, Escape returning to Contents, and leaf selection focusing the passage.
+     With a screen reader, listen for the branch label and state and try browsing
+     its children before and after collapse.
+   - [x] On a phone or at phone width, try wrapped labels with enlarged text
+     in LTR and RTL. Tap near the row edges. Closed chevrons point toward the
+     label, open chevrons point down, and the dialog fits horizontally.
+   - [x] Try finding a subsection, then try starting at a chapter's introductory
+     prose. Record any friction with leaf-only jumps or the initial overview.
 
 ## Remaining Follow-Ups
 
 1. Keep durable metadata changes as explicit schema migrations; cover metadata introduced schema version 3 without rebuilding existing search or organization rows.
 2. Add more EPUB parser fixtures for malformed OPF/container cases, spine edge cases, oversized image skipping, and metadata fallback.
 3. Include retained covers in library-transfer packages now that gallery cover serving is stable.
-4. Add duplicate detection based on source hash so repeated imports can update or skip existing records.
-5. Add a reindex action for uploaded documents if parser or sanitizer behavior changes after import.
+4. Source-hash duplicate detection already returns existing records; in-place replacement remains deferred as described above.
+5. Revisit reindex/reprocessing when preserving existing document state makes manual reimport insufficient.
 6. Add determinate chapter/page progress only if import work exposes trustworthy units; current semantic stages deliberately avoid fake percentages.
-7. Add richer EPUB reader features such as TOC, location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer if generated reading HTML is not enough. App-wide Light/System/Dark theme already applies to the generated HTML reader.
+7. Follow the [publisher table of contents plan](#publisher-table-of-contents-for-epub) for EPUB navigation. Revisit location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer separately if generated reading HTML is insufficient.
 8. For very large books, move from one fully-rendered generated HTML document toward chapter/page-level rendering with locator-aware Find and TTS ranges. Current TTS caches are mutation-aware, but the next highlight after a large DOM mutation can still rebuild the active reader text index.
 9. Keep the implemented PDF adapter on the shared SQLite document/search schema; remaining PDF/OCR work is tracked in [pdf-ocr-scanning.md](pdf-ocr-scanning.md).
 10. Decide whether Pagefind remains the bundled-document engine long term or whether all documents should eventually share SQLite FTS.
@@ -131,9 +736,10 @@ Acceptance checks:
   Validate fragment targets against collected chapter anchors; if a fragment is
   missing but the target chapter exists, fall back to the chapter wrapper anchor.
 - Drop scripts, remote resources, inline event handlers, iframes, objects, and
-  unsafe URLs. Retain referenced local PNG, JPEG, GIF, and WebP manifest images
-  as content-hashed app-data assets within parser caps; skip SVG, CSS images,
-  `srcset`, remote images, and oversized assets.
+  unsafe URLs. Retain referenced local PNG, JPEG, GIF, WebP, and SVG manifest images
+  as content-hashed app-data assets within parser caps. Convert supported inline
+  SVG compositions to external image assets with embedded local rasters before
+  sanitization; skip CSS images, `srcset`, remote images, and oversized assets.
 - Retain supported image-only HTML spine sections; ignore unsupported non-HTML
   spine resources for the first pass.
 
@@ -261,7 +867,7 @@ Manual smoke tests:
 
 Richer EPUB reader:
 
-- Retained EPUB 2/3 cover assets are served only to visible Library gallery cards through a narrow validated command. The command returns persisted display-sized thumbnails and serializes lazy thumbnail backfills for older imports so original high-resolution covers cannot create a burst of concurrent decodes. Cover rendering stays out of generated reader HTML so opening and audiobook processing do not pay for gallery artwork.
+- Retained EPUB 2/3 cover assets are served only to visible Library gallery cards through a narrow validated command. The command returns persisted display-sized thumbnails and serializes lazy thumbnail backfills for older imports so original high-resolution covers cannot create a burst of concurrent decodes. Gallery thumbnails are served separately from generated reader HTML. A cover page present in the EPUB spine is retained in reading order, including supported inline SVG wrappers.
 - Evaluate foliate-js, `epub.js`, or Readium only after normalized import ships.
 - Keep search/TTS source independent from the renderer.
 - Add TOC, pagination, EPUB-specific appearance controls, and location restore as reader-quality work. App-wide Light/System/Dark theme already applies to the generated HTML reader.

@@ -1,4 +1,7 @@
-import type { PDFDocumentLoadingTask, PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs'
+import type {
+  PDFDocumentLoadingTask,
+  PDFPageProxy,
+} from 'pdfjs-dist/legacy/build/pdf.mjs'
 import {
   finalizeUploadedPdf,
   getUploadedPdfAssetUrl,
@@ -7,7 +10,10 @@ import {
   type PdfPageTextLayer,
   type UploadedDocument,
 } from '../../uploads/DocumentUploads'
-import { loadPdfJs, pdfJsAssetRoot } from '../pdfJs'
+import {
+  loadPdfJs,
+  pdfJsAssetRoot,
+} from '../pdfJs'
 import {
   finalizedPdfTextStatus,
   hasPdfPageImages,
@@ -74,7 +80,11 @@ export async function recognizePdfDocument(
   }
 
   throwIfAborted(options.signal)
-  options.onProgress?.({ phase: 'preparing', pageNumber: 0, pageCount: document.sections })
+  options.onProgress?.({
+    phase: 'preparing',
+    pageNumber: 0,
+    pageCount: document.sections,
+  })
   const [pdfjs, sourceUrl] = await Promise.all([
     loadPdfJs(),
     getUploadedPdfAssetUrl(document.url),
@@ -91,7 +101,9 @@ export async function recognizePdfDocument(
   let workerTermination: Promise<unknown> | undefined
   const cancel = () => {
     void loadingTask.destroy()
-    if (worker && !workerTermination) workerTermination = worker.terminate()
+    if (worker && !workerTermination) {
+      workerTermination = worker.terminate()
+    }
   }
   options.signal?.addEventListener('abort', cancel, { once: true })
 
@@ -121,7 +133,9 @@ export async function recognizePdfDocument(
           continue
         }
         const operatorList = await page.getOperatorList()
-        if (!hasPdfPageImages(operatorList.fnArray, pdfjs.OPS)) continue
+        if (!hasPdfPageImages(operatorList.fnArray, pdfjs.OPS)) {
+          continue
+        }
 
         const existing = await getUploadedPdfPageText(document.url, pageNumber - 1)
           .catch(() => null)
@@ -137,7 +151,11 @@ export async function recognizePdfDocument(
           continue
         }
 
-        options.onProgress?.({ phase: 'recognizing', pageNumber, pageCount: pdf.numPages })
+        options.onProgress?.({
+          phase: 'recognizing',
+          pageNumber,
+          pageCount: pdf.numPages,
+        })
         worker ??= await createPdfOcrWorker(language, improvePages.size > 0)
         throwIfAborted(options.signal)
         try {
@@ -150,7 +168,9 @@ export async function recognizePdfDocument(
             issues.unrecognizedPages.push(pageNumber)
             continue
           }
-          if (layer === candidate) await storeUploadedPdfPageText(document.url, layer)
+          if (layer === candidate) {
+            await storeUploadedPdfPageText(document.url, layer)
+          }
           recognizedCharacters += quality.characters
           if (quality.confidence !== null && quality.confidence < LOW_OCR_CONFIDENCE) {
             issues.lowConfidencePages.push(pageNumber)
@@ -172,8 +192,14 @@ export async function recognizePdfDocument(
 
     issues.lowConfidencePages = [...new Set(issues.lowConfidencePages)]
     const hasRecognizedText = hasUsableText || recognizedCharacters > 0
-    if (!hasRecognizedText) throw new PdfRecognitionNoTextError(issues)
-    options.onProgress?.({ phase: 'indexing', pageNumber: pdf.numPages, pageCount: pdf.numPages })
+    if (!hasRecognizedText) {
+      throw new PdfRecognitionNoTextError(issues)
+    }
+    options.onProgress?.({
+      phase: 'indexing',
+      pageNumber: pdf.numPages,
+      pageCount: pdf.numPages,
+    })
     const updated = await finalizeUploadedPdf(
       document.url,
       document.title,
@@ -186,11 +212,17 @@ export async function recognizePdfDocument(
           issues.lowConfidencePages.length > 0,
       ),
     )
-    return { document: updated, issues }
+    return {
+      document: updated,
+      issues,
+    }
   } finally {
     options.signal?.removeEventListener('abort', cancel)
-    if (workerTermination) await workerTermination.catch(() => undefined)
-    else await worker?.terminate().catch(() => undefined)
+    if (workerTermination) {
+      await workerTermination.catch(() => undefined)
+    } else {
+      await worker?.terminate().catch(() => undefined)
+    }
     await destroyLoadingTask(loadingTask)
   }
 }
@@ -210,7 +242,11 @@ async function recognizePage(
   canvas.height = Math.max(1, Math.round(viewport.height))
 
   try {
-    await page.render({ canvas, viewport, background: '#ffffff' }).promise
+    await page.render({
+      canvas,
+      viewport,
+      background: '#ffffff',
+    }).promise
     throwIfAborted(signal)
     return await recognizePdfPage(
       worker,
@@ -240,7 +276,9 @@ export function pdfOcrPageQuality(layer: PdfPageTextLayer): {
   for (const block of layer.blocks) {
     const length = block.text.replace(/\s/gu, '').length
     characters += length
-    if (block.confidence === null || length === 0) continue
+    if (block.confidence === null || length === 0) {
+      continue
+    }
     confidenceCharacters += length
     weightedConfidence += block.confidence * length
   }
@@ -269,7 +307,9 @@ export function isPdfOcrPageImprovement(
 /** Render ordinary pages at 300 DPI while bounding unusually large pages to
  * one 9-megapixel canvas, keeping peak OCR memory independent of page count. */
 export function pdfOcrRenderScale(width: number, height: number): number {
-  if (!(width > 0) || !(height > 0)) throw new Error('PDF page dimensions are invalid')
+  if (!(width > 0) || !(height > 0)) {
+    throw new Error('PDF page dimensions are invalid')
+  }
   return Math.min(
     TARGET_OCR_DPI / PDF_POINTS_PER_INCH,
     Math.sqrt(MAX_OCR_RENDER_PIXELS / (width * height)),
@@ -277,7 +317,9 @@ export function pdfOcrRenderScale(width: number, height: number): number {
 }
 
 function throwIfAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) throw new DOMException('PDF text recognition cancelled', 'AbortError')
+  if (signal?.aborted) {
+    throw new DOMException('PDF text recognition cancelled', 'AbortError')
+  }
 }
 
 async function destroyLoadingTask(loadingTask: PDFDocumentLoadingTask): Promise<void> {

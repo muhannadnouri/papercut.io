@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
 import {
   isPdfRecognitionStatusForDocument,
   pdfRecognitionActionPageCount,
@@ -21,13 +25,29 @@ describe('isPdfRecognitionStatusForDocument', () => {
   })
 
   it('retries technical failures but accepts usable partial recognition', () => {
-    const mixedIssues = { failedPages: [2], unrecognizedPages: [4], lowConfidencePages: [1, 3] }
+    const mixedIssues = {
+      failedPages: [2],
+      unrecognizedPages: [4],
+      lowConfidencePages: [1, 3],
+    }
 
     expect(pdfRecognitionIssueAction(mixedIssues)).toBe('retry')
     expect(pdfRecognitionActionPageCount(mixedIssues)).toBe(1)
-    expect(pdfRecognitionIssueAction({ failedPages: [], unrecognizedPages: [2], lowConfidencePages: [1] })).toBe('accept')
-    expect(pdfRecognitionActionPageCount({ failedPages: [], unrecognizedPages: [2], lowConfidencePages: [1] })).toBe(2)
-    expect(pdfRecognitionIssueAction({ failedPages: [], unrecognizedPages: [], lowConfidencePages: [] })).toBeNull()
+    expect(pdfRecognitionIssueAction({
+      failedPages: [],
+      unrecognizedPages: [2],
+      lowConfidencePages: [1],
+    })).toBe('accept')
+    expect(pdfRecognitionActionPageCount({
+      failedPages: [],
+      unrecognizedPages: [2],
+      lowConfidencePages: [1],
+    })).toBe(2)
+    expect(pdfRecognitionIssueAction({
+      failedPages: [],
+      unrecognizedPages: [],
+      lowConfidencePages: [],
+    })).toBeNull()
     expect(pdfRecognitionActionPageCount()).toBe(0)
   })
 
@@ -43,7 +63,11 @@ describe('isPdfRecognitionStatusForDocument', () => {
       status: 'recognized',
       format: 'pdf-ocr',
       documentUrl,
-      recognitionIssues: { failedPages: [], unrecognizedPages: [], lowConfidencePages: [1] },
+      recognitionIssues: {
+        failedPages: [],
+        unrecognizedPages: [],
+        lowConfidencePages: [1],
+      },
     }, documentUrl)).toBe('attention')
     expect(pdfRecognitionIndicatorState({
       status: 'error',

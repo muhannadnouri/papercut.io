@@ -22,7 +22,9 @@ function runLifecycleOperation<T>(operation: () => Promise<T>): Promise<T> {
 // playback attempt to recover if native setup fails. The identity check prevents
 // an older rejected attempt from clearing a newer initialization after disposal.
 export function initializeNativeAudio(): Promise<NativeAudioState> {
-  if (initializePromise) return initializePromise
+  if (initializePromise) {
+    return initializePromise
+  }
 
   const attempt = runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
@@ -37,38 +39,53 @@ export function initializeNativeAudio(): Promise<NativeAudioState> {
   return attempt
 }
 
-export async function setNativeAudioSource(payload: NativeAudioSetSourcePayload): Promise<NativeAudioState> {
+export async function setNativeAudioSource(payload: NativeAudioSetSourcePayload, isCurrent?: () => boolean): Promise<NativeAudioState> {
   await initializeNativeAudio()
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
+    if (isCurrent && !isCurrent()) {
+      throw new DOMException('Superseded playback request', 'AbortError')
+    }
     return plugin.setSource(payload)
   })
 }
 
-export function playNativeAudio(): Promise<NativeAudioState> {
+export function playNativeAudio(isCurrent?: () => boolean): Promise<NativeAudioState> {
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
+    if (isCurrent && !isCurrent()) {
+      throw new DOMException('Superseded playback request', 'AbortError')
+    }
     return plugin.play()
   })
 }
 
-export function pauseNativeAudio(): Promise<NativeAudioState> {
+export function pauseNativeAudio(isCurrent?: () => boolean): Promise<NativeAudioState> {
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
+    if (isCurrent && !isCurrent()) {
+      throw new DOMException('Superseded playback request', 'AbortError')
+    }
     return plugin.pause()
   })
 }
 
-export function seekNativeAudio(position: number): Promise<NativeAudioState> {
+export function seekNativeAudio(position: number, isCurrent?: () => boolean): Promise<NativeAudioState> {
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
+    if (isCurrent && !isCurrent()) {
+      throw new DOMException('Superseded playback request', 'AbortError')
+    }
     return plugin.seekTo(position)
   })
 }
 
-export function setNativeAudioRate(rate: number): Promise<NativeAudioState> {
+export function setNativeAudioRate(rate: number, isCurrent?: () => boolean): Promise<NativeAudioState> {
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
+    if (isCurrent && !isCurrent()) {
+      throw new DOMException('Superseded playback request', 'AbortError')
+    }
     return plugin.setRate(rate)
   })
 }
@@ -96,6 +113,21 @@ export function disposeNativeAudio(): Promise<void> {
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()
     await plugin.dispose()
+  })
+}
+
+// For erasing app data. Dispose re-persists the playback checkpoint, which names the
+// audiobook, so it must be cleared afterward or that trace survives the erase. On iOS,
+// dispose also drops hard links that keep erased audio bytes on disk.
+export function forgetNativeAudio(): Promise<void> {
+  initializePromise = null
+  return runLifecycleOperation(async () => {
+    const plugin = await loadPlugin()
+    try {
+      await plugin.dispose()
+    } finally {
+      await plugin.clearProgressCheckpoint()
+    }
   })
 }
 

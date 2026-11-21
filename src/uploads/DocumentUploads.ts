@@ -1,3 +1,9 @@
+import type {
+  OutlineEntry,
+  ReaderDocument,
+} from '../viewers/types'
+import type { SearchMode } from '../types/search'
+
 export type UploadedDocumentTextStatus =
   | 'processing'
   | 'ready'
@@ -5,6 +11,7 @@ export type UploadedDocumentTextStatus =
   | 'recognition-required'
 
 export interface UploadedDocument {
+  importImageWarnings?: Record<string, number>
   id: string
   url: string
   title: string
@@ -56,12 +63,14 @@ export interface UploadedDocumentSearchTermMatch {
   sectionIndex?: number | null
   pageIndex?: number | null
   text?: string | null
+  matched?: boolean
 }
 
 export interface UploadedDocumentSearchResponse {
   results: UploadedDocumentSearchResult[]
   totalDocuments: number
   totalMatchingSections: number
+  suggestedQuery?: string
 }
 
 export interface UploadedDocumentConcordanceEntry {
@@ -85,6 +94,7 @@ export type UploadedDocumentSearchStage =
   | 'buildingResults'
 
 interface UploadedDocumentSource {
+  outline?: OutlineEntry[]
   html: string
   assetPaths: Record<string, string>
 }
@@ -250,10 +260,12 @@ export async function takeOpenDocumentSources(): Promise<string[]> {
   return invoke<string[]>('open_documents_take_sources')
 }
 
-/** The event is only a wake-up signal; the native queue remains authoritative
- * so startup races and requests received during an import cannot lose paths. */
+/** The event only wakes the consumer. Native sources wait for a drain;
+ * useOpenDocumentRequests retains unfinished sources after that handoff. */
 export async function listenOpenDocumentRequests(handler: () => void): Promise<() => void> {
-  if (!isTauriRuntime()) return () => {}
+  if (!isTauriRuntime()) {
+    return () => {}
+  }
   const mod = await import('@tauri-apps/api/event')
   return mod.listen('open-documents', handler)
 }
@@ -263,7 +275,10 @@ export async function listenOpenDocumentRequests(handler: () => void): Promise<(
 export async function importPastedText(title: string, text: string): Promise<UploadedDocument> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocument>('document_uploads_import_pasted_text', {
-    request: { title, text },
+    request: {
+      title,
+      text,
+    },
   })
 }
 
@@ -275,7 +290,9 @@ export async function cancelDocumentBatch(): Promise<boolean> {
 export async function listenDocumentBatchProgress(
   handler: (progress: UploadedDocumentBatchProgress) => void,
 ): Promise<() => void> {
-  if (!isTauriRuntime()) return () => {}
+  if (!isTauriRuntime()) {
+    return () => {}
+  }
   const mod = await import('@tauri-apps/api/event')
   return mod.listen<UploadedDocumentBatchProgress>(DOCUMENT_IMPORT_PROGRESS_EVENT, (event) => {
     handler(event.payload)
@@ -283,7 +300,9 @@ export async function listenDocumentBatchProgress(
 }
 
 export async function listUploadedDocuments(): Promise<UploadedDocument[]> {
-  if (!isTauriRuntime()) return []
+  if (!isTauriRuntime()) {
+    return []
+  }
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocument[]>('document_uploads_list')
 }
@@ -294,7 +313,10 @@ export async function updateUploadedDocumentTitle(
 ): Promise<UploadedDocument> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocument>('document_uploads_update_title', {
-    request: { documentUrl, title },
+    request: {
+      documentUrl,
+      title,
+    },
   })
 }
 
@@ -304,15 +326,26 @@ export async function searchUploadedDocuments(
   documentUrls?: string[],
   exactPhrases?: string[],
   onProgress: (stage: UploadedDocumentSearchStage) => void = () => {},
+  mode: SearchMode = 'all',
 ): Promise<UploadedDocumentSearchResponse> {
   const hasExactPhrases = exactPhrases?.some((phrase) => phrase.trim().length > 0) ?? false
   if (!isTauriRuntime() || (query.trim().length === 0 && !hasExactPhrases)) {
-    return { results: [], totalDocuments: 0, totalMatchingSections: 0 }
+    return {
+      results: [],
+      totalDocuments: 0,
+      totalMatchingSections: 0,
+    }
   }
   const mod = await import('@tauri-apps/api/core')
   const progress = new mod.Channel<UploadedDocumentSearchStage>(onProgress)
   return mod.invoke<UploadedDocumentSearchResponse>('document_uploads_search', {
-    request: { query, limit, documentUrls, exactPhrases },
+    request: {
+      query,
+      limit,
+      documentUrls,
+      exactPhrases,
+      mode,
+    },
     onProgress: progress,
   })
 }
@@ -325,16 +358,31 @@ export async function findUploadedDocumentOccurrences(
 ): Promise<UploadedDocumentConcordanceResponse> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocumentConcordanceResponse>('document_uploads_concordance', {
-    request: { documentUrl, query, offset, limit },
+    request: {
+      documentUrl,
+      query,
+      offset,
+      limit,
+    },
   })
 }
 
+/** Background source reads skip navigation metadata and retain the HTML string contract. */
 export async function getUploadedDocumentSource(documentUrl: string): Promise<string> {
+  return (await getUploadedReaderDocument(documentUrl, false)).html
+}
+
+/** Load HTML and optional navigation in one request scoped to the opened upload. */
+export async function getUploadedReaderDocument(documentUrl: string, includeOutline = true): Promise<ReaderDocument> {
   const mod = await import('@tauri-apps/api/core')
   const source = await mod.invoke<UploadedDocumentSource>('document_uploads_get_source', {
     request: { documentUrl },
+    includeOutline,
   })
-  return resolveUploadedDocumentAssets(source, mod.convertFileSrc)
+  return {
+    html: resolveUploadedDocumentAssets(source, mod.convertFileSrc),
+    outline: source.outline ?? [],
+  }
 }
 
 /**
@@ -347,10 +395,12 @@ export function resolveUploadedDocumentAssets(
   convertFileSrc: (path: string) => string,
 ): string {
   return source.html.replace(
-    /data-papercut-asset="(image-[a-f0-9]{64}\.(?:png|jpg|gif|webp))"/g,
+    /data-papercut-asset="(image-[a-f0-9]{64}\.(?:png|jpg|gif|webp|svg))"/g,
     (attribute, fileName: string) => {
       const path = source.assetPaths[fileName]
-      if (!path) return attribute
+      if (!path) {
+        return attribute
+      }
       return `src="${escapeHtmlAttribute(convertFileSrc(path))}" ${attribute}`
     },
   )
@@ -362,7 +412,9 @@ function escapeHtmlAttribute(value: string): string {
 }
 
 export async function getUploadedDocumentCover(documentUrl: string): Promise<string | null> {
-  if (!isTauriRuntime()) return null
+  if (!isTauriRuntime()) {
+    return null
+  }
   const invoke = await loadTauriInvoke()
   return invoke<string | null>('document_uploads_get_cover', {
     request: { documentUrl },
@@ -374,7 +426,9 @@ export async function getUploadedPdfSource(documentUrl: string): Promise<Uint8Ar
   const source = await invoke<ArrayBuffer | Uint8Array | number[]>('document_uploads_get_pdf_source', {
     request: { documentUrl },
   })
-  if (source instanceof Uint8Array) return source
+  if (source instanceof Uint8Array) {
+    return source
+  }
   return new Uint8Array(source)
 }
 
@@ -401,7 +455,10 @@ export async function getUploadedPdfPageText(
 ): Promise<PdfPageTextLayer> {
   const invoke = await loadTauriInvoke()
   return invoke<PdfPageTextLayer>('document_uploads_get_pdf_page_text', {
-    request: { documentUrl, pageIndex },
+    request: {
+      documentUrl,
+      pageIndex,
+    },
   })
 }
 
@@ -418,7 +475,10 @@ export async function findUploadedPdfText(
 ): Promise<PdfFindResult> {
   const invoke = await loadTauriInvoke()
   return invoke<PdfFindResult>('document_uploads_find_pdf_text', {
-    request: { documentUrl, query },
+    request: {
+      documentUrl,
+      query,
+    },
   })
 }
 
@@ -428,7 +488,10 @@ export async function storeUploadedPdfPageText(
 ): Promise<void> {
   const invoke = await loadTauriInvoke()
   await invoke<void>('document_uploads_store_pdf_page_text', {
-    request: { documentUrl, layer },
+    request: {
+      documentUrl,
+      layer,
+    },
   })
 }
 
@@ -441,7 +504,13 @@ export async function finalizeUploadedPdf(
 ): Promise<UploadedDocument> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocument>('document_uploads_finalize_pdf', {
-    request: { documentUrl, title, pageCount, thumbnail, textStatus },
+    request: {
+      documentUrl,
+      title,
+      pageCount,
+      thumbnail,
+      textStatus,
+    },
   })
 }
 
@@ -462,7 +531,9 @@ export async function deleteUploadedDocuments(documentUrls: string[]): Promise<U
 export async function listenDocumentDeleteProgress(
   handler: (progress: UploadedDocumentDeleteBatchProgress) => void,
 ): Promise<() => void> {
-  if (!isTauriRuntime()) return () => {}
+  if (!isTauriRuntime()) {
+    return () => {}
+  }
   const mod = await import('@tauri-apps/api/event')
   return mod.listen<UploadedDocumentDeleteBatchProgress>(DOCUMENT_DELETE_PROGRESS_EVENT, (event) => {
     handler(event.payload)
@@ -470,7 +541,12 @@ export async function listenDocumentDeleteProgress(
 }
 
 export async function getUploadedLibraryOrganization(): Promise<UploadedLibraryOrganization> {
-  if (!isTauriRuntime()) return { folders: [], documentLocations: [] }
+  if (!isTauriRuntime()) {
+    return {
+      folders: [],
+      documentLocations: [],
+    }
+  }
   const invoke = await loadTauriInvoke()
   return invoke<UploadedLibraryOrganization>('document_uploads_library_organization')
 }
@@ -478,42 +554,48 @@ export async function getUploadedLibraryOrganization(): Promise<UploadedLibraryO
 export async function createUploadedLibraryFolder(parentId: string | null, name: string): Promise<UploadedLibraryFolder> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedLibraryFolder>('document_uploads_create_folder', {
-    request: { parentId, name },
+    request: {
+      parentId,
+      name,
+    },
   })
 }
 
 export async function renameUploadedLibraryFolder(folderId: string, name: string): Promise<UploadedLibraryFolder> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedLibraryFolder>('document_uploads_rename_folder', {
-    request: { folderId, name },
+    request: {
+      folderId,
+      name,
+    },
   })
 }
 
-export async function deleteUploadedLibraryFolder(folderId: string): Promise<void> {
+export async function deleteUploadedLibraryFolder(folderId: string): Promise<UploadedDocumentDeleteBatchResult> {
   const invoke = await loadTauriInvoke()
-  await invoke<void>('document_uploads_delete_folder', {
+  return invoke<UploadedDocumentDeleteBatchResult>('document_uploads_delete_folder', {
     request: { folderId },
   })
 }
 
-export async function moveUploadedDocuments(documentIds: string[], folderId: string | null): Promise<UploadedLibraryOrganization> {
+export async function moveUploadedLibraryItems(documentIds: string[], folderIds: string[], folderId: string | null): Promise<UploadedLibraryOrganization> {
   const invoke = await loadTauriInvoke()
-  return invoke<UploadedLibraryOrganization>('document_uploads_move_documents', {
-    request: { documentIds, folderId },
-  })
-}
-
-export async function moveUploadedLibraryFolder(folderId: string, parentId: string | null): Promise<UploadedLibraryOrganization> {
-  const invoke = await loadTauriInvoke()
-  return invoke<UploadedLibraryOrganization>('document_uploads_move_folder', {
-    request: { folderId, parentId },
+  return invoke<UploadedLibraryOrganization>('document_uploads_move_items', {
+    request: {
+      folderIds,
+      documentIds,
+      folderId,
+    },
   })
 }
 
 export async function reorderUploadedLibrary(parentId: string | null, items: UploadedLibraryOrderItem[]): Promise<UploadedLibraryOrganization> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedLibraryOrganization>('document_uploads_reorder_library', {
-    request: { parentId, items },
+    request: {
+      parentId,
+      items,
+    },
   })
 }
 

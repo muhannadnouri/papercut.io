@@ -125,7 +125,7 @@
 @media (hover: hover) and (pointer: fine) {
   .result-card-primary:hover:not(:disabled),
   .result-evidence-passage:hover:not(:disabled),
-  .result-evidence-action:hover:not(:disabled),
+  .result-evidence-action:hover:not(:disabled):not([aria-disabled="true"]),
   .result-concordance-term:hover:not([aria-pressed="true"]) {
     background: var(--surface-accent);
   }
@@ -147,6 +147,17 @@
   font-weight: 600;
   color: var(--text);
   margin-bottom: 0.35rem;
+}
+
+.result-source {
+  display: inline-block;
+  margin-bottom: 0.55rem;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-inline);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .result-meta {
@@ -324,7 +335,8 @@
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
-.result-evidence-action:disabled {
+.result-evidence-action:disabled,
+.result-evidence-action[aria-disabled="true"] {
   color: var(--text-soft);
   cursor: wait;
 }
@@ -432,4 +444,18 @@
   .result-occurrence-marker {
     min-height: 2.75rem;
   }
+}
+
+.result-list-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.result-list-more button[aria-disabled="true"] {
+  cursor: default;
 }

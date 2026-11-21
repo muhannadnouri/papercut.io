@@ -1,8 +1,17 @@
-import { existsSync } from "node:fs"
 import { spawnSync } from "node:child_process"
-import { cp, mkdir, readdir, stat } from "node:fs/promises"
-import { join } from "node:path"
+import { existsSync } from "node:fs"
 import {
+  cp,
+  mkdir,
+  readdir,
+  stat,
+} from "node:fs/promises"
+import { join } from "node:path"
+
+import { PIPER_VERSION } from "../constants.js"
+import { nativeCacheDir } from "../native-paths.js"
+import {
+  macosArch,
   SHERPA_MACOS_OPTIONAL_LIBS,
   SHERPA_MACOS_REQUIRED_LIBS,
   SHERPA_MACOS_SHARED_OUT_DIR,
@@ -12,8 +21,12 @@ import {
 // Shared-link macOS desktop builds bundle sherpa dylibs as Tauri resources so
 // the app's @loader_path/../Resources rpath resolves inside the .app bundle.
 export async function copyMacosSherpaLibs({ platform = process.env.TAURI_ENV_PLATFORM, linkMode = process.env.PAPERCUT_NATIVE_TTS_LINK } = {}) {
-  if (platform && platform !== "macos") return
-  if (linkMode === "static") return
+  if (platform && platform !== "macos") {
+    return
+  }
+  if (linkMode === "static") {
+    return
+  }
 
   await assertMacosSharedLibsExist()
   await mkdir(SHERPA_MACOS_SHARED_OUT_DIR, { recursive: true })
@@ -22,10 +35,21 @@ export async function copyMacosSherpaLibs({ platform = process.env.TAURI_ENV_PLA
   for (const lib of await macosDylibsToBundle()) {
     const source = join(SHERPA_MACOS_SHARED_SOURCE_DIR, lib)
     const target = join(SHERPA_MACOS_SHARED_OUT_DIR, lib)
-    await cp(source, target, { force: true, dereference: true })
+    await cp(source, target, {
+      force: true,
+      dereference: true,
+    })
     copied.push(target)
   }
 
+  const piperDir = process.env.PIPER_PHONEMIZE_LIB_DIR || nativeCacheDir("piper-phonemize-prebuilt", `piper-phonemize-v${PIPER_VERSION}-macos-${macosArch()}-shared-lib`)
+  const piper = join(piperDir, "libpiper_phonemize_core.dylib")
+  const target = join(SHERPA_MACOS_SHARED_OUT_DIR, "libpiper_phonemize_core.dylib")
+  await cp(piper, target, {
+    force: true,
+    dereference: true,
+  })
+  copied.push(target)
   signMacosDylibs(copied)
   console.log("[sherpa-macos-libs] bundled shared libraries from " + SHERPA_MACOS_SHARED_SOURCE_DIR)
 }
@@ -44,7 +68,9 @@ async function macosDylibsToBundle() {
 
 function signMacosDylibs(paths) {
   const identity = process.env.APPLE_SIGNING_IDENTITY
-  if (process.platform !== "darwin" || !identity || paths.length === 0) return
+  if (process.platform !== "darwin" || !identity || paths.length === 0) {
+    return
+  }
 
   for (const path of paths) {
     const result = spawnSync("codesign", ["--force", "--options", "runtime", "--timestamp", "--sign", identity, path], {
@@ -65,10 +91,12 @@ async function assertMacosSharedLibsExist() {
   for (const lib of SHERPA_MACOS_REQUIRED_LIBS) {
     try {
       const info = await stat(join(SHERPA_MACOS_SHARED_SOURCE_DIR, lib))
-      if (!info.isFile()) throw new Error(lib + " is not a file")
+      if (!info.isFile() || !info.size) {
+        throw new Error(lib + " is not a non-empty library")
+      }
     } catch (err) {
       throw new Error(
-        "Missing " + lib + " at " + SHERPA_MACOS_SHARED_SOURCE_DIR + ". Build with --features native-tts-shared so sherpa-onnx downloads its macOS shared library archive before bundling. " + err,
+        "Missing " + lib + " at " + SHERPA_MACOS_SHARED_SOURCE_DIR + ". Build with --features native-tts-shared so the app prepares its macOS shared library archive before bundling. " + err,
       )
     }
   }

@@ -1,3 +1,4 @@
+import { SearchIcon } from '../icons'
 import {
   useState,
   useRef,
@@ -9,17 +10,32 @@ import {
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { resolveViewer } from '../../viewers/registry'
-import type { ViewerBookmarkApi, ViewerFindApi } from '../../viewers/types'
+import type {
+  AudioFollowPolicy,
+  OutlineEntry,
+  ViewerBookmarkApi,
+  ViewerFindApi,
+  ViewerTextTargetApi,
+} from '../../viewers/types'
 import { FindBar } from '../FindBar/FindBar'
 import { ScrollTopButton } from '../ScrollTopButton/ScrollTopButton'
 import { ReaderSettings } from '../ReaderSettings/ReaderSettings'
 import { useReaderSettings } from '../ReaderSettings/useReaderSettings'
 import { ExternalLinkPrompt } from '../ExternalLinkPrompt/ExternalLinkPrompt'
+import { isUploadedHtmlDocumentUrl } from '../../uploads/DocumentUploads'
+import { useHtmlOutline } from './useHtmlOutline'
+import { DocumentOutline } from './DocumentOutline'
 import { ReaderBookmarkButton } from './ReaderBookmarkButton'
-import { getExternalLinkUrl, getInternalDocumentHash } from './linkUtils'
+import {
+  getExternalLinkUrl,
+  getInternalDocumentHash,
+} from './linkUtils'
 import { useFindInPage } from '../../hooks/useFindInPage'
 import { useReaderBookmark } from '../../hooks/useReaderBookmark'
 import { useTtsHighlight } from '../../tts/hooks/useTtsHighlight'
+import { bindSelectionIntent } from '../../tts/playAnywhere/selectionTarget'
+import { bindReaderBrowse } from '../../tts/playAnywhere/readerBrowse'
+import { readerTextViewport } from '../../tts/playAnywhere/htmlTextTarget'
 import type { SearchOpenTarget } from '../../types/search'
 import type { TtsChunk } from '../../tts/types'
 import { openExternalUrl } from '../../utils/openExternalUrl'
@@ -58,32 +74,50 @@ interface DocumentViewerProps {
   url: string
   format?: string
   content: string
+  outline?: OutlineEntry[]
   className?: string
   appControls?: ReactNode
   headerControls?: ReactNode
   beforeDocument?: ReactNode
+  floatingControls?: ReactNode
+  audioFollowPolicy?: AudioFollowPolicy
+  onSelectionIntent?: { snapshot: () => void;
+    invalidate: () => void }
+  onReaderBrowse?: () => void
   ttsHighlight?: TtsHighlightOptions
   searchTarget?: SearchOpenTarget | null
   restoreBookmark?: boolean
   loading?: boolean
+  /** Restore-flagged open: the viewer mounts hidden behind the restoring surface. */
+  restoringDocument?: boolean
+  onRestoringDocumentComplete?: () => void
   loadError?: string
   onClose: () => void
+  onTextTargetApiChange?: (api: ViewerTextTargetApi | null) => void
 }
 
 export function DocumentViewer({
   url,
   format,
   content,
+  outline,
   className = '',
   appControls,
   headerControls,
   beforeDocument,
+  floatingControls,
   ttsHighlight,
+  audioFollowPolicy,
+  onReaderBrowse,
+  onSelectionIntent,
   searchTarget,
   restoreBookmark = false,
   loading = false,
+  restoringDocument = false,
+  onRestoringDocumentComplete,
   loadError,
   onClose,
+  onTextTargetApiChange,
 }: DocumentViewerProps) {
   const { t } = useTranslation()
   const readerShellRef = useRef<HTMLDivElement | null>(null)
@@ -92,12 +126,35 @@ export function DocumentViewer({
   const fullscreenPointerActivityRef = useRef(0)
   const fullscreenTouchStartRef = useRef<(PointerPosition & { id: number }) | null>(null)
   const plugin = resolveViewer(url, format)
+  const htmlUploadReady = format === 'html' && isUploadedHtmlDocumentUrl(url) && !loading && !loadError
+  const htmlOutline = useHtmlOutline(htmlUploadReady ? url : undefined, content)
+  const readerOutline = format === 'epub' ? outline : htmlOutline.entries
+  const getTextTargetViewport = useCallback(() => {
+    const shell = readerShellRef.current
+    return shell ? readerTextViewport(shell) : null
+  }, [])
   const [viewerBookmarkApi, setViewerBookmarkApi] = useState<ViewerBookmarkApi | null>(null)
   const [viewerFindApi, setViewerFindApi] = useState<ViewerFindApi | null>(null)
   const [viewerToolbarTarget, setViewerToolbarTarget] = useState<HTMLDivElement | null>(null)
   const [pdfFullscreen, setPdfFullscreen] = useState(false)
   const [pdfToolbarVisible, setPdfToolbarVisible] = useState(true)
   const [showScrollTop, setShowScrollTop] = useState(false)
+  useEffect(() => {
+    const shell = readerShellRef.current
+    const actions = shell?.querySelector<HTMLElement>('.reader-floating-actions')
+    if (!shell || !actions) {
+      return
+    }
+    // Enlarged text can wrap the capsule; keep bookmark feedback above its measured height.
+    const fit = () => shell.style.setProperty('--reader-actions-height', actions.getBoundingClientRect().height + 'px')
+    fit()
+    const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null
+    resize?.observe(actions)
+    return () => {
+      resize?.disconnect()
+      shell.style.removeProperty('--reader-actions-height')
+    }
+  }, [showScrollTop])
   const [pendingExternalUrl, setPendingExternalUrl] = useState<string | null>(null)
   const [externalLinkError, setExternalLinkError] = useState('')
   const { applyingFontFamily, readerSettingsStyle, readerSettingsProps } = useReaderSettings()
@@ -107,6 +164,7 @@ export function DocumentViewer({
     dismissBookmarkNotice,
     hasBookmark,
     isAtBookmark,
+    restoringBookmark,
     moveBookmark,
     removeBookmark,
     restoreBookmark: returnToBookmark,
@@ -118,6 +176,7 @@ export function DocumentViewer({
       Boolean(viewerBookmarkApi),
     restoreOnOpen: restoreBookmark,
     viewerApi: viewerBookmarkApi,
+    onRestoringDocumentComplete,
   })
 
   const {
@@ -134,8 +193,27 @@ export function DocumentViewer({
     handleViewerFindResult,
   } = useFindInPage(readerRef, viewerFindApi, content)
 
+  useEffect(() => {
+    const shell = readerShellRef.current
+    if (shell && onReaderBrowse && audioFollowPolicy?.active !== false) {
+      return bindReaderBrowse(shell, onReaderBrowse)
+    }
+  }, [audioFollowPolicy?.active, onReaderBrowse, url])
+
+  useEffect(() => {
+    const shell = readerShellRef.current
+    if (!shell || !onSelectionIntent) {
+      return
+    }
+    return bindSelectionIntent(shell, onSelectionIntent)
+  }, [onSelectionIntent, url])
+
   useTtsHighlight(readerRef, ttsHighlight
-    ? { ...ttsHighlight, enabled: ttsHighlight.enabled && plugin.id !== 'pdf' }
+    ? {
+      ...ttsHighlight,
+      audioFollowPolicy,
+      enabled: ttsHighlight.enabled && plugin.id !== 'pdf',
+    }
     : {
       enabled: false,
       currentChunkIndex: null,
@@ -150,12 +228,16 @@ export function DocumentViewer({
 
   const togglePdfFullscreen = useCallback(() => {
     const shell = readerShellRef.current
-    if (!shell) return
+    if (!shell) {
+      return
+    }
     const doc = shell.ownerDocument
     const next = !pdfFullscreen
 
     setShowFind(false)
-    if (next) setPdfToolbarVisible(true)
+    if (next) {
+      setPdfToolbarVisible(true)
+    }
     setPdfFullscreen(next)
     if (next && typeof shell.requestFullscreen === 'function') {
       // Keep the CSS reading mode when a mobile WebView rejects native fullscreen.
@@ -166,14 +248,18 @@ export function DocumentViewer({
   }, [pdfFullscreen, setShowFind])
 
   const clearFullscreenToolbarTimer = useCallback(() => {
-    if (fullscreenToolbarTimerRef.current === null) return
+    if (fullscreenToolbarTimerRef.current === null) {
+      return
+    }
     window.clearTimeout(fullscreenToolbarTimerRef.current)
     fullscreenToolbarTimerRef.current = null
   }, [])
 
   const scheduleFullscreenToolbarHide = useCallback(() => {
     clearFullscreenToolbarTimer()
-    if (!pdfFullscreen) return
+    if (!pdfFullscreen) {
+      return
+    }
 
     const hideWhenIdle = () => {
       const toolbar = viewerToolbarTarget
@@ -197,19 +283,26 @@ export function DocumentViewer({
   }, [clearFullscreenToolbarTimer, pdfFullscreen, viewerToolbarTarget])
 
   const revealFullscreenToolbar = useCallback(() => {
-    if (!pdfFullscreen) return
+    if (!pdfFullscreen) {
+      return
+    }
     setPdfToolbarVisible(true)
     scheduleFullscreenToolbarHide()
   }, [pdfFullscreen, scheduleFullscreenToolbarHide])
 
   useEffect(() => {
-    if (pdfFullscreen) scheduleFullscreenToolbarHide()
-    else clearFullscreenToolbarTimer()
+    if (pdfFullscreen) {
+      scheduleFullscreenToolbarHide()
+    } else {
+      clearFullscreenToolbarTimer()
+    }
     return clearFullscreenToolbarTimer
   }, [clearFullscreenToolbarTimer, pdfFullscreen, scheduleFullscreenToolbarHide])
 
   const handleFullscreenPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!pdfFullscreen || event.pointerType === 'mouse') return
+    if (!pdfFullscreen || event.pointerType === 'mouse') {
+      return
+    }
     fullscreenTouchStartRef.current = {
       id: event.pointerId,
       x: event.clientX,
@@ -218,9 +311,13 @@ export function DocumentViewer({
   }, [pdfFullscreen])
 
   const handleFullscreenPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!pdfFullscreen || event.pointerType !== 'mouse') return
+    if (!pdfFullscreen || event.pointerType !== 'mouse') {
+      return
+    }
     const now = performance.now()
-    if (now - fullscreenPointerActivityRef.current < PDF_FULLSCREEN_POINTER_THROTTLE_MS) return
+    if (now - fullscreenPointerActivityRef.current < PDF_FULLSCREEN_POINTER_THROTTLE_MS) {
+      return
+    }
     fullscreenPointerActivityRef.current = now
     revealFullscreenToolbar()
   }, [pdfFullscreen, revealFullscreenToolbar])
@@ -228,13 +325,24 @@ export function DocumentViewer({
   const handleFullscreenPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     const start = fullscreenTouchStartRef.current
     fullscreenTouchStartRef.current = null
-    if (!pdfFullscreen || event.pointerType === 'mouse' || start?.id !== event.pointerId) return
-    if (!isFullscreenToolbarTap(start, { x: event.clientX, y: event.clientY })) return
+    if (!pdfFullscreen || event.pointerType === 'mouse' || start?.id !== event.pointerId) {
+      return
+    }
+    if (!isFullscreenToolbarTap(start, {
+      x: event.clientX,
+      y: event.clientY,
+    })) {
+      return
+    }
 
     const target = event.target
-    if (target instanceof Element && target.closest('button, a, input, select, [role="button"], [role="menu"]')) return
+    if (target instanceof Element && target.closest('button, a, input, select, [role="button"], [role="menu"]')) {
+      return
+    }
     const selection = event.currentTarget.ownerDocument.getSelection()
-    if (selection && !selection.isCollapsed) return
+    if (selection && !selection.isCollapsed) {
+      return
+    }
 
     if (pdfToolbarVisible) {
       setPdfToolbarVisible(false)
@@ -251,16 +359,26 @@ export function DocumentViewer({
   ])
 
   useEffect(() => {
-    if (plugin.id !== 'pdf') return
+    if (plugin.id !== 'pdf') {
+      return
+    }
     const shell = readerShellRef.current
-    if (!shell) return
+    if (!shell) {
+      return
+    }
     const doc = shell.ownerDocument
     const handleFullscreenChange = () => {
-      if (doc.fullscreenElement !== shell) setPdfFullscreen(false)
+      if (doc.fullscreenElement !== shell) {
+        setPdfFullscreen(false)
+      }
     }
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !doc.fullscreenElement) setPdfFullscreen(false)
-      if (event.key === 'Tab' && pdfFullscreen) revealFullscreenToolbar()
+      if (event.key === 'Escape' && !doc.fullscreenElement) {
+        setPdfFullscreen(false)
+      }
+      if (event.key === 'Tab' && pdfFullscreen) {
+        revealFullscreenToolbar()
+      }
     }
 
     doc.addEventListener('fullscreenchange', handleFullscreenChange)
@@ -272,9 +390,13 @@ export function DocumentViewer({
   }, [pdfFullscreen, plugin.id, revealFullscreenToolbar])
 
   useEffect(() => {
-    if (plugin.id !== 'pdf') return
+    if (plugin.id !== 'pdf') {
+      return
+    }
     const shell = readerShellRef.current
-    if (!shell) return
+    if (!shell) {
+      return
+    }
     const doc = shell.ownerDocument
     return () => {
       if (doc.fullscreenElement === shell && typeof doc.exitFullscreen === 'function') {
@@ -288,35 +410,59 @@ export function DocumentViewer({
   // the app URL and can account for the fixed document header offset.
   const scrollToHash = useCallback((hash: string) => {
     const root = readerRef.current
-    if (!root || !hash.startsWith('#')) return
+    if (!root || !hash.startsWith('#')) {
+      return
+    }
 
     const id = decodeReaderHash(hash.slice(1))
     const doc = root.ownerDocument
     const idTarget = doc.getElementById(id)
     const namedTarget = Array.from(doc.getElementsByName(id)).find((node) => root.contains(node))
     const target = idTarget && root.contains(idTarget) ? idTarget : namedTarget
-    if (!target) return
+    if (!target) {
+      return
+    }
 
+    onReaderBrowse?.()
     scrollToReaderElement(target)
-  }, [])
+    return target
+  }, [onReaderBrowse])
+
+  function navigateOutline(target: string) {
+    if (format === 'epub') {
+      return scrollToHash('#' + target)
+    }
+    const selector = readerSectionSelector(Number(target))
+    const section = selector && readerRef.current?.querySelector<HTMLElement>(selector)
+    if (section) {
+      onReaderBrowse?.()
+      scrollToReaderElement(section)
+      return section
+    }
+  }
 
   useEffect(() => {
-    if (plugin.id === 'pdf' || loading || loadError || !content || !searchTarget) return
+    if (plugin.id === 'pdf' || loading || loadError || !content || !searchTarget) {
+      return
+    }
 
+    onReaderBrowse?.()
     let highlightedRoot: HTMLElement | null = null
     const frame = requestAnimationFrame(() => {
       const root = readerRef.current
-      if (!root) return
+      if (!root) {
+        return
+      }
       highlightedRoot = root
       clearSearchTargetHighlight(root)
       const sectionSelector = readerSectionSelector(searchTarget.sectionIndex)
       const section = sectionSelector ? root.querySelector<HTMLElement>(sectionSelector) : null
       const sectionTarget = searchTarget.text
         ? highlightSearchTarget(
-            section ?? root,
-            searchTarget.text,
-            searchTarget.occurrenceIndex ?? 0,
-          )
+          section ?? root,
+          searchTarget.text,
+          searchTarget.occurrenceIndex ?? 0,
+        )
         : null
       // Exact-phrase verification can find a phrase in a different section
       // from SQLite's best broad candidate. Keep the whole-reader fallback for
@@ -337,22 +483,30 @@ export function DocumentViewer({
 
     return () => {
       cancelAnimationFrame(frame)
-      if (highlightedRoot) clearSearchTargetHighlight(highlightedRoot)
+      if (highlightedRoot) {
+        clearSearchTargetHighlight(highlightedRoot)
+      }
     }
-  }, [content, loadError, loading, plugin.id, scrollToHash, searchTarget, url])
+  }, [content, loadError, loading, onReaderBrowse, plugin.id, scrollToHash, searchTarget, url])
 
   // Direct rendering makes document links ordinary DOM events again. Internal
   // hash links scroll in-place; everything else asks before leaving the app.
   useEffect(() => {
     const root = readerRef.current
-    if (!root) return
+    if (!root) {
+      return
+    }
     const readerRoot = root
 
     function handleReaderClick(event: MouseEvent) {
       const target = event.target
-      if (!(target instanceof Element)) return
+      if (!(target instanceof Element)) {
+        return
+      }
       const link = target.closest('a[href]')
-      if (!link || !readerRoot.contains(link)) return
+      if (!link || !readerRoot.contains(link)) {
+        return
+      }
 
       const href = link.getAttribute('href') ?? ''
       // Imported content never gets browser-default link behavior. Papercut
@@ -367,7 +521,9 @@ export function DocumentViewer({
       }
 
       const externalUrl = getExternalLinkUrl(href)
-      if (!externalUrl) return
+      if (!externalUrl) {
+        return
+      }
 
       setExternalLinkError('')
       setPendingExternalUrl(externalUrl)
@@ -384,15 +540,21 @@ export function DocumentViewer({
 
   const scrollToTop = useCallback(() => {
     dismissBookmarkNotice()
+    onReaderBrowse?.()
     if (plugin.id === 'pdf' && viewerBookmarkApi) {
       viewerBookmarkApi.scrollToTop()
       return
     }
-    window.scrollTo({ top: 0, behavior: readerScrollBehavior() })
-  }, [dismissBookmarkNotice, plugin.id, viewerBookmarkApi])
+    window.scrollTo({
+      top: 0,
+      behavior: readerScrollBehavior(),
+    })
+  }, [dismissBookmarkNotice, onReaderBrowse, plugin.id, viewerBookmarkApi])
 
   const openPendingExternalUrl = useCallback(async () => {
-    if (!pendingExternalUrl) return
+    if (!pendingExternalUrl) {
+      return
+    }
     try {
       await openExternalUrl(pendingExternalUrl)
       setPendingExternalUrl(null)
@@ -436,7 +598,9 @@ export function DocumentViewer({
       className={appClassName}
       data-reader-theme={plugin.id !== 'pdf' ? readerSettingsProps.settings.pageTheme : undefined}
       onFocusCapture={revealFullscreenToolbar}
-      onPointerCancel={() => { fullscreenTouchStartRef.current = null }}
+      onPointerCancel={() => {
+        fullscreenTouchStartRef.current = null
+      }}
       onPointerDown={handleFullscreenPointerDown}
       onPointerMove={handleFullscreenPointerMove}
       onPointerUp={handleFullscreenPointerUp}
@@ -448,7 +612,7 @@ export function DocumentViewer({
               <path d="M19 12H5" />
               <path d="m12 19-7-7 7-7" />
             </svg>
-            {t('reader.back')}
+            <span className="back-label">{t('reader.back')}</span>
           </button>
         </div>
         <div className="header-right">
@@ -462,19 +626,20 @@ export function DocumentViewer({
             {plugin.id !== 'pdf' && (
               <ReaderSettings disabled={loading} {...readerSettingsProps} />
             )}
+            {!loading && !loadError && readerOutline && readerOutline.length > 0 && (
+              <DocumentOutline key={url} entries={readerOutline} onNavigate={navigateOutline} />
+            )}
             <button
               className="find-btn"
+              title={t('reader.find')}
               disabled={loading || Boolean(loadError)}
               onClick={() => {
                 setShowFind(true)
                 setTimeout(() => findInputRef.current?.focus(), 0)
               }}
             >
-              <svg className="find-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <circle cx="11" cy="11" r="7" />
-                <path d="m16 16 5 5" />
-              </svg>
-              {t('reader.find')}
+              <SearchIcon className="find-icon" />
+              <span className="find-label">{t('reader.find')}</span>
             </button>
           </div>
         </div>
@@ -492,9 +657,18 @@ export function DocumentViewer({
           matchCount={findMatchCount}
           currentIndex={findCurrentIndex}
           inputRef={findInputRef}
-          onChange={handleFind}
-          onNext={findNext}
-          onPrev={findPrev}
+          onChange={(query) => {
+            onReaderBrowse?.()
+            handleFind(query)
+          }}
+          onNext={() => {
+            onReaderBrowse?.()
+            findNext()
+          }}
+          onPrev={() => {
+            onReaderBrowse?.()
+            findPrev()
+          }}
           onClose={closeFind}
         />
       )}
@@ -506,7 +680,12 @@ export function DocumentViewer({
         style={readerSettingsStyle}
         aria-busy={Boolean(applyingFontFamily) || undefined}
       >
-        {loading ? (
+        {loadError ? (
+          <div className="document-html-surface document-loading-surface document-load-error" role="alert">
+            <strong>{t('reader.unableToOpen')}</strong>
+            <span dir="auto">{loadError}</span>
+          </div>
+        ) : loading ? (
           <div className="document-html-surface document-loading-surface" role="status" aria-live="polite">
             <span className="spinner" aria-hidden="true" />
             <span className="document-loading-message">
@@ -519,37 +698,59 @@ export function DocumentViewer({
               </span>
             </span>
           </div>
-        ) : loadError ? (
-          <div className="document-html-surface document-loading-surface document-load-error" role="alert">
-            <strong>{t('reader.unableToOpen')}</strong>
-            <span dir="auto">{loadError}</span>
-          </div>
         ) : (
-          <ViewerComponent
-            url={url}
-            format={format}
-            content={content}
-            contentRef={readerRef}
-            toolbarTarget={viewerToolbarTarget}
-            searchTarget={searchTarget}
-            pdfTtsHighlightSpans={pdfTtsHighlightSpans}
-            fullscreen={pdfFullscreen}
-            onBookmarkApiChange={setViewerBookmarkApi}
-            onFindApiChange={setViewerFindApi}
-            onFindResult={handleViewerFindResult}
-            onFullscreenChange={togglePdfFullscreen}
-          />
+          <div className={restoringDocument ? 'document-viewer-hidden' : 'document-viewer-shown'}>
+            <ViewerComponent
+              url={url}
+              format={format}
+              content={content}
+              contentRef={readerRef}
+              htmlBodyRef={htmlOutline.bodyRef}
+              toolbarTarget={viewerToolbarTarget}
+              searchTarget={searchTarget}
+              pdfTtsHighlightSpans={pdfTtsHighlightSpans}
+              audioFollowPolicy={audioFollowPolicy}
+              onReaderBrowse={onReaderBrowse}
+              fullscreen={pdfFullscreen}
+              onBookmarkApiChange={setViewerBookmarkApi}
+              onFindApiChange={setViewerFindApi}
+              onFindResult={handleViewerFindResult}
+              onTextTargetApiChange={onTextTargetApiChange}
+              getTextTargetViewport={onTextTargetApiChange ? getTextTargetViewport : undefined}
+              onFullscreenChange={togglePdfFullscreen}
+            />
+          </div>
+        )}
+
+        {(restoringBookmark || restoringDocument) && !loading && !loadError && (
+          <div
+            className="document-html-surface document-loading-surface document-restoring-surface"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="spinner" aria-hidden="true" />
+            <span className="document-loading-message">
+              <span>{t('reader.restoringBookmark')}</span>
+              <span className="document-loading-detail">
+                {t('reader.largeDocumentDelay')}
+              </span>
+            </span>
+          </div>
         )}
       </main>
 
       {showScrollTop && (
         <div className="reader-floating-actions">
+          {floatingControls}
           <ReaderBookmarkButton
             hasBookmark={hasBookmark}
             isAtBookmark={isAtBookmark}
             onMove={moveBookmark}
             onRemove={removeBookmark}
-            onRestore={returnToBookmark}
+            onRestore={() => {
+              onReaderBrowse?.()
+              returnToBookmark()
+            }}
             onSave={saveBookmark}
           />
 
@@ -594,8 +795,14 @@ function bookmarkNoticeText(
   notice: 'restored' | 'saved' | 'updated' | 'removed' | 'changeUndone',
   t: TFunction,
 ): string {
-  if (notice === 'restored') return t('reader.bookmarkRestored')
-  if (notice === 'removed') return t('reader.bookmarkRemoved')
-  if (notice === 'changeUndone') return t('reader.bookmarkChangeUndone')
+  if (notice === 'restored') {
+    return t('reader.bookmarkRestored')
+  }
+  if (notice === 'removed') {
+    return t('reader.bookmarkRemoved')
+  }
+  if (notice === 'changeUndone') {
+    return t('reader.bookmarkChangeUndone')
+  }
   return notice === 'updated' ? t('reader.bookmarkUpdated') : t('reader.bookmarkSaved')
 }

@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
 import { parsePdfRecognitionJob } from './pdfRecognitionJob'
 
 describe('parsePdfRecognitionJob', () => {
@@ -12,7 +16,10 @@ describe('parsePdfRecognitionJob', () => {
         lowConfidencePages: [4],
       },
       sessionId: 'previous-session',
-    })).toMatchObject({ documentUrl: '/uploads/abc123.pdf', language: 'ara' })
+    })).toMatchObject({
+      documentUrl: '/uploads/abc123.pdf',
+      language: 'ara',
+    })
 
     expect(parsePdfRecognitionJob({
       documentUrl: '/uploads/abc123.pdf',

@@ -16,9 +16,14 @@
 
 .app-reader {
   width: min(100%, 2000px);
+  --reader-tools-inset: max(4rem, calc((100vw - 2000px) / 2 + 4rem));
+  --reader-tools-bottom-inset: 2rem;
+  --reader-actions-bottom: calc(var(--reader-tools-bottom-inset) + var(--reader-playback-offset, 0px));
+  --reader-notice-bottom: calc(var(--reader-tools-bottom-inset) + max(calc(var(--reader-playback-offset, 0px) + var(--reader-actions-height, 3.4rem)), var(--reader-playback-height, 0px)) + 0.65rem);
 }
 
 .app-reader-pdf {
+  container: pdf-reader / inline-size;
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
@@ -145,6 +150,10 @@
   min-width: 0;
 }
 
+.header-control-group-audio .audio-compact-row {
+  flex-wrap: wrap;
+}
+
 .header-controls-slot-disabled {
   pointer-events: none;
   opacity: 0.5;
@@ -175,12 +184,22 @@
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
+.reader-settings-btn,
+.document-outline-trigger {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
 .find-btn {
+  min-height: 2.35rem;
+}
+
+.find-btn,
+.document-outline-trigger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  min-height: 2.35rem;
   background: var(--control-surface);
   border: 1px solid transparent;
   border-radius: var(--radius-control);
@@ -192,7 +211,8 @@
   white-space: nowrap;
 }
 
-.find-btn:focus-visible {
+.find-btn:focus-visible,
+.document-outline-trigger:focus-visible {
   border-color: transparent;
   color: var(--accent-text);
   background: var(--surface-accent);
@@ -223,6 +243,28 @@ html[dir="rtl"] .back-icon {
 
 .document-view {
   margin-top: 1rem;
+}
+
+.app-reader[data-reader-theme="sepia"] {
+  --reader-surface: #f5ebd7;
+  --reader-text: #392f25;
+  --reader-muted: #685744;
+  --reader-heading: #30261c;
+  --reader-link: #245674;
+  --reader-link-hover: #183e55;
+  --reader-border: #bba98d;
+  --reader-subtle: #ebe0ca;
+  --reader-accent-border: #876d4f;
+  --reader-highlight-find: #f4dd93;
+  --reader-highlight-current: #e7ae52;
+  --reader-highlight-current-text: var(--reader-text);
+  /* The word is painted over the sentence. Opaque fills keep caption ink legible where they overlap. */
+  --highlight-tts: #f5e0e7;
+  --highlight-tts-word: #f1cde5;
+}
+
+.app-reader[data-reader-theme="sepia"] .document-html-surface {
+  color-scheme: light;
 }
 
 .app-reader[data-reader-theme="gray"] {
@@ -281,17 +323,20 @@ html[dir="rtl"] .back-icon {
 
 .document-loading-surface {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
   min-height: 320px;
   color: var(--text-body);
   font-weight: 600;
+  text-align: center;
 }
 
 .document-loading-message {
   display: grid;
   gap: 0.2rem;
+  justify-items: center;
 }
 
 /* Keep quick opens visually quiet. These details become accessible when their
@@ -312,6 +357,24 @@ html[dir="rtl"] .back-icon {
   to {
     visibility: visible;
   }
+}
+
+/* Stay outside document flow so removing the status cannot shift the seek. */
+.document-restoring-surface {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+/* Restore-flagged opens mount the viewer hidden behind the loading surface
+ * so the book is rasterized once, already scrolled to the bookmark. */
+.document-viewer-hidden,
+.document-viewer-shown {
+  display: contents;
+}
+
+.document-viewer-hidden {
+  visibility: hidden;
 }
 
 .document-load-error {
@@ -436,15 +499,53 @@ html[dir="rtl"] .back-icon {
 .reader-floating-actions,
 .reader-bookmark-notice {
   position: fixed;
-  right: max(4rem, calc((100vw - 2000px) / 2 + 4rem));
+  inset-inline-end: var(--reader-tools-inset);
+  inset-inline-start: auto;
   z-index: 11;
 }
 
 .reader-floating-actions {
-  bottom: calc(2rem + env(safe-area-inset-bottom));
+  bottom: calc(var(--reader-actions-bottom, 2rem) + env(safe-area-inset-bottom));
   display: inline-flex;
-  flex-direction: column;
-  gap: 0.65rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.125rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.25rem;
+  border: 1px solid transparent;
+  border-radius: 1.75rem;
+  background: var(--control-surface);
+  box-shadow: 0 2px 10px var(--shadow-panel);
+}
+
+.reader-floating-actions :is(.reader-bookmark-btn, .scroll-top-btn) {
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--accent-text);
+  box-shadow: none;
+}
+
+.reader-floating-actions > span { display: inline-flex; }
+
+.reader-floating-actions .reader-bookmark-btn-active {
+  background: var(--surface-accent);
+}
+
+.reader-floating-actions :is(.reader-bookmark-btn, .scroll-top-btn):focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: -3px;
+  box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .reader-floating-actions :is(.reader-bookmark-btn, .scroll-top-btn):hover {
+    background: var(--surface-accent);
+    color: var(--accent-ink);
+  }
 }
 
 .reader-bookmark-btn {
@@ -504,7 +605,6 @@ html[dir="rtl"] .back-icon {
 }
 
 .reader-bookmark-popover {
-  z-index: 200;
   min-width: min(13rem, calc(100vw - 2rem));
 }
 
@@ -518,6 +618,10 @@ html[dir="rtl"] .back-icon {
 }
 
 .reader-bookmark-menu-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
   min-height: 2.6rem;
   padding: 0.65rem 0.8rem;
   border-bottom: 1px solid var(--row-divider);
@@ -540,10 +644,6 @@ html[dir="rtl"] .back-icon {
 }
 
 .reader-bookmark-menu-item-danger {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 0.5rem;
   color: var(--danger);
 }
 
@@ -558,11 +658,13 @@ html[dir="rtl"] .back-icon {
 }
 
 .reader-bookmark-notice {
-  bottom: calc(9.1rem + env(safe-area-inset-bottom));
+  bottom: calc(var(--reader-notice-bottom) + env(safe-area-inset-bottom));
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   max-width: min(24rem, calc(100vw - 2rem));
+  max-height: max(0px, calc(100dvh - var(--reader-notice-bottom) - 1rem - env(safe-area-inset-bottom)));
+  overflow-y: auto;
   border: 1px solid transparent;
   border-radius: var(--radius-surface);
   background: var(--control-surface);
@@ -573,10 +675,10 @@ html[dir="rtl"] .back-icon {
   font-weight: 600;
 }
 
-.app-audio-floating .reader-floating-actions,
-.app-audio-floating .reader-bookmark-notice {
-  right: auto;
-  left: max(4rem, calc((100vw - 2000px) / 2 + 4rem));
+.app-reader[data-reader-tools-layout="beside"] .reader-floating-actions,
+.app-reader[data-reader-tools-layout="beside"] .reader-bookmark-notice {
+  inset-inline-end: auto;
+  inset-inline-start: var(--reader-tools-inset);
 }
 
 .reader-bookmark-notice button {
@@ -598,7 +700,8 @@ html[dir="rtl"] .back-icon {
 
 @media (hover: hover) and (pointer: fine) {
   .back-button:hover,
-  .find-btn:hover:not(:disabled) {
+  .find-btn:hover:not(:disabled),
+  .document-outline-trigger:hover {
     border-color: transparent;
     color: var(--accent-text);
     background: var(--surface-accent);
@@ -637,6 +740,19 @@ html[dir="rtl"] .back-icon {
   height: 1.9rem;
   padding: 0;
   color: var(--text-muted);
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+@media (pointer: coarse) {
+  .reader-bookmark-menu-item {
+    min-height: 2.75rem;
+  }
+
+  .reader-bookmark-notice .reader-bookmark-dismiss {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
 }
 
 ::highlight(search-target) {
@@ -654,15 +770,12 @@ html[dir="rtl"] .back-icon {
   color: var(--reader-highlight-current-text);
 }
 
-/* Legacy imported audiobook bundles can restore pre-CSS HTML such as
-   <font color> and table bgcolor. In dark mode those fixed colors can create
-   white islands with pale text, so keep old presentational colors from
-   overriding the themed reader surface. */
+/* Restored HTML can carry legacy presentation colors that clash with the chosen page palette. */
 html[data-theme="dark"] .document-html-content :where(font[color], [color]) {
   color: inherit;
 }
 
-.app-reader:is([data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-content :where(font[color], [color]) {
+.app-reader:is([data-reader-theme="sepia"], [data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-content :where(font[color], [color]) {
   color: inherit;
 }
 
@@ -670,7 +783,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   background-color: transparent;
 }
 
-.app-reader:is([data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-content :where([bgcolor]) {
+.app-reader:is([data-reader-theme="sepia"], [data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-content :where([bgcolor]) {
   background-color: transparent;
 }
 
@@ -705,16 +818,23 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   text-align: center;
 }
 
-@media (min-width: 1100px) {
-  .app-reader-pdf .doc-header {
+@media (min-width: 768px) {
+  .app-reader-pdf:not(.app-reader-pdf-fullscreen) {
+    padding-top: 0.75rem;
+  }
+}
+
+@container pdf-reader (min-width: 44em) {
+  .app-reader-pdf:not(.app-reader-pdf-fullscreen) .doc-header {
     grid-template-areas: "back viewer controls";
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 }
 
 @media (max-width: 900px) {
   .doc-header {
-    grid-template-columns: minmax(0, 1fr) auto;
+    /* Reserve Back's intrinsic width; secondary groups wrap inside the remaining column. */
+    grid-template-columns: auto minmax(0, 1fr);
     gap: 0.7rem 0.75rem;
   }
 
@@ -724,13 +844,25 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 }
 
 @media (max-width: 767px) {
+  .reader-settings-btn,
+  .document-outline-trigger {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
   .app-reader {
     padding-inline: 0.35rem;
     background: var(--reader-surface);
+    --reader-tools-inset: 1rem;
+    --reader-tools-bottom-inset: 1rem;
   }
 
   .app-reader-pdf {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .app-reader-pdf:not(.app-reader-pdf-fullscreen) {
+    padding-top: var(--mobile-safe-top-space);
   }
 
   .app-reader-pdf .doc-header {
@@ -751,22 +883,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
     padding-inline: 0.75rem;
   }
 
-  .reader-floating-actions,
   .reader-bookmark-notice {
-    right: 1rem;
-  }
-
-  .app-audio-floating .reader-floating-actions {
-    left: 1rem;
-    bottom: calc(1rem + env(safe-area-inset-bottom));
-  }
-
-  .app-audio-floating .reader-bookmark-notice {
-    bottom: calc(8.1rem + env(safe-area-inset-bottom));
-  }
-
-  .reader-bookmark-notice {
-    bottom: calc(9.1rem + env(safe-area-inset-bottom));
     max-width: calc(100vw - 2rem);
   }
 
@@ -775,7 +892,54 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   }
 }
 
+/* Icon-only Find keeps every reader control on Back's row; the label stays for screen readers. */
+@media (max-width: 600px) {
+  .find-btn {
+    width: 2.5rem;
+    padding: 0;
+  }
+
+  .find-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* The shared Settings button grows to 44px and adds a shadow on touch; match its header neighbours. */
+  .doc-header .app-settings-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+  }
+}
+
+.doc-header .app-settings-btn:not(:focus-visible) {
+  box-shadow: none;
+}
+
+/* Icon-only Back (the mobile platform norm) lets all reader controls share one row on typical phones. */
 @media (max-width: 440px) {
+  .back-button {
+    width: 2.5rem;
+    padding: 0;
+  }
+
+  .back-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* Too narrow for one row: reader tools beside Back, playback controls on their own row. */
+@media (max-width: 390px) {
   .doc-header {
     align-items: start;
     gap: 0.65rem 0.5rem;
@@ -823,4 +987,111 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
     justify-content: flex-end;
     width: 100%;
   }
+}
+
+/* Generated text stays outside reader text nodes used by Find, bookmarks, and TTS. */
+.document-html-content .reader-image-error {
+  display: block;
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border: 1px dashed currentColor;
+  border-radius: var(--radius-compact);
+  font: 0.9em/1.5 system-ui, sans-serif;
+}
+
+.document-html-content .reader-image-error::before {
+  content: attr(data-message);
+}
+
+.document-outline-trigger {
+  position: relative;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.document-outline-tip {
+  display: none;
+  position: absolute;
+  inset-block-start: calc(100% + 0.25rem);
+  inset-inline-end: 0;
+  z-index: 1;
+  padding: 0.35rem 0.6rem;
+  border-radius: var(--radius-control);
+  color: var(--text-heading);
+  background: var(--surface);
+  box-shadow: 0 2px 8px var(--shadow-dialog);
+  pointer-events: none;
+}
+
+.document-outline-trigger:focus-visible .document-outline-tip {
+  display: block;
+}
+
+@media (hover: hover) {
+  .document-outline-trigger:hover .document-outline-tip {
+    display: block;
+  }
+}
+
+.document-outline-dialog {
+  width: min(100%, 24rem);
+  margin-inline-end: auto;
+}
+
+.document-outline-dialog ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.document-outline-dialog ol ol {
+  padding-inline-start: 0.875rem;
+}
+
+/* Keep deep publisher hierarchies readable when large text leaves only a narrow column. */
+.document-outline-dialog ol ol ol ol ol {
+  padding-inline-start: 0;
+}
+
+.document-outline-dialog li > button {
+  width: 100%;
+  padding: 0.55rem;
+  overflow-wrap: anywhere;
+  text-align: start;
+  min-height: 2.75rem;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--accent-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.document-outline-dialog li > button[aria-expanded] {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.document-outline-dialog li > button svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+html[dir="rtl"] .document-outline-dialog [aria-expanded="false"] svg {
+  transform: rotate(180deg);
+}
+
+.document-outline-dialog [aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+
+.document-outline-dialog li > button:is(:hover, :focus-visible) {
+  background: var(--surface-accent);
 }

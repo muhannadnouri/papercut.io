@@ -1,10 +1,24 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
+import type { ReaderDocument } from '../viewers/types'
 import type { SearchOpenTarget } from '../types/search'
+import { readReaderBookmark } from './useReaderBookmark'
 
 type DocumentLoadState =
   | { status: 'idle' }
-  | { status: 'loading'; url: string; message: string }
-  | { status: 'error'; url: string; message: string }
+  | { status: 'loading';
+    url: string;
+    message: string }
+  | { status: 'restoring';
+    url: string;
+    message: string }
+  | { status: 'error';
+    url: string;
+    message: string }
 
 type BrowseScrollSnapshot = {
   activeTab: string
@@ -16,7 +30,7 @@ type BrowseScrollSnapshot = {
 interface UseDocumentViewerStateOptions {
   activeTab: string
   documentsLoading: boolean
-  loadHtmlDocument: (url: string) => Promise<string>
+  loadReaderDocument: (url: string) => Promise<ReaderDocument>
 }
 
 interface OpenDocumentOptions {
@@ -31,38 +45,57 @@ function getDocumentBrowserPanelBody(tab: string): HTMLElement | null {
 /**
  * Owns the reader transition state that is shared by Library/Search/Audiobooks:
  * capture browse scroll, open one document at a time, ignore stale loads, and
- * restore the list position after the reader closes.
+ * restore the list position after the reader closes. HTML and outline share a
+ * request ID so a late response cannot pair one book with another book’s destinations.
  */
 export function useDocumentViewerState({
   activeTab,
   documentsLoading,
-  loadHtmlDocument,
+  loadReaderDocument,
 }: UseDocumentViewerStateOptions) {
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null)
   const [searchOpenTarget, setSearchOpenTarget] = useState<SearchOpenTarget | null>(null)
   const [restoreBookmark, setRestoreBookmark] = useState(false)
-  const [docContent, setDocContent] = useState('')
+  const [readerDocument, setReaderDocument] = useState<ReaderDocument | null>(null)
   const [documentLoad, setDocumentLoad] = useState<DocumentLoadState>({ status: 'idle' })
   const openDocumentRequestRef = useRef(0)
   const documentOpeningRef = useRef(false)
   const browseScrollRef = useRef<BrowseScrollSnapshot | null>(null)
 
+  useEffect(() => {
+    if (documentLoad.status !== 'restoring') {
+      return
+    }
+    const timer = window.setTimeout(() => {
+      setDocumentLoad(current => current === documentLoad ? { status: 'idle' } : current)
+    }, 20000)
+    return () => window.clearTimeout(timer)
+  }, [documentLoad])
+
   const clearSelectedDocument = useCallback((options?: { restoreBrowseScroll?: boolean }) => {
-    if (options?.restoreBrowseScroll === false) browseScrollRef.current = null
+    if (options?.restoreBrowseScroll === false) {
+      browseScrollRef.current = null
+    }
     openDocumentRequestRef.current += 1
     documentOpeningRef.current = false
     setSelectedDoc(null)
     setSearchOpenTarget(null)
     setRestoreBookmark(false)
-    setDocContent('')
+    setReaderDocument(null)
     setDocumentLoad({ status: 'idle' })
   }, [])
 
   useEffect(() => {
-    if (selectedDoc) return
+    if (selectedDoc) {
+      return
+    }
     const snapshot = browseScrollRef.current
-    if (!snapshot || snapshot.activeTab !== activeTab) return
-    if (documentsLoading) return
+    if (!snapshot || snapshot.activeTab !== activeTab) {
+      return
+    }
+    if (documentsLoading) {
+      return
+    }
 
     browseScrollRef.current = null
     let innerFrame = 0
@@ -88,7 +121,9 @@ export function useDocumentViewerState({
     options?: OpenDocumentOptions,
     prepareOpen?: () => void,
   ) => {
-    if (documentOpeningRef.current) return
+    if (documentOpeningRef.current) {
+      return
+    }
     documentOpeningRef.current = true
     const requestId = openDocumentRequestRef.current + 1
     openDocumentRequestRef.current = requestId
@@ -103,29 +138,59 @@ export function useDocumentViewerState({
     setSearchOpenTarget(target ?? null)
     setRestoreBookmark(Boolean(options?.restoreBookmark))
     setSelectedDoc(url)
-    setDocContent('')
-    setDocumentLoad({ status: 'loading', url, message: 'Opening Document...' })
+    setReaderDocument(null)
+    setDocumentLoad({
+      status: 'loading',
+      url,
+      message: 'Opening Document...',
+    })
     window.scrollTo({ top: 0 })
 
     try {
-      const html = await loadHtmlDocument(url)
-      if (openDocumentRequestRef.current !== requestId) return
+      const source = await loadReaderDocument(url)
+      if (openDocumentRequestRef.current !== requestId) {
+        return
+      }
       documentOpeningRef.current = false
-      setDocContent(html)
-      setDocumentLoad({ status: 'idle' })
+      setReaderDocument(source)
+      if (options?.restoreBookmark && readReaderBookmark(url)) {
+        // Paint the destination, not the top: the viewer mounts hidden while
+        // the bookmark anchor index builds and the seek completes, then the
+        // content reveals already scrolled. The failsafe unwedges a viewer
+        // that never registers its bookmark API.
+        setDocumentLoad({
+          status: 'restoring',
+          url,
+          message: 'Restoring bookmark...',
+        })
+      } else {
+        setDocumentLoad({ status: 'idle' })
+      }
     } catch (err) {
-      if (openDocumentRequestRef.current !== requestId) return
+      if (openDocumentRequestRef.current !== requestId) {
+        return
+      }
       const message = err instanceof Error ? err.message : String(err)
       documentOpeningRef.current = false
-      setDocContent('')
-      setDocumentLoad({ status: 'error', url, message })
+      setReaderDocument(null)
+      setDocumentLoad({
+        status: 'error',
+        url,
+        message,
+      })
       console.error('Failed to load document:', err)
     }
-  }, [activeTab, loadHtmlDocument])
+  }, [activeTab, loadReaderDocument])
+
+  const completeRestoringDocument = useCallback(() => {
+    setDocumentLoad((prev) => prev === documentLoad && prev.status === 'restoring' ? { status: 'idle' } : prev)
+  }, [documentLoad])
 
   return {
     clearSelectedDocument,
-    docContent,
+    completeRestoringDocument,
+    docContent: readerDocument?.html ?? '',
+    docOutline: readerDocument?.outline ?? [],
     documentLoad,
     documentOpening: documentLoad.status === 'loading',
     openDocument,

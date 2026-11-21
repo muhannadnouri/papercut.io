@@ -1,0 +1,128 @@
+/* Wide enough for two columns, so most screens show everything without scrolling. */
+.app-reset-dialog {
+  width: min(100%, 46rem);
+}
+
+/* Collapses to one column once two would drop below 18rem, with no breakpoint to maintain. */
+.app-reset-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 0.75rem 1.5rem;
+}
+
+.app-reset-stats {
+  grid-template-columns: repeat(auto-fit, minmax(5rem, 1fr));
+  margin-block-start: 0.5rem;
+  padding: 0.5rem 0.7rem;
+}
+
+.app-reset-stats .app-dialog-detail-row {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.app-reset-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.app-reset-confirm-icon {
+  flex: none;
+  inline-size: 1rem;
+  block-size: 1rem;
+}
+
+/* AppDialog centers its body, which makes these lists hard to scan. */
+.app-reset-heading,
+.app-reset-list,
+.app-reset-note,
+.app-reset-export p,
+.app-reset-blocked {
+  text-align: start;
+}
+
+.app-reset-heading {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.app-reset-heading:first-child {
+  margin-block-start: 0;
+}
+
+.app-reset-list {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.app-reset-locations {
+  font-size: 0.78rem;
+}
+
+.app-reset-export {
+  margin-block-start: 0.75rem;
+}
+
+.app-reset-export button {
+  margin-block-start: 0.5rem;
+}
+
+.app-reset-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  color: var(--text-body);
+  font-size: 0.8rem;
+  text-align: start;
+}
+
+.app-reset-note,
+.app-reset-export p {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.app-reset-blocked,
+.app-reset-error {
+  flex-basis: 100%;
+}
+
+/* Shares the row with the buttons when they fit, and wraps above them when they don't. */
+.app-reset-acknowledge {
+  flex: 1 1 16rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  text-align: start;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.app-reset-acknowledge input {
+  flex: none;
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+  margin: 0;
+  accent-color: var(--danger);
+}
+
+.app-reset-error {
+  text-align: start;
+}
+
+.app-reset-blocked {
+  margin: 0;
+  color: var(--danger-strong);
+  font-size: 0.8rem;
+}

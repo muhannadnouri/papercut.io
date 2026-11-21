@@ -6,7 +6,9 @@ interface ScrollTopButtonProps {
 }
 
 export function ScrollTopButton({ visible, onClick }: ScrollTopButtonProps) {
-  if (!visible) return null
+  if (!visible) {
+    return null
+  }
   return (
     <button className="scroll-top-btn" aria-label="Scroll to top" title="Top" onClick={onClick}>
       <svg className="scroll-top-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">

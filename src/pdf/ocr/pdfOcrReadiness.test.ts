@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
 import type { TextContent } from 'pdfjs-dist/types/src/display/api'
 import {
   finalizedPdfTextStatus,

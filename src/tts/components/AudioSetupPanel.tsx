@@ -1,11 +1,25 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
-import type { NativeTtsModelInstallProgress, NativeTtsModelStatus } from '../api/nativeTts'
+import type {
+  NativeTtsModelInstallProgress,
+  NativeTtsModelStatus,
+} from '../api/nativeTts'
 import { previewNativeTtsVoice } from '../api/nativeTts'
-import { getTtsPreviewText } from '../models'
+import {
+  getRecommendedTtsModel,
+  TTS_MODEL_PRESENTATION,
+  getTtsPreviewText,
+} from '../models'
 import { nativeTtsErrorMessage } from '../utils/errors'
 import {
+  DEFAULT_SILMA_NFE_STEP,
   LIBTASHKEEL_TEXT_PREPROCESSOR,
   SILMA_NFE_STEP_OPTIONS,
   TEXT_PREPROCESSOR_NONE,
@@ -22,21 +36,47 @@ interface SelectOption {
   value: string | number
 }
 
-const LANGUAGE_LABELS: Record<string, { label: string; sortKey: string }> = {
-  ar: { label: 'العربية (Arabic)', sortKey: 'Arabic' },
-  en: { label: 'English', sortKey: 'English' },
-  es: { label: 'Español (Spanish)', sortKey: 'Spanish' },
-  fr: { label: 'Français (French)', sortKey: 'French' },
-  hi: { label: 'हिन्दी (Hindi)', sortKey: 'Hindi' },
-  it: { label: 'Italiano (Italian)', sortKey: 'Italian' },
-  pt: { label: 'Português (Brasil) - Portuguese (Brazil)', sortKey: 'Portuguese' },
-  zh: { label: '中文（普通话） - Chinese (Mandarin)', sortKey: 'Chinese' },
+const LANGUAGE_LABELS: Record<string, { label: string;
+  sortKey: string }> = {
+  ar: {
+    label: 'العربية (Arabic)',
+    sortKey: 'Arabic',
+  },
+  en: {
+    label: 'English',
+    sortKey: 'English',
+  },
+  es: {
+    label: 'Español (Spanish)',
+    sortKey: 'Spanish',
+  },
+  fr: {
+    label: 'Français (French)',
+    sortKey: 'French',
+  },
+  hi: {
+    label: 'हिन्दी (Hindi)',
+    sortKey: 'Hindi',
+  },
+  it: {
+    label: 'Italiano (Italian)',
+    sortKey: 'Italian',
+  },
+  pt: {
+    label: 'Português (Brasil) - Portuguese (Brazil)',
+    sortKey: 'Portuguese',
+  },
+  zh: {
+    label: '中文（普通话） - Chinese (Mandarin)',
+    sortKey: 'Chinese',
+  },
 }
 
 // The model metadata can be locale-specific (`ar-JO`) even when the UI should
 // present one human language. Keep the full model id intact and group only the
 // language dropdown by base language; the model dropdown carries dialect/engine detail.
-function getLanguageOption(model: TtsModelInfo): { label: string; value: string } {
+function getLanguageOption(model: TtsModelInfo): { label: string;
+  value: string } {
   const value = model.language.split('-')[0].toLowerCase() || model.language
   const languageLabel = LANGUAGE_LABELS[value]?.label
     ?? model.languageLabel
@@ -44,6 +84,22 @@ function getLanguageOption(model: TtsModelInfo): { label: string; value: string 
     label: languageLabel,
     value,
   }
+}
+
+// Keep translated badges here; model identities and native capabilities stay unchanged.
+function modelOptionLabel(model: TtsModelInfo, recommendedId: string | undefined, t: TFunction): string {
+  const labels = [model.name]
+  const presentation = TTS_MODEL_PRESENTATION[model.id]
+  if (presentation?.small) {
+    labels.push(t('tts.setup.smallModel'))
+  }
+  if (presentation?.experimental) {
+    labels.push(t('settings.experimental'))
+  }
+  if (model.id === recommendedId) {
+    labels.push(t('tts.setup.recommended'))
+  }
+  return labels.join(' · ')
 }
 
 export interface AudioSetupPanelProps {
@@ -100,14 +156,19 @@ export function AudioSetupPanel({
   voices,
 }: AudioSetupPanelProps) {
   const { t } = useTranslation()
+  const advancedDetailsRef = useRef<HTMLDetailsElement | null>(null)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
   const previewRequestRef = useRef(0)
   const previewUrlRef = useRef<string | null>(null)
   const [previewState, setPreviewState] = useState<{
     selection: string
     status: 'idle' | 'loading' | 'playing'
-  }>({ selection: '', status: 'idle' })
-  const [previewError, setPreviewError] = useState<{ selection: string, message: string } | null>(null)
+  }>({
+    selection: '',
+    status: 'idle',
+  })
+  const [previewError, setPreviewError] = useState<{ selection: string,
+    message: string } | null>(null)
   const modelInstalling = modelStatus?.installing || (
     modelInstallProgress !== null &&
     modelInstallProgress.status !== 'installed' &&
@@ -133,14 +194,14 @@ export function AudioSetupPanel({
   const sourceAssetLabel = isSilmaModel ? t('tts.setup.sourceHuggingFace') : t('tts.setup.sourceGitHub')
   const silmaInstallNote = isSilmaModel
     ? [
-        silmaRuntimeMissing
-          ? t('tts.setup.installRuntimeNote')
-          : modelInstalled
-            ? t('tts.setup.silmaInstalledNote')
-            : t('tts.setup.silmaDownloadNote'),
-        modelSize ? t('tts.setup.downloadSize', { size: modelSize }) : '',
-        t('tts.setup.largeDownloadNote'),
-      ].filter(Boolean).join(' ')
+      silmaRuntimeMissing
+        ? t('tts.setup.installRuntimeNote')
+        : modelInstalled
+          ? t('tts.setup.silmaInstalledNote')
+          : t('tts.setup.silmaDownloadNote'),
+      modelSize ? t('tts.setup.downloadSize', { size: modelSize }) : '',
+      t('tts.setup.largeDownloadNote'),
+    ].filter(Boolean).join(' ')
     : null
   const selectedLanguage = selectedModel ? getLanguageOption(selectedModel).value : ''
   const languageOptions = models.reduce<SelectOption[]>((options, model) => {
@@ -158,21 +219,50 @@ export function AudioSetupPanel({
   const modelsForLanguage = selectedLanguage
     ? models.filter((model) => getLanguageOption(model).value === selectedLanguage)
     : models
+  const recommendedModel = getRecommendedTtsModel(modelsForLanguage, selectedLanguage)
   const showModelInstallDetails = !modelInstalled || silmaRuntimeMissing || modelInstallProgress !== null || modelInstalling
   const recommendedVoice = voices.find((item) => item.id === selectedModel?.defaultVoice)
   const previewSelection = [modelId, voice, textPreprocessor, silmaNfeStep].join('\0')
   const previewStatus = previewState.selection === previewSelection ? previewState.status : 'idle'
   const previewErrorMessage = previewError?.selection === previewSelection ? previewError.message : null
+  // Keep active non-default behavior visible while Advanced is collapsed.
+  const advancedSummary = [
+    hasTextProcessing && textPreprocessor !== selectedModel?.defaultTextPreprocessor
+      ? localizeTextPreprocessor(
+        textPreprocessors.find((item) => item.id === textPreprocessor),
+        t,
+      ).name
+      : '',
+    threadCount !== defaultThreadCount
+      ? `${showHighThreadWarning ? '⚠ ' : ''}${t('tts.setup.threadCount', { count: threadCount })}`
+      : '',
+    debugEnabled ? `${t('tts.setup.diagnostics')}: ${t('tts.setup.on')}` : '',
+    isSilmaModel && silmaNfeStep !== DEFAULT_SILMA_NFE_STEP
+      ? silmaNfeStepLabel(silmaNfeStep, t)
+      : '',
+  ].filter(Boolean).join(' · ')
+
+  useEffect(() => {
+    if (showHighThreadWarning && advancedDetailsRef.current) {
+      advancedDetailsRef.current.open = true
+    }
+  }, [showHighThreadWarning])
+
   const clearPreviewAudio = useCallback(() => {
     previewRequestRef.current += 1
     previewAudioRef.current?.pause()
     previewAudioRef.current = null
-    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current)
+    }
     previewUrlRef.current = null
   }, [])
   const stopPreview = useCallback(() => {
     clearPreviewAudio()
-    setPreviewState({ selection: '', status: 'idle' })
+    setPreviewState({
+      selection: '',
+      status: 'idle',
+    })
   }, [clearPreviewAudio])
 
   useEffect(() => clearPreviewAudio, [clearPreviewAudio, previewSelection])
@@ -183,7 +273,10 @@ export function AudioSetupPanel({
       return
     }
     onPreviewStart()
-    setPreviewState({ selection: previewSelection, status: 'loading' })
+    setPreviewState({
+      selection: previewSelection,
+      status: 'loading',
+    })
     setPreviewError(null)
     const requestId = previewRequestRef.current + 1
     previewRequestRef.current = requestId
@@ -197,15 +290,22 @@ export function AudioSetupPanel({
         threadCount,
         silmaNfeStep,
       })
-      if (previewRequestRef.current !== requestId) return
+      if (previewRequestRef.current !== requestId) {
+        return
+      }
       const url = URL.createObjectURL(new Blob([wav], { type: 'audio/wav' }))
       const audio = new Audio(url)
       previewUrlRef.current = url
       previewAudioRef.current = audio
       audio.onended = stopPreview
       await audio.play()
-      if (previewRequestRef.current !== requestId) return
-      setPreviewState({ selection: previewSelection, status: 'playing' })
+      if (previewRequestRef.current !== requestId) {
+        return
+      }
+      setPreviewState({
+        selection: previewSelection,
+        status: 'playing',
+      })
     } catch (error) {
       stopPreview()
       setPreviewError({
@@ -227,8 +327,11 @@ export function AudioSetupPanel({
             value={selectedLanguage}
             options={languageOptions}
             onChange={(language) => {
-              const nextModel = models.find((model) => getLanguageOption(model).value === language)
-              if (nextModel) onModelChange(nextModel.id)
+              const nextModel = getRecommendedTtsModel(models, language)
+                ?? models.find((model) => getLanguageOption(model).value === language)
+              if (nextModel) {
+                onModelChange(nextModel.id)
+              }
             }}
           />
 
@@ -251,7 +354,7 @@ export function AudioSetupPanel({
             >
               {modelsForLanguage.map((model) => (
                 <option key={model.id} value={model.id}>
-                  {model.name}
+                  {modelOptionLabel(model, recommendedModel?.id, t)}
                 </option>
               ))}
             </select>
@@ -299,7 +402,7 @@ export function AudioSetupPanel({
                 >
                   <div className="audiobook-status-row">
                     <span dir="auto">{modelProgressMessage ?? modelStatus?.message ?? t('tts.setup.preparingDownload')}</span>
-                    <span>{modelPercent}%</span>
+                    {modelInstallProgress?.status !== 'error' && <span>{modelPercent}%</span>}
                   </div>
                   {!modelInstalled && modelInstallProgress?.status !== 'error' && (
                     <div
@@ -344,6 +447,11 @@ export function AudioSetupPanel({
                 </option>
               ))}
             </select>
+            {voices.length === 1 && (
+              <span className="audio-thread-meta" dir="auto">
+                {t('tts.setup.singleVoice')}
+              </span>
+            )}
             {recommendedVoice && (
               <span className="audio-thread-meta" dir="auto">
                 {t('tts.setup.recommendedVoice', { voice: recommendedVoice.name })}
@@ -380,115 +488,130 @@ export function AudioSetupPanel({
         </div>
       </section>
 
-      <section className="audio-setup-group audio-setup-advanced" aria-label={t('tts.setup.advancedSettings')}>
-        <div className="audio-setup-group-heading">
-          <h4 className="audio-setup-group-title">{t('tts.setup.advanced')}</h4>
-        </div>
-        {hasTextProcessing && (
+      <details ref={advancedDetailsRef} className="audio-setup-group audio-setup-advanced">
+        <summary className="audio-setup-advanced-summary">
+          <span className="audio-setup-group-title">{t('tts.setup.advanced')}</span>
+          {advancedSummary && (
+            <span className="audio-setup-advanced-state" dir="auto">{advancedSummary}</span>
+          )}
+        </summary>
+        <div className="audio-setup-advanced-grid">
+          {hasTextProcessing && (
+            <SelectField
+              className="audio-field-text-processing"
+              label={'✨ ' + t('tts.setup.textProcessing')}
+              title={t('tts.setup.textProcessingTitle')}
+              value={textPreprocessor}
+              options={textPreprocessors.map((item) => ({
+                label: localizeTextPreprocessor(item, t).name,
+                value: item.id,
+              }))}
+              onChange={onTextPreprocessorChange}
+            >
+              <span className="audio-thread-meta">
+                {localizeTextPreprocessor(
+                  textPreprocessors.find((item) => item.id === textPreprocessor),
+                  t,
+                ).description}
+              </span>
+            </SelectField>
+          )}
           <SelectField
-            className="audio-field-text-processing"
-            label={'✨ ' + t('tts.setup.textProcessing')}
-            title={t('tts.setup.textProcessingTitle')}
-            value={textPreprocessor}
-            options={textPreprocessors.map((item) => ({
-              label: localizeTextPreprocessor(item, t).name,
-              value: item.id,
+            className="audio-field-threads"
+            label={'🧵 ' + t('tts.setup.threads')}
+            selectClassName="tts-threads"
+            title={t('tts.setup.threadsTitle')}
+            value={threadCount}
+            options={threadOptions.map((count) => ({
+              label: t('tts.setup.threadCount', { count }),
+              value: count,
             }))}
-            onChange={onTextPreprocessorChange}
+            onChange={(value) => onThreadCountChange(Number(value))}
           >
             <span className="audio-thread-meta">
-              {localizeTextPreprocessor(
-                textPreprocessors.find((item) => item.id === textPreprocessor),
-                t,
-              ).description}
-            </span>
-          </SelectField>
-        )}
-        <SelectField
-          className="audio-field-threads"
-          label={'🧵 ' + t('tts.setup.threads')}
-          selectClassName="tts-threads"
-          title={t('tts.setup.threadsTitle')}
-          value={threadCount}
-          options={threadOptions.map((count) => ({
-            label: t('tts.setup.threadCount', { count }),
-            value: count,
-          }))}
-          onChange={(value) => onThreadCountChange(Number(value))}
-        >
-          <span className="audio-thread-meta">
-            {appliedThreadCount !== null
-              ? t('tts.setup.threadSummaryApplied', {
+              {appliedThreadCount !== null
+                ? t('tts.setup.threadSummaryApplied', {
                   default: defaultThreadCount,
                   max: maxThreadCount,
                   applied: appliedThreadCount,
                 })
-              : t('tts.setup.threadSummary', {
+                : t('tts.setup.threadSummary', {
                   default: defaultThreadCount,
                   max: maxThreadCount,
                 })}
-          </span>
-          {showHighThreadWarning && (
-            <span className="audio-thread-warning" role="alert">
-              {t('tts.setup.threadWarning')}
             </span>
-          )}
-        </SelectField>
-        <label className="audio-field audio-field-diagnostics" title={t('tts.setup.diagnosticsTitle')}>
-          <span>{'🧪 ' + t('tts.setup.diagnostics')}</span>
-          <span className="audio-diagnostics-control">
-            <span className="audio-diagnostics-value">{debugEnabled ? t('tts.setup.on') : t('tts.setup.off')}</span>
-            <input
-              type="checkbox"
-              checked={debugEnabled}
-              onChange={(event) => onDiagnosticsChange?.(event.target.checked)}
-              disabled={!onDiagnosticsChange}
-            />
-            <span className="audio-diagnostics-switch" aria-hidden="true" />
-          </span>
-        </label>
-        {isSilmaModel && (
-          <SelectField
-            className="audio-field-silma-quality"
-            label={'🎚️ ' + t('tts.setup.silmaQuality')}
-            title={t('tts.setup.silmaQualityTitle')}
-            value={silmaNfeStep}
-            options={SILMA_NFE_STEP_OPTIONS.map((step) => ({
-              label: silmaNfeStepLabel(step, t),
-              value: step,
-            }))}
-            onChange={(value) => onSilmaNfeStepChange(Number(value))}
-          >
-            <span className="audio-thread-meta">
-              {t('tts.setup.qualityHelp')}
-            </span>
+            {showHighThreadWarning && (
+              <span className="audio-thread-warning" role="alert">
+                {t('tts.setup.threadWarning')}
+              </span>
+            )}
           </SelectField>
-        )}
-        {isSilmaModel && onProbeSilmaSidecar && (
-          <div className="audio-field audio-field-silma-probe">
-            <span><span aria-hidden="true">🚗</span> {t('tts.setup.silmaSidecar')}</span>
-            <button
-              type="button"
-              className="audio-probe-button"
-              onClick={onProbeSilmaSidecar}
-              disabled={silmaProbeRunning}
-              title={t('tts.setup.probeTitle')}
+          <label className="audio-field audio-field-diagnostics" title={t('tts.setup.diagnosticsTitle')}>
+            <span>{'🧪 ' + t('tts.setup.diagnostics')}</span>
+            <span className="audio-diagnostics-control">
+              <span className="audio-diagnostics-value">{debugEnabled ? t('tts.setup.on') : t('tts.setup.off')}</span>
+              <input
+                type="checkbox"
+                checked={debugEnabled}
+                onChange={(event) => onDiagnosticsChange?.(event.target.checked)}
+                disabled={!onDiagnosticsChange}
+              />
+              <span className="audio-diagnostics-switch" aria-hidden="true" />
+            </span>
+          </label>
+          {isSilmaModel && (
+            <SelectField
+              className="audio-field-silma-quality"
+              label={'🎚️ ' + t('tts.setup.silmaQuality')}
+              title={t('tts.setup.silmaQualityTitle')}
+              value={silmaNfeStep}
+              options={SILMA_NFE_STEP_OPTIONS.map((step) => ({
+                label: silmaNfeStepLabel(step, t),
+                value: step,
+              }))}
+              onChange={(value) => onSilmaNfeStepChange(Number(value))}
             >
-              {silmaProbeRunning ? t('tts.setup.probing') : t('tts.setup.probeSidecar')}
-            </button>
-          </div>
-        )}
-      </section>
+              <span className="audio-thread-meta">
+                {t('tts.setup.qualityHelp')}
+              </span>
+            </SelectField>
+          )}
+          {isSilmaModel && onProbeSilmaSidecar && (
+            <div className="audio-field audio-field-silma-probe">
+              <span><span aria-hidden="true">🚗</span> {t('tts.setup.silmaSidecar')}</span>
+              <button
+                type="button"
+                className="audio-probe-button"
+                onClick={onProbeSilmaSidecar}
+                disabled={silmaProbeRunning}
+                title={t('tts.setup.probeTitle')}
+              >
+                {silmaProbeRunning ? t('tts.setup.probing') : t('tts.setup.probeSidecar')}
+              </button>
+            </div>
+          )}
+        </div>
+      </details>
     </div>
   )
 }
 
 function silmaNfeStepLabel(step: number, t: TFunction): string {
-  if (step === 64) return t('tts.setup.qualityHighest', { step })
-  if (step === 32) return t('tts.setup.qualityHigh', { step })
-  if (step === 16) return t('tts.setup.qualityBalanced', { step })
-  if (step === 12) return t('tts.setup.qualityFast', { step })
-  if (step === 8) return t('tts.setup.qualityFaster', { step })
+  if (step === 64) {
+    return t('tts.setup.qualityHighest', { step })
+  }
+  if (step === 32) {
+    return t('tts.setup.qualityHigh', { step })
+  }
+  if (step === 16) {
+    return t('tts.setup.qualityBalanced', { step })
+  }
+  if (step === 12) {
+    return t('tts.setup.qualityFast', { step })
+  }
+  if (step === 8) {
+    return t('tts.setup.qualityFaster', { step })
+  }
   return t('tts.setup.qualityFastest', { step })
 }
 
@@ -496,7 +619,12 @@ function localizeTextPreprocessor(
   item: TextPreprocessorInfo | undefined,
   t: TFunction,
 ): Pick<TextPreprocessorInfo, 'name' | 'description'> {
-  if (!item) return { name: '', description: '' }
+  if (!item) {
+    return {
+      name: '',
+      description: '',
+    }
+  }
   if (item.id === TEXT_PREPROCESSOR_NONE) {
     return {
       name: t('tts.setup.preprocessorOriginal'),
@@ -524,10 +652,18 @@ function formatModelInstallProgressMessage(
   progress: NativeTtsModelInstallProgress | null,
   t: TFunction,
 ): string | undefined {
-  if (!progress) return undefined
-  if (progress.status === 'error') return progress.message
-  if (progress.status === 'installed') return t('tts.setup.installed')
-  if (progress.status === 'extracting') return t('tts.audiobooks.extracting')
+  if (!progress) {
+    return undefined
+  }
+  if (progress.status === 'error') {
+    return progress.message
+  }
+  if (progress.status === 'installed') {
+    return t('tts.setup.installed')
+  }
+  if (progress.status === 'extracting') {
+    return t('tts.audiobooks.extracting')
+  }
   if (progress.status === 'downloading') {
     return t('tts.audiobooks.downloadingPercent', { percent: progress.percent })
   }
@@ -598,7 +734,11 @@ function PreviewIcon({ playing }: { playing: boolean }) {
 }
 
 function formatModelSize(bytes: number): string | null {
-  if (!Number.isFinite(bytes) || bytes <= 0) return null
-  if (bytes >= 1024 * 1024 * 1024) return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB'
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return null
+  }
+  if (bytes >= 1024 * 1024 * 1024) {
+    return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB'
+  }
   return Math.round(bytes / 1024 / 1024) + ' MB'
 }

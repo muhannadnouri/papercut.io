@@ -10,6 +10,9 @@ use tauri_plugin_dialog::FilePath;
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocument {
+    /// Diagnostics for this import attempt; list metadata does not re-read source HTML.
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub(crate) import_image_warnings: std::collections::BTreeMap<String, usize>,
     pub(crate) id: String,
     pub(crate) url: String,
     pub(crate) title: String,
@@ -101,6 +104,8 @@ pub(crate) struct UploadedDocumentSearchTermMatch {
     pub(crate) section_index: Option<usize>,
     pub(crate) page_index: Option<usize>,
     pub(crate) text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) matched: Option<bool>,
 }
 
 /// One document-level FTS hit with bounded supporting evidence.
@@ -130,6 +135,8 @@ pub(crate) struct UploadedDocumentSearchResponse {
     pub(crate) results: Vec<UploadedDocumentSearchResult>,
     pub(crate) total_documents: usize,
     pub(crate) total_matching_sections: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) suggested_query: Option<String>,
 }
 
 /// One bounded page request for literal occurrences inside one uploaded document.
@@ -219,19 +226,31 @@ pub(crate) struct UploadedDocumentSourceRequest {
     pub(crate) document_url: String,
 }
 
-/// Sanitized reader HTML plus validated local raster paths for the WebView.
+/// Reader payload. Source-only callers omit the optional navigation metadata.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentSource {
     pub(crate) html: String,
     pub(crate) asset_paths: std::collections::HashMap<String, String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) outline: Vec<super::parsed::OutlineEntry>,
 }
 
 /// Request to run an FTS search over uploaded documents.
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum UploadedDocumentSearchMode {
+    #[default]
+    All,
+    Broader,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentSearchRequest {
     pub(crate) query: String,
+    #[serde(default)]
+    pub(crate) mode: UploadedDocumentSearchMode,
     pub(crate) limit: Option<usize>,
     pub(crate) document_urls: Option<Vec<String>>,
     pub(crate) exact_phrases: Option<Vec<String>>,
@@ -344,27 +363,20 @@ pub(crate) struct UploadedLibraryRenameFolderRequest {
     pub(crate) name: String,
 }
 
-/// Request to delete an empty user-created library folder.
+/// Request to permanently delete one user-created library folder subtree.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedLibraryDeleteFolderRequest {
     pub(crate) folder_id: String,
 }
 
-/// Request to move uploaded documents into a target folder, or root when absent.
+/// Request to move selected folder subtrees and documents into a target folder, or root when absent.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct UploadedLibraryMoveDocumentsRequest {
+pub(crate) struct UploadedLibraryMoveItemsRequest {
+    pub(crate) folder_ids: Vec<String>,
     pub(crate) document_ids: Vec<String>,
     pub(crate) folder_id: Option<String>,
-}
-
-/// Request to move one folder under another folder, or root when absent.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct UploadedLibraryMoveFolderRequest {
-    pub(crate) folder_id: String,
-    pub(crate) parent_id: Option<String>,
 }
 
 /// One item in a manual library ordering request.

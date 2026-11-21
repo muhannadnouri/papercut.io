@@ -1,7 +1,10 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DocumentInfo } from '../../types/search'
-import type { AuthorGroup, DocumentScopeMode } from '../../hooks/useDocumentFilters'
+import type {
+  AuthorGroup,
+  DocumentScopeMode,
+} from '../../hooks/useDocumentFilters'
 import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
 import { BundledDocumentTree } from '../BundledDocumentTree/BundledDocumentTree'
 import { Panel } from '../Panel/Panel'

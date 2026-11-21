@@ -1,8 +1,15 @@
-import { useId, useState, type FormEvent } from 'react'
+import {
+  useId,
+  useState,
+  type FormEvent,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { AppDialog } from '../components/AppDialog/AppDialog'
 import { AppSelect } from '../components/AppSelect/AppSelect'
-import type { DocumentRecognitionLanguage, DocumentScanSetup } from './documentScanner'
+import type {
+  DocumentRecognitionLanguage,
+  DocumentScanSetup,
+} from './documentScanner'
 import './ScanSetupDialog.css'
 
 interface ScanSetupDialogProps {
@@ -26,8 +33,13 @@ export function ScanSetupDialog({ source, onCancel, onSubmit }: ScanSetupDialogP
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
-    if (!trimmedTitle) return
-    onSubmit({ title: trimmedTitle, recognitionLanguage })
+    if (!trimmedTitle) {
+      return
+    }
+    onSubmit({
+      title: trimmedTitle,
+      recognitionLanguage,
+    })
   }
 
   return (

@@ -1,8 +1,8 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 9 in progress; Android and downstream lifecycle acceptance passed;
-iOS physical-device and Arabic OCR validation remain open
-Last updated: 2026-08-06
+Status: Release acceptance complete; English and Arabic OCR, Android and iOS
+capture/photo import, and the downstream lifecycle passed on tested devices
+Last updated: 2026-09-01
 
 This document is the source of truth for adding PDF reading, searchable OCR,
 and mobile document scanning to Papercut. It records the research, current
@@ -251,7 +251,7 @@ Android, and iOS. The configured minimums relevant to this work are:
 | Android | API 26; universal release builds currently cover arm64, armv7, x86, and x86_64 |
 | iOS | iOS 14 |
 | macOS | macOS 10.13 |
-| Rust | 1.88 declared minimum; CI builds with stable |
+| Rust | 1.90 declared minimum for Tauri 2.12.5; CI uses 1.98.1 |
 | Frontend | React 19, Tauri 2, and the platform WebView |
 
 Passing desktop development tests alone is insufficient. Every Stage 1
@@ -477,7 +477,7 @@ The costs are material but bounded:
   1.77.2 minimum. Raising the minimum later did not change its RTL and
   coordinate limitations.
 
-Papercut now declares Rust 1.88 for unrelated production dependencies. The
+Papercut now declares Rust 1.90 for Tauri 2.12.5. The
 rejected native spike still does not justify carrying a second PDF parser.
 
 The native probe was fast and produced finite bounds, but throughput did not
@@ -497,9 +497,10 @@ It verifies the generated fixture's inline-style word boundary, two-column
 reading order, and finite text coordinates. Real multilingual and large-file
 documents remain local, uncommitted acceptance fixtures.
 
-`npm run dev` and `npm run build:vite` copy PDF.js's installed WASM decoders
-and standard fonts into generated local assets. The renderer does not fetch
-runtime resources from a CDN. With those assets configured, the 40-page
+`npm run dev` and `npm run build:vite` normally copy PDF.js's installed WASM
+decoders and standard fonts into generated local assets. Android production
+builds use the [source-built PDF and OCR runtime](android-production-packaging.md#source-built-pdf-and-ocr-runtime-2026-11-05).
+The renderer loads its runtime resources locally. With those assets configured, the 40-page
 JPEG 2000 benchmark renders a nonblank 430x695 first page and exposes its title
 through the text layer. The temporary first-page WebView harness used for this
 selection was removed after the production import and reader paths passed the
@@ -568,9 +569,9 @@ the worker and core into the ignored `public/tesseract/` build tree. Generated
 language must be an explicitly pinned package selected by the same preparation
 script so offline builds remain reproducible and only ship supported languages.
 
-Build preparation copies the installed worker, SIMD-capable LSTM cores, and the
-integer English and Arabic trained data into ignored `public/tesseract` assets. Runtime
-URLs are app-local; no CDN or account is required. One worker should be reused
+Build preparation stages the installed worker and integer English and Arabic
+trained data with the selected LSTM loader/WASM pairs in ignored
+`public/tesseract` assets. Runtime URLs are app-local. One worker should be reused
 for a complete job and terminated when the job finishes or is cancelled.
 
 English and Arabic are the only included languages. Automatic recognition must
@@ -898,9 +899,28 @@ the reader height left by optional Find and Diagnostics UI instead of using a
 fixed viewport percentage. Wide layouts tighten the PDF header spacing while
 narrow layouts use one reader-action row plus the PDF toolbar and do not reserve
 the main app navigation's unused bottom padding.
-At desktop widths of 1100 CSS pixels and above, the existing PDF toolbar is
-portaled into the reader header's centered slot; smaller layouts retain a
-separate centered row without duplicating viewer state or controls.
+The existing PDF toolbar stays portaled into one reader-header slot. Header
+layout queries the reader's available content width in `em`, so increased UI text
+also raises the space required for inline controls. At 44em and above it shares a
+row with Back and the app/audio actions; narrower layouts keep a separate row.
+The PDF groups can still wrap if additional audio actions leave less room.
+Secondary fit, spread, outline, and fullscreen commands remain in More until
+66em is available, when the full inline group replaces More. No command becomes
+unavailable between those layouts. Page and zoom groups wrap when necessary,
+including enlarged-text layouts, without duplicating viewer state or callbacks.
+The More trigger highlights while its menu is open. Normal PDF top spacing is
+12px on desktop; narrow layouts retain the shared safe-top allowance without the
+main app's extra 20px padding (values at the default 16px root size).
+
+The responsive-header browser checks include real PDF, OCR, and audio controls
+at narrow/intermediate/wide widths, enlarged UI text, LTR/RTL, and translated
+labels. They check bounds within clipping ancestors, with a deliberately clipped
+zoom group as a detection control, and require inline controls in the wide case
+and More in the intermediate case. These checks cover header layout rather than
+PDF rendering or native safe-area behavior. On November 17, 2026, the owner reported that all
+requested smoke tests for this responsive-header pass passed on Android and
+AppImage builds. This records owner-tested native acceptance separately from the
+Chromium checks; artifact hashes and device/OS versions were not supplied.
 The production frontend build, locale check,
 TypeScript check, and 25 focused tests pass. A full local Rust check remains
 blocked in this shell by the missing `javascriptcoregtk-4.1` development
@@ -1071,12 +1091,13 @@ acceptance passed
 - [ ] Record first-run worker startup, recognition time, and peak memory.
 
 Decision gate: local English and Arabic pages produce ordered text and finite
-bounds in the supported WebView without affecting non-OCR startup. English has
-passed; Arabic remains open.
+bounds in the supported WebView without affecting non-OCR startup. Both
+languages passed release acceptance with acceptable performance.
 
 ### Stage 7: Image-Only And Hybrid PDF OCR
 
-Stage status: Complete; desktop English image-only and hybrid acceptance passed
+Stage status: Complete; desktop English and Arabic image-only and hybrid
+acceptance passed
 
 - [x] Detect usable native text page by page.
 - [x] OCR every page of a fully textless English PDF.
@@ -1132,9 +1153,9 @@ overlay-refresh and low-confidence acceptance smoke tests passed.
 
 ### Stage 8: Native Mobile Capture
 
-Stage status: In progress; Android capture, interruption recovery, native photo
-import, app-restart recovery, and OCR handoff accepted. iOS physical-device
-acceptance remains open.
+Stage status: Complete; Android and iOS capture, native photo import, and OCR
+handoff passed physical-device acceptance. Android interruption and app-restart
+recovery also passed; iOS cross-restart recovery remains intentionally deferred.
 
 - [x] Add one isolated local Tauri plugin with Android and iOS adapter boundaries.
 - [x] Integrate CameraX capture and a manual four-corner review flow on Android
@@ -1158,16 +1179,17 @@ acceptance remains open.
       finishing. Android appends to the live or recovered file-backed draft;
       VisionKit provides the active multi-page iOS capture flow. App-restart
       recovery remains a separate platform requirement below.
-- [ ] Handle unavailable scanner services, resource download, permissions,
+- [x] Handle unavailable scanner services, resource download, permissions,
       interruption, low storage, and unsupported devices. Android now handles
       camera availability, runtime permission recovery, cancellation, and
       temporary-file cleanup. It also restores accepted pages after Activity
       recreation, expires abandoned cache sessions after seven days, checks
       free space before capture and final PDF assembly, and keeps accepted pages
       after an assembly failure. Android interruption, low-storage, and restart
-      recovery passed physical-device acceptance. iOS resource cases remain
-      open; iOS app-restart recovery is deferred to Stage 11 because VisionKit
-      does not expose recoverable in-progress pages.
+      recovery passed physical-device acceptance. The supported iOS scanner and
+      photo-picker flows passed physical-device acceptance; iOS app-restart
+      recovery is deferred to Stage 11 because VisionKit does not expose
+      recoverable in-progress pages.
 - [x] Keep scanning controls absent from desktop and unsupported mobile builds.
 
 Decision gate: a multi-page scan survives interruption and produces a durable
@@ -1192,8 +1214,8 @@ discard pages that were already accepted.
 Android Activity recreation, low-storage recovery, and retained-page behavior
 also passed physical-device smoke testing. Existing-photo import uses the
 platform picker and normalizes one selected image at a time before the same
-canonical PDF import; Android picker acceptance passed and iOS picker acceptance
-remains open. Android also writes a tiny atomic manifest after each accepted-page
+canonical PDF import; Android and iOS picker acceptance passed. Android also
+writes a tiny atomic manifest after each accepted-page
 add, move, or delete. A fresh scanner launch can continue the newest complete draft
 or explicitly start over without loading page pixels into memory. This restart
 path passed force-stop, continue, append, ordering, finish, and start-new
@@ -1208,16 +1230,15 @@ Native adapters now reject oversized work before canonical import, and Rust
 rechecks the completed page count and file size rather than trusting plugin
 metadata. VisionKit PDF assembly also runs after dismissal on a background
 queue so a long multi-page conversion cannot block the app UI.
-Physical-device acceptance remains open for the iOS capture and photo-picker
-paths.
+Physical-device acceptance passed for the supported iOS capture and
+photo-picker paths.
 
 ### Stage 9: Scan-To-Book Integration
 
-Stage status: In progress; pre-capture metadata, English OCR handoff, targeted
-technical-failure retry, partial OCR acceptance, active scan append, Android
-restart recovery, and the shared downstream lifecycle are accepted. Arabic OCR
-is implemented through the same pipeline but still needs device acceptance;
-iOS physical-device acceptance also remains open.
+Stage status: Complete; pre-capture metadata, English and Arabic OCR handoff,
+targeted technical-failure retry, partial OCR acceptance, active scan append,
+Android restart recovery, iOS physical-device scanning/photo import, and the
+shared downstream lifecycle passed release acceptance.
 
 - [x] Let users set the display title and choose English recognition, Arabic
       recognition, or import-only handling before native capture/photo
@@ -1279,7 +1300,7 @@ copy, native OCR implementation, language detector, or scanner-specific index
 was added. Android physical-device acceptance now covers the setup dialog,
 automatic English OCR handoff, import-only handling, partial OCR acceptance,
 page review, and technical-failure retry without reprocessing successful pages.
-Arabic OCR acceptance and equivalent iOS acceptance remain open. A
+Arabic OCR and the equivalent supported iOS flows passed release acceptance. A
 character-weighted confidence score
 below 0.5 remains a provisional review signal, not proof that OCR is incorrect;
 it must be calibrated against the end-of-cycle device and language matrix.
@@ -1295,19 +1316,14 @@ perspective-correction, review, and draft flow. That duplication is deferred
 until device acceptance or user evidence makes restart recovery worth the
 additional native implementation and maintenance cost.
 
-For the remaining iOS acceptance, a direct Xcode device install is the shortest
-single-device path. TestFlight does not require a Papercut release or Git tag:
-an App Store Connect archive built from this branch can use the next unreleased
-marketing version and a unique build number, then be assigned to internal
-testers after processing. The existing release workflow already contains the
-required signing, IPA build, and upload steps, but it is intentionally coupled
-to all-platform release publication and must not be run for a branch-only beta.
-A separate manual TestFlight workflow remains unnecessary unless branch beta
-uploads become a repeated need.
+iOS physical-device acceptance used the existing supported capture and photo
+picker paths. A separate manual TestFlight workflow remains unnecessary unless
+branch beta uploads become a repeated need.
 
 ### Stage 10: Hardening And Release
 
-Stage status: In progress
+Stage status: Release acceptance complete; unchecked accessibility and platform
+policy items remain explicit post-release follow-ups rather than v1.9 blockers
 
 - [x] Run malformed, encrypted, large, high-page-count, and low-storage tests.
   - [x] Normalize known PDF.js password, invalid-file, missing-file, response,
@@ -1376,10 +1392,10 @@ Stage status: In progress
         CI; retain physical-device PDF/OCR smoke coverage below.
 - [ ] Verify upgrades, library transfer, backup/export, and deletion against
       production-like app data.
-- [ ] Add user documentation, privacy wording, known limitations, and release
+- [x] Add user documentation, privacy wording, known limitations, and release
       notes.
-- [ ] Decide whether PDF/OCR remains behind Developer Mode or enters a public
-      beta.
+- [x] Ship PDF/OCR as a public v1.9 capability rather than keeping it behind
+      Developer Mode.
 - [x] Remove completed native scanner staging after every canonical import
       attempt. Android's resumable in-progress draft remains separate and is
       retained until the user finishes or discards it.
@@ -1398,7 +1414,7 @@ Stage status: In progress
       temporary files outside the tracked source tree and verifies import
       limits without committing large or encrypted fixtures.
 
-Deferred mobile acceptance matrix accumulated during Stages 8 and 9:
+Mobile acceptance matrix accumulated during Stages 8 and 9:
 
 - [x] Android: append, reorder, and delete pages in a live scan; force-stop and
       reopen Papercut; continue the draft; append another page; and finish with
@@ -1412,24 +1428,24 @@ Deferred mobile acceptance matrix accumulated during Stages 8 and 9:
       verify scrolling and page selection while watching for sustained bitmap
       growth. Kotlin compilation and Android lint pass; device acceptance is
       intentionally deferred to the final matrix.
-- [ ] iOS: import multiple existing photos, cancel the picker, and
+- [x] iOS: import multiple existing photos, cancel the picker, and
       verify page order, orientation, cleanup, and bounded-memory behavior.
-- [ ] iOS: capture, review, append, reorder, and finish a multi-page VisionKit
+- [x] iOS: capture, review, append, reorder, and finish a multi-page VisionKit
       scan; cancel it; and verify the canonical PDF and OCR handoff on device.
 - [x] Android scanner OCR handoff: cover successful English recognition,
       import-only handling, partial OCR acceptance, page review, and targeted
       technical-failure retry without reprocessing successful or nonempty
       review-only pages.
-- [ ] Desktop and Android Arabic OCR: verify RTL selection/copy, exact search,
+- [x] Desktop and Android Arabic OCR: verify RTL selection/copy, exact search,
       Find navigation, page order, TTS order, low-confidence review, and retry.
-- [ ] iOS scanner OCR handoff: cover successful English recognition,
+- [x] iOS scanner OCR handoff: cover successful English recognition,
       import-only handling, low-confidence acceptance, failed-page review, and
       targeted retry without reprocessing successful or review-only pages.
 - [x] Downstream lifecycle: verify folder organization, gallery thumbnail,
       saved audio, library transfer, and deletion for scanned documents.
 
-Decision gate: all supported platforms pass automated checks and the complete
-manual acceptance matrix before public release.
+Decision gate: supported release paths passed automated checks and the accepted
+manual matrix. Remaining unchecked items are explicit post-release follow-ups.
 
 ### Stage 11: Evidence-Driven Follow-Ups
 
@@ -1444,6 +1460,172 @@ Stage status: Deferred
       failures make active-scan recovery a release requirement.
 - [ ] Add advanced table, equation, or layout analysis only after corpus data
       demonstrates the need.
+
+## v1.10.3: PDF Narration Hyphenation Repair
+
+The line-end hyphen repair below is a staged follow-up to the released PDF
+pipeline. Search already joined eligible broken words, but narration retained
+the hyphen and inserted a space, sending text such as `envi- ronment` to TTS.
+
+### Stage 1: Reconstruction And Source Mapping
+
+- [x] Repair visual word wraps in the PDF-owned reconstructor before shared
+      audiobook chunking. Reuse the existing paragraph/page-continuation and
+      letter-case checks; preserve inline compounds and paragraph/column breaks.
+- [x] Collect intact compound-word pairs from the document before reconstruction.
+      A later `producer-consumer` occurrence preserves the hyphen in an earlier
+      `producer-` / `consumer` wrap. Evidence is case-insensitive, normalizes
+      standard presentation ligatures, and takes precedence if both joined and
+      hyphenated forms occur. Unseen compounds remain a heuristic limitation.
+- [x] Omit U+00AD soft hyphens from narration, including inline occurrences.
+      Preserve U+2011 nonbreaking hyphens while removing the layout space at
+      eligible letter-to-letter continuations. ASCII hyphen and U+2010 use the
+      compound evidence and conservative case fallback; en/em dashes remain.
+- [x] Retain original UTF-16 PDF block offsets. Removed hyphens have no source
+      run; following letters retain their original source coordinates, including
+      whitespace, emoji, ligatures, and separately extracted hyphen items.
+- [x] Cover reconstruction, source projection, play-from-here lookup, page seams,
+      later-page evidence, and sidecar-read errors with focused regressions.
+
+Reconstruction now reads validated sidecars twice, one page at a time: first
+for intact compounds, then for narration. It retains compound keys plus the
+existing compact narration/source runs, without retaining all page geometry or
+reparsing the PDF. The open-document narration cache still avoids repeat work
+when only the voice model changes. Canonical PDF files, sidecars, search
+projections, and HTML/EPUB/TXT preparation are unchanged.
+
+Validation includes the application's native PDF/document-upload tests and a
+frontend source-resolver regression. A read-only replay of the owner-supplied
+15-page audiobook produces 103 segments and 320 default-profile chunks (321
+before correction). All 15,261 narration source runs match original PDF blocks
+with the existing ligature expansion; default and SILMA chunk profiles pass
+the verified source resolver. Search projections and body ranges match the
+pre-change implementation on every replayed page. This is text/source validation,
+not audible or device acceptance.
+
+### Stage 2: PDF-Only Regeneration Policy
+
+Stage status: Implemented; the owner reports Linux and Android debug smoke tests
+passing. Release-artifact validation remains part of the v1.10.3 release work.
+
+The accepted policy requires regeneration of affected PDF audiobooks rather
+than maintaining legacy playback/highlighting projections. Already generated
+WAVs cannot acquire corrected pronunciation from a text fix.
+
+- [x] Compare the existing ordered chunk signature and count against the saved
+      manifest. A valid PDF manifest with different chunks returns
+      `requiresRegeneration`; missing/unreadable manifests retain the ordinary
+      not-saved state. Matching older PDFs remain playable.
+- [x] Show an explicit reader notice and label the existing Save action as
+      **Save PDF audiobook again**. Its confirmation explains replacement for
+      the chosen settings and generated speed, loss of the replaced version if interrupted,
+      and retention of the source PDF. Declining starts no save or deletion.
+      Existing delete controls also remain available without deleting the PDF.
+- [x] Check background PDF versions on export/resume rather than reconstructing
+      every saved book at startup. Discovered stale versions show a library/menu
+      notice and disable export until replaced. Native export independently
+      checks the signature before opening Save As. Notices follow the saved
+      generation timestamp; a successful replacement clears the old notice.
+- [x] Confirm restarting an old interrupted PDF with current chunks. Once the
+      corrected pending manifest exists, ordinary resume reuses only WAV paths
+      whose index, chunk ID, and text identity match. Unchanged audio may be
+      reused; stale WAVs are pruned by the existing replacement path. No atomic
+      keep-old-version guarantee is added.
+- [x] Keep the global cache version and bundle formats unchanged. Old PDF bundles
+      import their original audio/source, then normal PDF indexing/preparation
+      and status checks determine whether regeneration is required. HTML/EPUB/TXT
+      keep their existing preparation and import/export paths. No source reimport
+      or automatic background regeneration is needed.
+- [x] Add regressions for same-count changed text, changed counts, pending and
+      completed manifests, read-only mismatch detection, matching/absent/corrupt
+      saves, legacy PDF/HTML bundle acceptance, corrected PDF preparation,
+      confirmation/cancellation, guarded WAV/bundle export, deletion with source
+      retention, and replacement/resume with actual synthetic WAVs.
+
+Review corrections keep every new Save at **1x** and select that cache identity
+only after confirmation. Opening an older 0.8x/1.2x audiobook still locates its
+original audio, but Save again selects the new 1x version instead of leaving the
+reader on the stale version. A differently paced legacy version remains a
+separate saved entry. Cancellation preserves the old selection; playback rate
+is independent and remains unchanged. Resume keeps the recorded job settings
+so its cached chunks retain one generation identity. The confirmation displays
+the actual generated speed of the requested save/resume, without exposing a
+generation-speed setting.
+
+PDF word classification now retains Unicode combining marks when collecting
+compound evidence and finding boundary letters. Precomposed/decomposed accents,
+Hindi vowel signs, and Arabic marks retain their original glyphs and UTF-16
+offsets. A shared letter-case check preserves the existing search projection;
+only narration looks through marks to the boundary letter. This reuses the
+already locked `regex` crate's Unicode Mark classification as a direct
+dependency; no package versions or new packages are added to the lockfile.
+State/message selection, save labels, and restart confirmation use explicit
+branches, and export signature checking borrows chunks without a redundant copy.
+
+The PR #94 review follow-up NFC-normalizes only temporary compound evidence
+keys after lowercase/ligature expansion. An intact `café-restaurant` now matches
+a wrapped `cafe\u{301}-` / `restaurant` (and the reverse), including evidence on
+a later page. Narration retains the original accent encoding and UTF-16 source
+runs. This reuses the already locked ICU normalizer with compiled data; only a
+direct dependency edge is added, with no new package or version changes. NFC
+does not strip accents or equate compatibility spellings. Regressions cover
+both compound halves, case differences, ASCII/U+2010 hyphens, explicit
+soft/nonbreaking behavior, canonical mark ordering, and source-run preservation.
+The mixed-encoding regression failed before the fix and passes afterward.
+The existing PDF signature policy handles any resulting changed audio chunks;
+no source rewrite, cache-format bump, or migration is needed.
+
+Validation on 2026-11-11: the native suite with `native-tts-core` and shared
+sherpa libraries passes 341 tests (5 ignored) after the PR #94 follow-up.
+The earlier full frontend suite passed 840 tests (1 skipped) across 101 files;
+TypeScript, i18n parity across all eight locales, and the production
+build/search-index pipeline also passed. The follow-up changes Rust narration
+and its dependency declaration only, so those frontend checks were not repeated.
+Browser/local-server and temporary Git fixtures require their normal local
+permissions outside the restrictive sandbox. Function comments explain the
+reconstruction boundaries, source-offset edits, lazy status checks, generation
+ownership, and replacement/export gotchas. Owner-reported manual acceptance is
+recorded below separately from automated text/source validation.
+
+### Stage 3: Release Acceptance
+
+- [x] Owner reports PDF audiobook and regeneration smoke tests passing on Linux.
+- [x] Owner reports smoke tests passing on Android using a debug build.
+- [ ] Run the release checks after Stage 2, then update release notes/version as
+      part of the v1.10.3 release work.
+
+These owner reports do not itemize every step below or establish acceptance of
+a release-signed/F-Droid artifact; they also predate the PR #94 key-normalization
+follow-up. The Android NDK lookup failure was local SDK
+selection: the shared build requires NDK `30.0.16248370`; selecting the existing
+pinned installation allowed the owner to build and smoke-test. No Android build
+script change or SDK downgrade is part of this fix. The application version
+remains `1.10.2` until the separate v1.10.3 release preparation.
+
+Manual reproduction/acceptance checklist for reviewers (use a build from
+`bug/pdf-tts-hyphen`):
+
+1. Prepare an old completed PDF save, an old paused PDF job, and the original
+   audiobook bundle before upgrading. Upgrade v1.10.2 without clearing app data.
+   Check that affected saves show the regeneration notice. Cancel Save again:
+   no job should start, and the PDF and old saved entry should remain.
+2. Save the Google File System sample again. Completion should automatically
+   select the new 1x version and enable Play. Listen around `environment` and
+   other repaired words; check real compounds, highlights across wrapped lines,
+   and play-from-here at both parts of a repaired word.
+3. Interrupt generation, reopen, and resume. Check that an old changed job asks
+   before restart, while a matching corrected job resumes normally. The source
+   PDF should remain readable throughout.
+4. Export corrected WAV and bundle files, then import the corrected bundle
+   (preferably on another device/profile). Verify playback, highlighting, and
+   absence of a regeneration notice for the corrected bundle.
+5. Check an unaffected PDF and saved HTML/EPUB/TXT books. If available, include
+   an older audiobook with a non-1x *generated* speed; changing the playback-rate
+   control does not create this legacy case. New Save must generate/select 1x
+   while retaining the chosen playback rate.
+6. On the phone, verify that the notice, confirmation, and saved-version menu
+   fit and remain usable, including RTL if used. Report device/OS, model/voice,
+   the failing step, and exact page/word for any speech or highlight problem.
 
 ## Decision Log
 
@@ -1550,6 +1732,7 @@ Stage status: Deferred
 | 2026-08-08 | Stage 10 | Bound OCR recovery and scanner staging at trust boundaries | Recovery accepts only app-owned PDF URLs and at most 2,000 page references; Rust scanner staging cleanup is observable and stale completed output is removed before the next capture, while hot page-layer access avoids repeated database work and the native Android draft remains untouched |
 | 2026-08-08 | Stage 4 | Auto-hide full-screen PDF controls without resizing the viewer | The mounted toolbar overlays PDF.js, hides after inactivity, and returns through pointer activity, a stationary touch or stylus tap, or keyboard focus; Pointer Events, safe-area insets, reduced-motion support, and the CSS fullscreen fallback keep the same path usable in Safari and iOS WKWebView without overriding native scroll or pinch gestures |
 | 2026-08-09 | Stage 4 | Keep narrow PDF controls within the viewport | Page and zoom controls remain directly available while secondary fit, outline, and full-screen actions move into an accessible Page View menu at compact reader widths (720 px and below); a two-row fallback preserves full-size touch targets at 320 px without horizontal clipping |
+| 2026-09-01 | Release | Accept v1.9 PDF/OCR and mobile scanning | Arabic OCR performance, iOS capture and photo import, mobile file opening, and the Library Transfer matrix passed product-owner smoke testing; remaining unchecked accessibility and platform-policy items are post-release follow-ups |
 
 ## References
 

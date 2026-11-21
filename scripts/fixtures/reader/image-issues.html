@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Reader image diagnostics check</title>
+<link rel="stylesheet" href="/src/components/DocumentViewer/DocumentViewer.css">
+<style>body{margin:2rem;max-width:55rem;font:16px system-ui}img{max-width:100%}</style>
+<h1>Reader image diagnostics check</h1>
+<p id="result" role="status">Running…</p>
+<div class="document-html-content" id="reader"><p>Readable text.</p><img id="omitted" data-papercut-image-error="missing" alt="Figure 1"><img id="cached" src="data:image/png;base64,YmFk" alt="Broken image"><img id="unresolved" data-papercut-asset="image-missing.png" alt="Missing stored asset"><img id="good" loading="lazy" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Crect width='24' height='24' fill='green'/%3E%3C/svg%3E" alt="Valid image"></div>
+<script type="module">
+import { observeImageIssues } from '/src/viewers/imageIssues.ts'
+import i18n from '/src/i18n/index.ts'
+const root = document.getElementById('reader')
+const result = document.getElementById('result')
+const assert = (condition, message) => { if (!condition) throw new Error(message) }
+try {
+  const originalText = root.textContent
+  result.textContent = 'Checking cached images…'
+  await Promise.all([...root.querySelectorAll('img[src]:not([loading=lazy])')].map(image => image.decode().catch(() => {})))
+  result.textContent = 'Checking placeholders…'
+  let stop = observeImageIssues(root, i18n.t.bind(i18n))
+  assert(root.querySelectorAll('.reader-image-error').length === 3, 'Initial omissions and cached failures')
+  assert(root.querySelector('#good').tagName === 'IMG', 'Valid image retained')
+  assert(root.querySelector('#omitted').getAttribute('aria-label').includes('Figure 1'), 'Accessible alternative text')
+  const delayed = document.createElement('img')
+  delayed.alt = '<script>not markup<\/script>'
+  root.append(delayed)
+  result.textContent = 'Checking live failure…'
+  await new Promise(resolve => {
+    delayed.addEventListener('error', resolve, { once: true })
+    delayed.src = 'data:image/png;base64,bm90LWltYWdl'
+  })
+  assert(root.querySelectorAll('.reader-image-error').length === 4, 'Live decode failure')
+  assert(root.querySelectorAll('script').length === 0, 'Alternative text stays inert')
+  assert(root.textContent === originalText, 'Search and narration text unchanged')
+  stop()
+  await i18n.changeLanguage('ar')
+  stop = observeImageIssues(root, i18n.t.bind(i18n))
+  assert(root.querySelector('#omitted').getAttribute('aria-label').includes('الصورة'), 'Existing placeholders translate')
+  stop()
+  await i18n.changeLanguage('en')
+  stop = observeImageIssues(root, i18n.t.bind(i18n))
+  stop()
+  const afterCleanup = document.createElement('img')
+  root.append(afterCleanup)
+  afterCleanup.dispatchEvent(new Event('error'))
+  assert(root.contains(afterCleanup), 'Error listener removed on cleanup')
+  afterCleanup.remove()
+  result.textContent = 'Passed: omitted, unresolved, cached, and live image failures; labels, localization, text offsets, and cleanup.'
+  result.dataset.passed = 'true'
+} catch (error) {
+  result.textContent = `FAILED: ${error.message}`
+  result.dataset.passed = 'false'
+  throw error
+}
+</script>
+</html>

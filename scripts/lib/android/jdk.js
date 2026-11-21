@@ -1,5 +1,10 @@
 import { existsSync } from "node:fs"
-import { mkdir, readFile, rm, stat } from "node:fs/promises"
+import {
+  mkdir,
+  readFile,
+  rm,
+  stat,
+} from "node:fs/promises"
 import { join } from "node:path"
 import {
   JDK_ARCHIVE,
@@ -15,10 +20,15 @@ import { extractTar } from "../archive.js"
 // Prefer existing Java, otherwise install repo-local Temurin for repeatable APK builds.
 export async function ensureLocalJdk({ force = false } = {}) {
   const existing = findExistingJavaHome()
-  if (!force && existing) return existing
+  if (!force && existing) {
+    return existing
+  }
 
   if (force) {
-    await rm(JDK_HOME, { recursive: true, force: true })
+    await rm(JDK_HOME, {
+      recursive: true,
+      force: true,
+    })
   }
 
   if (!await hasLocalJdk()) {
@@ -49,7 +59,9 @@ function findExistingJavaHome() {
       candidate &&
       existsSync(join(candidate, "bin", javaExecutable())) &&
       existsSync(join(candidate, "bin", javacExecutable()))
-    ) return candidate
+    ) {
+      return candidate
+    }
   }
   return null
 }
@@ -78,9 +90,17 @@ async function hasPinnedLocalJdk() {
 // Extract into final JDK_HOME shape regardless of archive root folder name.
 async function extractJdkArchive() {
   console.log("[local-jdk] extracting " + JDK_ARCHIVE)
-  await rm(JDK_HOME, { recursive: true, force: true })
+  await rm(JDK_HOME, {
+    recursive: true,
+    force: true,
+  })
   await mkdir(JDK_HOME, { recursive: true })
-  await extractTar({ archive: JDK_ARCHIVE, destination: JDK_HOME, compression: "gzip", stripComponents: 1 })
+  await extractTar({
+    archive: JDK_ARCHIVE,
+    destination: JDK_HOME,
+    compression: "gzip",
+    stripComponents: 1,
+  })
 }
 
 function javaExecutable() {

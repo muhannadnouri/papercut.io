@@ -17,9 +17,8 @@ use tauri::Runtime;
 use super::storage::now_ms;
 use super::store::{db_err, open_db};
 use super::types::{
-    UploadedDocumentLocation, UploadedLibraryCreateFolderRequest,
-    UploadedLibraryDeleteFolderRequest, UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest,
-    UploadedLibraryMoveFolderRequest, UploadedLibraryOrderItem, UploadedLibraryOrganization,
+    UploadedDocumentLocation, UploadedLibraryCreateFolderRequest, UploadedLibraryFolder,
+    UploadedLibraryMoveItemsRequest, UploadedLibraryOrderItem, UploadedLibraryOrganization,
     UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
 };
 
@@ -280,64 +279,95 @@ pub(crate) fn rename_folder<R: Runtime>(
     Ok(load_folder(&db, &folder.id)?.into())
 }
 
-/// Delete only empty folders so document loss or surprising recursive moves are impossible.
-pub(crate) fn delete_folder<R: Runtime>(
-    app: &tauri::AppHandle<R>,
-    request: UploadedLibraryDeleteFolderRequest,
-) -> Result<(), String> {
-    let mut db = open_db(app)?;
+/// Resolve document URLs from one folder and every descendant using SQLite's
+/// recursive tree support rather than trusting a frontend-supplied list.
+pub(crate) fn folder_tree_document_urls(
+    db: &Connection,
+    folder_id: &str,
+) -> Result<Vec<String>, String> {
+    load_folder(db, folder_id)?;
+    let mut stmt = db
+        .prepare(
+            "WITH RECURSIVE subtree(id) AS (
+               SELECT id FROM uploaded_folders WHERE id = ?1
+               UNION ALL
+               SELECT f.id FROM uploaded_folders f
+               JOIN subtree s ON f.parent_id = s.id
+             )
+             SELECT d.url
+             FROM uploaded_documents d
+             JOIN uploaded_document_locations l ON l.document_id = d.id
+             WHERE l.folder_id IN (SELECT id FROM subtree)
+             ORDER BY l.folder_id, l.sort_order, d.url",
+        )
+        .map_err(db_err)?;
+    let rows = stmt
+        .query_map([folder_id], |row| row.get::<_, String>(0))
+        .map_err(db_err)?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(db_err)
+}
+
+/// Delete a folder subtree only after rechecking that no documents remain;
+/// the foreign key then cascades through descendant folder metadata safely.
+pub(crate) fn delete_folder_tree(db: &mut Connection, folder_id: &str) -> Result<(), String> {
     let tx = db
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(db_err)?;
-    load_folder(&tx, &request.folder_id)?;
-
-    let child_count: i64 = tx
-        .query_row(
-            "SELECT COUNT(*) FROM uploaded_folders WHERE parent_id = ?1",
-            [request.folder_id.as_str()],
-            |row| row.get(0),
-        )
-        .map_err(db_err)?;
+    load_folder(&tx, folder_id)?;
     let document_count: i64 = tx
         .query_row(
-            "SELECT COUNT(*) FROM uploaded_document_locations WHERE folder_id = ?1",
-            [request.folder_id.as_str()],
+            "WITH RECURSIVE subtree(id) AS (
+               SELECT id FROM uploaded_folders WHERE id = ?1
+               UNION ALL
+               SELECT f.id FROM uploaded_folders f
+               JOIN subtree s ON f.parent_id = s.id
+             )
+             SELECT COUNT(*) FROM uploaded_document_locations
+             WHERE folder_id IN (SELECT id FROM subtree)",
+            [folder_id],
             |row| row.get(0),
         )
         .map_err(db_err)?;
-    if child_count > 0 || document_count > 0 {
-        return Err("Folder must be empty before it can be deleted".into());
+    if document_count > 0 {
+        return Err("Folder contents changed during deletion; retry the remaining items".into());
     }
 
-    tx.execute(
-        "DELETE FROM uploaded_folders WHERE id = ?1",
-        [request.folder_id.as_str()],
-    )
-    .map_err(db_err)?;
+    tx.execute("DELETE FROM uploaded_folders WHERE id = ?1", [folder_id])
+        .map_err(db_err)?;
     tx.commit().map_err(db_err)?;
     Ok(())
 }
 
-/// Move documents into a folder or back to root by editing metadata only.
-pub(crate) fn move_documents<R: Runtime>(
+/// Move selected documents and folder subtrees by editing organization metadata.
+pub(crate) fn move_items<R: Runtime>(
     app: &tauri::AppHandle<R>,
-    request: UploadedLibraryMoveDocumentsRequest,
+    request: UploadedLibraryMoveItemsRequest,
 ) -> Result<UploadedLibraryOrganization, String> {
-    let mut db = open_db(app)?;
-    let document_ids = unique_ids(&request.document_ids)?;
-    if document_ids.is_empty() {
-        return Err("Select at least one uploaded document to move".into());
-    }
-    if let Some(folder_id) = request.folder_id.as_deref() {
-        load_folder(&db, folder_id)?;
-    }
-    for document_id in &document_ids {
-        ensure_document_exists(&db, document_id)?;
-    }
+    move_items_in_db(&mut open_db(app)?, request)
+}
 
-    let mut sort_order = next_sort_order(&db, request.folder_id.as_deref())?;
-    let tx = db.transaction().map_err(db_err)?;
+/// One confirmation owns one write transaction, including validation and the returned snapshot.
+fn move_items_in_db(
+    db: &mut Connection,
+    request: UploadedLibraryMoveItemsRequest,
+) -> Result<UploadedLibraryOrganization, String> {
+    let document_ids = unique_ids(&request.document_ids)?;
+    if document_ids.is_empty() && request.folder_ids.is_empty() {
+        return Err("Select at least one item to move".into());
+    }
+    let tx = db
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(db_err)?;
+    let destination = request.folder_id.as_deref();
+    if let Some(id) = destination {
+        load_folder(&tx, id)?;
+    }
+    for id in &request.folder_ids {
+        move_folder_in_transaction(&tx, id, destination)?;
+    }
+    let mut sort_order = next_sort_order(&tx, destination)?;
     for document_id in document_ids {
+        ensure_document_exists(&tx, &document_id)?;
         tx.execute(
             "INSERT INTO uploaded_document_locations (document_id, folder_id, sort_order) \
              VALUES (?1, ?2, ?3) \
@@ -348,47 +378,42 @@ pub(crate) fn move_documents<R: Runtime>(
         .map_err(db_err)?;
         sort_order += ORDER_STEP;
     }
+    let organization = UploadedLibraryOrganization {
+        folders: list_folders(&tx)?,
+        document_locations: list_document_locations(&tx)?,
+    };
     tx.commit().map_err(db_err)?;
-
-    Ok(UploadedLibraryOrganization {
-        folders: list_folders(&db)?,
-        document_locations: list_document_locations(&db)?,
-    })
+    Ok(organization)
 }
 
-/// Move a folder while preventing self-parenting, cycles, and excessive depth.
-pub(crate) fn move_folder<R: Runtime>(
-    app: &tauri::AppHandle<R>,
-    request: UploadedLibraryMoveFolderRequest,
-) -> Result<UploadedLibraryOrganization, String> {
-    let mut db = open_db(app)?;
-    let tx = db
-        .transaction_with_behavior(TransactionBehavior::Immediate)
-        .map_err(db_err)?;
-    let folder = load_folder(&tx, &request.folder_id)?;
-    if request.parent_id.as_deref() == Some(folder.id.as_str()) {
+/// Reparent the subtree while keeping its document IDs and placements intact.
+fn move_folder_in_transaction(
+    tx: &rusqlite::Transaction<'_>,
+    folder_id: &str,
+    new_parent_id: Option<&str>,
+) -> Result<(), String> {
+    let folder = load_folder(tx, folder_id)?;
+    if new_parent_id == Some(folder.id.as_str()) {
         return Err("A folder cannot be moved inside itself".into());
     }
-
-    let new_parent_id = request.parent_id.as_deref();
     let new_depth = match new_parent_id {
         Some(parent_id) => {
-            if is_descendant(&tx, parent_id, &folder.id)? {
+            if is_descendant(tx, parent_id, &folder.id)? {
                 return Err("A folder cannot be moved inside one of its child folders".into());
             }
-            load_folder(&tx, parent_id)?.depth + 1
+            load_folder(tx, parent_id)?.depth + 1
         }
         None => 0,
     };
-    let max_subtree_depth = max_subtree_depth(&tx, &folder.id)?;
+    let max_subtree_depth = max_subtree_depth(tx, &folder.id)?;
     let deepest_after_move = new_depth + max_subtree_depth.saturating_sub(folder.depth);
     if deepest_after_move > MAX_FOLDER_DEPTH {
         return Err("Uploaded document folders can be nested up to 5 levels deep".into());
     }
-    ensure_unique_folder_name(&tx, new_parent_id, &folder.name, Some(&folder.id))?;
+    ensure_unique_folder_name(tx, new_parent_id, &folder.name, Some(&folder.id))?;
 
     let now = now_ms()?;
-    let sort_order = next_sort_order(&tx, new_parent_id)?;
+    let sort_order = next_sort_order(tx, new_parent_id)?;
     let depth_delta = new_depth as i64 - folder.depth as i64;
     tx.execute(
         "UPDATE uploaded_folders \
@@ -416,12 +441,7 @@ pub(crate) fn move_folder<R: Runtime>(
         params![folder.id.as_str(), depth_delta, now as i64],
     )
     .map_err(db_err)?;
-    tx.commit().map_err(db_err)?;
-
-    Ok(UploadedLibraryOrganization {
-        folders: list_folders(&db)?,
-        document_locations: list_document_locations(&db)?,
-    })
+    Ok(())
 }
 
 /// Persist a complete sibling ordering for one folder/root.
@@ -837,5 +857,138 @@ mod tests {
         let bounded =
             available_import_folder_name(&db, None, &long_name).expect("bounded available name");
         assert_eq!(bounded.chars().count(), MAX_FOLDER_NAME_CHARS);
+    }
+
+    fn database_with_folder_tree() -> Connection {
+        let db = Connection::open_in_memory().expect("open database");
+        db.execute_batch(
+            "PRAGMA foreign_keys = ON;
+             CREATE TABLE uploaded_documents (id TEXT PRIMARY KEY, url TEXT NOT NULL);
+             CREATE TABLE uploaded_folders (
+               id TEXT PRIMARY KEY,
+               parent_id TEXT REFERENCES uploaded_folders(id) ON DELETE CASCADE,
+               name TEXT NOT NULL,
+               depth INTEGER NOT NULL,
+               sort_order INTEGER NOT NULL,
+               created_at_ms INTEGER NOT NULL,
+               updated_at_ms INTEGER NOT NULL
+             );
+             CREATE TABLE uploaded_document_locations (
+               document_id TEXT PRIMARY KEY REFERENCES uploaded_documents(id) ON DELETE CASCADE,
+               folder_id TEXT REFERENCES uploaded_folders(id) ON DELETE SET NULL,
+               sort_order INTEGER NOT NULL
+             );
+             INSERT INTO uploaded_folders VALUES ('root', NULL, 'Root', 0, 0, 0, 0);
+             INSERT INTO uploaded_folders VALUES ('child', 'root', 'Child', 1, 0, 0, 0);
+             INSERT INTO uploaded_folders VALUES ('other', NULL, 'Other', 0, 1, 0, 0);
+             INSERT INTO uploaded_documents VALUES ('aa', '/uploads/aa.html');
+             INSERT INTO uploaded_documents VALUES ('bb', '/uploads/bb.pdf');
+             INSERT INTO uploaded_documents VALUES ('cc', '/uploads/cc.html');
+             INSERT INTO uploaded_document_locations VALUES ('aa', 'root', 0);
+             INSERT INTO uploaded_document_locations VALUES ('bb', 'child', 0);
+             INSERT INTO uploaded_document_locations VALUES ('cc', 'other', 0);",
+        )
+        .expect("create folder tree");
+        db
+    }
+
+    #[test]
+    fn second_folder_conflict_rolls_back_the_confirmed_move() {
+        let mut db = database_with_folder_tree();
+        db.execute_batch(
+            "INSERT INTO uploaded_documents VALUES ('dd', '/uploads/dd.html');
+             INSERT INTO uploaded_folders VALUES ('second', NULL, 'Taken', 0, 2, 0, 0);
+             INSERT INTO uploaded_folders VALUES ('existing', 'other', 'Taken', 1, 0, 0, 0);",
+        )
+        .unwrap();
+        let snapshot = |db: &Connection| {
+            serde_json::to_value(UploadedLibraryOrganization {
+                folders: list_folders(db).unwrap(),
+                document_locations: list_document_locations(db).unwrap(),
+            })
+            .unwrap()
+        };
+        let before = snapshot(&db);
+        let selection = || UploadedLibraryMoveItemsRequest {
+            document_ids: vec!["dd".into()],
+            folder_ids: vec!["root".into(), "second".into()],
+            folder_id: Some("other".into()),
+        };
+        let error = move_items_in_db(&mut db, selection()).unwrap_err();
+        assert_eq!(error, "A folder with that name already exists here");
+        assert_eq!(snapshot(&db), before);
+
+        db.execute(
+            "UPDATE uploaded_folders SET name = 'Available' WHERE id = 'second'",
+            [],
+        )
+        .unwrap();
+        let moved = move_items_in_db(&mut db, selection()).unwrap();
+        for id in ["root", "second"] {
+            assert_eq!(
+                load_folder(&db, id).unwrap().parent_id.as_deref(),
+                Some("other")
+            );
+        }
+        assert!(moved
+            .document_locations
+            .iter()
+            .any(|item| item.document_id == "dd" && item.folder_id.as_deref() == Some("other")));
+    }
+
+    #[test]
+    fn moving_folder_keeps_descendant_locations_and_updates_depth() {
+        let mut db = database_with_folder_tree();
+        let result = move_items_in_db(
+            &mut db,
+            UploadedLibraryMoveItemsRequest {
+                document_ids: vec![],
+                folder_ids: vec!["root".into()],
+                folder_id: Some("other".into()),
+            },
+        )
+        .unwrap();
+        let moved = result.folders.iter().find(|f| f.id == "root").unwrap();
+        let child = result.folders.iter().find(|f| f.id == "child").unwrap();
+        assert_eq!(
+            (moved.parent_id.as_deref(), moved.depth),
+            (Some("other"), 1)
+        );
+        assert_eq!((child.parent_id.as_deref(), child.depth), (Some("root"), 2));
+        for (id, folder) in [("aa", "root"), ("bb", "child"), ("cc", "other")] {
+            let location = result
+                .document_locations
+                .iter()
+                .find(|l| l.document_id == id)
+                .unwrap();
+            assert_eq!(location.folder_id.as_deref(), Some(folder));
+        }
+    }
+
+    #[test]
+    fn recursive_folder_delete_stays_scoped_and_requires_empty_documents() {
+        let mut db = database_with_folder_tree();
+
+        assert_eq!(
+            folder_tree_document_urls(&db, "root").expect("list subtree documents"),
+            vec!["/uploads/bb.pdf", "/uploads/aa.html"]
+        );
+        assert!(delete_folder_tree(&mut db, "root").is_err());
+
+        db.execute(
+            "DELETE FROM uploaded_documents WHERE id IN ('aa', 'bb')",
+            [],
+        )
+        .expect("delete subtree documents");
+        delete_folder_tree(&mut db, "root").expect("delete empty subtree metadata");
+
+        let remaining: Vec<String> = db
+            .prepare("SELECT id FROM uploaded_folders ORDER BY id")
+            .expect("prepare remaining folders")
+            .query_map([], |row| row.get(0))
+            .expect("query remaining folders")
+            .collect::<Result<_, _>>()
+            .expect("collect remaining folders");
+        assert_eq!(remaining, vec!["other"]);
     }
 }

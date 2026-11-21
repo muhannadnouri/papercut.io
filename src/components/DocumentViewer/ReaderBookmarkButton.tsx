@@ -1,5 +1,12 @@
-import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components'
+import {
+  Button,
+  Menu,
+  MenuItem,
+  MenuTrigger,
+  Popover,
+} from 'react-aria-components'
 import { useTranslation } from 'react-i18next'
+import { TrashIcon } from '../TrashIcon/TrashIcon'
 
 interface ReaderBookmarkButtonProps {
   hasBookmark: boolean
@@ -45,23 +52,27 @@ export function ReaderBookmarkButton({
         offset={8}
         containerPadding={8}
         shouldFlip
+        // React Aria sets an inline z-index of 100000; match the playback dock's top layer instead.
+        style={{ zIndex: 2147483647 }}
       >
         <Menu className="reader-bookmark-menu" aria-label={label}>
           {!isAtBookmark && (
             <MenuItem className="reader-bookmark-menu-item" onAction={onRestore}>
-              {t('reader.returnToBookmark')}
+              <GoToBookmarkIcon />
+              <span>{t('reader.returnToBookmark')}</span>
             </MenuItem>
           )}
           {!isAtBookmark && (
             <MenuItem className="reader-bookmark-menu-item" onAction={onMove}>
-              {t('reader.moveBookmarkHere')}
+              <UpdateBookmarkIcon />
+              <span>{t('reader.moveBookmarkHere')}</span>
             </MenuItem>
           )}
           <MenuItem
             className="reader-bookmark-menu-item reader-bookmark-menu-item-danger"
             onAction={onRemove}
           >
-            <RemoveBookmarkIcon />
+            <TrashIcon className="reader-bookmark-menu-item-icon" />
             <span>{t('reader.removeBookmark')}</span>
           </MenuItem>
         </Menu>
@@ -79,10 +90,21 @@ function BookmarkIcon({ saved }: { saved: boolean }) {
   )
 }
 
-function RemoveBookmarkIcon() {
+function GoToBookmarkIcon() {
   return (
     <svg className="reader-bookmark-menu-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 4v6m4-6v6" />
+      <circle cx="12" cy="12" r="7" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M12 2v3m0 14v3M2 12h3m14 0h3" />
+    </svg>
+  )
+}
+
+function UpdateBookmarkIcon() {
+  return (
+    <svg className="reader-bookmark-menu-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" />
+      <path d="m15 5 4 4" />
     </svg>
   )
 }

@@ -10,6 +10,8 @@ const ERROR_KEYS = {
   'no-speakable-text': 'tts.errors.noSpeakableText',
   'operation-cancelled': 'tts.errors.operationCancelled',
   'audiobook-cache-mismatch': 'tts.errors.audiobookCacheMismatch',
+  'pdf-audiobook-regeneration-required': 'tts.status.pdfRegenerationRequired',
+  'audiobook-restart-required': 'tts.errors.audiobookRestartRequired',
   'wav-too-large': 'tts.errors.wavTooLarge',
   'invalid-audiobook-bundle': 'tts.errors.invalidBundle',
 } as const
@@ -17,7 +19,9 @@ const ERROR_KEYS = {
 export function nativeTtsErrorMessage(error: unknown): string {
   if (error instanceof NativeTtsError) {
     const key = ERROR_KEYS[error.code as keyof typeof ERROR_KEYS]
-    if (key) return i18n.t(key)
+    if (key) {
+      return i18n.t(key)
+    }
   }
   return nativeTtsErrorDetail(error)
 }

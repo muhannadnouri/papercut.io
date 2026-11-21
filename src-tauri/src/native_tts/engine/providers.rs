@@ -1,25 +1,5 @@
 //! ONNX Runtime execution-provider capability discovery.
 
-#[cfg(all(
-    feature = "native-text-preprocessing-core",
-    any(target_os = "macos", target_os = "ios")
-))]
-use ort::CoreMLExecutionProvider;
-#[cfg(all(feature = "native-text-preprocessing-core", windows))]
-use ort::DirectMLExecutionProvider;
-#[cfg(feature = "native-text-preprocessing-core")]
-use ort::ExecutionProvider;
-#[cfg(all(
-    feature = "native-text-preprocessing-core",
-    any(target_os = "linux", windows)
-))]
-use ort::{CUDAExecutionProvider, TensorRTExecutionProvider};
-#[cfg(all(feature = "native-text-preprocessing-core", target_os = "android"))]
-use ort::{NNAPIExecutionProvider, XNNPACKExecutionProvider};
-
-#[cfg(feature = "native-text-preprocessing-core")]
-use super::preprocess::initialize_ort;
-
 /// Return the provider selected by this artifact, defaulting unknown builds to CPU.
 pub(super) fn default_sherpa_execution_provider() -> &'static str {
     normalize_default_provider(option_env!("PAPERCUT_SHERPA_DEFAULT_PROVIDER"))
@@ -39,55 +19,46 @@ fn normalize_default_provider(provider: Option<&str>) -> &'static str {
 /// providers still need per-model/device validation before the UI can offer
 /// them. CPU is always present and remains the universal fallback.
 pub(super) fn compiled_sherpa_execution_providers() -> Result<Vec<&'static str>, String> {
-    let mut providers = vec!["cpu"];
+    #[cfg(not(feature = "native-text-preprocessing-core"))]
+    return Ok(vec!["cpu"]);
 
     #[cfg(feature = "native-text-preprocessing-core")]
     {
-        initialize_ort()?;
+        use std::{ffi::CStr, ptr};
 
-        #[cfg(any(target_os = "linux", windows))]
-        push_available_provider(&mut providers, "cuda", &CUDAExecutionProvider::default())?;
-        #[cfg(any(target_os = "linux", windows))]
-        push_available_provider(&mut providers, "trt", &TensorRTExecutionProvider::default())?;
-        #[cfg(windows)]
-        push_available_provider(
-            &mut providers,
-            "directml",
-            &DirectMLExecutionProvider::default(),
-        )?;
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        push_available_provider(
-            &mut providers,
-            "coreml",
-            &CoreMLExecutionProvider::default(),
-        )?;
-        #[cfg(target_os = "android")]
-        push_available_provider(&mut providers, "nnapi", &NNAPIExecutionProvider::default())?;
-        #[cfg(target_os = "android")]
-        push_available_provider(
-            &mut providers,
-            "xnnpack",
-            &XNNPACKExecutionProvider::default(),
-        )?;
+        crate::onnx_runtime::initialize()?;
+        let api = ort::api();
+        let mut names = ptr::null_mut();
+        let mut count = 0;
+        let mut providers = vec!["cpu"];
+        // ORT owns these count NUL-terminated names until ReleaseAvailableProviders.
+        unsafe {
+            ort::Error::result_from_status((api.GetAvailableProviders)(&mut names, &mut count))
+                .map_err(|e| format!("Failed to inspect ONNX Runtime providers: {e}"))?;
+            if !names.is_null() {
+                for index in 0..count {
+                    match CStr::from_ptr(*names.add(index as usize)).to_bytes() {
+                        #[cfg(any(target_os = "linux", windows))]
+                        b"CUDAExecutionProvider" => providers.push("cuda"),
+                        #[cfg(any(target_os = "linux", windows))]
+                        b"TensorrtExecutionProvider" => providers.push("trt"),
+                        #[cfg(windows)]
+                        b"DmlExecutionProvider" => providers.push("directml"),
+                        #[cfg(any(target_os = "macos", target_os = "ios"))]
+                        b"CoreMLExecutionProvider" => providers.push("coreml"),
+                        #[cfg(target_os = "android")]
+                        b"NnapiExecutionProvider" => providers.push("nnapi"),
+                        #[cfg(target_os = "android")]
+                        b"XnnpackExecutionProvider" => providers.push("xnnpack"),
+                        _ => {}
+                    }
+                }
+                ort::Error::result_from_status((api.ReleaseAvailableProviders)(names, count))
+                    .map_err(|e| format!("Failed to release ONNX Runtime provider list: {e}"))?;
+            }
+        }
+        Ok(providers)
     }
-
-    Ok(providers)
-}
-
-#[cfg(feature = "native-text-preprocessing-core")]
-/// Append a provider only when the loaded ONNX Runtime reports it as compiled.
-fn push_available_provider(
-    providers: &mut Vec<&'static str>,
-    sherpa_id: &'static str,
-    provider: &dyn ExecutionProvider,
-) -> Result<(), String> {
-    if provider
-        .is_available()
-        .map_err(|error| format!("Failed to inspect ONNX Runtime providers: {error}"))?
-    {
-        providers.push(sherpa_id);
-    }
-    Ok(())
 }
 
 #[cfg(test)]

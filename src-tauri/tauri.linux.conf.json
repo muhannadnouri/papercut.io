@@ -1,6 +1,6 @@
 {
   "build": {
-    "beforeBundleCommand": "node scripts/copy-sherpa-linux-libs.js"
+    "beforeBundleCommand": "node scripts/desktop/copy-sherpa-linux-libs.js"
   },
   "bundle": {
     "linux": {
@@ -9,7 +9,7 @@
       }
     },
     "resources": {
-      "tts/runtime/linux-x64-shared-libs/": ""
+      "tts/runtime/linux-x64-shared-libs-2.0.1/": ""
     }
   }
 }

@@ -83,11 +83,20 @@
   background: var(--control-surface);
   border: 1px solid transparent;
   border-radius: var(--radius-compact);
-  font-size: 1.55rem;
   color: var(--text-muted);
   cursor: pointer;
   padding: 0;
   line-height: 1;
+}
+
+.find-close svg {
+  display: block;
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
 .find-close:focus-visible {

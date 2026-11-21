@@ -1,5 +1,13 @@
-import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components'
+import { MoreActionsIcon } from '../../components/icons'
+import {
+  Button,
+  Menu,
+  MenuItem,
+  MenuTrigger,
+  Popover,
+} from 'react-aria-components'
 import type { TFunction } from 'i18next'
+import { TrashIcon } from '../../components/TrashIcon/TrashIcon'
 import type { NativeAudiobookExportFormat } from '../api/nativeTts'
 import type { SavedAudiobookRecord } from '../storage/AudiobookLibrary'
 import { SILMA_MODEL_ID } from '../types'
@@ -8,7 +16,9 @@ import './AudiobookActionsMenu.css'
 interface AudiobookActionsMenuProps {
   t: TFunction
   record: SavedAudiobookRecord
-  options: Array<{ format: NativeAudiobookExportFormat; label: string; code: string }>
+  options: Array<{ format: NativeAudiobookExportFormat;
+    label: string;
+    code: string }>
   open: boolean
   disabled: boolean
   onOpenChange: (open: boolean) => void
@@ -16,7 +26,7 @@ interface AudiobookActionsMenuProps {
   onDelete: () => void
 }
 
-/** Render saved-audiobook actions in a portal so the menu can flip around viewport edges. */
+/** Portal placement avoids clipped menus; stale PDF exports stay disabled while opening/deletion remain available. */
 export function AudiobookActionsMenu({
   t,
   record,
@@ -36,7 +46,7 @@ export function AudiobookActionsMenu({
           isDisabled={disabled}
           aria-label={label}
         >
-          <AudiobookMoreActionsIcon />
+          <MoreActionsIcon className="audiobook-actions-icon" />
         </Button>
         <Popover
           className="audiobook-actions-popover"
@@ -53,6 +63,7 @@ export function AudiobookActionsMenu({
                   id={option.format}
                   className="audiobook-actions-option"
                   textValue={option.label}
+                  isDisabled={Boolean(record.requiresRegeneration)}
                   onAction={() => onExport(option.format)}
                 >
                   <span>{option.label}</span>
@@ -67,7 +78,7 @@ export function AudiobookActionsMenu({
                 textValue={t('tts.audiobooks.delete')}
                 onAction={onDelete}
               >
-                <AudiobookDeleteIcon />
+                <TrashIcon className="audiobook-actions-option-icon" />
                 <span>{t('tts.audiobooks.delete')}</span>
               </MenuItem>
             </Menu>
@@ -79,23 +90,5 @@ export function AudiobookActionsMenu({
         </Popover>
       </MenuTrigger>
     </div>
-  )
-}
-
-function AudiobookMoreActionsIcon() {
-  return (
-    <svg className="audiobook-actions-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <circle cx="12" cy="5" r="2" />
-      <circle cx="12" cy="12" r="2" />
-      <circle cx="12" cy="19" r="2" />
-    </svg>
-  )
-}
-
-function AudiobookDeleteIcon() {
-  return (
-    <svg className="audiobook-actions-option-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 4v6m4-6v6" fill="none" stroke="currentcolor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   )
 }

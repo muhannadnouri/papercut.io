@@ -1,4 +1,8 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import {
+  useEffect,
+  useRef,
+  type RefObject,
+} from 'react'
 import {
   clearTtsHighlight,
   clearTtsWordHighlight,
@@ -10,6 +14,7 @@ import {
   type AlignmentCache,
   type SegmentIndexCache,
 } from '../alignment/highlightRanges'
+import type { AudioFollowPolicy } from '../../viewers/types'
 import type { TtsChunk } from '../types'
 
 const SCROLL_SETTLE_MS = 120
@@ -20,6 +25,7 @@ const SCROLL_SETTLE_MS = 120
 const WORD_HIGHLIGHT_LEAD_SECONDS = 0.25
 
 interface UseTtsHighlightOptions {
+  audioFollowPolicy?: AudioFollowPolicy
   enabled: boolean
   currentChunkIndex: number | null
   chunks: TtsChunk[]
@@ -34,6 +40,7 @@ interface UseTtsHighlightOptions {
 export function useTtsHighlight(
   rootRef: RefObject<HTMLElement | null>,
   {
+    audioFollowPolicy,
     enabled,
     currentChunkIndex,
     chunks,
@@ -55,7 +62,9 @@ export function useTtsHighlight(
   // rescanning the whole book on every mutation.
   useEffect(() => {
     const root = rootRef.current
-    if (observedRootRef.current === root) return
+    if (observedRootRef.current === root) {
+      return
+    }
 
     mutationObserverRef.current?.disconnect()
     mutationObserverRef.current = null
@@ -63,13 +72,19 @@ export function useTtsHighlight(
     rootVersionRef.current += 1
     invalidateTtsDomCaches(root?.ownerDocument, segmentIndexCacheRef, alignmentCacheRef)
 
-    if (!root) return
+    if (!root) {
+      return
+    }
 
     const observer = new MutationObserver(() => {
       rootVersionRef.current += 1
       invalidateTtsDomCaches(root.ownerDocument, segmentIndexCacheRef, alignmentCacheRef)
     })
-    observer.observe(root, { childList: true, subtree: true, characterData: true })
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    })
     mutationObserverRef.current = observer
   })
 
@@ -94,7 +109,9 @@ export function useTtsHighlight(
       idleHandle = null
       timeoutHandle = null
       const root = rootRef.current
-      if (!root?.isConnected) return
+      if (!root?.isConnected) {
+        return
+      }
       getOrBuildSegmentIndex(root, rootVersionRef.current, segmentIndexCacheRef)
     }
 
@@ -114,7 +131,9 @@ export function useTtsHighlight(
       }
     }
 
-    if (enabled && currentChunkIndex !== null) scheduleBuild()
+    if (enabled && currentChunkIndex !== null) {
+      scheduleBuild()
+    }
     return () => {
       cancelScheduledBuild()
       segmentIndexCacheRef.current = null
@@ -128,7 +147,9 @@ export function useTtsHighlight(
       mutationObserverRef.current = null
       observedRootRef.current = null
       const cache = alignmentCacheRef.current
-      if (cache) clearTtsHighlight(cache.doc, cache)
+      if (cache) {
+        clearTtsHighlight(cache.doc, cache)
+      }
       alignmentCacheRef.current = null
     },
     [],
@@ -141,7 +162,9 @@ export function useTtsHighlight(
     const doc = root?.ownerDocument
 
     if (!enabled || currentChunkIndex === null) {
-      if (doc) clearTtsHighlight(doc, alignmentCacheRef.current)
+      if (doc) {
+        clearTtsHighlight(doc, alignmentCacheRef.current)
+      }
       alignmentCacheRef.current = null
       return
     }
@@ -149,8 +172,12 @@ export function useTtsHighlight(
     let frame: number | null = null
     let scrollTimer: number | null = null
     const attemptHighlight = () => {
-      if (frame !== null) window.cancelAnimationFrame(frame)
-      if (scrollTimer !== null) window.clearTimeout(scrollTimer)
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame)
+      }
+      if (scrollTimer !== null) {
+        window.clearTimeout(scrollTimer)
+      }
 
       frame = window.requestAnimationFrame(() => {
         frame = null
@@ -164,11 +191,18 @@ export function useTtsHighlight(
             segmentIndexCacheRef,
             alignmentCacheRef,
           )
-          if (!result) return
+          if (!result) {
+            return
+          }
 
+          if (audioFollowPolicy && !audioFollowPolicy.allowsReveal()) {
+            return
+          }
           scrollTimer = window.setTimeout(() => {
             scrollTimer = null
-            scrollRangeIntoView(result.range)
+            if (!audioFollowPolicy || audioFollowPolicy.allowsReveal()) {
+              scrollRangeIntoView(result.range)
+            }
           }, SCROLL_SETTLE_MS)
         } catch (err) {
           console.warn('Unable to highlight current TTS chunk:', err)
@@ -179,10 +213,14 @@ export function useTtsHighlight(
     attemptHighlight()
 
     return () => {
-      if (frame !== null) window.cancelAnimationFrame(frame)
-      if (scrollTimer !== null) window.clearTimeout(scrollTimer)
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame)
+      }
+      if (scrollTimer !== null) {
+        window.clearTimeout(scrollTimer)
+      }
     }
-  }, [allowDomFallback, chunks, currentChunkIndex, enabled, rootRef])
+  }, [allowDomFallback, audioFollowPolicy, chunks, currentChunkIndex, enabled, rootRef])
 
   // Word highlighting is an intentionally cheap approximation: saved manifests
   // only know chunk timings, so the active word is inferred from chunk progress.
@@ -199,7 +237,9 @@ export function useTtsHighlight(
       currentChunkDuration <= 0 ||
       !Number.isFinite(currentChunkTime)
     ) {
-      if (doc) clearTtsWordHighlight(doc, alignmentCacheRef.current)
+      if (doc) {
+        clearTtsWordHighlight(doc, alignmentCacheRef.current)
+      }
       return
     }
 
@@ -228,7 +268,9 @@ export function useTtsHighlight(
     })
 
     return () => {
-      if (frame !== null) window.cancelAnimationFrame(frame)
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame)
+      }
     }
   }, [
     allowDomFallback,

@@ -7,6 +7,10 @@ import {
   type ReadableSegmentKind,
 } from '../alignment/readableSegments'
 import type { TtsChunkSourceSpan } from '../types'
+import {
+  splitNarrationClauses,
+  splitNarrationSentences,
+} from '../alignment/narrationText'
 
 export interface SpeechChunkProfile {
   maxChunkLength: number
@@ -60,9 +64,14 @@ export function chunkSpeechText(
   profile: SpeechChunkProfile = PLAYBACK_CHUNK_PROFILE,
 ): string[] {
   const normalized = normalizeSpeechText(text)
-  if (!normalized) return []
+  if (!normalized) {
+    return []
+  }
 
-  return chunkReadableSegments([{ text: normalized, kind: 'paragraph' }], profile)
+  return chunkReadableSegments([{
+    text: normalized,
+    kind: 'paragraph',
+  }], profile)
 }
 
 export function chunkAudiobookSaveText(text: string): string[] {
@@ -108,7 +117,10 @@ export function chunkReadableSegmentsWithSpans(
     appendSegmentChunks(segments[index], index, chunks, profile)
   }
 
-  return mergeShortChunks(chunks, profile).map(({ text, sourceSpan }) => ({ text, sourceSpan }))
+  return mergeShortChunks(chunks, profile).map(({ text, sourceSpan }) => ({
+    text,
+    sourceSpan,
+  }))
 }
 
 // Merges tiny adjacent chunks only when their segment kinds are compatible; this
@@ -146,12 +158,16 @@ function appendSegmentChunks(
   profile: SpeechChunkProfile,
 ): void {
   const paragraph = normalizeSegmentText(segment.text)
-  if (!paragraph) return
+  if (!paragraph) {
+    return
+  }
   let sourceSearchOffset = 0
 
   const flushSegmentChunk = (text: string) => {
     const normalized = normalizeSegmentText(text)
-    if (!normalized) return
+    if (!normalized) {
+      return
+    }
 
     // Locate the chunk by its whitespace tokens rather than the whole joined
     // string, searching forward from the prior chunk to keep repeated sentences
@@ -172,14 +188,13 @@ function appendSegmentChunks(
         endOffset: span.endOffset,
       }
       : undefined
-    if (sourceSpan) sourceSearchOffset = sourceSpan.endOffset
+    if (sourceSpan) {
+      sourceSearchOffset = sourceSpan.endOffset
+    }
     flushChunk(chunks, normalized, segment.kind, sourceSpan)
   }
 
-  const sentences = paragraph
-    .match(/[^.!?؟。！？।॥]+[.!?؟。！？।॥]+["'”’»)\]）】」』》]*|[^.!?؟。！？।॥]+$/g)
-    ?.map((sentence) => sentence.trim())
-    .filter(Boolean) ?? [paragraph]
+  const sentences = splitNarrationSentences(paragraph)
 
   let current = ''
   for (const sentence of sentences) {
@@ -192,7 +207,9 @@ function appendSegmentChunks(
 
     const next = current ? current + ' ' + sentence : sentence
     if (next.length > profile.maxChunkLength) {
-      if (current) flushSegmentChunk(current)
+      if (current) {
+        flushSegmentChunk(current)
+      }
       current = sentence
     } else {
       current = next
@@ -205,16 +222,7 @@ function appendSegmentChunks(
 function splitLongSentence(sentence: string, profile: SpeechChunkProfile): string[] {
   // Fall back to common Latin, Arabic, CJK, and Devanagari clause boundaries,
   // then hard-wrap long clauses.
-  const parts = sentence
-    .split(/([,;:،؛，；：、]\s*)/)
-    .reduce<string[]>((acc, part, idx, source) => {
-      if (idx % 2 === 0) {
-        acc.push(part + (source[idx + 1] ?? ''))
-      }
-      return acc
-    }, [])
-    .map((part) => part.trim())
-    .filter(Boolean)
+  const parts = splitNarrationClauses(sentence)
 
   const boundedParts = parts.flatMap((part) => splitAtWordBoundaries(part, profile.maxChunkLength))
   const chunks: string[] = []
@@ -229,7 +237,9 @@ function splitLongSentence(sentence: string, profile: SpeechChunkProfile): strin
     }
   }
 
-  if (current) chunks.push(current)
+  if (current) {
+    chunks.push(current)
+  }
   return chunks
 }
 
@@ -239,12 +249,16 @@ function splitAtWordBoundaries(text: string, maxLength: number): string[] {
 
   while (remaining.length > maxLength) {
     let splitAt = remaining.lastIndexOf(' ', maxLength)
-    if (splitAt <= 0) splitAt = maxLength
+    if (splitAt <= 0) {
+      splitAt = maxLength
+    }
     chunks.push(remaining.slice(0, splitAt).trim())
     remaining = remaining.slice(splitAt).trim()
   }
 
-  if (remaining) chunks.push(remaining)
+  if (remaining) {
+    chunks.push(remaining)
+  }
   return chunks
 }
 
@@ -259,19 +273,29 @@ function locateChunkTokenSpan(
   paragraph: string,
   chunkText: string,
   fromOffset: number,
-): { startOffset: number; endOffset: number } | null {
+): { startOffset: number;
+  endOffset: number } | null {
   let cursor = fromOffset
   let startOffset = -1
   let endOffset = -1
   for (const token of chunkText.split(' ')) {
-    if (!token) continue
+    if (!token) {
+      continue
+    }
     const at = paragraph.indexOf(token, cursor)
-    if (at < 0) continue
-    if (startOffset < 0) startOffset = at
+    if (at < 0) {
+      continue
+    }
+    if (startOffset < 0) {
+      startOffset = at
+    }
     endOffset = at + token.length
     cursor = endOffset
   }
-  return startOffset < 0 ? null : { startOffset, endOffset }
+  return startOffset < 0 ? null : {
+    startOffset,
+    endOffset,
+  }
 }
 
 // Normalizes final chunk text where it becomes cache-keyed audiobook input.
@@ -282,14 +306,24 @@ function flushChunk(
   sourceSpan?: TtsChunkSourceSpan,
 ): void {
   const normalized = normalizeSegmentText(text)
-  if (normalized) chunks.push({ text: normalized, kind, sourceSpan })
+  if (normalized) {
+    chunks.push({
+      text: normalized,
+      kind,
+      sourceSpan,
+    })
+  }
 }
 
 // Encodes the UX rule for structural boundaries: headings stand alone, and list
 // items only merge with other list items.
 function canMergeChunks(previous: ReadableSegmentKind, next: ReadableSegmentKind): boolean {
-  if (previous === 'heading' || next === 'heading') return false
-  if (previous === 'listItem' || next === 'listItem') return previous === next
+  if (previous === 'heading' || next === 'heading') {
+    return false
+  }
+  if (previous === 'listItem' || next === 'listItem') {
+    return previous === next
+  }
   return true
 }
 
@@ -299,7 +333,9 @@ function mergeSourceSpans(
   previous: TtsChunkSourceSpan | undefined,
   next: TtsChunkSourceSpan | undefined,
 ): TtsChunkSourceSpan | undefined {
-  if (!previous || !next) return undefined
+  if (!previous || !next) {
+    return undefined
+  }
   return {
     startSegmentIndex: previous.startSegmentIndex,
     startOffset: previous.startOffset,

@@ -1,6 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
 import type { TextContent } from 'pdfjs-dist/types/src/display/api'
-import { assertPdfPageCount, pageTextLayer, pdfThumbnailSize } from './pdfImport'
+import {
+  assertPdfPageCount,
+  pageTextLayer,
+  pdfThumbnailSize,
+} from './pdfImport'
 
 describe('assertPdfPageCount', () => {
   it('accepts the documented limit and rejects larger PDFs', () => {

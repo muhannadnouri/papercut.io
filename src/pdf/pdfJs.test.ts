@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest'
-import { loadPdfJs, pdfLoadErrorMessage } from './pdfJs'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
+import {
+  loadPdfJs,
+  pdfLoadErrorMessage,
+} from './pdfJs'
 
 describe('pdfLoadErrorMessage', () => {
   it.each([

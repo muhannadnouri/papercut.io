@@ -548,7 +548,7 @@ absent, the downloaded CPU runtime remains the fallback.
 
 Current CUDA setup script:
 
-- lives at `scripts/install-silma-cuda-runtime.sh`;
+- lives at `scripts/silma/install-silma-cuda-runtime.sh`;
 - requires Linux x64, `nvidia-smi`, network access, `sha256sum`, and
   `curl` or `wget`;
 - downloads the app-owned micromamba `2.8.1-0` binary from its fixed release URL
@@ -755,7 +755,7 @@ Known recovery paths:
   `rm -rf .cache/silma-pyinstaller sidecars/silma/runtime dist`. Do not delete
   `src-tauri/tts/runtime` as a generic cleanup step; Tauri validates the sherpa
   Linux shared-lib resource path before bundling. If it was deleted, restore it
-  with `node scripts/copy-sherpa-linux-libs.js` after Cargo has downloaded the
+  with `node scripts/desktop/copy-sherpa-linux-libs.js` after Cargo has downloaded the
   sherpa shared libs.
 - `linuxdeploy` failure while bundling: do not put the multi-GB SILMA runtime in
   ordinary app bundles. Use the optional runtime-pack artifact path.
@@ -1194,7 +1194,7 @@ Stage 2 SILMA synthesis status:
 
 ## Build Script Tasks
 
-- [x] Add `scripts/prepare-silma-sidecar.js` or platform-specific helpers.
+- [x] Add `scripts/silma/prepare-silma-sidecar.js` or platform-specific helpers.
 - [x] Produce target-triple sidecar names or resource directories.
 - [x] Make the SILMA packaging helper build a source-preserving Python runtime
       after PyInstaller failed on native/source-inspection dependencies.
@@ -1202,7 +1202,7 @@ Stage 2 SILMA synthesis status:
       the prep script.
 - [x] Add packaged-worker `--dependency-check` so CI imports TorchCodec and
       catches mismatched CPU/CUDA native wheels before publishing runtime packs.
-- [x] Prototype sidecar prep in `scripts/build-desktop.js` behind a build flag.
+- [x] Prototype sidecar prep in `scripts/desktop/build-desktop.js` behind a build flag.
 - [x] Remove the opt-in Linux desktop resource staging spike after choosing
       optional runtime packs.
 - [x] Allow packaging spikes to request one Tauri bundle type with

@@ -40,7 +40,10 @@ export function graftImportedSourceSpans(
       logImportedGraftFailure('chunk-text-mismatch', importedChunks, rebuiltChunks, index, context)
       return null
     }
-    grafted.push({ ...imported, sourceSpan: rebuilt.sourceSpan })
+    grafted.push({
+      ...imported,
+      sourceSpan: rebuilt.sourceSpan,
+    })
   }
 
   logTtsDiagnostic('[tts-highlight] imported source-span graft ready', {

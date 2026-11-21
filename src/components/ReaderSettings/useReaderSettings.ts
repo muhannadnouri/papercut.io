@@ -1,8 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
+import { useTranslation } from 'react-i18next'
 
 const READER_SETTINGS_KEY = 'papercut.readerSettings.v1'
 
-export const READER_PAGE_THEMES = ['default', 'gray', 'black'] as const
+export const READER_PAGE_THEMES = ['default', 'sepia', 'gray', 'black'] as const
 export type ReaderPageTheme = typeof READER_PAGE_THEMES[number]
 
 export interface ReaderSettingsState {
@@ -25,6 +33,8 @@ export interface ReaderRangeConfig {
 // font metrics can noticeably change spacing in mixed-language documents.
 const READER_FONT_STACKS = {
   literata: '"Papercut Literata", serif',
+  sourceSans3: '"Papercut Source Sans 3", sans-serif',
+  merriweather: '"Papercut Merriweather", serif',
   atkinson: '"Papercut Atkinson Hyperlegible", sans-serif',
   systemSerif: 'ui-serif, Georgia, "Times New Roman", serif',
   systemSans: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -42,22 +52,73 @@ export const DEFAULT_READER_SETTINGS: ReaderSettingsState = {
   pageTheme: 'default',
 }
 
+interface StoredReaderSettings extends Partial<ReaderSettingsState> {
+  fontFamilyExplicit?: boolean
+}
+
 // Single source of truth for slider UI and persisted-value validation.
 export const READER_SETTING_LIMITS = {
-  fontSizePx: { min: 8, max: 24, step: 1, suffix: 'px' },
-  lineHeight: { min: 0.5, max: 2.2, step: 0.05, suffix: '' },
-  widthCh: { min: 40, max: 200, step: 4, suffix: 'ch' },
+  fontSizePx: {
+    min: 8,
+    max: 40,
+    step: 1,
+    suffix: 'px',
+  },
+  lineHeight: {
+    min: 0.5,
+    max: 2.2,
+    step: 0.05,
+    suffix: '',
+  },
+  widthCh: {
+    min: 40,
+    max: 200,
+    step: 4,
+    suffix: 'ch',
+  },
 } satisfies Record<'fontSizePx' | 'lineHeight' | 'widthCh', ReaderRangeConfig>
 
 export const FONT_FAMILY_OPTIONS = [
-  { labelKey: 'reader.settings.fonts.literata', value: READER_FONT_STACKS.literata },
-  { labelKey: 'reader.settings.fonts.atkinson', value: READER_FONT_STACKS.atkinson },
-  { labelKey: 'reader.settings.fonts.systemSerif', value: READER_FONT_STACKS.systemSerif },
-  { labelKey: 'reader.settings.fonts.systemSans', value: READER_FONT_STACKS.systemSans },
-  { labelKey: 'reader.settings.fonts.naskhArabic', value: READER_FONT_STACKS.naskhArabic },
-  { labelKey: 'reader.settings.fonts.droidArabicNaskh', value: READER_FONT_STACKS.droidArabicNaskh },
-  { labelKey: 'reader.settings.fonts.scheherazadeNew', value: READER_FONT_STACKS.scheherazadeNew },
-  { labelKey: 'reader.settings.fonts.readexPro', value: READER_FONT_STACKS.readexPro },
+  {
+    labelKey: 'reader.settings.fonts.literata',
+    value: READER_FONT_STACKS.literata,
+  },
+  {
+    labelKey: 'reader.settings.fonts.atkinson',
+    value: READER_FONT_STACKS.atkinson,
+  },
+  {
+    labelKey: 'reader.settings.fonts.sourceSans3',
+    value: READER_FONT_STACKS.sourceSans3,
+  },
+  {
+    labelKey: 'reader.settings.fonts.merriweather',
+    value: READER_FONT_STACKS.merriweather,
+  },
+  {
+    labelKey: 'reader.settings.fonts.systemSerif',
+    value: READER_FONT_STACKS.systemSerif,
+  },
+  {
+    labelKey: 'reader.settings.fonts.systemSans',
+    value: READER_FONT_STACKS.systemSans,
+  },
+  {
+    labelKey: 'reader.settings.fonts.naskhArabic',
+    value: READER_FONT_STACKS.naskhArabic,
+  },
+  {
+    labelKey: 'reader.settings.fonts.droidArabicNaskh',
+    value: READER_FONT_STACKS.droidArabicNaskh,
+  },
+  {
+    labelKey: 'reader.settings.fonts.scheherazadeNew',
+    value: READER_FONT_STACKS.scheherazadeNew,
+  },
+  {
+    labelKey: 'reader.settings.fonts.readexPro',
+    value: READER_FONT_STACKS.readexPro,
+  },
 ] as const
 
 const LEGACY_FONT_FAMILY_MAP = new Map([
@@ -69,7 +130,12 @@ const LEGACY_FONT_FAMILY_MAP = new Map([
 ])
 
 export function useReaderSettings() {
-  const [settings, setSettings] = useState<ReaderSettingsState>(() => loadReaderSettings())
+  const { i18n } = useTranslation()
+  const defaultFontFamily = defaultReaderFontFamily(i18n.resolvedLanguage ?? i18n.language)
+  const initialSettingsRef = useRef<ReturnType<typeof loadReaderSettings> | null>(null)
+  initialSettingsRef.current ??= loadReaderSettings(defaultFontFamily)
+  const [settings, setSettings] = useState<ReaderSettingsState>(initialSettingsRef.current.settings)
+  const fontFamilyExplicitRef = useRef(initialSettingsRef.current.fontFamilyExplicit)
   const settingsRef = useRef(settings)
   const appliedFontRef = useRef(settings.fontFamily)
   const fontApplicationRef = useRef(0)
@@ -91,21 +157,31 @@ export function useReaderSettings() {
     setApplyingFontFamily(fontFamily)
 
     void prepareReaderFontApplication(fontFamily).then(async () => {
-      if (fontApplicationRef.current !== request) return
+      if (fontApplicationRef.current !== request) {
+        return
+      }
       appliedFontRef.current = fontFamily
       setAppliedFontFamily(fontFamily)
       await waitForAnimationFrame()
-      if (fontApplicationRef.current === request) setApplyingFontFamily(null)
+      if (fontApplicationRef.current === request) {
+        setApplyingFontFamily(null)
+      }
     })
   }, [])
 
-  const onChange = useCallback((next: Partial<ReaderSettingsState>) => {
-    const updated = clampReaderSettings({ ...settingsRef.current, ...next })
+  const applySettings = useCallback((
+    updated: ReaderSettingsState,
+    fontFamilyExplicit: boolean,
+    applyFont: boolean,
+  ) => {
     settingsRef.current = updated
-    saveReaderSettings(updated)
+    fontFamilyExplicitRef.current = fontFamilyExplicit
+    saveReaderSettings(updated, fontFamilyExplicit)
     setSettings(updated)
 
-    if (next.fontFamily === undefined) return
+    if (!applyFont) {
+      return
+    }
     if (updated.fontFamily === appliedFontRef.current) {
       fontApplicationRef.current += 1
       setApplyingFontFamily(null)
@@ -114,14 +190,48 @@ export function useReaderSettings() {
     stageFontApplication(updated.fontFamily)
   }, [stageFontApplication])
 
+  const onChange = useCallback((next: Partial<ReaderSettingsState>) => {
+    const updated = clampReaderSettings({
+      ...settingsRef.current,
+      ...next,
+    })
+    const fontFamilyExplicit = next.fontFamily === undefined
+      ? fontFamilyExplicitRef.current
+      : true
+    applySettings(updated, fontFamilyExplicit, next.fontFamily !== undefined)
+  }, [applySettings])
+
   const onReset = useCallback(() => {
-    onChange(DEFAULT_READER_SETTINGS)
-  }, [onChange])
+    applySettings({
+      ...DEFAULT_READER_SETTINGS,
+      fontFamily: defaultFontFamily,
+    }, false, true)
+  }, [applySettings, defaultFontFamily])
+
+  const previousDefaultFontRef = useRef(defaultFontFamily)
+  useEffect(() => {
+    if (previousDefaultFontRef.current === defaultFontFamily) {
+      return
+    }
+    previousDefaultFontRef.current = defaultFontFamily
+    if (fontFamilyExplicitRef.current) {
+      return
+    }
+    applySettings({
+      ...settingsRef.current,
+      fontFamily: defaultFontFamily,
+    }, false, true)
+  }, [applySettings, defaultFontFamily])
 
   return {
     applyingFontFamily,
     readerSettingsStyle,
-    readerSettingsProps: { applyingFontFamily, settings, onChange, onReset },
+    readerSettingsProps: {
+      applyingFontFamily,
+      settings,
+      onChange,
+      onReset,
+    },
   }
 }
 
@@ -140,36 +250,104 @@ export async function prepareReaderFontApplication(
 }
 
 function loadReaderFont(fontFamily: string): Promise<unknown> {
-  if (typeof document === 'undefined' || !document.fonts) return Promise.resolve()
+  if (typeof document === 'undefined' || !document.fonts) {
+    return Promise.resolve()
+  }
   return document.fonts.load(`16px ${fontFamily}`, 'Aa العربية')
 }
 
 function waitForAnimationFrame(): Promise<void> {
-  if (typeof requestAnimationFrame !== 'function') return Promise.resolve()
+  if (typeof requestAnimationFrame !== 'function') {
+    return Promise.resolve()
+  }
   return new Promise((resolve) => requestAnimationFrame(() => resolve()))
 }
 
 // Load preferences defensively because old app versions, edited localStorage, or
 // future bound changes can leave persisted values outside the current UI contract.
-function loadReaderSettings(): ReaderSettingsState {
-  if (typeof window === 'undefined') return DEFAULT_READER_SETTINGS
+function loadReaderSettings(defaultFontFamily: string): {
+  settings: ReaderSettingsState
+  fontFamilyExplicit: boolean
+} {
+  const defaults = {
+    ...DEFAULT_READER_SETTINGS,
+    fontFamily: defaultFontFamily,
+  }
+  if (typeof window === 'undefined') {
+    return {
+      settings: defaults,
+      fontFamilyExplicit: false,
+    }
+  }
   try {
     const raw = window.localStorage.getItem(READER_SETTINGS_KEY)
-    if (!raw) return DEFAULT_READER_SETTINGS
-    return clampReaderSettings({ ...DEFAULT_READER_SETTINGS, ...JSON.parse(raw) })
+    if (!raw) {
+      return {
+        settings: defaults,
+        fontFamilyExplicit: false,
+      }
+    }
+    const stored = JSON.parse(raw) as StoredReaderSettings
+    const fontPreference = resolveReaderFontPreference(
+      stored.fontFamily,
+      stored.fontFamilyExplicit,
+      defaultFontFamily,
+    )
+    return {
+      settings: clampReaderSettings({
+        ...defaults,
+        ...stored,
+        fontFamily: fontPreference.fontFamily,
+      }),
+      fontFamilyExplicit: fontPreference.explicit,
+    }
   } catch {
-    return DEFAULT_READER_SETTINGS
+    return {
+      settings: defaults,
+      fontFamilyExplicit: false,
+    }
   }
 }
 
 // Preference persistence is best effort. Reader styling should still work in
 // browser previews or restricted WebViews where localStorage writes fail.
-function saveReaderSettings(settings: ReaderSettingsState): void {
-  if (typeof window === 'undefined') return
+function saveReaderSettings(settings: ReaderSettingsState, fontFamilyExplicit: boolean): void {
+  if (typeof window === 'undefined') {
+    return
+  }
   try {
-    window.localStorage.setItem(READER_SETTINGS_KEY, JSON.stringify(settings))
+    window.localStorage.setItem(READER_SETTINGS_KEY, JSON.stringify({
+      ...settings,
+      fontFamilyExplicit,
+    }))
   } catch {
     // Non-critical preference persistence can fail in restricted previews.
+  }
+}
+
+export function defaultReaderFontFamily(language: string | undefined): string {
+  return language?.toLowerCase().split(/[-_]/)[0] === 'ar'
+    ? READER_FONT_STACKS.readexPro
+    : READER_FONT_STACKS.literata
+}
+
+// Legacy settings did not record whether the font was chosen. Preserve every
+// non-default legacy font, while treating old Literata values as the prior default.
+export function resolveReaderFontPreference(
+  storedFontFamily: unknown,
+  storedExplicit: unknown,
+  defaultFontFamily: string,
+): { fontFamily: string;
+  explicit: boolean } {
+  const normalized = typeof storedFontFamily === 'string'
+    ? normalizeReaderFontFamily(storedFontFamily)
+    : DEFAULT_READER_SETTINGS.fontFamily
+  const explicit = typeof storedExplicit === 'boolean'
+    ? storedExplicit
+    : typeof storedFontFamily === 'string' && normalized !== DEFAULT_READER_SETTINGS.fontFamily
+  return {
+    fontFamily: explicit ? normalized : defaultFontFamily,
+    explicit,
   }
 }
 
@@ -194,7 +372,9 @@ export function normalizeReaderPageTheme(value: unknown): ReaderPageTheme {
 // Older saved settings used desktop font names that collapse on Android. Map
 // those values into bundled stacks instead of resetting every preference.
 function normalizeReaderFontFamily(value: string): string {
-  if (FONT_FAMILY_OPTIONS.some((option) => option.value === value)) return value
+  if (FONT_FAMILY_OPTIONS.some((option) => option.value === value)) {
+    return value
+  }
   return LEGACY_FONT_FAMILY_MAP.get(value) ?? DEFAULT_READER_SETTINGS.fontFamily
 }
 
@@ -210,6 +390,8 @@ function clampSettingNumber(
 }
 
 export function clampReaderNumber(value: number, min: number, max: number, fallback: number): number {
-  if (!Number.isFinite(value)) return fallback
+  if (!Number.isFinite(value)) {
+    return fallback
+  }
   return Math.min(max, Math.max(min, value))
 }

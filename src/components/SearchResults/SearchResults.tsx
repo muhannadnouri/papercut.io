@@ -1,8 +1,15 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import type { LastSearchInfo, SearchPhase } from '../../hooks/useSearch'
-import type { SearchOpenTarget, SearchPassage, SearchResult } from '../../types/search'
+import type {
+  LastSearchInfo,
+  SearchPhase,
+} from '../../hooks/useSearch'
+import type {
+  SearchOpenTarget,
+  SearchPassage,
+  SearchResult,
+} from '../../types/search'
 import {
   findUploadedDocumentOccurrences,
   type UploadedDocumentConcordanceEntry,
@@ -22,6 +29,8 @@ const SEARCH_PHASE_KEYS = {
 } as const
 
 interface SearchResultsProps {
+  visibleLimit?: number
+  onShowMore?: () => void
   results: SearchResult[]
   loading: boolean
   searchFailed: boolean
@@ -34,9 +43,12 @@ interface SearchResultsProps {
   openingDisabled?: boolean
   openingDocumentUrl?: string
   onViewResult: (result: SearchResult, target?: SearchOpenTarget) => void
+  onRetrySearch?: (query: string) => void
 }
 
 export function SearchResults({
+  visibleLimit = Infinity,
+  onShowMore,
   results,
   loading,
   searchFailed,
@@ -49,6 +61,7 @@ export function SearchResults({
   openingDisabled = false,
   openingDocumentUrl,
   onViewResult,
+  onRetrySearch,
 }: SearchResultsProps) {
   const { t } = useTranslation()
   const [concordance, setConcordance] = useState<{
@@ -64,6 +77,7 @@ export function SearchResults({
     : results
   const hasFilters = scopeActive
   const visibleCount = filtered.length
+  const suggestedQuery = lastSearchInfo?.suggestedQuery
   const loadConcordance = async (result: SearchResult, term: string, offset = 0) => {
     const key = `${result.url}\0${term}`
     setConcordance((current) => ({
@@ -92,24 +106,14 @@ export function SearchResults({
       } : current)
     } catch {
       setConcordance((current) => current?.key === key
-        ? { ...current, loading: false, failed: true }
+        ? {
+          ...current,
+          loading: false,
+          failed: true,
+        }
         : current)
     }
   }
-  const resultGroups = [
-    {
-      key: 'upload',
-      title: t('search.results.yourLibrary'),
-      results: filtered.filter((result) => result.source === 'upload'),
-      total: lastSearchInfo?.uploadedDocuments ?? 0,
-    },
-    {
-      key: 'starter',
-      title: t('search.results.starterDocuments'),
-      results: filtered.filter((result) => result.source !== 'upload'),
-      total: lastSearchInfo?.starterDocuments ?? 0,
-    },
-  ].filter((group) => group.results.length > 0)
 
   if (loading) {
     return (
@@ -139,9 +143,12 @@ export function SearchResults({
       )}
       {lastSearchInfo && submittedQuery.length > 0 && visibleCount > 0 && (
         <div className="search-info" role="status">
-          <strong>{t('search.results.resultCount', {
-            count: lastSearchInfo.uploadedDocuments + lastSearchInfo.starterDocuments,
-          })}</strong>
+          <strong>{visibleCount < lastSearchInfo.uploadedDocuments + lastSearchInfo.starterDocuments
+            ? t('search.results.showingCount', {
+              shown: visibleCount,
+              total: lastSearchInfo.uploadedDocuments + lastSearchInfo.starterDocuments,
+            })
+            : t('search.results.resultCount', { count: visibleCount })}</strong>
           {hasFilters && <> · {t('search.results.filtered')}</>}
           {' · '}
           <QuerySummary info={lastSearchInfo} t={t} />
@@ -157,277 +164,298 @@ export function SearchResults({
           <span>{t('search.results.noResultsHint')}</span>
         </p>
       )}
+      {!searchFailed && suggestedQuery && onRetrySearch && (
+        <button type="button" className="search-example" onClick={() => onRetrySearch(suggestedQuery)}>
+          {t('search.input.button')} <bdi>“{suggestedQuery}”</bdi>
+        </button>
+      )}
 
-      {resultGroups.map((group) => (
-        <section className="result-group" aria-labelledby={`search-result-group-${group.key}`} key={group.key}>
-          <div className="result-group-heading">
-            <h2 id={`search-result-group-${group.key}`}>{group.title}</h2>
-            <span>
-              {group.results.length < group.total
-                ? t('search.results.showingCount', { shown: group.results.length, total: group.total })
-                : t('search.results.resultCount', { count: group.total })}
-            </span>
-          </div>
-          {group.results.map((result) => {
-            const opening = openingDocumentUrl === result.url
-            const disabled = openingDisabled || opening
-            const exactPhrase = Boolean(lastSearchInfo?.phrases.length)
-            const excerpt = resultExcerpt(result, exactPhrase)
-            const additionalPassages = (result.passages ?? [])
-              .filter((passage) => passage.sectionIndex !== result.sectionIndex)
-              .slice(0, 2)
-            const locations = result.matchLocations ?? []
-            const evidenceCells = Array.from({ length: OCCURRENCE_MAP_BINS }, (_, index) => ({
-              index,
-              location: locations.find((location) => location.binIndex === index),
-            }))
-            const hasEvidence = !exactPhrase
-              && result.source === 'upload'
-              && result.matchingSections !== undefined
-              && result.matchingSections > 1
-              && (additionalPassages.length > 0 || locations.length > 1)
-            const meta = resultMeta(result, exactPhrase, hasEvidence, t)
-            const terms = concordanceTerms(result, lastSearchInfo)
-            const activeTerm = terms.find((term) => concordance?.key === `${result.url}\0${term}`)
-            const activeConcordance = activeTerm ? concordance : null
-            const hasConcordance = result.source === 'upload'
-              && terms.length > 0
-              && (!exactPhrase || terms.length > 1 || result.matchCount !== 1)
-            const hasExplore = hasEvidence || hasConcordance
-            return (
-              <article
-                key={result.id}
-                className={'result-card'
-                  + (disabled ? ' result-card-disabled' : '')}
-              >
-                <button
-                  type="button"
-                  className="result-card-primary"
-                  disabled={disabled}
-                  onClick={() => onViewResult(result, searchOpenTargetForResult(
-                    result,
-                    exactPhrase ? lastSearchInfo?.phrases[0] : undefined,
-                  ))}
-                >
-                  <span className="result-title">
-                    <bdi>{result.meta.title}</bdi>
-                    {opening ? ` (${t('common.opening')})` : ''}
-                  </span>
-                  {meta && <span className="result-meta" dir="auto">{meta}</span>}
-                  {(result.termMatches?.length ?? 0) > 1 && (
-                    <span className="result-term-coverage" dir="auto">
-                      <span>{t('search.results.sectionsByTerm')}</span>
-                      {result.termMatches?.map((match) => (
-                        <span className="result-term-count" key={match.term}>
-                          <bdi>{match.term}</bdi> {match.matchingSections}
-                        </span>
-                      ))}
+      {filtered.slice(0, visibleLimit).map((result) => {
+        const opening = openingDocumentUrl === result.url
+        const disabled = openingDisabled || opening
+        const exactPhrase = Boolean(lastSearchInfo?.phrases.length)
+        const excerpt = resultExcerpt(result, exactPhrase)
+        const additionalPassages = (result.passages ?? [])
+          .filter((passage) => result.matchScope === 'document' || passage.sectionIndex !== result.sectionIndex)
+          .slice(0, result.matchScope === 'document' ? 3 : 2)
+        const locations = result.matchLocations ?? []
+        const evidenceCells = Array.from({ length: OCCURRENCE_MAP_BINS }, (_, index) => ({
+          index,
+          location: locations.find((location) => location.binIndex === index),
+        }))
+        const hasEvidence = !exactPhrase
+          && result.source === 'upload'
+          && result.matchingSections !== undefined
+          && result.matchingSections > 1
+          && (additionalPassages.length > 0 || locations.length > 1)
+        const meta = resultMeta(result, exactPhrase, hasEvidence, t)
+        const coverage = lastSearchInfo?.mode === 'broader' && result.source === 'upload'
+          ? result.termMatches?.filter((match) => match.matched !== undefined)
+          : undefined
+        const missing = coverage?.filter((match) => !match.matched) ?? []
+        const terms = concordanceTerms(result, lastSearchInfo)
+        const activeTerm = terms.find((term) => concordance?.key === `${result.url}\0${term}`)
+        const activeConcordance = activeTerm ? concordance : null
+        const hasConcordance = result.source === 'upload'
+          && terms.length > 0
+          && (!exactPhrase || terms.length > 1 || result.matchCount !== 1)
+        const hasExplore = hasEvidence || hasConcordance
+        return (
+          <article
+            key={result.id}
+            className={'result-card'
+              + (disabled ? ' result-card-disabled' : '')}
+          >
+            <button
+              type="button"
+              className="result-card-primary"
+              disabled={disabled}
+              onClick={() => onViewResult(result, searchOpenTargetForResult(
+                result,
+                exactPhrase ? lastSearchInfo?.phrases[0] : undefined,
+              ))}
+            >
+              <span className="result-title">
+                <bdi>{result.meta.title}</bdi>
+                {opening ? ` (${t('common.opening')})` : ''}
+              </span>
+              {result.source !== 'upload' && <span className="result-source">
+                {t('search.results.starterDocument')}
+              </span>}
+              {meta && <span className="result-meta" dir="auto">{meta}</span>}
+              {coverage && coverage.length > 0 && (
+                <span className="result-term-coverage" dir="auto">
+                  {t('search.results.wordCoverage', {
+                    matched: coverage.length - missing.length,
+                    total: coverage.length,
+                  })}
+                  {missing.length > 0 && <> · {t('search.results.missingWords')} {missing.map((match) => match.term).join(', ')}</>}
+                </span>
+              )}
+              {(result.termMatches?.length ?? 0) > 1 && (
+                <span className="result-term-coverage" dir="auto">
+                  <span>{t('search.results.sectionsByTerm')}</span>
+                  {result.termMatches?.map((match) => (
+                    <span className="result-term-count" key={match.term}>
+                      <bdi>{match.term}</bdi> {match.matchingSections}
                     </span>
-                  )}
-                  {excerpt && (
-                    <span
-                      className="result-excerpt"
-                      dir="auto"
-                      dangerouslySetInnerHTML={{ __html: excerpt }}
-                    />
-                  )}
-                </button>
-                {hasExplore && (
-                  <details
-                    className="result-explore"
-                    onToggle={(event) => {
-                      if (
-                        event.currentTarget.open
-                        && exactPhrase
-                        && terms.length === 1
-                        && !activeConcordance
-                      ) {
-                        void loadConcordance(result, terms[0])
-                      }
-                    }}
-                  >
-                    <summary>
-                      {t('search.results.exploreMatches')}
-                    </summary>
-                    <div className="result-evidence-content">
-                      {hasEvidence && (
-                        <>
-                          <span className="result-evidence-title">
-                            {supportingSectionsLabel(result, result.matchingSections ?? 0, t)}
-                          </span>
-                          <div
-                            className="result-occurrence-map"
-                            role="group"
-                            aria-label={supportingSectionsLabel(result, result.matchingSections ?? 0, t)}
+                  ))}
+                </span>
+              )}
+              {excerpt && (
+                <span
+                  className="result-excerpt"
+                  dir="auto"
+                  dangerouslySetInnerHTML={{ __html: excerpt }}
+                />
+              )}
+            </button>
+            {hasExplore && (
+              <details
+                className="result-explore"
+                onToggle={(event) => {
+                  if (
+                    event.currentTarget.open
+                    && exactPhrase
+                    && terms.length === 1
+                    && !activeConcordance
+                  ) {
+                    void loadConcordance(result, terms[0])
+                  }
+                }}
+              >
+                <summary>
+                  {t('search.results.exploreMatches')}
+                </summary>
+                <div className="result-evidence-content">
+                  {hasEvidence && (
+                    <>
+                      <span className="result-evidence-title">
+                        {supportingSectionsLabel(result, result.matchingSections ?? 0, t)}
+                      </span>
+                      <div
+                        className="result-occurrence-map"
+                        role="group"
+                        aria-label={supportingSectionsLabel(result, result.matchingSections ?? 0, t)}
+                      >
+                        {evidenceCells.map(({ index, location }) => location ? (
+                          <button
+                            type="button"
+                            className="result-occurrence-marker"
+                            key={index}
+                            disabled={disabled}
+                            aria-label={t('search.results.sectionMapPosition', {
+                              position: index + 1,
+                              total: OCCURRENCE_MAP_BINS,
+                              count: location.matchCount,
+                            })}
+                            title={t('search.results.sectionMapPosition', {
+                              position: index + 1,
+                              total: OCCURRENCE_MAP_BINS,
+                              count: location.matchCount,
+                            })}
+                            onClick={() => onViewResult(result, indexedSearchOpenTarget(location))}
                           >
-                            {evidenceCells.map(({ index, location }) => location ? (
+                            {location.matchCount > 1 ? location.matchCount : ''}
+                          </button>
+                        ) : <span className="result-occurrence-empty" aria-hidden="true" key={index} />)}
+                      </div>
+                      {additionalPassages.length > 0 && (
+                        <div className="result-evidence-passages">
+                          {additionalPassages.map((passage) => {
+                            const passageExcerpt = usefulExcerpt(
+                              passage.excerpt,
+                              passage.sectionTitle ?? undefined,
+                            )
+                            return (
                               <button
                                 type="button"
-                                className="result-occurrence-marker"
-                                key={index}
+                                className="result-evidence-passage"
+                                key={passage.sectionIndex}
                                 disabled={disabled}
-                                aria-label={t('search.results.sectionMapPosition', {
-                                  position: index + 1,
-                                  total: OCCURRENCE_MAP_BINS,
-                                  count: location.matchCount,
-                                })}
-                                title={t('search.results.sectionMapPosition', {
-                                  position: index + 1,
-                                  total: OCCURRENCE_MAP_BINS,
-                                  count: location.matchCount,
-                                })}
-                                onClick={() => onViewResult(result, indexedSearchOpenTarget(location))}
+                                onClick={() => onViewResult(result, searchOpenTargetForPassage(passage))}
                               >
-                                {location.matchCount > 1 ? location.matchCount : ''}
+                                {passage.sectionTitle && (
+                                  <span className="result-evidence-title" dir="auto">
+                                    <bdi>{passage.sectionTitle}</bdi>
+                                  </span>
+                                )}
+                                {passageExcerpt && (
+                                  <span
+                                    className="result-evidence-excerpt"
+                                    dir="auto"
+                                    dangerouslySetInnerHTML={{ __html: passageExcerpt }}
+                                  />
+                                )}
                               </button>
-                            ) : <span className="result-occurrence-empty" aria-hidden="true" key={index} />)}
-                          </div>
-                          {additionalPassages.length > 0 && (
-                            <div className="result-evidence-passages">
-                              {additionalPassages.map((passage) => {
-                                const passageExcerpt = usefulExcerpt(
-                                  passage.excerpt,
-                                  passage.sectionTitle ?? undefined,
-                                )
-                                return (
-                                  <button
-                                    type="button"
-                                    className="result-evidence-passage"
-                                    key={passage.sectionIndex}
-                                    disabled={disabled}
-                                    onClick={() => onViewResult(result, searchOpenTargetForPassage(passage))}
-                                  >
-                                    {passage.sectionTitle && (
-                                      <span className="result-evidence-title" dir="auto">
-                                        <bdi>{passage.sectionTitle}</bdi>
-                                      </span>
-                                    )}
-                                    {passageExcerpt && (
-                                      <span
-                                        className="result-evidence-excerpt"
-                                        dir="auto"
-                                        dangerouslySetInnerHTML={{ __html: passageExcerpt }}
-                                      />
-                                    )}
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </>
+                            )
+                          })}
+                        </div>
                       )}
-                      {hasConcordance && (terms.length > 1 || !exactPhrase) && (
-                        <div className="result-concordance-terms">
-                          {terms.map((term) => (
+                    </>
+                  )}
+                  {hasConcordance && (terms.length > 1 || !exactPhrase) && (
+                    <div className="result-concordance-terms">
+                      {terms.map((term) => (
+                        <button
+                          type="button"
+                          className="result-concordance-term"
+                          aria-pressed={activeTerm === term}
+                          key={term}
+                          onClick={() => void loadConcordance(result, term)}
+                        >
+                          {t('search.results.occurrencesFor', { term })}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {activeConcordance && activeTerm && (
+                    <>
+                      {activeConcordance.loading && activeConcordance.entries.length === 0 && (
+                        <span className="result-evidence-feedback" role="status">
+                          {t('search.results.loadingOccurrences')}
+                        </span>
+                      )}
+                      {activeConcordance.failed && (
+                        <div
+                          className="result-evidence-feedback result-evidence-feedback-error"
+                          role="alert"
+                        >
+                          <span>
+                            {t('search.results.occurrencesFailed')}
+                          </span>
+                          <button
+                            type="button"
+                            className="result-evidence-action"
+                            onClick={() => void loadConcordance(
+                              result,
+                              activeTerm,
+                              activeConcordance.nextOffset ?? 0,
+                            )}
+                          >
+                            {t('search.results.retryOccurrences')}
+                          </button>
+                        </div>
+                      )}
+                      {!activeConcordance.failed && activeConcordance.totalMatches > 0 && (
+                        <span className="result-evidence-title">
+                          {t('search.results.occurrenceCount', {
+                            shown: activeConcordance.entries.length,
+                            total: activeConcordance.totalMatches,
+                          })}
+                        </span>
+                      )}
+                      {!activeConcordance.loading
+                        && !activeConcordance.failed
+                        && activeConcordance.totalMatches === 0 && (
+                        <span className="result-evidence-feedback" role="status">
+                          {t('search.results.noLiteralOccurrences')}
+                        </span>
+                      )}
+                      {activeConcordance.entries.length > 0 && (
+                        <div className="result-evidence-passages">
+                          {activeConcordance.entries.map((entry) => (
                             <button
                               type="button"
-                              className="result-concordance-term"
-                              aria-pressed={activeTerm === term}
-                              key={term}
-                              onClick={() => void loadConcordance(result, term)}
+                              className="result-evidence-passage"
+                              key={entry.occurrenceIndex}
+                              disabled={disabled}
+                              onClick={() => onViewResult(result, indexedSearchOpenTarget({
+                                ...entry,
+                                occurrenceIndex: entry.sectionOccurrenceIndex,
+                              }, firstMarkedText(entry.excerpt) ?? activeTerm))}
                             >
-                              {t('search.results.occurrencesFor', { term })}
+                              {entry.sectionTitle && (
+                                <span className="result-evidence-title" dir="auto">
+                                  <bdi>{entry.sectionTitle}</bdi>
+                                </span>
+                              )}
+                              <span
+                                className="result-evidence-excerpt"
+                                dir="auto"
+                                dangerouslySetInnerHTML={{ __html: entry.excerpt }}
+                              />
                             </button>
                           ))}
                         </div>
                       )}
-                      {activeConcordance && activeTerm && (
-                        <>
-                          {activeConcordance.loading && activeConcordance.entries.length === 0 && (
-                            <span className="result-evidence-feedback" role="status">
-                              {t('search.results.loadingOccurrences')}
-                            </span>
+                      {activeConcordance.nextOffset !== null
+                        && activeConcordance.nextOffset !== undefined && (
+                        <button
+                          type="button"
+                          className="result-evidence-action"
+                          disabled={activeConcordance.loading}
+                          onClick={() => void loadConcordance(
+                            result,
+                            activeTerm,
+                            activeConcordance.nextOffset ?? 0,
                           )}
-                          {activeConcordance.failed && (
-                            <div
-                              className="result-evidence-feedback result-evidence-feedback-error"
-                              role="alert"
-                            >
-                              <span>
-                                {t('search.results.occurrencesFailed')}
-                              </span>
-                              <button
-                                type="button"
-                                className="result-evidence-action"
-                                onClick={() => void loadConcordance(
-                                  result,
-                                  activeTerm,
-                                  activeConcordance.nextOffset ?? 0,
-                                )}
-                              >
-                                {t('search.results.retryOccurrences')}
-                              </button>
-                            </div>
-                          )}
-                          {!activeConcordance.failed && activeConcordance.totalMatches > 0 && (
-                            <span className="result-evidence-title">
-                              {t('search.results.occurrenceCount', {
-                                shown: activeConcordance.entries.length,
-                                total: activeConcordance.totalMatches,
-                              })}
-                            </span>
-                          )}
-                          {!activeConcordance.loading
-                            && !activeConcordance.failed
-                            && activeConcordance.totalMatches === 0 && (
-                            <span className="result-evidence-feedback" role="status">
-                              {t('search.results.noLiteralOccurrences')}
-                            </span>
-                          )}
-                          {activeConcordance.entries.length > 0 && (
-                            <div className="result-evidence-passages">
-                              {activeConcordance.entries.map((entry) => (
-                                <button
-                                  type="button"
-                                  className="result-evidence-passage"
-                                  key={entry.occurrenceIndex}
-                                  disabled={disabled}
-                                  onClick={() => onViewResult(result, indexedSearchOpenTarget({
-                                    ...entry,
-                                    occurrenceIndex: entry.sectionOccurrenceIndex,
-                                  }, firstMarkedText(entry.excerpt) ?? activeTerm))}
-                                >
-                                  {entry.sectionTitle && (
-                                    <span className="result-evidence-title" dir="auto">
-                                      <bdi>{entry.sectionTitle}</bdi>
-                                    </span>
-                                  )}
-                                  <span
-                                    className="result-evidence-excerpt"
-                                    dir="auto"
-                                    dangerouslySetInnerHTML={{ __html: entry.excerpt }}
-                                  />
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {activeConcordance.nextOffset !== null
-                            && activeConcordance.nextOffset !== undefined && (
-                            <button
-                              type="button"
-                              className="result-evidence-action"
-                              disabled={activeConcordance.loading}
-                              onClick={() => void loadConcordance(
-                                result,
-                                activeTerm,
-                                activeConcordance.nextOffset ?? 0,
-                              )}
-                            >
-                              {activeConcordance.loading
-                                ? t('search.results.loadingOccurrences')
-                                : t('search.results.showMoreOccurrences')}
-                            </button>
-                          )}
-                        </>
+                        >
+                          {activeConcordance.loading
+                            ? t('search.results.loadingOccurrences')
+                            : t('search.results.showMoreOccurrences')}
+                        </button>
                       )}
-                    </div>
-                  </details>
-                )}
-              </article>
-            )
-          })}
-        </section>
-      ))}
+                    </>
+                  )}
+                </div>
+              </details>
+            )}
+          </article>
+        )
+      })}
+      {onShowMore && filtered.length > 10 && <div className="result-list-more">
+        <span role="status">{t('search.results.documentsShown', {
+          shown: Math.min(visibleLimit, filtered.length),
+          total: filtered.length,
+        })}</span>
+        <button type="button" className="result-evidence-action" aria-disabled={visibleLimit >= filtered.length}
+          onClick={() => {
+            if (visibleLimit < filtered.length) {
+              onShowMore()
+            }
+          }}>{t('search.results.showMore')}</button>
+      </div>}
 
       {submittedQuery.length === 0 && (
         <div className="welcome">
@@ -439,12 +467,13 @@ export function SearchResults({
   )
 }
 
-function QuerySummary({ info, t }: { info: LastSearchInfo; t: TFunction }) {
+function QuerySummary({ info, t }: { info: LastSearchInfo;
+  t: TFunction }) {
   return (
     <>
       {info.unquotedText && (
         <>
-          {t('search.results.allWords')} {' '}
+          {t(info.mode === 'broader' ? 'search.results.broaderWords' : 'search.results.allWords')} {' '}
           <bdi className="query-tag">{info.unquotedText}</bdi>
         </>
       )}
@@ -472,8 +501,11 @@ function searchOpenTargetForPassage(passage: SearchPassage): SearchOpenTarget {
 
 function concordanceTerms(result: SearchResult, info: LastSearchInfo | null): string[] {
   const phrases = info?.phrases.map((phrase) => phrase.trim()).filter(Boolean) ?? []
-  if (phrases.length > 0) return [...new Set(phrases)]
+  if (phrases.length > 0) {
+    return [...new Set(phrases)]
+  }
   const terms = result.termMatches
+    ?.filter((match) => match.matched !== false)
     ?.map((match) => match.text?.trim() || match.term.trim())
     .filter(Boolean) ?? []
   const fallback = firstMarkedText(result.excerpt)
@@ -495,28 +527,41 @@ function searchOpenTargetForResult(result: SearchResult, exactPhrase?: string): 
   const sectionIndex = result.sectionIndex
   const pageIndex = result.pageIndex ?? undefined
   return hash || text || sectionIndex !== undefined || pageIndex !== undefined
-    ? { hash, text, sectionIndex, pageIndex }
+    ? {
+      hash,
+      text,
+      sectionIndex,
+      pageIndex,
+    }
     : undefined
 }
 
 // Use the richest safe snippet available, but avoid rendering a body line that
 // merely repeats the section label already shown in result metadata.
 function resultExcerpt(result: SearchResult, exactPhrase = false): string | null {
-  if (!exactPhrase && result.matchScope === 'document') return null
+  if (!exactPhrase && result.matchScope === 'document') {
+    return null
+  }
 
   const sectionTitle = result.sub_results?.[0]?.title
   const excerpt = usefulExcerpt(result.customExcerpt, sectionTitle)
     ?? usefulExcerpt(result.sub_results?.[0]?.excerpt, sectionTitle)
     ?? usefulExcerpt(result.excerpt, sectionTitle)
-  if (!exactPhrase && excerpt && !/<mark\b/i.test(excerpt)) return null
+  if (!exactPhrase && excerpt && !/<mark\b/i.test(excerpt)) {
+    return null
+  }
   return excerpt
 }
 
 // Compare rendered text instead of raw HTML so highlighted snippets and plain
 // section titles can be recognized as duplicates.
 function usefulExcerpt(excerpt: string | undefined, sectionTitle: string | undefined): string | null {
-  if (!excerpt) return null
-  if (plainText(excerpt) === plainText(sectionTitle)) return null
+  if (!excerpt) {
+    return null
+  }
+  if (plainText(excerpt) === plainText(sectionTitle)) {
+    return null
+  }
   return excerpt
 }
 
@@ -549,13 +594,17 @@ function resultMeta(
 
 function hashFromUrl(url?: string): string | undefined {
   const index = url?.indexOf('#') ?? -1
-  if (index < 0 || !url) return undefined
+  if (index < 0 || !url) {
+    return undefined
+  }
   const hash = url.slice(index)
   return hash.length > 1 ? hash : undefined
 }
 
 function firstMarkedText(html: string): string | undefined {
-  if (typeof DOMParser === 'undefined') return undefined
+  if (typeof DOMParser === 'undefined') {
+    return undefined
+  }
   const doc = new DOMParser().parseFromString(html, 'text/html')
   const text = doc.querySelector('mark')?.textContent?.trim()
   return text || undefined
@@ -564,8 +613,12 @@ function firstMarkedText(html: string): string | undefined {
 // Converts snippet HTML into comparable visible text without letting entities,
 // tags, or <mark> wrappers change duplicate detection.
 function plainText(html?: string): string {
-  if (!html) return ''
-  if (typeof DOMParser === 'undefined') return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!html) {
+    return ''
+  }
+  if (typeof DOMParser === 'undefined') {
+    return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  }
   const doc = new DOMParser().parseFromString(html, 'text/html')
   return (doc.body.textContent ?? '').replace(/\s+/g, ' ').trim()
 }

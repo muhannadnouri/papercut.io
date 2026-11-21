@@ -20,7 +20,7 @@ This file records what Papercut still needs before macOS releases stop showing G
 
 Use `branch-release-v1.3.3` for the macOS dylib packaging patch release. Do not reuse the v1.3.0, v1.3.1, or v1.3.2 tags if they were already published or downloaded; ship v1.3.3 so users and GitHub Release assets have a clean immutable version.
 
-Before publishing v1.3.3, confirm both macOS release jobs pass the `Verify macOS bundled runtime libraries` step. That step runs `scripts/verify-macos-bundle-libs.js`, checks required dylibs, checks the versioned `libonnxruntime.*.dylib` dependency, walks `otool -L` dependencies for the app and every bundled dylib, and verifies dylib signatures in the protected release job before DMG notarization/upload. After release upload, smoke-test the Apple Silicon DMG on MacInCloud by dragging `Papercut.app` out of the mounted DMG and launching it from Terminal.
+Before publishing v1.3.3, confirm both macOS release jobs pass the `Verify macOS bundled runtime libraries` step. That step runs `scripts/desktop/verify-macos-bundle-libs.js`, checks required dylibs, requires any versioned `libonnxruntime.*.dylib` name actually referenced by Mach-O, walks `otool -L` dependencies for the app and every bundled dylib, and verifies dylib signatures in the protected release job before DMG notarization/upload. After release upload, smoke-test the Apple Silicon DMG on MacInCloud by dragging `Papercut.app` out of the mounted DMG and launching it from Terminal.
 
 ## Sources
 
@@ -221,7 +221,7 @@ Release workflow now does this in the protected `build-macos` job for each macOS
 7. Decode `.p8` into `$RUNNER_TEMP/private_keys/AuthKey_KEYID.p8` and export the absolute path as `APPLE_API_KEY_PATH`.
 8. Export Tauri notarization env vars.
 9. Run `npm run desktop`. The desktop helper pre-stages macOS dylibs before Tauri scans resources; the macOS dylib copy helper signs them with the Developer ID identity and secure timestamp; Tauri signs and notarizes the `.app` bundle.
-10. Run `scripts/verify-macos-bundle-libs.js --require-signatures` to verify required dylibs, transitive `otool -L` dependencies, and `codesign --verify --strict` before DMG notarization/upload.
+10. Run `scripts/desktop/verify-macos-bundle-libs.js --require-signatures` to verify required dylibs, transitive `otool -L` dependencies, and `codesign --verify --strict` before DMG notarization/upload.
 11. Submit each generated `.dmg` to `notarytool`, staple it, and validate the stapled ticket.
 12. Verify app signatures and Gatekeeper assessment.
 13. Verify DMG Gatekeeper assessment.
@@ -362,6 +362,11 @@ In protected `apple-release` environment:
 
 ## iOS: Repo Work After Apple Work
 
+The macOS desktop, iOS archive/export and unsigned device-check wrappers use the
+shared source-revision resolver for diagnostic metadata. Git checkouts need no
+extra variable; exported sources must supply `PAPERCUT_BUILD_REVISION` from the
+matching release metadata. See the [source-revision contract](android-production-packaging.md#production-source-revision-contract).
+
 ### 1. Commit generated Tauri iOS project
 
 `src-tauri/gen/apple` has now been generated and extracted into the repo. Review and commit these files because Tauri expects the generated Apple project to exist in source control before `npm run ios:ipa` can build on CI.
@@ -409,7 +414,43 @@ Native TTS on iOS must be validated through TestFlight on a real iPhone or iPad.
 
 Regular PR CI now includes a `build-ios` job on `macos-26`, with an explicit iOS SDK 26+ guard before building. This job does not use Apple secrets and does not upload to App Store Connect. It verifies the generated Apple project files, builds the frontend, installs iOS Rust targets, runs `npm run ios:ci -- --native-tts` for the arm64 simulator, and runs `npm run ios:ci:device`, which prepares iOS native TTS libs, builds the `aarch64-apple-ios` Rust static library directly with Cargo using the configured iOS minimum deployment target, stages Cargo's `libapp_lib.a` output as `libapp.a` where Xcode expects it, and runs an unsigned `xcodebuild build` for a release-class generic iPhoneOS device link check without archive/export or App Store signing.
 
+The simulator CI helper uses `--archive-only`: it compiles/links an app archive
+without exporting a simulator `.app`. This avoids Tauri's nonempty export
+destination error when normal and provider checks run sequentially. Release
+`ios:ipa` commands still perform their usual export.
+
 This catches broken iOS project files, Rust/Tauri iOS simulator compile failures, iPhoneOS device link failures, missing frontend assets, Swift toolchain/Xcode integration issues, and stale SDK runners before release. It does not replace the protected signed release job, because App Store provisioning and upload require secrets from the `apple-release` environment.
+
+### App Store Connect upload warnings (v1.9.2)
+
+The v1.9.1 upload succeeded with ITMS-90068 (iOS 14 deployment target) and
+ITMS-90737 (missing document configuration). These settings are embedded in the
+binary; editing the App Store Connect listing cannot fix them.
+
+Starting with v1.9.2, the minimum iOS version is 15.0 in `tauri.ios.conf.json`,
+the committed Xcode project, `project.yml`, and the Podfile. Keep them in sync.
+This drops installation support for iOS 14. The SDK used to build is a separate
+requirement from the deployment target.
+
+`Info.ios.plist` and the committed Apple project explicitly set
+`LSSupportsOpeningDocumentsInPlace` to false: Papercut imports documents into
+its own library rather than maintaining the original provider document in
+place. Do not enable `UISupportsDocumentBrowser` just to silence the warning.
+The release workflow checks the final signed IPA's configuration before upload.
+
+Before tagging v1.9.2, run **CI → validation_scope: mobile** on the candidate
+branch (or use the equivalent PR checks). Test Files/iCloud imports on iOS,
+including a cold launch through Open With, and confirm imported documents remain
+readable after relaunch and the originals are unchanged. The signed release
+workflow requires macOS; Linux configuration checks cannot validate the IPA.
+
+After merging and tagging the new patch, approve the Apple release environment.
+In **App Store Connect → Papercut Offline**, confirm that the new build finishes
+processing, check for upload warnings, test it through TestFlight, and select it
+for the intended App Store submission. Resolve any portal-required submission
+fields there. An upload is not App Store publication. Do not rerun or replace
+the published immutable v1.9.1 release. Keep website downloads on the published
+version until v1.9.2 is actually available.
 
 ### 5. Add release CI job
 

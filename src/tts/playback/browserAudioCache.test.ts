@@ -1,4 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import { BrowserAudioCache } from './browserAudioCache'
 
 describe('BrowserAudioCache', () => {
@@ -8,7 +14,12 @@ describe('BrowserAudioCache', () => {
     const revoke = vi.spyOn(URL, 'revokeObjectURL')
     const cache = new BrowserAudioCache()
     for (let index = 0; index < 8; index += 1) {
-      cache.enqueue({ index, chunkId: String(index), text: String(index), wav: new ArrayBuffer(1) })
+      cache.enqueue({
+        index,
+        chunkId: String(index),
+        text: String(index),
+        wav: new ArrayBuffer(1),
+      })
     }
 
     cache.prune(4, 0, 8)

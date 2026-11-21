@@ -1,4 +1,5 @@
 import { isReadableHtmlBlock } from '../../tts/alignment/htmlStructure'
+import { isPdfWordWrap } from '../../pdf/pdfWordWrap'
 import {
   normalizeSearchCharacter,
   normalizeSearchPunctuation,
@@ -64,15 +65,16 @@ export function findReaderTextMatches(
   root: HTMLElement,
   query: string,
   limit = Number.POSITIVE_INFINITY,
+  pdfWordWraps = false,
 ): ReaderTextMatch[] {
-  const index = createReaderTextIndex(root)
+  const index = createReaderTextIndex(root, pdfWordWraps)
   return findReaderTextIndexMatches(index, query, limit)
     .map((match) => materializeReaderTextMatch(index, match))
 }
 
 // Build the DOM-to-text map once per rendered document. Find can then search
 // plain strings on each keystroke without repeatedly walking the reader DOM.
-export function createReaderTextIndex(root: HTMLElement): ReaderTextIndex {
+export function createReaderTextIndex(root: HTMLElement, pdfWordWraps = false): ReaderTextIndex {
   return {
     root,
     segments: collectReaderTextSegments(root).map((segment) => ({
@@ -80,6 +82,7 @@ export function createReaderTextIndex(root: HTMLElement): ReaderTextIndex {
       search: buildSearchText(
         segment.nodes.map((node) => node.data),
         segment.breaksBefore,
+        pdfWordWraps,
       ),
     })),
   }
@@ -91,16 +94,23 @@ export function findReaderTextIndexMatches(
   limit = Number.POSITIVE_INFINITY,
 ): ReaderTextIndexMatch[] {
   const needle = normalizeSearchQuery(query)
-  if (!needle || limit <= 0) return []
+  if (!needle || limit <= 0) {
+    return []
+  }
 
   const matches: ReaderTextIndexMatch[] = []
   for (let segmentIndex = 0; segmentIndex < index.segments.length; segmentIndex++) {
     const segment = index.segments[segmentIndex]
     const remaining = limit - matches.length
-    if (remaining <= 0) break
+    if (remaining <= 0) {
+      break
+    }
 
     for (const match of findSearchTextMatches(segment.search.text, needle, remaining)) {
-      matches.push({ segmentIndex, ...match })
+      matches.push({
+        segmentIndex,
+        ...match,
+      })
     }
   }
   return matches
@@ -139,11 +149,14 @@ export function findTextPartMatches(
   query: string,
   limit = Number.POSITIVE_INFINITY,
   breaksBefore: readonly boolean[] = [],
+  pdfWordWraps = false,
 ): TextPartMatch[][] {
   const needle = normalizeSearchQuery(query)
-  if (!needle || limit <= 0) return []
+  if (!needle || limit <= 0) {
+    return []
+  }
 
-  const search = buildSearchText(parts, breaksBefore)
+  const search = buildSearchText(parts, breaksBefore, pdfWordWraps)
   return findSearchTextMatches(search.text, needle, limit)
     .map((match) => partsForIndexedMatch(parts, search, match))
 }
@@ -176,37 +189,59 @@ function collectReaderTextSegments(root: HTMLElement): ReaderTextSegment[] {
 
     const node = current as Text
     const parent = node.parentElement
-    if (!parent || parent.closest(READER_TEXT_SKIP_SELECTOR)) continue
+    if (!parent || parent.closest(READER_TEXT_SKIP_SELECTOR)) {
+      continue
+    }
     fallback.push(node)
     fallbackBreaksBefore.push(pendingFallbackBreak)
     pendingFallbackBreak = false
 
     const owner = nearestReadableOwner(parent, root)
-    if (!owner) continue
+    if (!owner) {
+      continue
+    }
     const previous = segments[segments.length - 1]
     if (previous?.owner === owner) {
       previous.breaksBefore.push(pendingBreakOwner === owner)
       previous.nodes.push(node)
     } else {
-      segments.push({ owner, nodes: [node], breaksBefore: [false] })
+      segments.push({
+        owner,
+        nodes: [node],
+        breaksBefore: [false],
+      })
     }
-    if (pendingBreakOwner === owner) pendingBreakOwner = null
+    if (pendingBreakOwner === owner) {
+      pendingBreakOwner = null
+    }
   }
 
   const readable = segments
     .filter((segment) => segment.nodes.some((node) => /\S/.test(node.data)))
-    .map(({ nodes, breaksBefore }) => ({ nodes, breaksBefore }))
-  if (readable.length > 0) return readable
+    .map(({ nodes, breaksBefore }) => ({
+      nodes,
+      breaksBefore,
+    }))
+  if (readable.length > 0) {
+    return readable
+  }
   return fallback.some((node) => /\S/.test(node.data))
-    ? [{ nodes: fallback, breaksBefore: fallbackBreaksBefore }]
+    ? [{
+      nodes: fallback,
+      breaksBefore: fallbackBreaksBefore,
+    }]
     : []
 }
 
 function nearestReadableOwner(element: Element, root: HTMLElement): Element | null {
   let current: Element | null = element
   while (current) {
-    if (isReadableHtmlBlock(current)) return current
-    if (current === root) return null
+    if (isReadableHtmlBlock(current)) {
+      return current
+    }
+    if (current === root) {
+      return null
+    }
     current = current.parentElement
   }
   return null
@@ -215,12 +250,14 @@ function nearestReadableOwner(element: Element, root: HTMLElement): Element | nu
 function buildSearchText(
   parts: readonly string[],
   breaksBefore: readonly boolean[],
+  pdfWordWraps: boolean,
 ): SearchTextIndex {
   let text = ''
   const partIndexes: number[] = []
   const startOffsets: number[] = []
   const endOffsets: number[] = []
   let pendingWhitespace: SearchTextPoint | null = null
+  let pendingLineBreak = false
 
   const append = (value: string, point: SearchTextPoint) => {
     text += value
@@ -232,22 +269,53 @@ function buildSearchText(
   }
 
   parts.forEach((part, partIndex) => {
+    pendingLineBreak ||= !!breaksBefore[partIndex]
     // A <br> has no Text node of its own. Map its searchable space to a
     // zero-width point; trimmed queries ensure it can never become a range end.
     if (breaksBefore[partIndex] && text && !pendingWhitespace) {
-      pendingWhitespace = { partIndex, startOffset: 0, endOffset: 0 }
+      pendingWhitespace = {
+        partIndex,
+        startOffset: 0,
+        endOffset: 0,
+      }
     }
     for (let offset = 0; offset < part.length;) {
       const codePoint = part.codePointAt(offset)
-      if (codePoint === undefined) break
+      if (codePoint === undefined) {
+        break
+      }
       const character = String.fromCodePoint(codePoint)
-      const point = { partIndex, startOffset: offset, endOffset: offset + character.length }
+      const point = {
+        partIndex,
+        startOffset: offset,
+        endOffset: offset + character.length,
+      }
       offset += character.length
 
       if (/\s/u.test(character)) {
-        if (text) pendingWhitespace = point
+        if (text) {
+          pendingWhitespace = point
+        }
+        pendingLineBreak ||= character === '\n' || character === '\r'
         continue
       }
+      if (pdfWordWraps && pendingLineBreak && text.endsWith('-')) {
+        const sourceEnd = [-2, -1].map((index) => {
+          const part = partIndexes.at(index)
+          const start = startOffsets.at(index)
+          const end = endOffsets.at(index)
+          return part === undefined || start === undefined || end === undefined
+            ? '' : parts[part].slice(start, end)
+        }).join('')
+        if (isPdfWordWrap(sourceEnd, character)) {
+          text = text.slice(0, -1)
+          partIndexes.pop()
+          startOffsets.pop()
+          endOffsets.pop()
+          pendingWhitespace = null
+        }
+      }
+      pendingLineBreak = false
       if (pendingWhitespace) {
         append(' ', pendingWhitespace)
         pendingWhitespace = null
@@ -274,11 +342,16 @@ function findSearchTextMatches(
   text: string,
   needle: string,
   limit: number,
-): Array<{ start: number; end: number }> {
-  const matches: Array<{ start: number; end: number }> = []
+): Array<{ start: number;
+  end: number }> {
+  const matches: Array<{ start: number;
+    end: number }> = []
   let at = text.indexOf(needle)
   while (at >= 0 && matches.length < limit) {
-    matches.push({ start: at, end: at + needle.length })
+    matches.push({
+      start: at,
+      end: at + needle.length,
+    })
     at = text.indexOf(needle, at + needle.length)
   }
   return matches
@@ -296,25 +369,35 @@ function materializeReaderTextMatch(
     startOffset: part.startOffset,
     endOffset: part.endOffset,
   }))
-  return { range: rangeForReaderTextIndexMatch(index, match), parts }
+  return {
+    range: rangeForReaderTextIndexMatch(index, match),
+    parts,
+  }
 }
 
 function partsForIndexedMatch(
   parts: readonly string[],
   search: SearchTextIndex,
-  indexedMatch: { start: number; end: number },
+  indexedMatch: { start: number;
+    end: number },
 ): TextPartMatch[] {
   const endIndex = indexedMatch.end - 1
   const startPartIndex = search.partIndexes[indexedMatch.start]
   const endPartIndex = search.partIndexes[endIndex]
-  if (startPartIndex === undefined || endPartIndex === undefined) return []
+  if (startPartIndex === undefined || endPartIndex === undefined) {
+    return []
+  }
 
   const partsMatch: TextPartMatch[] = []
   for (let partIndex = startPartIndex; partIndex <= endPartIndex; partIndex++) {
     const startOffset = partIndex === startPartIndex ? search.startOffsets[indexedMatch.start] : 0
     const endOffset = partIndex === endPartIndex ? search.endOffsets[endIndex] : parts[partIndex].length
     if (startOffset !== undefined && endOffset !== undefined && endOffset > startOffset) {
-      partsMatch.push({ partIndex, startOffset, endOffset })
+      partsMatch.push({
+        partIndex,
+        startOffset,
+        endOffset,
+      })
     }
   }
   return partsMatch

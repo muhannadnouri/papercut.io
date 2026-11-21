@@ -4,14 +4,23 @@
 
 # Papercut
 
-[![Latest release](https://img.shields.io/github/v/release/muhannadnouri/papercut.io?logo=github&color=6366f1)](https://github.com/muhannadnouri/papercut.io/releases/latest) [![CI](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml/badge.svg)](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml) [![React](https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB)](https://react.dev/) [![Tauri + Rust](https://img.shields.io/badge/Tauri_+_Rust-2.x_|_1.88+-24C8DB?logo=tauri&logoColor=white)](https://v2.tauri.app/) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
+| Description |  |
+|-------------|--------------|
+| Latest Release | [![Latest release](https://img.shields.io/github/v/release/muhannadnouri/papercut.io?logo=github&color=6366f1)](https://github.com/muhannadnouri/papercut.io/releases/latest) |
+| CI Build | [![CI](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml/badge.svg)](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml) |
+| UI | [![React](https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB)](https://react.dev/) |
+| Application Framework | [![Tauri + Rust](https://img.shields.io/badge/Tauri_+_Rust-2.x_\|_1.90+-24C8DB?logo=tauri&logoColor=white)](https://v2.tauri.app/) |
+| License | [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md) |
+| Dependency License Compliance | [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_shield&issueType=license) |
+| Security Analysis | [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=shield&issueType=security)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_shield&issueType=security) |
+| Codebase Wiki | [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/muhannadnouri/papercut.io) |
+| **Homepage** | 👉 [https://trypapercut.app](https://trypapercut.app) 👈 |
+| Backup | [Netlify](https://trypapercut.netlify.app) |
+| Android | [![Download for Android](https://img.shields.io/badge/Download-Android-3DDC84?logo=android&logoColor=white)](https://trypapercut.netlify.app/#downloads-title) |
+| Linux | [![Download for Linux](https://img.shields.io/badge/Download-Linux-FCC624?logo=linux&logoColor=black)](https://trypapercut.netlify.app/#downloads-title) |
+| Windows | [![Download for Windows](https://img.shields.io/badge/Download-Windows-0078D4?logo=windows11&logoColor=white)](https://trypapercut.netlify.app/#downloads-title) |
+| macOS | [![Download for macOS](https://img.shields.io/badge/Download-macOS-000000?logo=apple&logoColor=white)](https://trypapercut.netlify.app/#downloads-title) |
 
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_shield&issueType=license) [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=shield&issueType=security)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_shield&issueType=security)
-
-**Homepage:** 👉 [https://trypapercut.app](https://trypapercut.app) 👈
-- (Backup) [Netlify Homepage URL](https://trypapercut.netlify.app) 
-
-[![Download for Android](https://img.shields.io/badge/Download-Android-3DDC84?logo=android&logoColor=white)](https://trypapercut.netlify.app/#downloads-title) [![Download for Linux](https://img.shields.io/badge/Download-Linux-FCC624?logo=linux&logoColor=black)](https://trypapercut.netlify.app/#downloads-title) [![Download for Windows](https://img.shields.io/badge/Download-Windows-0078D4?logo=windows11&logoColor=white)](https://trypapercut.netlify.app/#downloads-title) [![Download for macOS](https://img.shields.io/badge/Download-macOS-000000?logo=apple&logoColor=white)](https://trypapercut.netlify.app/#downloads-title)
 
 
 Papercut is an offline reader for searching, reading, and listening to HTML, EPUB, PDF, plain-text, and Markdown collections. It is built with Tauri, React, Vite, PDF.js, Pagefind, SQLite FTS, Tesseract.js OCR, and native sherpa-onnx TTS.
@@ -20,7 +29,7 @@ Bundled starter HTML documents are indexed at build time with Pagefind. User-imp
 
 ## Highlights
 
-- Import up to 500 HTML, EPUB, PDF, TXT, or Markdown files at once, paste plain text directly into a searchable local document, drop files onto the desktop Library, or open supported files with an installed desktop, Android, or iOS build; desktop builds can also import one folder.
+- Import up to 500 HTML, EPUB, PDF, TXT, or Markdown files at once, paste plain text directly into a searchable local document, drop files onto the desktop Library, or open supported files with an installed desktop, Android, or iOS build — including exported `.papercut-audiobook` bundles; desktop builds can also import one folder.
 - Make image-only and hybrid PDF pages searchable and speakable with resumable, offline English or Arabic OCR.
 - Scan multi-page documents or import existing photos on supported Android devices while retaining the original pages in a canonical PDF.
 - Search uploaded and bundled starter documents together, with authoritative uploaded-document counts, scoped filters, and source-linked exact-phrase evidence.
@@ -36,8 +45,8 @@ Bundled starter HTML documents are indexed at build time with Pagefind. User-imp
 |-------|-----------------|---------------------|
 | Node  | >= 22.13.0      | 22.22.1             |
 | npm   | >= 10.9.0       | 10.9.4              |
-| Rust  | >= 1.88         | Current stable      |
-| Cargo | >= 1.88         | Current stable      |
+| Rust  | >= 1.90         | Current stable      |
+| Cargo | >= 1.90         | Current stable      |
 
 <details>
 <summary><strong>Platform setup details</strong></summary>
@@ -109,11 +118,11 @@ The Rust toolchain (above) and Node.js (above) cover the rest. Native sherpa-onn
 
 Required to build the Android APK:
 
-| Tool        | Minimum Version |
-|-------------|-----------------|
-| Java (JDK)  | 17              |
-| Android SDK | API 26+         |
-| Android NDK | 29.0.13846066   |
+| Tool | Required version |
+| --- | --- |
+| Java (JDK) | 17 |
+| Android SDK | Platform 36, Build Tools 35.0.0 |
+| Android NDK | 30.0.16248370 |
 
 **Install Java 17:**
 
@@ -140,8 +149,12 @@ sudo pacman -S jdk17-openjdk
 Install [Android Studio](https://developer.android.com/studio) (recommended) or the command-line tools only. Then install the NDK via SDK Manager:
 
 ```bash
-sdkmanager "ndk;29.0.13846066"
+sdkmanager "ndk;30.0.16248370" "platforms;android-36" "build-tools;35.0.0"
 ```
+
+CI and release workflows explicitly pass `packages: platform-tools` to
+`android-actions/setup-android`. Its default also requests the obsolete `tools`
+package, which can fail SDK setup even after all licenses are accepted.
 
 **Install Rust Android targets** (one-time):
 
@@ -153,7 +166,7 @@ rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-andro
 
 ```bash
 export ANDROID_HOME=$HOME/Android/Sdk
-export NDK_HOME=$ANDROID_HOME/ndk/29.0.13846066
+export NDK_HOME="$ANDROID_HOME/ndk/30.0.16248370"
 ```
 
 ### System Dependencies (Windows)
@@ -169,6 +182,9 @@ Refer to the Tauri [Windows prerequisites](https://v2.tauri.app/start/prerequisi
 
 ## Getting Started
 
+See the [script command map](scripts/README.md) for build/check entry points,
+when to use them and their toolchain requirements.
+
 ### Install dependencies
 
 ```bash
@@ -177,11 +193,14 @@ npm install
 
 ### Development
 
+See [code style, private naming and editor setup](docs/development-style.md) for
+ESLint save actions, focused formatting commands and the incremental rollout.
+
 ```bash
 npm run tauri:dev
 ```
 
-This starts the Vite dev server and launches the Tauri desktop window with hot reload. Bundled-document search requires a built Pagefind index, so bundled search is only available after `npm run build`. Runtime uploaded-document search works inside the Tauri app after documents are imported.
+This starts the Vite dev server and launches the Tauri desktop window with hot reload. On Linux and macOS it automatically prepares the native TTS resource directory and reuses the native TTS ONNX Runtime, so no separate ONNX Runtime setup is required. Bundled-document search requires a built Pagefind index, so bundled search is only available after `npm run build`. Runtime uploaded-document search works inside the Tauri app after documents are imported.
 
 Run the focused frontend unit tests with:
 
@@ -201,6 +220,11 @@ changes under `docs/` or `site/`, Markdown-only changes, release notes, and
 funding metadata skip that runner-heavy job; the lightweight change detector
 still reports so required checks do not remain pending.
 
+The [dependency alert triage](docs/library-transfer.md#remaining-dependency-alerts)
+records the remaining minimatch, GLib and rand findings, their actual dependency
+paths, and the conditions for revisiting them. Passing CI is not a claim that all
+security alerts are resolved.
+
 <details>
 <summary><strong>Production, release, Android, TTS, and browser builds</strong></summary>
 
@@ -209,6 +233,10 @@ still reports so required checks do not remain pending.
 ```bash
 npm run desktop
 ```
+
+Production packaging derives its diagnostic build revision from the checkout.
+For exported sources without `.git`, supply `PAPERCUT_BUILD_REVISION` from the
+matching release metadata; see the [source-revision contract](docs/android-production-packaging.md#production-source-revision-contract).
 
 When this command is run from a Flatpak-hosted editor terminal, the script automatically delegates the desktop build to the host OS with `flatpak-spawn --host`. That keeps the command the same while letting Tauri and `linuxdeploy` see the real host WebKitGTK/GTK libraries needed for `.deb`, `.rpm`, and AppImage bundling. You do not need to source `tauri-env.sh` before `npm run desktop`; if it has already been sourced, the desktop wrapper removes the Flatpak pkg-config variables before running the host build.
 
@@ -225,6 +253,15 @@ The built binary is output to `src-tauri/target/release/app` (`app.exe` on Windo
 - **Windows:** `.msi` (WiX) under `bundle/msi/` and `.exe` (NSIS) under `bundle/nsis/` when building on Windows
 - **macOS:** `.dmg` (and `.app`) under `bundle/dmg/` and `bundle/macos/` when building on macOS
 
+On Windows x64, the desktop build and dev helpers set `ORT_LIB_LOCATION` to
+Sherpa's shared runtime directory under `src-tauri/target/sherpa-onnx-prebuilt/`,
+preserving an explicit environment override. This prevents `ort-sys` from
+fetching a second ONNX Runtime from its old `parcel.pyke.io` URL. Sherpa's build
+script stages its DLLs beside `app.exe`; verify each installed MSI/NSIS build
+contains `onnxruntime.dll` and `sherpa-onnx-c-api.dll` beside the executable and
+can play a voice preview, including Arabic text preprocessing, on a clean
+Windows machine. A successful compile alone does not verify installer contents.
+
 `npm run desktop` uses the shared native TTS build to keep release compilation/linking memory lower. On Linux, the build copies the sherpa-onnx shared libraries into the Tauri resource directory before bundling, and the app binary includes an rpath to `/usr/lib/Papercut` so installed `.deb`, `.rpm`, and AppImage builds can find those libraries at launch. The AppImage also bundles the GStreamer media framework used by WebKitGTK for audiobook playback; local Linux builders therefore need the GStreamer base and good plugin packages listed above. If you specifically need a fully static native TTS build, use `npm run desktop:static`; that path can require substantially more RAM and may be killed by the OS on memory-constrained machines.
 
 Linux x64 developers can build a separate experimental NVIDIA package with
@@ -232,6 +269,11 @@ Linux x64 developers can build a separate experimental NVIDIA package with
 artifact bundles sherpa's CUDA provider libraries and expects compatible CUDA
 12/cuDNN 9 libraries on the target system. See
 [`docs/kokoro-tts.md`](docs/kokoro-tts.md) for validation details.
+
+Keep `icons/icon.png` (512px) first in `bundle.icon` in `src-tauri/tauri.conf.json`:
+Tauri selects the first PNG as the default Linux window icon. Smaller sizes
+remain listed for packaging. After changing icons, rebuild and relaunch the
+AppImage, then check KDE's Alt+Tab switcher at the intended display scaling.
 
 Install the generated Debian package with a dependency-aware command so WebKitGTK and GTK are installed if needed:
 
@@ -275,6 +317,14 @@ npm run build
 Commit the changed version files together with the release changes.
 Create or update `RELEASE_NOTES/vX.Y.Z.md`, and prefer a new patch tag instead of replacing a published tag if release validation finds an installer/runtime packaging issue.
 
+After the release is published, update the version badges, download filenames/URLs,
+and source archive links in every `site/source/locales/*.json` catalog, plus the
+release-note link in `site/source/index.template.html`.
+Verify installer filenames against the published release assets, run
+`node site/build.mjs`, and commit the catalogs with the regenerated HTML pages.
+Merge the site update and verify the Netlify deployment and live download links;
+publishing an app release alone does not update the website's pinned links.
+
 ### Running the AppImage (Arch-based systems)
 
 On Arch-based systems, the AppImage may show a blank screen due to a WebKit GBM buffer allocation failure with modern Mesa drivers. Set `WEBKIT_DISABLE_COMPOSITING_MODE=1` to disable GPU compositing:
@@ -299,6 +349,20 @@ npm run android:apk
 
 Use `npm run android:apk:native-tts` when building the Android APK with native audiobook generation and background playback. Native playback uses Android Media3/ExoPlayer through the official, exactly pinned `tauri-plugin-native-audio` 1.0.5 packages; API 26 is the minimum supported Android version.
 
+Native TTS debug and release APKs both use the r30 source-built arm64 runtime.
+Prepare it once on Linux x86-64 with CMake and the pinned Android SDK/NDK:
+
+```bash
+node scripts/fdroid/build-android-source-libs.js
+npm run android:apk:native-tts
+```
+
+On macOS or Windows, copy the complete Linux-built `source-arm64` directory
+(both `.so` files and `source-receipt.json`) to `.cache/android-production/`,
+or point `SHERPA_ONNX_LIB_DIR` at that directory. Install r30 on the build host
+too, for compiling the app. The wrappers reject old receipts and changed
+libraries. The ordinary `android:apk` debug build needs no Sherpa preparation.
+
 Audiobooks are not pre-rendered into the APK. Users save full audiobooks on demand from the document UI, and generated audio is stored as local app user data.
 
 The APK is output to:
@@ -307,7 +371,16 @@ The APK is output to:
 src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
 ```
 
-The `--debug` flag signs the APK automatically with a debug keystore, which is required for sideloading. Unsigned release APKs are silently rejected by Android at install time.
+The `--debug` flag signs the APK automatically with a development keystore.
+Android requires a signed APK for installation.
+
+For a fresh production build on Linux x86-64, follow the
+[Android packaging guide](docs/android-production-packaging.md#3-build-verify-and-update)
+to install the pinned tools, then run `bash scripts/fdroid/build-android-release.sh`.
+It prepares the source-built inputs and builds an unsigned arm64 APK for
+Android API 26+ with native TTS and search. Once the inputs are prepared,
+`npm run android:apk:release` rebuilds the APK. The guide covers production
+signing, verification, source and license evidence, and F-Droid submission.
 
 To sideload on an Android device, enable **Install unknown apps** in Settings and transfer the `.apk` file directly (via USB, ADB, or file share).
 
@@ -330,6 +403,16 @@ npm run ios:ipa:native-tts
 ```
 
 The iOS native TTS build uses the official sherpa-onnx iOS static XCFramework archive, verifies its SHA-256, prepares thin Cargo link archives under `src-tauri/tts/runtime/sherpa-onnx-ios/cargo-libs/`, and builds the App Store Connect IPA with `native-tts-ios`. Device builds link the thin sherpa `ios-arm64` archive directly and thin the framework-wrapped ONNX Runtime archive; simulator CI thins both upstream universal archives to arm64 before Rust sees them. The iOS feature also enables Libtashkeel through static ONNX Runtime linking by pointing `ORT_LIB_LOCATION` at the prepared iOS archive directory. Native background playback uses `tauri-plugin-native-audio` on iOS, and the generated Apple target declares Background Modes > Audio.
+
+### Desktop build troubleshooting
+
+The npm lockfile pins Tauri CLI 2.12.4. Older CLI 2.11 builds inject the deprecated
+`STATIC_VCRUNTIME` environment variable even on Linux; use `npm ci` after pulling
+the CLI update. Windows MSVC static runtime linking retains Tauri's default
+`build.windows.staticVCRuntime: true`. Do not set `STATIC_VCRUNTIME=false` to hide
+the warning: that still warns and changes the Windows linking policy. An
+explicit legacy variable in your build environment must also be removed or
+migrated to the supported configuration.
 
 ### Android build troubleshooting
 
@@ -369,6 +452,19 @@ The HTML narration adapter now preserves prose placed directly inside readable w
 Compatibility is preserved: `native-save-v4-segmented` is unchanged, Kokoro keeps its exact model ID and cache key, and old preferences, manifests, records, and bundles without preprocessing metadata default to `none`. Imported audiobook bundles use stored chunk metadata for playback/status instead of re-chunking restored source, so older completed WAV audiobooks remain playable. Version-2 portable bundles retain sanitized HTML compatibility; version 3 adds a typed canonical PDF source and rebuilds derived PDF page text, search rows, metadata, and thumbnails through the existing PDF.js import path. New HTML/EPUB bundle exports retain optional source spans for each chunk, while PDFs use page/text-item locators. Older HTML bundles still rebuild highlight spans lazily from restored HTML and can use a cached exact-first, Arabic-aware live-reader text fallback. A diacritized Piper generation receives a separate audiobook ID, so it cannot silently reuse older undiacritized WAV chunks. Most books produce identical chunks. A book affected by the wrapper-text omission must be regenerated to include the newly retained prose; its corrected source signature and chunk sequence intentionally do not match the incomplete generation.
 
 See [docs/kokoro-tts.md](docs/kokoro-tts.md) for architecture, model metadata, mobile constraints, and maintenance rules.
+
+A disposable frontend removal rehearsal passes compilation, 61 baseline tests and
+a bundle check without feature-owned runtime modules. Packaged listening,
+assistive-technology/device acceptance and end-to-end timing remain pending.
+
+The proposed **Play from here** feature is documented in
+[docs/play-anywhere.md](docs/play-anywhere.md), including staged implementation,
+UX, integration/removal boundaries, and acceptance criteria. Its HTML/PDF chunk lookup and
+optional HTML/PDF/OCR viewport capabilities now feed verified prepared-chunk
+lookup, including legacy recovery. Guarded player integration, viewport controls and independent follow/browse
+behavior are implemented. The audio menu also offers **Play from selection**,
+starting the selected passage’s saved segment. Device/accessibility/performance
+acceptance remains pending.
 
 Narration chunks and generated WAV files remain native app user data. Desktop uses bounded chunk playback; Android and iOS prepare a reusable local `playback.wav` for background and lock-screen playback. Build helpers continue to orchestrate npm, Cargo, Tauri, mobile SDK tooling, checked downloads, and platform library staging; they do not replace those package managers.
 
@@ -432,9 +528,9 @@ Pagefind will automatically extract and index the text content on the next build
 
 ### User-Uploaded Documents
 
-From the document list, open **Import** and choose **Files** to select one or more local `.html`, `.htm`, `.epub`, `.pdf`, `.txt`, `.md`, or `.markdown` documents. On desktop, the same supported files can be dropped onto the open Library. Installed desktop, Android, and iOS builds register as viewers for those formats, so opening a supported file with Papercut launches or focuses the app and imports it. Android registers only the file-opening action, not Share-sheet actions. Every entry point uses the same validation, progress, duplicate handling, and partial-failure results as the picker. Choose **Paste Text** to create a searchable local plain-text document without clipboard permissions or an intermediary file. Desktop builds also offer **Folder**, which recursively imports supported files through five visible folder levels while preserving that hierarchy in the Library. HTML and EPUB produce sanitized reading HTML; plain text is escaped and reflowed into paragraphs; CommonMark Markdown is rendered and then sanitized. PDF retains a canonical source while PDF.js incrementally derives page text, search rows, page locators, and a best-effort gallery thumbnail. TXT files must be UTF-8 or explicitly BOM-marked UTF-16; Papercut does not guess ambiguous legacy text encodings. Markdown keeps readable structure but intentionally omits remote or sibling-file images, raw active content, syntax highlighting, and format-specific extensions. Uploaded documents appear under **User Uploads**, open in the format-appropriate reader, participate in the same SQLite FTS5 search UI, and can use the same TTS playback/save flow when native TTS is available. Reflowable reader appearance controls do not alter stored documents or audiobook metadata; PDF pages retain their authored appearance while app chrome follows the selected theme. Uploaded documents can also be deleted from the document list; delete removes the SQLite rows and stored source directory to free local storage.
+From the document list, open **Import** and choose **Files** to select one or more local `.html`, `.htm`, `.epub`, `.pdf`, `.txt`, `.md`, or `.markdown` documents. On desktop, the same supported files can be dropped onto the open Library. Installed desktop, Android, and iOS builds register as viewers for those formats, so opening a supported file with Papercut launches or focuses the app and imports it. Android registers only the file-opening action, not Share-sheet actions. Exported `.papercut-audiobook` bundles are registered the same way: opening one from a file manager imports it through the Audiobooks flow — with its notices and post-import steps — instead of the document Library, and extensionless mobile provider URLs are identified by their bundle signature. Every entry point uses the same validation, progress, duplicate handling, and partial-failure results as the picker. Choose **Paste Text** to create a searchable local plain-text document without clipboard permissions or an intermediary file. Desktop builds also offer **Folder**, which recursively imports supported files through five visible folder levels while preserving that hierarchy in the Library. HTML and EPUB produce sanitized reading HTML; plain text is escaped and reflowed into paragraphs; CommonMark Markdown is rendered and then sanitized. PDF retains a canonical source while PDF.js incrementally derives page text, search rows, page locators, and a best-effort gallery thumbnail. TXT files must be UTF-8 or explicitly BOM-marked UTF-16; Papercut does not guess ambiguous legacy text encodings. Markdown keeps readable structure but intentionally omits remote or sibling-file images, raw active content, syntax highlighting, and format-specific extensions. Uploaded documents appear under **User Uploads**, open in the format-appropriate reader, participate in the same SQLite FTS5 search UI, and can use the same TTS playback/save flow when native TTS is available. Reflowable reader appearance controls do not alter stored documents or audiobook metadata; PDF pages retain their authored appearance while app chrome follows the selected theme. Uploaded documents can also be deleted from the document list; delete removes the SQLite rows and stored source directory to free local storage.
 
-EPUB import validates the archive container, follows the OPF spine, stores a sanitized generated reading HTML copy, and outputs normalized sections before indexing. PDF uses the same document/search store with page-aware locators and a dedicated virtualized PDF.js viewer. Image-only and hybrid PDF pages can be recognized on demand in English or Arabic with a bundled Tesseract worker; recognition is resumable, preserves the canonical PDF, and feeds the same Find, search, selection, and TTS paths as embedded text. Supported Android devices can scan multi-page documents or import existing photos into this PDF pipeline. The iOS VisionKit scanner and photo picker are implemented, but physical-device acceptance remains open; desktop camera capture is not included. Current validation and remaining platform work are tracked in [docs/pdf-ocr-scanning.md](docs/pdf-ocr-scanning.md).
+In EPUBs with a publisher table of contents, the Contents icon beside Find opens the chapter and subsection list. Choosing an entry jumps to its passage. EPUB import validates the archive container, follows the OPF spine, stores a sanitized generated reading HTML copy, and outputs normalized sections before indexing. PDF uses the same document/search store with page-aware locators and a dedicated virtualized PDF.js viewer. Image-only and hybrid PDF pages can be recognized on demand in English or Arabic with a bundled Tesseract worker; recognition is resumable, preserves the canonical PDF, and feeds the same Find, search, selection, and TTS paths as embedded text. Supported Android and iOS devices can scan multi-page documents or import existing photos into this PDF pipeline; both mobile paths have passed physical-device acceptance. Desktop camera capture is not included. Current validation and remaining platform work are tracked in [docs/pdf-ocr-scanning.md](docs/pdf-ocr-scanning.md).
 
 ### Search Behavior
 
@@ -503,7 +599,7 @@ papercut.io/
 │   ├── tauri.conf.json            # Base Tauri config
 │   ├── tauri.ios.conf.json        # iOS Bundle ID / App Store config
 │   └── tauri.linux.conf.json      # Linux shared-library bundle config
-├── scripts/                       # Desktop and mobile build orchestration
+├── scripts/                       # Commands grouped by purpose; see scripts/README.md
 │   └── lib/                       # Shared and platform-specific script helpers
 ├── site/                          # Generated multilingual static website
 ├── docs/                          # Feature and architecture notes

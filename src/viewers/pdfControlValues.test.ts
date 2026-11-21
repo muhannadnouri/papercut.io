@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest'
-import { clampPdfPage, clampPdfZoom } from './pdfControlValues'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
+import {
+  clampPdfPage,
+  clampPdfZoom,
+} from './pdfControlValues'
 
 describe('PDF controls', () => {
   it('keeps typed page and zoom values within supported bounds', () => {

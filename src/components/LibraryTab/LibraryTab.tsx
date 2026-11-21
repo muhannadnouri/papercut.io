@@ -1,6 +1,14 @@
-import { Trans, useTranslation } from 'react-i18next'
+import { imageIssueReason } from '../../viewers/imageIssues'
+import {
+  Trans,
+  useTranslation,
+} from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { useEffect, useState, type ReactNode } from 'react'
+import {
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
 import { PdfRecognitionStatus } from '../../pdf/ocr/PdfRecognitionStatus'
@@ -49,7 +57,7 @@ interface LibraryTabProps {
   onCreateLibraryFolder: (parentId: string | null, name: string) => void | Promise<void>
   onDeleteDocument: (doc: DocumentInfo) => void | Promise<void>
   onDeleteDocuments: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
-  onDeleteLibraryFolder: (folderId: string) => void | Promise<void>
+  onDeleteLibraryFolder: (folderId: string) => Promise<UploadedDocumentDeleteBatchResult | null>
   onDismissDocumentImportStatus: () => void
   onFilterChange: (value: string) => void
   onCancelDocumentBatch: () => void | Promise<void>
@@ -59,7 +67,7 @@ interface LibraryTabProps {
   onImportDocumentPhotos: () => void | Promise<void>
   onImportPastedText: (title: string, text: string) => Promise<void>
   onScanDocument: () => void | Promise<void>
-  onMoveLibraryDocuments: (documentIds: string[], folderId: string | null) => void | Promise<void>
+  onMoveLibraryItems: (documentIds: string[], folderIds: string[], folderId: string | null) => void | Promise<void>
   onRecognizeDocument: (
     documentUrl: string,
     language?: PdfOcrLanguage,
@@ -105,7 +113,7 @@ export function LibraryTab({
   onImportDocumentPhotos,
   onImportPastedText,
   onScanDocument,
-  onMoveLibraryDocuments,
+  onMoveLibraryItems,
   onRecognizeDocument,
   onRenameLibraryFolder,
   onToggleAuthor,
@@ -143,11 +151,16 @@ export function LibraryTab({
       .then(({ getCurrentWebview }) => getCurrentWebview().onDragDropEvent(({ payload }) => {
         const action = documentDropAction(payload, operationBusy)
         setDropActive(action.active)
-        if (action.paths) void onImportDocumentPaths(action.paths)
+        if (action.paths) {
+          void onImportDocumentPaths(action.paths)
+        }
       }))
       .then((stop) => {
-        if (disposed) stop()
-        else unlisten = stop
+        if (disposed) {
+          stop()
+        } else {
+          unlisten = stop
+        }
       })
       .catch((error) => console.warn('Unable to listen for document drops:', error))
     return () => {
@@ -223,6 +236,7 @@ export function LibraryTab({
         importStatuses={statusMessage ? [{
           status: documentImport.status,
           message: statusMessage,
+          manageContext: documentImport.format === 'delete-batch',
           onDismiss: operationBusy ? undefined : onDismissDocumentImportStatus,
         }] : []}
         libraryOrganization={libraryOrganization}
@@ -237,7 +251,7 @@ export function LibraryTab({
         onDeleteDocument={onDeleteDocument}
         onDeleteDocuments={onDeleteDocuments}
         onDeleteLibraryFolder={onDeleteLibraryFolder}
-        onMoveLibraryDocuments={onMoveLibraryDocuments}
+        onMoveLibraryItems={onMoveLibraryItems}
         onRenameLibraryFolder={onRenameLibraryFolder}
         onToggleAuthor={onToggleAuthor}
         onViewAudiobooks={onViewAudiobooks}
@@ -290,7 +304,9 @@ function documentImportStatusMessage(
   onAcceptRecognizedDocument: (documentUrl: string) => void | Promise<boolean>,
   documents: DocumentInfo[],
 ): ReactNode {
-  if (status.status === 'idle') return null
+  if (status.status === 'idle') {
+    return null
+  }
   if (status.format === 'delete-batch') {
     return <DocumentBatchDeleteStatus status={status} t={t} documents={documents} />
   }
@@ -308,8 +324,12 @@ function documentImportStatusMessage(
       status.format === 'photos') {
     return <DocumentBatchImportStatus status={status} t={t} onCancel={onCancelBatch} />
   }
-  if (status.status === 'cancelled') return t('library.status.cancelled')
-  if (status.status === 'error') return status.message ?? null
+  if (status.status === 'cancelled') {
+    return t('library.status.cancelled')
+  }
+  if (status.status === 'error') {
+    return status.message ?? null
+  }
   if (status.status === 'importing' && status.format === 'paste') {
     return t('library.pasteText.saving')
   }
@@ -324,7 +344,10 @@ function documentImportStatusMessage(
 
   const storage = formatStorageSize(status.bytesFreed)
   return storage
-    ? <Trans i18nKey="library.status.deletedWithStorage" values={{ title, storage }} components={{ title: <bdi /> }} />
+    ? <Trans i18nKey="library.status.deletedWithStorage" values={{
+      title,
+      storage,
+    }} components={{ title: <bdi /> }} />
     : <Trans i18nKey="library.status.deleted" values={{ title }} components={{ title: <bdi /> }} />
 }
 
@@ -348,13 +371,16 @@ function DocumentBatchDeleteStatus({
 
   const message = deleting
     ? total > 0
-      ? t('library.status.deleteBatchProgress', { processed, total })
+      ? t('library.status.deleteBatchProgress', {
+        processed,
+        total,
+      })
       : t('library.status.preparingDeleteBatch')
     : result
       ? t('library.status.deleteBatchComplete', {
-          deleted: result.deleted.length,
-          failed: failures.length,
-        })
+        deleted: result.deleted.length,
+        failed: failures.length,
+      })
       : status.message
 
   return (
@@ -402,6 +428,12 @@ function DocumentBatchImportStatus({
   const result = status.batchResult
   const failures = result?.failures ?? []
   const alreadyInLibrary = result?.alreadyInLibrary ?? []
+  const imageWarnings = (result?.imported ?? []).filter((document) =>
+    Object.values(document.importImageWarnings ?? {}).some((count) => count > 0),
+  )
+  const imageWarningCount = imageWarnings
+    .flatMap((document) => Object.values(document.importImageWarnings ?? {}))
+    .reduce((total, count) => total + count, 0)
   const added = Math.max(0, (result?.imported.length ?? 0) - alreadyInLibrary.length)
   const importing = status.status === 'importing'
   const total = progress?.total ?? 0
@@ -486,6 +518,19 @@ function DocumentBatchImportStatus({
             {failures.map((failure, index) => (
               <li key={`${failure.fileName}-${index}`}>
                 <bdi>{failure.fileName}</bdi>: <span dir="auto">{failure.error}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {imageWarnings.length > 0 && (
+        <details className="document-batch-failures" open>
+          <summary>{t('imageIssues.summary', { count: imageWarningCount })}</summary>
+          <ul>
+            {imageWarnings.map((document) => (
+              <li key={document.id}>
+                <bdi>{document.originalFileName ?? document.title}</bdi>: {' '}
+                {Object.entries(document.importImageWarnings ?? {}).map(([reason, count]) => `${imageIssueReason(reason, t)} (${count})`).join('; ')}
               </li>
             ))}
           </ul>

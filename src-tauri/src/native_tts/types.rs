@@ -33,6 +33,7 @@ impl From<String> for NativeTtsCommandError {
 }
 
 /// Classify only expected user-actionable failures; unknown details stay generic.
+/// Stable UI codes keep native diagnostics out of translated product messages.
 fn native_tts_error_code(message: &str) -> &'static str {
     let message = message.to_ascii_lowercase();
     if message.contains("cancelled") {
@@ -70,6 +71,12 @@ fn native_tts_error_code(message: &str) -> &'static str {
         || message.contains("audiobook with no chunks")
     {
         return "no-speakable-text";
+    }
+    if message.contains("pdf audiobook needs regeneration") {
+        return "pdf-audiobook-regeneration-required";
+    }
+    if message.contains("audiobook restart confirmation required") {
+        return "audiobook-restart-required";
     }
     if message.contains("does not match the current document chunks") {
         return "audiobook-cache-mismatch";
@@ -255,6 +262,9 @@ pub(crate) struct NativeAudiobookStatusResponse {
     pub(crate) cached_chunks: usize,
     pub(crate) total_chunks: usize,
     pub(crate) complete: bool,
+    pub(crate) requires_regeneration: bool,
+    pub(crate) regeneration_reason: Option<&'static str>,
+    pub(crate) restart_generation_token: Option<String>,
     pub(crate) dir: String,
     pub(crate) audio_duration_sec: f32,
     pub(crate) wav_bytes: usize,
@@ -350,6 +360,8 @@ pub(crate) struct NativeAudiobookSaveRequest {
     pub(crate) speed: f32,
     pub(crate) thread_count: Option<i32>,
     pub(crate) silma_nfe_step: Option<i32>,
+    #[serde(default)]
+    pub(crate) restart_generation_token: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -523,6 +535,16 @@ mod tests {
 
     #[test]
     fn expected_native_tts_errors_have_stable_codes() {
+        assert_eq!(
+            native_tts_error_code(
+                "Audiobook restart confirmation required; check the saved generation again"
+            ),
+            "audiobook-restart-required"
+        );
+        assert_eq!(
+            native_tts_error_code("PDF audiobook needs regeneration"),
+            "pdf-audiobook-regeneration-required"
+        );
         assert_eq!(
             native_tts_error_code("Offline voice model is not installed"),
             "model-not-installed"

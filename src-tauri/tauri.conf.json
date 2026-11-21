@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Papercut",
-  "version": "1.9.0",
+  "version": "1.10.2",
   "identifier": "io.papercut.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -20,22 +20,7 @@
       }
     ],
     "security": {
-      "csp": {
-        "default-src": "'self'",
-        "base-uri": "'none'",
-        "connect-src": "'self' ipc: http://ipc.localhost asset: http://asset.localhost",
-        "font-src": "'self'",
-        "form-action": "'none'",
-        "frame-ancestors": "'none'",
-        "frame-src": "'none'",
-        "img-src": "'self' asset: http://asset.localhost data: blob:",
-        "media-src": "'self' asset: http://asset.localhost blob:",
-        "object-src": "'none'",
-        "script-src": "'self' 'wasm-unsafe-eval'",
-        "style-src": "'self' 'unsafe-inline'",
-        "worker-src": "'self' blob:",
-        "child-src": "'self' blob:"
-      },
+      "csp": "default-src 'self'; base-uri 'none'; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost; font-src 'self'; form-action 'none'; frame-ancestors 'none'; frame-src 'none'; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost blob:; object-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; child-src 'self' blob:",
       "assetProtocol": {
         "enable": true,
         "scope": [
@@ -52,8 +37,12 @@
   },
   "bundle": {
     "active": true,
+    "resources": {
+      "licensing": "licenses"
+    },
     "targets": "all",
     "icon": [
+      "icons/icon.png",
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
@@ -104,6 +93,15 @@
         "name": "Markdown document",
         "description": "Markdown document",
         "mimeType": "text/markdown",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
+      },
+      {
+        "ext": ["papercut-audiobook"],
+        "name": "Papercut audiobook",
+        "description": "Papercut audiobook bundle",
+        "mimeType": "application/octet-stream",
         "role": "Viewer",
         "rank": "Alternate",
         "androidIntentActionFilters": ["view"]

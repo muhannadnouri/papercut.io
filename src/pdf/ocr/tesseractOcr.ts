@@ -1,4 +1,7 @@
-import type { Page, Worker } from 'tesseract.js'
+import type {
+  Page,
+  Worker,
+} from 'tesseract.js'
 import type { PdfPageTextLayer } from '../../uploads/DocumentUploads'
 
 export type PdfOcrLanguage = 'eng' | 'ara'

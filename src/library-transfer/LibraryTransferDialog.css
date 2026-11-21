@@ -1,3 +1,20 @@
+@media (min-width: 768px) {
+  .app-dialog.library-transfer-dialog {
+    width: min(100%, 32rem);
+  }
+}
+
+@media (max-width: 767px) {
+  /* Full height only once a task is chosen, so the Send/Receive choice stays compact. */
+  .app-dialog.library-transfer-dialog-task {
+    height: 100%;
+  }
+
+  .library-transfer-dialog-task .app-dialog-body {
+    flex: 1;
+  }
+}
+
 .library-transfer-mode {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -46,6 +63,30 @@
   text-align: start;
 }
 
+.library-transfer-nearby {
+  display: grid;
+  gap: 0.5rem;
+  min-inline-size: 0;
+}
+
+.library-transfer-nearby h4,
+.library-transfer-nearby p {
+  margin: 0;
+}
+
+.library-transfer-nearby ul {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.library-transfer-nearby button {
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+
 .library-transfer-primary-section header {
   display: grid;
   gap: 0.2rem;
@@ -76,7 +117,9 @@
 }
 
 .library-transfer-primary-section > button,
-.library-transfer-alternate button {
+.library-transfer-nearby button,
+.library-transfer-alternate button,
+.library-transfer-diagnostics button {
   min-height: 2.35rem;
   padding-inline: 0.8rem;
   border: 1px solid transparent;
@@ -97,8 +140,12 @@
 
 .library-transfer-primary-section > button:hover:not(:disabled),
 .library-transfer-primary-section > button:focus-visible,
+.library-transfer-nearby button:hover:not(:disabled),
+.library-transfer-nearby button:focus-visible,
 .library-transfer-alternate button:hover:not(:disabled),
-.library-transfer-alternate button:focus-visible {
+.library-transfer-alternate button:focus-visible,
+.library-transfer-diagnostics button:hover:not(:disabled),
+.library-transfer-diagnostics button:focus-visible {
   border-color: transparent;
   background: var(--surface-accent);
   color: var(--accent-strong);
@@ -113,7 +160,9 @@
 }
 
 .library-transfer-primary-section > button:disabled,
-.library-transfer-alternate button:disabled {
+.library-transfer-nearby button:disabled,
+.library-transfer-alternate button:disabled,
+.library-transfer-diagnostics button:disabled {
   border-color: transparent;
   background: var(--surface-muted);
   color: var(--text-soft);
@@ -373,6 +422,19 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
   margin-top: 0.65rem;
 }
 
+.library-transfer-method {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.library-transfer-method h4 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.library-transfer-method button,
 .library-transfer-alternate-content button {
   justify-self: start;
 }
@@ -389,6 +451,9 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .library-transfer-pairing-fields label {
@@ -427,6 +492,13 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
   color: var(--text-body);
   font-size: 0.8rem;
   line-height: 1.4;
+}
+
+.library-transfer-primary-section p.library-transfer-outcome-warning {
+  padding: 0.75rem;
+  border-radius: var(--radius-control);
+  background: var(--surface-warning);
+  color: var(--warning-strong);
 }
 
 .library-transfer-session {
@@ -497,6 +569,55 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
   line-height: 1.4;
 }
 
+.library-transfer-completion {
+  display: grid;
+  gap: 0.65rem;
+  justify-items: center;
+  padding-block: 0.35rem;
+  text-align: center;
+}
+
+.library-transfer-completion-icon {
+  display: grid;
+  width: 2.5rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-success);
+  color: var(--success-strong);
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.library-transfer-completion-issues .library-transfer-completion-icon {
+  background: var(--surface-warning);
+  color: var(--warning-strong);
+}
+
+.library-transfer-completion h3,
+.library-transfer-completion p {
+  margin: 0;
+}
+
+.library-transfer-completion h3 {
+  font-size: 1rem;
+}
+
+.library-transfer-completion p {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.library-transfer-completion .library-transfer-result {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.7rem;
+  border-radius: var(--radius-control);
+  background: var(--control-surface);
+  text-align: start;
+}
+
 .library-transfer-status-busy {
   grid-template-columns: auto 1fr;
   align-items: center;
@@ -517,4 +638,112 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
   .library-transfer-alternate button {
     width: 100%;
   }
+}
+
+/* Styled like the dialog's other disclosures; Copy sits across from the summary when open. */
+.library-transfer-diagnostics {
+  position: relative;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.library-transfer-diagnostics summary { line-height: 2.35rem; }
+.library-transfer-alternate .library-transfer-copy-report {
+  position: absolute;
+  top: 0.8rem;
+  inset-inline-end: 0;
+  width: auto;
+}
+.library-transfer-diagnostics summary:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 3px; }
+.library-transfer-diagnostics p { font-size: 0.8rem; }
+.library-transfer-diagnostic-events {
+  max-height: 16rem;
+  overflow: auto;
+  /* Room for up to "200." markers in the list's monospace font. */
+  padding-inline-start: 5ch;
+  font-family: monospace;
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.library-transfer-diagnostic-events li + li { margin-top: 0.4rem; }
+.library-transfer-copy-report { display: inline-flex; align-items: center; gap: 0.4rem; }
+.library-transfer-copy-report svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
+.library-transfer-diagnostic-events:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 3px; }
+@media (pointer: coarse) {
+  .library-transfer-diagnostics button { min-height: 2.75rem; }
+  .library-transfer-alternate .library-transfer-network-row > button { min-width: 2.75rem; }
+}
+
+.library-transfer-network {
+  display: grid;
+  min-width: 0;
+  gap: 0.65rem;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+/* Refresh sits beside the list it reloads; the dropdown takes the remaining width. */
+.library-transfer-network-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.library-transfer-alternate .library-transfer-network-row > button {
+  display: grid;
+  place-items: center;
+  width: auto;
+  min-width: 2.35rem;
+  padding-inline: 0.6rem;
+}
+
+.library-transfer-network-row svg,
+.library-transfer-network-row .spinner {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.library-transfer-network-row svg {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Label on top (scans fastest); the range hint sits beside the field instead of under it. */
+.library-transfer-port {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.75rem;
+}
+
+.library-transfer-port span {
+  grid-column: 1 / -1;
+}
+
+.library-transfer-port input {
+  width: 8rem;
+}
+
+.library-transfer-port small {
+  font-weight: 500;
+}
+
+.library-transfer-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

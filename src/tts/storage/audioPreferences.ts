@@ -1,4 +1,8 @@
-import { FALLBACK_TTS_MODELS, getTtsModel, resolveModelTextPreprocessor } from '../models'
+import {
+  FALLBACK_TTS_MODELS,
+  getTtsModel,
+  resolveModelTextPreprocessor,
+} from '../models'
 import {
   DEFAULT_TTS_MODEL_ID,
   DEFAULT_TTS_SPEED,
@@ -40,7 +44,9 @@ export const DEFAULT_AUDIO_PREFERENCES: AudioPreferences = {
 export function getAudioPreferences(): AudioPreferences {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return DEFAULT_AUDIO_PREFERENCES
+    if (!raw) {
+      return DEFAULT_AUDIO_PREFERENCES
+    }
 
     const parsed = JSON.parse(raw) as Partial<AudioPreferences>
     const model = getTtsModel(

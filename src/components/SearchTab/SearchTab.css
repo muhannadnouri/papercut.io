@@ -1,0 +1,197 @@
+.search-result-selector {
+  /* Keep initial layout independent of subgrid intrinsic sizing. */
+  width: 22rem;
+  display: inline-grid;
+  grid-template-columns: minmax(0, auto) 44px minmax(0, auto);
+  max-width: 100%;
+}
+
+.search-result-selector[data-keyword-active="false"] {
+  grid-template-columns: minmax(0, auto) 0 minmax(0, auto);
+}
+
+.search-result-tabs {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  grid-template-columns: subgrid;
+  gap: 0;
+  max-width: 100%;
+  padding: 0.1875rem;
+  background: var(--control-surface);
+  border-radius: var(--radius-control);
+}
+
+.search-result-tab {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  padding: 0.25rem 0.65rem;
+  /* Keep icons physically left; labels retain their own text direction. */
+  direction: ltr;
+  border-radius: var(--radius-compact);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.search-result-tab[data-selected] {
+  color: var(--accent-strong);
+  background: var(--surface-accent-strong);
+  font-weight: 600;
+}
+
+.search-result-tab[data-focus-visible],
+.search-result-panel[data-focus-visible] {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+.search-result-panel[data-inert] {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .search-result-tab:hover:not([data-selected]) {
+    color: var(--text-body);
+    background: var(--surface-accent);
+  }
+}
+
+.search-result-tab-icon {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.search-keyword-tab {
+  grid-column: 1;
+}
+
+.search-result-tab:not(.search-keyword-tab) {
+  grid-column: 3;
+}
+
+.search-keyword-label {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.search-keyword-mode {
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+/* Share a grid track without nesting the menu button inside a tab. */
+.search-keyword-matching {
+  grid-column: 2;
+  grid-row: 1;
+  margin-block: 0.1875rem;
+}
+
+.search-matching-trigger {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-compact);
+  background: var(--surface-accent-strong);
+  color: var(--accent-strong);
+  cursor: pointer;
+}
+
+.search-matching-trigger svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.search-matching-trigger:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: -2px;
+}
+
+.search-matching-trigger[aria-expanded="true"] {
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+.search-matching-popover {
+  z-index: 100;
+  max-width: calc(100vw - 1rem);
+}
+
+.search-matching-menu {
+  padding: 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-compact);
+  background: var(--surface-strong);
+  box-shadow: 0 8px 24px var(--shadow-popover);
+}
+
+.search-matching-option {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-inline);
+  color: var(--text-body);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.search-matching-option[data-focused] {
+  outline: none;
+  background: var(--surface-accent);
+  color: var(--accent-strong);
+}
+
+
+.search-result-views {
+  container: search-view / inline-size;
+}
+
+/* Prioritize readable labels when text size leaves little room for decoration. */
+@container search-view (max-width: 22em) {
+  .search-result-tab-icon {
+    display: none;
+  }
+
+  .search-result-tab {
+    padding-inline: 0.4rem;
+  }
+}
+
+/* Equal outer tracks keep the sibling trigger aligned without subgrid. */
+@supports not (grid-template-columns: subgrid) {
+  .search-result-selector,
+  .search-result-tabs {
+    grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr);
+  }
+
+  .search-result-selector[data-keyword-active="false"],
+  .search-result-selector[data-keyword-active="false"] .search-result-tabs {
+    grid-template-columns: minmax(0, 1fr) 0 minmax(0, 1fr);
+  }
+}

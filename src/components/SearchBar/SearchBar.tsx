@@ -1,3 +1,4 @@
+import { SearchIcon } from '../icons'
 import { useTranslation } from 'react-i18next'
 import type { SearchQueryError } from '../../hooks/useSearch'
 import './SearchBar.css'
@@ -22,8 +23,6 @@ export function SearchBar({
   onSubmit,
 }: SearchBarProps) {
   const { t } = useTranslation()
-  const broadExample = t('search.input.exampleBroad')
-  const exactExample = t('search.input.exampleExact')
   const searching = loading && query.trim().toLowerCase() === submittedQuery.toLowerCase()
   const submitDisabled = disabled || searching || query.trim().length === 0
 
@@ -41,7 +40,10 @@ export function SearchBar({
           value={query}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !submitDisabled) { e.preventDefault(); onSubmit() }
+            if (e.key === 'Enter' && !submitDisabled) {
+              e.preventDefault()
+              onSubmit()
+            }
           }}
           disabled={disabled}
           autoFocus
@@ -55,31 +57,15 @@ export function SearchBar({
           {searching
             ? <span className="spinner search-btn-spinner" aria-hidden="true" />
             : (
-                <svg className="search-btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m16 16 5 5" />
-                </svg>
-              )}
+              <SearchIcon className="search-btn-icon" />
+            )}
           {t('search.input.button')}
         </button>
       </div>
-      <p className="search-help" id="search-input-help">
-        {t('search.input.help')}
-      </p>
       {queryError && (
         <p className="search-input-error" id="search-input-error" role="alert">
           {t(`search.input.${queryError}`)}
         </p>
-      )}
-      {query.trim().length === 0 && (
-        <div className="search-examples" aria-label={t('search.input.examplesLabel')}>
-          <button type="button" className="search-example" onClick={() => onChange(broadExample)} disabled={disabled}>
-            {broadExample}
-          </button>
-          <button type="button" className="search-example" onClick={() => onChange(exactExample)} disabled={disabled}>
-            {exactExample}
-          </button>
-        </div>
       )}
     </div>
   )

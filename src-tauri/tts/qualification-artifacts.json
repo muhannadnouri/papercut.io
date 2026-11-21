@@ -1,0 +1,230 @@
+{
+  "status": "Immutable source inputs and historical private qualification proofs; final archive pins are in model-manifest.json, pending immutable publication.",
+  "baselineCommit": "88483fad7a3c62cdf1dc13ea1f35cc6fef038b07",
+  "assets": [
+    {
+      "language": "en",
+      "repo": "marwanelamami/kokoro-7m-distill-sherpa-onnx",
+      "revision": "c5663e70326392471bb13be92d37127025bdbf89",
+      "file": "model.fp32.onnx",
+      "url": "https://huggingface.co/marwanelamami/kokoro-7m-distill-sherpa-onnx/resolve/c5663e70326392471bb13be92d37127025bdbf89/model.fp32.onnx",
+      "bytes": 30641467,
+      "sha256": "766b8a5d5994bf3e17e62686bef01f4c07320566c73d1306e9bb67bba0260066"
+    },
+    {
+      "language": "en",
+      "repo": "marwanelamami/kokoro-7m-distill-sherpa-onnx",
+      "revision": "c5663e70326392471bb13be92d37127025bdbf89",
+      "file": "model.int8.onnx",
+      "url": "https://huggingface.co/marwanelamami/kokoro-7m-distill-sherpa-onnx/resolve/c5663e70326392471bb13be92d37127025bdbf89/model.int8.onnx",
+      "bytes": 8718221,
+      "sha256": "a4519fd708615297c8328abd0fa9abc8256976ce3f1bec9d093e0e654bfcbd8e"
+    },
+    {
+      "language": "en",
+      "repo": "marwanelamami/kokoro-7m-distill-sherpa-onnx",
+      "revision": "c5663e70326392471bb13be92d37127025bdbf89",
+      "file": "tokens.txt",
+      "url": "https://huggingface.co/marwanelamami/kokoro-7m-distill-sherpa-onnx/resolve/c5663e70326392471bb13be92d37127025bdbf89/tokens.txt",
+      "bytes": 687,
+      "sha256": "6ebb6bb288f20f3ae8d004d3c2ca27697da27c037d75e81a60e2a6a663f95425"
+    },
+    {
+      "language": "en",
+      "repo": "marwanelamami/kokoro-7m-distill-sherpa-onnx",
+      "revision": "c5663e70326392471bb13be92d37127025bdbf89",
+      "file": "voices.bin",
+      "url": "https://huggingface.co/marwanelamami/kokoro-7m-distill-sherpa-onnx/resolve/c5663e70326392471bb13be92d37127025bdbf89/voices.bin",
+      "bytes": 522240,
+      "sha256": "129d447a7c9bdce1d5b6cb5ecb789bbfd9f427b7775131a97dfa5638583b3b92"
+    },
+    {
+      "language": "en",
+      "repo": "marwanelamami/kokoro-7m-distill-sherpa-onnx",
+      "revision": "c5663e70326392471bb13be92d37127025bdbf89",
+      "file": "g2p_frontend.py",
+      "url": "https://huggingface.co/marwanelamami/kokoro-7m-distill-sherpa-onnx/resolve/c5663e70326392471bb13be92d37127025bdbf89/g2p_frontend.py",
+      "bytes": 5197,
+      "sha256": "545d9604c9d235b3747ccd7ed81bccd9fb004d5b72f3b32a81cb38f9eb91c53f"
+    },
+    {
+      "language": "en",
+      "repo": "oddadmix/Kokoro-7M-Distill",
+      "revision": "9357717e6499717b769ab65de61797aa7c501c86",
+      "file": "config.json",
+      "url": "https://huggingface.co/oddadmix/Kokoro-7M-Distill/resolve/9357717e6499717b769ab65de61797aa7c501c86/config.json",
+      "bytes": 2155,
+      "sha256": "4e203206481813c0d3cb9e1b8c308d54c10f9e416dd6931036deb2c7e03b241e"
+    },
+    {
+      "language": "en",
+      "repo": "oddadmix/Kokoro-7M-Distill",
+      "revision": "9357717e6499717b769ab65de61797aa7c501c86",
+      "file": "af_msa.pt",
+      "url": "https://huggingface.co/oddadmix/Kokoro-7M-Distill/resolve/9357717e6499717b769ab65de61797aa7c501c86/af_msa.pt",
+      "bytes": 523887,
+      "sha256": "9324145629d870a899078ef0a70eabc0706c219ccbf002fa6a18278a201c9664"
+    },
+    {
+      "language": "en",
+      "repo": "oddadmix/Kokoro-7M-Distill",
+      "revision": "9357717e6499717b769ab65de61797aa7c501c86",
+      "file": "README.md",
+      "url": "https://huggingface.co/oddadmix/Kokoro-7M-Distill/resolve/9357717e6499717b769ab65de61797aa7c501c86/README.md",
+      "bytes": 3709,
+      "sha256": "8a7cf4764f6bb9ae9287d7a08ac8477f6411422dcd9dc10362a0e124c38a226a"
+    },
+    {
+      "language": "ar",
+      "repo": "marwanelamami/nabra-7m-distill-sherpa-onnx",
+      "revision": "33b4e69edf70a3dd58af32abf41e3330dc64a9fe",
+      "file": "model.fp32.onnx",
+      "url": "https://huggingface.co/marwanelamami/nabra-7m-distill-sherpa-onnx/resolve/33b4e69edf70a3dd58af32abf41e3330dc64a9fe/model.fp32.onnx",
+      "bytes": 30641486,
+      "sha256": "df198dc6809ee5c71bf5d520fb8f76cda51ccbebd623ad7360920e2a6d157155"
+    },
+    {
+      "language": "ar",
+      "repo": "marwanelamami/nabra-7m-distill-sherpa-onnx",
+      "revision": "33b4e69edf70a3dd58af32abf41e3330dc64a9fe",
+      "file": "model.int8.onnx",
+      "url": "https://huggingface.co/marwanelamami/nabra-7m-distill-sherpa-onnx/resolve/33b4e69edf70a3dd58af32abf41e3330dc64a9fe/model.int8.onnx",
+      "bytes": 8718233,
+      "sha256": "2ac2a824d0a653da119ce453889bec5e6658a93e340476a4f0121d60621920d7"
+    },
+    {
+      "language": "ar",
+      "repo": "marwanelamami/nabra-7m-distill-sherpa-onnx",
+      "revision": "33b4e69edf70a3dd58af32abf41e3330dc64a9fe",
+      "file": "tokens.txt",
+      "url": "https://huggingface.co/marwanelamami/nabra-7m-distill-sherpa-onnx/resolve/33b4e69edf70a3dd58af32abf41e3330dc64a9fe/tokens.txt",
+      "bytes": 697,
+      "sha256": "5b43b8142c28b5c6f5d13d83caed696e3dabde376d5a0e9e67aceaf66f021da1"
+    },
+    {
+      "language": "ar",
+      "repo": "marwanelamami/nabra-7m-distill-sherpa-onnx",
+      "revision": "33b4e69edf70a3dd58af32abf41e3330dc64a9fe",
+      "file": "voices.bin",
+      "url": "https://huggingface.co/marwanelamami/nabra-7m-distill-sherpa-onnx/resolve/33b4e69edf70a3dd58af32abf41e3330dc64a9fe/voices.bin",
+      "bytes": 522240,
+      "sha256": "129d447a7c9bdce1d5b6cb5ecb789bbfd9f427b7775131a97dfa5638583b3b92"
+    },
+    {
+      "language": "ar",
+      "repo": "marwanelamami/nabra-7m-distill-sherpa-onnx",
+      "revision": "33b4e69edf70a3dd58af32abf41e3330dc64a9fe",
+      "file": "g2p_frontend.py",
+      "url": "https://huggingface.co/marwanelamami/nabra-7m-distill-sherpa-onnx/resolve/33b4e69edf70a3dd58af32abf41e3330dc64a9fe/g2p_frontend.py",
+      "bytes": 5197,
+      "sha256": "545d9604c9d235b3747ccd7ed81bccd9fb004d5b72f3b32a81cb38f9eb91c53f"
+    },
+    {
+      "language": "ar",
+      "repo": "oddadmix/Nabra-7M-Distill",
+      "revision": "03b95013d3dcd8be6f0b0412a157d25518c7b756",
+      "file": "config.json",
+      "url": "https://huggingface.co/oddadmix/Nabra-7M-Distill/resolve/03b95013d3dcd8be6f0b0412a157d25518c7b756/config.json",
+      "bytes": 2155,
+      "sha256": "4e203206481813c0d3cb9e1b8c308d54c10f9e416dd6931036deb2c7e03b241e"
+    },
+    {
+      "language": "ar",
+      "repo": "oddadmix/Nabra-7M-Distill",
+      "revision": "03b95013d3dcd8be6f0b0412a157d25518c7b756",
+      "file": "af_msa.pt",
+      "url": "https://huggingface.co/oddadmix/Nabra-7M-Distill/resolve/03b95013d3dcd8be6f0b0412a157d25518c7b756/af_msa.pt",
+      "bytes": 523887,
+      "sha256": "9324145629d870a899078ef0a70eabc0706c219ccbf002fa6a18278a201c9664"
+    },
+    {
+      "language": "ar",
+      "repo": "oddadmix/Nabra-7M-Distill",
+      "revision": "03b95013d3dcd8be6f0b0412a157d25518c7b756",
+      "file": "README.md",
+      "url": "https://huggingface.co/oddadmix/Nabra-7M-Distill/resolve/03b95013d3dcd8be6f0b0412a157d25518c7b756/README.md",
+      "bytes": 3423,
+      "sha256": "7529a6f409df104acf8421f5e7b2d384257d2cd894f36b7acc17e0c6f1bec42d"
+    },
+    {
+      "language": "ar",
+      "repo": "oddadmix/Nabra-7M-Distill",
+      "revision": "03b95013d3dcd8be6f0b0412a157d25518c7b756",
+      "file": "arabic_g2p.py",
+      "url": "https://huggingface.co/oddadmix/Nabra-7M-Distill/resolve/03b95013d3dcd8be6f0b0412a157d25518c7b756/arabic_g2p.py",
+      "bytes": 7964,
+      "sha256": "7754aab4d0d8e33822ee4f736b641291b6c445608e1df568c12b9762f7c0f55c"
+    },
+    {
+      "language": "shared",
+      "file": "LICENSE-APACHE-2.0",
+      "url": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/af2d8d81dbfa61c4cea4c568da78f3982edca005/LICENSE",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "language": "shared",
+      "file": "COPYING-GPL-3.0",
+      "url": "https://raw.githubusercontent.com/csukuangfj/espeak-ng/ed530aa113046142eb5115cf2fc9157854d0ffe1/COPYING",
+      "bytes": 35147,
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    }
+  ],
+  "privateAssemblyProofs": [
+    {
+      "language": "en",
+      "proposedId": "sherpa-onnx/kokoro-7m-distill-en-fp32",
+      "archiveFile": "kokoro-7m-distill-en-fp32.tar.bz2",
+      "archiveBytes": 35615853,
+      "archiveSha256": "da2dd66b63e970e65277ffc86e3004ae09385f90a1aa79abc4a5c33583617b43",
+      "payloadFileBytes": 49156045,
+      "includesVerifiedPhonemizerData": true,
+      "repeatedAssemblyIdentical": true,
+      "extractedFilesVerified": 358,
+      "status": "Local evaluation bundle; not a published production pin"
+    },
+    {
+      "language": "ar",
+      "proposedId": "sherpa-onnx/nabra-7m-distill-ar-fp32",
+      "archiveFile": "nabra-7m-distill-ar-fp32.tar.bz2",
+      "archiveBytes": 35568384,
+      "archiveSha256": "583fa5c8eedbe6181cd2be794e49e5e9b27517fbacb25bcda016fbaa24a6d0c2",
+      "payloadFileBytes": 49156074,
+      "includesVerifiedPhonemizerData": true,
+      "repeatedAssemblyIdentical": true,
+      "extractedFilesVerified": 358,
+      "status": "Local evaluation bundle; not a published production pin"
+    }
+  ],
+  "packaging": {
+    "releaseTag": "tts-distill-7m-fp32-2026-11-15",
+    "dataTreeSha256": "43ebef9ebca9edcb42dd5d49a7935038731af4c6450a677dc0cae732dae0ce6a",
+    "dataSource": {
+      "repo": "csukuangfj/piper-phonemize",
+      "revision": "dae4d2d831f9f0817355f7c0e8abd98c2fb0a49d",
+      "path": "swift-api-examples/espeak-ng-data"
+    },
+    "models": [
+      {
+        "language": "en",
+        "modelName": "kokoro-7m-distill-en-fp32"
+      },
+      {
+        "language": "ar",
+        "modelName": "nabra-7m-distill-ar-fp32"
+      }
+    ],
+    "sourceArchives": [
+      {
+        "name": "piper-phonemize",
+        "url": "https://github.com/csukuangfj/piper-phonemize/archive/dae4d2d831f9f0817355f7c0e8abd98c2fb0a49d.tar.gz",
+        "sha256": "61d569c856f10559b55e9112143b12abc8bb3992fe34e4777dbbdb5db286a6cd"
+      },
+      {
+        "name": "espeak-ng",
+        "url": "https://github.com/csukuangfj/espeak-ng/archive/ed530aa113046142eb5115cf2fc9157854d0ffe1.zip",
+        "sha256": "e4e262cbe34f7fe21f91f1ba3397f2728e1f30eafbae7853f2b753a9ed13f0dd"
+      }
+    ]
+  }
+}

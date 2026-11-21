@@ -1,16 +1,28 @@
-import { useState, useCallback, useRef } from 'react'
-import type { PagefindInstance, SearchResult } from '../types/search'
+import {
+  useState,
+  useCallback,
+  useRef,
+} from 'react'
+import type {
+  PagefindInstance,
+  SearchMode,
+  SearchResult,
+} from '../types/search'
 import {
   searchUploadedDocuments,
   type UploadedDocumentSearchResult,
   type UploadedDocumentSearchStage,
 } from '../uploads/DocumentUploads'
-import { normalizeForPhraseMatch, sanitizeMarkedExcerpt } from '../utils/textUtils'
+import {
+  normalizeForPhraseMatch,
+  sanitizeMarkedExcerpt,
+} from '../utils/textUtils'
 import {
   buildPhraseExcerpt,
   countPhraseOccurrences,
   docContainsAllPhrases,
   parseSearchQuery,
+  searchQueryWithinLimits,
   type DocumentSourceLoader,
 } from '../utils/phraseSearch'
 
@@ -27,14 +39,16 @@ const UPLOADED_SEARCH_PHASES: Record<UploadedDocumentSearchStage, SearchPhase> =
 }
 
 export interface LastSearchInfo {
+  mode: SearchMode
   phrases: string[]
   unquotedText: string
   uploadedDocuments: number
   uploadedMatchingSections: number
   starterDocuments: number
+  suggestedQuery?: string
 }
 
-export type SearchQueryError = 'unmatchedQuote'
+export type SearchQueryError = 'unmatchedQuote' | 'tooLong'
 
 interface PagefindResultSet {
   results: SearchResult[]
@@ -42,6 +56,7 @@ interface PagefindResultSet {
 }
 
 interface UseSearchOptions {
+  mode?: SearchMode
   loadDocumentSource?: DocumentSourceLoader
   scopeUrls?: Set<string>
   scopeActive?: boolean
@@ -55,6 +70,8 @@ interface UseSearchReturn {
   searchFailed: boolean
   searchPhase: SearchPhase | null
   submittedQuery: string
+  searchRequest: { revision: number;
+    scope: string }
   lastSearchInfo: LastSearchInfo | null
   handleSearch: (searchQuery: string) => void
   rerunSearch: () => void
@@ -72,6 +89,10 @@ export function useSearch(
   const [searchFailed, setSearchFailed] = useState(false)
   const [searchPhase, setSearchPhase] = useState<SearchPhase | null>(null)
   const [submittedQuery, setSubmittedQuery] = useState('')
+  const [searchRequest, setSearchRequest] = useState({
+    revision: 0,
+    scope: '',
+  })
   const [lastSearchInfo, setLastSearchInfo] = useState<LastSearchInfo | null>(null)
 
   const queryRef = useRef(query)
@@ -85,13 +106,20 @@ export function useSearch(
     const scopeUrls = options.scopeUrls
     const hasScope = options.scopeActive ?? Boolean(scopeUrls?.size)
     const scopeList = hasScope ? Array.from(scopeUrls ?? []).sort() : undefined
-    const searchKey = normalized + '\0' + (hasScope ? `scope\0${scopeList?.join('\0') ?? ''}` : 'all')
-    if (normalized.length > 0 && activeSearchKeyRef.current === searchKey) return
+    const mode = options.mode ?? 'all'
+    const searchKey = mode + '\0' + normalized + '\0' + (hasScope ? `scope\0${scopeList?.join('\0') ?? ''}` : 'all')
+    if (normalized.length > 0 && activeSearchKeyRef.current === searchKey) {
+      return
+    }
 
     // Query text is not a unique identity: A → B → A can leave the first
     // A running. A monotonic id keeps that stale completion from winning.
     const requestId = latestSearchRequestRef.current + 1
     latestSearchRequestRef.current = requestId
+    setSearchRequest({
+      revision: requestId,
+      scope: scopeList ? JSON.stringify(scopeList) : '',
+    })
     if (normalized.length === 0) {
       activeSearchKeyRef.current = ''
       setResults([])
@@ -121,7 +149,18 @@ export function useSearch(
     const displayPhrases = parsedQuery.exactPhrases
     const phrases = displayPhrases.map(normalizeForPhraseMatch)
     const searchQuery = parsedQuery.providerQuery.toLowerCase()
-    const uploadedQuery = parsedQuery.unquotedText.toLowerCase()
+    const uploadedQuery = parsedQuery.unquotedText
+    if (!searchQueryWithinLimits(uploadedQuery, phrases)) {
+      activeSearchKeyRef.current = ''
+      submittedQueryRef.current = ''
+      setSubmittedQuery('')
+      setResults([])
+      setQueryError('tooLong')
+      setSearchFailed(false)
+      setLastSearchInfo(null)
+      setSearchPhase(null)
+      return
+    }
     if (searchQuery.length === 0) {
       activeSearchKeyRef.current = ''
       setResults([])
@@ -136,6 +175,7 @@ export function useSearch(
       setResults([])
       setSearchFailed(false)
       setLastSearchInfo({
+        mode,
         phrases: displayPhrases,
         unquotedText: parsedQuery.unquotedText,
         uploadedDocuments: 0,
@@ -149,8 +189,8 @@ export function useSearch(
     setSearchFailed(false)
     setSearchPhase('indexes')
     try {
-      const pagefindPromise = pagefindRef.current
-        ? pagefindRef.current.search(searchQuery)
+      const pagefindPromise = mode === 'all' && pagefindRef.current
+        ? searchStarterDocuments(pagefindRef.current, searchQuery, uploadedQuery, () => latestSearchRequestRef.current === requestId)
         : Promise.resolve({ results: [] })
       const uploadPromise = searchUploadedDocuments(
         uploadedQuery,
@@ -162,13 +202,19 @@ export function useSearch(
             setSearchPhase(UPLOADED_SEARCH_PHASES[stage])
           }
         },
+        mode,
       )
       const [pagefindSearch, uploadedSearch] = await Promise.all([pagefindPromise, uploadPromise])
-      if (latestSearchRequestRef.current !== requestId) return
+      if (latestSearchRequestRef.current !== requestId) {
+        return
+      }
 
       setSearchPhase('results')
       const pagefind = await pagefindResultsInScope(pagefindSearch.results, scopeUrls, hasScope)
-      let pagefindData = pagefind.results.map((result) => ({ ...result, source: 'starter' as const }))
+      let pagefindData = pagefind.results.map((result) => ({
+        ...result,
+        source: 'starter' as const,
+      }))
       const uploadedData = uploadedSearchToResults(uploadedSearch.results, phrases.length === 0)
       if (phrases.length > 0) {
         setSearchPhase('phrases')
@@ -177,7 +223,9 @@ export function useSearch(
             docContainsAllPhrases(result.url, phrases, options.loadDocumentSource)
           )),
         )
-        if (latestSearchRequestRef.current !== requestId) return
+        if (latestSearchRequestRef.current !== requestId) {
+          return
+        }
         pagefindData = pagefindData.filter((_, index) => verdicts[index])
         if (pagefindData.length > 0) {
           setSearchPhase('excerpts')
@@ -189,42 +237,62 @@ export function useSearch(
               countPhraseOccurrences(result.url, phrases, options.loadDocumentSource)
             ))),
           ])
-          if (latestSearchRequestRef.current !== requestId) return
+          if (latestSearchRequestRef.current !== requestId) {
+            return
+          }
           pagefindData = pagefindData.map((result, index) => (
             excerpts[index]
-              ? { ...result, customExcerpt: excerpts[index] ?? undefined, matchCount: matchCounts[index] }
-              : { ...result, matchCount: matchCounts[index] }
+              ? {
+                ...result,
+                customExcerpt: excerpts[index] ?? undefined,
+                matchCount: matchCounts[index],
+              }
+              : {
+                ...result,
+                matchCount: matchCounts[index],
+              }
           ))
         }
       }
 
       const data = [...uploadedData, ...pagefindData]
         .filter((result) => !hasScope || scopeUrls?.has(result.url))
-      if (latestSearchRequestRef.current !== requestId) return
+      if (latestSearchRequestRef.current !== requestId) {
+        return
+      }
 
       let filtered = data
       if (phrases.length === 0 && options.loadDocumentSource) {
         const terms = searchQuery.split(/\s+/).filter(Boolean)
         const fallbackTargets = filtered
           .slice(0, FUZZY_FALLBACK_EXCERPT_LIMIT)
-          .map((result, index) => ({ result, index }))
+          .map((result, index) => ({
+            result,
+            index,
+          }))
           .filter(({ result }) => !hasUsefulProviderExcerpt(result))
         if (fallbackTargets.length > 0) {
           setSearchPhase('excerpts')
           const excerpts = await Promise.all(
             fallbackTargets.map(({ result }) => buildPhraseExcerpt(result.url, terms, options.loadDocumentSource)),
           )
-          if (latestSearchRequestRef.current !== requestId) return
+          if (latestSearchRequestRef.current !== requestId) {
+            return
+          }
           filtered = filtered.map((result, index) => {
             const targetIndex = fallbackTargets.findIndex((target) => target.index === index)
             const excerpt = targetIndex === -1 ? null : excerpts[targetIndex]
-            return excerpt ? { ...result, customExcerpt: excerpt } : result
+            return excerpt ? {
+              ...result,
+              customExcerpt: excerpt,
+            } : result
           })
         }
       }
 
       setResults(filtered)
       setLastSearchInfo({
+        mode,
         phrases: displayPhrases,
         unquotedText: parsedQuery.unquotedText,
         uploadedDocuments: uploadedSearch.totalDocuments,
@@ -232,12 +300,15 @@ export function useSearch(
         starterDocuments: phrases.length > 0
           ? filtered.filter((result) => result.source === 'starter').length
           : pagefind.totalDocuments,
+        suggestedQuery: uploadedSearch.suggestedQuery,
       })
     } catch (err) {
       console.error('Search failed:', err)
       if (latestSearchRequestRef.current === requestId) {
         setResults([])
-        setSearchFailed(true)
+        const tooLong = err === 'searchQueryTooLong'
+        setQueryError(tooLong ? 'tooLong' : null)
+        setSearchFailed(!tooLong)
         setLastSearchInfo(null)
       }
     } finally {
@@ -246,7 +317,7 @@ export function useSearch(
         setSearchPhase(null)
       }
     }
-  }, [options.loadDocumentSource, options.scopeActive, options.scopeUrls, pagefindRef])
+  }, [options.loadDocumentSource, options.mode, options.scopeActive, options.scopeUrls, pagefindRef])
 
   const handleSearch = useCallback((searchQuery: string) => {
     setQuery(searchQuery)
@@ -286,6 +357,7 @@ export function useSearch(
     searchFailed,
     searchPhase,
     submittedQuery,
+    searchRequest,
     lastSearchInfo,
     handleSearch,
     rerunSearch,
@@ -294,8 +366,28 @@ export function useSearch(
   }
 }
 
+/** Pagefind's loose candidates can match only a short fragment; require each
+ * unquoted term via its exact-token search, retaining stemming and candidate order. */
+export async function searchStarterDocuments(pagefind: PagefindInstance, query: string, unquotedText: string, isCurrent = () => true) {
+  const found = await pagefind.search(query)
+  let results = found.results
+  for (const term of new Set(unquotedText.split(/\s+/).filter(Boolean))) {
+    if (!isCurrent()) {
+      return { results: [] }
+    }
+    if (results.length === 0) {
+      break
+    }
+    const required = await pagefind.search(`"${term}"`)
+    const ids = new Set(required.results.map((result) => result.id))
+    results = results.filter((result) => ids.has(result.id))
+  }
+  return { results }
+}
+
 export async function pagefindResultsInScope(
-  results: { id: string; data: () => Promise<SearchResult> }[],
+  results: { id: string;
+    data: () => Promise<SearchResult> }[],
   scopeUrls?: Set<string>,
   scopeActive = Boolean(scopeUrls?.size),
 ): Promise<PagefindResultSet> {
@@ -305,17 +397,29 @@ export async function pagefindResultsInScope(
       totalDocuments: results.length,
     }
   }
-  if (!scopeUrls?.size) return { results: [], totalDocuments: 0 }
+  if (!scopeUrls?.size) {
+    return {
+      results: [],
+      totalDocuments: 0,
+    }
+  }
 
   const scoped: SearchResult[] = []
   let totalDocuments = 0
   for (const result of results) {
     const data = await result.data()
-    if (!scopeUrls.has(data.url)) continue
+    if (!scopeUrls.has(data.url)) {
+      continue
+    }
     totalDocuments += 1
-    if (scoped.length < 50) scoped.push(data)
+    if (scoped.length < 50) {
+      scoped.push(data)
+    }
   }
-  return { results: scoped, totalDocuments }
+  return {
+    results: scoped,
+    totalDocuments,
+  }
 }
 
 function uploadedSearchToResult(
@@ -340,7 +444,10 @@ function uploadedSearchToResult(
     termMatches: result.termMatches,
     source: 'upload',
     sub_results: result.sectionTitle
-      ? [{ url: result.url, title: result.sectionTitle }]
+      ? [{
+        url: result.url,
+        title: result.sectionTitle,
+      }]
       : undefined,
   }
 }
@@ -370,16 +477,24 @@ function hasUsefulProviderExcerpt(result: SearchResult): boolean {
 // Compares rendered text, not raw markup, because snippets may wrap matches in
 // <mark> while section titles are plain strings.
 function usefulExcerpt(excerpt: string | undefined, sectionTitle: string | undefined): string | null {
-  if (!excerpt) return null
-  if (plainText(excerpt) === plainText(sectionTitle)) return null
+  if (!excerpt) {
+    return null
+  }
+  if (plainText(excerpt) === plainText(sectionTitle)) {
+    return null
+  }
   return excerpt
 }
 
 // Small DOM-based text extraction keeps HTML entities and <mark> tags from
 // affecting duplicate-snippet checks.
 function plainText(html?: string): string {
-  if (!html) return ''
-  if (typeof DOMParser === 'undefined') return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!html) {
+    return ''
+  }
+  if (typeof DOMParser === 'undefined') {
+    return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  }
   const doc = new DOMParser().parseFromString(html, 'text/html')
   return (doc.body.textContent ?? '').replace(/\s+/g, ' ').trim()
 }

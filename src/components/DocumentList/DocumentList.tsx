@@ -72,7 +72,10 @@ export function DocumentList({
               {selectable && onToggleAllInGroup && (
                 <button
                   className="author-group-action"
-                  onClick={(e) => { e.stopPropagation(); onToggleAllInGroup(docs) }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onToggleAllInGroup(docs)
+                  }}
                 >
                   {allSelected ? t('common.deselectAll') : t('common.selectAll')}
                 </button>
@@ -136,20 +139,16 @@ function DocumentRow({
 
   const opening = openingDocumentUrl === doc.url
   const disabled = viewDisabled || opening
-  const view = onViewDocument && (
-    <button
-      className="document-row-action document-row-action-view"
-      disabled={disabled}
-      onClick={(e) => { e.preventDefault(); if (!disabled) onViewDocument(doc.url) }}
-    >
-      {opening ? t('common.opening') : t('common.view')}
-    </button>
-  )
+  const title = <bdi className="document-item-title">{doc.title}</bdi>
+  const viewLabel = opening ? t('common.opening') : t('common.view')
   const remove = doc.source === 'upload' && onDeleteDocument && (
     <button
       className="document-row-action document-row-action-danger"
       disabled={deleteDisabled}
-      onClick={(e) => { e.preventDefault(); void onDeleteDocument(doc) }}
+      onClick={(e) => {
+        e.preventDefault()
+        void onDeleteDocument(doc)
+      }}
     >
       {t('common.delete')}
     </button>
@@ -164,8 +163,20 @@ function DocumentRow({
           onChange={() => onToggleFilter?.(doc.url)}
         />
         {sourceIcon}
-        <bdi className="document-item-title">{doc.title}</bdi>
-        {view}
+        {title}
+        {onViewDocument && (
+          <button
+            type="button"
+            className="document-row-action document-row-action-view"
+            disabled={disabled}
+            onClick={(event) => {
+              event.preventDefault()
+              onViewDocument(doc.url)
+            }}
+          >
+            {viewLabel}
+          </button>
+        )}
         {remove}
       </label>
     )
@@ -174,8 +185,12 @@ function DocumentRow({
   return (
     <div className={'document-item document-item-browse' + (opening ? ' document-item-opening' : '')}>
       {sourceIcon}
-      <bdi className="document-item-title">{doc.title}</bdi>
-      {view}
+      {onViewDocument ? (
+        <button type="button" className="document-item-open" disabled={disabled} onClick={() => onViewDocument(doc.url)}>
+          {title}
+          <span className="document-row-action document-row-action-view">{viewLabel}</span>
+        </button>
+      ) : title}
       {remove}
     </div>
   )

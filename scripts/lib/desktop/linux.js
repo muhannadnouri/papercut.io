@@ -1,4 +1,7 @@
-import { existsSync, mkdirSync } from "node:fs"
+import {
+  existsSync,
+  mkdirSync,
+} from "node:fs"
 import { NODE_VERSION } from "../constants.js"
 import {
   SHERPA_LINUX_CUDA_LIB_DIR,
@@ -6,29 +9,37 @@ import {
   SHERPA_LINUX_SHARED_SOURCE_DIR,
 } from "../linux/constants.js"
 import { ensureLinuxCudaSherpaLibs } from "../linux/sherpa.js"
-import { runSync, shQuote, exitFromResult } from "../process.js"
+import {
+  runSync,
+  shQuote,
+  exitFromResult,
+} from "../process.js"
 
 export async function prepareLinuxDesktopBuild({ isStatic, isCuda = false, bundles = "" }) {
   if (isFlatpak() && !process.env.PAPERCUT_HOST_BUILD) {
-    delegateToHost({ isStatic, isCuda, bundles })
+    delegateToHost({
+      isStatic,
+      isCuda,
+      bundles,
+    })
   }
 
   ensurePatchelf()
   ensureLinuxSharedResourceDir()
-  if (isCuda) await ensureLinuxCudaSherpaLibs()
+  if (isCuda) {
+    await ensureLinuxCudaSherpaLibs()
+  }
 }
 
 // Linux AppImage packaging needs NO_STRIP for hosts with newer ELF formats.
 export function linuxDesktopEnv(baseEnv) {
-  const sherpaLibDir = baseEnv.PAPERCUT_SHERPA_VARIANT === "cuda"
-    ? SHERPA_LINUX_CUDA_LIB_DIR
-    : SHERPA_LINUX_SHARED_SOURCE_DIR
-  return {
-    ...baseEnv,
-    NO_STRIP: baseEnv.NO_STRIP ?? "1",
-    ORT_LIB_LOCATION: baseEnv.ORT_LIB_LOCATION ?? sherpaLibDir,
-    SHERPA_ONNX_LIB_DIR: baseEnv.SHERPA_ONNX_LIB_DIR ?? sherpaLibDir,
+  const env = { ...baseEnv }
+  if (env.PAPERCUT_SHERPA_VARIANT === "cuda") {
+    env.SHERPA_ONNX_LIB_DIR ??= SHERPA_LINUX_CUDA_LIB_DIR
   }
+  env.ORT_LIB_LOCATION ??= env.SHERPA_ONNX_LIB_DIR ?? SHERPA_LINUX_SHARED_SOURCE_DIR
+  env.NO_STRIP ??= "1"
+  return env
 }
 
 // Detect sandboxed editor terminals that cannot see host WebKitGTK/GTK.
@@ -69,14 +80,16 @@ npm run ${npmScript}
 // Tauri's GStreamer AppImage plugin patches each bundled plugin's runtime path.
 function ensurePatchelf() {
   const result = runSync("patchelf", ["--version"], { stdio: "ignore" })
-  if (!result.error && result.status === 0) return
+  if (!result.error && result.status === 0) {
+    return
+  }
 
   console.error("[desktop-build] patchelf is required to bundle AppImage audio. Install the documented Linux build dependencies and retry.")
   process.exit(1)
 }
 
 // Linux config always declares the shared-lib resource dir, even for static builds.
-function ensureLinuxSharedResourceDir() {
+export function ensureLinuxSharedResourceDir() {
   // Tauri validates configured resource paths before bundle hooks run, so the
   // gitignored directory must exist even when the selected link mode is static.
   mkdirSync(SHERPA_LINUX_SHARED_OUT_DIR, { recursive: true })

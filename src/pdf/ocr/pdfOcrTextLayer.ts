@@ -7,6 +7,32 @@ type PdfOcrTextBlock = PdfPageTextLayer['blocks'][number]
 export interface PdfOcrTextLine {
   text: string
   bounds: [number, number, number, number]
+  sourceRuns: Array<{
+    startOffset: number
+    endOffset: number
+    blockOrder: number
+    sourceStartOffset: number
+    sourceText: string
+  }>
+}
+
+const lineSources = new WeakMap<Element, { line: PdfOcrTextLine;
+  pageIndex: number }>()
+
+/** Invert a rendered line offset without changing persisted OCR word boxes. */
+export function pdfOcrSourcePoint(element: Element, offset: number) {
+  const source = lineSources.get(element)
+  const line = source?.line
+  if (!line || element.textContent !== line.text || !Number.isSafeInteger(offset) || offset < 0 || offset >= line.text.length) {
+    return null
+  }
+  const run = line.sourceRuns.find(run => offset >= run.startOffset && offset < run.endOffset)
+  return run ? {
+    pageIndex: source!.pageIndex,
+    blockOrder: run.blockOrder,
+    offset: run.sourceStartOffset + offset - run.startOffset,
+    sourceText: run.sourceText,
+  } : null
 }
 
 /** Distinguish persisted OCR words from native PDF.js text blocks. */
@@ -27,7 +53,9 @@ export function renderPdfOcrTextLayer(
   layer: PdfPageTextLayer,
 ): HTMLElement | null {
   page.querySelector(`.${PDF_OCR_TEXT_LAYER_CLASS}`)?.remove()
-  if (layer.blocks.length === 0) return null
+  if (layer.blocks.length === 0) {
+    return null
+  }
 
   const scale = pdfOcrLayerScale(
     layer.width,
@@ -47,6 +75,10 @@ export function renderPdfOcrTextLayer(
     const text = page.ownerDocument.createElement('span')
     text.dir = 'auto'
     text.textContent = line.text
+    lineSources.set(text, {
+      line,
+      pageIndex: layer.pageIndex,
+    })
     text.style.fontFamily = 'sans-serif'
     text.style.fontSize = `${height}px`
     text.style.left = `${left}px`
@@ -96,7 +128,9 @@ export function renderedPdfSearchLayer(
   pageNumber: number,
 ): HTMLElement | null {
   const ocrLayer = renderedPdfOcrTextLayer(viewer, pageNumber)
-  if (ocrLayer) return ocrLayer
+  if (ocrLayer) {
+    return ocrLayer
+  }
   const textLayer = renderedPdfTextLayer(viewer, pageNumber)
   return textLayer?.textContent?.trim() ? textLayer : null
 }
@@ -107,19 +141,40 @@ export function pdfOcrTextLines(blocks: readonly PdfOcrTextBlock[]): PdfOcrTextL
   let lineBlocks: PdfOcrTextBlock[] = []
 
   const finishLine = () => {
-    if (lineBlocks.length === 0) return
+    if (lineBlocks.length === 0) {
+      return
+    }
     const left = Math.min(...lineBlocks.map((block) => block.bounds[0]))
     const top = Math.min(...lineBlocks.map((block) => block.bounds[1]))
     const right = Math.max(...lineBlocks.map((block) => block.bounds[0] + block.bounds[2]))
     const bottom = Math.max(...lineBlocks.map((block) => block.bounds[1] + block.bounds[3]))
     let text = ''
+    const sourceRuns: PdfOcrTextLine['sourceRuns'] = []
     for (const block of lineBlocks) {
       const value = block.text.replace(/[\r\n]+/gu, '')
-      if (text && !/\s$/u.test(text) && !/^\s/u.test(value)) text += ' '
-      text += value
+      if (text && !/\s$/u.test(text) && !/^\s/u.test(value)) {
+        text += ' '
+      }
+      for (const match of block.text.matchAll(/[^\r\n]+/gu)) {
+        const startOffset = text.length
+        text += match[0]
+        sourceRuns.push({
+          startOffset,
+          endOffset: text.length,
+          blockOrder: block.order,
+          sourceStartOffset: match.index,
+          sourceText: block.text,
+        })
+      }
     }
     text = text.trimEnd()
-    if (text) lines.push({ text, bounds: [left, top, right - left, bottom - top] })
+    if (text) {
+      lines.push({
+        text,
+        bounds: [left, top, right - left, bottom - top],
+        sourceRuns,
+      })
+    }
     lineBlocks = []
   }
 
@@ -128,9 +183,13 @@ export function pdfOcrTextLines(blocks: readonly PdfOcrTextBlock[]): PdfOcrTextL
     if (
       !block.text || width <= 0 || height <= 0 ||
       ![left, top, width, height].every(Number.isFinite)
-    ) continue
+    ) {
+      continue
+    }
     lineBlocks.push(block)
-    if (/[\r\n]/u.test(block.text)) finishLine()
+    if (/[\r\n]/u.test(block.text)) {
+      finishLine()
+    }
   }
   finishLine()
   return lines
@@ -145,9 +204,16 @@ export function pdfOcrLayerScale(
   sourceHeight: number,
   renderedWidth: number,
   renderedHeight: number,
-): { x: number; y: number } {
+): { x: number;
+  y: number } {
   if (sourceWidth <= 0 || sourceHeight <= 0 || renderedWidth <= 0 || renderedHeight <= 0) {
-    return { x: 1, y: 1 }
+    return {
+      x: 1,
+      y: 1,
+    }
   }
-  return { x: renderedWidth / sourceWidth, y: renderedHeight / sourceHeight }
+  return {
+    x: renderedWidth / sourceWidth,
+    y: renderedHeight / sourceHeight,
+  }
 }

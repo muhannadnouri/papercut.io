@@ -6,10 +6,38 @@
 use std::collections::HashSet;
 
 const MAX_COMPARISON_TERMS: usize = 6;
+const MAX_SEARCH_TERMS: usize = 128;
+const MAX_SEARCH_CHARACTERS: usize = 4096;
+
+/// Reject oversized requests before constructing FTS or opening the database;
+/// searching a silently shortened request would violate required-word/quote semantics.
+pub(in crate::document_uploads) fn validate_search_query(
+    query: &str,
+    phrases: &[String],
+) -> Result<(), String> {
+    let parts = std::iter::once(query).chain(phrases.iter().map(String::as_str));
+    if parts
+        .clone()
+        .flat_map(str::chars)
+        .take(MAX_SEARCH_CHARACTERS + 1)
+        .count()
+        > MAX_SEARCH_CHARACTERS
+    {
+        return Err("searchQueryTooLong".into());
+    }
+    if parts
+        .map(|part| fts_terms(part, MAX_SEARCH_TERMS + 1).len())
+        .sum::<usize>()
+        > MAX_SEARCH_TERMS
+    {
+        return Err("searchQueryTooLong".into());
+    }
+    Ok(())
+}
 
 /// Turn a broad/fuzzy query into safe FTS5 terms for candidate lookup.
 pub(super) fn fts_fuzzy_terms(query: &str) -> Vec<String> {
-    fts_terms(query, 12)
+    fts_terms(query, MAX_SEARCH_TERMS)
 }
 
 #[cfg(test)]
@@ -26,6 +54,7 @@ pub(super) fn comparison_terms(
     terms: &[String],
     queries: &[String],
     broad_search: bool,
+    broader_mode: bool,
 ) -> Vec<(String, String)> {
     if !broad_search {
         return Vec::new();
@@ -36,22 +65,26 @@ pub(super) fn comparison_terms(
         .iter()
         .cloned()
         .zip(queries.iter().cloned())
-        .filter(|(term, _)| seen.insert(term.to_lowercase()))
+        .filter(|(_, query)| seen.insert(query.to_lowercase()))
         .collect::<Vec<_>>();
-    if (2..=MAX_COMPARISON_TERMS).contains(&unique.len()) {
+    let max_terms = if broader_mode {
+        12
+    } else {
+        MAX_COMPARISON_TERMS
+    };
+    if (2..=max_terms).contains(&unique.len()) {
         unique
     } else {
         Vec::new()
     }
 }
 
-/// Convert each user phrase to one safely quoted FTS5 phrase. The larger bound
-/// preserves normal quotations while keeping pathological pasted input finite.
-pub(super) fn fts_phrase_queries(phrases: &[String]) -> Vec<String> {
+/// Convert each validated user phrase to one safely quoted FTS5 phrase.
+pub(in crate::document_uploads) fn fts_phrase_queries(phrases: &[String]) -> Vec<String> {
     phrases
         .iter()
         .filter_map(|phrase| {
-            let terms = fts_terms(phrase, 128);
+            let terms = fts_terms(phrase, MAX_SEARCH_TERMS);
             (!terms.is_empty()).then(|| fts_alias_query(&terms.join(" ")))
         })
         .collect()
@@ -59,7 +92,7 @@ pub(super) fn fts_phrase_queries(phrases: &[String]) -> Vec<String> {
 
 /// Extract bounded FTS-safe tokens while retaining internal hyphens so the
 /// alias builder can distinguish punctuation from copied PDF line wrapping.
-pub(super) fn fts_terms(query: &str, limit: usize) -> Vec<String> {
+pub(in crate::document_uploads) fn fts_terms(query: &str, limit: usize) -> Vec<String> {
     collapse_hyphen_spacing(&normalize_search_punctuation(query))
         .split_whitespace()
         .map(|part| part.trim_matches(|ch: char| !ch.is_alphanumeric() && ch != '_' && ch != '-'))
@@ -71,7 +104,7 @@ pub(super) fn fts_terms(query: &str, limit: usize) -> Vec<String> {
 
 /// Case-fold the canonical display copy for literal comparison only; callers
 /// that map matches back to an excerpt keep the display copy for offset checks.
-pub(super) fn normalize_exact_text(text: &str) -> String {
+pub(in crate::document_uploads) fn normalize_exact_text(text: &str) -> String {
     normalize_exact_display(text).to_lowercase()
 }
 

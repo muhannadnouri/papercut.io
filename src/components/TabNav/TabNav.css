@@ -79,28 +79,30 @@
   display: block;
 }
 
+/* Floating capsule: inset from the screen edges, centred, with a pill for the active tab. */
 @media (max-width: 767px) {
   .tab-nav {
     position: fixed;
-    inset-inline: 0;
-    bottom: 0;
+    inset-inline: 0.75rem;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom));
     z-index: 40;
-    margin: 0;
-    border-radius: 0;
-    gap: 0;
-    padding: 0.3rem 0.5rem calc(0.3rem + env(safe-area-inset-bottom));
+    max-width: 30rem;
+    margin: 0 auto;
+    gap: 0.25rem;
+    padding: 0.3rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
     background: var(--surface-strong);
-    border-top: 1px solid var(--border);
-    box-shadow: 0 -1px 6px var(--shadow-subtle);
+    box-shadow: 0 8px 24px var(--shadow-popover);
   }
 
   .tab-nav-item {
     flex-direction: column;
-    gap: 0.15rem;
-    min-height: 3.65rem;
-    padding: 0.4rem 0.25rem;
+    gap: 0.1rem;
+    min-height: 3.25rem;
+    padding: 0.3rem 0.25rem;
     font-size: 0.75rem;
-    border-radius: var(--radius-compact);
+    border-radius: 999px;
   }
 
   .tab-nav-item-active {
@@ -109,16 +111,13 @@
   }
 
   .tab-nav-item-active::before {
-    inset-block: 0 auto;
-    inset-inline: 0;
-    width: auto;
-    height: 3px;
+    display: none;
   }
 
   .tab-nav-icon {
-    width: 1.45rem;
-    height: 1.45rem;
-    font-size: 1.3rem;
+    width: 1.35rem;
+    height: 1.35rem;
+    font-size: 1.2rem;
   }
 
   .tab-nav-spinner {

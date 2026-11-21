@@ -9,5 +9,7 @@ export async function openExternalUrl(url: string): Promise<void> {
   }
 
   const opened = window.open(target, '_blank', 'noopener,noreferrer')
-  if (!opened) throw new Error('Your browser blocked the external link.')
+  if (!opened) {
+    throw new Error('Your browser blocked the external link.')
+  }
 }

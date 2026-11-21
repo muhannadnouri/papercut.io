@@ -29,9 +29,24 @@ pub(crate) fn sanitize_html(html: &str) -> String {
 
     let mut builder = Builder::default();
     builder
-        .add_tags(&["main", "section"])
-        .add_generic_attributes(&["dir", "id", "name", "data-papercut-section"])
-        .add_tag_attributes("img", &["data-papercut-asset", "loading", "decoding"])
+        .add_tags(&["main", "section", "aside", "nav"])
+        .add_generic_attributes(&[
+            "dir",
+            "id",
+            "name",
+            "data-papercut-section",
+            "role",
+            "epub:type",
+        ])
+        .add_tag_attributes(
+            "img",
+            &[
+                "data-papercut-asset",
+                "data-papercut-image-error",
+                "loading",
+                "decoding",
+            ],
+        )
         .add_allowed_classes("section", &["epub-chapter"])
         .url_schemes(HashSet::from(["data", "http", "https", "mailto", "tel"]))
         .attribute_filter(filter_reader_attribute);
@@ -72,6 +87,15 @@ fn filter_reader_attribute<'a>(
     value: &'a str,
 ) -> Option<Cow<'a, str>> {
     match (element, attribute) {
+        (_, "role" | "epub:type") => {
+            super::super::search_content::safe_role(attribute, value).map(Cow::Owned)
+        }
+        ("img", "data-papercut-image-error")
+            if crate::document_uploads::parsed::IMAGE_ERROR_REASONS.contains(&value) =>
+        {
+            Some(Cow::Borrowed(value))
+        }
+        ("img", "data-papercut-image-error") => None,
         (_, "data-papercut-section") if is_section_ordinal(value) => Some(Cow::Borrowed(value)),
         (_, "data-papercut-section") => None,
         ("a", "href") if is_reader_href(value) => Some(Cow::Borrowed(value)),
@@ -215,7 +239,7 @@ pub(crate) fn strip_tags(html: &str) -> String {
 /// The list is intentionally a small block/row/line-break set. Inline tags like
 /// `b`, `i`, `span`, and `a` are omitted so styled words remain searchable as
 /// the continuous text users see.
-fn tag_separates_text(tag: &str) -> bool {
+pub(super) fn tag_separates_text(tag: &str) -> bool {
     matches!(
         tag_name(tag).as_str(),
         "address"
@@ -306,14 +330,34 @@ mod tests {
     }
 
     #[test]
-    fn keeps_only_generated_raster_images() {
+    fn strips_css_url_variants_and_preserves_readable_text() {
+        for function in ["url", "URL", "uRl"] {
+            let sanitized = sanitize_html(&format!(
+                r#"<style>p {{ background-image: {function}("https://tracker.invalid/pixel"); }}</style>
+                <p style='background-image: {function}("https://tracker.invalid/pixel"); color: red'>Readable passage.</p>"#
+            ));
+
+            assert!(!sanitized.contains("<style"));
+            assert!(!sanitized.contains("style="));
+            assert!(!sanitized.contains("tracker.invalid"));
+            assert!(sanitized.contains("Readable passage."));
+        }
+    }
+
+    #[test]
+    fn keeps_only_generated_images_and_legacy_raster_data() {
         let asset_name = format!("image-{}.png", "a".repeat(64));
+        let svg_name = format!("image-{}.svg", "b".repeat(64));
         let sanitized = sanitize_html(&format!(
             r#"<body>
                 <img src="https://example.com/track.png" alt="Remote">
                 <img src="data:image/svg+xml;base64,PHN2Zz4=" alt="SVG">
                 <img src="data:image/png;base64,iVBORw0KGgo=" alt="Cover">
                 <img data-papercut-asset="{asset_name}" loading="lazy" decoding="async" alt="Stored">
+                <img data-papercut-asset="{svg_name}" loading="lazy" alt="Stored SVG">
+                <object data="{svg_name}"></object>
+                <iframe src="{svg_name}"></iframe>
+                <a href="{svg_name}" data-papercut-asset="{svg_name}">Unsafe SVG document link</a>
                 <img data-papercut-asset="../source.html" alt="Unsafe">
             </body>"#
         ));
@@ -322,6 +366,7 @@ mod tests {
         assert!(!sanitized.contains("image/svg+xml"));
         assert!(sanitized.contains("data:image/png;base64,iVBORw0KGgo="));
         assert!(sanitized.contains(&asset_name));
+        assert_eq!(sanitized.matches(&svg_name).count(), 1);
         assert!(sanitized.contains("loading=\"lazy\""));
         assert!(!sanitized.contains("../source.html"));
     }

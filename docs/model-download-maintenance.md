@@ -1,0 +1,249 @@
+# Model download maintenance
+
+## Stage 1: pinned Kokoro repair and monitoring
+
+The September 8, 2026 upstream replacement of `kokoro-multi-lang-v1_0.tar.bz2`
+changed its SHA-256 from `c133d263…be7046` to `c5f7e2d2…ea3298`.
+The old AppImage correctly refused the replacement. Failed Kokoro downloads
+are deleted and each attempt starts fresh; clearing the cache cannot repair
+an outdated checksum embedded in an app.
+
+`src-tauri/tts/model-manifest.json` now owns archive URLs, exact sizes, and
+SHA-256 values, with one entry per archive in its schema-version-2 `archives`
+array. `src-tauri/build.rs` generates Rust constants from it; the build and
+monitor reject duplicate archive names. Model IDs, languages, runtime
+configuration, and voice mappings remain in `models.rs`.
+
+Kokoro's primary URL targets the Papercut release
+`tts-kokoro-v1.0-2026-09-08`. The upstream URL is a fallback for HTTP/connection
+failure before streaming starts. Both locations must supply exactly the same
+bytes: size and SHA-256 verification always run before extraction. Midstream
+failures and integrity failures are reported and cleaned up, not silently
+accepted or retried against a different checksum. Existing installed models
+remain usable without downloads or upgrades.
+
+Piper and Supertonic retain their upstream URLs and checksums. Supertonic's
+old approximate download size is replaced with its exact 128,774,318 bytes
+so size verification is meaningful. Their mirroring is outside this Kokoro
+repair; in particular, retain the documented Piper provenance review before
+redistributing it.
+
+Local validation on CachyOS passed all 173 native unit tests and the explicit
+archive smoke test for ten Sherpa entries (seven Kokoro languages, Supertonic
+English/Arabic, and Piper Kareem). All three unique upstream archives were
+freshly downloaded and verified. The monitor's regression check, workflow YAML,
+and shell syntax checks passed. Hosted mirror preparation and the production
+full check subsequently passed on September 29, 2026. Notification delivery
+still needs maintainer confirmation, and packaged-app validation remains part
+of the application rollout below.
+
+## Upstream changes and checksum pins
+
+A version name or Git tag is not a byte-identity guarantee. Even recompressing an
+unchanged tarball changes its archive SHA-256. Do not remove checksum checks or
+automatically trust a new upstream digest to avoid a download error: that would
+silently replace reviewed inputs. September's fix kept verification and put
+Kokoro behind the owner-controlled immutable mirror, with availability monitoring.
+
+The Stage 4 distill source files are pinned to exact Hugging Face **commit** URLs,
+not moving branch URLs. Later upstream commits do not move those pins. Their
+source/assembly evidence lives beside the other TTS inputs in
+`src-tauri/tts/qualification-artifacts.json`; these private proofs are deliberately
+not production download entries. Before exposing either candidate, prepare final
+complete archives using the existing Papercut immutable-release convention, keep
+those bytes available, and add only the final URLs/sizes/hashes to
+`model-manifest.json`. No asset is published by this frontend pass.
+
+The phoneme adapter additionally verifies the reviewed token/voice files: the
+frontend must not consume a different training vocabulary/style pack just because
+it uses the same marketing version. These checks inspect installed local bytes;
+they do not poll upstream or update a user's model. A legitimate replacement is a
+reviewed pin/contract update. New synthesis semantics need versioned model or
+per-model synthesis provenance, not an unreviewed checksum swap. Retain old assets
+for existing app versions. Pure outer-archive repackaging can preserve model
+identity only after proving the synthesis payload is unchanged.
+
+Changed/deleted **unmirrored** upstream assets remain an availability risk: new
+installs (or clean native builds for pinned build archives) can fail verification
+or fetching. Checksums prevent silent substitution; they cannot keep a deleted
+file online. Already installed model files and completed audiobook WAVs are not
+changed by an upstream commit. Kareem/Supertonic still have their existing upstream
+availability dependence; expanding their mirrors is separate from this pass.
+
+## Activate after committing
+
+The workflows below only become operational once pushed. No model release,
+repository setting, user notification preference, or installed app is changed
+by the source patch itself.
+
+1. Merge the changes and enable GitHub Actions failure notifications for the
+   account responsible for the schedule. Run **Model Downloads → metadata**
+   before publishing the mirror: this is an expected failure. Confirm that the
+   failure notification reaches you. Native GitHub notifications are used; no
+   email/webhook integration or customer telemetry is added.
+2. Run **Actions → Model Downloads → Run workflow →
+   prepare-mirror**. It downloads Kokoro once, checks its published identity,
+   verifies the actual bytes, extracts it, checks required files and speaker
+   ranges, and generates non-silent audio for all seven language entries using
+   the production Rust synthesis functions. It also runs native unit tests.
+3. After validation, the workflow creates a **draft** release with the original
+   archive, `SHA256SUMS.txt`, and the manifest. It never overwrites an existing
+   release. If a draft already exists, inspect it rather than rerunning upload
+   with `--clobber`.
+   Confirm that **model-draft** succeeded (older runs used **mirror-draft**); a green run with only **smoke**
+   completed does not prove the draft exists. After a workflow fix, start a new
+   `prepare-mirror` run on `main` rather than rerunning an old run, which retains
+   its original workflow revision.
+4. Enable GitHub immutable releases in the repository settings **before
+   publishing the draft**, then publish it without marking it latest. This
+   setting applies to subsequent app releases too: immutable releases cannot
+   be repaired by replacing assets; release a new version instead.
+5. Run **Model Downloads → full**. Production checks deliberately require the
+   primary mirror to exist and be immutable; they do not hide a failed mirror
+   by switching to upstream. The app release workflow also checks production
+   model metadata before any platform build starts.
+6. Ship a new Papercut version and test its first-time install in a clean app
+   profile on each supported platform. Current released AppImages still contain
+   the old checksum and require that app update.
+
+The hourly check runs at minute 23 UTC; the daily full check runs at 08:41 UTC.
+The former compares GitHub asset availability, exact byte count, and digest;
+the latter performs fresh downloads (never a model cache), Rust verification,
+extraction, and native synthesis for all Sherpa catalog entries. The mirror
+preparation mode intentionally selects only Kokoro. Rust build outputs may be
+cached; downloaded model archives are not cached by the monitor.
+
+These checks exercise the default-branch manifest and the release workflow's
+selected app tag. They do not continuously test every historical app release,
+SILMA's separate installer, the packaged GUI, or audio quality. A successful
+synthesis check proves that the runtime can produce valid non-silent audio,
+not that pronunciation is perfect. Supported-version monitoring belongs with
+the next catalog stage. GitHub schedules can be delayed and can be disabled
+after repository inactivity; check the Actions history periodically and use an
+external heartbeat if strict monitoring delivery becomes a requirement.
+
+## Local checks
+
+```bash
+node --test scripts/checks/__tests__/check-model-downloads-selftest.js
+node scripts/checks/check-model-downloads.js
+node scripts/checks/check-model-downloads.js --download-dir /tmp/papercut-models
+
+ORT_LIB_LOCATION="$PWD/src-tauri/target/sherpa-onnx-prebuilt/sherpa-onnx-v2.0.1-linux-x64-shared-lib/lib" \
+  cargo test --manifest-path src-tauri/Cargo.toml --locked --features native-tts-shared --lib
+
+PAPERCUT_MODEL_ARCHIVE_DIR=/tmp/papercut-models \
+ORT_LIB_LOCATION="$PWD/src-tauri/target/sherpa-onnx-prebuilt/sherpa-onnx-v2.0.1-linux-x64-shared-lib/lib" \
+  cargo test --manifest-path src-tauri/Cargo.toml --locked --features native-tts-shared \
+  --lib model_archive_smoke -- --ignored --nocapture
+```
+
+Before the mirror exists, add `--upstream` to the download command. For a
+original multilingual Kokoro mirror check, use `--model-name kokoro-multi-lang-v1_0` and set
+`PAPERCUT_SMOKE_KOKORO_ONLY=1` for the Rust smoke test. These options are for
+artifact preparation, not substitutes for the production mirror check.
+Native tests require the normal Linux build dependencies. The ignored smoke
+test requires real archives, leaves no installed models in the app profile,
+and removes its extracted working directory on success. On failure it retains
+that directory beside the archives for inspection.
+
+## Prepare and validate the application release
+
+The Kokoro mirror was published on September 29, 2026, and the hosted production
+`full` check passed. The application repair is prepared as **v1.9.1**; publishing
+the model artifact alone does not repair older installed applications.
+
+1. Commit the synchronized app versions, release notes, and CI artifact upload.
+   Open a PR and let its checks finish. For an explicit candidate run, use
+   **Actions → CI → Run workflow**, select the release-preparation branch, and
+   choose **validation_scope: full**. Record the tested commit SHA.
+2. Download the candidate artifacts from that CI run. Linux includes
+   `papercut-linux-appimage`; Windows includes MSI and NSIS installers; macOS
+   includes architecture-specific DMGs; Android includes the native-TTS APK.
+   CI's iOS job checks unsigned simulator/device builds, not a distributable IPA.
+3. On CachyOS, run the candidate AppImage using a separate OS account or test
+   profile with no installed voice models. Install Kokoro and generate audible
+   speech. Repeat for Supertonic and Piper on supported platforms. Interrupt one
+   download, retry it, and confirm installation and playback succeed. Preserve
+   your normal library and models rather than deleting them for this test.
+4. Test upgrading an existing installation: its library and installed voices
+   should remain usable without another model download. On Windows, test both
+   installers on a machine without development runtime libraries. Check launch,
+   model installation, and speech on the other supported platforms too. Unsigned
+   macOS CI artifacts do not validate release signing/notarization.
+5. After candidate checks pass and the PR is merged, tag the intended release
+   commit **v1.9.1** and push that tag. This triggers **Release**, which builds
+   signed Apple artifacts, uploads iOS to App Store Connect, and **automatically
+   publishes** the GitHub release after all platform jobs succeed. Approve the
+   protected Apple environment when requested. Do not use this workflow as a
+   draft-only rehearsal. Manual dispatch accepts an existing release tag.
+6. Verify the published installers and signed Apple builds, then direct affected
+   users to update Papercut and retry their model download. Confirm model-monitor
+   failure notifications reach the maintainer. If a published immutable app
+   release needs a repair, ship another patch version rather than replacing it.
+
+Local compilation and model synthesis checks do not replace these packaged-app
+tests. Record platform, artifact/commit, and results before declaring rollout
+complete.
+
+## Next stage
+
+Finish the v1.9.1 candidate validation and rollout above before adding more
+download infrastructure.
+
+A later signed remote catalog would allow compatible download repairs without
+an app update. Defer that implementation until rollout is complete. It needs
+app/runtime compatibility constraints,
+verified cached and bundled fallbacks, and explicit artifact revisions. It
+should authorize only reviewed compatible artifacts; it must not automatically
+trust new upstream hashes or silently upgrade Kokoro v1.0 to v1.1. Include
+checks for supported released-client contracts and retention of their artifacts.
+Resumable Kokoro downloads remain a separate improvement.
+
+References: [GitHub immutable releases](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases),
+[Actions notifications](https://docs.github.com/en/actions/concepts/workflows-and-actions/notifications-for-workflow-runs),
+[scheduled workflow behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+
+## Native build ownership after Stage 3c
+
+The working-tree registry integration uses unchanged published Sherpa Rust crates.
+Root `.cargo/config.toml` overrides the sys build script; `src-tauri/build/` owns
+platform linking, pinned archive preparation and runtime staging. No upstream
+Sherpa/Piper/eSpeak/ORT implementation is patched. The inactive tracked vendor
+crate has been removed; future upgrades use the registry bindings and app-owned
+integration rather than a vendored sys fork.
+
+For a later native runtime upgrade, review the exact Cargo wrapper/sys version and
+lock, the release-name mapping in `build/sherpa.rs`, `tts/native-artifacts.json`,
+Piper pins/version mapping in `build/phonemizer.rs`, Node version constants and
+versioned Tauri/CI resource paths together. Preserve iOS aggregate archives and
+Android source/AAR receipts; do not assume desktop archive layouts apply to mobile.
+Re-run the build-plumbing tests and packaging/source/notice/audit checks, plus the
+native platform and single-ORT layout gates in the
+[integration report](sherpa-no-fork-proof.md). New target triples need Cargo links
+overrides too. Normal commands run from the repo root; external Cargo callers
+must explicitly load that config. Use `CARGO_TARGET_DIR` for custom desktop bundle
+roots so Node cache paths agree with Cargo.
+
+
+## Paired distill artifact preparation
+
+Stage 4c of [the upgrade plan](sherpa-onnx-upgrade.md#stage-4c--paired-artifacts-and-catalog-integration-november-15)
+records the exact candidate hashes and open publication gates. Model/source inputs
+are pinned in `src-tauri/tts/qualification-artifacts.json`; final complete archive
+identities are in `model-manifest.json`. `prepare-model-archives.js --out <directory>
+--check-manifest` assembles the English/Arabic pair and their corresponding-source
+companion reproducibly from fresh immutable inputs. The app never runs this tool.
+
+The existing workflow's `prepare-distills` mode qualifies the committed pair and
+creates a non-overwriting draft. Publishing the immutable non-latest model release
+is separately authorized; metadata/full-download checks must then pass before
+merge. The original mirror mode still targets only the original multilingual
+archive. `--family kokoro` intentionally covers both original and distill archives;
+`--model-name` selects one exact archive for preparation/diagnostics.
+
+For a cold standalone production archive test, set `PAPERCUT_MODEL_ARCHIVE_DIR` and
+`PAPERCUT_SMOKE_ARCHIVE_NAME=kokoro-7m-distill-en-fp32` (then
+`nabra-7m-distill-ar-fp32`) when running `model_archive_smoke`. Missing archive
+filters fail instead of silently skipping qualification. Separate processes prove
+neither model borrows another installed model's phonemizer data.

@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import {
+  describe,
+  expect,
+  it,
+} from 'vitest'
 import { segmentWordTokens } from './wordTiming'
 
 function tokenTexts(text: string): string[] {

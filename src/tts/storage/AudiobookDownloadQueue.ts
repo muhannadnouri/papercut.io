@@ -1,5 +1,13 @@
 import { createAudiobookId } from './AudiobookLibrary'
-import { DEFAULT_TTS_MODEL_ID, TTS_AUDIO_CACHE_VERSION, NATIVE_TTS_DTYPE, TEXT_PREPROCESSOR_NONE, type TtsDtype, type TtsOptions, type TtsVoice } from '../types'
+import {
+  DEFAULT_TTS_MODEL_ID,
+  TTS_AUDIO_CACHE_VERSION,
+  NATIVE_TTS_DTYPE,
+  TEXT_PREPROCESSOR_NONE,
+  type TtsDtype,
+  type TtsOptions,
+  type TtsVoice,
+} from '../types'
 
 const STORAGE_KEY = 'papercut.audiobookDownloads.v1'
 const SESSION_ID = crypto.randomUUID?.() ?? String(Date.now())
@@ -52,10 +60,14 @@ export function createAudiobookDownloadId(documentUrl: string, options: TtsOptio
 export function getAudiobookDownloads(): AudiobookDownloadRecord[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
+    if (!raw) {
+      return []
+    }
 
     const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
+    if (!Array.isArray(parsed)) {
+      return []
+    }
 
     return parsed
       .filter(isAudiobookDownloadRecord)
@@ -123,8 +135,12 @@ export function clearCompletedAudiobookDownload(documentUrl: string, options: Tt
 }
 
 function normalizeInterruptedDownload(record: AudiobookDownloadRecord): AudiobookDownloadRecord {
-  if (record.status !== 'saving' && record.status !== 'queued') return record
-  if (record.sessionId === SESSION_ID) return record
+  if (record.status !== 'saving' && record.status !== 'queued') {
+    return record
+  }
+  if (record.sessionId === SESSION_ID) {
+    return record
+  }
 
   return {
     ...record,
@@ -144,7 +160,9 @@ function writeDownloads(records: AudiobookDownloadRecord[]): void {
 }
 
 function isAudiobookDownloadRecord(value: unknown): value is AudiobookDownloadRecord {
-  if (!value || typeof value !== 'object') return false
+  if (!value || typeof value !== 'object') {
+    return false
+  }
   const record = value as Partial<AudiobookDownloadRecord>
   return typeof record.id === 'string' &&
     typeof record.documentUrl === 'string' &&

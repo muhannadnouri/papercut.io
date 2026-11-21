@@ -6,7 +6,9 @@ export function filterBookmarkedGroups(
   bookmarkedUrls: ReadonlySet<string>,
   enabled: boolean,
 ): AuthorGroup[] {
-  if (!enabled) return groups
+  if (!enabled) {
+    return groups
+  }
   return groups
     .map((group) => ({
       ...group,

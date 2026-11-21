@@ -34,6 +34,10 @@ mod parsed;
 mod pdf;
 mod pipeline;
 mod search;
+mod search_content;
+mod search_form;
+pub(crate) mod semantic;
+mod spelling;
 mod state;
 mod storage;
 mod store;
@@ -41,11 +45,15 @@ mod text;
 mod types;
 
 pub(crate) use batch::import_scanner_source;
+pub(crate) use epub::{
+    read_outline_bytes, validate_transfer_outline, MAX_OUTLINE_BYTES, OUTLINE_FILE_NAME,
+};
 pub(crate) use state::DocumentUploadState;
+pub(crate) use store::schedule_search_index_rebuild;
 
 // Library transfer consumes this narrow storage API so its removable package
 // module never duplicates document parsing, sanitization, indexing, or folder rules.
-pub(crate) use organization::{create_folder, list_organization, move_documents};
+pub(crate) use organization::{create_folder, list_organization, move_items};
 pub(crate) use parsed::{is_reader_asset_file_name, ParsedDocumentAsset};
 pub(crate) use pdf::restore_transferred_pdf;
 #[cfg(feature = "native-tts-core")]
@@ -53,6 +61,8 @@ pub(crate) use pdf::{get_pdf_source_path, restore_audiobook_pdf};
 #[cfg(feature = "native-tts-core")]
 pub(crate) use pipeline::ensure_uploaded_source_exists;
 pub(crate) use pipeline::{restore_transferred_document, stored_reader_asset_paths};
+#[cfg(feature = "native-tts-core")]
+pub(crate) use storage::release_source_access;
 pub(crate) use storage::{
     now_ms, upload_dir, upload_id_from_url, upload_source_path, StoredSourceKind,
     MAX_PDF_UPLOAD_BYTES,
@@ -62,7 +72,7 @@ pub(crate) use store::list_uploads;
 pub(crate) use types::UploadedDocumentLocation;
 pub(crate) use types::{
     UploadedDocument, UploadedDocumentBatchResult, UploadedLibraryCreateFolderRequest,
-    UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest, UploadedLibraryOrganization,
+    UploadedLibraryFolder, UploadedLibraryMoveItemsRequest, UploadedLibraryOrganization,
 };
 
 pub(crate) use html::sanitize_html;

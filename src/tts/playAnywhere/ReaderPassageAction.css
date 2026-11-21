@@ -1,0 +1,42 @@
+.reader-passage-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: start;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.reader-passage-action svg {
+  width: 1.28rem;
+  height: 1.28rem;
+  flex-shrink: 0;
+  fill: currentcolor;
+}
+.reader-passage-action:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: -3px;
+}
+.reader-passage-action:disabled {
+  background: var(--surface-muted);
+  color: var(--text-soft);
+  cursor: not-allowed;
+}
+@media (hover: hover) and (pointer: fine) {
+  .reader-passage-action:hover:not(:disabled) {
+    background: var(--surface-accent);
+    color: var(--accent-ink);
+  }
+}
