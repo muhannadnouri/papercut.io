@@ -2,6 +2,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type Ref,
 } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
@@ -11,12 +12,17 @@ import { BookmarkIndicator } from '../BookmarkIndicator/BookmarkIndicator'
 import { BundledDocumentTree } from '../BundledDocumentTree/BundledDocumentTree'
 import { splitDocumentGroupsBySource } from '../DocumentBrowser/documentGroups'
 import { DocumentList } from '../DocumentList/DocumentList'
+import {
+  BookIcon,
+  DocumentIcon,
+} from '../icons'
 import { isBookDocument } from './libraryCategories'
 import './LibraryGalleryView.css'
 
 export type LibraryGalleryCategory = 'books' | 'documents'
 
 interface LibraryGalleryViewProps {
+  categoryGroupRef?: Ref<HTMLDivElement>
   category: LibraryGalleryCategory
   bookmarkedDocumentUrls: ReadonlySet<string>
   collapsedAuthors: Set<string>
@@ -37,6 +43,7 @@ interface LibraryGalleryViewProps {
  * document list for formats that do not have useful cover art. */
 export function LibraryGalleryView({
   category,
+  categoryGroupRef,
   bookmarkedDocumentUrls,
   collapsedAuthors,
   docFilterLower,
@@ -60,13 +67,15 @@ export function LibraryGalleryView({
 
   return (
     <div className="library-gallery-view">
-      <div className="library-gallery-categories" role="group" aria-label={t('library.documents.categoryLabel')}>
+      <div className="library-gallery-categories" ref={categoryGroupRef} role="group" aria-label={t('library.documents.categoryLabel')}>
         <CategoryButton
+          category="books"
           active={category === 'books'}
           label={t('library.documents.books', { count: books.length })}
           onClick={() => onCategoryChange('books')}
         />
         <CategoryButton
+          category="documents"
           active={category === 'documents'}
           label={t('library.documents.documentCategory', { count: documentCount })}
           onClick={() => onCategoryChange('documents')}
@@ -127,7 +136,8 @@ export function LibraryGalleryView({
   )
 }
 
-function CategoryButton({ active, label, onClick }: { active: boolean;
+function CategoryButton({ category, active, label, onClick }: { category: LibraryGalleryCategory;
+  active: boolean;
   label: string;
   onClick: () => void }) {
   return (
@@ -137,7 +147,8 @@ function CategoryButton({ active, label, onClick }: { active: boolean;
       aria-pressed={active}
       onClick={onClick}
     >
-      {label}
+      {category === 'books' ? <BookIcon /> : <DocumentIcon />}
+      <span>{label}</span>
     </button>
   )
 }

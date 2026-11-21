@@ -41,7 +41,7 @@ interface UploadedLibraryTreeProps {
   filterActive?: boolean
   documentOpening?: boolean
   mutationDisabled?: boolean
-  resetEditing?: boolean
+  onDone?: () => void
   openingDocumentUrl?: string
   savedAudiobookDocumentUrls?: ReadonlySet<string>
   /** Existing Manage operation status, placed here so sticky controls keep it visible. */
@@ -75,7 +75,7 @@ export function UploadedLibraryTree({
   filterActive = false,
   documentOpening = false,
   mutationDisabled = false,
-  resetEditing = false,
+  onDone,
   openingDocumentUrl,
   savedAudiobookDocumentUrls = new Set(),
   managementStatus,
@@ -92,7 +92,6 @@ export function UploadedLibraryTree({
   onViewDocument,
 }: UploadedLibraryTreeProps) {
   const { t, i18n } = useTranslation()
-  const [editMode, setEditMode] = useState(false)
   const [selectedKeys, setSelectedKeys] = useState<Set<Key>>(new Set())
   const [expandedKeys, setExpandedKeys] = useState<Set<Key>>(new Set())
   const [rootCollapsed, setRootCollapsed] = useState(false)
@@ -102,6 +101,7 @@ export function UploadedLibraryTree({
   const [busy, setBusy] = useState(false)
   const { confirm: confirmLibraryAction, dialog: libraryConfirmationDialog } = useAppConfirmation()
   const filterMode = mode === 'filter'
+  const editMode = Boolean(onDone)
   const organizing = mode === 'library' && editMode
   const locale = i18n.resolvedLanguage ?? i18n.language
   const { nodes, folders, nodeByKey, folderOptions } = useMemo(
@@ -153,16 +153,15 @@ export function UploadedLibraryTree({
     setActionError('')
   }, [selectedKeys, editMode])
 
-  // A batch import owns the shared library mutation slot, so leave manage
-  // mode and close any pending folder edit before new documents arrive.
   useEffect(() => {
-    if (!resetEditing) {
-      return
+    if (editMode) {
+      setRootCollapsed(false)
+    } else {
+      setSelectedKeys(new Set())
+      setFolderDialog(null)
+      setFolderDialogError('')
     }
-    setEditMode(false)
-    setSelectedKeys(new Set())
-    setFolderDialog(null)
-  }, [resetEditing])
+  }, [editMode])
 
   const runEditAction = async (action: () => Promise<void> | void) => {
     if (mutationDisabled) {
@@ -499,32 +498,25 @@ export function UploadedLibraryTree({
             >
               {allRootSelected ? t('common.deselectAll') : t('common.selectAll')}
             </button>
-          ) : (
+          ) : onDone && (
             <div className="uploaded-library-toolbar-actions">
-              {organizing && (
-                <button
-                  className="uploaded-library-edit-btn uploaded-library-icon-action"
-                  type="button"
-                  disabled={busy || mutationDisabled}
-                  onClick={() => openFolderDialog(null)}
-                >
-                  <FolderIcon className="uploaded-library-action-icon" />
-                  {t('library.tree.newFolder')}
-                </button>
-              )}
               <button
-                className="uploaded-library-edit-btn"
+                className="uploaded-library-edit-btn uploaded-library-icon-action"
                 type="button"
                 disabled={busy || mutationDisabled}
-                aria-pressed={editMode}
-                onClick={() => {
-                  setEditMode((value) => !value)
-                  setSelectedKeys(new Set())
-                  setFolderDialog(null)
-                  setFolderDialogError('')
-                }}
+                onClick={() => openFolderDialog(null)}
               >
-                {editMode ? t('common.done') : t('library.tree.organize')}
+                <FolderIcon className="uploaded-library-action-icon" />
+                {t('library.tree.newFolder')}
+              </button>
+              <button
+                className="uploaded-library-edit-btn uploaded-library-done"
+                type="button"
+                disabled={busy || mutationDisabled}
+                autoFocus
+                onClick={onDone}
+              >
+                {t('common.done')}
               </button>
             </div>
           )}
