@@ -209,6 +209,21 @@ export function UploadedLibraryTree({
     setSelectedKeys(new Set())
   }
 
+  async function deletionBlockedBySavedAudio(documents: DocumentInfo[], kind: 'batch' | 'folder') {
+    if (!documents.some(doc => savedAudiobookDocumentUrls.has(doc.url))) {
+      return false
+    }
+    const viewAudiobooks = await confirmLibraryAction({
+      title: t(kind === 'folder' ? 'library.savedAudioDependency.folderTitle' : 'library.savedAudioDependency.batchTitle'),
+      description: t(kind === 'folder' ? 'library.savedAudioDependency.folderDescription' : 'library.savedAudioDependency.batchDescription'),
+      confirmLabel: t('library.savedAudioDependency.viewAudiobooks'),
+    })
+    if (viewAudiobooks) {
+      onViewAudiobooks?.()
+    }
+    return true
+  }
+
   const deleteSelectedDocuments = () => {
     if (!canDeleteDocuments || !onDeleteDocuments) {
       return
@@ -216,18 +231,7 @@ export function UploadedLibraryTree({
     const documentsToDelete = selectedDocuments.map((node) => node.doc)
     setActionError('')
     void (async () => {
-      const dependentDocuments = documentsToDelete.filter((document) => (
-        savedAudiobookDocumentUrls.has(document.url)
-      ))
-      if (dependentDocuments.length > 0) {
-        const viewAudiobooks = await confirmLibraryAction({
-          title: t('library.savedAudioDependency.batchTitle'),
-          description: t('library.savedAudioDependency.batchDescription'),
-          confirmLabel: t('library.savedAudioDependency.viewAudiobooks'),
-        })
-        if (viewAudiobooks) {
-          onViewAudiobooks?.()
-        }
+      if (await deletionBlockedBySavedAudio(documentsToDelete, 'batch')) {
         return
       }
 
@@ -381,18 +385,7 @@ export function UploadedLibraryTree({
     }
     setActionError('')
     void (async () => {
-      const dependentDocuments = documentsToDelete.filter((document) => (
-        savedAudiobookDocumentUrls.has(document.url)
-      ))
-      if (dependentDocuments.length > 0) {
-        const viewAudiobooks = await confirmLibraryAction({
-          title: t('library.savedAudioDependency.folderTitle'),
-          description: t('library.savedAudioDependency.folderDescription'),
-          confirmLabel: t('library.savedAudioDependency.viewAudiobooks'),
-        })
-        if (viewAudiobooks) {
-          onViewAudiobooks?.()
-        }
+      if (await deletionBlockedBySavedAudio(documentsToDelete, 'folder')) {
         return
       }
 

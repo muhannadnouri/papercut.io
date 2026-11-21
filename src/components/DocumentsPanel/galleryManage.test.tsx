@@ -289,6 +289,63 @@ it('offers View Audiobooks instead of deleting a managed upload with saved audio
   expect(batchDelete).not.toHaveBeenCalled()
 })
 
+it('blocks folder deletion when a filtered-out descendant has saved audio', async () => {
+  const deleteFolder = vi.fn()
+  const viewAudiobooks = vi.fn()
+  const folder = {
+    id: 'parent',
+    name: 'Shelf',
+    depth: 0,
+    sortOrder: 0,
+    createdAtMs: 0,
+    updatedAtMs: 0,
+  }
+  await render({
+    documentFilter: 'book',
+    docFilterLower: 'book',
+    groupedDocs: [{
+      author: 'Uploads',
+      docs: [uploads[0]],
+    }],
+    libraryOrganization: {
+      folders: [folder, {
+        ...folder,
+        id: 'child',
+        name: 'Archive',
+        parentId: folder.id,
+        depth: 1,
+      }],
+      documentLocations: [
+        {
+          documentId: 'aa',
+          folderId: folder.id,
+          sortOrder: 0,
+        },
+        {
+          documentId: 'bb',
+          folderId: 'child',
+          sortOrder: 0,
+        },
+      ],
+    },
+    savedAudiobookDocumentUrls: new Set([uploads[1].url]),
+    onDeleteLibraryFolder: deleteFolder,
+    onViewAudiobooks: viewAudiobooks,
+  })
+  await act(() => button(manage).click())
+  expect(host.textContent).toContain(uploads[0].title)
+  expect(host.textContent).not.toContain(uploads[1].title)
+  await act(() => button('[aria-label="Select Shelf"]').click())
+  await act(() => button('.uploaded-library-delete-btn').click())
+  expect(host.querySelector('[role="dialog"]')?.textContent).toContain('Saved Audiobooks Use Documents in This Folder')
+  await act(() => button('.app-dialog-cancel').click())
+  expect(viewAudiobooks).not.toHaveBeenCalled()
+  await act(() => button('.uploaded-library-delete-btn').click())
+  await act(() => button('.app-dialog-submit').click())
+  expect(viewAudiobooks).toHaveBeenCalledOnce()
+  expect(deleteFolder).not.toHaveBeenCalled()
+})
+
 it.each(['gallery', 'list'])('keeps single-document Delete available in the %s fallback', async view => {
   const singleDelete = vi.fn()
   localStorage.setItem('papercut.library-view.v1', view)
