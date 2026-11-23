@@ -93,6 +93,8 @@ The app does not package voice models into desktop installers or Android APKs. T
 
 ### Execution-provider discovery
 
+The [desktop TTS acceleration plan](desktop-tts-acceleration-plan.md) tracks the Intel-first feasibility trial, the separate NPU trial, and the evidence required to select a shipping design. The CUDA build described below is the existing branch spike.
+
 Normal Papercut packages select sherpa's CPU provider. An explicit Linux x64
 CUDA build uses the official sherpa CUDA 12/cuDNN 9 shared-library archive,
 selects CUDA by default, and retries engine creation on CPU if CUDA cannot
