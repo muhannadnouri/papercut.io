@@ -100,9 +100,10 @@ initialize. The native capability response reports `defaultExecutionProvider`
 alongside `compiledExecutionProviders`, obtained from the same packaged ONNX
 Runtime already used by sherpa and Libtashkeel.
 `executionProviderProbeError` preserves setup failures for TTS diagnostics.
-Audiobook save diagnostics separately report `requestedExecutionProvider` and
-`effectiveExecutionProvider`, so a CUDA/Core ML initialization failure followed
-by a successful CPU retry is visible instead of looking accelerated.
+Audiobook save progress and results keep the original `requestedExecutionProvider`.
+For Sherpa, `effectiveExecutionProvider` is `cpu` after explicit CPU selection or
+a successful CPU retry. Successful CUDA or Core ML engine creation leaves it
+`null` because Sherpa can silently fall back and does not confirm placement.
 
 Provider discovery is intentionally not a provider selector. A provider being
 compiled into ONNX Runtime does not prove that Kokoro, Piper, or Supertonic can

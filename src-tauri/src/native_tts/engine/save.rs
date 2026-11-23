@@ -235,7 +235,7 @@ fn save_audiobook_native_blocking(
                     engine.num_threads
                 ),
                 Some(engine.requested_execution_provider.to_string()),
-                Some(engine.effective_execution_provider.to_string()),
+                engine.effective_execution_provider.map(str::to_owned),
             )
         }
         TtsModelBackend::SilmaSidecar => {

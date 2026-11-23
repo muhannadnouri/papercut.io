@@ -48,7 +48,7 @@ pub(crate) struct SherpaTtsEngine {
     pub(super) model_dir: std::path::PathBuf,
     pub(super) num_threads: i32,
     pub(super) requested_execution_provider: &'static str,
-    pub(super) effective_execution_provider: &'static str,
+    pub(super) effective_execution_provider: Option<&'static str>,
     phoneme_adapter: Option<PhonemeAdapter>,
 }
 
@@ -488,7 +488,7 @@ fn create_engine(
     model: &ModelDefinition,
     model_dir: &Path,
     thread_count: i32,
-) -> Result<(OfflineTts, &'static str, &'static str), String> {
+) -> Result<(OfflineTts, &'static str, Option<&'static str>), String> {
     let provider = super::providers::default_sherpa_execution_provider();
     // Reject stale packaged libraries before passing the new ABI structures across FFI.
     if sherpa_onnx::version() != "2.0.1" {
@@ -499,7 +499,6 @@ fn create_engine(
     }
     let mut model_config = OfflineTtsModelConfig {
         num_threads: thread_count,
-        provider: Some(provider.into()),
         ..Default::default()
     };
 
@@ -570,24 +569,30 @@ fn create_engine(
         max_num_sentences: 1,
         ..Default::default()
     };
-    if let Some(tts) = OfflineTts::create(&config) {
-        return Ok((tts, provider, provider));
+    create_with_provider(provider, model.display_name, |selected| {
+        config.model.provider = Some(selected.into());
+        OfflineTts::create(&config)
+    })
+}
+
+fn create_with_provider<T>(
+    requested: &'static str,
+    model_name: &str,
+    mut create: impl FnMut(&'static str) -> Option<T>,
+) -> Result<(T, &'static str, Option<&'static str>), String> {
+    if let Some(engine) = create(requested) {
+        // Sherpa can silently fall back to CPU when an accelerator was requested.
+        let effective = (requested == "cpu").then_some("cpu");
+        return Ok((engine, requested, effective));
     }
-    if provider != "cpu" {
-        log::warn!(
-            "Failed to create {} with the {provider} provider; retrying on CPU",
-            model.display_name
-        );
-        config.model.provider = Some("cpu".into());
-        if let Some(tts) = OfflineTts::create(&config) {
-            log::warn!(
-                "{} requested the {provider} provider but is running on CPU",
-                model.display_name
-            );
-            return Ok((tts, provider, "cpu"));
+    if requested != "cpu" {
+        log::warn!("Failed to create {model_name} with the {requested} provider; retrying on CPU");
+        if let Some(engine) = create("cpu") {
+            log::warn!("{model_name} requested the {requested} provider but is running on CPU");
+            return Ok((engine, requested, Some("cpu")));
         }
     }
-    Err(format!("Failed to create {} engine", model.display_name))
+    Err(format!("Failed to create {model_name} engine"))
 }
 
 #[cfg(test)]
@@ -598,6 +603,23 @@ mod tests {
     use super::super::manifest::NativeAudiobookManifest;
     use super::super::models::{model_definition, DEFAULT_MODEL_ID, KOKORO_ZH_MODEL_ID};
     use super::*;
+
+    #[test]
+    fn provider_reporting_tracks_successful_creation_and_cpu_retry() {
+        for (requested, succeeds_on, expected_calls, effective) in [
+            ("cpu", "cpu", vec!["cpu"], Some("cpu")),
+            ("cuda", "cuda", vec!["cuda"], None),
+            ("cuda", "cpu", vec!["cuda", "cpu"], Some("cpu")),
+        ] {
+            let mut calls = Vec::new();
+            let report = create_with_provider(requested, "test model", |selected| {
+                calls.push(selected);
+                (selected == succeeds_on).then_some(())
+            });
+            assert_eq!(calls, expected_calls);
+            assert_eq!(report.unwrap(), ((), requested, effective));
+        }
+    }
 
     #[derive(serde::Deserialize)]
     struct FrontendCase {
