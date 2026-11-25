@@ -167,7 +167,7 @@ export function createHtmlBookmarkApi(root: HTMLElement): ViewerBookmarkApi & { 
       })
     },
     scrollToTop: () => view.scrollTo({
-      top: view.innerHeight * 1.5,
+      top: 0,
       behavior: 'smooth',
     }),
     dispose: () => {

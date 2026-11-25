@@ -546,7 +546,7 @@ export function DocumentViewer({
       return
     }
     window.scrollTo({
-      top: 0,
+      top: 320,
       behavior: readerScrollBehavior(),
     })
   }, [dismissBookmarkNotice, onReaderBrowse, plugin.id, viewerBookmarkApi])
