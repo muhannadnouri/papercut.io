@@ -1,15 +1,36 @@
 # PR 85 review fixes: owner smoke checklist
 
 Run against the candidate containing all four review-fix stages. Record the build
-or commit, OS/device, book, result, and diagnostics for any failure. These manual
-checks are pending until an owner records their results; passing unit/browser
-tests does not establish device or audible-playback acceptance.
+or commit, OS/device, book, result, and diagnostics for any failure. Record desktop smoke evidence as described below. The remaining checks need
+owner observations on the relevant devices.
 
 Start on desktop and Android; repeat on iOS when a build is available. Leave any
 untested platform explicit. Use an existing large EPUB/HTML audiobook, a compatible
 older imported audiobook bundle, and an embedded-text PDF with saved audio. Include Arabic
 or RTL text and an OCR PDF if available. Existing saved audio needs no regeneration
 for these fixes; do not edit saved manifests to manufacture fault cases.
+
+## Desktop smoke coverage
+
+For a local Linux build, run `npm run smoke:desktop` from the repository root.
+For pre-PR evidence on both platforms, push the candidate commit and dispatch
+`desktop-smoke` on that branch. Record the tested SHA, the result for each OS
+and the run URL. Credit a passing leg only for its tested build and platform.
+Rerun on the new SHA if the candidate changes. [Local prerequisites and reports](desktop-smoke-e2e.md#running-the-reading-journey) · [Branch dispatch and artifact retrieval](desktop-smoke-e2e.md#run-on-a-pushed-branch)
+
+A pass covers these portions of the numbered reader checks for a document
+created with **Paste Text**. Skip repeating these two observations by hand.
+
+| Reader check | What the desktop run verifies | What still needs an owner |
+| --- | --- | --- |
+| 1. Reopen from Library | After saving a bookmark and restarting the app, the saved passage is in the viewport and the restoration notice’s Top control works. | Use the large book to check the loading status, a flash of the beginning, a second jump and the number of notices. |
+| 3. Open a search result | Opening the named Keyword result brings its off-screen target into the viewport. The journey then bookmarks that target. | Search away from an existing bookmark, use Return to bookmark, change the font or size, search again and clear the mark. |
+
+Run reader check 2 in full. Keep format-specific, playback, accessibility,
+installation and device checks on their listed platforms. If a smoke leg fails,
+open its command log and read the step and exception in `failure.txt` when
+available. For UI failures, inspect the screenshot and visible-text capture
+alongside the exception. For setup failures, inspect the failed Actions step.
 
 ## Reader restoration and search
 
