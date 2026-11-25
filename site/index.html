@@ -39,6 +39,7 @@
           <img src="assets/papercut-icon.png" alt="" width="36" height="36">
           <span>Papercut</span>
         </a>
+        <a class="walk-link" href="#preview-title">How it works</a>
         <div class="header-actions">
           <details class="language-menu">
             <summary aria-label="Choose language" aria-expanded="false">
@@ -68,7 +69,9 @@
                 </svg>
               </span></summary>
             <nav class="nav" aria-label="Main navigation">
-              <a href="#preview-title">Demo</a>
+              <a href="#find">Find</a>
+              <a href="#read">Read</a>
+              <a href="#listen">Listen</a>
               <a href="#features-title">Features</a>
               <a href="#privacy-title">Privacy</a>
               <a href="#use-cases-title">Use Cases</a>
@@ -105,53 +108,63 @@
               </svg>
             </span>
           </button>
+          <a class="download-pill" href="#downloads-title">Download</a>
         </div>
       </header>
 
       <main id="main-content">
         <section class="intro" aria-labelledby="intro-title">
-          <p class="eyebrow">Offline reader, search engine, and audiobook maker</p>
-          <h1 id="intro-title">Search, read, and listen to your documents offline</h1>
-          <p class="intro-copy">
-            Papercut is a desktop and mobile app for importing HTML, EPUB, PDF,
-            TXT, and Markdown files, searching indexed personal libraries, reading
-            locally, recognizing English or Arabic text in scanned pages, and
-            generating offline audiobooks you can export and carry with you.
-          </p>
+          <h1 id="intro-title">Read your documents. <em>Or listen to them.</em></h1>
+          <p class="intro-copy">Search your books, papers, and notes for a passage. Read it in context or listen to it on your device.</p>
           <div class="intro-actions" role="group" aria-label="Primary actions">
             <a class="button-primary" href="#downloads-title">Download Papercut</a>
-            <a class="button-secondary" href="https://github.com/muhannadnouri/papercut.io">View on GitHub</a>
+            <a class="button-secondary" href="#preview-title">How it works</a>
           </div>
-          <ul class="intro-trust" aria-label="Papercut trust signals">
-            <li>📚 Offline-First Library</li>
-            <li>🎧 Local AI Audiobooks</li>
-            <li>🔒 No Login Required</li>
-            <li>💻 Desktop & Mobile</li>
-          </ul>
+          <figure class="passage-frame">
+              <figcaption>Screenshot placeholder · Listen</figcaption>
+              <p class="book-title">Harbor Field Notes</p>
+              <blockquote>At first light we checked the tide gauge beside the east pier.</blockquote>
+              <p class="playing"><span aria-hidden="true">♫</span> Audiobook playing</p>
+            </figure>
         </section>
 
-        <section class="preview" aria-labelledby="preview-title">
-          <div class="section-label">
-            <h2 id="preview-title">Demo</h2>
-          </div>
-          <div class="preview-grid">
-            <figure class="screenshot-preview">
-              <div class="screenshot-placeholder" role="img" aria-label="Placeholder for a future Papercut screenshot">
-                <span>Screenshot placeholder</span>
-                <small>Replace with JPEG or PNG</small>
-              </div>
+        <section class="walkthrough" aria-labelledby="preview-title">
+          <h2 id="preview-title">From a search result to a spoken passage</h2>
+          <article class="walk-step" id="find">
+            <div>
+              <h3>Find</h3>
+              <p>Search your library for the words you remember.</p>
+            </div>
+            <figure class="passage-frame">
+              <figcaption>Screenshot placeholder · Find</figcaption>
+              <p class="book-title">Harbor Field Notes</p>
+              <p class="query">Search · <b>tide gauge</b></p>
+              <p class="passage">At first light we checked the <mark>tide gauge</mark> beside the east pier.</p>
             </figure>
-
-            <aside class="audio-proof" aria-labelledby="audio-proof-title">
-              <p class="eyebrow">Voice sample</p>
-              <h3 id="audio-proof-title">Offline voice sample</h3>
-              <p>Reserve this space for a short Kokoro-generated English sample and an Arabic sample once final demo audio is ready.</p>
-              <div class="audio-placeholder" role="img" aria-label="Placeholder for future Papercut voice samples">
-                <span class="audio-placeholder-icon" aria-hidden="true"></span>
-                <span>Sample audio placeholder</span>
-              </div>
-            </aside>
-          </div>
+          </article>
+          <article class="walk-step" id="read">
+            <div>
+              <h3>Read</h3>
+              <p>Open the result at the passage and keep reading.</p>
+            </div>
+            <figure class="passage-frame">
+              <figcaption>Screenshot placeholder · Read</figcaption>
+              <p class="book-title">Harbor Field Notes</p>
+              <p class="passage">At first light we checked the <mark>tide gauge</mark> beside the east pier.</p>
+            </figure>
+          </article>
+          <article class="walk-step" id="listen">
+            <div>
+              <h3>Listen</h3>
+              <p>Play your saved audiobook from this passage.</p>
+            </div>
+            <figure class="passage-frame">
+              <figcaption>Screenshot placeholder · Listen</figcaption>
+              <p class="book-title">Harbor Field Notes</p>
+              <blockquote>At first light we checked the tide gauge beside the east pier.</blockquote>
+              <p class="playing"><span aria-hidden="true">♫</span> Audiobook playing</p>
+            </figure>
+          </article>
         </section>
 
         <section class="features" aria-labelledby="features-title">

@@ -39,6 +39,7 @@
           {{header.markup.002}}
           <span>{{header.text.001}}</span>
         </a>
+        <a class="walk-link" href="#preview-title">{{walk.link}}</a>
         <div class="header-actions">
           <details class="language-menu">
             {{header.markup.003}}
@@ -68,7 +69,9 @@
                 </svg>
               </span></summary>
             {{header.markup.011}}
-              <a href="#preview-title">{{header.text.007}}</a>
+              <a href="#find">{{walk.find}}</a>
+              <a href="#read">{{walk.read}}</a>
+              <a href="#listen">{{walk.listen}}</a>
               <a href="#features-title">{{header.text.008}}</a>
               <a href="#privacy-title">{{header.text.009}}</a>
               <a href="#use-cases-title">{{header.text.010}}</a>
@@ -105,48 +108,63 @@
               </svg>
             </span>
           </button>
+          <a class="download-pill" href="#downloads-title">{{header.text.011}}</a>
         </div>
       </header>
 
       <main id="main-content">
         <section class="intro" aria-labelledby="intro-title">
-          <p class="eyebrow">{{intro.text.001}}</p>
-          <h1 id="intro-title">{{intro.text.002}}</h1>
-          <p class="intro-copy">{{intro.text.003}}</p>
+          <h1 id="intro-title">{{hero.read}} <em>{{hero.listen}}</em></h1>
+          <p class="intro-copy">{{hero.copy}}</p>
           {{intro.markup.001}}
             <a class="button-primary" href="#downloads-title">{{intro.text.004}}</a>
-            <a class="button-secondary" href="https://github.com/muhannadnouri/papercut.io">{{intro.text.005}}</a>
+            <a class="button-secondary" href="#preview-title">{{walk.link}}</a>
           </div>
-          {{intro.markup.002}}
-            <li>{{intro.text.006}}</li>
-            <li>{{intro.text.007}}</li>
-            <li>{{intro.text.008}}</li>
-            <li>{{intro.text.009}}</li>
-          </ul>
+          <figure class="passage-frame">
+              <figcaption>{{walk.placeholder}} · {{walk.listen}}</figcaption>
+              <p class="book-title">{{walk.book}}</p>
+              <blockquote>{{walk.before}}{{walk.query}}{{walk.after}}</blockquote>
+              <p class="playing"><span aria-hidden="true">♫</span> {{walk.playing}}</p>
+            </figure>
         </section>
 
-        <section class="preview" aria-labelledby="preview-title">
-          <div class="section-label">
-            <h2 id="preview-title">{{preview.text.001}}</h2>
-          </div>
-          <div class="preview-grid">
-            <figure class="screenshot-preview">
-              {{preview.markup.001}}
-                <span>{{preview.text.002}}</span>
-                <small>{{preview.text.003}}</small>
-              </div>
+        <section class="walkthrough" aria-labelledby="preview-title">
+          <h2 id="preview-title">{{walk.title}}</h2>
+          <article class="walk-step" id="find">
+            <div>
+              <h3>{{walk.find}}</h3>
+              <p>{{walk.find.copy}}</p>
+            </div>
+            <figure class="passage-frame">
+              <figcaption>{{walk.placeholder}} · {{walk.find}}</figcaption>
+              <p class="book-title">{{walk.book}}</p>
+              <p class="query">{{features.text.003}} · <b>{{walk.query}}</b></p>
+              <p class="passage">{{walk.before}}<mark>{{walk.query}}</mark>{{walk.after}}</p>
             </figure>
-
-            <aside class="audio-proof" aria-labelledby="audio-proof-title">
-              <p class="eyebrow">{{preview.text.004}}</p>
-              <h3 id="audio-proof-title">{{preview.text.005}}</h3>
-              <p>{{preview.text.006}}</p>
-              {{preview.markup.002}}
-                <span class="audio-placeholder-icon" aria-hidden="true"></span>
-                <span>{{preview.text.007}}</span>
-              </div>
-            </aside>
-          </div>
+          </article>
+          <article class="walk-step" id="read">
+            <div>
+              <h3>{{walk.read}}</h3>
+              <p>{{walk.read.copy}}</p>
+            </div>
+            <figure class="passage-frame">
+              <figcaption>{{walk.placeholder}} · {{walk.read}}</figcaption>
+              <p class="book-title">{{walk.book}}</p>
+              <p class="passage">{{walk.before}}<mark>{{walk.query}}</mark>{{walk.after}}</p>
+            </figure>
+          </article>
+          <article class="walk-step" id="listen">
+            <div>
+              <h3>{{walk.listen}}</h3>
+              <p>{{walk.listen.copy}}</p>
+            </div>
+            <figure class="passage-frame">
+              <figcaption>{{walk.placeholder}} · {{walk.listen}}</figcaption>
+              <p class="book-title">{{walk.book}}</p>
+              <blockquote>{{walk.before}}{{walk.query}}{{walk.after}}</blockquote>
+              <p class="playing"><span aria-hidden="true">♫</span> {{walk.playing}}</p>
+            </figure>
+          </article>
         </section>
 
         <section class="features" aria-labelledby="features-title">

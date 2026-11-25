@@ -39,6 +39,7 @@
           <img src="../assets/papercut-icon.png" alt="" width="36" height="36">
           <span>Papercut</span>
         </a>
+        <a class="walk-link" href="#preview-title">使用方式</a>
         <div class="header-actions">
           <details class="language-menu">
             <summary aria-label="选择语言" aria-expanded="false">
@@ -68,7 +69,9 @@
                 </svg>
               </span></summary>
             <nav class="nav" aria-label="主导航">
-              <a href="#preview-title">演示</a>
+              <a href="#find">查找</a>
+              <a href="#read">阅读</a>
+              <a href="#listen">收听</a>
               <a href="#features-title">功能</a>
               <a href="#privacy-title">隐私</a>
               <a href="#use-cases-title">使用场景</a>
@@ -105,52 +108,63 @@
               </svg>
             </span>
           </button>
+          <a class="download-pill" href="#downloads-title">下载</a>
         </div>
       </header>
 
       <main id="main-content">
         <section class="intro" aria-labelledby="intro-title">
-          <p class="eyebrow">离线阅读器、搜索引擎和有声读物制作工具</p>
-          <h1 id="intro-title">离线搜索、阅读和收听您的文档</h1>
-          <p class="intro-copy">
-            Papercut 是一款桌面和移动应用，可导入 HTML、EPUB、PDF、TXT 和 Markdown 文件，
-            搜索已建立索引的个人资料库，在本地阅读，识别扫描页面中的英语或
-            阿拉伯语文本，并生成可导出的离线有声读物。
-          </p>
+          <h1 id="intro-title">阅读你的文档。 <em>也可以听。</em></h1>
+          <p class="intro-copy">在书籍、论文和笔记中搜索段落。在设备上阅读上下文，或从这里开始收听。</p>
           <div class="intro-actions" role="group" aria-label="主要操作">
             <a class="button-primary" href="#downloads-title">下载 Papercut</a>
-            <a class="button-secondary" href="https://github.com/muhannadnouri/papercut.io">在 GitHub 上查看</a>
+            <a class="button-secondary" href="#preview-title">使用方式</a>
           </div>
-          <ul class="intro-trust" aria-label="Papercut 主要特点">
-            <li>📚 离线优先的资料库</li>
-            <li>🎧 本地 AI 有声读物</li>
-            <li>🔒 无需登录</li>
-            <li>💻 桌面与移动设备</li>
-          </ul>
+          <figure class="passage-frame">
+              <figcaption>截图占位 · 收听</figcaption>
+              <p class="book-title">港口考察笔记</p>
+              <blockquote>拂晓时，我们检查了东码头旁的潮位计。</blockquote>
+              <p class="playing"><span aria-hidden="true">♫</span> 正在播放有声书</p>
+            </figure>
         </section>
 
-        <section class="preview" aria-labelledby="preview-title">
-          <div class="section-label">
-            <h2 id="preview-title">演示</h2>
-          </div>
-          <div class="preview-grid">
-            <figure class="screenshot-preview">
-              <div class="screenshot-placeholder" role="img" aria-label="未来 Papercut 截图的占位区域">
-                <span>截图占位区域</span>
-                <small>替换为 JPEG 或 PNG</small>
-              </div>
+        <section class="walkthrough" aria-labelledby="preview-title">
+          <h2 id="preview-title">从搜索结果到段落朗读</h2>
+          <article class="walk-step" id="find">
+            <div>
+              <h3>查找</h3>
+              <p>用记得的词在文档库中搜索。</p>
+            </div>
+            <figure class="passage-frame">
+              <figcaption>截图占位 · 查找</figcaption>
+              <p class="book-title">港口考察笔记</p>
+              <p class="query">搜索 · <b>潮位计</b></p>
+              <p class="passage">拂晓时，我们检查了东码头旁的<mark>潮位计</mark>。</p>
             </figure>
-
-            <aside class="audio-proof" aria-labelledby="audio-proof-title">
-              <p class="eyebrow">语音示例</p>
-              <h3 id="audio-proof-title">离线语音示例</h3>
-              <p>最终演示音频准备好后，在此放置一段由 Kokoro 生成的英语示例和一段阿拉伯语示例。</p>
-              <div class="audio-placeholder" role="img" aria-label="未来 Papercut 语音示例的占位区域">
-                <span class="audio-placeholder-icon" aria-hidden="true"></span>
-                <span>示例音频占位区域</span>
-              </div>
-            </aside>
-          </div>
+          </article>
+          <article class="walk-step" id="read">
+            <div>
+              <h3>阅读</h3>
+              <p>打开结果，跳到对应段落继续阅读。</p>
+            </div>
+            <figure class="passage-frame">
+              <figcaption>截图占位 · 阅读</figcaption>
+              <p class="book-title">港口考察笔记</p>
+              <p class="passage">拂晓时，我们检查了东码头旁的<mark>潮位计</mark>。</p>
+            </figure>
+          </article>
+          <article class="walk-step" id="listen">
+            <div>
+              <h3>收听</h3>
+              <p>从这一段开始播放已保存的有声书。</p>
+            </div>
+            <figure class="passage-frame">
+              <figcaption>截图占位 · 收听</figcaption>
+              <p class="book-title">港口考察笔记</p>
+              <blockquote>拂晓时，我们检查了东码头旁的潮位计。</blockquote>
+              <p class="playing"><span aria-hidden="true">♫</span> 正在播放有声书</p>
+            </figure>
+          </article>
         </section>
 
         <section class="features" aria-labelledby="features-title">

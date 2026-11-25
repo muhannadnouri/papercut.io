@@ -177,31 +177,38 @@ summary:focus-visible {
 
 .site-header {
   position: sticky;
-  top: 0;
+  top: 8px;
   z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  min-height: 64px;
-  padding: 0 40px;
-  border-bottom: 1px solid var(--line);
+  gap: 18px;
+  width: fit-content;
+  max-width: calc(100% - 16px);
+  margin: 12px auto 0;
+  padding: 5px 6px 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
   background: var(--panel);
+  box-shadow: 0 5px 20px var(--shadow-preview);
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  font-family: var(--font-mono);
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: 0;
-  white-space: nowrap;
+  gap: 6px;
+  font-size: 18px;
+  font-weight: 700;
 }
 
-.brand img {
-  image-rendering: pixelated;
+.walk-link:hover { text-decoration: underline; }
+
+.download-pill {
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-weight: 700;
 }
 
 .header-actions {
@@ -395,6 +402,7 @@ html[data-theme-choice="dark"] .theme-toggle-icon-dark {
 
 
 .intro {
+  background: radial-gradient(ellipse at center bottom, var(--accent-soft), transparent 72%);
   padding: 52px 72px 56px;
   border-bottom: 1px solid var(--line);
   text-align: center;
@@ -468,133 +476,72 @@ h1 {
   color: var(--accent-text);
 }
 
-.intro-trust {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-  max-width: 680px;
-  margin: 22px auto 0;
-  padding: 0;
-  list-style: none;
+h1 em {
+  display: block;
+  color: var(--accent-text);
+  font-family: Georgia, serif;
+  font-weight: 500;
 }
 
-.intro-trust li {
-  padding: 5px 9px;
-  border: 1px solid var(--soft-line);
-  border-radius: 4px;
-  background: var(--surface-muted);
-  color: var(--muted);
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 600;
-}
+.intro .button-primary, .intro .button-secondary { border-radius: 999px; }
+.intro .button-secondary { background: transparent; border-color: transparent; }
+.intro .button-secondary:hover { text-decoration: underline; }
 
-/* ── Demo ──────────────────── */
-
-.preview {
-  padding: 52px 58px;
-  border-bottom: 1px solid var(--line);
-}
-
-.preview .section-label {
-  margin-bottom: 20px;
-}
-
-.preview-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 292px);
-  gap: 18px;
-  align-items: stretch;
-}
-
-.screenshot-preview {
+.passage-frame {
   margin: 0;
-}
-
-.screenshot-placeholder {
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 8px;
-  aspect-ratio: 16 / 10;
-  width: 100%;
-  padding: 24px;
+  padding: clamp(18px, 4vw, 32px);
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface-subtle);
-  box-shadow: 0 18px 44px var(--shadow-preview);
-  color: var(--muted);
-  font-family: var(--font-sans);
-  text-align: center;
-}
-
-.screenshot-placeholder span {
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.screenshot-placeholder small {
-  color: var(--quiet);
-  font-size: 12px;
-}
-
-.audio-proof {
-  display: grid;
-  align-content: start;
-  padding: 18px;
-  border: 1px solid var(--soft-line);
-  border-radius: 6px;
-  background: var(--surface-muted);
-}
-
-.audio-proof h3 {
-  margin: 0;
-  font-size: 16px;
-}
-
-.audio-proof p:not(.eyebrow) {
-  margin: 10px 0 16px;
-  color: var(--muted);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.audio-placeholder {
-  display: grid;
-  place-items: center;
-  gap: 10px;
-  min-height: 132px;
-  padding: 18px;
-  border: 1px dashed var(--line);
-  border-radius: 5px;
+  border-radius: 14px;
   background: var(--panel);
-  color: var(--muted);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 700;
-  text-align: center;
+  text-align: start;
 }
 
-.audio-placeholder-icon {
-  width: 34px;
-  height: 34px;
-  border: 2px solid var(--accent-text);
-  border-radius: 999px;
-  position: relative;
+.intro .passage-frame {
+  max-width: 640px;
+  margin: 32px auto 0;
+  box-shadow: 0 14px 38px var(--shadow-preview);
 }
 
-.audio-placeholder-icon::before {
-  content: "";
-  position: absolute;
-  top: 9px;
-  left: 12px;
-  width: 0;
-  height: 0;
-  border-top: 6px solid transparent;
-  border-bottom: 6px solid transparent;
-  border-left: 9px solid var(--accent-text);
+.passage-frame figcaption { color: var(--quiet); font-size: 0.85rem; }
+.book-title { margin: 1em 0 0; font-weight: 650; }
+.passage, .passage-frame blockquote {
+  margin: 12px 0;
+  font: 1.35rem/1.55 Georgia, serif;
+}
+
+.passage-frame blockquote {
+  padding-inline-start: 12px;
+  border-inline-start: 3px solid var(--accent);
+}
+
+.passage-frame mark { background: var(--accent-soft); color: var(--accent-soft-text); }
+.playing { margin-bottom: 0; color: var(--accent-text); }
+.walkthrough { padding: clamp(24px, 6vw, 58px); border-bottom: 1px solid var(--line); }
+.walkthrough h2 { margin: 0 0 24px; font-size: clamp(1.7rem, 4vw, 2.3rem); }
+.walk-step {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  align-items: center;
+  gap: 24px;
+  padding-block: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.walk-step h3 { margin: 0; font-size: 1.4rem; }
+.walk-step > div p { color: var(--muted); }
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .walk-step figure {
+      animation: arrive linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 100%;
+    }
+    @keyframes arrive {
+      from { transform: translateY(12px); }
+      to { transform: none; }
+    }
+  }
 }
 
 /* ── Audiobooks ────────────── */
@@ -1507,11 +1454,11 @@ h2 {
     border-inline: 0;
   }
 
-  .site-header {
-    gap: 12px;
-    min-height: 72px;
-    padding: 0 20px;
-  }
+  .site-header { gap: 6px; }
+  .header-actions { gap: 3px; }
+  .walk-link { display: none; }
+  .download-pill { padding-inline: 10px; }
+  .walk-step { grid-template-columns: 1fr; gap: 4px; }
 
   .nav-menu,
   .language-menu {
@@ -1538,36 +1485,8 @@ h2 {
   }
 
 
-  .intro {
-    padding: 42px 22px 46px;
-    text-align: start;
-  }
-
-  h1 {
-    margin-inline: 0;
-    font-size: 40px;
-  }
-
-  .intro-actions {
-    justify-content: stretch;
-  }
-
-  .button-primary,
-  .button-secondary {
-    width: 100%;
-  }
-
-  .intro-trust {
-    justify-content: flex-start;
-  }
-
-  .preview {
-    padding: 36px 16px;
-  }
-
-  .preview-grid {
-    grid-template-columns: 1fr;
-  }
+  .intro { padding: 40px 16px 32px; }
+  h1 { font-size: clamp(2rem, 7vw, 3rem); }
 
   .audiobooks {
     grid-template-columns: 1fr;
@@ -1710,4 +1629,12 @@ h2 {
   .site-footer {
     padding: 20px 16px 28px;
   }
+}
+
+@media (max-width: 370px) {
+  .brand span { display: none; }
+}
+
+@media (max-width: 420px) {
+  .language-options, .nav { inset-inline-end: auto; inset-inline-start: -44px; }
 }

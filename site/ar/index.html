@@ -39,6 +39,7 @@
           <img src="../assets/papercut-icon.png" alt="" width="36" height="36">
           <span>Papercut</span>
         </a>
+        <a class="walk-link" href="#preview-title">كيف يعمل</a>
         <div class="header-actions">
           <details class="language-menu">
             <summary aria-label="اختيار اللغة" aria-expanded="false">
@@ -68,7 +69,9 @@
                 </svg>
               </span></summary>
             <nav class="nav" aria-label="التنقل الرئيسي">
-              <a href="#preview-title">العرض</a>
+              <a href="#find">ابحث</a>
+              <a href="#read">اقرأ</a>
+              <a href="#listen">استمع</a>
               <a href="#features-title">الميزات</a>
               <a href="#privacy-title">الخصوصية</a>
               <a href="#use-cases-title">الاستخدامات</a>
@@ -105,52 +108,63 @@
               </svg>
             </span>
           </button>
+          <a class="download-pill" href="#downloads-title">التنزيل</a>
         </div>
       </header>
 
       <main id="main-content">
         <section class="intro" aria-labelledby="intro-title">
-          <p class="eyebrow">قارئ ومحرك بحث ومنشئ كتب صوتية بلا اتصال</p>
-          <h1 id="intro-title">ابحث واقرأ واستمع إلى مستنداتك بلا اتصال</h1>
-          <p class="intro-copy">
-            Papercut تطبيق لسطح المكتب والهاتف المحمول يتيح استيراد ملفات HTML وEPUB
-            وPDF وTXT وMarkdown، والبحث في مكتبتك الشخصية المفهرسة، والقراءة محليًا،
-            والتعرف على النص الإنجليزي أو العربي في الصفحات الممسوحة، وإنشاء كتب صوتية بلا اتصال.
-          </p>
+          <h1 id="intro-title">اقرأ مستنداتك. <em>أو استمع إليها.</em></h1>
+          <p class="intro-copy">ابحث عن مقطع في كتبك وأوراقك وملاحظاتك. اقرأه في سياقه أو استمع إليه على جهازك.</p>
           <div class="intro-actions" role="group" aria-label="الإجراءات الرئيسية">
             <a class="button-primary" href="#downloads-title">نزّل Papercut</a>
-            <a class="button-secondary" href="https://github.com/muhannadnouri/papercut.io">عرض على GitHub</a>
+            <a class="button-secondary" href="#preview-title">كيف يعمل</a>
           </div>
-          <ul class="intro-trust" aria-label="مزايا الثقة في Papercut">
-            <li>📚 مكتبة تعمل بلا اتصال</li>
-            <li>🎧 كتب صوتية محلية بالذكاء الاصطناعي</li>
-            <li>🔒 لا يتطلب تسجيل الدخول</li>
-            <li>💻 سطح المكتب والهاتف المحمول</li>
-          </ul>
+          <figure class="passage-frame">
+              <figcaption>موضع لقطة الشاشة · استمع</figcaption>
+              <p class="book-title">ملاحظات ميدانية من الميناء</p>
+              <blockquote>عند الفجر تفقدنا مقياس المد والجزر بجانب الرصيف الشرقي.</blockquote>
+              <p class="playing"><span aria-hidden="true">♫</span> الكتاب الصوتي قيد التشغيل</p>
+            </figure>
         </section>
 
-        <section class="preview" aria-labelledby="preview-title">
-          <div class="section-label">
-            <h2 id="preview-title">العرض</h2>
-          </div>
-          <div class="preview-grid">
-            <figure class="screenshot-preview">
-              <div class="screenshot-placeholder" role="img" aria-label="مكان مخصص لصورة مستقبلية من Papercut">
-                <span>مكان مخصص لصورة</span>
-                <small>استبدله بصورة JPEG أو PNG</small>
-              </div>
+        <section class="walkthrough" aria-labelledby="preview-title">
+          <h2 id="preview-title">من نتيجة البحث إلى سماع المقطع</h2>
+          <article class="walk-step" id="find">
+            <div>
+              <h3>ابحث</h3>
+              <p>ابحث في مكتبتك عن الكلمات التي تتذكرها.</p>
+            </div>
+            <figure class="passage-frame">
+              <figcaption>موضع لقطة الشاشة · ابحث</figcaption>
+              <p class="book-title">ملاحظات ميدانية من الميناء</p>
+              <p class="query">البحث · <b>مقياس المد والجزر</b></p>
+              <p class="passage">عند الفجر تفقدنا <mark>مقياس المد والجزر</mark> بجانب الرصيف الشرقي.</p>
             </figure>
-
-            <aside class="audio-proof" aria-labelledby="audio-proof-title">
-              <p class="eyebrow">عينة صوتية</p>
-              <h3 id="audio-proof-title">عينة صوتية بلا اتصال</h3>
-              <p>هذا المكان مخصص لعينة إنجليزية قصيرة مولّدة بـ Kokoro وعينة عربية عند تجهيز الصوت النهائي للعرض.</p>
-              <div class="audio-placeholder" role="img" aria-label="مكان مخصص لعينات صوتية مستقبلية من Papercut">
-                <span class="audio-placeholder-icon" aria-hidden="true"></span>
-                <span>مكان مخصص لعينة صوتية</span>
-              </div>
-            </aside>
-          </div>
+          </article>
+          <article class="walk-step" id="read">
+            <div>
+              <h3>اقرأ</h3>
+              <p>افتح النتيجة عند المقطع وتابع القراءة.</p>
+            </div>
+            <figure class="passage-frame">
+              <figcaption>موضع لقطة الشاشة · اقرأ</figcaption>
+              <p class="book-title">ملاحظات ميدانية من الميناء</p>
+              <p class="passage">عند الفجر تفقدنا <mark>مقياس المد والجزر</mark> بجانب الرصيف الشرقي.</p>
+            </figure>
+          </article>
+          <article class="walk-step" id="listen">
+            <div>
+              <h3>استمع</h3>
+              <p>شغّل كتابك الصوتي المحفوظ بدءًا من هذا المقطع.</p>
+            </div>
+            <figure class="passage-frame">
+              <figcaption>موضع لقطة الشاشة · استمع</figcaption>
+              <p class="book-title">ملاحظات ميدانية من الميناء</p>
+              <blockquote>عند الفجر تفقدنا مقياس المد والجزر بجانب الرصيف الشرقي.</blockquote>
+              <p class="playing"><span aria-hidden="true">♫</span> الكتاب الصوتي قيد التشغيل</p>
+            </figure>
+          </article>
         </section>
 
         <section class="features" aria-labelledby="features-title">

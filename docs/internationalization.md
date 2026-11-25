@@ -77,6 +77,20 @@ Website language names do not use the application's experimental labels. Those
 labels describe the app locale review status, not whether a visitor can open a
 localized marketing page.
 
+### Homepage walkthrough
+
+The primary action in the hero and floating navigation links to
+`#downloads-title`. The walkthrough keeps the existing `#preview-title` anchor
+and provides direct links to `#find`, `#read`, and `#listen`. Keep each
+translated example consistent across the search result, reader, and audiobook.
+The `walk.before` and `walk.after` strings include the spacing needed around
+the highlighted query in that language.
+
+The current product frames are labeled placeholders. The hero and Listen step
+depict the same playback state so they can share a capture for each device
+size. Keep captions and walkthrough headings in the locale catalogs when the
+real captures arrive.
+
 ## Translation Rules
 
 - Use semantic keys rather than English sentences as keys.

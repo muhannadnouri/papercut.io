@@ -39,6 +39,7 @@
           <img src="../assets/papercut-icon.png" alt="" width="36" height="36">
           <span>Papercut</span>
         </a>
+        <a class="walk-link" href="#preview-title">Cómo funciona</a>
         <div class="header-actions">
           <details class="language-menu">
             <summary aria-label="Elegir idioma" aria-expanded="false">
@@ -68,7 +69,9 @@
                 </svg>
               </span></summary>
             <nav class="nav" aria-label="Navegación principal">
-              <a href="#preview-title">Demostración</a>
+              <a href="#find">Buscar</a>
+              <a href="#read">Leer</a>
+              <a href="#listen">Escuchar</a>
               <a href="#features-title">Funciones</a>
               <a href="#privacy-title">Privacidad</a>
               <a href="#use-cases-title">Casos de uso</a>
@@ -105,50 +108,63 @@
               </svg>
             </span>
           </button>
+          <a class="download-pill" href="#downloads-title">Descargar</a>
         </div>
       </header>
 
       <main id="main-content">
         <section class="intro" aria-labelledby="intro-title">
-          <p class="eyebrow">Lector, buscador y creador de audiolibros sin conexión</p>
-          <h1 id="intro-title">Busca, lee y escucha tus documentos sin conexión</h1>
-          <p class="intro-copy">
-            Papercut es una aplicación para escritorio y dispositivos móviles que permite importar archivos HTML, EPUB, PDF, TXT y Markdown, buscar en bibliotecas personales indexadas, leer localmente, reconocer texto en inglés o árabe en páginas escaneadas y generar audiolibros sin conexión que puedes exportar.
-          </p>
+          <h1 id="intro-title">Lee tus documentos. <em>O escúchalos.</em></h1>
+          <p class="intro-copy">Busca un pasaje en tus libros, artículos y notas. Léelo en contexto o escúchalo en tu dispositivo.</p>
           <div class="intro-actions" role="group" aria-label="Acciones principales">
             <a class="button-primary" href="#downloads-title">Descargar Papercut</a>
-            <a class="button-secondary" href="https://github.com/muhannadnouri/papercut.io">Ver en GitHub</a>
+            <a class="button-secondary" href="#preview-title">Cómo funciona</a>
           </div>
-          <ul class="intro-trust" aria-label="Ventajas principales de Papercut">
-            <li>📚 Biblioteca sin conexión</li>
-            <li>🎧 Audiolibros locales con IA</li>
-            <li>🔒 Sin inicio de sesión</li>
-            <li>💻 Escritorio y móvil</li>
-          </ul>
+          <figure class="passage-frame">
+              <figcaption>Espacio para la captura · Escuchar</figcaption>
+              <p class="book-title">Notas de campo del puerto</p>
+              <blockquote>Al amanecer revisamos el mareógrafo junto al muelle este.</blockquote>
+              <p class="playing"><span aria-hidden="true">♫</span> Audiolibro en reproducción</p>
+            </figure>
         </section>
 
-        <section class="preview" aria-labelledby="preview-title">
-          <div class="section-label">
-            <h2 id="preview-title">Demostración</h2>
-          </div>
-          <div class="preview-grid">
-            <figure class="screenshot-preview">
-              <div class="screenshot-placeholder" role="img" aria-label="Espacio para una futura captura de pantalla de Papercut">
-                <span>Espacio para captura de pantalla</span>
-                <small>Sustituir por JPEG o PNG</small>
-              </div>
+        <section class="walkthrough" aria-labelledby="preview-title">
+          <h2 id="preview-title">De un resultado de búsqueda a un pasaje narrado</h2>
+          <article class="walk-step" id="find">
+            <div>
+              <h3>Buscar</h3>
+              <p>Busca en tu biblioteca las palabras que recuerdes.</p>
+            </div>
+            <figure class="passage-frame">
+              <figcaption>Espacio para la captura · Buscar</figcaption>
+              <p class="book-title">Notas de campo del puerto</p>
+              <p class="query">Buscar · <b>mareógrafo</b></p>
+              <p class="passage">Al amanecer revisamos el <mark>mareógrafo</mark> junto al muelle este.</p>
             </figure>
-
-            <aside class="audio-proof" aria-labelledby="audio-proof-title">
-              <p class="eyebrow">Muestra de voz</p>
-              <h3 id="audio-proof-title">Muestra de voz sin conexión</h3>
-              <p>Este espacio está reservado para una muestra breve en inglés generada con Kokoro y una muestra en árabe cuando el audio final esté listo.</p>
-              <div class="audio-placeholder" role="img" aria-label="Espacio para futuras muestras de voz de Papercut">
-                <span class="audio-placeholder-icon" aria-hidden="true"></span>
-                <span>Espacio para muestra de audio</span>
-              </div>
-            </aside>
-          </div>
+          </article>
+          <article class="walk-step" id="read">
+            <div>
+              <h3>Leer</h3>
+              <p>Abre el resultado en el pasaje y sigue leyendo.</p>
+            </div>
+            <figure class="passage-frame">
+              <figcaption>Espacio para la captura · Leer</figcaption>
+              <p class="book-title">Notas de campo del puerto</p>
+              <p class="passage">Al amanecer revisamos el <mark>mareógrafo</mark> junto al muelle este.</p>
+            </figure>
+          </article>
+          <article class="walk-step" id="listen">
+            <div>
+              <h3>Escuchar</h3>
+              <p>Reproduce tu audiolibro guardado desde este pasaje.</p>
+            </div>
+            <figure class="passage-frame">
+              <figcaption>Espacio para la captura · Escuchar</figcaption>
+              <p class="book-title">Notas de campo del puerto</p>
+              <blockquote>Al amanecer revisamos el mareógrafo junto al muelle este.</blockquote>
+              <p class="playing"><span aria-hidden="true">♫</span> Audiolibro en reproducción</p>
+            </figure>
+          </article>
         </section>
 
         <section class="features" aria-labelledby="features-title">
