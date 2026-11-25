@@ -18,14 +18,15 @@ For pre-PR evidence on both platforms, push the candidate commit and dispatch
 and the run URL. Credit a passing leg only for its tested build and platform.
 Rerun on the new SHA if the candidate changes. [Local prerequisites and reports](desktop-smoke-e2e.md#running-the-reading-journey) · [Branch dispatch and artifact retrieval](desktop-smoke-e2e.md#run-on-a-pushed-branch)
 
-For a document created with **Paste Text**, skip the observation below when the named case passes on the candidate SHA and OS.
+Skip the covered observation when the named case passes on the candidate SHA and OS. DS-001 and DS-003 use **Paste Text**. DS-004 uses an embedded-text PDF.
 
 | Reader check | What the desktop run verifies | What still needs an owner |
 | --- | --- | --- |
 | 1. Reopen from Library | DS-001: After saving a bookmark and restarting the app, the saved passage is in the viewport and the restoration notice’s Top control works. | Use the large book to check the loading status, a flash of the beginning, a second jump and the number of notices. |
+| 2. Restore a late-page PDF bookmark | DS-004: Reopen the embedded-text PDF from Library after restart and verify the saved page and passage are visible. | Reopen the same book within 20 seconds and open a book without a bookmark. |
 | 3. Open a search result | DS-001: Opening the named Keyword result brings its off-screen target into the viewport. The journey then bookmarks that target. DS-003: With A already bookmarked, open search result B, increase the font size and use **Jump to Bookmark**. A returns to view at the larger size. | Change font family, repeat after another search and clear the search mark. Check the large-book and other-format paths separately. |
 
-Run reader check 2 in full until the DS-004 failure rehearsal confirms that a page-only restore is detected. DS-004 exercises the late-page PDF portion. Rapid reopen and opening a book without a bookmark still need owner checks. Keep format-specific, playback, accessibility,
+Keep remaining format-specific, playback, accessibility,
 installation and device checks on their listed platforms. If a smoke leg fails,
 open its command log and read the step and exception in `failure.txt` when
 available. For UI failures, inspect the screenshot and visible-text capture
@@ -38,7 +39,7 @@ alongside the exception. For setup failures, inspect the failed Actions step.
    a flash of the beginning. Confirm a single restoration notice and usable controls.
 2. Close and reopen the same book again within 20 seconds. Its restore must finish
    normally without an earlier open's timer revealing it prematurely. Also open a
-   book without a bookmark, then restore a late-page PDF bookmark.
+   book without a bookmark. Manually restore a late-page PDF bookmark on platforms or builds without a passing DS-004.
 3. Follow the [desktop smoke coverage table](#desktop-smoke-coverage) for the portions covered by a passing DS-001 or DS-003. Open a search result away from the bookmark. Confirm the result opens at its
    target; Return to bookmark restores the saved passage. Repeat after changing
    reader font/size and after another search, including clearing the search mark.
