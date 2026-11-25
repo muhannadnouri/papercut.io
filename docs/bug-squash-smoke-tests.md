@@ -25,7 +25,7 @@ For a document created with **Paste Text**, skip the observation below when the 
 | 1. Reopen from Library | DS-001: After saving a bookmark and restarting the app, the saved passage is in the viewport and the restoration notice’s Top control works. | Use the large book to check the loading status, a flash of the beginning, a second jump and the number of notices. |
 | 3. Open a search result | DS-001: Opening the named Keyword result brings its off-screen target into the viewport. The journey then bookmarks that target. DS-003: With A already bookmarked, open search result B, increase the font size and use **Jump to Bookmark**. A returns to view at the larger size. | Change font family, repeat after another search and clear the search mark. Check the large-book and other-format paths separately. |
 
-Run reader check 2 in full. Keep format-specific, playback, accessibility,
+Run reader check 2 in full until the DS-004 failure rehearsal confirms that a page-only restore is detected. DS-004 exercises the late-page PDF portion. Rapid reopen and opening a book without a bookmark still need owner checks. Keep format-specific, playback, accessibility,
 installation and device checks on their listed platforms. If a smoke leg fails,
 open its command log and read the step and exception in `failure.txt` when
 available. For UI failures, inspect the screenshot and visible-text capture

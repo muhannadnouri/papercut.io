@@ -137,6 +137,7 @@ Keep one independently runnable user journey per file in `scripts/desktop/cases/
 | `DS-001` | `DS-001-reading-bookmark.mjs` | Find an off-screen passage and restore its bookmark after restarting Papercut. |
 | `DS-002` | `DS-002-bundle-import-recovery.mjs` | Dismiss invalid bundle errors in Library and the reader, then open the valid bundle in the original process and find its title once in Library. |
 | `DS-003` | `DS-003-return-after-font-resize.mjs` | Bookmark passage A, open search result B, increase the font size and jump back to A at the larger size. |
+| `DS-004` | `DS-004-pdf-bookmark-restart.mjs` | Reopen a PDF from Library after a process restart and verify both the saved page and the passage within it. |
 
 Use the filename prefix as the case ID in the owner checklist, log lines and per-case report directories. Keep the ID when wording changes, never recycle it, and reject duplicate IDs. Keep fixture content, selectors and outcome assertions with their case. Keep artifact preparation, session lifecycle, process cleanup and failure capture in the shared runner. Add function comments where platform constraints or fixture intent need explanation.
 
@@ -190,3 +191,15 @@ Run `npm run smoke:desktop -- --case DS-003` to check this journey alone. It sha
 **Missing-jump rehearsal accepted.** Disposable revision `21b36d38`, based on DS-003 commit `3426d3fc`, kept **Jump to Bookmark** clickable and skipped its seek. DS-001 and DS-002 passed on Ubuntu 24.04 and Windows Server 2022. Both DS-003 reports reached the final viewport check after clicking Jump and failed with `Expected the target word in the visible reader passage: Amberquartz`. Each report included a screenshot, visible text and driver log. [Rehearsal run](https://github.com/muhannadnouri/papercut.io/actions/runs/45551501384) · [Linux artifact](https://github.com/muhannadnouri/papercut.io/actions/runs/45551501384/artifacts/14994297173) · [Windows artifact](https://github.com/muhannadnouri/papercut.io/actions/runs/45551501384/artifacts/14994652519)
 
 A passing DS-003 on a candidate build now covers the pasted-text font-size and Return sequence in [reader check 3](bug-squash-smoke-tests.md#reader-restoration-and-search) for that OS. Font-family changes, another search and clearing the search mark, and restoration in other formats retain their manual checks.
+
+## 9. Restore a PDF bookmark after restart
+
+Run `npm run smoke:desktop -- --case DS-004` for this case alone. The checked-in **Estuary Survey** PDF contains seven tall pages with embedded text. Its [fixture generator](../scripts/fixtures/desktop-smoke/generate-pdf.py) needs ReportLab only when regenerating the PDF.
+
+1. Import the PDF through the desktop file-open entry point in a fresh profile. Open it from **Library → Books**, confirm it starts on page 1, then use the page control to go to page 6.
+2. Confirm “Copper buoys mark the inlet.” is below the viewport at the top of page 6. Scroll it into view, verify the page and passage together, and save the bookmark.
+3. Close the app, confirm the process exits, and launch it again with the same profile. Open the book from Library. Read the page control and use the rendered PDF text layer and a viewport hit test to confirm page 6 and the visible passage. This phase issues no search, scroll, page navigation or Jump command.
+
+**Verification.** DS-001 through DS-004 passed on Ubuntu 24.04 and Windows Server 2022 at verification revision `ee9f4dfb`. Both downloaded reports showed process exit, a new PID, Library reopen, and the successful page and passage check. DS-004 took 5.20 seconds on Linux and 6.19 seconds on Windows. [Hosted run and artifacts](https://github.com/muhannadnouri/papercut.io/actions/runs/45553603769)
+
+**Next acceptance check.** On a disposable revision, restore the correct PDF page at its top and discard the saved vertical offset. Require DS-004 to fail after Library reopen on both platforms with page 6 selected and the passage out of view. Then retire the late-page PDF portion of reader check 2 for passing candidate builds on the tested OS.

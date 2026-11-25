@@ -1,5 +1,6 @@
 # Preserve this ASCII PDF's xref byte offsets on CRLF checkouts.
 scripts/fixtures/pdf/find-unicode-wraps.pdf binary
+"scripts/fixtures/desktop-smoke/Estuary Survey.pdf" binary
 
 # Preserve the upstream bytes verified by the ORT license SHA-256 pins.
 src-tauri/licensing/onnxruntime/LICENSE -text

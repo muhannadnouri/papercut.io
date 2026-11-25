@@ -208,7 +208,7 @@ Run the focused frontend unit tests with:
 npm test
 ```
 
-For a manual pre-PR check of search, bookmark restoration after restart or a font-size change, and recovery from an invalid audiobook import in a built desktop app, run `npm run smoke:desktop`. See the [local prerequisites and failure reports](docs/desktop-smoke-e2e.md#running-the-reading-journey). To check both Linux and Windows before opening a PR, [dispatch the desktop-smoke CI scope on your pushed branch](docs/desktop-smoke-e2e.md#run-on-a-pushed-branch). The [owner checklist](docs/bug-squash-smoke-tests.md#desktop-smoke-coverage) identifies which manual checks a passing build covers.
+For a manual pre-PR check of search, text and PDF bookmark restoration after restart, return to a text bookmark after a font-size change, and recovery from an invalid audiobook import in a built desktop app, run `npm run smoke:desktop`. See the [local prerequisites and failure reports](docs/desktop-smoke-e2e.md#running-the-reading-journey). To check both Linux and Windows before opening a PR, [dispatch the desktop-smoke CI scope on your pushed branch](docs/desktop-smoke-e2e.md#run-on-a-pushed-branch). The [owner checklist](docs/bug-squash-smoke-tests.md#desktop-smoke-coverage) identifies which manual checks a passing build covers.
 
 Run the Rust library tests with the committed dependency lockfile:
 
