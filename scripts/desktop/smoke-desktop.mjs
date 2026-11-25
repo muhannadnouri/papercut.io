@@ -1,13 +1,18 @@
-import { execFileSync } from 'node:child_process'
+import {
+  execFileSync,
+  spawnSync,
+} from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   statSync,
 } from 'node:fs'
+import { setTimeout as delay } from 'node:timers/promises'
 import { tmpdir } from 'node:os'
 import {
   join,
@@ -88,8 +93,31 @@ if (!existsSync(artifact)) {
 const evidence = mkdtempSync(join(tmpdir(), 'papercut-smoke-report-'))
 console.log('Artifact', artifact, 'Build/preflight ms', Date.now() - started, 'Report', evidence)
 
+/** The document portal can briefly outlive D-Bus shutdown. Never descend into its FUSE mount. */
+async function removeProfile(profile) {
+  if (linux) {
+    for (let attempt = 0; ; attempt++) {
+      const result = spawnSync('rm', ['--one-file-system', '-rf', '--', profile], { encoding: 'utf8' })
+      if (result.error) {
+        throw result.error
+      }
+      if (result.status === 0 && !existsSync(profile)) {
+        return
+      }
+      if (attempt === 20) {
+        throw Error('Unable to remove smoke profile ' + profile + ': ' + result.stderr)
+      }
+      await delay(250)
+    }
+  }
+  rmSync(profile, {
+    recursive: true,
+    force: true,
+  })
+}
+
 // Keep the two launches of a restart case together in their own disposable desktop.
-function runCase(id, caseFile) {
+async function runCase(id, caseFile) {
   const report = join(evidence, id)
   mkdirSync(report)
   console.log(id, 'Report', report)
@@ -126,16 +154,30 @@ function runCase(id, caseFile) {
       })
     }
   } finally {
-    rmSync(profile, {
-      recursive: true,
-      force: true,
-    })
+    await removeProfile(profile)
   }
 }
 
+// Known Folders ignore the WebView2 profile. Move stores from the previous completed
+// case aside in the disposable account, on the same volume, before the next launch.
+function archiveWindowsCaseStores(id) {
+  for (const base of new Set([process.env.APPDATA, process.env.LOCALAPPDATA])) {
+    const store = join(base, 'io.papercut.desktop')
+    if (existsSync(store)) {
+      const archive = mkdtempSync(join(base, 'papercut-smoke-' + id + '-'))
+      renameSync(store, join(archive, 'io.papercut.desktop'))
+    }
+  }
+}
+
+let previousCase
 for (const [id, file] of cases) {
   if (values.case === undefined || values.case === id) {
-    runCase(id, file)
+    if (!linux && previousCase) {
+      archiveWindowsCaseStores(previousCase)
+    }
+    await runCase(id, file)
+    previousCase = id
   }
 }
 console.log('Desktop smoke passed. Total ms', Date.now() - started)

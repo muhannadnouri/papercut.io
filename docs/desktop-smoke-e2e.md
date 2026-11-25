@@ -126,7 +126,7 @@ Document the proven host command, OS prerequisites, artifact selection, profile 
 
 ## 7. Specify the external import recovery journey
 
-**Proposed scope for review.** Cover item 2 of the [external import checklist](bug-squash-smoke-tests.md#external-imports-and-visible-errors) on Linux and Windows. Use a valid audiobook bundle for recovery so both attempts exercise the same native importer. The acceptance sequence below is ready for implementation. Execution evidence is pending.
+**Proposed scope for review.** Cover item 2 of the [external import checklist](bug-squash-smoke-tests.md#external-imports-and-visible-errors) on Linux and Windows. Use a valid audiobook bundle for recovery so both attempts exercise the same native importer. The valid-bundle handoff is the first DS-002 checkpoint. Invalid-file dismissal and recovery remain separate acceptance steps.
 
 ### Case files and reporting
 
@@ -135,7 +135,7 @@ Keep one independently runnable user journey per file in `scripts/desktop/cases/
 | Stable case ID | Case file | User-visible outcome |
 | --- | --- | --- |
 | `DS-001` | `DS-001-reading-bookmark.mjs` | Find an off-screen passage and restore its bookmark after restarting Papercut. |
-| `DS-002` | `DS-002-bundle-import-recovery.mjs` | Dismiss an invalid bundle error and open a valid bundle in the same session. |
+| `DS-002` | `DS-002-bundle-import-recovery.mjs` | Open a valid bundle in the running reader. Planned extension: recover from an invalid bundle first. |
 
 Use the filename prefix as the case ID in the owner checklist, log lines and per-case report directories. Keep the ID when wording changes, never recycle it, and reject duplicate IDs. Keep fixture content, selectors and outcome assertions with their case. Keep artifact preparation, session lifecycle, process cleanup and failure capture in the shared runner. Add function comments where platform constraints or fixture intent need explanation.
 
@@ -143,7 +143,13 @@ Use the filename prefix as the case ID in the owner checklist, log lines and per
 
 **Case split accepted.** At verification revision `291779fb`, Ubuntu 24.04 and Windows Server 2022 each passed both the full suite and the focused DS-001 command. Each downloaded artifact contained the case driver log and a command log showing two distinct app PIDs and the restored-bookmark check. Only the temporary verification workflow duplicated the OS jobs. The final scripts received lint formatting and matched the probe scripts after syntax normalization. Both commands also passed against the local Linux AppImage. A deliberate failure in a disposable Linux copy recorded the case ID and search step, screenshot, visible text and driver log. CLI regression tests cover an empty suite, unknown ID and duplicate ID before build. [Four-job verification run](https://github.com/muhannadnouri/papercut.io/actions/runs/45528810475)
 
-When the second case lands, build once per OS, execute the cases serially with fresh native and WebView state per case, and verify each passes alone and together. On Windows retain the disposable-user preflight and isolate the native Known Folder stores between cases as well as WebView2 data. Preserve evidence for each case and return a failing suite status if either fails.
+### Running independent cases
+
+The manual CI matrix runs Linux and Windows concurrently. Within each OS job the runner builds once, gives each case a fresh desktop profile, and runs cases in sequence. On the disposable Windows account it moves the preceding case’s native stores aside in their original Known Folders before the next case, and uses a fresh WebView2 folder. Dispose of the account after the run. A local change to import handling can be checked with `npm run smoke:desktop -- --case DS-002 --artifact PATH`.
+
+DS-002 launches the executable with one file argument while the original app stays open. The second invocation forwards the file and exits. The existing WebDriver session then reads the expected passage and checks the original app PID. These observations depend on sharing the single-instance endpoint within the case.
+
+If cumulative journey time starts to dominate a pre-PR run, split independent case IDs across isolated workers. Build once per OS and distribute the same artifact to its workers, including the executable’s adjacent resources and DLLs on Windows. Each Linux worker needs its own D-Bus session, display and profile. Use a separate disposable Windows VM or account with an isolated interactive desktop per worker. Give each worker its own driver ports and evidence paths. Keep each case’s steps on one worker. Compare total wall time and runner minutes, including artifact transfer and provisioning, before adopting the split. [WebdriverIO suite organization](https://webdriver.io/docs/organizingsuites)
 
 ### Import journey acceptance
 
@@ -153,4 +159,13 @@ When the second case lands, build once per OS, execute the cases serially with f
 4. **Prove recovery in the same session.** Immediately after the reader dismissal, deliver the valid bundle through the same path. Require its expected passage to appear in the reader and its unique document title to appear once on return to Library. Keep the same app process and profile across the invalid and valid deliveries so a restart cannot clear a stuck import.
 5. **Verify before retiring manual work.** Reuse the existing manual `desktop-smoke` matrix, build each OS artifact once, and retain separate step evidence for reading and import. Require both journeys to pass at the same candidate SHA on Linux and Windows. On a disposable revision suppress the visible import error and confirm the new assertion fails on each platform. Record run links, failed steps and clean results before updating item 2. Installed file associations, cold starts, busy/multi-file delivery, audible playback and mobile provider behavior retain their existing owner checks.
 
-**After verifying the case split.** Prove the fixture and live single-instance delivery (steps 1–2) on both platforms before wiring the two-surface assertions into the permanent smoke command.
+**Valid delivery accepted.** On revision `0fd7109f` both hosted jobs built once and passed DS-001 followed by DS-002. The second executable invocation exited successfully and the original WebDriver session displayed the exact fixture paragraph. Each downloaded report confirmed the original PID and included driver logs for both cases. [Linux and Windows verification](https://github.com/muhannadnouri/papercut.io/actions/runs/45532606012)
+
+| Platform | Build and preflight | DS-001 journey | DS-002 journey | Original PID confirmed after delivery |
+| --- | ---: | ---: | ---: | ---: |
+| Ubuntu 24.04 | 7m 47s | 16.79s | 1.45s | 25934 |
+| Windows Server 2022 | 8m 17s | 18.13s | 3.36s | 4900 |
+
+The [fixture generator](../scripts/fixtures/desktop-smoke/generate.py) reproduces the checked-in 4,218-byte HTML audiobook with a single silent WAV chunk. The smoke command uses the checked-in bundle directly. Locally, a disposable Linux control launched the executable without its file argument. The reader assertion timed out and produced a screenshot and text dump. An earlier hosted Linux run passed delivery, then encountered a document-portal FUSE mount during cleanup. The runner now confines removal to the profile filesystem and retries briefly as the mount clears.
+
+**Next checkpoint.** Extend DS-002 with the Library and reader error-dismissal checks and same-session recovery (steps 3–4). Keep the manual error-recovery check until the clean and deliberately failing rehearsals in step 5.

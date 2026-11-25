@@ -108,7 +108,11 @@ try {
       pid = appPid()
       assert.ok(Number.isSafeInteger(pid) && pid > 1 && pid !== previousPid, 'Expected a new Papercut process')
       console.log(caseId, 'App PID', pid)
-      await phase(browser, progress)
+      await phase(browser, progress, {
+        application,
+        pid,
+        appPid,
+      })
       if (process.platform === 'win32') {
         progress('close the Windows app normally')
         // Let WebView2 finish its storage writes before releasing the driver session.
