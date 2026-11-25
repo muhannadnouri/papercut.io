@@ -88,13 +88,33 @@ gh run watch RUN_ID --repo muhannadnouri/papercut.io --exit-status
 
 Compare the run’s head SHA with the commit you intend to submit. After the routing job, Linux and Windows each build once and execute the local smoke command. Both jobs can finish independently. Download the seven-day evidence from the run’s **Artifacts** section, or use `gh run download RUN_ID --repo muhannadnouri/papercut.io --pattern 'desktop-smoke-*' --dir smoke-evidence`. The artifact names include the OS and full SHA. Look in `desktop-smoke.log` for the last step and the report directory for driver output and available failure details. For a provisioning error before the command starts, use the failed step’s Actions log.
 
-**Stage 4 verification.** The manual dispatch tested clean revision `24f61427` on Ubuntu 24.04 and Windows Server 2022. Both jobs built Papercut and restored the saved passage in a new process. The Linux command took 7m 05s including a 14.1s journey. The Windows command took 12m 43s including a 23.0s journey. Both downloaded artifacts contained the command log and driver log, with the expected SHA and separate app PIDs in the command log. The run scheduled the routing job and the two smoke legs. Local checks also verified routing for all five previous dispatch scopes and the schedule. Independent failure behavior will be exercised by the Stage 5 rehearsals. [Manual run and artifacts](https://github.com/muhannadnouri/papercut.io/actions/runs/45522343407).
+**Stage 4 verification.** The manual dispatch tested clean revision `24f61427` on Ubuntu 24.04 and Windows Server 2022. Both jobs built Papercut and restored the saved passage in a new process. The Linux command took 7m 05s including a 14.1s journey. The Windows command took 12m 43s including a 23.0s journey. Both downloaded artifacts contained the command log and driver log, with the expected SHA and separate app PIDs in the command log. The run scheduled the routing job and the two smoke legs. Local checks also verified routing for all five previous dispatch scopes and the schedule. Stage 5 records per-platform failure evidence from the same matrix. [Manual run and artifacts](https://github.com/muhannadnouri/papercut.io/actions/runs/45522343407).
 
 ## 5. Prove the checks catch regressions
 
 On a disposable trial revision, force search-result navigation to land at the beginning. Repeat separately with bookmark restoration disabled. Run both controls on both platforms. Remove the trial changes, rebuild the good revision, and repeat ten warm journeys per OS without retries using fresh profiles. Separate cold build, warm build and journey timings.
 
 **Acceptance.** The first defect fails at the search passage check and the second fails only after relaunch. Capture representative failure evidence. Record ten consecutive clean passes per OS, timings, flakiness observed and any limits before promoting the journey to manual-checklist coverage.
+
+### Rehearsal evidence
+
+The fault revisions each changed one application behavior over Stage 4 (`7aabf191`). Both used the committed smoke command and assertions. The following failures were expected and verified against the downloaded platform artifacts.
+
+| Disposable revision | Change | Observed on Ubuntu 24.04 and Windows Server 2022 |
+| --- | --- | --- |
+| [Search control, 538478dc](https://github.com/muhannadnouri/papercut.io/actions/runs/45525109464) | Drop the reader target when opening the named search result. | The first app process opened the document. The viewport assertion failed at `check search destination`, before bookmark save. |
+| [Bookmark control, 8abcb975](https://github.com/muhannadnouri/papercut.io/actions/runs/45525116146) | Skip the saved-location seek while letting restoration report completion. | Search navigation, bookmark save and process exit succeeded. A second process reopened the book from Library. The viewport assertion failed at `check restored bookmark`. |
+
+All four failure reports contained `Expected the target word in the visible reader passage`. Each had a screenshot and a text dump containing the target word. The failing observation was its position on screen.
+
+The [clean control, 69e5be3d](https://github.com/muhannadnouri/papercut.io/actions/runs/45525122922) used the Stage 4 application and smoke runner. On each fresh hosted VM it built once without a restored Rust cache, rebuilt immediately against the same target directory, then ran ten consecutive journeys against the warm build. The Linux target was the AppImage and the Windows target was the release executable in its build layout. Each repetition used a fresh profile shared across its two launches. On Windows the trial archived the native stores created by the previous repetition before starting the next. The artifact SHA-256 matched before and after the ten runs.
+
+| Platform | Cold build | Warm build | Journey median (range) | Consecutive passes |
+| --- | ---: | ---: | ---: | ---: |
+| Ubuntu 24.04 | 10m 06s | 4m 11s | 26.1s (25.7–26.9s) | 10/10 |
+| Windows Server 2022 | 12m 09s | 4m 11s | 12.8s (12.5–19.2s) | 10/10 |
+
+**Stage 5 accepted.** All twenty clean journeys completed without retries. Each OS produced ten separate reports and twenty app process launches. Build times are one observation per condition and exclude runner provisioning. Journey times measure the driver and UI portion after build and artifact preparation. This sample covers the pasted-text workflow on these two desktop environments. Stage 6 can retire the corresponding manual assertions for a build with a passing smoke result.
 
 ## 6. Hand off the workflow and retire matching checks
 
