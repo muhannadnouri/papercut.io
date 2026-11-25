@@ -15,6 +15,7 @@ on:
         options:
           - full
           - desktop
+          - desktop-smoke
           - mobile
           - silma-runtime
           - cheap
@@ -80,6 +81,10 @@ jobs:
                 desktop_packaging=true
                 ios_packaging=true
                 silma_runtime=true
+                ;;
+              desktop-smoke)
+                # The dedicated smoke matrix builds the checkout once per OS.
+                code_checks=false
                 ;;
               desktop)
                 desktop_packaging=true
@@ -384,11 +389,13 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v6
+      - &desktop-checkout
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
-      - name: Install system dependencies (Linux)
+      - &desktop-linux-deps
+        name: Install system dependencies (Linux)
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
@@ -407,22 +414,26 @@ jobs:
             gstreamer1.0-plugins-base \
             gstreamer1.0-plugins-good
 
-      - name: Setup Node.js
+      - &desktop-node
+        name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
 
-      - name: Setup Rust
+      - &desktop-rust
+        name: Setup Rust
         uses: dtolnay/rust-toolchain@1.98.1
 
-      - name: Cache Rust build artifacts
+      - &desktop-cache
+        name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
           shared-key: desktop
 
-      - name: Install dependencies
+      - &desktop-npm
+        name: Install dependencies
         run: npm ci
 
       - name: Build Tauri app
@@ -534,6 +545,66 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw "Cannot inspect exports: $($file.Name)" }
             }
           }
+
+  desktop-smoke:
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' && inputs.validation_scope == 'desktop-smoke'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux
+          - os: windows-2022
+            platform: windows
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - *desktop-checkout
+      - *desktop-linux-deps
+      - *desktop-node
+      - *desktop-rust
+      - *desktop-cache
+      - *desktop-npm
+
+      - name: Install Linux smoke drivers
+        if: matrix.platform == 'linux'
+        run: sudo apt-get install -y webkit2gtk-driver xvfb xauth xdotool dbus-daemon
+
+      - name: Install Windows driver for the installed WebView2 runtime
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $runtime = Get-ChildItem "${env:ProgramFiles(x86)}/Microsoft/EdgeWebView/Application/*/msedgewebview2.exe" |
+            Sort-Object { [version]$_.VersionInfo.ProductVersion } -Descending | Select-Object -First 1
+          if (!$runtime) { throw 'WebView2 runtime missing' }
+          $version = $runtime.VersionInfo.ProductVersion
+          Write-Host "WebView2 and EdgeDriver $version"
+          Invoke-WebRequest "https://msedgedriver.microsoft.com/$version/edgedriver_win64.zip" -OutFile "$env:RUNNER_TEMP/edgedriver.zip"
+          Expand-Archive "$env:RUNNER_TEMP/edgedriver.zip" "$env:RUNNER_TEMP/edgedriver"
+          "$env:RUNNER_TEMP/edgedriver" >> $env:GITHUB_PATH
+
+      - name: Install official Tauri driver
+        run: cargo install tauri-driver --locked --version 2.1.0
+
+      - name: Build and run the desktop smoke suite
+        shell: bash
+        env:
+          TMPDIR: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+          TEMP: ${{ runner.temp }}
+        run: npm run smoke:desktop 2>&1 | tee "$RUNNER_TEMP/desktop-smoke.log"
+
+      - name: Upload desktop smoke evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-smoke-${{ matrix.platform }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/desktop-smoke.log
+            ${{ runner.temp }}/papercut-smoke-report-*/**/*
+          if-no-files-found: warn
+          retention-days: 7
 
   build-android:
     needs: [changes, checks]

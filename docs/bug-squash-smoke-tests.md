@@ -1,9 +1,8 @@
 # PR 85 review fixes: owner smoke checklist
 
 Run against the candidate containing all four review-fix stages. Record the build
-or commit, OS/device, book, result, and diagnostics for any failure. These manual
-checks are pending until an owner records their results; passing unit/browser
-tests does not establish device or audible-playback acceptance.
+or commit, OS/device, book, result, and diagnostics for any failure. Record desktop smoke evidence as described below. The remaining checks need
+owner observations on the relevant devices.
 
 Start on desktop and Android; repeat on iOS when a build is available. Leave any
 untested platform explicit. Use an existing large EPUB/HTML audiobook, a compatible
@@ -11,20 +10,45 @@ older imported audiobook bundle, and an embedded-text PDF with saved audio. Incl
 or RTL text and an OCR PDF if available. Existing saved audio needs no regeneration
 for these fixes; do not edit saved manifests to manufacture fault cases.
 
+## Desktop smoke coverage
+
+For a local Linux build, run `npm run smoke:desktop` from the repository root.
+For pre-PR evidence on both platforms, push the candidate commit and dispatch
+`desktop-smoke` on that branch. Record the tested SHA, the result for each OS
+and the run URL. Credit a passing leg only for its tested build and platform.
+Rerun on the new SHA if the candidate changes. [Local prerequisites and reports](desktop-smoke-e2e.md#running-the-reading-journey) · [Branch dispatch and artifact retrieval](desktop-smoke-e2e.md#run-on-a-pushed-branch)
+
+Skip the covered observation when the named case passes on the candidate SHA and OS. DS-001, DS-003, DS-005 and DS-009 use **Paste Text**. DS-004 uses an embedded-text PDF.
+
+| Reader check | What the desktop run verifies | What still needs an owner |
+| --- | --- | --- |
+| 1. Reopen from Library | DS-001: After saving a bookmark and restarting the app, the saved passage is in the viewport and the restoration notice’s Top control works. | Use the large book to check the loading status, a flash of the beginning, a second jump and the number of notices. |
+| 2. Rapid reopen and late-page PDF restore | DS-004: Reopen the embedded-text PDF from Library after restart and verify the saved page and passage are visible. DS-005: Reopen the same pasted-text book twice within 20 seconds in one process, verify the saved passage and use Top. DS-009: Leave a late search result without bookmarking, reopen from Library and verify the first entry and usable Back control. | Check rapid reopen and unbookmarked opening for other formats. |
+| 3. Open a search result | DS-001: Opening the named Keyword result brings its off-screen target into the viewport. The journey then bookmarks that target. DS-003: With A already bookmarked, open search result B, increase the font size and use **Jump to Bookmark**. A returns to view at the larger size. | Change font family, repeat after another search and clear the search mark. Check the large-book and other-format paths separately. |
+
+Keep remaining format-specific, playback, accessibility,
+installation and device checks on their listed platforms. If a smoke leg fails,
+open its command log and read the step and exception in `failure.txt` when
+available. For UI failures, inspect the screenshot and visible-text capture
+alongside the exception. For setup failures, inspect the failed Actions step.
+
 ## Reader restoration and search
 
 1. Save a bookmark well into a large book, close it, and reopen from Library.
    Expect the restoring status, then the saved passage without a second jump or
    a flash of the beginning. Confirm a single restoration notice and usable controls.
-2. Close and reopen the same book again within 20 seconds. Its restore must finish
-   normally without an earlier open's timer revealing it prematurely. Also open a
-   book without a bookmark, then restore a late-page PDF bookmark.
-3. Open a search result away from the bookmark. Confirm the result opens at its
+2. For rapid reopen outside DS-005 coverage, close and reopen the same book again within 20 seconds. Its restore must finish
+   normally without an earlier open's timer revealing it prematurely. Use DS-009 for the pasted-text unbookmarked path on passing desktop builds. For remaining builds and formats, open a book without a bookmark. Manually restore a late-page PDF bookmark on platforms or builds without a passing DS-004.
+3. Follow the [desktop smoke coverage table](#desktop-smoke-coverage) for the portions covered by a passing DS-001 or DS-003. Open a search result away from the bookmark. Confirm the result opens at its
    target; Return to bookmark restores the saved passage. Repeat after changing
    reader font/size and after another search, including clearing the search mark.
    No stuck restoration status or jump to an unrelated passage should occur.
 
 ## Playback targets and later commands
+
+A passing DS-006 on the candidate SHA and OS covers selecting the final passage in the saved HTML fixture, starting the correct chunk, advancing playback and highlighting that passage. For item 1, keep the audible checks, early and middle targets, viewport action, older user bundles, PDF/OCR and other unavailable targets. A passing DS-014 covers a valid saved HTML book with an unnarrated selection, its visible unavailable message, idle player and explicit recovery from the beginning. [DS-006 evidence](desktop-smoke-e2e.md#11-play-a-saved-audiobook-from-a-selection)
+
+On the tested build and OS, DS-008 covers the ordinary jump back to the current chunk boundary in item 2. DS-010 covers Stop followed by Play from beginning in the same book in item 3. DS-007 covers holding and resuming the player position after a proportional start in item 4. Continue the other-book, skip, audible, mobile and background checks. [Cases and rehearsal evidence](desktop-smoke-e2e.md#12-playback-commands-and-opening-an-unbookmarked-book)
 
 1. In the existing large book and an imported older bundle, use Play from here at
    early, middle, and late passages. Repeat from a text selection. Listen for the
@@ -45,12 +69,16 @@ for these fixes; do not edit saved manifests to manufacture fault cases.
 
 ## External imports and visible errors
 
+A passing DS-011 covers two distinct bundle paths forwarded together to the running desktop executable, one Library entry for each, and reopening both. Retain file-manager associations, cold launch, mixed EPUB/bundle delivery and the busy-operation check.
+
 1. From the OS file manager, open a valid `.papercut-audiobook` with Papercut both
    closed and already running. Where OS multi-open is available, open an EPUB and
    two distinct bundles together. Also open another bundle while an import or
    audiobook operation is busy. Each requested item should finish once, with no
    missing bundle, duplicate work, overlapping import, or stuck busy state.
-2. Make a disposable plain-text file with a `.papercut-audiobook` extension. Open
+2. **Covered by DS-002 on Linux and Windows.** When the case passes on the candidate
+   build and OS, record its run URL and skip this manual check there. On other
+   platforms or builds without a passing result, make a disposable plain-text file with a `.papercut-audiobook` extension. Open
    it while Library is active and again with a reader open. Expect one visible,
    dismissible error on the current surface without forced navigation. A valid
    import must still work afterward. Keep existing valid bundles unchanged.

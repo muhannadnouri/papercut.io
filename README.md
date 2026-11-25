@@ -208,6 +208,8 @@ Run the focused frontend unit tests with:
 npm test
 ```
 
+Run `npm run smoke:desktop` for the ten built-app checks covering Library reopen, search, bookmarks, audiobook import recovery and saved playback controls. See the [local prerequisites and failure reports](docs/desktop-smoke-e2e.md#running-the-reading-journey). To check both Linux and Windows before opening a PR, [dispatch the desktop-smoke CI scope on your pushed branch](docs/desktop-smoke-e2e.md#run-on-a-pushed-branch). The [owner checklist](docs/bug-squash-smoke-tests.md#desktop-smoke-coverage) identifies which manual checks a passing build covers.
+
 Run the Rust library tests with the committed dependency lockfile:
 
 ```bash
