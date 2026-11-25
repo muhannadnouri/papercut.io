@@ -110,5 +110,10 @@ export async function openFromLibrary(browser) {
 export async function checkRestoredPassageAndTop(browser) {
   await visiblePassage(browser)
   await click(browser, '//div[@role="status" and contains(., "Jumped to bookmark.")]//button[normalize-space(.)="Top"]')
+  await browser.waitUntil(async () => {
+    const position = await passagePosition(browser)
+    return position && position.top > 2 * position.height
+  })
+  console.log('Former Top distance assertion passed')
   await visiblePassage(browser, 'Reading entry 1.')
 }

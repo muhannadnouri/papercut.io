@@ -174,12 +174,17 @@ function archiveWindowsCaseStores(id) {
 
 let previousCase
 for (const [id, file] of cases) {
-  if (values.case === undefined || values.case === id) {
+  if (['DS-001', 'DS-005'].includes(id)) {
     if (!linux && previousCase) {
       archiveWindowsCaseStores(previousCase)
     }
-    await runCase(id, file)
+    try {
+      await runCase(id, file)
+    } catch (error) {
+      console.error(error)
+      process.exitCode = 1
+    }
     previousCase = id
   }
 }
-console.log('Desktop smoke passed. Total ms', Date.now() - started)
+console.log('Partial Top rehearsal finished. Total ms', Date.now() - started)
