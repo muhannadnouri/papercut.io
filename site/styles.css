@@ -381,35 +381,23 @@ h1 em {
 .intro .button-secondary { background: transparent; border-color: transparent; }
 .intro .button-secondary:hover { text-decoration: underline; }
 
-.passage-frame {
-  margin: 0;
-  padding: clamp(18px, 4vw, 32px);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--panel);
-  text-align: start;
+.passage-frame { margin: 0; min-width: 0; }
+.passage-frame a { display: block; border-radius: 14px; }
+.passage-frame .capture-dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) .capture-light { display: none; }
+  html:not([data-theme]) .capture-dark { display: block; }
 }
+html[data-theme="dark"] .capture-light { display: none; }
+html[data-theme="dark"] .capture-dark { display: block; }
+.passage-frame img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: inherit; }
 
 .intro .passage-frame {
   max-width: 640px;
   margin: 32px auto 0;
-  box-shadow: 0 14px 38px var(--shadow-preview);
 }
+.intro .passage-frame img { box-shadow: 0 14px 38px var(--shadow-preview); }
 
-.passage-frame figcaption { color: var(--quiet); font-size: 0.85rem; }
-.book-title { margin: 1em 0 0; font-weight: 650; }
-.passage, .passage-frame blockquote {
-  margin: 12px 0;
-  font: 1.35rem/1.55 Georgia, serif;
-}
-
-.passage-frame blockquote {
-  padding-inline-start: 12px;
-  border-inline-start: 3px solid var(--accent);
-}
-
-.passage-frame mark { background: var(--accent-soft); color: var(--accent-soft-text); }
-.playing { margin-bottom: 0; color: var(--accent-text); }
 .walkthrough { padding: clamp(24px, 6vw, 58px); }
 .walkthrough h2 { margin: 0 0 24px; font-size: clamp(1.7rem, 4vw, 2.3rem); }
 .walk-step {

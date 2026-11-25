@@ -46,7 +46,6 @@
     "header.text.012": "Perguntas frequentes",
     "header.text.013": "Contato",
     "intro.markup.001": "<div class=\"intro-actions\" role=\"group\" aria-label=\"Ações principais\">",
-    "features.text.003": "Pesquisar",
     "features.text.008": "Leve seus documentos para leitores locais de HTML, EPUB, PDF, TXT e Markdown. Os PDFs mantêm as páginas originais, enquanto o OCR off-line pode tornar páginas digitalizadas em inglês ou árabe pesquisáveis e audíveis.",
     "features.text.011": "Importe vários arquivos de uma vez, navegue por capas ou listas, organize pastas, edite títulos, salve o áudio gerado e mova documentos e audiolivros selecionados entre dispositivos com Papercut.",
     "audiobooks.text.010": "Salve pacotes de audiolivros para compartilhar, transferir ou importar novamente no Papercut em outro dispositivo.",
@@ -293,9 +292,6 @@
     "walk.listen.copy": "Ouça o audiolivro salvo a partir desse trecho.",
     "walk.placeholder": "Espaço para a captura de tela",
     "walk.book": "Notas de campo do porto",
-    "walk.query": "marégrafo",
-    "walk.before": "Ao amanhecer, verificamos o ",
-    "walk.after": " junto ao cais leste.",
     "walk.playing": "Reproduzindo audiolivro",
     "downloads.label.009": "Baixar APK do Papercut para Android",
     "downloads.label.011": "Baixar AppImage do Papercut para Linux",
@@ -319,7 +315,6 @@
     "faq.help": "Configuração e suporte",
     "downloads.install": "Instalação",
     "library.title": "Traga sua própria biblioteca",
-    "library.scan": "Texto reconhecido em uma página digitalizada de PDF",
     "audio.title": "Crie seus próprios audiolivros",
     "audio.setup": "Baixe uma voz uma vez e depois gere e reproduza audiolivros no seu dispositivo, sem assinatura nem cobrança por uso.",
     "audio.phone": "Reprodução na tela de bloqueio do Android",
@@ -337,6 +332,11 @@
     "search.setup": "Para buscar por significado, baixe o modelo opcional, ative a busca semântica experimental e crie o índice no seu dispositivo. Depois, você poderá buscar offline.",
     "walk.find.detail": "Se lembrar da ideia, experimente a busca semântica baseada em embeddings para encontrar trechos com significado parecido.",
     "walk.read.detail": "Marque o trecho para voltar a ele na próxima vez que abrir o documento.",
-    "walk.listen.detail": "Acompanhe o texto destacado ou adiante a leitura enquanto a narração continua."
+    "walk.listen.detail": "Acompanhe o texto destacado ou adiante a leitura enquanto a narração continua.",
+    "capture.path": "../assets/screenshots",
+    "capture.find": "Um resultado para tide gauge em Harbor Field Notes",
+    "capture.read": "O leitor destaca tide gauge no primeiro parágrafo",
+    "capture.listen": "Trecho destacado com os controles de reprodução visíveis",
+    "capture.scan": "Página digitalizada de East Pier at Dawn no leitor de PDF"
   }
 }

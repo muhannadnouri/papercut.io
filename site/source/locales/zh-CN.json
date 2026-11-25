@@ -46,7 +46,6 @@
     "header.text.012": "常见问题",
     "header.text.013": "联系",
     "intro.markup.001": "<div class=\"intro-actions\" role=\"group\" aria-label=\"主要操作\">",
-    "features.text.003": "搜索",
     "features.text.008": "在本地 HTML、EPUB、PDF、TXT 和 Markdown 阅读器中打开您的文档。PDF 保留原始页面，离线 OCR 则可让英语或阿拉伯语扫描页面支持搜索和朗读。",
     "features.text.011": "一次导入多个文件，通过封面或列表浏览，整理文件夹，编辑标题，保存生成的音频，并在 Papercut 设备之间传输所选文档和有声读物。",
     "audiobooks.text.010": "保存有声读物包，以便分享、传输或在另一台设备上重新导入 Papercut。",
@@ -293,9 +292,6 @@
     "walk.listen.copy": "从这一段开始播放已保存的有声书。",
     "walk.placeholder": "截图占位",
     "walk.book": "港口考察笔记",
-    "walk.query": "潮位计",
-    "walk.before": "拂晓时，我们检查了东码头旁的",
-    "walk.after": "。",
     "walk.playing": "正在播放有声书",
     "downloads.label.009": "下载 Papercut Android APK",
     "downloads.label.011": "下载 Papercut Linux AppImage",
@@ -319,7 +315,6 @@
     "faq.help": "安装与支持",
     "downloads.install": "安装说明",
     "library.title": "导入自己的文档库",
-    "library.scan": "扫描 PDF 页面中识别出的文字",
     "audio.title": "制作自己的有声书",
     "audio.setup": "语音下载一次后，就能在设备上生成和播放有声书，无需订阅，也不按用量收费。",
     "audio.phone": "Android 锁屏播放",
@@ -337,6 +332,11 @@
     "search.setup": "如需按含义搜索，请下载可选的搜索模型，启用实验性语义搜索，并在设备上建立索引。之后即可离线搜索。",
     "walk.find.detail": "如果只记得大意，可以试试基于嵌入向量的语义搜索，找到意思相近的段落。",
     "walk.read.detail": "为段落添加书签，下次打开文档时就能回到这里。",
-    "walk.listen.detail": "听朗读时可以跟着高亮文字阅读，也可以在朗读继续时先往下读。"
+    "walk.listen.detail": "听朗读时可以跟着高亮文字阅读，也可以在朗读继续时先往下读。",
+    "capture.path": "../assets/screenshots",
+    "capture.find": "在 Harbor Field Notes 中找到一条 tide gauge 的结果",
+    "capture.read": "阅读器在首段中突出显示 tide gauge",
+    "capture.listen": "朗读段落已高亮，并显示播放控件",
+    "capture.scan": "PDF 阅读器中的 East Pier at Dawn 扫描页"
   }
 }

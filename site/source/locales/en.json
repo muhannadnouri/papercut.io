@@ -46,7 +46,6 @@
     "header.text.012": "FAQ",
     "header.text.013": "Contact",
     "intro.markup.001": "<div class=\"intro-actions\" role=\"group\" aria-label=\"Primary actions\">",
-    "features.text.003": "Search",
     "features.text.008": "Bring your own documents into local HTML, EPUB, PDF, TXT, and Markdown readers. PDFs retain their original pages, while offline English and Arabic OCR can make scanned pages searchable and speakable.",
     "features.text.011": "Import many files at once, browse covers or lists, organize folders, edit titles, save generated audio, and move selected documents and audiobooks between Papercut devices.",
     "audiobooks.text.010": "Save audiobook bundles to share, transfer, or bring back into Papercut on another device.",
@@ -293,9 +292,6 @@
     "walk.listen.copy": "Play your saved audiobook from this passage.",
     "walk.placeholder": "Screenshot placeholder",
     "walk.book": "Harbor Field Notes",
-    "walk.query": "tide gauge",
-    "walk.before": "At first light we checked the ",
-    "walk.after": " beside the east pier.",
     "walk.playing": "Audiobook playing",
     "downloads.label.009": "Download Papercut Android APK",
     "downloads.label.011": "Download Papercut Linux AppImage",
@@ -319,7 +315,6 @@
     "faq.help": "Setup and Support",
     "downloads.install": "Installation",
     "library.title": "Bring Your Own Library",
-    "library.scan": "Recognized text on a scanned PDF page",
     "audio.title": "Make Your Own Audiobooks",
     "audio.setup": "Download a voice once, then generate and play audiobooks on your device without a subscription or usage fees.",
     "audio.phone": "Android lock-screen playback",
@@ -337,6 +332,11 @@
     "search.setup": "To search by meaning, download the optional search model, enable Semantic Search (Experimental), and build the index on your device. You can then search offline.",
     "walk.find.detail": "If you remember the idea, try embedding-based semantic search to find passages with a similar meaning.",
     "walk.read.detail": "Bookmark the passage so you can return to it the next time you open the document.",
-    "walk.listen.detail": "Follow the highlighted text as you listen, or let the narration continue while you read ahead."
+    "walk.listen.detail": "Follow the highlighted text as you listen, or let the narration continue while you read ahead.",
+    "capture.path": "assets/screenshots",
+    "capture.find": "One result for tide gauge in Harbor Field Notes",
+    "capture.read": "The reader highlights tide gauge in the opening paragraph",
+    "capture.listen": "Narration highlights the passage with playback controls visible",
+    "capture.scan": "The scanned East Pier at Dawn page in the PDF reader"
   }
 }

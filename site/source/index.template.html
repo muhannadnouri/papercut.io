@@ -112,11 +112,9 @@
             <a class="button-secondary" href="#preview-title">{{walk.link}}</a>
           </div>
           <figure class="passage-frame">
-              <figcaption>{{walk.placeholder}} · {{walk.listen}}</figcaption>
-              <p class="book-title">{{walk.book}}</p>
-              <blockquote>{{walk.before}}{{walk.query}}{{walk.after}}</blockquote>
-              <p class="playing"><span aria-hidden="true">♫</span> {{walk.playing}}</p>
-            </figure>
+            <a class="capture-light" href="{{capture.path}}/listen.webp"><img src="{{capture.path}}/listen.webp" width="2940" height="1600" alt="{{capture.listen}}"></a>
+            <a class="capture-dark" href="{{capture.path}}/listen-dark.webp"><img src="{{capture.path}}/listen-dark.webp" width="2940" height="1600" alt="{{capture.listen}}"></a>
+          </figure>
         </section>
 
         <section aria-labelledby="preview-title">
@@ -129,10 +127,8 @@
                 <p>{{walk.find.detail}}</p>
               </div>
               <figure class="passage-frame">
-                <figcaption>{{walk.placeholder}} · {{walk.find}}</figcaption>
-                <p class="book-title">{{walk.book}}</p>
-                <p class="query">{{features.text.003}} · <b>{{walk.query}}</b></p>
-                <p class="passage">{{walk.before}}<mark>{{walk.query}}</mark>{{walk.after}}</p>
+                <a class="capture-light" href="{{capture.path}}/find.webp"><img src="{{capture.path}}/find.webp" width="2180" height="925" alt="{{capture.find}}" loading="lazy"></a>
+                <a class="capture-dark" href="{{capture.path}}/find-dark.webp"><img src="{{capture.path}}/find-dark.webp" width="2180" height="925" alt="{{capture.find}}" loading="lazy"></a>
               </figure>
             </article>
             <article class="walk-step" id="read">
@@ -142,9 +138,8 @@
                 <p>{{walk.read.detail}}</p>
               </div>
               <figure class="passage-frame">
-                <figcaption>{{walk.placeholder}} · {{walk.read}}</figcaption>
-                <p class="book-title">{{walk.book}}</p>
-                <p class="passage">{{walk.before}}<mark>{{walk.query}}</mark>{{walk.after}}</p>
+                <a class="capture-light" href="{{capture.path}}/read.webp"><img src="{{capture.path}}/read.webp" width="2330" height="920" alt="{{capture.read}}" loading="lazy"></a>
+                <a class="capture-dark" href="{{capture.path}}/read-dark.webp"><img src="{{capture.path}}/read-dark.webp" width="2330" height="920" alt="{{capture.read}}" loading="lazy"></a>
               </figure>
             </article>
             <article class="walk-step" id="listen">
@@ -154,10 +149,8 @@
                 <p>{{walk.listen.detail}}</p>
               </div>
               <figure class="passage-frame">
-                <figcaption>{{walk.placeholder}} · {{walk.listen}}</figcaption>
-                <p class="book-title">{{walk.book}}</p>
-                <blockquote>{{walk.before}}{{walk.query}}{{walk.after}}</blockquote>
-                <p class="playing"><span aria-hidden="true">♫</span> {{walk.playing}}</p>
+                <a class="capture-light" href="{{capture.path}}/listen.webp"><img src="{{capture.path}}/listen.webp" width="2940" height="1600" alt="{{capture.listen}}" loading="lazy"></a>
+                <a class="capture-dark" href="{{capture.path}}/listen-dark.webp"><img src="{{capture.path}}/listen-dark.webp" width="2940" height="1600" alt="{{capture.listen}}" loading="lazy"></a>
               </figure>
             </article>
           </div>
@@ -168,10 +161,9 @@
               <p>{{features.text.008}}</p>
               <p>{{features.text.011}}</p>
             </div>
-            <figure class="story-capture">
-              <figcaption>{{walk.placeholder}}</figcaption>
-              <strong>{{library.scan}}</strong>
-              <p>{{walk.before}}<mark>{{walk.query}}</mark>{{walk.after}}</p>
+            <figure class="passage-frame">
+              <a class="capture-light" href="{{capture.path}}/scan.webp"><img src="{{capture.path}}/scan.webp" width="2300" height="1785" alt="{{capture.scan}}" loading="lazy"></a>
+              <a class="capture-dark" href="{{capture.path}}/scan-dark.webp"><img src="{{capture.path}}/scan-dark.webp" width="2300" height="1785" alt="{{capture.scan}}" loading="lazy"></a>
             </figure>
           </section>
 

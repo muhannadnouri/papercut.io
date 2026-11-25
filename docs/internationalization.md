@@ -104,35 +104,25 @@ The primary action in the hero and floating navigation links to
 `#downloads-title`. The walkthrough keeps the existing `#preview-title` anchor
 and provides direct links to `#find`, `#read`, and `#listen`. Keep each
 translated example consistent across the search result, reader, and audiobook.
-The `walk.before` and `walk.after` strings include the spacing needed around
-the highlighted query in that language.
-
-The current product frames are labeled placeholders. The hero and Listen step
-depict the same playback state so they can share a capture for each device
-size. Keep captions and walkthrough headings in the locale catalogs when the
-real captures arrive.
+The desktop images follow the selected theme, including the device preference in System mode. Each opens the matching full-resolution capture.
+The hero and Listen share one image. The PDF capture shows the original scanned page.
+The Android lock-screen frame is still a placeholder, and portrait walkthrough captures are pending.
 
 ### Screenshot checklist
 
-Import [Harbor Field Notes](fixtures/screenshots/Harbor%20Field%20Notes.epub) on both devices. Use the first sentence of *East Pier at Dawn* for the walkthrough. Generate and save the short audiobook before capturing playback. Import the [image-only PDF](fixtures/screenshots/East%20Pier%20Scan.pdf) after the search captures to keep the results uncluttered. The walkthrough follows
-*Harbor Field Notes* and the phrase “tide gauge” from a search result to the
-spoken sentence. Save full-resolution PNG masters without captions, frames,
-private files or notifications. Crop separately for the website.
+Keep full-resolution PNG masters. Use the AppImage for desktop website shots, an Android phone or emulator for the portrait website and F-Droid shots, and the iOS build on an iPhone or simulator for the App Store. A narrow AppImage is fine for a website layout preview. Use the same book, query and scenes across platforms.
 
-| Capture | Desktop | Android |
-| --- | --- | --- |
-| Find | Show the query, matching title and excerpt. | Use the same query with the keyboard dismissed. |
-| Read | Open that result with the passage and its context visible. | Show the same passage in the portrait reader. |
-| Listen and hero | Show the active passage and saved audiobook playback controls together. | Capture the same state in portrait. |
-| Scanned PDF | Show a recognized phrase selected on the original scanned page. Use one legible crop for both layouts. | Optional if the desktop crop is hard to read on a phone. |
-| Portable audiobook | Use the Android capture on both layouts. | Show the book title and playback controls on a clean lock screen. |
+1. **Prepare.** Import the [illustrated Harbor Field Notes EPUB](fixtures/screenshots/Harbor%20Field%20Notes.epub) into a clean demo library. Confirm the harbor image follows the opening paragraph of *East Pier at Dawn*. Generate and save this edition’s audiobook. Start in light mode. **Wait to capture.**
+2. **Desktop hero and Listen — complete.** Both themes show the highlighted word “tide,” the harbor image and the full player.
+3. **Desktop Read — complete.** Both themes show the “tide gauge” search match beside the open reader settings with Merriweather selected. The existing Find and scanned PDF pairs complete the desktop set.
+4. **Android Find.** In portrait, search for “tide gauge” and dismiss the keyboard. When the query, title and matching excerpt are visible, **capture light and dark**.
+5. **Android Read.** Tap that result, open **Aa** and choose Atkinson Hyperlegible. Keep the passage and family name visible. Collapse the family list if needed. **Capture light and dark**.
+6. **Android Listen.** Close **Aa**, play the opening paragraph and pause at “tide.” Frame the highlighted passage, harbor image and player together. **Capture light and dark** for the mobile hero and Listen.
+7. **Android lock screen.** Resume playback and lock the phone. Wake the screen. When the media card shows the book title and playback controls, with personal notifications cleared, **capture once** for the portable-audiobook section.
+8. **F-Droid.** Reuse one Android theme. Copy the original Listen, Find and Read PNGs to `fastlane/metadata/android/en-US/images/phoneScreenshots/` as `1.png`, `2.png` and `3.png` in the release revision. **No additional capture.** [F-Droid screenshot metadata](https://f-droid.org/en/docs/All_About_Descriptions_Graphics_and_Screenshots/)
+9. **iOS App Store.** Run the iOS build on a supported iPhone or simulator at an accepted screenshot size. Repeat the Find → Read → Listen actions and **capture once per scene**, in one theme. Supply iPad captures as applicable to the submitted build. [Apple review guidelines §2.3](https://developer.apple.com/app-store/review/guidelines/#accurate-metadata) · [App Store Connect screenshot sizes](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/)
 
-For F-Droid, reuse the unframed Android Listen, Find and Read captures as
-`1.png`, `2.png`, and `3.png` under
-`fastlane/metadata/android/en-US/images/phoneScreenshots/` in the release
-revision. A populated Library is an optional fourth image. When localizing
-screenshots, prioritize an actual Arabic RTL reader capture. Keep explanatory
-captions in the website catalogs.
+For website exports, use identical crop bounds for each light/dark pair and match the selected site theme. Keep captions in the website catalogs. When localizing the captures, prioritize an Arabic RTL reader shot.
 
 ## Translation Rules
 
