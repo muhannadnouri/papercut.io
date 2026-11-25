@@ -18,7 +18,10 @@ import {
 import { setTimeout as delay } from 'node:timers/promises'
 import { remote } from 'webdriverio'
 
-import { withCleanup } from './smoke-cleanup.mjs'
+import {
+  stopDriver,
+  withCleanup,
+} from './smoke-cleanup.mjs'
 
 const [application, report, caseFile] = process.argv.slice(2)
 const caseId = basename(report)
@@ -161,18 +164,8 @@ async function runPhases() {
   }
 }
 
-function stopDriver() {
-  if (driver.pid && driver.exitCode === null) {
-    if (process.platform === 'win32') {
-      execFileSync('taskkill', ['/PID', String(driver.pid), '/T', '/F'], { stdio: 'ignore' })
-    } else {
-      process.kill(-driver.pid, 'SIGTERM')
-    }
-  }
-}
-
 try {
-  await withCleanup(caseId + ' stop driver', runPhases, stopDriver)
+  await withCleanup(caseId + ' stop driver', runPhases, () => stopDriver(driver))
 } catch (error) {
   writeFileSync(join(report, 'failure.txt'), caseId + ' ' + step + '\n' + error.stack)
   throw error
