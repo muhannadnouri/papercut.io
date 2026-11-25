@@ -46,7 +46,7 @@ alongside the exception. For setup failures, inspect the failed Actions step.
 
 ## Playback targets and later commands
 
-A passing DS-006 on the candidate SHA and OS covers selecting the final passage in the saved HTML fixture, starting the correct chunk, advancing playback and highlighting that passage. For item 1, keep the audible checks, early and middle targets, viewport action, older user bundles, PDF/OCR and unavailable targets. [DS-006 evidence](desktop-smoke-e2e.md#11-play-a-saved-audiobook-from-a-selection)
+A passing DS-006 on the candidate SHA and OS covers selecting the final passage in the saved HTML fixture, starting the correct chunk, advancing playback and highlighting that passage. For item 1, keep the audible checks, early and middle targets, viewport action, older user bundles, PDF/OCR and other unavailable targets. A passing DS-014 covers a valid saved HTML book with an unnarrated selection, its visible unavailable message, idle player and explicit recovery from the beginning. [DS-006 evidence](desktop-smoke-e2e.md#11-play-a-saved-audiobook-from-a-selection)
 
 On the tested build and OS, DS-008 covers the ordinary jump back to the current chunk boundary in item 2. DS-010 covers Stop followed by Play from beginning in the same book in item 3. DS-007 covers holding and resuming the player position after a proportional start in item 4. Continue the other-book, skip, audible, mobile and background checks. [Cases and rehearsal evidence](desktop-smoke-e2e.md#12-playback-commands-and-opening-an-unbookmarked-book)
 
@@ -68,6 +68,8 @@ On the tested build and OS, DS-008 covers the ordinary jump back to the current 
    and try Pause/Resume and skip. Stop must prevent later ghost playback.
 
 ## External imports and visible errors
+
+A passing DS-011 covers two distinct bundle paths forwarded together to the running desktop executable, one Library entry for each, and reopening both. Retain file-manager associations, cold launch, mixed EPUB/bundle delivery and the busy-operation check.
 
 1. From the OS file manager, open a valid `.papercut-audiobook` with Papercut both
    closed and already running. Where OS multi-open is available, open an EPUB and

@@ -3,7 +3,6 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { click } from './smoke-reading-fixture.mjs'
 
-const file = fileURLToPath(new URL('../fixtures/desktop-smoke/Harbor Signals.papercut-audiobook', import.meta.url))
 export const target = 'Amber beacons guide the pilot home.'
 
 /** Read the player's rendered progress and the actual reader highlight after selection has been consumed. */
@@ -24,9 +23,15 @@ export function playbackSample(browser, state = 'playing') {
 }
 
 export async function startSelectedPassage(browser, progress, application, selectionText = target) {
-  progress('import the three-chunk Harbor Signals audiobook')
+  await selectBundlePassage(browser, progress, application, 'Harbor Signals', target, selectionText)
+}
+
+/** Import the saved edition, then snapshot the exact reader selection before the menu takes focus. */
+export async function selectBundlePassage(browser, progress, application, title, paragraphText, selectionText = paragraphText) {
+  progress('import ' + title)
+  const file = fileURLToPath(new URL('../fixtures/desktop-smoke/' + title + '.papercut-audiobook', import.meta.url))
   execFileSync(application, [file], { timeout: 15000 })
-  const paragraph = await browser.$(`//*[contains(@class,"document-viewer-shown")]//p[text()="${target}"]`)
+  const paragraph = await browser.$(`//*[contains(@class,"document-viewer-shown")]//p[text()="${paragraphText}"]`)
   await paragraph.waitForDisplayed()
   const options = '.audio-controls .audio-menu-btn'
   await browser.$(options).waitForClickable()
@@ -44,7 +49,7 @@ export async function startSelectedPassage(browser, progress, application, selec
   }, paragraph, selectionText)
   assert.equal(selected, selectionText)
   await click(browser, options)
-  progress('play from selection in the final passage')
+  progress('play from selection: ' + selectionText)
   await click(browser, '//button[normalize-space(.)="Play from selection"]')
 }
 

@@ -144,6 +144,8 @@ Keep one independently runnable user journey per file in `scripts/desktop/cases/
 | `DS-008` | `DS-008-jump-to-chunk-boundary.mjs` | Choose the current chunk in the chunk list and verify its clock restarts near zero. |
 | `DS-009` | `DS-009-open-without-bookmark.mjs` | Reopen unbookmarked pasted text at the beginning after visiting a late search result. |
 | `DS-010` | `DS-010-stop-and-play-from-beginning.mjs` | Stop playback in the final passage, then start from the beginning and verify the opening chunk. |
+| `DS-011` | `DS-011-forward-two-bundles.mjs` | Deliver two bundle paths in one launch and reopen both from the original process. |
+| `DS-014` | `DS-014-unavailable-playback-target.mjs` | Select an unnarrated passage, verify idle feedback, then explicitly play from the beginning. |
 
 Export `phases` as a nonempty array of functions. The worker validates this before starting the driver. Use the filename prefix as the case ID in the owner checklist, log lines and per-case report directories. Keep the ID when wording changes, never recycle it, and reject duplicate IDs. Keep fixture content, selectors and outcome assertions with their case. Keep artifact preparation, session lifecycle, process cleanup and failure capture in the shared runner. Add function comments where platform constraints or fixture intent need explanation.
 
@@ -252,3 +254,14 @@ Use `npm run smoke:desktop -- --case DS-007` for one case, substituting its ID a
 **Verification.** All ten cases passed at `09ef9b63` on Ubuntu 24.04 and Windows Server 2022. DS-007 paused at 56% on both and first observed resumed playback at 56% and 57% respectively. DS-008 jumped from 40% to 0% on both. DS-009 reopened at the first entry, and DS-010 restarted at 0% of chunk one. [Full suite and artifacts](https://github.com/muhannadnouri/papercut.io/actions/runs/45577835416)
 
 **Failure rehearsal.** Disposable revision `4b809575` exercised the four new cases independently. Both platforms detected all four regressions: Resume reset to 0%, choosing the current chunk did nothing, an unbookmarked Library open failed to show the first entry, and Play from beginning selected chunk 3. Each case produced its own failure report. [Rehearsal and artifacts](https://github.com/muhannadnouri/papercut.io/actions/runs/45577841656)
+
+## 13. Forward two bundles and recover from an unavailable playback target
+
+- **DS-011** delivers Harbor Signals and Lantern Field Notes together to a second invocation of the executable. The original reader opens the second book. Library must show one entry per title and each entry must open its own known text in the original process. File-manager registration, cold start and requests delivered during a separate busy operation still need their own checks.
+- **DS-014** selects the revised colophon in Harbor Office Notes. This separate fixture pairs a newer source edition with the original saved narration. Its opening passage still matches, while the revised closing note has no corresponding audio. The case requires the unmatched-passage notice and observes half a second of idle controls without a playing status or active highlight. Explicit **Play from beginning** must then start near zero in chunk one, highlight the harbor office opening passage and advance the meter. The fixture uses silent audio.
+
+## macOS feasibility
+
+The current worker drives the external Tauri driver on Linux and Windows. For macOS, prototype WebdriverIO’s embedded provider in a dedicated smoke build. Register the Rust plugin and its capability only for that build. Reuse the case functions and add macOS handling for process identity, quit, profile isolation, file-open delivery and diagnostic capture. Verify that a normal distribution build contains no automation endpoint. [Tauri WebDriver](https://tauri.app/develop/tests/webdriver/) · [WebdriverIO platform support](https://webdriver.io/docs/desktop-testing/tauri/platform-support)
+
+Start with DS-001 on a disposable Apple Silicon runner. Require a distinct PID after restart, the same isolated Library and a surviving failure report. Next prove macOS file-open delivery through Launch Services and exercise saved audio. Repeat on native Intel before crediting that architecture. The existing desktop build matrix already builds separately on `macos-15` and `macos-15-intel` and verifies bundled native libraries. Record both architecture and OS with each result. [GitHub-hosted runner architectures](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
