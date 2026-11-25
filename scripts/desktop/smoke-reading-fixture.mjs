@@ -70,7 +70,7 @@ export async function searchForPassage(browser, target) {
 }
 
 /** Establish that the target starts off screen before exercising search. */
-export async function readAndBookmark(browser, progress) {
+export async function pasteReadingFixture(browser, progress) {
   progress('paste text through Library')
   await click(browser, tab('Library'))
   await click(browser, '.document-import-btn')
@@ -86,6 +86,10 @@ export async function readAndBookmark(browser, progress) {
     const position = await passagePosition(browser)
     return position && position.top > 2 * position.height
   }, { timeoutMsg: 'Fixture target should begin multiple screens below the opening' })
+}
+
+export async function readAndBookmark(browser, progress) {
+  await pasteReadingFixture(browser, progress)
   await click(browser, '.doc-header .back-button')
   progress('search the imported document')
   await searchForPassage(browser, bookmarkedWord)

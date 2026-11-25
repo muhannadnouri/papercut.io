@@ -140,6 +140,10 @@ Keep one independently runnable user journey per file in `scripts/desktop/cases/
 | `DS-004` | `DS-004-pdf-bookmark-restart.mjs` | Reopen a PDF from Library after a process restart and verify both the saved page and the passage within it. |
 | `DS-005` | `DS-005-rapid-library-reopen.mjs` | Reopen the same bookmarked text twice within 20 seconds in one process, verify the saved passage, then use Top. |
 | `DS-006` | `DS-006-play-from-selection.mjs` | Select the final passage in a saved HTML audiobook, start playback there and verify the playing chunk, highlight and advancing progress. |
+| `DS-007` | `DS-007-pause-resume-position.mjs` | Pause a proportional start and resume at the held position in chunk 3. |
+| `DS-008` | `DS-008-jump-to-chunk-boundary.mjs` | Choose the current chunk in the chunk list and verify its clock restarts near zero. |
+| `DS-009` | `DS-009-open-without-bookmark.mjs` | Reopen unbookmarked pasted text at the beginning after visiting a late search result. |
+| `DS-010` | `DS-010-stop-and-play-from-beginning.mjs` | Stop playback in the final passage, then start from the beginning and verify the opening chunk. |
 
 Use the filename prefix as the case ID in the owner checklist, log lines and per-case report directories. Keep the ID when wording changes, never recycle it, and reject duplicate IDs. Keep fixture content, selectors and outcome assertions with their case. Keep artifact preparation, session lifecycle, process cleanup and failure capture in the shared runner. Add function comments where platform constraints or fixture intent need explanation.
 
@@ -233,3 +237,18 @@ The silent fixture verifies chunk selection, highlight alignment and playback pr
 **Verification.** At `6832cbae`, DS-001 through DS-006 passed on Ubuntu 24.04 and Windows Server 2022. DS-006 observed chunk 3 first and highlighted the final passage as progress advanced from 2% to 4% on Ubuntu and 0% to 1% on Windows. The journey took 3.87 s and 4.22 s respectively. An earlier Ubuntu run stopped at DS-004’s PDF restoration assertion. Windows required a job retry after EdgeDriver failed to create a DS-004 session. [Passing run](https://github.com/muhannadnouri/papercut.io/actions/runs/45564665490) · [Earlier Ubuntu failure](https://github.com/muhannadnouri/papercut.io/actions/runs/45563097393)
 
 **Wrong-chunk rehearsal.** Disposable revision `d31f43fd` forced the resolved passage to play chunk 1. Both platforms started playback and DS-006 failed immediately with actual **Chunk 1/3** and expected **Chunk 3/3**. All five earlier cases passed. The Windows report preserved the assertion and screenshot before cleanup encountered a locked WebView2 log. [Rehearsal and artifacts](https://github.com/muhannadnouri/papercut.io/actions/runs/45563100379)
+
+## 12. Playback commands and opening an unbookmarked book
+
+Use `npm run smoke:desktop -- --case DS-007` for one case, substituting its ID as needed. Each case gets its own profile. The playback cases import **Harbor Signals** and select the word “guide”, about 40% into its 12-second final chunk.
+
+| Case | Acceptance |
+| --- | --- |
+| DS-007 | Allow playback to advance at least 15 percentage points past the selection. Pause, verify the meter holds for 1.1 seconds, and read the first playing sample after Resume. Allow two percentage points behind or ten ahead for meter updates and driver latency. Confirm progress advances again with the final passage highlighted. |
+| DS-008 | While playing near 40%, use the chunk list to select the current chunk. Require its highlighted passage and a meter reading within the first 10%, then observe the clock advance below the original offset. |
+| DS-009 | Open the late Amberquartz search result while Save Bookmark is available. Leave without saving. Reopen from Library, verify the first entry is visible and the bookmark-jump notice is absent. Use Back and verify the Library filter is available. |
+| DS-010 | Stop immediately after observing the proportional start. Use **Play from beginning**. Require chunk 1 of 3 near zero on the first playing sample, the opening passage highlighted and the 18-second chunk advancing. |
+
+**Verification.** All ten cases passed at `09ef9b63` on Ubuntu 24.04 and Windows Server 2022. DS-007 paused at 56% on both and first observed resumed playback at 56% and 57% respectively. DS-008 jumped from 40% to 0% on both. DS-009 reopened at the first entry, and DS-010 restarted at 0% of chunk one. [Full suite and artifacts](https://github.com/muhannadnouri/papercut.io/actions/runs/45577835416)
+
+**Failure rehearsal.** Disposable revision `4b809575` exercised the four new cases independently. Both platforms detected all four regressions: Resume reset to 0%, choosing the current chunk did nothing, an unbookmarked Library open failed to show the first entry, and Play from beginning selected chunk 3. Each case produced its own failure report. [Rehearsal and artifacts](https://github.com/muhannadnouri/papercut.io/actions/runs/45577841656)
