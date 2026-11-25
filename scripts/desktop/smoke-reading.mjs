@@ -19,6 +19,7 @@ function progress(label) {
   console.log('Desktop smoke:', label)
 }
 
+/** Use the tested executable or its isolated X window to identify the app. The driver and AppImage launcher have separate process lifetimes. */
 function appPid() {
   if (process.platform === 'win32') {
     const output = execFileSync('powershell', ['-NoProfile', '-Command',
@@ -37,6 +38,7 @@ async function click(browser, selector) {
 }
 const tab = name => '//button[@role="tab" and .//span[normalize-space(.)="' + name + '"]]'
 
+/** Measure the word in place. A scrolling WebDriver element lookup here could move the reader and conceal a navigation regression. */
 async function passagePosition(browser) {
   return browser.execute((title, target) => {
     const body = document.querySelector('.document-viewer-shown .document-html-content')
@@ -64,6 +66,7 @@ async function visiblePassage(browser) {
     { timeoutMsg: 'Expected the target word in the visible reader passage' })
 }
 
+/** Establish that the target starts off screen before exercising search. Both sessions use the same fixture and profile. */
 async function readAndBookmark(browser) {
   progress('paste text through Library')
   await click(browser, tab('Library'))
@@ -94,6 +97,7 @@ async function readAndBookmark(browser) {
   await browser.$('button[aria-label="Bookmark Actions"]').waitForDisplayed()
 }
 
+/** Open from Library so only bookmark restoration can account for the passage being visible after restart. */
 async function reopen(browser) {
   progress('reopen from Library')
   await click(browser, tab('Library'))

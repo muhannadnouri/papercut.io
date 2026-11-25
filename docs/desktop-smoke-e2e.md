@@ -1,6 +1,6 @@
 # Desktop smoke E2E implementation plan
 
-Branch `task/desktop-smoke-e2e`, based on `main` at `d642f241`. The deliverable is one manual pre-PR command for the current Linux checkout and one manual CI run that exercises the same reading journey on Linux and Windows at the selected branch SHA. The host-local command is implemented in Stage 3. The permanent manual CI scope is planned for Stage 4.
+Branch `task/desktop-smoke-e2e`, based on `main` at `d642f241`. The deliverable is one manual pre-PR command for the current Linux checkout and one manual CI run that exercises the same reading journey on Linux and Windows at the selected branch SHA. The host-local command is implemented in Stage 3. Stage 4 adds the manual `desktop-smoke` CI scope.
 
 ## 1. Establish the baseline and launch targets
 
@@ -75,6 +75,20 @@ The fixture checks that real keyboard input retained its paragraph breaks and th
 Extend the existing CI workflow's dispatch choices and change-detection logic with `desktop-smoke`. Schedule only the relevant Linux and Windows desktop smoke builds for that scope. Reuse build prerequisites and caches, build once per platform, and feed the exact resulting artifact to stage 3. Keep both results when one fails. Upload bounded failure evidence with the tested SHA. Preserve existing push, PR and dispatch behavior for other scopes.
 
 **Acceptance.** Manually dispatch the existing workflow on a pushed feature branch before opening its PR. Verify the selected SHA on both legs, successful report collection, and independent failure reporting. Record the run URL. Ordinary frontend changes need no automatic desktop smoke run.
+
+### Run on a pushed branch
+
+Choose a branch containing the Stage 4 workflow. From an authenticated GitHub CLI, replace `BRANCH` with its remote name:
+
+```sh
+gh workflow run ci.yml --repo muhannadnouri/papercut.io --ref BRANCH -f validation_scope=desktop-smoke
+gh run list --repo muhannadnouri/papercut.io --workflow ci.yml --branch BRANCH --event workflow_dispatch --limit 3
+gh run watch RUN_ID --repo muhannadnouri/papercut.io --exit-status
+```
+
+Compare the run’s head SHA with the commit you intend to submit. After the routing job, Linux and Windows each build once and execute the local smoke command. Both jobs can finish independently. Download the seven-day evidence from the run’s **Artifacts** section, or use `gh run download RUN_ID --repo muhannadnouri/papercut.io --pattern 'desktop-smoke-*' --dir smoke-evidence`. The artifact names include the OS and full SHA. Look in `desktop-smoke.log` for the last step and the report directory for driver output and available failure details. For a provisioning error before the command starts, use the failed step’s Actions log.
+
+**Stage 4 verification.** The manual dispatch tested clean revision `24f61427` on Ubuntu 24.04 and Windows Server 2022. Both jobs built Papercut and restored the saved passage in a new process. The Linux command took 7m 05s including a 14.1s journey. The Windows command took 12m 43s including a 23.0s journey. Both downloaded artifacts contained the command log and driver log, with the expected SHA and separate app PIDs in the command log. The run scheduled the routing job and the two smoke legs. Local checks also verified routing for all five previous dispatch scopes and the schedule. Independent failure behavior will be exercised by the Stage 5 rehearsals. [Manual run and artifacts](https://github.com/muhannadnouri/papercut.io/actions/runs/45522343407).
 
 ## 5. Prove the checks catch regressions
 
