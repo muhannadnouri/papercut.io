@@ -18,9 +18,13 @@ import {
 import { setTimeout as delay } from 'node:timers/promises'
 import { remote } from 'webdriverio'
 
+import { withCleanup } from './smoke-cleanup.mjs'
+
 const [application, report, caseFile] = process.argv.slice(2)
 const caseId = basename(report)
 const { phases } = await import(pathToFileURL(caseFile).href)
+assert.ok(Array.isArray(phases) && phases.length > 0 && Array.from(phases).every(phase => typeof phase === 'function'),
+  caseId + ' must export a nonempty array of phase functions')
 let step = 'start driver'
 function progress(label) {
   step = label
@@ -68,7 +72,7 @@ driver.on('error', error => {
   launchError = error
 })
 const started = Date.now()
-try {
+async function runPhases() {
   for (;;) {
     if (launchError) {
       throw launchError
@@ -102,38 +106,42 @@ try {
       capabilities: { 'tauri:options': launch },
     })
     let pid
-    try {
-      await browser.setWindowSize(1050, 740)
-      await browser.$('//button[@role="tab" and .//span[normalize-space(.)="Library"]]').waitForDisplayed()
-      pid = appPid()
-      assert.ok(Number.isSafeInteger(pid) && pid > 1 && pid !== previousPid, 'Expected a new Papercut process')
-      console.log(caseId, 'App PID', pid)
-      await phase(browser, progress, {
-        application,
-        pid,
-        appPid,
-      })
-      if (process.platform === 'win32') {
-        progress('close the Windows app normally')
-        // Let WebView2 finish its storage writes before releasing the driver session.
-        execFileSync('powershell', ['-NoProfile', '-Command',
-          '$app = Get-Process -Id ' + pid + '; if (!$app.CloseMainWindow() -or !$app.WaitForExit(10000)) { exit 1 }'])
+    let windowClosed = false
+    await withCleanup(caseId + ' delete session', async () => {
+      try {
+        await browser.setWindowSize(1050, 740)
+        await browser.$('//button[@role="tab" and .//span[normalize-space(.)="Library"]]').waitForDisplayed()
+        pid = appPid()
+        assert.ok(Number.isSafeInteger(pid) && pid > 1 && pid !== previousPid, 'Expected a new Papercut process')
+        console.log(caseId, 'App PID', pid)
+        await phase(browser, progress, {
+          application,
+          pid,
+          appPid,
+        })
+        if (process.platform === 'win32') {
+          progress('close the Windows app normally')
+          // Let WebView2 finish its storage writes before releasing the driver session.
+          execFileSync('powershell', ['-NoProfile', '-Command',
+            '$app = Get-Process -Id ' + pid + '; if (!$app.CloseMainWindow() -or !$app.WaitForExit(10000)) { exit 1 }'])
+          windowClosed = true
+        }
+      } catch (error) {
+        await Promise.allSettled([
+          browser.saveScreenshot(join(report, 'failure.png')),
+          browser.execute(() => document.body.innerText).then(text => writeFileSync(join(report, 'visible.txt'), text)),
+        ])
+        throw error
       }
-    } catch (error) {
-      await Promise.allSettled([
-        browser.saveScreenshot(join(report, 'failure.png')),
-        browser.execute(() => document.body.innerText).then(text => writeFileSync(join(report, 'visible.txt'), text)),
-      ])
-      throw error
-    } finally {
+    }, async () => {
       try {
         await browser.deleteSession()
       } catch (error) {
-        if (process.platform !== 'win32' || !/invalid session id|session deleted/i.test(error.message)) {
+        if (!windowClosed || !/invalid session id|session deleted/i.test(error.message)) {
           throw error
         }
       }
-    }
+    })
     progress('confirm process exit')
     for (let attempt = 0; ; attempt++) {
       try {
@@ -151,11 +159,9 @@ try {
     }
     previousPid = pid
   }
-  console.log(caseId, 'passed. Journey ms', Date.now() - started)
-} catch (error) {
-  writeFileSync(join(report, 'failure.txt'), caseId + ' ' + step + '\n' + error.stack)
-  throw error
-} finally {
+}
+
+function stopDriver() {
   if (driver.pid && driver.exitCode === null) {
     if (process.platform === 'win32') {
       execFileSync('taskkill', ['/PID', String(driver.pid), '/T', '/F'], { stdio: 'ignore' })
@@ -164,3 +170,11 @@ try {
     }
   }
 }
+
+try {
+  await withCleanup(caseId + ' stop driver', runPhases, stopDriver)
+} catch (error) {
+  writeFileSync(join(report, 'failure.txt'), caseId + ' ' + step + '\n' + error.stack)
+  throw error
+}
+console.log(caseId, 'passed. Journey ms', Date.now() - started)

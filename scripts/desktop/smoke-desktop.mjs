@@ -21,6 +21,8 @@ import {
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 
+import { withCleanup } from './smoke-cleanup.mjs'
+
 const root = fileURLToPath(new URL('../../', import.meta.url))
 process.chdir(root)
 const linux = process.platform === 'linux'
@@ -113,6 +115,8 @@ async function removeProfile(profile) {
   rmSync(profile, {
     recursive: true,
     force: true,
+    maxRetries: 5,
+    retryDelay: 200,
   })
 }
 
@@ -127,7 +131,7 @@ async function runCase(id, caseFile) {
     ...process.env,
     LANG: 'en_US.UTF-8',
   }
-  try {
+  await withCleanup(id + ' remove profile', async () => {
     if (linux) {
       for (const key of ['HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME', 'XDG_CONFIG_HOME', 'XDG_STATE_HOME', 'XDG_RUNTIME_DIR']) {
         env[key] = join(profile, key)
@@ -153,9 +157,7 @@ async function runCase(id, caseFile) {
         stdio: 'inherit',
       })
     }
-  } finally {
-    await removeProfile(profile)
-  }
+  }, () => removeProfile(profile))
 }
 
 // Known Folders ignore the WebView2 profile. Move stores from the previous completed

@@ -22,8 +22,15 @@ function passagePosition(browser) {
     const container = document.querySelector('.document-viewer-shown .pdf-viewer-container')
     const page = container?.querySelector(`.page[data-page-number="${number}"]`)
     const line = Array.from(page?.querySelectorAll('.textLayer span') ?? []).find(span => span.textContent === text)
+    const input = document.querySelector('.pdf-page-input')
+    const selectedPage = input ? Number(input.value) : null
     if (!line || !page.querySelector('canvas')) {
-      return null
+      return {
+        pageNumber: selectedPage,
+        rendered: false,
+        visible: false,
+        below: null,
+      }
     }
     const bounds = line.getBoundingClientRect()
     const y = bounds.top + bounds.height / 2
@@ -31,16 +38,25 @@ function passagePosition(browser) {
     return {
       below: y > container.getBoundingClientRect().bottom,
       visible: bounds.width > 0 && bounds.height > 0 && hit !== null && page.contains(hit),
-      pageNumber: Number(document.querySelector('.pdf-page-input')?.value),
+      pageNumber: selectedPage,
+      rendered: true,
+      top: bounds.top,
     }
   }, pageNumber, passage)
 }
 
 async function checkDestination(browser) {
-  await browser.waitUntil(async () => {
-    const position = await passagePosition(browser)
-    return position?.pageNumber === pageNumber && position.visible
-  }, { timeoutMsg: 'Expected page 6 and the copper-buoy passage in the PDF viewport' })
+  let last
+  try {
+    await browser.waitUntil(async () => {
+      const previous = last
+      last = await passagePosition(browser)
+      return last.pageNumber === pageNumber && last.visible && previous?.pageNumber === pageNumber &&
+        previous.visible && previous.top === last.top
+    }, { timeoutMsg: 'Expected page 6 and the copper-buoy passage settled in the PDF viewport' })
+  } catch (error) {
+    throw new Error(error.message + ' (last PDF observation: ' + JSON.stringify(last ?? null) + ')', { cause: error })
+  }
 }
 
 async function savePdfBookmark(browser, progress, { application }) {
@@ -55,7 +71,7 @@ async function savePdfBookmark(browser, progress, { application }) {
   await browser.keys('Enter')
   await browser.waitUntil(async () => {
     const position = await passagePosition(browser)
-    return position?.pageNumber === pageNumber && position.below
+    return position.pageNumber === pageNumber && position.below
   }, { timeoutMsg: 'Expected the passage below the viewport at the start of page 6' })
   const target = await browser.$(`//*[@data-page-number="${pageNumber}"]//span[text()="${passage}"]`)
   await browser.execute(line => line.scrollIntoView({ block: 'center' }), target)

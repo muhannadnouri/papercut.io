@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import {
   copyFileSync,
@@ -26,6 +27,7 @@ it.each([
     mkdirSync(cases, { recursive: true })
     const runner = join(desktop, 'smoke-desktop.mjs')
     copyFileSync(new URL('../smoke-desktop.mjs', import.meta.url), runner)
+    copyFileSync(new URL('../smoke-cleanup.mjs', import.meta.url), join(desktop, 'smoke-cleanup.mjs'))
     for (const file of files) {
       writeFileSync(join(cases, file), '')
     }
@@ -35,6 +37,23 @@ it.each([
     expect(result.stdout).toBe('')
   } finally {
     rmSync(root, {
+      recursive: true,
+      force: true,
+    })
+  }
+})
+
+it.each(['[]', '[null]', '{}'])('rejects invalid phases %s before starting a driver', phases => {
+  const report = mkdtempSync(join(tmpdir(), 'papercut-phases-'))
+  try {
+    const file = join(report, 'case.mjs')
+    writeFileSync(file, 'export const phases = ' + phases)
+    const result = spawnSync(process.execPath, [fileURLToPath(new URL('../smoke-worker.mjs', import.meta.url)), 'unused', report, file], { encoding: 'utf8' })
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain('must export a nonempty array of phase functions')
+    expect(result.stdout).not.toContain('passed')
+  } finally {
+    rmSync(report, {
       recursive: true,
       force: true,
     })
