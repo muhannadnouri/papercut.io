@@ -56,9 +56,9 @@ From the checkout:
 npm run smoke:desktop
 ```
 
-To exercise a specific build already produced by the caller, use `npm run smoke:desktop -- --artifact PATH`. Pass the Linux AppImage or the Windows app.exe with its resources and DLLs in place. The supplied artifact's provenance is the caller's responsibility.
+To run just the reading case, use `npm run smoke:desktop -- --case DS-001`. Case IDs are case-sensitive. An unknown ID stops the command before it builds. The permanent CI dispatch runs the full suite once per OS. Use the focused command locally to diagnose one case. To exercise a specific build already produced by the caller, use `npm run smoke:desktop -- --artifact PATH`. Pass the Linux AppImage or the Windows app.exe with its resources and DLLs in place. The supplied artifact's provenance is the caller's responsibility.
 
-The terminal records the checkout revision, dirty state, artifact, app PIDs, current step and timings. It prints the temporary report directory before launching the driver. Driver output is in `driver.log`. On UI failure the worker attempts to capture `failure.png` and `visible.txt` before it closes the session. See `failure.txt` for the step and exception. Profiles and reports are separate so the report survives cleanup.
+The terminal records the checkout revision, dirty state, artifact, app PIDs, current step and timings. Each case prints its report directory before launching the driver, for example `papercut-smoke-report-…/DS-001/`. Driver output is in `driver.log`. On UI failure the worker attempts to capture `failure.png` and `visible.txt` before it closes the session. See `failure.txt` for the step and exception. Profiles and reports are separate so the report survives cleanup.
 
 The fixture checks that real keyboard input retained its paragraph breaks and that the unique word starts more than two viewports below the top. On a fresh profile, semantic search is off and the Keyword tab is implicit. The journey explicitly chooses **All Words**, opens the named result and checks the midpoint of the word against the visible reader. After restart it opens **Library → Documents**, filters by title, and checks the same word before using **Top** from the restoration notice. This final action verifies usable controls and a return to the beginning.
 
@@ -123,3 +123,34 @@ Document the proven host command, OS prerequisites, artifact selection, profile 
 **Acceptance.** An owner can run the Linux check from an ordinary shell, obtain Linux and Windows results for one pushed branch SHA, and diagnose a failed step without repeating the whole checklist. Record which checklist portions can be skipped for that build. Next candidate after MVP review is invalid import → dismiss visible error → successfully import a valid document.
 
 **Stage 6 accepted.** The [owner checklist](bug-squash-smoke-tests.md#desktop-smoke-coverage) maps a passing build to the two reader observations it covers and identifies the manual work still required. This completes the desktop reading MVP. The next proposed journey covers [invalid bundle import and recovery](bug-squash-smoke-tests.md#external-imports-and-visible-errors), item 2.
+
+## 7. Specify the external import recovery journey
+
+**Proposed scope for review.** Cover item 2 of the [external import checklist](bug-squash-smoke-tests.md#external-imports-and-visible-errors) on Linux and Windows. Use a valid audiobook bundle for recovery so both attempts exercise the same native importer. The acceptance sequence below is ready for implementation. Execution evidence is pending.
+
+### Case files and reporting
+
+Keep one independently runnable user journey per file in `scripts/desktop/cases/`. Keep dependent steps together. Saving a bookmark and restoring it after restart share a profile by design. The import case creates its own reader document. This follows WebdriverIO’s guidance on focused specs and Selenium’s guidance on isolated test data. [WebdriverIO suite organization](https://webdriver.io/docs/organizingsuites) · [Selenium test isolation](https://www.selenium.dev/documentation/test_practices/encouraged/avoid_sharing_state/)
+
+| Stable case ID | Case file | User-visible outcome |
+| --- | --- | --- |
+| `DS-001` | `DS-001-reading-bookmark.mjs` | Find an off-screen passage and restore its bookmark after restarting Papercut. |
+| `DS-002` | `DS-002-bundle-import-recovery.mjs` | Dismiss an invalid bundle error and open a valid bundle in the same session. |
+
+Use the filename prefix as the case ID in the owner checklist, log lines and per-case report directories. Keep the ID when wording changes, never recycle it, and reject duplicate IDs. Keep fixture content, selectors and outcome assertions with their case. Keep artifact preparation, session lifecycle, process cleanup and failure capture in the shared runner. Add function comments where platform constraints or fixture intent need explanation.
+
+**First implementation checkpoint.** Extract the existing reading case and run it alone on Linux and Windows. Preserve its real restart, viewport assertion and failure diagnostics. Keep `npm run smoke:desktop` as the full-suite command and add `npm run smoke:desktop -- --case DS-001` for a focused run. An unknown ID must fail before building. Accept the split when both entry points identify the case and produce attributable results.
+
+**Case split accepted.** At verification revision `291779fb`, Ubuntu 24.04 and Windows Server 2022 each passed both the full suite and the focused DS-001 command. Each downloaded artifact contained the case driver log and a command log showing two distinct app PIDs and the restored-bookmark check. Only the temporary verification workflow duplicated the OS jobs. The final scripts received lint formatting and matched the probe scripts after syntax normalization. Both commands also passed against the local Linux AppImage. A deliberate failure in a disposable Linux copy recorded the case ID and search step, screenshot, visible text and driver log. CLI regression tests cover an empty suite, unknown ID and duplicate ID before build. [Four-job verification run](https://github.com/muhannadnouri/papercut.io/actions/runs/45528810475)
+
+When the second case lands, build once per OS, execute the cases serially with fresh native and WebView state per case, and verify each passes alone and together. On Windows retain the disposable-user preflight and isolate the native Known Folder stores between cases as well as WebView2 data. Preserve evidence for each case and return a failing suite status if either fails.
+
+### Import journey acceptance
+
+1. **Prepare disposable inputs.** Place a plain-text file with the `.papercut-audiobook` suffix and a tiny valid bundle in the smoke workspace. Prefer a synthetic export containing a short passage, a unique title and a known phrase. Keep the fixture reproducible and free of user content, model downloads and playback dependencies. Before testing recovery, confirm the valid fixture alone opens to the expected passage in a fresh smoke profile.
+2. **Deliver files through the desktop entry point.** Keep the WebDriver-controlled app open. From the isolated worker, launch the same artifact with the absolute fixture path as one argument. The single-instance callback in `src-tauri/src/lib.rs` forwards it to the running app. In `src/App.tsx`, `useOpenDocumentRequests` routes bundle paths to the audiobook importer. Reuse the Linux worker’s private D-Bus session and the Windows disposable-user checks. Accept delivery when the second invocation exits and the original app PID and WebDriver session handle the UI response.
+3. **Prove the error on both surfaces.** From Library, deliver the invalid file, wait for one visible import error, dismiss it using its visible control and confirm Library is still active and usable. Open a known document and repeat from its reader. Confirm the same document remains visible before and after dismissal. Assert the error disappears on each dismissal. Use bounded UI waits and record the failing surface and step.
+4. **Prove recovery in the same session.** Immediately after the reader dismissal, deliver the valid bundle through the same path. Require its expected passage to appear in the reader and its unique document title to appear once on return to Library. Keep the same app process and profile across the invalid and valid deliveries so a restart cannot clear a stuck import.
+5. **Verify before retiring manual work.** Reuse the existing manual `desktop-smoke` matrix, build each OS artifact once, and retain separate step evidence for reading and import. Require both journeys to pass at the same candidate SHA on Linux and Windows. On a disposable revision suppress the visible import error and confirm the new assertion fails on each platform. Record run links, failed steps and clean results before updating item 2. Installed file associations, cold starts, busy/multi-file delivery, audible playback and mobile provider behavior retain their existing owner checks.
+
+**After verifying the case split.** Prove the fixture and live single-instance delivery (steps 1–2) on both platforms before wiring the two-surface assertions into the permanent smoke command.

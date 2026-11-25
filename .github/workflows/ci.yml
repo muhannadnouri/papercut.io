@@ -587,7 +587,7 @@ jobs:
       - name: Install official Tauri driver
         run: cargo install tauri-driver --locked --version 2.1.0
 
-      - name: Build and run the reading journey
+      - name: Build and run the desktop smoke suite
         shell: bash
         env:
           TMPDIR: ${{ runner.temp }}
@@ -602,7 +602,7 @@ jobs:
           name: desktop-smoke-${{ matrix.platform }}-${{ github.sha }}
           path: |
             ${{ runner.temp }}/desktop-smoke.log
-            ${{ runner.temp }}/papercut-smoke-report-*/*
+            ${{ runner.temp }}/papercut-smoke-report-*/**/*
           if-no-files-found: warn
           retention-days: 7
 

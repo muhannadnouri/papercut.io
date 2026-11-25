@@ -18,7 +18,7 @@ For pre-PR evidence on both platforms, push the candidate commit and dispatch
 and the run URL. Credit a passing leg only for its tested build and platform.
 Rerun on the new SHA if the candidate changes. [Local prerequisites and reports](desktop-smoke-e2e.md#running-the-reading-journey) · [Branch dispatch and artifact retrieval](desktop-smoke-e2e.md#run-on-a-pushed-branch)
 
-A pass covers these portions of the numbered reader checks for a document
+A pass for `DS-001` (reading and bookmark restoration) covers these portions of the numbered reader checks for a document
 created with **Paste Text**. Skip repeating these two observations by hand.
 
 | Reader check | What the desktop run verifies | What still needs an owner |
