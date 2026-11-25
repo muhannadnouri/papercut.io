@@ -66,9 +66,10 @@ alongside the exception. For setup failures, inspect the failed Actions step.
 
 ## External imports and visible errors
 
-`DS-002` exercises a valid bundle delivered by a second executable launch to
-an already-running desktop app. Keep the OS file-manager, cold-start and error
-recovery checks below until their own acceptance steps have evidence.
+`DS-002` exercises invalid-file dismissal in Library and the reader, followed
+by a valid bundle in the same desktop process. Keep item 2 manual until the
+deliberately broken error-notice rehearsal in the [acceptance plan](desktop-smoke-e2e.md#import-journey-acceptance)
+is complete. File-manager associations and cold starts still require owner checks.
 
 1. From the OS file manager, open a valid `.papercut-audiobook` with Papercut both
    closed and already running. Where OS multi-open is available, open an EPUB and

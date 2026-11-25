@@ -126,7 +126,7 @@ Document the proven host command, OS prerequisites, artifact selection, profile 
 
 ## 7. Specify the external import recovery journey
 
-**Proposed scope for review.** Cover item 2 of the [external import checklist](bug-squash-smoke-tests.md#external-imports-and-visible-errors) on Linux and Windows. Use a valid audiobook bundle for recovery so both attempts exercise the same native importer. The valid-bundle handoff is the first DS-002 checkpoint. Invalid-file dismissal and recovery remain separate acceptance steps.
+**Scope.** Cover item 2 of the [external import checklist](bug-squash-smoke-tests.md#external-imports-and-visible-errors) on Linux and Windows. Use a valid audiobook bundle for recovery so both attempts exercise the same native importer. Each invalid file and the final valid bundle go through the running desktop app’s single-instance file handler.
 
 ### Case files and reporting
 
@@ -135,7 +135,7 @@ Keep one independently runnable user journey per file in `scripts/desktop/cases/
 | Stable case ID | Case file | User-visible outcome |
 | --- | --- | --- |
 | `DS-001` | `DS-001-reading-bookmark.mjs` | Find an off-screen passage and restore its bookmark after restarting Papercut. |
-| `DS-002` | `DS-002-bundle-import-recovery.mjs` | Open a valid bundle in the running reader. Planned extension: recover from an invalid bundle first. |
+| `DS-002` | `DS-002-bundle-import-recovery.mjs` | Dismiss invalid bundle errors in Library and the reader, then open the valid bundle in the original process and find its title once in Library. |
 
 Use the filename prefix as the case ID in the owner checklist, log lines and per-case report directories. Keep the ID when wording changes, never recycle it, and reject duplicate IDs. Keep fixture content, selectors and outcome assertions with their case. Keep artifact preparation, session lifecycle, process cleanup and failure capture in the shared runner. Add function comments where platform constraints or fixture intent need explanation.
 
@@ -168,4 +168,8 @@ If cumulative journey time starts to dominate a pre-PR run, split independent ca
 
 The [fixture generator](../scripts/fixtures/desktop-smoke/generate.py) reproduces the checked-in 4,218-byte HTML audiobook with a single silent WAV chunk. The smoke command uses the checked-in bundle directly. Locally, a disposable Linux control launched the executable without its file argument. The reader assertion timed out and produced a screenshot and text dump. An earlier hosted Linux run passed delivery, then encountered a document-portal FUSE mount during cleanup. The runner now confines removal to the profile filesystem and retries briefly as the mount clears.
 
-**Next checkpoint.** Extend DS-002 with the Library and reader error-dismissal checks and same-session recovery (steps 3–4). Keep the manual error-recovery check until the clean and deliberately failing rehearsals in step 5.
+**Error recovery accepted (steps 3–4).** At verification revision `be2f0665`, DS-001 and DS-002 passed on Ubuntu 24.04 and Windows Server 2022. DS-002 dismissed one invalid-bundle alert in Library and again while reading Compass Notes. Each surface remained usable. The valid bundle then opened to the expected paragraph in the original process, and its title appeared once on return to Library. The downloaded logs confirmed PID 26022 on Linux (3.13 s) and PID 5848 on Windows (6.36 s). [Hosted recovery evidence](https://github.com/muhannadnouri/papercut.io/actions/runs/45541162722)
+
+The first Linux attempt against the previous build opened the valid passage but returned zero Library results for its title. Native bundle imports can serialize an absent SILMA voice setting as `null`. The stored-upload validator rejected the entire entry. The [storage reader](../src/tts/storage/UserUploads.ts) now treats that field as absent when reading existing records, and new writes omit an unset value. A regression test covers both the legacy null and an invalid string.
+
+**Next checkpoint.** Suppress the visible import error on a disposable revision and verify that DS-002 fails at the expected step on both platforms. Record both failure artifacts before retiring the corresponding desktop observations in checklist item 2.

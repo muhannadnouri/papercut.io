@@ -33,7 +33,8 @@ export function getUserUploads(): UserUploadDocument[] {
     if (!raw) {
       return []
     }
-    const parsed = JSON.parse(raw)
+    // Native bundle imports stored an absent SILMA setting as JSON null.
+    const parsed = JSON.parse(raw, (key, value) => key === 'silmaNfeStep' && value === null ? undefined : value)
     return Array.isArray(parsed)
       ? parsed
         .filter(isUserUploadDocument)
@@ -56,7 +57,7 @@ export function upsertUserUpload(input: Omit<UserUploadDocument, 'importedAt'>):
     modelId: input.modelId || DEFAULT_TTS_MODEL_ID,
     dtype: input.dtype || NATIVE_TTS_DTYPE,
     textPreprocessor: input.textPreprocessor ?? TEXT_PREPROCESSOR_NONE,
-    silmaNfeStep: input.modelId === SILMA_MODEL_ID ? resolveSilmaNfeStep(input) : input.silmaNfeStep,
+    silmaNfeStep: input.modelId === SILMA_MODEL_ID ? resolveSilmaNfeStep(input) : input.silmaNfeStep ?? undefined,
     importedAt: Date.now(),
   }
   const records = getUserUploads().filter((record) => record.url !== upload.url)
