@@ -1,6 +1,6 @@
 # Desktop smoke E2E implementation plan
 
-Branch `task/desktop-smoke-e2e`, based on `main` at `d642f241`. The deliverable is one manual pre-PR command for the current Linux checkout and one manual CI run that exercises the same reading journey on Linux and Windows at the selected branch SHA. The commands and CI scope below are proposed until their stages pass.
+Branch `task/desktop-smoke-e2e`, based on `main` at `d642f241`. The deliverable is one manual pre-PR command for the current Linux checkout and one manual CI run that exercises the same reading journey on Linux and Windows at the selected branch SHA. The host-local command is implemented in Stage 3. The permanent manual CI scope is planned for Stage 4.
 
 ## 1. Establish the baseline and launch targets
 
@@ -42,6 +42,33 @@ A second run exercised coexistence with an ordinary, non-automated instance on a
 5. Exit nonzero for setup failures, incomplete journeys and assertion failures. Report checkout SHA and dirty state, artifact, stage and durations. Collect driver/app output and a screenshot plus visible reader state on UI failure, before teardown. Keep evidence outside the disposable profile.
 
 **Acceptance.** One shared spec completes from an empty profile on both platforms. Its two viewport assertions distinguish successful search navigation and durable bookmark restoration. A missing driver or an app that never reaches Library gives a useful nonzero result.
+
+### Running the reading journey
+
+For desktop smoke, use Node 22.19 or later (WebdriverIO 10.1.0), run `npm ci`, and install the normal desktop build prerequisites. Use an English desktop for the smoke fixture. Put the official `tauri-driver` (tested with 2.1.0) and the platform tools on PATH before starting.
+
+- Linux requires WebKitWebDriver compatible with the app’s WebKitGTK, dbus-run-session, xvfb-run, Xvfb, xauth and xdotool. The launcher builds the AppImage and extracts it under a new private profile. Ordinary Papercut can remain open.
+- Windows requires a fresh disposable account or a fresh GitHub-hosted runner, WebView2, and msedgedriver matching the installed runtime. For a disposable local account set `$env:PAPERCUT_DISPOSABLE_USER = "1"` in PowerShell. Dispose of the account or VM after the run. Native app data uses that account’s known folders. WebView2 uses a temporary user data folder shared by both launches.
+
+From the checkout:
+
+```sh
+npm run smoke:desktop
+```
+
+To exercise a specific build already produced by the caller, use `npm run smoke:desktop -- --artifact PATH`. Pass the Linux AppImage or the Windows app.exe with its resources and DLLs in place. The supplied artifact's provenance is the caller's responsibility.
+
+The terminal records the checkout revision, dirty state, artifact, app PIDs, current step and timings. It prints the temporary report directory before launching the driver. Driver output is in `driver.log`. On UI failure the worker attempts to capture `failure.png` and `visible.txt` before it closes the session. See `failure.txt` for the step and exception. Profiles and reports are separate so the report survives cleanup.
+
+The fixture checks that real keyboard input retained its paragraph breaks and that the unique word starts more than two viewports below the top. On a fresh profile, semantic search is off and the Keyword tab is implicit. The journey explicitly chooses **All Words**, opens the named result and checks the midpoint of the word against the visible reader. After restart it opens **Library → Documents**, filters by title, and checks the same word before using **Top** from the restoration notice. This final action verifies usable controls and a return to the beginning.
+
+### Stage 3 evidence, 2026-11-24
+
+- Linux passed the default build-and-run command on CachyOS with local Stage 3 changes over `9910d881`. The two Papercut processes were 78860 and 79062. One warm run took 133.3 seconds end to end, including 121.7 seconds to build and locate the image and 7.5 seconds in the driver journey. The explicit-artifact run also passed. A missing-driver rehearsal exited nonzero with `spawn tauri-driver ENOENT`; a failed UI selector during development produced the screenshot, text and exception report.
+- WebdriverIO 10.1.0 passed the project's npm audit gate with zero high or critical findings. The Stage 2 trial version 9.32.0 introduced blocking transitive findings. The project uses its existing audit policy.
+- Windows Server 2022 passed on temporary probe revision `82ec0eb5`, using matching WebView2/EdgeDriver 131.0.2903.86. Earlier runs found the document after restart but failed the passage assertion. The passing implementation supplies the same disposable `webviewOptions.userDataFolder` to both sessions, requests a normal Windows window close, then waits for the app to exit. The two PIDs were 4952 and 5540. Build/preflight took 631.7 seconds, the journey took 26.9 seconds, and the command took 659.2 seconds overall. The final shared worker also passed on Linux. [Windows job and logs](https://github.com/muhannadnouri/papercut.io/actions/runs/45518706951/job/138884761338) · [Microsoft Edge WebView2 capabilities](https://learn.microsoft.com/en-us/microsoft-edge/webdriver/capabilities-edge-options#webviewoptions-object)
+
+**Stage 3 accepted.** The next stage exposes the host command through the permanent manual CI scope. Checklist retirement follows the known-bad rehearsals in Stage 5.
 
 ## 4. Expose manual branch validation
 

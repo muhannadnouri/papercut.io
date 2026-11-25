@@ -45,7 +45,8 @@
     "ios:ci": "node scripts/ios/build-ios.js --ci-check",
     "prepare:sherpa-ios-libs": "node scripts/ios/prepare-sherpa-ios-libs.js",
     "prepare:sherpa-ios-libs:force": "node scripts/ios/prepare-sherpa-ios-libs.js --force",
-    "ios:ci:device": "node scripts/ios/check-ios-device-build.js"
+    "ios:ci:device": "node scripts/ios/check-ios-device-build.js",
+    "smoke:desktop": "node scripts/desktop/smoke-desktop.mjs"
   },
   "dependencies": {
     "@tauri-apps/plugin-opener": "2.5.3",
@@ -79,6 +80,7 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.0",
     "vite": "^7.3.6",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "webdriverio": "10.1.0"
   }
 }
