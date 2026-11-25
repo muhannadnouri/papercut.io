@@ -66,17 +66,14 @@ alongside the exception. For setup failures, inspect the failed Actions step.
 
 ## External imports and visible errors
 
-`DS-002` exercises invalid-file dismissal in Library and the reader, followed
-by a valid bundle in the same desktop process. Keep item 2 manual until the
-deliberately broken error-notice rehearsal in the [acceptance plan](desktop-smoke-e2e.md#import-journey-acceptance)
-is complete. File-manager associations and cold starts still require owner checks.
-
 1. From the OS file manager, open a valid `.papercut-audiobook` with Papercut both
    closed and already running. Where OS multi-open is available, open an EPUB and
    two distinct bundles together. Also open another bundle while an import or
    audiobook operation is busy. Each requested item should finish once, with no
    missing bundle, duplicate work, overlapping import, or stuck busy state.
-2. Make a disposable plain-text file with a `.papercut-audiobook` extension. Open
+2. **Covered by DS-002 on Linux and Windows.** When the case passes on the candidate
+   build and OS, record its run URL and skip this manual check there. On other
+   platforms or builds without a passing result, make a disposable plain-text file with a `.papercut-audiobook` extension. Open
    it while Library is active and again with a reader open. Expect one visible,
    dismissible error on the current surface without forced navigation. A valid
    import must still work afterward. Keep existing valid bundles unchanged.
