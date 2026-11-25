@@ -331,7 +331,7 @@
         </section>
 
         <section class="downloads" aria-labelledby="downloads-title">
-          <div class="section-label"><h2 id="downloads-title">下载</h2> <span class="version-badge">v1.10.2</span></div>
+          <div class="section-label"><h2 id="downloads-title">下载</h2> <span class="version-badge" dir="ltr">v1.10.2</span></div>
           <div class="download-list">
             <p class="download-list-intro">从推荐的安装程序开始，或展开平台分组查看所有软件包。</p>
 
@@ -371,10 +371,14 @@
                     <span class="download-kind">(.apk)</span>
                   </strong>
                   <span>包含原生有声读物支持的 Android arm64-v8a APK。需要 Android 8.0 及以上 / API 26 及以上。</span>
-                  <code>Papercut_v1.10.2_android-arm64-v8a.apk</code>
+                  <code dir="ltr">Papercut_v1.10.2_android-arm64-v8a.apk</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_v1.10.2_android-arm64-v8a.apk" aria-label="下载 Papercut Android APK">下载</a>
               </article>
+              <div class="platform-install">
+                <h3>安装说明</h3>
+                <p>请在浏览器或文件管理器的设置中启用<strong>安装未知应用</strong>，然后打开 APK。阅读和搜索可离线使用。只有当您选择下载语音模型时才会访问网络；如果不使用有声读物生成功能，则无需网络连接。</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -403,7 +407,7 @@
                     <span class="download-kind">(AppImage)</span>
                   </strong>
                   <span>适用于 amd64 系统的便携 Linux 版本。需要 WebKitGTK 和 GStreamer；发布文件在 Ubuntu 24.04 上构建。</span>
-                  <code>Papercut_1.10.2_amd64.AppImage</code>
+                  <code dir="ltr">Papercut_1.10.2_amd64.AppImage</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_amd64.AppImage" aria-label="下载 Papercut Linux AppImage">下载</a>
               </article>
@@ -415,7 +419,7 @@
                     <span class="download-kind">(.deb)</span> <span class="recommended-badge">推荐</span>
                   </strong>
                   <span>适用于 Debian 系 amd64 发行版（Ubuntu、Mint 等）的安装程序。需要 WebKitGTK 和 GStreamer。</span>
-                  <code>Papercut_1.10.2_amd64.deb</code>
+                  <code dir="ltr">Papercut_1.10.2_amd64.deb</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_amd64.deb" aria-label="下载 Papercut Linux DEB">下载</a>
               </article>
@@ -427,10 +431,17 @@
                     <span class="download-kind">(.rpm)</span>
                   </strong>
                   <span>适用于 RPM 系 x86_64 发行版（Fedora、openSUSE 等）的安装程序。需要 WebKitGTK 和 GStreamer。</span>
-                  <code>Papercut-1.10.2-1.x86_64.rpm</code>
+                  <code dir="ltr">Papercut-1.10.2-1.x86_64.rpm</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut-1.10.2-1.x86_64.rpm" aria-label="下载 Papercut Linux RPM">下载</a>
               </article>
+              <div class="platform-install">
+                <h3>安装说明</h3>
+                <p>需要已安装 WebKitGTK 和 GStreamer 的 amd64 Linux。发布文件在 Ubuntu 24.04 上构建。</p>
+                <p><strong>基于 Debian 的发行版（Ubuntu、Mint）：</strong> <code>sudo apt install ./Papercut_*.deb</code></p>
+                <p><strong>基于 RPM 的发行版（Fedora、openSUSE）：</strong> <code>sudo rpm -i Papercut-*.rpm</code></p>
+                <p><strong>AppImage：</strong> 添加可执行权限（<code>chmod +x</code>）后直接运行。在基于 Arch 的系统上，AppImage 可能需要设置 <code>WEBKIT_DISABLE_COMPOSITING_MODE=1</code>；详情请参阅 <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a>。</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -443,7 +454,7 @@
                     <span class="download-kind">(.dmg)</span> <span class="recommended-badge">Apple Silicon</span>
                   </strong>
                   <span>适用于 Apple Silicon（M1/M2/M3 及后续芯片）的已签名和公证磁盘映像。需要 macOS 10.13 及以上。</span>
-                  <code>Papercut_1.10.2_aarch64.dmg</code>
+                  <code dir="ltr">Papercut_1.10.2_aarch64.dmg</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_aarch64.dmg" aria-label="下载适用于 Apple Silicon 的 Papercut macOS DMG">下载</a>
               </article>
@@ -455,10 +466,15 @@
                     <span class="download-kind">(.dmg)</span> <span class="recommended-badge">Intel</span>
                   </strong>
                   <span>适用于 Intel Mac 的已签名和公证磁盘映像。需要 macOS 10.13 及以上。</span>
-                  <code>Papercut_1.10.2_x64.dmg</code>
+                  <code dir="ltr">Papercut_1.10.2_x64.dmg</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_x64.dmg" aria-label="下载适用于 Intel 的 Papercut macOS DMG">下载</a>
               </article>
+              <div class="platform-install">
+                <h3>安装说明</h3>
+                <p>需要运行 macOS 10.13 及以上版本的 Apple Silicon 或 Intel Mac。打开 <code>.dmg</code>，然后将 <strong>Papercut</strong> 拖入“应用程序”文件夹。正式发布版本已使用 Developer ID 签名并经过公证。如果您正在测试未签名的 CI 或本地开发版本，请在首次启动时右键单击（或按住 Control 单击）应用图标，然后选择<strong>打开</strong>。</p>
+                <p>请选择与 Mac 匹配的版本：<strong>Apple Silicon</strong>（<code>_aarch64.dmg</code>）适用于 M 系列芯片；<strong>Intel</strong>（<code>_x64.dmg</code>）适用于 Intel Mac。</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -471,7 +487,7 @@
                     <span class="download-kind">(.msi)</span> <span class="recommended-badge">推荐</span>
                   </strong>
                   <span>适用于 Windows 10 及以上的 x64 安装包。需要 Microsoft Edge WebView2 运行时。</span>
-                  <code>Papercut_1.10.2_x64_en-US.msi</code>
+                  <code dir="ltr">Papercut_1.10.2_x64_en-US.msi</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_x64_en-US.msi" aria-label="下载 Papercut Windows MSI">下载</a>
               </article>
@@ -483,10 +499,14 @@
                     <span class="download-kind">(.exe)</span>
                   </strong>
                   <span>适用于 Windows 10 及以上的 x64 安装程序。需要 Microsoft Edge WebView2 运行时。</span>
-                  <code>Papercut_1.10.2_x64-setup.exe</code>
+                  <code dir="ltr">Papercut_1.10.2_x64-setup.exe</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_x64-setup.exe" aria-label="下载 Papercut Windows EXE 安装程序">下载</a>
               </article>
+              <div class="platform-install">
+                <h3>安装说明</h3>
+                <p>需要 Windows 10 或更高版本（x64）及 Microsoft Edge WebView2。运行 MSI 或 EXE 安装程序，按提示操作。</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -499,7 +519,7 @@
                     <span class="download-kind">(SHA-256)</span>
                   </strong>
                   <span>发布文件的 SHA-256 哈希值。</span>
-                  <code>SHA256SUMS.txt</code>
+                  <code dir="ltr">SHA256SUMS.txt</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/SHA256SUMS.txt" aria-label="下载 Papercut SHA-256 校验和">下载</a>
               </article>
@@ -511,7 +531,7 @@
                     <span class="download-kind">(.zip)</span>
                   </strong>
                   <span>v1.10.2 发布标签的源代码归档。</span>
-                  <code>v1.10.2.zip</code>
+                  <code dir="ltr">v1.10.2.zip</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/archive/refs/tags/v1.10.2.zip" aria-label="下载 Papercut 源代码 ZIP">下载</a>
               </article>
@@ -523,7 +543,7 @@
                     <span class="download-kind">(.tar.gz)</span>
                   </strong>
                   <span>v1.10.2 发布标签的压缩源代码归档。</span>
-                  <code>v1.10.2.tar.gz</code>
+                  <code dir="ltr">v1.10.2.tar.gz</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/archive/refs/tags/v1.10.2.tar.gz" aria-label="下载 Papercut 源代码 tarball">下载</a>
               </article>
@@ -534,6 +554,11 @@
         <section class="install-notes" aria-labelledby="install-notes-title">
           <h2 id="install-notes-title" class="install-notes-heading">常见问题</h2>
           <p>了解离线音频、隐私、支持的文件格式，以及在各个平台上安装 Papercut 的实用信息。</p>
+          <h3>文档库与隐私</h3>
+          <details>
+            <summary><strong>支持哪些文档格式？</strong></summary>
+            <p>Papercut 可导入 HTML、EPUB、PDF、TXT 和 Markdown 文件。含嵌入文本的 PDF 可立即搜索；纯图像和混合页面可按需通过离线 OCR 识别英语或阿拉伯语。受支持的 Android 设备还可扫描页面或将照片导入 PDF。</p>
+          </details>
           <details>
             <summary><strong>Papercut 除了制作有声读物，还会将 AI 用于其他功能吗？</strong></summary>
             <p>会。Papercut 还使用设备内置 OCR 来识别纯图像或混合 PDF 页面中的英语或阿拉伯语文本。OCR 和有声读物生成都不会把您的文档上传到云服务。</p>
@@ -541,6 +566,15 @@
           <details>
             <summary><strong>Papercut 何时需要访问互联网？</strong></summary>
             <p>阅读和搜索可离线使用。只有当您选择下载语音模型、下载发布版本或打开外部资源时才会访问网络。如果不使用有声读物生成功能，则无需下载语音模型。</p>
+          </details>
+          <h3>声音与语言</h3>
+          <details>
+            <summary><strong>界面支持哪些语言？</strong></summary>
+            <p>Papercut 提供英语、阿拉伯语、简体中文、西班牙语、法语、印地语、意大利语和巴西葡萄牙语界面。</p>
+          </details>
+          <details>
+            <summary><strong>有声读物支持哪些语言？</strong></summary>
+            <p>Kokoro 为英语、普通话、西班牙语、法语、印地语、意大利语和巴西葡萄牙语提供语音。阿拉伯语使用独立的离线 Piper 和 Supertonic 模型；Linux x64 还可通过可选运行时使用 SILMA。</p>
           </details>
           <details>
             <summary><strong>为什么英语有声读物使用 Kokoro？</strong></summary>
@@ -550,6 +584,7 @@
             <summary><strong>阿拉伯语有声读物如何实现？</strong></summary>
             <p>阿拉伯语使用独立的离线模型。Piper 是体积较小的跨平台选择；在 Linux x64 桌面端，还可通过可选运行时下载使用 SILMA。</p>
           </details>
+          <h3>音频权利与分享</h3>
           <details>
             <summary><strong>生成音频的所有权归谁？</strong></summary>
             <p>Papercut 不主张生成音频的所有权。您需要自行确保拥有源文本、所用参考语音或录音的相关权利，并对导出音频的分享方式负责。Papercut 会将有声读物保存在本地，不会上传到任何服务。</p>
@@ -562,18 +597,7 @@
             <summary><strong>可以克隆或引用任何人的声音吗？</strong></summary>
             <p>不可以。参考语音功能仅应用于您有权或已获许可使用的声音和录音。</p>
           </details>
-          <details>
-            <summary><strong>支持哪些文档格式？</strong></summary>
-            <p>Papercut 可导入 HTML、EPUB、PDF、TXT 和 Markdown 文件。含嵌入文本的 PDF 可立即搜索；纯图像和混合页面可按需通过离线 OCR 识别英语或阿拉伯语。受支持的 Android 设备还可扫描页面或将照片导入 PDF。</p>
-          </details>
-          <details>
-            <summary><strong>界面支持哪些语言？</strong></summary>
-            <p>Papercut 提供英语、阿拉伯语、简体中文、西班牙语、法语、印地语、意大利语和巴西葡萄牙语界面。</p>
-          </details>
-          <details>
-            <summary><strong>有声读物支持哪些语言？</strong></summary>
-            <p>Kokoro 为英语、普通话、西班牙语、法语、印地语、意大利语和巴西葡萄牙语提供语音。阿拉伯语使用独立的离线 Piper 和 Supertonic 模型；Linux x64 还可通过可选运行时使用 SILMA。</p>
-          </details>
+          <h3>安装与支持</h3>
           <details>
             <summary><strong>系统要求是什么？</strong></summary>
             <p><strong>Android:</strong> arm64-v8a 设备上的 Android 8.0 / API 26 及以上版本。</p>
@@ -583,28 +607,8 @@
             <p><strong>Windows:</strong> 安装 Microsoft Edge WebView2 运行时的 Windows 10 及以上 x64 系统。</p>
           </details>
           <details>
-            <summary><strong>Android</strong></summary>
-            <p>请在浏览器或文件管理器的设置中启用<strong>安装未知应用</strong>，然后打开 APK。阅读和搜索可离线使用。只有当您选择下载语音模型时才会访问网络；如果不使用有声读物生成功能，则无需网络连接。</p>
-          </details>
-          <details>
-            <summary><strong>Linux</strong></summary>
-            <p>需要已安装 WebKitGTK 和 GStreamer 的 amd64 Linux。发布文件在 Ubuntu 24.04 上构建。</p>
-            <p><strong>基于 Debian 的发行版（Ubuntu、Mint）：</strong> <code>sudo apt install ./Papercut_*.deb</code></p>
-            <p><strong>基于 RPM 的发行版（Fedora、openSUSE）：</strong> <code>sudo rpm -i Papercut-*.rpm</code></p>
-            <p><strong>AppImage：</strong> 添加可执行权限（<code>chmod +x</code>）后直接运行。在基于 Arch 的系统上，AppImage 可能需要设置 <code>WEBKIT_DISABLE_COMPOSITING_MODE=1</code>；详情请参阅 <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a>。</p>
-          </details>
-          <details>
-            <summary><strong>macOS</strong></summary>
-            <p>需要运行 macOS 10.13 及以上版本的 Apple Silicon 或 Intel Mac。打开 <code>.dmg</code>，然后将 <strong>Papercut</strong> 拖入“应用程序”文件夹。正式发布版本已使用 Developer ID 签名并经过公证。如果您正在测试未签名的 CI 或本地开发版本，请在首次启动时右键单击（或按住 Control 单击）应用图标，然后选择<strong>打开</strong>。</p>
-            <p>请选择与 Mac 匹配的版本：<strong>Apple Silicon</strong>（<code>_aarch64.dmg</code>）适用于 M 系列芯片；<strong>Intel</strong>（<code>_x64.dmg</code>）适用于 Intel Mac。</p>
-          </details>
-          <details>
-            <summary><strong>Windows</strong></summary>
-            <p>需要 x64 硬件上的 Windows 10 及以上版本和 Microsoft Edge WebView2 运行时。MSI 安装包会自动完成设置。如果您更喜欢便携式 EXE，可直接运行，无需管理员权限。</p>
-          </details>
-          <details>
             <summary><strong>在哪里可以找到文档、发布版本和源代码？</strong></summary>
-            <p>有关设置帮助和平台详情，请先查看 <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a>。您还可以在<a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.10.2.md">发布说明</a>中了解新功能，浏览<a href="https://github.com/muhannadnouri/papercut.io/releases/latest">所有发布版本</a>，或在 <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a> 上参与贡献。</p>
+            <p>有关设置帮助和平台详情，请先查看 <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a>。您还可以在<a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.10.2.md">发布说明</a>中了解新功能，浏览<a href="https://github.com/muhannadnouri/papercut.io/releases">所有发布版本</a>，或在 <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a> 上参与贡献。</p>
           </details>
         </section>
 

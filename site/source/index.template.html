@@ -323,7 +323,7 @@
         </section>
 
         <section class="downloads" aria-labelledby="downloads-title">
-          <div class="section-label"><h2 id="downloads-title">{{downloads.text.001}}</h2> {{downloads.markup.001}}{{downloads.text.002}}</span></div>
+          <div class="section-label"><h2 id="downloads-title">{{downloads.text.001}}</h2> <span class="version-badge" dir="ltr">{{release.tag}}</span></div>
           <div class="download-list">
             <p class="download-list-intro">{{downloads.text.003}}</p>
 
@@ -331,25 +331,25 @@
               <article>
                 <strong><span aria-hidden="true">{{downloads.text.004}}</span>{{downloads.text.005}}</strong>
                 <span>{{downloads.text.006}}</span>
-                {{downloads.markup.003}}{{downloads.text.007}}</a>
+                <a href="{{release.apk.url}}" aria-label="{{downloads.label.003}}">{{downloads.text.007}}</a>
               </article>
               <article>
                 <strong><span aria-hidden="true">{{downloads.text.008}}</span>{{downloads.text.009}}</strong>
                 <span>{{downloads.text.010}}</span>
-                {{downloads.markup.004}}{{downloads.text.011}}</a>
+                <a href="{{release.msi.url}}" aria-label="{{downloads.label.004}}">{{downloads.text.011}}</a>
               </article>
               <article>
                 <strong><span aria-hidden="true">{{downloads.text.012}}</span>{{downloads.text.013}}</strong>
                 <span>{{downloads.text.014}}</span>
                 <div class="split-actions">
-                  {{downloads.markup.005}}{{downloads.text.015}}</a>
-                  {{downloads.markup.006}}{{downloads.text.016}}</a>
+                  <a href="{{release.mac-arm.url}}" aria-label="{{downloads.label.005}}">{{downloads.text.015}}</a>
+                  <a href="{{release.mac-intel.url}}" aria-label="{{downloads.label.006}}">{{downloads.text.016}}</a>
                 </div>
               </article>
               <article>
                 <strong><span aria-hidden="true">{{downloads.text.017}}</span>{{downloads.text.018}}</strong>
                 <span>{{downloads.text.019}}</span>
-                {{downloads.markup.007}}{{downloads.text.020}}</a>
+                <a href="{{release.deb.url}}" aria-label="{{downloads.label.007}}">{{downloads.text.020}}</a>
               </article>
             </div>
 
@@ -363,10 +363,14 @@
                     <span class="download-kind">{{downloads.text.024}}</span>
                   </strong>
                   <span>{{downloads.text.025}}</span>
-                  {{downloads.markup.008}}{{downloads.text.026}}</code>
+                  <code dir="ltr">{{release.apk.name}}</code>
                 </div>
-                {{downloads.markup.009}}{{downloads.text.027}}</a>
+                <a href="{{release.apk.url}}" aria-label="{{downloads.label.009}}">{{downloads.text.027}}</a>
               </article>
+              <div class="platform-install">
+                <h3>{{downloads.install}}</h3>
+                <p>{{install-notes.text.035}}<strong>{{install-notes.text.036}}</strong>{{install-notes.text.037}}</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -395,9 +399,9 @@
                     <span class="download-kind">{{downloads.text.038}}</span>
                   </strong>
                   <span>{{downloads.text.039}}</span>
-                  {{downloads.markup.010}}{{downloads.text.040}}</code>
+                  <code dir="ltr">{{release.appimage.name}}</code>
                 </div>
-                {{downloads.markup.011}}{{downloads.text.041}}</a>
+                <a href="{{release.appimage.url}}" aria-label="{{downloads.label.011}}">{{downloads.text.041}}</a>
               </article>
               <article class="download-row">
                 <div>
@@ -407,9 +411,9 @@
                     <span class="download-kind">{{downloads.text.044}}</span> <span class="recommended-badge">{{downloads.text.045}}</span>
                   </strong>
                   <span>{{downloads.text.046}}</span>
-                  {{downloads.markup.012}}{{downloads.text.047}}</code>
+                  <code dir="ltr">{{release.deb.name}}</code>
                 </div>
-                {{downloads.markup.013}}{{downloads.text.048}}</a>
+                <a href="{{release.deb.url}}" aria-label="{{downloads.label.013}}">{{downloads.text.048}}</a>
               </article>
               <article class="download-row">
                 <div>
@@ -419,10 +423,17 @@
                     <span class="download-kind">{{downloads.text.051}}</span>
                   </strong>
                   <span>{{downloads.text.052}}</span>
-                  {{downloads.markup.014}}{{downloads.text.053}}</code>
+                  <code dir="ltr">{{release.rpm.name}}</code>
                 </div>
-                {{downloads.markup.015}}{{downloads.text.054}}</a>
+                <a href="{{release.rpm.url}}" aria-label="{{downloads.label.015}}">{{downloads.text.054}}</a>
               </article>
+              <div class="platform-install">
+                <h3>{{downloads.install}}</h3>
+                <p>{{install-notes.text.039}}</p>
+                <p><strong>{{install-notes.text.040}}</strong> {{install-notes.markup.001}}{{install-notes.text.041}}</code></p>
+                <p><strong>{{install-notes.text.042}}</strong> {{install-notes.markup.002}}{{install-notes.text.043}}</code></p>
+                <p><strong>{{install-notes.text.044}}</strong>{{install-notes.text.045}}{{install-notes.markup.003}}{{install-notes.text.046}}</code>{{install-notes.text.047}}{{install-notes.markup.004}}{{install-notes.text.048}}</code>{{install-notes.text.049}}<a href="https://github.com/muhannadnouri/papercut.io#readme">{{install-notes.text.050}}</a>{{install-notes.text.051}}</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -435,9 +446,9 @@
                     <span class="download-kind">{{downloads.text.058}}</span> <span class="recommended-badge">{{downloads.text.059}}</span>
                   </strong>
                   <span>{{downloads.text.060}}</span>
-                  {{downloads.markup.016}}{{downloads.text.061}}</code>
+                  <code dir="ltr">{{release.mac-arm.name}}</code>
                 </div>
-                {{downloads.markup.017}}{{downloads.text.062}}</a>
+                <a href="{{release.mac-arm.url}}" aria-label="{{downloads.label.017}}">{{downloads.text.062}}</a>
               </article>
               <article class="download-row">
                 <div>
@@ -447,10 +458,15 @@
                     <span class="download-kind">{{downloads.text.065}}</span> <span class="recommended-badge">{{downloads.text.066}}</span>
                   </strong>
                   <span>{{downloads.text.067}}</span>
-                  {{downloads.markup.018}}{{downloads.text.068}}</code>
+                  <code dir="ltr">{{release.mac-intel.name}}</code>
                 </div>
-                {{downloads.markup.019}}{{downloads.text.069}}</a>
+                <a href="{{release.mac-intel.url}}" aria-label="{{downloads.label.019}}">{{downloads.text.069}}</a>
               </article>
+              <div class="platform-install">
+                <h3>{{downloads.install}}</h3>
+                <p>{{install-notes.text.053}}{{install-notes.markup.005}}{{install-notes.text.054}}</code>{{install-notes.text.055}}<strong>{{install-notes.text.056}}</strong>{{install-notes.text.057}}<strong>{{install-notes.text.058}}</strong>{{install-notes.text.059}}</p>
+                <p>{{install-notes.text.060}}<strong>{{install-notes.text.061}}</strong>{{install-notes.text.062}}{{install-notes.markup.006}}{{install-notes.text.063}}</code>{{install-notes.text.064}}<strong>{{install-notes.text.065}}</strong>{{install-notes.text.066}}{{install-notes.markup.007}}{{install-notes.text.067}}</code>{{install-notes.text.068}}</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -463,9 +479,9 @@
                     <span class="download-kind">{{downloads.text.073}}</span> <span class="recommended-badge">{{downloads.text.074}}</span>
                   </strong>
                   <span>{{downloads.text.075}}</span>
-                  {{downloads.markup.020}}{{downloads.text.076}}</code>
+                  <code dir="ltr">{{release.msi.name}}</code>
                 </div>
-                {{downloads.markup.021}}{{downloads.text.077}}</a>
+                <a href="{{release.msi.url}}" aria-label="{{downloads.label.021}}">{{downloads.text.077}}</a>
               </article>
               <article class="download-row">
                 <div>
@@ -475,10 +491,14 @@
                     <span class="download-kind">{{downloads.text.080}}</span>
                   </strong>
                   <span>{{downloads.text.081}}</span>
-                  {{downloads.markup.022}}{{downloads.text.082}}</code>
+                  <code dir="ltr">{{release.exe.name}}</code>
                 </div>
-                {{downloads.markup.023}}{{downloads.text.083}}</a>
+                <a href="{{release.exe.url}}" aria-label="{{downloads.label.023}}">{{downloads.text.083}}</a>
               </article>
+              <div class="platform-install">
+                <h3>{{downloads.install}}</h3>
+                <p>{{install-notes.text.070}}</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -491,9 +511,9 @@
                     <span class="download-kind">{{downloads.text.087}}</span>
                   </strong>
                   <span>{{downloads.text.088}}</span>
-                  {{downloads.markup.024}}{{downloads.text.089}}</code>
+                  <code dir="ltr">{{release.checksums.name}}</code>
                 </div>
-                {{downloads.markup.025}}{{downloads.text.090}}</a>
+                <a href="{{release.checksums.url}}" aria-label="{{downloads.label.025}}">{{downloads.text.090}}</a>
               </article>
               <article class="download-row">
                 <div>
@@ -503,9 +523,9 @@
                     <span class="download-kind">{{downloads.text.093}}</span>
                   </strong>
                   <span>{{downloads.text.094}}</span>
-                  {{downloads.markup.026}}{{downloads.text.095}}</code>
+                  <code dir="ltr">{{release.zip.name}}</code>
                 </div>
-                {{downloads.markup.027}}{{downloads.text.096}}</a>
+                <a href="{{release.zip.url}}" aria-label="{{downloads.label.027}}">{{downloads.text.096}}</a>
               </article>
               <article class="download-row">
                 <div>
@@ -515,9 +535,9 @@
                     <span class="download-kind">{{downloads.text.099}}</span>
                   </strong>
                   <span>{{downloads.text.100}}</span>
-                  {{downloads.markup.028}}{{downloads.text.101}}</code>
+                  <code dir="ltr">{{release.tar.name}}</code>
                 </div>
-                {{downloads.markup.029}}{{downloads.text.102}}</a>
+                <a href="{{release.tar.url}}" aria-label="{{downloads.label.029}}">{{downloads.text.102}}</a>
               </article>
             </details>
           </div>
@@ -526,6 +546,11 @@
         <section class="install-notes" aria-labelledby="install-notes-title">
           <h2 id="install-notes-title" class="install-notes-heading">{{install-notes.text.001}}</h2>
           <p>{{install-notes.text.002}}</p>
+          <h3>{{faq.library}}</h3>
+          <details>
+            <summary><strong>{{install-notes.text.017}}</strong></summary>
+            <p>{{install-notes.text.018}}</p>
+          </details>
           <details>
             <summary><strong>{{install-notes.text.003}}</strong></summary>
             <p>{{install-notes.text.004}}</p>
@@ -533,6 +558,15 @@
           <details>
             <summary><strong>{{install-notes.text.005}}</strong></summary>
             <p>{{install-notes.text.006}}</p>
+          </details>
+          <h3>{{faq.voices}}</h3>
+          <details>
+            <summary><strong>{{install-notes.text.019}}</strong></summary>
+            <p>{{install-notes.text.020}}</p>
+          </details>
+          <details>
+            <summary><strong>{{install-notes.text.021}}</strong></summary>
+            <p>{{install-notes.text.022}}</p>
           </details>
           <details>
             <summary><strong>{{install-notes.text.007}}</strong></summary>
@@ -542,6 +576,7 @@
             <summary><strong>{{install-notes.text.009}}</strong></summary>
             <p>{{install-notes.text.010}}</p>
           </details>
+          <h3>{{faq.rights}}</h3>
           <details>
             <summary><strong>{{install-notes.text.011}}</strong></summary>
             <p>{{install-notes.text.012}}</p>
@@ -554,18 +589,7 @@
             <summary><strong>{{install-notes.text.015}}</strong></summary>
             <p>{{install-notes.text.016}}</p>
           </details>
-          <details>
-            <summary><strong>{{install-notes.text.017}}</strong></summary>
-            <p>{{install-notes.text.018}}</p>
-          </details>
-          <details>
-            <summary><strong>{{install-notes.text.019}}</strong></summary>
-            <p>{{install-notes.text.020}}</p>
-          </details>
-          <details>
-            <summary><strong>{{install-notes.text.021}}</strong></summary>
-            <p>{{install-notes.text.022}}</p>
-          </details>
+          <h3>{{faq.help}}</h3>
           <details>
             <summary><strong>{{install-notes.text.023}}</strong></summary>
             <p><strong>{{install-notes.text.024}}</strong>{{install-notes.text.025}}</p>
@@ -575,28 +599,8 @@
             <p><strong>{{install-notes.text.032}}</strong>{{install-notes.text.033}}</p>
           </details>
           <details>
-            <summary><strong>{{install-notes.text.034}}</strong></summary>
-            <p>{{install-notes.text.035}}<strong>{{install-notes.text.036}}</strong>{{install-notes.text.037}}</p>
-          </details>
-          <details>
-            <summary><strong>{{install-notes.text.038}}</strong></summary>
-            <p>{{install-notes.text.039}}</p>
-            <p><strong>{{install-notes.text.040}}</strong> {{install-notes.markup.001}}{{install-notes.text.041}}</code></p>
-            <p><strong>{{install-notes.text.042}}</strong> {{install-notes.markup.002}}{{install-notes.text.043}}</code></p>
-            <p><strong>{{install-notes.text.044}}</strong>{{install-notes.text.045}}{{install-notes.markup.003}}{{install-notes.text.046}}</code>{{install-notes.text.047}}{{install-notes.markup.004}}{{install-notes.text.048}}</code>{{install-notes.text.049}}<a href="https://github.com/muhannadnouri/papercut.io#readme">{{install-notes.text.050}}</a>{{install-notes.text.051}}</p>
-          </details>
-          <details>
-            <summary><strong>{{install-notes.text.052}}</strong></summary>
-            <p>{{install-notes.text.053}}{{install-notes.markup.005}}{{install-notes.text.054}}</code>{{install-notes.text.055}}<strong>{{install-notes.text.056}}</strong>{{install-notes.text.057}}<strong>{{install-notes.text.058}}</strong>{{install-notes.text.059}}</p>
-            <p>{{install-notes.text.060}}<strong>{{install-notes.text.061}}</strong>{{install-notes.text.062}}{{install-notes.markup.006}}{{install-notes.text.063}}</code>{{install-notes.text.064}}<strong>{{install-notes.text.065}}</strong>{{install-notes.text.066}}{{install-notes.markup.007}}{{install-notes.text.067}}</code>{{install-notes.text.068}}</p>
-          </details>
-          <details>
-            <summary><strong>{{install-notes.text.069}}</strong></summary>
-            <p>{{install-notes.text.070}}</p>
-          </details>
-          <details>
             <summary><strong>{{install-notes.text.071}}</strong></summary>
-            <p>{{install-notes.text.072}}<a href="https://github.com/muhannadnouri/papercut.io#readme">{{install-notes.text.073}}</a>{{install-notes.text.074}}<a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.10.2.md">{{install-notes.text.075}}</a>{{install-notes.text.076}}<a href="https://github.com/muhannadnouri/papercut.io/releases/latest">{{install-notes.text.077}}</a>{{install-notes.text.078}}<a href="https://github.com/muhannadnouri/papercut.io">{{install-notes.text.079}}</a>{{install-notes.text.080}}</p>
+            <p>{{install-notes.text.072}}<a href="https://github.com/muhannadnouri/papercut.io#readme">{{install-notes.text.073}}</a>{{install-notes.text.074}}<a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/{{release.tag}}.md">{{install-notes.text.075}}</a>{{install-notes.text.076}}<a href="https://github.com/muhannadnouri/papercut.io/releases">{{install-notes.text.077}}</a>{{install-notes.text.078}}<a href="https://github.com/muhannadnouri/papercut.io">{{install-notes.text.079}}</a>{{install-notes.text.080}}</p>
           </details>
         </section>
 

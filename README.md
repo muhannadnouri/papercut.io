@@ -313,11 +313,11 @@ npm run build
 Commit the changed version files together with the release changes.
 Create or update `RELEASE_NOTES/vX.Y.Z.md`, and prefer a new patch tag instead of replacing a published tag if release validation finds an installer/runtime packaging issue.
 
-After the release is published, update the version badges, download filenames/URLs,
-and source archive links in every `site/source/locales/*.json` catalog, plus the
-release-note link in `site/source/index.template.html`.
-Verify installer filenames against the published release assets, run
-`node site/build.mjs`, and commit the catalogs with the regenerated HTML pages.
+After publishing an app release, update the pinned version in
+`site/source/release.mjs`. Verify its filenames against the assets on that
+specific GitHub tag. Voice models also have releases in this repository.
+If a package name changes, edit its entry in the same file. Run
+`node site/build.mjs` and commit the release data and regenerated locale pages.
 Merge the site update and verify the Netlify deployment and live download links;
 publishing an app release alone does not update the website's pinned links.
 

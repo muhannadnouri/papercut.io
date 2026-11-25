@@ -77,6 +77,18 @@ Website language names do not use the application's experimental labels. Those
 labels describe the app locale review status, not whether a visitor can open a
 localized marketing page.
 
+### Downloads and FAQs
+
+The build resolves version badges, filenames, archive and installer URLs, and the
+release-note link from `site/source/release.mjs`. Catalogs own the translated
+download labels and may use `{{release.tag}}` in a versioned description.
+Recommended buttons and full platform listings reference the same assets.
+
+Installation instructions for Android, Linux, macOS and Windows live inside
+their respective download groups. System requirements and the link to release
+notes remain in the setup FAQ. The other FAQ groups cover library and privacy,
+voices and languages, and audio rights and sharing.
+
 ### Homepage walkthrough
 
 The primary action in the hero and floating navigation links to

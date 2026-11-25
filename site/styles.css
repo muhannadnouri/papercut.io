@@ -909,6 +909,17 @@ h2 {
   border-bottom: 1px solid var(--soft-line);
 }
 
+.platform-install {
+  padding: 16px 18px;
+  background: var(--surface-subtle);
+  overflow-wrap: anywhere;
+}
+
+.platform-install h3, .platform-install p { margin: 0 0 6px; }
+.platform-install h3 { font-size: 1rem; }
+.platform-install a { color: var(--accent-text); text-decoration: underline; }
+.install-notes > h3 { margin: 28px 0 8px; }
+
 .download-group:last-child {
   border-bottom: 0;
 }

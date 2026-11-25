@@ -376,6 +376,10 @@
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_v1.10.2_android-arm64-v8a.apk" aria-label="تنزيل Papercut بصيغة APK لنظام Android">تنزيل</a>
               </article>
+              <div class="platform-install">
+                <h3>التثبيت</h3>
+                <p>فعّل <strong>تثبيت التطبيقات غير المعروفة</strong> في إعدادات المتصفح أو مدير الملفات، ثم افتح ملف APK. تعمل القراءة والبحث بلا اتصال. ولا يُستخدم اتصال الشبكة إلا إذا اخترت تنزيل نموذج صوتي؛ وإذا لم تستخدم إنشاء الكتب الصوتية فلن تحتاج إلى الشبكة.</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -432,6 +436,13 @@
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut-1.10.2-1.x86_64.rpm" aria-label="تنزيل Papercut بصيغة RPM لنظام Linux">تنزيل</a>
               </article>
+              <div class="platform-install">
+                <h3>التثبيت</h3>
+                <p>يتطلب Linux بمعمارية amd64 مع توفر WebKitGTK وGStreamer. وتُبنى ملفات الإصدار على Ubuntu 24.04.</p>
+                <p><strong>التوزيعات المبنية على Debian مثل Ubuntu وMint:</strong> <code dir="ltr">sudo apt install ./Papercut_*.deb</code></p>
+                <p><strong>التوزيعات المبنية على RPM مثل Fedora وopenSUSE:</strong> <code dir="ltr">sudo rpm -i Papercut-*.rpm</code></p>
+                <p><strong>AppImage:</strong> اجعله قابلًا للتنفيذ باستخدام <code dir="ltr">chmod +x</code> ثم شغّله مباشرة. قد يحتاج AppImage على الأنظمة المبنية على Arch إلى <code dir="ltr">WEBKIT_DISABLE_COMPOSITING_MODE=1</code>؛ راجع ملف <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> للتفاصيل.</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -460,6 +471,11 @@
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_x64.dmg" aria-label="تنزيل Papercut لنظام macOS على Intel">تنزيل</a>
               </article>
+              <div class="platform-install">
+                <h3>التثبيت</h3>
+                <p>يتطلب macOS 10.13 أو أحدث على أجهزة Mac بمعالجات Apple Silicon أو Intel. افتح ملف <code dir="ltr">.dmg</code> واسحب <strong>Papercut</strong> إلى مجلد التطبيقات. إصدارات النشر الرسمية موقّعة بمعرّف مطور وموثّقة. إذا كنت تختبر ملفًا غير موقّع من CI أو تطوير محلي، فانقر بزر الفأرة الأيمن أو مع الضغط على Control على أيقونة التطبيق واختر <strong>فتح</strong> عند التشغيل الأول.</p>
+                <p>اختر الإصدار المطابق لجهازك: <strong>Apple Silicon</strong> ‏(<code dir="ltr">_aarch64.dmg</code>) لشرائح الفئة M، أو <strong>Intel</strong> ‏(<code dir="ltr">_x64.dmg</code>) لأجهزة Mac المبنية على Intel.</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -488,6 +504,10 @@
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_x64-setup.exe" aria-label="تنزيل مثبّت Papercut بصيغة EXE لنظام Windows">تنزيل</a>
               </article>
+              <div class="platform-install">
+                <h3>التثبيت</h3>
+                <p>يتطلب Windows 10 أو أحدث بنظام x64 وMicrosoft Edge WebView2. شغّل مثبّت MSI أو EXE واتبع التعليمات.</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -535,6 +555,11 @@
         <section class="install-notes" aria-labelledby="install-notes-title">
           <h2 id="install-notes-title" class="install-notes-heading">الأسئلة الشائعة</h2>
           <p>تفاصيل عملية عن الصوت بلا اتصال والخصوصية والملفات المدعومة وتثبيت Papercut على كل منصة.</p>
+          <h3>المكتبة والخصوصية</h3>
+          <details>
+            <summary><strong>ما تنسيقات المستندات المدعومة؟</strong></summary>
+            <p>يستورد Papercut ملفات HTML وEPUB وPDF وTXT وMarkdown. تكون ملفات PDF ذات النص المضمّن قابلة للبحث فورًا، ويمكن التعرف على الصفحات المصورة والمختلطة بالإنجليزية أو العربية عند الطلب دون اتصال. ويمكن لأجهزة Android المدعومة أيضًا مسح الصفحات أو استيراد الصور إلى ملف PDF.</p>
+          </details>
           <details>
             <summary><strong>هل يستخدم Papercut الذكاء الاصطناعي في شيء غير الكتب الصوتية؟</strong></summary>
             <p>نعم. يستخدم Papercut أيضًا التعرف الضوئي المضمّن على الجهاز للتعرف على النص الإنجليزي أو العربي في صفحات PDF المصورة والمختلطة. لا يرفع التعرف الضوئي أو إنشاء الكتب الصوتية مستنداتك إلى خدمة سحابية.</p>
@@ -542,6 +567,15 @@
           <details>
             <summary><strong>متى يحتاج Papercut إلى الاتصال بالإنترنت؟</strong></summary>
             <p>تعمل القراءة والبحث بلا اتصال. يُستخدم اتصال الشبكة عندما تختار تنزيل نموذج صوتي أو إصدار أو فتح مورد خارجي. وإذا لم تستخدم إنشاء الكتب الصوتية فلن تحتاج إلى تنزيل النماذج الصوتية.</p>
+          </details>
+          <h3>الأصوات واللغات</h3>
+          <details>
+            <summary><strong>ما لغات الواجهة المتوفرة؟</strong></summary>
+            <p>يتوفر Papercut بالإنجليزية والعربية والصينية المبسطة والإسبانية والفرنسية والهندية والإيطالية والبرتغالية البرازيلية.</p>
+          </details>
+          <details>
+            <summary><strong>ما لغات الكتب الصوتية المتوفرة؟</strong></summary>
+            <p>يوفر Kokoro أصواتًا للإنجليزية والصينية المندرينية والإسبانية والفرنسية والهندية والإيطالية والبرتغالية البرازيلية. وتستخدم العربية نماذج Piper وSupertonic مستقلة بلا اتصال، مع توفر SILMA على Linux x64 عبر بيئة تشغيل اختيارية.</p>
           </details>
           <details>
             <summary><strong>لماذا تستخدم الكتب الصوتية الإنجليزية Kokoro؟</strong></summary>
@@ -551,6 +585,7 @@
             <summary><strong>كيف يعمل دعم الكتب الصوتية العربية؟</strong></summary>
             <p>تُدعم العربية بنماذج مستقلة تعمل بلا اتصال. Piper هو الخيار الأصغر متعدد المنصات، بينما يتوفر SILMA على سطح مكتب Linux x64 عبر تنزيل اختياري لبيئة التشغيل.</p>
           </details>
+          <h3>حقوق الصوت ومشاركته</h3>
           <details>
             <summary><strong>من يملك الصوت المولّد؟</strong></summary>
             <p>لا يدّعي Papercut ملكية الصوت المولّد. أنت مسؤول عن حقوق النص المصدر وأي صوت مرجعي أو تسجيل مستخدم وطريقة مشاركة الصوت المصدّر. يحفظ Papercut ناتج الكتاب الصوتي محليًا ولا يرفعه إلى خدمة.</p>
@@ -563,18 +598,7 @@
             <summary><strong>هل يمكنني استنساخ أي صوت أو استخدامه كمرجع؟</strong></summary>
             <p>لا. يجب استخدام ميزات الصوت المرجعي فقط مع الأصوات والتسجيلات التي تملك حقوق استخدامها أو إذنًا بذلك.</p>
           </details>
-          <details>
-            <summary><strong>ما تنسيقات المستندات المدعومة؟</strong></summary>
-            <p>يستورد Papercut ملفات HTML وEPUB وPDF وTXT وMarkdown. تكون ملفات PDF ذات النص المضمّن قابلة للبحث فورًا، ويمكن التعرف على الصفحات المصورة والمختلطة بالإنجليزية أو العربية عند الطلب دون اتصال. ويمكن لأجهزة Android المدعومة أيضًا مسح الصفحات أو استيراد الصور إلى ملف PDF.</p>
-          </details>
-          <details>
-            <summary><strong>ما لغات الواجهة المتوفرة؟</strong></summary>
-            <p>يتوفر Papercut بالإنجليزية والعربية والصينية المبسطة والإسبانية والفرنسية والهندية والإيطالية والبرتغالية البرازيلية.</p>
-          </details>
-          <details>
-            <summary><strong>ما لغات الكتب الصوتية المتوفرة؟</strong></summary>
-            <p>يوفر Kokoro أصواتًا للإنجليزية والصينية المندرينية والإسبانية والفرنسية والهندية والإيطالية والبرتغالية البرازيلية. وتستخدم العربية نماذج Piper وSupertonic مستقلة بلا اتصال، مع توفر SILMA على Linux x64 عبر بيئة تشغيل اختيارية.</p>
-          </details>
+          <h3>الإعداد والدعم</h3>
           <details>
             <summary><strong>ما متطلبات النظام؟</strong></summary>
             <p><strong>Android:</strong> ‏Android 8.0 / API 26 أو أحدث على أجهزة arm64-v8a.</p>
@@ -584,28 +608,8 @@
             <p><strong>Windows:</strong> ‏Windows 10 أو أحدث بمعمارية x64 مع بيئة تشغيل Microsoft Edge WebView2.</p>
           </details>
           <details>
-            <summary><strong>Android</strong></summary>
-            <p>فعّل <strong>تثبيت التطبيقات غير المعروفة</strong> في إعدادات المتصفح أو مدير الملفات، ثم افتح ملف APK. تعمل القراءة والبحث بلا اتصال. ولا يُستخدم اتصال الشبكة إلا إذا اخترت تنزيل نموذج صوتي؛ وإذا لم تستخدم إنشاء الكتب الصوتية فلن تحتاج إلى الشبكة.</p>
-          </details>
-          <details>
-            <summary><strong>Linux</strong></summary>
-            <p>يتطلب Linux بمعمارية amd64 مع توفر WebKitGTK وGStreamer. وتُبنى ملفات الإصدار على Ubuntu 24.04.</p>
-            <p><strong>التوزيعات المبنية على Debian مثل Ubuntu وMint:</strong> <code dir="ltr">sudo apt install ./Papercut_*.deb</code></p>
-            <p><strong>التوزيعات المبنية على RPM مثل Fedora وopenSUSE:</strong> <code dir="ltr">sudo rpm -i Papercut-*.rpm</code></p>
-            <p><strong>AppImage:</strong> اجعله قابلًا للتنفيذ باستخدام <code dir="ltr">chmod +x</code> ثم شغّله مباشرة. قد يحتاج AppImage على الأنظمة المبنية على Arch إلى <code dir="ltr">WEBKIT_DISABLE_COMPOSITING_MODE=1</code>؛ راجع ملف <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> للتفاصيل.</p>
-          </details>
-          <details>
-            <summary><strong>macOS</strong></summary>
-            <p>يتطلب macOS 10.13 أو أحدث على أجهزة Mac بمعالجات Apple Silicon أو Intel. افتح ملف <code dir="ltr">.dmg</code> واسحب <strong>Papercut</strong> إلى مجلد التطبيقات. إصدارات النشر الرسمية موقّعة بمعرّف مطور وموثّقة. إذا كنت تختبر ملفًا غير موقّع من CI أو تطوير محلي، فانقر بزر الفأرة الأيمن أو مع الضغط على Control على أيقونة التطبيق واختر <strong>فتح</strong> عند التشغيل الأول.</p>
-            <p>اختر الإصدار المطابق لجهازك: <strong>Apple Silicon</strong> ‏(<code dir="ltr">_aarch64.dmg</code>) لشرائح الفئة M، أو <strong>Intel</strong> ‏(<code dir="ltr">_x64.dmg</code>) لأجهزة Mac المبنية على Intel.</p>
-          </details>
-          <details>
-            <summary><strong>Windows</strong></summary>
-            <p>يتطلب Windows 10 أو أحدث على أجهزة x64 وبيئة تشغيل Microsoft Edge WebView2. يتولى مثبّت MSI الإعداد تلقائيًا. وإذا كنت تفضل ملف EXE المحمول فشغّله مباشرة. لا يلزم امتلاك صلاحيات المسؤول.</p>
-          </details>
-          <details>
             <summary><strong>أين أجد الوثائق والإصدارات والشيفرة المصدرية؟</strong></summary>
-            <p>ابدأ بملف <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> للمساعدة في الإعداد وتفاصيل المنصات. اطّلع على الجديد في <a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.10.2.md">ملاحظات الإصدار</a>، أو تصفح <a href="https://github.com/muhannadnouri/papercut.io/releases/latest">كل الإصدارات</a>، أو ساهم عبر <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>.</p>
+            <p>ابدأ بملف <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> للمساعدة في الإعداد وتفاصيل المنصات. اطّلع على الجديد في <a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.10.2.md">ملاحظات الإصدار</a>، أو تصفح <a href="https://github.com/muhannadnouri/papercut.io/releases">كل الإصدارات</a>، أو ساهم عبر <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>.</p>
           </details>
         </section>
 

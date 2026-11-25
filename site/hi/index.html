@@ -332,7 +332,7 @@
         </section>
 
         <section class="downloads" aria-labelledby="downloads-title">
-          <div class="section-label"><h2 id="downloads-title">डाउनलोड</h2> <span class="version-badge">v1.10.2</span></div>
+          <div class="section-label"><h2 id="downloads-title">डाउनलोड</h2> <span class="version-badge" dir="ltr">v1.10.2</span></div>
           <div class="download-list">
             <p class="download-list-intro">अनुशंसित इंस्टॉलर से शुरू करें या सभी पैकेज देखने के लिए कोई प्लेटफ़ॉर्म समूह खोलें।</p>
 
@@ -372,10 +372,14 @@
                     <span class="download-kind">(.apk)</span>
                   </strong>
                   <span>मूल ऑडियोबुक समर्थन वाला Android arm64-v8a APK। Android 8.0 या नया / API 26 या नया आवश्यक है।</span>
-                  <code>Papercut_v1.10.2_android-arm64-v8a.apk</code>
+                  <code dir="ltr">Papercut_v1.10.2_android-arm64-v8a.apk</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_v1.10.2_android-arm64-v8a.apk" aria-label="Papercut Android APK डाउनलोड करें">डाउनलोड करें</a>
               </article>
+              <div class="platform-install">
+                <h3>इंस्टॉलेशन</h3>
+                <p>अपने ब्राउज़र या फ़ाइल प्रबंधक की सेटिंग में <strong>अज्ञात ऐप इंस्टॉल करें</strong> चालू करें, फिर APK खोलें। पढ़ना और खोज ऑफ़लाइन काम करते हैं। नेटवर्क पहुँच केवल आवाज़ मॉडल डाउनलोड करने पर उपयोग होती है; ऑडियोबुक निर्माण न उपयोग करने पर नेटवर्क की आवश्यकता नहीं है।</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -404,7 +408,7 @@
                     <span class="download-kind">(AppImage)</span>
                   </strong>
                   <span>amd64 प्रणालियों के लिए पोर्टेबल Linux बिल्ड। WebKitGTK और GStreamer आवश्यक हैं; रिलीज़ फ़ाइलें Ubuntu 24.04 पर बनाई जाती हैं।</span>
-                  <code>Papercut_1.10.2_amd64.AppImage</code>
+                  <code dir="ltr">Papercut_1.10.2_amd64.AppImage</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_amd64.AppImage" aria-label="Papercut Linux AppImage डाउनलोड करें">डाउनलोड करें</a>
               </article>
@@ -416,7 +420,7 @@
                     <span class="download-kind">(.deb)</span> <span class="recommended-badge">अनुशंसित</span>
                   </strong>
                   <span>Debian-आधारित amd64 वितरणों (Ubuntu, Mint आदि) के लिए इंस्टॉलर। WebKitGTK और GStreamer आवश्यक हैं।</span>
-                  <code>Papercut_1.10.2_amd64.deb</code>
+                  <code dir="ltr">Papercut_1.10.2_amd64.deb</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_amd64.deb" aria-label="Papercut Linux DEB डाउनलोड करें">डाउनलोड करें</a>
               </article>
@@ -428,10 +432,17 @@
                     <span class="download-kind">(.rpm)</span>
                   </strong>
                   <span>RPM-आधारित x86_64 वितरणों (Fedora, openSUSE आदि) के लिए इंस्टॉलर। WebKitGTK और GStreamer आवश्यक हैं।</span>
-                  <code>Papercut-1.10.2-1.x86_64.rpm</code>
+                  <code dir="ltr">Papercut-1.10.2-1.x86_64.rpm</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut-1.10.2-1.x86_64.rpm" aria-label="Papercut Linux RPM डाउनलोड करें">डाउनलोड करें</a>
               </article>
+              <div class="platform-install">
+                <h3>इंस्टॉलेशन</h3>
+                <p>WebKitGTK और GStreamer उपलब्ध वाला amd64 Linux आवश्यक है। रिलीज़ फ़ाइलें Ubuntu 24.04 पर बनाई जाती हैं।</p>
+                <p><strong>Debian-आधारित (Ubuntu, Mint):</strong> <code>sudo apt install ./Papercut_*.deb</code></p>
+                <p><strong>RPM-आधारित (Fedora, openSUSE):</strong> <code>sudo rpm -i Papercut-*.rpm</code></p>
+                <p><strong>AppImage:</strong> निष्पादन योग्य बनाएँ (<code>chmod +x</code>) और सीधे चलाएँ। Arch-आधारित प्रणालियों पर AppImage को <code>WEBKIT_DISABLE_COMPOSITING_MODE=1</code> की आवश्यकता हो सकती है; विवरण के लिए <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> देखें।</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -444,7 +455,7 @@
                     <span class="download-kind">(.dmg)</span> <span class="recommended-badge">Apple Silicon</span>
                   </strong>
                   <span>Apple Silicon (M1/M2/M3 और नए) के लिए हस्ताक्षरित और नोटराइज़्ड डिस्क इमेज। macOS 10.13 या नया आवश्यक है।</span>
-                  <code>Papercut_1.10.2_aarch64.dmg</code>
+                  <code dir="ltr">Papercut_1.10.2_aarch64.dmg</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_aarch64.dmg" aria-label="Apple Silicon के लिए Papercut macOS DMG डाउनलोड करें">डाउनलोड करें</a>
               </article>
@@ -456,10 +467,15 @@
                     <span class="download-kind">(.dmg)</span> <span class="recommended-badge">Intel</span>
                   </strong>
                   <span>Intel-आधारित Mac के लिए हस्ताक्षरित और नोटराइज़्ड डिस्क इमेज। macOS 10.13 या नया आवश्यक है।</span>
-                  <code>Papercut_1.10.2_x64.dmg</code>
+                  <code dir="ltr">Papercut_1.10.2_x64.dmg</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_x64.dmg" aria-label="Intel के लिए Papercut macOS DMG डाउनलोड करें">डाउनलोड करें</a>
               </article>
+              <div class="platform-install">
+                <h3>इंस्टॉलेशन</h3>
+                <p>Apple Silicon या Intel Mac पर macOS 10.13 या नया आवश्यक है। <code>.dmg</code> खोलें और <strong>Papercut</strong> को Applications फ़ोल्डर में खींचें। आधिकारिक रिलीज़ बिल्ड Developer ID से हस्ताक्षरित और नोटराइज़्ड हैं। अहस्ताक्षरित CI या स्थानीय विकास बिल्ड जाँचते समय ऐप आइकन पर दायाँ-क्लिक (या Control-क्लिक) करें और पहली बार <strong>खोलें</strong> चुनें।</p>
+                <p>अपने Mac के अनुरूप बिल्ड चुनें: <strong>Apple Silicon</strong> (<code>_aarch64.dmg</code>) M-सीरीज़ चिप के लिए, या <strong>Intel</strong> (<code>_x64.dmg</code>) Intel-आधारित Mac के लिए।</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -472,7 +488,7 @@
                     <span class="download-kind">(.msi)</span> <span class="recommended-badge">अनुशंसित</span>
                   </strong>
                   <span>Windows 10 या नया x64 इंस्टॉलर पैकेज। Microsoft Edge WebView2 रनटाइम आवश्यक है।</span>
-                  <code>Papercut_1.10.2_x64_en-US.msi</code>
+                  <code dir="ltr">Papercut_1.10.2_x64_en-US.msi</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_x64_en-US.msi" aria-label="Papercut Windows MSI डाउनलोड करें">डाउनलोड करें</a>
               </article>
@@ -484,10 +500,14 @@
                     <span class="download-kind">(.exe)</span>
                   </strong>
                   <span>Windows 10 या नया x64 सेटअप फ़ाइल। Microsoft Edge WebView2 रनटाइम आवश्यक है।</span>
-                  <code>Papercut_1.10.2_x64-setup.exe</code>
+                  <code dir="ltr">Papercut_1.10.2_x64-setup.exe</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_x64-setup.exe" aria-label="Papercut Windows EXE सेटअप डाउनलोड करें">डाउनलोड करें</a>
               </article>
+              <div class="platform-install">
+                <h3>इंस्टॉलेशन</h3>
+                <p>Windows 10 या बाद का x64 संस्करण और Microsoft Edge WebView2 आवश्यक हैं। MSI या EXE इंस्टॉलर चलाएँ और निर्देशों का पालन करें।</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -500,7 +520,7 @@
                     <span class="download-kind">(SHA-256)</span>
                   </strong>
                   <span>रिलीज़ फ़ाइलों के SHA-256 हैश।</span>
-                  <code>SHA256SUMS.txt</code>
+                  <code dir="ltr">SHA256SUMS.txt</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/SHA256SUMS.txt" aria-label="Papercut SHA-256 चेकसम डाउनलोड करें">डाउनलोड करें</a>
               </article>
@@ -512,7 +532,7 @@
                     <span class="download-kind">(.zip)</span>
                   </strong>
                   <span>v1.10.2 रिलीज़ टैग का स्रोत संग्रह।</span>
-                  <code>v1.10.2.zip</code>
+                  <code dir="ltr">v1.10.2.zip</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/archive/refs/tags/v1.10.2.zip" aria-label="Papercut स्रोत कोड ZIP डाउनलोड करें">डाउनलोड करें</a>
               </article>
@@ -524,7 +544,7 @@
                     <span class="download-kind">(.tar.gz)</span>
                   </strong>
                   <span>v1.10.2 रिलीज़ टैग का संपीड़ित स्रोत संग्रह।</span>
-                  <code>v1.10.2.tar.gz</code>
+                  <code dir="ltr">v1.10.2.tar.gz</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/archive/refs/tags/v1.10.2.tar.gz" aria-label="Papercut स्रोत कोड tarball डाउनलोड करें">डाउनलोड करें</a>
               </article>
@@ -535,6 +555,11 @@
         <section class="install-notes" aria-labelledby="install-notes-title">
           <h2 id="install-notes-title" class="install-notes-heading">सामान्य प्रश्न</h2>
           <p>ऑफ़लाइन ऑडियो, गोपनीयता, समर्थित फ़ाइलों और प्रत्येक प्लेटफ़ॉर्म पर Papercut स्थापित करने की व्यावहारिक जानकारी।</p>
+          <h3>लाइब्रेरी और गोपनीयता</h3>
+          <details>
+            <summary><strong>कौन से दस्तावेज़ प्रारूप समर्थित हैं?</strong></summary>
+            <p>Papercut HTML, EPUB, PDF, TXT और Markdown फ़ाइलें आयात करता है। अंतर्निहित टेक्स्ट वाले PDF तुरंत खोजे जा सकते हैं; केवल चित्र वाले और मिश्रित पृष्ठों को ऑफ़लाइन OCR से अंग्रेज़ी या अरबी में माँग पर पहचाना जा सकता है। समर्थित Android डिवाइस पृष्ठ स्कैन कर सकते हैं या फ़ोटो को PDF में आयात कर सकते हैं।</p>
+          </details>
           <details>
             <summary><strong>क्या Papercut ऑडियोबुक के अलावा किसी और काम के लिए AI उपयोग करता है?</strong></summary>
             <p>हाँ। Papercut केवल चित्र वाले और मिश्रित PDF पृष्ठों में अंग्रेज़ी या अरबी टेक्स्ट पहचानने के लिए डिवाइस पर मौजूद OCR का भी उपयोग करता है। OCR और ऑडियोबुक निर्माण आपके दस्तावेज़ किसी क्लाउड सेवा पर अपलोड नहीं करते।</p>
@@ -542,6 +567,15 @@
           <details>
             <summary><strong>Papercut को इंटरनेट की आवश्यकता कब होती है?</strong></summary>
             <p>पढ़ना और खोज ऑफ़लाइन काम करते हैं। नेटवर्क पहुँच तब उपयोग होती है जब आप आवाज़ मॉडल या रिलीज़ डाउनलोड करते हैं अथवा कोई बाहरी संसाधन खोलते हैं। यदि आप ऑडियोबुक नहीं बनाते, तो आवाज़ मॉडल डाउनलोड करने की आवश्यकता नहीं है।</p>
+          </details>
+          <h3>आवाज़ें और भाषाएँ</h3>
+          <details>
+            <summary><strong>कौन सी इंटरफ़ेस भाषाएँ उपलब्ध हैं?</strong></summary>
+            <p>Papercut अंग्रेज़ी, अरबी, सरलीकृत चीनी, स्पेनिश, फ़्रेंच, हिन्दी, इतालवी और ब्राज़ीलियाई पुर्तगाली में उपलब्ध है।</p>
+          </details>
+          <details>
+            <summary><strong>कौन सी ऑडियोबुक भाषाएँ उपलब्ध हैं?</strong></summary>
+            <p>Kokoro अंग्रेज़ी, मंदारिन चीनी, स्पेनिश, फ़्रेंच, हिन्दी, इतालवी और ब्राज़ीलियाई पुर्तगाली के लिए आवाज़ें देता है। अरबी अलग ऑफ़लाइन Piper और Supertonic मॉडल उपयोग करती है, और SILMA वैकल्पिक रनटाइम से Linux x64 पर उपलब्ध है।</p>
           </details>
           <details>
             <summary><strong>अंग्रेज़ी ऑडियोबुक निर्माण Kokoro क्यों उपयोग करता है?</strong></summary>
@@ -551,6 +585,7 @@
             <summary><strong>अरबी ऑडियोबुक समर्थन कैसे काम करता है?</strong></summary>
             <p>अरबी अलग ऑफ़लाइन मॉडलों से समर्थित है। Piper छोटा और अनेक प्लेटफ़ॉर्म पर चलने वाला विकल्प है, जबकि SILMA वैकल्पिक रनटाइम डाउनलोड से Linux x64 डेस्कटॉप पर उपलब्ध है।</p>
           </details>
+          <h3>ऑडियो अधिकार और साझाकरण</h3>
           <details>
             <summary><strong>बनाए गए ऑडियो का स्वामी कौन है?</strong></summary>
             <p>Papercut बनाए गए ऑडियो पर स्वामित्व का दावा नहीं करता। स्रोत पाठ, उपयोग की गई संदर्भ आवाज़ या रिकॉर्डिंग और निर्यातित ऑडियो साझा करने के अधिकारों के लिए आप उत्तरदायी हैं। Papercut ऑडियोबुक आउटपुट स्थानीय रूप से सहेजता है और उसे किसी सेवा पर अपलोड नहीं करता।</p>
@@ -563,18 +598,7 @@
             <summary><strong>क्या मैं किसी भी आवाज़ की नकल या संदर्भ ले सकता हूँ?</strong></summary>
             <p>नहीं। संदर्भ-आवाज़ सुविधाएँ केवल उन आवाज़ों और रिकॉर्डिंग के साथ उपयोग करें जिनके लिए आपके पास अधिकार या अनुमति है।</p>
           </details>
-          <details>
-            <summary><strong>कौन से दस्तावेज़ प्रारूप समर्थित हैं?</strong></summary>
-            <p>Papercut HTML, EPUB, PDF, TXT और Markdown फ़ाइलें आयात करता है। अंतर्निहित टेक्स्ट वाले PDF तुरंत खोजे जा सकते हैं; केवल चित्र वाले और मिश्रित पृष्ठों को ऑफ़लाइन OCR से अंग्रेज़ी या अरबी में माँग पर पहचाना जा सकता है। समर्थित Android डिवाइस पृष्ठ स्कैन कर सकते हैं या फ़ोटो को PDF में आयात कर सकते हैं।</p>
-          </details>
-          <details>
-            <summary><strong>कौन सी इंटरफ़ेस भाषाएँ उपलब्ध हैं?</strong></summary>
-            <p>Papercut अंग्रेज़ी, अरबी, सरलीकृत चीनी, स्पेनिश, फ़्रेंच, हिन्दी, इतालवी और ब्राज़ीलियाई पुर्तगाली में उपलब्ध है।</p>
-          </details>
-          <details>
-            <summary><strong>कौन सी ऑडियोबुक भाषाएँ उपलब्ध हैं?</strong></summary>
-            <p>Kokoro अंग्रेज़ी, मंदारिन चीनी, स्पेनिश, फ़्रेंच, हिन्दी, इतालवी और ब्राज़ीलियाई पुर्तगाली के लिए आवाज़ें देता है। अरबी अलग ऑफ़लाइन Piper और Supertonic मॉडल उपयोग करती है, और SILMA वैकल्पिक रनटाइम से Linux x64 पर उपलब्ध है।</p>
-          </details>
+          <h3>सेटअप और सहायता</h3>
           <details>
             <summary><strong>सिस्टम आवश्यकताएँ क्या हैं?</strong></summary>
             <p><strong>Android:</strong> arm64-v8a डिवाइसों पर Android 8.0 / API 26 या नया।</p>
@@ -584,28 +608,8 @@
             <p><strong>Windows:</strong> Microsoft Edge WebView2 रनटाइम के साथ Windows 10 या नया x64।</p>
           </details>
           <details>
-            <summary><strong>Android</strong></summary>
-            <p>अपने ब्राउज़र या फ़ाइल प्रबंधक की सेटिंग में <strong>अज्ञात ऐप इंस्टॉल करें</strong> चालू करें, फिर APK खोलें। पढ़ना और खोज ऑफ़लाइन काम करते हैं। नेटवर्क पहुँच केवल आवाज़ मॉडल डाउनलोड करने पर उपयोग होती है; ऑडियोबुक निर्माण न उपयोग करने पर नेटवर्क की आवश्यकता नहीं है।</p>
-          </details>
-          <details>
-            <summary><strong>Linux</strong></summary>
-            <p>WebKitGTK और GStreamer उपलब्ध वाला amd64 Linux आवश्यक है। रिलीज़ फ़ाइलें Ubuntu 24.04 पर बनाई जाती हैं।</p>
-            <p><strong>Debian-आधारित (Ubuntu, Mint):</strong> <code>sudo apt install ./Papercut_*.deb</code></p>
-            <p><strong>RPM-आधारित (Fedora, openSUSE):</strong> <code>sudo rpm -i Papercut-*.rpm</code></p>
-            <p><strong>AppImage:</strong> निष्पादन योग्य बनाएँ (<code>chmod +x</code>) और सीधे चलाएँ। Arch-आधारित प्रणालियों पर AppImage को <code>WEBKIT_DISABLE_COMPOSITING_MODE=1</code> की आवश्यकता हो सकती है; विवरण के लिए <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> देखें।</p>
-          </details>
-          <details>
-            <summary><strong>macOS</strong></summary>
-            <p>Apple Silicon या Intel Mac पर macOS 10.13 या नया आवश्यक है। <code>.dmg</code> खोलें और <strong>Papercut</strong> को Applications फ़ोल्डर में खींचें। आधिकारिक रिलीज़ बिल्ड Developer ID से हस्ताक्षरित और नोटराइज़्ड हैं। अहस्ताक्षरित CI या स्थानीय विकास बिल्ड जाँचते समय ऐप आइकन पर दायाँ-क्लिक (या Control-क्लिक) करें और पहली बार <strong>खोलें</strong> चुनें।</p>
-            <p>अपने Mac के अनुरूप बिल्ड चुनें: <strong>Apple Silicon</strong> (<code>_aarch64.dmg</code>) M-सीरीज़ चिप के लिए, या <strong>Intel</strong> (<code>_x64.dmg</code>) Intel-आधारित Mac के लिए।</p>
-          </details>
-          <details>
-            <summary><strong>Windows</strong></summary>
-            <p>x64 हार्डवेयर पर Windows 10 या नया और Microsoft Edge WebView2 रनटाइम आवश्यक है। MSI इंस्टॉलर सेटअप अपने आप करता है। पोर्टेबल EXE चाहें तो उसे सीधे चलाएँ। व्यवस्थापक अधिकार आवश्यक नहीं हैं।</p>
-          </details>
-          <details>
             <summary><strong>दस्तावेज़, रिलीज़ और स्रोत कोड कहाँ मिलेंगे?</strong></summary>
-            <p>सेटअप सहायता और प्लेटफ़ॉर्म जानकारी के लिए <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> से शुरू करें। नया क्या है जानने के लिए <a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.10.2.md">रिलीज़ नोट्स</a> देखें, <a href="https://github.com/muhannadnouri/papercut.io/releases/latest">सभी रिलीज़</a> ब्राउज़ करें या <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a> पर योगदान दें।</p>
+            <p>सेटअप सहायता और प्लेटफ़ॉर्म जानकारी के लिए <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> से शुरू करें। नया क्या है जानने के लिए <a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.10.2.md">रिलीज़ नोट्स</a> देखें, <a href="https://github.com/muhannadnouri/papercut.io/releases">सभी रिलीज़</a> ब्राउज़ करें या <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a> पर योगदान दें।</p>
           </details>
         </section>
 

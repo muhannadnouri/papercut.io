@@ -327,7 +327,7 @@
         </section>
 
         <section class="downloads" aria-labelledby="downloads-title">
-          <div class="section-label"><h2 id="downloads-title">Download</h2> <span class="version-badge">v1.10.2</span></div>
+          <div class="section-label"><h2 id="downloads-title">Download</h2> <span class="version-badge" dir="ltr">v1.10.2</span></div>
           <div class="download-list">
             <p class="download-list-intro">Inizia con un programma di installazione consigliato oppure apri un gruppo di piattaforme per vedere ogni pacchetto.</p>
 
@@ -367,10 +367,14 @@
                     <span class="download-kind">(.apk)</span>
                   </strong>
                   <span>APK Android arm64-v8a con supporto nativo per gli audiolibri. Richiede Android 8.0 o versioni successive / API 26 o successive.</span>
-                  <code>Papercut_v1.10.2_android-arm64-v8a.apk</code>
+                  <code dir="ltr">Papercut_v1.10.2_android-arm64-v8a.apk</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_v1.10.2_android-arm64-v8a.apk" aria-label="Scarica l’APK Android di Papercut">Scarica</a>
               </article>
+              <div class="platform-install">
+                <h3>Installazione</h3>
+                <p>Abilita <strong>Installa app sconosciute</strong> nelle impostazioni del browser o del gestore file, quindi apri l’APK. Lettura e ricerca funzionano offline. La rete viene usata solo se scegli di scaricare un modello vocale; se non generi audiolibri, l’accesso alla rete non è necessario.</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -399,7 +403,7 @@
                     <span class="download-kind">(AppImage)</span>
                   </strong>
                   <span>Build Linux portatile per sistemi amd64. Richiede WebKitGTK e GStreamer; gli artefatti di rilascio sono compilati su Ubuntu 24.04.</span>
-                  <code>Papercut_1.10.2_amd64.AppImage</code>
+                  <code dir="ltr">Papercut_1.10.2_amd64.AppImage</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_amd64.AppImage" aria-label="Scarica l’AppImage Linux di Papercut">Scarica</a>
               </article>
@@ -411,7 +415,7 @@
                     <span class="download-kind">(.deb)</span> <span class="recommended-badge">Consigliato</span>
                   </strong>
                   <span>Programma di installazione per distribuzioni amd64 basate su Debian (Ubuntu, Mint, ecc.). Richiede WebKitGTK e GStreamer.</span>
-                  <code>Papercut_1.10.2_amd64.deb</code>
+                  <code dir="ltr">Papercut_1.10.2_amd64.deb</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_amd64.deb" aria-label="Scarica il DEB Linux di Papercut">Scarica</a>
               </article>
@@ -423,10 +427,17 @@
                     <span class="download-kind">(.rpm)</span>
                   </strong>
                   <span>Programma di installazione per distribuzioni x86_64 basate su RPM (Fedora, openSUSE, ecc.). Richiede WebKitGTK e GStreamer.</span>
-                  <code>Papercut-1.10.2-1.x86_64.rpm</code>
+                  <code dir="ltr">Papercut-1.10.2-1.x86_64.rpm</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut-1.10.2-1.x86_64.rpm" aria-label="Scarica l’RPM Linux di Papercut">Scarica</a>
               </article>
+              <div class="platform-install">
+                <h3>Installazione</h3>
+                <p>Richiede Linux amd64 con WebKitGTK e GStreamer disponibili. Gli artefatti di rilascio sono compilati su Ubuntu 24.04.</p>
+                <p><strong>Basato su Debian (Ubuntu, Mint):</strong> <code>sudo apt install ./Papercut_*.deb</code></p>
+                <p><strong>Basato su RPM (Fedora, openSUSE):</strong> <code>sudo rpm -i Papercut-*.rpm</code></p>
+                <p><strong>AppImage:</strong> rendilo eseguibile (<code>chmod +x</code>) ed eseguilo direttamente. Sui sistemi basati su Arch, l’AppImage potrebbe richiedere <code>WEBKIT_DISABLE_COMPOSITING_MODE=1</code>; consulta il <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> per i dettagli.</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -439,7 +450,7 @@
                     <span class="download-kind">(.dmg)</span> <span class="recommended-badge">Apple Silicon</span>
                   </strong>
                   <span>Immagine disco firmata e autenticata per Apple Silicon (M1/M2/M3 e successivi). Richiede macOS 10.13 o versioni successive.</span>
-                  <code>Papercut_1.10.2_aarch64.dmg</code>
+                  <code dir="ltr">Papercut_1.10.2_aarch64.dmg</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_aarch64.dmg" aria-label="Scarica il DMG macOS di Papercut per Apple Silicon">Scarica</a>
               </article>
@@ -451,10 +462,15 @@
                     <span class="download-kind">(.dmg)</span> <span class="recommended-badge">Intel</span>
                   </strong>
                   <span>Immagine disco firmata e autenticata per Mac con processore Intel. Richiede macOS 10.13 o versioni successive.</span>
-                  <code>Papercut_1.10.2_x64.dmg</code>
+                  <code dir="ltr">Papercut_1.10.2_x64.dmg</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_x64.dmg" aria-label="Scarica il DMG macOS di Papercut per Intel">Scarica</a>
               </article>
+              <div class="platform-install">
+                <h3>Installazione</h3>
+                <p>Richiede macOS 10.13 o versioni successive su Mac Apple Silicon o Intel. Apri il file <code>.dmg</code> e trascina <strong>Papercut</strong> nella cartella Applicazioni. Le build ufficiali sono firmate con Developer ID e autenticate. Se stai provando un artefatto CI o di sviluppo locale non firmato, fai clic destro (o Control-clic) sull’icona dell’app e scegli <strong>Apri</strong> al primo avvio.</p>
+                <p>Scegli la build adatta al tuo Mac: <strong>Apple Silicon</strong> (<code>_aarch64.dmg</code>) per i chip della serie M, oppure <strong>Intel</strong> (<code>_x64.dmg</code>) per i Mac con processore Intel.</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -467,7 +483,7 @@
                     <span class="download-kind">(.msi)</span> <span class="recommended-badge">Consigliato</span>
                   </strong>
                   <span>Pacchetto di installazione x64 per Windows 10 o versioni successive. Richiede il runtime Microsoft Edge WebView2.</span>
-                  <code>Papercut_1.10.2_x64_en-US.msi</code>
+                  <code dir="ltr">Papercut_1.10.2_x64_en-US.msi</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_x64_en-US.msi" aria-label="Scarica l’MSI Windows di Papercut">Scarica</a>
               </article>
@@ -479,10 +495,14 @@
                     <span class="download-kind">(.exe)</span>
                   </strong>
                   <span>Eseguibile di installazione x64 per Windows 10 o versioni successive. Richiede il runtime Microsoft Edge WebView2.</span>
-                  <code>Papercut_1.10.2_x64-setup.exe</code>
+                  <code dir="ltr">Papercut_1.10.2_x64-setup.exe</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_x64-setup.exe" aria-label="Scarica il programma EXE Windows di Papercut">Scarica</a>
               </article>
+              <div class="platform-install">
+                <h3>Installazione</h3>
+                <p>Richiede Windows 10 o successivo a 64 bit e Microsoft Edge WebView2. Avvia il programma di installazione MSI o EXE e segui le istruzioni.</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -495,7 +515,7 @@
                     <span class="download-kind">(SHA-256)</span>
                   </strong>
                   <span>Hash SHA-256 per gli artefatti di rilascio.</span>
-                  <code>SHA256SUMS.txt</code>
+                  <code dir="ltr">SHA256SUMS.txt</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/SHA256SUMS.txt" aria-label="Scarica i checksum SHA-256 di Papercut">Scarica</a>
               </article>
@@ -507,7 +527,7 @@
                     <span class="download-kind">(.zip)</span>
                   </strong>
                   <span>Archivio sorgente per il tag di rilascio v1.10.2.</span>
-                  <code>v1.10.2.zip</code>
+                  <code dir="ltr">v1.10.2.zip</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/archive/refs/tags/v1.10.2.zip" aria-label="Scarica il codice sorgente ZIP di Papercut">Scarica</a>
               </article>
@@ -519,7 +539,7 @@
                     <span class="download-kind">(.tar.gz)</span>
                   </strong>
                   <span>Archivio sorgente compresso per il tag di rilascio v1.10.2.</span>
-                  <code>v1.10.2.tar.gz</code>
+                  <code dir="ltr">v1.10.2.tar.gz</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/archive/refs/tags/v1.10.2.tar.gz" aria-label="Scarica l’archivio tar del codice sorgente di Papercut">Scarica</a>
               </article>
@@ -530,6 +550,11 @@
         <section class="install-notes" aria-labelledby="install-notes-title">
           <h2 id="install-notes-title" class="install-notes-heading">Domande frequenti</h2>
           <p>Dettagli pratici su audio offline, privacy, file supportati e installazione di Papercut su ciascuna piattaforma.</p>
+          <h3>Libreria e privacy</h3>
+          <details>
+            <summary><strong>Quali formati di documento sono supportati?</strong></summary>
+            <p>Papercut importa file HTML, EPUB, PDF, TXT e Markdown. I PDF con testo incorporato sono subito ricercabili; le pagine di sole immagini e ibride possono essere riconosciute su richiesta in inglese o arabo con OCR offline. I dispositivi Android supportati possono anche scansionare pagine o importare foto in un PDF.</p>
+          </details>
           <details>
             <summary><strong>Papercut usa l’IA per qualcosa oltre agli audiolibri?</strong></summary>
             <p>Sì. Papercut usa anche l’OCR integrato nel dispositivo per riconoscere testo inglese o arabo nelle pagine PDF di sole immagini o ibride. L’OCR e la generazione di audiolibri non caricano i documenti su un servizio cloud.</p>
@@ -537,6 +562,15 @@
           <details>
             <summary><strong>Quando serve l’accesso a Internet?</strong></summary>
             <p>Lettura e ricerca funzionano offline. La rete viene usata quando scegli di scaricare un modello vocale, una versione o di aprire una risorsa esterna. Se non generi audiolibri, non è necessario scaricare modelli vocali.</p>
+          </details>
+          <h3>Voci e lingue</h3>
+          <details>
+            <summary><strong>Quali lingue dell’interfaccia sono disponibili?</strong></summary>
+            <p>Papercut è disponibile in inglese, arabo, cinese semplificato, spagnolo, francese, hindi, italiano e portoghese brasiliano.</p>
+          </details>
+          <details>
+            <summary><strong>Quali lingue sono disponibili per gli audiolibri?</strong></summary>
+            <p>Kokoro offre voci per inglese, cinese mandarino, spagnolo, francese, hindi, italiano e portoghese brasiliano. L’arabo usa modelli offline separati Piper e Supertonic, mentre SILMA è disponibile su Linux x64 tramite un runtime opzionale.</p>
           </details>
           <details>
             <summary><strong>Perché la generazione di audiolibri in inglese usa Kokoro?</strong></summary>
@@ -546,6 +580,7 @@
             <summary><strong>Come funziona il supporto degli audiolibri in arabo?</strong></summary>
             <p>L’arabo è supportato con modelli offline separati. Piper è l’opzione multipiattaforma più leggera, mentre SILMA è disponibile sui desktop Linux x64 tramite un runtime opzionale.</p>
           </details>
+          <h3>Diritti e condivisione audio</h3>
           <details>
             <summary><strong>A chi appartiene l’audio generato?</strong></summary>
             <p>Papercut non rivendica la proprietà dell’audio generato. Sei responsabile dei diritti sul testo sorgente, su qualsiasi voce di riferimento o registrazione usata e sulle modalità di condivisione dell’audio esportato. Papercut salva l’audiolibro in locale e non lo carica su alcun servizio.</p>
@@ -558,18 +593,7 @@
             <summary><strong>Posso clonare o usare come riferimento qualsiasi voce?</strong></summary>
             <p>No. Le funzioni di voce di riferimento devono essere usate solo con voci e registrazioni per cui possiedi i diritti o l’autorizzazione.</p>
           </details>
-          <details>
-            <summary><strong>Quali formati di documento sono supportati?</strong></summary>
-            <p>Papercut importa file HTML, EPUB, PDF, TXT e Markdown. I PDF con testo incorporato sono subito ricercabili; le pagine di sole immagini e ibride possono essere riconosciute su richiesta in inglese o arabo con OCR offline. I dispositivi Android supportati possono anche scansionare pagine o importare foto in un PDF.</p>
-          </details>
-          <details>
-            <summary><strong>Quali lingue dell’interfaccia sono disponibili?</strong></summary>
-            <p>Papercut è disponibile in inglese, arabo, cinese semplificato, spagnolo, francese, hindi, italiano e portoghese brasiliano.</p>
-          </details>
-          <details>
-            <summary><strong>Quali lingue sono disponibili per gli audiolibri?</strong></summary>
-            <p>Kokoro offre voci per inglese, cinese mandarino, spagnolo, francese, hindi, italiano e portoghese brasiliano. L’arabo usa modelli offline separati Piper e Supertonic, mentre SILMA è disponibile su Linux x64 tramite un runtime opzionale.</p>
-          </details>
+          <h3>Configurazione e assistenza</h3>
           <details>
             <summary><strong>Quali sono i requisiti di sistema?</strong></summary>
             <p><strong>Android:</strong> Android 8.0 / API 26 o versioni successive su dispositivi arm64-v8a.</p>
@@ -579,28 +603,8 @@
             <p><strong>Windows:</strong> Windows 10 o versioni successive su hardware x64 con il runtime Microsoft Edge WebView2.</p>
           </details>
           <details>
-            <summary><strong>Android</strong></summary>
-            <p>Abilita <strong>Installa app sconosciute</strong> nelle impostazioni del browser o del gestore file, quindi apri l’APK. Lettura e ricerca funzionano offline. La rete viene usata solo se scegli di scaricare un modello vocale; se non generi audiolibri, l’accesso alla rete non è necessario.</p>
-          </details>
-          <details>
-            <summary><strong>Linux</strong></summary>
-            <p>Richiede Linux amd64 con WebKitGTK e GStreamer disponibili. Gli artefatti di rilascio sono compilati su Ubuntu 24.04.</p>
-            <p><strong>Basato su Debian (Ubuntu, Mint):</strong> <code>sudo apt install ./Papercut_*.deb</code></p>
-            <p><strong>Basato su RPM (Fedora, openSUSE):</strong> <code>sudo rpm -i Papercut-*.rpm</code></p>
-            <p><strong>AppImage:</strong> rendilo eseguibile (<code>chmod +x</code>) ed eseguilo direttamente. Sui sistemi basati su Arch, l’AppImage potrebbe richiedere <code>WEBKIT_DISABLE_COMPOSITING_MODE=1</code>; consulta il <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> per i dettagli.</p>
-          </details>
-          <details>
-            <summary><strong>macOS</strong></summary>
-            <p>Richiede macOS 10.13 o versioni successive su Mac Apple Silicon o Intel. Apri il file <code>.dmg</code> e trascina <strong>Papercut</strong> nella cartella Applicazioni. Le build ufficiali sono firmate con Developer ID e autenticate. Se stai provando un artefatto CI o di sviluppo locale non firmato, fai clic destro (o Control-clic) sull’icona dell’app e scegli <strong>Apri</strong> al primo avvio.</p>
-            <p>Scegli la build adatta al tuo Mac: <strong>Apple Silicon</strong> (<code>_aarch64.dmg</code>) per i chip della serie M, oppure <strong>Intel</strong> (<code>_x64.dmg</code>) per i Mac con processore Intel.</p>
-          </details>
-          <details>
-            <summary><strong>Windows</strong></summary>
-            <p>Richiede Windows 10 o versioni successive su hardware x64 e il runtime Microsoft Edge WebView2. Il programma MSI gestisce automaticamente l’installazione. Se preferisci l’EXE portatile, eseguilo direttamente. Non sono necessari diritti di amministratore.</p>
-          </details>
-          <details>
             <summary><strong>Dove posso trovare documentazione, versioni e codice sorgente?</strong></summary>
-            <p>Inizia dal <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> per assistenza alla configurazione e dettagli sulle piattaforme. Scopri le novità nelle <a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.10.2.md">note di rilascio</a>, consulta <a href="https://github.com/muhannadnouri/papercut.io/releases/latest">tutte le versioni</a>, oppure contribuisci su <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>.</p>
+            <p>Inizia dal <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> per assistenza alla configurazione e dettagli sulle piattaforme. Scopri le novità nelle <a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.10.2.md">note di rilascio</a>, consulta <a href="https://github.com/muhannadnouri/papercut.io/releases">tutte le versioni</a>, oppure contribuisci su <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>.</p>
           </details>
         </section>
 
