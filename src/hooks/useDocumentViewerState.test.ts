@@ -113,10 +113,15 @@ describe('useDocumentViewerState restoring open', () => {
     seedBookmark('/book.html', 240)
     const app = setup(loadSampleDocument)
     await app.render()
+    const timers = vi.spyOn(window, 'setTimeout')
     try {
       await act(async () => {
         await app.state.openDocument('/book.html', undefined, { restoreBookmark: true })
       })
+      const firstTimeout = timers.mock.calls.find(([, delay]) => delay === 20000)?.[0]
+      if (typeof firstTimeout !== 'function') {
+        throw new Error('Expected the first restore to start its failsafe')
+      }
       await act(async () => {
         vi.advanceTimersByTime(10000)
         app.state.clearSelectedDocument()
@@ -127,6 +132,8 @@ describe('useDocumentViewerState restoring open', () => {
       await act(async () => {
         vi.advanceTimersByTime(10000)
       })
+      // Deliver an already-queued callback even though close cancelled the first timer.
+      act(() => firstTimeout())
       expect(app.state.documentLoad.status).toBe('restoring')
       await act(async () => {
         vi.advanceTimersByTime(10000)
@@ -143,6 +150,7 @@ describe('useDocumentViewerState restoring open', () => {
         await app.state.openDocument('/book.html', undefined, { restoreBookmark: true })
       })
     } finally {
+      timers.mockRestore()
       await app.unmount()
     }
     expect(vi.getTimerCount()).toBe(0)

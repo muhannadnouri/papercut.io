@@ -138,6 +138,7 @@ Keep one independently runnable user journey per file in `scripts/desktop/cases/
 | `DS-002` | `DS-002-bundle-import-recovery.mjs` | Dismiss invalid bundle errors in Library and the reader, then open the valid bundle in the original process and find its title once in Library. |
 | `DS-003` | `DS-003-return-after-font-resize.mjs` | Bookmark passage A, open search result B, increase the font size and jump back to A at the larger size. |
 | `DS-004` | `DS-004-pdf-bookmark-restart.mjs` | Reopen a PDF from Library after a process restart and verify both the saved page and the passage within it. |
+| `DS-005` | `DS-005-rapid-library-reopen.mjs` | Reopen the same bookmarked text twice within 20 seconds in one process, verify the saved passage, then use Top. |
 
 Use the filename prefix as the case ID in the owner checklist, log lines and per-case report directories. Keep the ID when wording changes, never recycle it, and reject duplicate IDs. Keep fixture content, selectors and outcome assertions with their case. Keep artifact preparation, session lifecycle, process cleanup and failure capture in the shared runner. Add function comments where platform constraints or fixture intent need explanation.
 
@@ -205,3 +206,13 @@ Run `npm run smoke:desktop -- --case DS-004` for this case alone. The checked-in
 **Page-only restore rehearsal accepted.** Disposable revision `85a87927`, based on `fa7c87c8`, discarded the saved coordinates when restoring the PDF. DS-001 through DS-003 passed on Ubuntu 24.04 and Windows Server 2022. After reopening from Library, DS-004 failed its final assertion on both platforms. Both downloaded reports recorded page 6 selected, the target passage below the viewport and its visibility false. [Hosted rehearsal and artifacts](https://github.com/muhannadnouri/papercut.io/actions/runs/45555256968)
 
 For each PR, run the full smoke suite on the candidate revision. A passing DS-004 covers the late-page embedded-text PDF portion of [reader check 2](bug-squash-smoke-tests.md#reader-restoration-and-search) for that build and OS. The disposable revision can be used again when changing the passage assertion.
+
+## 10. Rapid reopen of a bookmarked document
+
+Run `npm run smoke:desktop -- --case DS-005`. The case saves a bookmark at Amberquartz in the pasted-text fixture. In one process it opens the book from Library, verifies Amberquartz is visible, returns to Library and opens the same book again. The report records elapsed time from before the first Library navigation through the second open click. The case requires less than 20 seconds. It checks the passage settles in view again, clicks the restoration notice’s **Top** control, verifies the passage moves below the viewport and checks the original app PID.
+
+The [viewer state test](../src/hooks/useDocumentViewerState.test.ts) controls the timing that a fast desktop run cannot guarantee. With the second restore pending, it invokes the first restore’s timeout callback at the original deadline and requires the second reader to remain in the restoring state. The second restore’s own deadline can then release it. Run `npm test -- src/hooks/useDocumentViewerState.test.ts`. Removing the callback’s restore-identity check in a disposable checkout made this assertion fail with `idle` where `restoring` was expected.
+
+**Verification.** All five cases passed at `03d6181d`. The downloaded reports recorded the two Library opens within 971 ms on Ubuntu 24.04 and 1,148 ms on Windows Server 2022. DS-005 took 14.46 and 12.27 seconds respectively, including fixture setup. [Hosted run and artifacts](https://github.com/muhannadnouri/papercut.io/actions/runs/45557512090)
+
+**Next acceptance check.** On a disposable revision, skip bookmark restoration on the second Library open of the same book. Require DS-005 to reach that open on both platforms and fail at the saved passage. Then retire the rapid-reopen observation for the tested desktop path. Opening a different book without a bookmark remains a separate manual step.

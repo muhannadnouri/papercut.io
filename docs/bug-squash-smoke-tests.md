@@ -23,7 +23,7 @@ Skip the covered observation when the named case passes on the candidate SHA and
 | Reader check | What the desktop run verifies | What still needs an owner |
 | --- | --- | --- |
 | 1. Reopen from Library | DS-001: After saving a bookmark and restarting the app, the saved passage is in the viewport and the restoration notice’s Top control works. | Use the large book to check the loading status, a flash of the beginning, a second jump and the number of notices. |
-| 2. Restore a late-page PDF bookmark | DS-004: Reopen the embedded-text PDF from Library after restart and verify the saved page and passage are visible. | Reopen the same book within 20 seconds and open a book without a bookmark. |
+| 2. Restore a late-page PDF bookmark | DS-004: Reopen the embedded-text PDF from Library after restart and verify the saved page and passage are visible. | Reopen the same book within 20 seconds (DS-005 failure rehearsal pending) and open a book without a bookmark. |
 | 3. Open a search result | DS-001: Opening the named Keyword result brings its off-screen target into the viewport. The journey then bookmarks that target. DS-003: With A already bookmarked, open search result B, increase the font size and use **Jump to Bookmark**. A returns to view at the larger size. | Change font family, repeat after another search and clear the search mark. Check the large-book and other-format paths separately. |
 
 Keep remaining format-specific, playback, accessibility,
