@@ -18,17 +18,12 @@ For pre-PR evidence on both platforms, push the candidate commit and dispatch
 and the run URL. Credit a passing leg only for its tested build and platform.
 Rerun on the new SHA if the candidate changes. [Local prerequisites and reports](desktop-smoke-e2e.md#running-the-reading-journey) · [Branch dispatch and artifact retrieval](desktop-smoke-e2e.md#run-on-a-pushed-branch)
 
-A pass for `DS-001` (reading and bookmark restoration) covers these portions of the numbered reader checks for a document
-created with **Paste Text**. Skip repeating these two observations by hand.
+For a document created with **Paste Text**, skip the observation below when the named case passes on the candidate SHA and OS.
 
 | Reader check | What the desktop run verifies | What still needs an owner |
 | --- | --- | --- |
-| 1. Reopen from Library | After saving a bookmark and restarting the app, the saved passage is in the viewport and the restoration notice’s Top control works. | Use the large book to check the loading status, a flash of the beginning, a second jump and the number of notices. |
-| 3. Open a search result | Opening the named Keyword result brings its off-screen target into the viewport. The journey then bookmarks that target. | Search away from an existing bookmark, use Return to bookmark, change the font or size, search again and clear the mark. |
-
-DS-003 now exercises the font-size and Return sequence in reader check 3 on pasted text.
-Keep that sequence in the owner pass until the two-platform deliberately broken Return
-rehearsal is complete. [DS-003 verification](desktop-smoke-e2e.md#8-return-to-an-existing-bookmark-after-a-font-size-change)
+| 1. Reopen from Library | DS-001: After saving a bookmark and restarting the app, the saved passage is in the viewport and the restoration notice’s Top control works. | Use the large book to check the loading status, a flash of the beginning, a second jump and the number of notices. |
+| 3. Open a search result | DS-001: Opening the named Keyword result brings its off-screen target into the viewport. The journey then bookmarks that target. DS-003: With A already bookmarked, open search result B, increase the font size and use **Jump to Bookmark**. A returns to view at the larger size. | Change font family, repeat after another search and clear the search mark. Check the large-book and other-format paths separately. |
 
 Run reader check 2 in full. Keep format-specific, playback, accessibility,
 installation and device checks on their listed platforms. If a smoke leg fails,
@@ -44,7 +39,7 @@ alongside the exception. For setup failures, inspect the failed Actions step.
 2. Close and reopen the same book again within 20 seconds. Its restore must finish
    normally without an earlier open's timer revealing it prematurely. Also open a
    book without a bookmark, then restore a late-page PDF bookmark.
-3. Open a search result away from the bookmark. Confirm the result opens at its
+3. Follow the [desktop smoke coverage table](#desktop-smoke-coverage) for the portions covered by a passing DS-001 or DS-003. Open a search result away from the bookmark. Confirm the result opens at its
    target; Return to bookmark restores the saved passage. Repeat after changing
    reader font/size and after another search, including clearing the search mark.
    No stuck restoration status or jump to an unrelated passage should occur.
