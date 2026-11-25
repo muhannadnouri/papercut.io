@@ -139,6 +139,7 @@ Keep one independently runnable user journey per file in `scripts/desktop/cases/
 | `DS-003` | `DS-003-return-after-font-resize.mjs` | Bookmark passage A, open search result B, increase the font size and jump back to A at the larger size. |
 | `DS-004` | `DS-004-pdf-bookmark-restart.mjs` | Reopen a PDF from Library after a process restart and verify both the saved page and the passage within it. |
 | `DS-005` | `DS-005-rapid-library-reopen.mjs` | Reopen the same bookmarked text twice within 20 seconds in one process, verify the saved passage, then use Top. |
+| `DS-006` | `DS-006-play-from-selection.mjs` | Select the final passage in a saved HTML audiobook, start playback there and verify the playing chunk, highlight and advancing progress. |
 
 Use the filename prefix as the case ID in the owner checklist, log lines and per-case report directories. Keep the ID when wording changes, never recycle it, and reject duplicate IDs. Keep fixture content, selectors and outcome assertions with their case. Keep artifact preparation, session lifecycle, process cleanup and failure capture in the shared runner. Add function comments where platform constraints or fixture intent need explanation.
 
@@ -218,3 +219,17 @@ The [viewer state test](../src/hooks/useDocumentViewerState.test.ts) controls th
 **Second-open rehearsal accepted.** Disposable revision `95421d49`, based on DS-005 commit `3c33fe43`, skipped restoration on the repeated open of the same bookmarked document. DS-001 through DS-004 passed on both platforms. DS-005 verified Amberquartz on the first open, then failed its passage assertion after the second. The downloaded logs recorded both opens within 1,065 ms on Ubuntu and 1,194 ms on Windows. [Hosted rehearsal and artifacts](https://github.com/muhannadnouri/papercut.io/actions/runs/45559748815)
 
 A passing DS-005 on the candidate SHA and OS covers the rapid Library reopen observation for pasted text in [reader check 2](bug-squash-smoke-tests.md#reader-restoration-and-search). Keep the viewer state test for the stale timer callback and the owner check for opening a book without a bookmark.
+
+## 11. Play a saved audiobook from a selection
+
+Run `npm run smoke:desktop -- --case DS-006`. **Harbor Signals** contains three paragraphs mapped to three saved PCM WAV chunks lasting 18, 6 and 12 seconds. The [fixture generator](../scripts/fixtures/desktop-smoke/generate-playback.py) also writes the combined track and the HTML audiobook metadata used when the reader opens an exported book. Smoke runs import the checked-in bundle and require no voice model download.
+
+1. Open the bundle through the desktop file-open entry point. Use the WebView selection API to select “Amber beacons guide the pilot home.” in the reader. Open the playback options and click **Play from selection**.
+2. Require the first observed playing status to show **Chunk 3/3**. The first chunk is longer than the driver's 15-second wait, so playing through the book from the beginning cannot satisfy the check.
+3. Read the reader’s active chunk highlight and the displayed playback meter. Require the highlight to span the selected passage, the clock to show the final chunk’s 12-second duration, and progress to increase between two samples.
+
+The silent fixture verifies chunk selection, highlight alignment and playback progress. Use a narrated book on a physical device for the audible passage and output quality checks.
+
+**Verification.** At `6832cbae`, DS-001 through DS-006 passed on Ubuntu 24.04 and Windows Server 2022. DS-006 observed chunk 3 first and highlighted the final passage as progress advanced from 2% to 4% on Ubuntu and 0% to 1% on Windows. The journey took 3.87 s and 4.22 s respectively. An earlier Ubuntu run stopped at DS-004’s PDF restoration assertion. Windows required a job retry after EdgeDriver failed to create a DS-004 session. [Passing run](https://github.com/muhannadnouri/papercut.io/actions/runs/45564665490) · [Earlier Ubuntu failure](https://github.com/muhannadnouri/papercut.io/actions/runs/45563097393)
+
+**Wrong-chunk rehearsal.** Disposable revision `d31f43fd` forced the resolved passage to play chunk 1. Both platforms started playback and DS-006 failed immediately with actual **Chunk 1/3** and expected **Chunk 3/3**. All five earlier cases passed. The Windows report preserved the assertion and screenshot before cleanup encountered a locked WebView2 log. [Rehearsal and artifacts](https://github.com/muhannadnouri/papercut.io/actions/runs/45563100379)

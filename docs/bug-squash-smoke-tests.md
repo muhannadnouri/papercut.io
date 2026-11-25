@@ -47,6 +47,8 @@ alongside the exception. For setup failures, inspect the failed Actions step.
 
 ## Playback targets and later commands
 
+A passing DS-006 on the candidate SHA and OS covers selecting the final passage in the saved HTML fixture, starting the correct chunk, advancing playback and highlighting that passage. For item 1, keep the audible checks, early and middle targets, viewport action, older user bundles, PDF/OCR and unavailable targets. [DS-006 evidence](desktop-smoke-e2e.md#11-play-a-saved-audiobook-from-a-selection)
+
 1. In the existing large book and an imported older bundle, use Play from here at
    early, middle, and late passages. Repeat from a text selection. Listen for the
    intended passage and confirm highlighting follows it. HTML in-chunk timing is
