@@ -26,6 +26,10 @@ created with **Paste Text**. Skip repeating these two observations by hand.
 | 1. Reopen from Library | After saving a bookmark and restarting the app, the saved passage is in the viewport and the restoration notice’s Top control works. | Use the large book to check the loading status, a flash of the beginning, a second jump and the number of notices. |
 | 3. Open a search result | Opening the named Keyword result brings its off-screen target into the viewport. The journey then bookmarks that target. | Search away from an existing bookmark, use Return to bookmark, change the font or size, search again and clear the mark. |
 
+DS-003 now exercises the font-size and Return sequence in reader check 3 on pasted text.
+Keep that sequence in the owner pass until the two-platform deliberately broken Return
+rehearsal is complete. [DS-003 verification](desktop-smoke-e2e.md#8-return-to-an-existing-bookmark-after-a-font-size-change)
+
 Run reader check 2 in full. Keep format-specific, playback, accessibility,
 installation and device checks on their listed platforms. If a smoke leg fails,
 open its command log and read the step and exception in `failure.txt` when

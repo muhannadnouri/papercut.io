@@ -136,6 +136,7 @@ Keep one independently runnable user journey per file in `scripts/desktop/cases/
 | --- | --- | --- |
 | `DS-001` | `DS-001-reading-bookmark.mjs` | Find an off-screen passage and restore its bookmark after restarting Papercut. |
 | `DS-002` | `DS-002-bundle-import-recovery.mjs` | Dismiss invalid bundle errors in Library and the reader, then open the valid bundle in the original process and find its title once in Library. |
+| `DS-003` | `DS-003-return-after-font-resize.mjs` | Bookmark passage A, open search result B, increase the font size and jump back to A at the larger size. |
 
 Use the filename prefix as the case ID in the owner checklist, log lines and per-case report directories. Keep the ID when wording changes, never recycle it, and reject duplicate IDs. Keep fixture content, selectors and outcome assertions with their case. Keep artifact preparation, session lifecycle, process cleanup and failure capture in the shared runner. Add function comments where platform constraints or fixture intent need explanation.
 
@@ -175,3 +176,15 @@ The first Linux attempt against the previous build opened the valid passage but 
 **Hidden-notice rehearsal accepted (step 5).** Disposable revision `ec513f98`, based on recovery commit `ce159371`, applied `display: none` to the shared audiobook error notice. DS-001 passed on Ubuntu 24.04 and Windows Server 2022. On both platforms DS-002 failed at `deliver invalid bundle in Library` after waiting 15 seconds for the alert to become visible. This was the first error assertion, before dismissal or reader recovery. Each downloaded DS-002 report included the exception, screenshot, visible text and driver log. [Rehearsal run](https://github.com/muhannadnouri/papercut.io/actions/runs/45544128043) · [Linux artifact](https://github.com/muhannadnouri/papercut.io/actions/runs/45544128043/artifacts/14990563725) · [Windows artifact](https://github.com/muhannadnouri/papercut.io/actions/runs/45544128043/artifacts/14990789104)
 
 The clean run above verified dismissal on both surfaces and recovery in the original process. A passing DS-002 result for the candidate SHA and OS now covers [external imports item 2](bug-squash-smoke-tests.md#external-imports-and-visible-errors). For the pre-PR handoff, commit the checklist update and [dispatch the full suite on the pushed candidate branch](#run-on-a-pushed-branch).
+
+## 8. Return to an existing bookmark after a font-size change
+
+Run `npm run smoke:desktop -- --case DS-003` to check this journey alone. It shares the pasted-text fixture and viewport measurement with DS-001, and creates its own book and bookmark in a fresh profile.
+
+1. Open the result for **Amberquartz** (A) and save a bookmark there. Search for **Silverwillow** (B) in the same document and open the result whose excerpt contains B.
+2. Use **Reading appearance → Increase Font Size** and verify that a rendered paragraph gets larger. The HTML reader puts appearance controls in the header and bookmark controls below the opening. If returning focus to the header hides Bookmark Actions, page down to reveal it. Verify B is visible at a settled position and A is below the viewport before activating Return.
+3. Choose **Bookmark Actions → Jump to Bookmark**. Require A’s word to be visible at the same position in two consecutive viewport samples, and verify the larger font persists. The check uses a read-only text range and hit test so measuring A cannot scroll it into view.
+
+**Verification.** The full suite passed at `38b708ed` on Ubuntu 24.04 and Windows Server 2022. Both DS-003 reports recorded Amberquartz visible after the rendered font increased from 16px to 17px. The journey took 24.6 seconds on Linux and 9.9 seconds on Windows. Three fresh local Linux profiles also passed. A disposable Linux control closed the bookmark menu without choosing Jump and failed at the final Amberquartz viewport assertion. [Hosted run and artifacts](https://github.com/muhannadnouri/papercut.io/actions/runs/45548665363)
+
+**Next checkpoint.** Disable the bookmark menu’s restore action on a disposable revision and confirm DS-003 detects the missing jump on both platforms. Then credit the matching part of reader check 3 on passing candidate builds. Changing font family, clearing the search mark, and format-specific restoration still need separate observations.
