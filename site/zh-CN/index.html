@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN" data-theme-choice="system">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -37,11 +37,24 @@
       <header class="site-header">
         <a class="brand" href="index.html" aria-label="Papercut 首页">
           <img src="../assets/papercut-icon.png" alt="" width="36" height="36">
-          <span>Papercut</span>
         </a>
-        <a class="walk-link" href="#preview-title">使用方式</a>
         <div class="header-actions">
-          <details class="language-menu">
+          <details class="sections-menu" name="header-menu">
+            <summary>
+              <span class="wordmark">Papercut</span>
+              <span class="visually-hidden">页面导航</span>
+              <span class="chevron-slot" aria-hidden="true"><span class="menu-chevron"></span></span>
+            </summary>
+            <nav class="section-options" aria-label="页面导航">
+              <a href="#preview-title">使用方式</a>
+              <a href="#privacy-title">隐私</a>
+              <a href="#use-cases-title">使用场景</a>
+              <a href="#downloads-title">下载</a>
+              <a href="#install-notes-title">常见问题</a>
+              <a href="#contact-title">联系</a>
+            </nav>
+          </details>
+          <details class="language-menu" name="header-menu">
             <summary aria-label="选择语言" aria-expanded="false">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <circle cx="12" cy="12" r="9" />
@@ -59,29 +72,7 @@
               <a href="index.html" lang="zh-CN" hreflang="zh-CN" aria-current="page">中文（简体）</a>
             </nav>
           </details>
-          <details class="nav-menu">
-            <summary aria-label="展开或收起导航" aria-expanded="false"><span class="nav-menu-icon" aria-hidden="true">
-                <svg class="nav-menu-icon-open" viewBox="0 0 20 20" focusable="false">
-                  <path d="M4 6h12M4 10h12M4 14h12" />
-                </svg>
-                <svg class="nav-menu-icon-close" viewBox="0 0 20 20" focusable="false">
-                  <path d="M5 12l5-5 5 5" />
-                </svg>
-              </span></summary>
-            <nav class="nav" aria-label="主导航">
-              <a href="#find">查找</a>
-              <a href="#read">阅读</a>
-              <a href="#listen">收听</a>
-              <a href="#features-title">功能</a>
-              <a href="#privacy-title">隐私</a>
-              <a href="#use-cases-title">使用场景</a>
-              <a href="#downloads-title">下载</a>
-              <a href="#install-notes-title">常见问题</a>
-              <a href="#contact-title">联系</a>
-            </nav>
-          </details>
-
-          <button class="theme-toggle" type="button" aria-label="主题：使用系统主题。切换到浅色主题。" title="主题：使用系统主题。点击切换到浅色主题。">
+          <button hidden class="theme-toggle" type="button" aria-label="主题：使用系统主题。切换到浅色主题。" title="主题：使用系统主题。点击切换到浅色主题。">
             <span class="theme-toggle-icon theme-toggle-icon-system" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
                 <path d="M4 5.75A2.75 2.75 0 0 1 6.75 3h10.5A2.75 2.75 0 0 1 20 5.75v7.5A2.75 2.75 0 0 1 17.25 16H6.75A2.75 2.75 0 0 1 4 13.25v-7.5Z" />
@@ -117,7 +108,7 @@
           <h1 id="intro-title">阅读你的文档。 <em>也可以听。</em></h1>
           <p class="intro-copy">在书籍、论文和笔记中搜索段落。在设备上阅读上下文，或从这里开始收听。</p>
           <div class="intro-actions" role="group" aria-label="主要操作">
-            <a class="button-primary" href="#downloads-title">下载 Papercut</a>
+            <a class="button-primary" href="#downloads-title">下载</a>
             <a class="button-secondary" href="#preview-title">使用方式</a>
           </div>
           <figure class="passage-frame">
@@ -128,212 +119,96 @@
             </figure>
         </section>
 
-        <section class="walkthrough" aria-labelledby="preview-title">
-          <h2 id="preview-title">从搜索结果到段落朗读</h2>
-          <article class="walk-step" id="find">
-            <div>
-              <h3>查找</h3>
-              <p>用记得的词在文档库中搜索。</p>
-            </div>
-            <figure class="passage-frame">
-              <figcaption>截图占位 · 查找</figcaption>
-              <p class="book-title">港口考察笔记</p>
-              <p class="query">搜索 · <b>潮位计</b></p>
-              <p class="passage">拂晓时，我们检查了东码头旁的<mark>潮位计</mark>。</p>
-            </figure>
-          </article>
-          <article class="walk-step" id="read">
-            <div>
-              <h3>阅读</h3>
-              <p>打开结果，跳到对应段落继续阅读。</p>
-            </div>
-            <figure class="passage-frame">
-              <figcaption>截图占位 · 阅读</figcaption>
-              <p class="book-title">港口考察笔记</p>
-              <p class="passage">拂晓时，我们检查了东码头旁的<mark>潮位计</mark>。</p>
-            </figure>
-          </article>
-          <article class="walk-step" id="listen">
-            <div>
-              <h3>收听</h3>
-              <p>从这一段开始播放已保存的有声书。</p>
-            </div>
-            <figure class="passage-frame">
-              <figcaption>截图占位 · 收听</figcaption>
-              <p class="book-title">港口考察笔记</p>
-              <blockquote>拂晓时，我们检查了东码头旁的潮位计。</blockquote>
-              <p class="playing"><span aria-hidden="true">♫</span> 正在播放有声书</p>
-            </figure>
-          </article>
-        </section>
-
-        <section class="features" aria-labelledby="features-title">
-          <div class="features-header">
-            <h2 id="features-title" class="features-heading">功能</h2>
-            <p>Papercut 形成一个完整流程：导入文档、跨文档搜索、阅读重要内容，并在更适合收听时制作便携音频。</p>
+        <section aria-labelledby="preview-title">
+          <div class="walkthrough">
+            <h2 id="preview-title">从搜索结果到段落朗读</h2>
+            <article class="walk-step" id="find">
+              <div>
+                <h3>查找</h3>
+                <p>在全文中搜索关键词或完全匹配的短语。</p>
+                <p>如果只记得大意，可以试试基于嵌入向量的语义搜索，找到意思相近的段落。</p>
+              </div>
+              <figure class="passage-frame">
+                <figcaption>截图占位 · 查找</figcaption>
+                <p class="book-title">港口考察笔记</p>
+                <p class="query">搜索 · <b>潮位计</b></p>
+                <p class="passage">拂晓时，我们检查了东码头旁的<mark>潮位计</mark>。</p>
+              </figure>
+            </article>
+            <article class="walk-step" id="read">
+              <div>
+                <h3>阅读</h3>
+                <p>打开结果，跳到对应段落继续阅读。</p>
+                <p>为段落添加书签，下次打开文档时就能回到这里。</p>
+              </div>
+              <figure class="passage-frame">
+                <figcaption>截图占位 · 阅读</figcaption>
+                <p class="book-title">港口考察笔记</p>
+                <p class="passage">拂晓时，我们检查了东码头旁的<mark>潮位计</mark>。</p>
+              </figure>
+            </article>
+            <article class="walk-step" id="listen">
+              <div>
+                <h3>收听</h3>
+                <p>从这一段开始播放已保存的有声书。</p>
+                <p>听朗读时可以跟着高亮文字阅读，也可以在朗读继续时先往下读。</p>
+              </div>
+              <figure class="passage-frame">
+                <figcaption>截图占位 · 收听</figcaption>
+                <p class="book-title">港口考察笔记</p>
+                <blockquote>拂晓时，我们检查了东码头旁的潮位计。</blockquote>
+                <p class="playing"><span aria-hidden="true">♫</span> 正在播放有声书</p>
+              </figure>
+            </article>
           </div>
-          <div class="feature-grid">
-            <div class="feature-card">
-              <span class="feature-label">搜索</span>
-              <h3>在整个资料库中查找文本</h3>
-              <p>无需互联网或账户，即可搜索数百份已导入文档的索引内容。精确搜索和广泛搜索可帮助您找回笔记、代码参考、研究引文和手册章节。</p>
-            </div>
-            <div class="feature-card">
-              <span class="feature-label">阅读</span>
-              <h3>离线阅读 HTML、EPUB、PDF、TXT 和 Markdown 文件</h3>
+
+          <section class="story-section story-pair" aria-labelledby="features-title">
+            <div>
+              <h3 id="features-title">导入自己的文档库</h3>
               <p>在本地 HTML、EPUB、PDF、TXT 和 Markdown 阅读器中打开您的文档。PDF 保留原始页面，离线 OCR 则可让英语或阿拉伯语扫描页面支持搜索和朗读。</p>
-            </div>
-            <div class="feature-card">
-              <span class="feature-label">整理</span>
-              <h3>将文档、文件夹和音频集中管理</h3>
               <p>一次导入多个文件，通过封面或列表浏览，整理文件夹，编辑标题，保存生成的音频，并在 Papercut 设备之间传输所选文档和有声读物。</p>
             </div>
-          </div>
+            <figure class="story-capture">
+              <figcaption>截图占位</figcaption>
+              <strong>扫描 PDF 页面中识别出的文字</strong>
+              <p>拂晓时，我们检查了东码头旁的<mark>潮位计</mark>。</p>
+            </figure>
+          </section>
+
+          <section class="story-section story-pair" aria-labelledby="audiobooks-title">
+            <div>
+              <h3 id="audiobooks-title">制作自己的有声书</h3>
+              <p>语音下载一次后，就能在设备上生成和播放有声书，无需订阅，也不按用量收费。</p>
+              <p>保存有声读物包，以便分享、传输或在另一台设备上重新导入 Papercut。</p>
+              <a href="#voice-questions">声音与语言</a>
+            </div>
+            <figure class="story-capture">
+              <figcaption>截图占位</figcaption>
+              <strong>Android 锁屏播放</strong>
+              <p>港口考察笔记 · 正在播放有声书</p>
+            </figure>
+          </section>
         </section>
 
-        <section class="audiobooks" aria-labelledby="audiobooks-title">
-          <div class="section-label">
-            <h2 id="audiobooks-title">离线有声读物</h2>
-          </div>
-          <div class="audiobook-content">
-            <div class="audiobook-lead">
-              <p class="eyebrow">收听</p>
-              <h3>从资料库中的文档生成有声读物</h3>
-              <p>
-                当阅读并非最佳方式时，Papercut 可将支持的文档转换为设备上
-                保存的音频。只有当您选择使用音频时才会下载语音模型；此后，
-                生成和播放都无需互联网。
-              </p>
-            </div>
-
-            <div class="audiobook-points" aria-label="离线有声读物功能">
-              <div>
-                <strong>私密生成</strong>
-                <span>无需云端处理、上传文档或创建账户。</span>
-              </div>
-              <div>
-                <strong>没有用量计费</strong>
-                <span>无需订阅、API 密钥，没有令牌上限或按字符收费。</span>
-              </div>
-              <div>
-                <strong>导出和导入</strong>
-                <span>保存有声读物包，以便分享、传输或在另一台设备上重新导入 Papercut。</span>
-              </div>
-              <div>
-                <strong>随处收听</strong>
-                <span>Android 支持后台和锁屏播放。</span>
-              </div>
-            </div>
-
-            <div class="model-notes">
-              <article>
-                <h4>多语言 Kokoro 语音</h4>
-                <p>Kokoro 为英语、普通话、西班牙语、法语、印地语、意大利语和巴西葡萄牙语提供离线语音。</p>
-              </article>
-              <article>
-                <h4>阿拉伯语语音</h4>
-                <p>阿拉伯语使用独立的离线 Piper 和 Supertonic 模型。Linux x64 还可通过 Papercut 管理的可选运行时下载使用 SILMA。</p>
-              </article>
-              <article>
-                <h4>离线模型的范围</h4>
-                <p>目前，离线模型用于生成有声读物。搜索、导入和阅读仍然是本地文档工具。</p>
-              </article>
-            </div>
-          </div>
+        <section class="story-section privacy-story" aria-labelledby="privacy-title">
+          <h2 id="privacy-title">默认保护隐私</h2>
+          <p>导入、搜索、阅读和生成有声书都在设备上完成。应用内置 PDF 英语和阿拉伯语文字识别功能，可离线使用。</p>
+          <p>下载和打开外部链接需要互联网连接。选择直接向另一台设备发送书籍或音频时，传输使用本地网络。</p>
         </section>
 
-        <section class="privacy" aria-labelledby="privacy-title">
-          <div class="section-label">
-            <h2 id="privacy-title">隐私模式</h2>
-          </div>
-          <div class="privacy-content">
-            <div class="privacy-copy">
-              <p class="eyebrow">默认本地优先</p>
-              <h3>您的资料库保留在设备上</h3>
-              <p>
-                Papercut 默认将导入的文档、搜索、阅读和生成的音频保留在
-                本地。网络访问仅限于您选择的操作，例如下载语音模型或
-                获取发布文件。
-              </p>
-            </div>
-            <div class="privacy-grid" aria-label="Papercut 隐私详情">
-              <article>
-                <strong>文档</strong>
-                <span>导入的 HTML、EPUB、PDF、TXT 和 Markdown 文件保留在本地。</span>
-              </article>
-              <article>
-                <strong>搜索</strong>
-                <span>资料库搜索针对本地文档内容运行。</span>
-              </article>
-              <article>
-                <strong>有声读物</strong>
-                <span>生成的音频保留在本地，Papercut 不主张其所有权。</span>
-              </article>
-              <article>
-                <strong>网络</strong>
-                <span>仅在您请求下载语音模型、版本或外部资源时使用。</span>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section class="positioning" aria-labelledby="use-cases-title">
-          <div class="positioning-header">
-            <h2 id="use-cases-title">使用场景</h2>
-            <p>Papercut 适合由已保存文档、书籍、笔记、手册和研究资料构成的个人资料库。它让搜索、阅读和收听紧贴您已经使用的文件。</p>
-          </div>
-          <div class="positioning-content">
-            <section class="positioning-panel" aria-labelledby="best-for-title">
-              <h3 id="best-for-title">谁最适合使用 Papercut？</h3>
-              <div class="use-case-list" aria-label="Papercut 使用场景">
-                <article>
-                  <strong>开发者</strong>
-                  <span>离线搜索 API 文档、手册和已保存的参考资料。</span>
-                </article>
-                <article>
-                  <strong>研究人员</strong>
-                  <span>让论文、笔记和长篇资料保持可搜索、可收听。</span>
-                </article>
-                <article>
-                  <strong>学生</strong>
-                  <span>将阅读资料包、EPUB 和 PDF（包括已识别的扫描件）转换为私密学习音频。</span>
-                </article>
-                <article>
-                  <strong>离线优先的读者</strong>
-                  <span>偏好本地工具、更少账户和更低的云端依赖。</span>
-                </article>
-              </div>
-            </section>
-
-            <section class="positioning-panel comparison" aria-labelledby="comparison-title">
-              <p class="eyebrow">对比</p>
-              <h3 id="comparison-title">为什么选择 Papercut？</h3>
-              <div class="comparison-list" aria-label="Papercut 与其他选择的比较">
-                <article>
-                  <strong>云端 TTS 服务</strong>
-                  <span>无需上传、API 密钥、订阅或用量计费。</span>
-                </article>
-                <article>
-                  <strong>有声读物应用</strong>
-                  <span>从您自己的文档制作音频，而不是从目录购买。</span>
-                </article>
-                <article>
-                  <strong>文档阅读器</strong>
-                  <span>增加跨文档搜索、资料库传输和离线有声读物生成。</span>
-                </article>
-                <article>
-                  <strong>AI 阅读应用</strong>
-                  <span>将资料库搜索、阅读和有声读物生成保留在本地，而不是把文档上传到以聊天为中心的云端工具。</span>
-                </article>
-              </div>
-            </section>
-          </div>
+        <section class="story-section" aria-labelledby="use-cases-title">
+          <h2 id="use-cases-title">使用场景</h2>
+          <dl class="reader-examples">
+            <div><dt>开发者</dt><dd>离线搜索 API 文档、手册和已保存的参考资料。</dd></div>
+            <div><dt>研究人员</dt><dd>让论文、笔记和长篇资料保持可搜索、可收听。</dd></div>
+            <div><dt>学生</dt><dd>将阅读资料包、EPUB 和 PDF（包括已识别的扫描件）转换为私密学习音频。</dd></div>
+          </dl>
         </section>
 
         <section class="downloads" aria-labelledby="downloads-title">
           <div class="section-label"><h2 id="downloads-title">下载</h2> <span class="version-badge" dir="ltr">v1.10.2</span></div>
           <div class="download-list">
-            <p class="download-list-intro">从推荐的安装程序开始，或展开平台分组查看所有软件包。</p>
+            <p class="download-list-intro">从推荐的安装程序开始，或展开平台分组查看所有软件包。 <a href="#install-notes-title">常见问题</a></p>
 
             <div class="quick-downloads" aria-label="推荐下载">
               <article>
@@ -377,7 +252,7 @@
               </article>
               <div class="platform-install">
                 <h3>安装说明</h3>
-                <p>请在浏览器或文件管理器的设置中启用<strong>安装未知应用</strong>，然后打开 APK。阅读和搜索可离线使用。只有当您选择下载语音模型时才会访问网络；如果不使用有声读物生成功能，则无需网络连接。</p>
+                <p>请在浏览器或文件管理器的设置中启用<strong>安装未知应用</strong>，然后打开 APK。</p>
               </div>
             </details>
 
@@ -562,27 +437,28 @@
           <details>
             <summary><strong>Papercut 除了制作有声读物，还会将 AI 用于其他功能吗？</strong></summary>
             <p>会。Papercut 还使用设备内置 OCR 来识别纯图像或混合 PDF 页面中的英语或阿拉伯语文本。OCR 和有声读物生成都不会把您的文档上传到云服务。</p>
+            <p>如需按含义搜索，请下载可选的搜索模型，启用实验性语义搜索，并在设备上建立索引。之后即可离线搜索。</p>
           </details>
           <details>
             <summary><strong>Papercut 何时需要访问互联网？</strong></summary>
-            <p>阅读和搜索可离线使用。只有当您选择下载语音模型、下载发布版本或打开外部资源时才会访问网络。如果不使用有声读物生成功能，则无需下载语音模型。</p>
+            <p>下载和打开外部链接需要互联网连接。选择直接向另一台设备发送书籍或音频时，传输使用本地网络。</p>
           </details>
-          <h3>声音与语言</h3>
+          <h3 id="voice-questions">声音与语言</h3>
           <details>
             <summary><strong>界面支持哪些语言？</strong></summary>
             <p>Papercut 提供英语、阿拉伯语、简体中文、西班牙语、法语、印地语、意大利语和巴西葡萄牙语界面。</p>
           </details>
           <details>
             <summary><strong>有声读物支持哪些语言？</strong></summary>
-            <p>Kokoro 为英语、普通话、西班牙语、法语、印地语、意大利语和巴西葡萄牙语提供语音。阿拉伯语使用独立的离线 Piper 和 Supertonic 模型；Linux x64 还可通过可选运行时使用 SILMA。</p>
+            <p>Kokoro 支持英语，并提供普通话、西班牙语、法语、印地语、意大利语和巴西葡萄牙语的实验性语音。Supertonic 提供英语和阿拉伯语的实验性语音。</p>
           </details>
           <details>
             <summary><strong>为什么英语有声读物使用 Kokoro？</strong></summary>
-            <p>英语语音使用 Kokoro，是因为它目前在完全离线的语音模型中具有较好的质量。目标是在无需云端处理、订阅、API 密钥或按字符计费的情况下生成自然的音频。</p>
+            <p>Kokoro 是默认英语模型。下载后即可在设备上合成语音，无需 API 密钥，也不按字符收费。</p>
           </details>
           <details>
             <summary><strong>阿拉伯语有声读物如何实现？</strong></summary>
-            <p>阿拉伯语使用独立的离线模型。Piper 是体积较小的跨平台选择；在 Linux x64 桌面端，还可通过可选运行时下载使用 SILMA。</p>
+            <p>Piper Kareem 支持阿拉伯语。Supertonic 是实验性选项。SILMA 需要在 Linux x64 上下载可选运行环境。</p>
           </details>
           <h3>音频权利与分享</h3>
           <details>
@@ -716,51 +592,41 @@
 
         <footer class="site-footer">
           <p class="footer-privacy">开源 🧩 · 无需订阅 💳✂️</p>
-          <p class="footer-meta">
+          <div class="footer-utilities">
+            <p class="footer-meta">
             &copy; 2026 Muhannad Nouri &middot;
             <a href="https://github.com/muhannadnouri/papercut.io/blob/main/LICENSE.md">MIT 许可证</a>
             &middot;
             <a href="https://github.com/muhannadnouri/papercut.io#ai-audio-use-notice">AI 音频使用须知</a>
             &middot;
             <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>
-          </p>
+            </p>
+
+          </div>
         </footer>
       </main>
     </div>
 
     <script>
       (() => {
-        document.querySelectorAll('.nav-menu, .language-menu').forEach((menu) => {
+        for (const menu of document.querySelectorAll('.site-header details')) {
           const toggle = menu.querySelector('summary')
-          const closeMenu = () => {
-            menu.removeAttribute('open')
-            toggle?.setAttribute('aria-expanded', 'false')
-          }
-
           menu.addEventListener('toggle', () => {
-            toggle?.setAttribute('aria-expanded', menu.open ? 'true' : 'false')
-            if (menu.open) {
-              document.querySelectorAll('.nav-menu[open], .language-menu[open]').forEach((other) => {
-                if (other !== menu) other.removeAttribute('open')
-              })
-            }
+            toggle.setAttribute('aria-expanded', String(menu.open))
           })
-
+          menu.addEventListener('click', (event) => {
+            if (event.target.closest('a')) menu.open = false
+          })
           document.addEventListener('pointerdown', (event) => {
-            if (menu.open && !menu.contains(event.target)) closeMenu()
+            if (menu.open && !menu.contains(event.target)) menu.open = false
           })
-
           document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && menu.open) {
-              closeMenu()
-              toggle?.focus()
+              menu.open = false
+              toggle.focus()
             }
           })
-
-          menu.querySelectorAll('a').forEach((link) => {
-            link.addEventListener('click', closeMenu)
-          })
-        })
+        }
       })()
 
       ;(() => {
@@ -796,6 +662,7 @@
         })
 
         applyTheme()
+        button.hidden = false
       })()
 
       ;(() => {

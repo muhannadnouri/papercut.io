@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR" data-theme-choice="system">
+<html lang="pt-BR">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -37,11 +37,24 @@
       <header class="site-header">
         <a class="brand" href="index.html" aria-label="Página inicial do Papercut">
           <img src="../assets/papercut-icon.png" alt="" width="36" height="36">
-          <span>Papercut</span>
         </a>
-        <a class="walk-link" href="#preview-title">Como funciona</a>
         <div class="header-actions">
-          <details class="language-menu">
+          <details class="sections-menu" name="header-menu">
+            <summary>
+              <span class="wordmark">Papercut</span>
+              <span class="visually-hidden">Seções da página</span>
+              <span class="chevron-slot" aria-hidden="true"><span class="menu-chevron"></span></span>
+            </summary>
+            <nav class="section-options" aria-label="Seções da página">
+              <a href="#preview-title">Como funciona</a>
+              <a href="#privacy-title">Privacidade</a>
+              <a href="#use-cases-title">Casos de uso</a>
+              <a href="#downloads-title">Baixar</a>
+              <a href="#install-notes-title">Perguntas frequentes</a>
+              <a href="#contact-title">Contato</a>
+            </nav>
+          </details>
+          <details class="language-menu" name="header-menu">
             <summary aria-label="Escolher idioma" aria-expanded="false">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <circle cx="12" cy="12" r="9" />
@@ -59,29 +72,7 @@
               <a href="../zh-CN/index.html" lang="zh-CN" hreflang="zh-CN">中文（简体）</a>
             </nav>
           </details>
-          <details class="nav-menu">
-            <summary aria-label="Abrir ou fechar a navegação" aria-expanded="false"><span class="nav-menu-icon" aria-hidden="true">
-                <svg class="nav-menu-icon-open" viewBox="0 0 20 20" focusable="false">
-                  <path d="M4 6h12M4 10h12M4 14h12" />
-                </svg>
-                <svg class="nav-menu-icon-close" viewBox="0 0 20 20" focusable="false">
-                  <path d="M5 12l5-5 5 5" />
-                </svg>
-              </span></summary>
-            <nav class="nav" aria-label="Navegação principal">
-              <a href="#find">Buscar</a>
-              <a href="#read">Ler</a>
-              <a href="#listen">Ouvir</a>
-              <a href="#features-title">Recursos</a>
-              <a href="#privacy-title">Privacidade</a>
-              <a href="#use-cases-title">Casos de uso</a>
-              <a href="#downloads-title">Baixar</a>
-              <a href="#install-notes-title">Perguntas frequentes</a>
-              <a href="#contact-title">Contato</a>
-            </nav>
-          </details>
-
-          <button class="theme-toggle" type="button" aria-label="Tema: usar o tema do sistema. Mudar para o tema claro." title="Tema: usar o tema do sistema. Clique para mudar para o tema claro.">
+          <button hidden class="theme-toggle" type="button" aria-label="Tema: usar o tema do sistema. Mudar para o tema claro." title="Tema: usar o tema do sistema. Clique para mudar para o tema claro.">
             <span class="theme-toggle-icon theme-toggle-icon-system" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
                 <path d="M4 5.75A2.75 2.75 0 0 1 6.75 3h10.5A2.75 2.75 0 0 1 20 5.75v7.5A2.75 2.75 0 0 1 17.25 16H6.75A2.75 2.75 0 0 1 4 13.25v-7.5Z" />
@@ -117,7 +108,7 @@
           <h1 id="intro-title">Leia seus documentos. <em>Ou ouça a narração.</em></h1>
           <p class="intro-copy">Busque um trecho em seus livros, artigos e anotações. Leia o contexto ou ouça o trecho no seu dispositivo.</p>
           <div class="intro-actions" role="group" aria-label="Ações principais">
-            <a class="button-primary" href="#downloads-title">Baixar o Papercut</a>
+            <a class="button-primary" href="#downloads-title">Baixar</a>
             <a class="button-secondary" href="#preview-title">Como funciona</a>
           </div>
           <figure class="passage-frame">
@@ -128,208 +119,96 @@
             </figure>
         </section>
 
-        <section class="walkthrough" aria-labelledby="preview-title">
-          <h2 id="preview-title">Do resultado da busca ao trecho narrado</h2>
-          <article class="walk-step" id="find">
-            <div>
-              <h3>Buscar</h3>
-              <p>Busque na biblioteca as palavras de que você se lembra.</p>
-            </div>
-            <figure class="passage-frame">
-              <figcaption>Espaço para a captura de tela · Buscar</figcaption>
-              <p class="book-title">Notas de campo do porto</p>
-              <p class="query">Pesquisar · <b>marégrafo</b></p>
-              <p class="passage">Ao amanhecer, verificamos o <mark>marégrafo</mark> junto ao cais leste.</p>
-            </figure>
-          </article>
-          <article class="walk-step" id="read">
-            <div>
-              <h3>Ler</h3>
-              <p>Abra o resultado no trecho encontrado e continue a leitura.</p>
-            </div>
-            <figure class="passage-frame">
-              <figcaption>Espaço para a captura de tela · Ler</figcaption>
-              <p class="book-title">Notas de campo do porto</p>
-              <p class="passage">Ao amanhecer, verificamos o <mark>marégrafo</mark> junto ao cais leste.</p>
-            </figure>
-          </article>
-          <article class="walk-step" id="listen">
-            <div>
-              <h3>Ouvir</h3>
-              <p>Ouça o audiolivro salvo a partir desse trecho.</p>
-            </div>
-            <figure class="passage-frame">
-              <figcaption>Espaço para a captura de tela · Ouvir</figcaption>
-              <p class="book-title">Notas de campo do porto</p>
-              <blockquote>Ao amanhecer, verificamos o marégrafo junto ao cais leste.</blockquote>
-              <p class="playing"><span aria-hidden="true">♫</span> Reproduzindo audiolivro</p>
-            </figure>
-          </article>
-        </section>
-
-        <section class="features" aria-labelledby="features-title">
-          <div class="features-header">
-            <h2 id="features-title" class="features-heading">Recursos</h2>
-            <p>O Papercut funciona como um ciclo: importe seus documentos, pesquise neles, leia o que importa e crie áudio portátil quando ouvir for mais conveniente.</p>
+        <section aria-labelledby="preview-title">
+          <div class="walkthrough">
+            <h2 id="preview-title">Do resultado da busca ao trecho narrado</h2>
+            <article class="walk-step" id="find">
+              <div>
+                <h3>Buscar</h3>
+                <p>Busque uma palavra ou frase exata no texto completo.</p>
+                <p>Se lembrar da ideia, experimente a busca semântica baseada em embeddings para encontrar trechos com significado parecido.</p>
+              </div>
+              <figure class="passage-frame">
+                <figcaption>Espaço para a captura de tela · Buscar</figcaption>
+                <p class="book-title">Notas de campo do porto</p>
+                <p class="query">Pesquisar · <b>marégrafo</b></p>
+                <p class="passage">Ao amanhecer, verificamos o <mark>marégrafo</mark> junto ao cais leste.</p>
+              </figure>
+            </article>
+            <article class="walk-step" id="read">
+              <div>
+                <h3>Ler</h3>
+                <p>Abra o resultado no trecho encontrado e continue a leitura.</p>
+                <p>Marque o trecho para voltar a ele na próxima vez que abrir o documento.</p>
+              </div>
+              <figure class="passage-frame">
+                <figcaption>Espaço para a captura de tela · Ler</figcaption>
+                <p class="book-title">Notas de campo do porto</p>
+                <p class="passage">Ao amanhecer, verificamos o <mark>marégrafo</mark> junto ao cais leste.</p>
+              </figure>
+            </article>
+            <article class="walk-step" id="listen">
+              <div>
+                <h3>Ouvir</h3>
+                <p>Ouça o audiolivro salvo a partir desse trecho.</p>
+                <p>Acompanhe o texto destacado ou adiante a leitura enquanto a narração continua.</p>
+              </div>
+              <figure class="passage-frame">
+                <figcaption>Espaço para a captura de tela · Ouvir</figcaption>
+                <p class="book-title">Notas de campo do porto</p>
+                <blockquote>Ao amanhecer, verificamos o marégrafo junto ao cais leste.</blockquote>
+                <p class="playing"><span aria-hidden="true">♫</span> Reproduzindo audiolivro</p>
+              </figure>
+            </article>
           </div>
-          <div class="feature-grid">
-            <div class="feature-card">
-              <span class="feature-label">Pesquisar</span>
-              <h3>Encontre texto em toda a sua biblioteca</h3>
-              <p>Pesquise conteúdo indexado em centenas de documentos importados sem internet nem contas. A busca exata e ampla ajuda a recuperar anotações, referências de código, citações de pesquisa e seções de manuais.</p>
-            </div>
-            <div class="feature-card">
-              <span class="feature-label">Ler</span>
-              <h3>Leia arquivos HTML, EPUB, PDF, TXT e Markdown off-line</h3>
+
+          <section class="story-section story-pair" aria-labelledby="features-title">
+            <div>
+              <h3 id="features-title">Traga sua própria biblioteca</h3>
               <p>Leve seus documentos para leitores locais de HTML, EPUB, PDF, TXT e Markdown. Os PDFs mantêm as páginas originais, enquanto o OCR off-line pode tornar páginas digitalizadas em inglês ou árabe pesquisáveis e audíveis.</p>
-            </div>
-            <div class="feature-card">
-              <span class="feature-label">Organizar</span>
-              <h3>Mantenha documentos, pastas e áudio juntos</h3>
               <p>Importe vários arquivos de uma vez, navegue por capas ou listas, organize pastas, edite títulos, salve o áudio gerado e mova documentos e audiolivros selecionados entre dispositivos com Papercut.</p>
             </div>
-          </div>
+            <figure class="story-capture">
+              <figcaption>Espaço para a captura de tela</figcaption>
+              <strong>Texto reconhecido em uma página digitalizada de PDF</strong>
+              <p>Ao amanhecer, verificamos o <mark>marégrafo</mark> junto ao cais leste.</p>
+            </figure>
+          </section>
+
+          <section class="story-section story-pair" aria-labelledby="audiobooks-title">
+            <div>
+              <h3 id="audiobooks-title">Crie seus próprios audiolivros</h3>
+              <p>Baixe uma voz uma vez e depois gere e reproduza audiolivros no seu dispositivo, sem assinatura nem cobrança por uso.</p>
+              <p>Salve pacotes de audiolivros para compartilhar, transferir ou importar novamente no Papercut em outro dispositivo.</p>
+              <a href="#voice-questions">Vozes e idiomas</a>
+            </div>
+            <figure class="story-capture">
+              <figcaption>Espaço para a captura de tela</figcaption>
+              <strong>Reprodução na tela de bloqueio do Android</strong>
+              <p>Notas de campo do porto · Reproduzindo audiolivro</p>
+            </figure>
+          </section>
         </section>
 
-        <section class="audiobooks" aria-labelledby="audiobooks-title">
-          <div class="section-label">
-            <h2 id="audiobooks-title">Audiolivros off-line</h2>
-          </div>
-          <div class="audiobook-content">
-            <div class="audiobook-lead">
-              <p class="eyebrow">Ouvir</p>
-              <h3>Gere audiolivros a partir dos documentos da sua biblioteca</h3>
-              <p>
-                Quando ler não for a melhor opção, o Papercut pode transformar documentos compatíveis em áudio salvo no seu dispositivo. Os modelos de voz são baixados somente quando você escolhe usar áudio; depois disso, a geração e a reprodução funcionam sem internet.
-              </p>
-            </div>
-
-            <div class="audiobook-points" aria-label="Recursos de audiolivros off-line">
-              <div>
-                <strong>Geração privada</strong>
-                <span>Sem processamento em nuvem, envio de documentos ou conta.</span>
-              </div>
-              <div>
-                <strong>Sem cobrança por uso</strong>
-                <span>Sem assinatura, chave de API, limite de tokens ou cobrança por caractere.</span>
-              </div>
-              <div>
-                <strong>Exportar e importar</strong>
-                <span>Salve pacotes de audiolivros para compartilhar, transferir ou importar novamente no Papercut em outro dispositivo.</span>
-              </div>
-              <div>
-                <strong>Ouça em qualquer lugar</strong>
-                <span>O Android permite reprodução em segundo plano e na tela de bloqueio.</span>
-              </div>
-            </div>
-
-            <div class="model-notes">
-              <article>
-                <h4>Vozes multilíngues do Kokoro</h4>
-                <p>O Kokoro oferece vozes off-line para inglês, chinês mandarim, espanhol, francês, hindi, italiano e português brasileiro.</p>
-              </article>
-              <article>
-                <h4>Vozes em árabe</h4>
-                <p>O árabe usa modelos off-line separados do Piper e do Supertonic. O SILMA também está disponível no Linux x64 por meio de um runtime opcional gerenciado pelo Papercut.</p>
-              </article>
-              <article>
-                <h4>Escopo dos modelos off-line</h4>
-                <p>Atualmente, os modelos off-line geram audiolivros. Pesquisa, importação e leitura continuam sendo ferramentas locais para documentos.</p>
-              </article>
-            </div>
-          </div>
+        <section class="story-section privacy-story" aria-labelledby="privacy-title">
+          <h2 id="privacy-title">Privacidade por padrão</h2>
+          <p>A importação, a busca, a leitura e a geração de audiolivros acontecem no dispositivo. O reconhecimento de texto em inglês e árabe nos PDFs já vem incluído e funciona offline.</p>
+          <p>Downloads e links externos usam a internet. A transferência direta usa a rede local quando você escolhe enviar livros ou áudio a outro dispositivo.</p>
         </section>
 
-        <section class="privacy" aria-labelledby="privacy-title">
-          <div class="section-label">
-            <h2 id="privacy-title">Modelo de privacidade</h2>
-          </div>
-          <div class="privacy-content">
-            <div class="privacy-copy">
-              <p class="eyebrow">Local por padrão</p>
-              <h3>Sua biblioteca permanece no seu dispositivo</h3>
-              <p>
-                Por padrão, o Papercut mantém localmente os documentos importados, a pesquisa, a leitura e o áudio gerado. O acesso à rede fica restrito às ações que você escolhe, como baixar modelos de voz ou arquivos de uma versão.
-              </p>
-            </div>
-            <div class="privacy-grid" aria-label="Detalhes de privacidade do Papercut">
-              <article>
-                <strong>Documentos</strong>
-                <span>Arquivos HTML, EPUB, PDF, TXT e Markdown importados permanecem no dispositivo.</span>
-              </article>
-              <article>
-                <strong>Pesquisa</strong>
-                <span>A pesquisa na biblioteca consulta o conteúdo local dos documentos.</span>
-              </article>
-              <article>
-                <strong>Audiolivros</strong>
-                <span>O áudio gerado permanece local, e o Papercut não reivindica sua propriedade.</span>
-              </article>
-              <article>
-                <strong>Rede</strong>
-                <span>Usada somente quando você baixa modelos de voz, versões ou recursos externos solicitados.</span>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section class="positioning" aria-labelledby="use-cases-title">
-          <div class="positioning-header">
-            <h2 id="use-cases-title">Casos de uso</h2>
-            <p>O Papercut atende a bibliotecas pessoais formadas por documentos, livros, anotações, manuais e material de pesquisa. Ele mantém pesquisa, leitura e áudio próximos aos arquivos que você já usa.</p>
-          </div>
-          <div class="positioning-content">
-            <section class="positioning-panel" aria-labelledby="best-for-title">
-              <h3 id="best-for-title">Quem aproveita melhor o Papercut?</h3>
-              <div class="use-case-list" aria-label="Casos de uso do Papercut">
-                <article>
-                  <strong>Desenvolvedores</strong>
-                  <span>Pesquise documentação de APIs, manuais e referências salvas off-line.</span>
-                </article>
-                <article>
-                  <strong>Pesquisadores</strong>
-                  <span>Mantenha artigos, anotações e fontes extensas pesquisáveis e disponíveis em áudio.</span>
-                </article>
-                <article>
-                  <strong>Estudantes</strong>
-                  <span>Transforme materiais de leitura, EPUBs e PDFs, incluindo digitalizações reconhecidas, em áudio privado para estudos.</span>
-                </article>
-                <article>
-                  <strong>Leitores que priorizam o modo off-line</strong>
-                  <span>Prefira ferramentas locais, menos contas e menor dependência da nuvem.</span>
-                </article>
-              </div>
-            </section>
-
-            <section class="positioning-panel comparison" aria-labelledby="comparison-title">
-              <p class="eyebrow">Comparação</p>
-              <h3 id="comparison-title">Por que usar o Papercut?</h3>
-              <div class="comparison-list" aria-label="Comparação entre o Papercut e alternativas">
-                <article>
-                  <strong>Serviços de TTS na nuvem</strong>
-                  <span>Sem envios, chaves de API, assinaturas ou medidores de uso.</span>
-                </article>
-                <article>
-                  <strong>Aplicativos de audiolivros</strong>
-                  <span>Crie áudio a partir dos seus documentos em vez de comprar de um catálogo.</span>
-                </article>
-                <article>
-                  <strong>Leitores de documentos</strong>
-                  <span>Tenha pesquisa entre documentos, transferência de biblioteca e geração de audiolivros off-line.</span>
-                </article>
-                <article>
-                  <strong>Aplicativos de leitura com IA</strong>
-                  <span>Mantenha a pesquisa, a leitura e a geração de audiolivros no dispositivo em vez de enviar documentos para ferramentas de nuvem centradas em chat.</span>
-                </article>
-              </div>
-            </section>
-          </div>
+        <section class="story-section" aria-labelledby="use-cases-title">
+          <h2 id="use-cases-title">Casos de uso</h2>
+          <dl class="reader-examples">
+            <div><dt>Desenvolvedores</dt><dd>Pesquise documentação de APIs, manuais e referências salvas off-line.</dd></div>
+            <div><dt>Pesquisadores</dt><dd>Mantenha artigos, anotações e fontes extensas pesquisáveis e disponíveis em áudio.</dd></div>
+            <div><dt>Estudantes</dt><dd>Transforme materiais de leitura, EPUBs e PDFs, incluindo digitalizações reconhecidas, em áudio privado para estudos.</dd></div>
+          </dl>
         </section>
 
         <section class="downloads" aria-labelledby="downloads-title">
           <div class="section-label"><h2 id="downloads-title">Downloads</h2> <span class="version-badge" dir="ltr">v1.10.2</span></div>
           <div class="download-list">
-            <p class="download-list-intro">Comece com um instalador recomendado ou abra o grupo da plataforma para ver todos os pacotes.</p>
+            <p class="download-list-intro">Comece com um instalador recomendado ou abra o grupo da plataforma para ver todos os pacotes. <a href="#install-notes-title">Perguntas frequentes</a></p>
 
             <div class="quick-downloads" aria-label="Downloads recomendados">
               <article>
@@ -373,7 +252,7 @@
               </article>
               <div class="platform-install">
                 <h3>Instalação</h3>
-                <p>Ative <strong>Instalar apps desconhecidos</strong> nas Configurações do navegador ou gerenciador de arquivos e abra o APK. A leitura e a pesquisa funcionam off-line. A rede é usada apenas se você decidir baixar um modelo de voz; se não gerar audiolivros, o acesso à rede não é necessário.</p>
+                <p>Ative <strong>Instalar apps desconhecidos</strong> nas Configurações do navegador ou gerenciador de arquivos e abra o APK.</p>
               </div>
             </details>
 
@@ -558,27 +437,28 @@
           <details>
             <summary><strong>O Papercut usa IA para algo além de audiolivros?</strong></summary>
             <p>Sim. O Papercut também usa OCR integrado ao dispositivo para reconhecer texto em inglês ou árabe em páginas PDF somente de imagem ou híbridas. O OCR e a geração de audiolivros não enviam seus documentos para um serviço em nuvem.</p>
+            <p>Para buscar por significado, baixe o modelo opcional, ative a busca semântica experimental e crie o índice no seu dispositivo. Depois, você poderá buscar offline.</p>
           </details>
           <details>
             <summary><strong>Quando o Papercut precisa de acesso à internet?</strong></summary>
-            <p>A leitura e a pesquisa funcionam off-line. O acesso à rede é usado quando você decide baixar um modelo de voz, uma versão ou abrir um recurso externo. Se você não gerar audiolivros, não precisará baixar modelos de voz.</p>
+            <p>Downloads e links externos usam a internet. A transferência direta usa a rede local quando você escolhe enviar livros ou áudio a outro dispositivo.</p>
           </details>
-          <h3>Vozes e idiomas</h3>
+          <h3 id="voice-questions">Vozes e idiomas</h3>
           <details>
             <summary><strong>Quais idiomas de interface estão disponíveis?</strong></summary>
             <p>O Papercut está disponível em inglês, árabe, chinês simplificado, espanhol, francês, hindi, italiano e português brasileiro.</p>
           </details>
           <details>
             <summary><strong>Quais idiomas de audiolivro estão disponíveis?</strong></summary>
-            <p>O Kokoro oferece vozes em inglês, chinês mandarim, espanhol, francês, hindi, italiano e português brasileiro. O árabe usa modelos off-line separados do Piper e do Supertonic, com o SILMA disponível no Linux x64 por meio de um runtime opcional.</p>
+            <p>O Kokoro oferece suporte ao inglês e vozes experimentais em mandarim, espanhol, francês, hindi, italiano e português do Brasil. O Supertonic oferece vozes experimentais em inglês e árabe.</p>
           </details>
           <details>
             <summary><strong>Por que a geração de audiolivros em inglês usa o Kokoro?</strong></summary>
-            <p>As vozes em inglês usam o Kokoro porque ele oferece atualmente boa qualidade entre os modelos de voz totalmente off-line. O objetivo é produzir áudio natural sem processamento em nuvem, assinaturas, chaves de API ou cobrança por caractere.</p>
+            <p>Kokoro é o modelo padrão para inglês. Após o download, ele gera voz no dispositivo, sem chave de API nem cobrança por caractere.</p>
           </details>
           <details>
             <summary><strong>Como funciona o suporte a audiolivros em árabe?</strong></summary>
-            <p>O árabe é compatível por meio de modelos off-line separados. O Piper é a opção menor e multiplataforma, enquanto o SILMA está disponível no Linux x64 para computador por meio de um runtime opcional.</p>
+            <p>O Piper Kareem oferece suporte ao árabe. O Supertonic é uma alternativa experimental. O SILMA requer um ambiente de execução opcional no Linux x64.</p>
           </details>
           <h3>Direitos e compartilhamento de áudio</h3>
           <details>
@@ -712,51 +592,41 @@
 
         <footer class="site-footer">
           <p class="footer-privacy">Código aberto 🧩 · Sem assinaturas 💳✂️</p>
-          <p class="footer-meta">
+          <div class="footer-utilities">
+            <p class="footer-meta">
             &copy; 2026 Muhannad Nouri &middot;
             <a href="https://github.com/muhannadnouri/papercut.io/blob/main/LICENSE.md">Licença MIT</a>
             &middot;
             <a href="https://github.com/muhannadnouri/papercut.io#ai-audio-use-notice">Aviso de uso de áudio por IA</a>
             &middot;
             <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>
-          </p>
+            </p>
+
+          </div>
         </footer>
       </main>
     </div>
 
     <script>
       (() => {
-        document.querySelectorAll('.nav-menu, .language-menu').forEach((menu) => {
+        for (const menu of document.querySelectorAll('.site-header details')) {
           const toggle = menu.querySelector('summary')
-          const closeMenu = () => {
-            menu.removeAttribute('open')
-            toggle?.setAttribute('aria-expanded', 'false')
-          }
-
           menu.addEventListener('toggle', () => {
-            toggle?.setAttribute('aria-expanded', menu.open ? 'true' : 'false')
-            if (menu.open) {
-              document.querySelectorAll('.nav-menu[open], .language-menu[open]').forEach((other) => {
-                if (other !== menu) other.removeAttribute('open')
-              })
-            }
+            toggle.setAttribute('aria-expanded', String(menu.open))
           })
-
+          menu.addEventListener('click', (event) => {
+            if (event.target.closest('a')) menu.open = false
+          })
           document.addEventListener('pointerdown', (event) => {
-            if (menu.open && !menu.contains(event.target)) closeMenu()
+            if (menu.open && !menu.contains(event.target)) menu.open = false
           })
-
           document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && menu.open) {
-              closeMenu()
-              toggle?.focus()
+              menu.open = false
+              toggle.focus()
             }
           })
-
-          menu.querySelectorAll('a').forEach((link) => {
-            link.addEventListener('click', closeMenu)
-          })
-        })
+        }
       })()
 
       ;(() => {
@@ -792,6 +662,7 @@
         })
 
         applyTheme()
+        button.hidden = false
       })()
 
       ;(() => {

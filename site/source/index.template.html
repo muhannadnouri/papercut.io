@@ -37,11 +37,24 @@
       <header class="site-header">
         {{header.markup.001}}
           {{header.markup.002}}
-          <span>{{header.text.001}}</span>
         </a>
-        <a class="walk-link" href="#preview-title">{{walk.link}}</a>
         <div class="header-actions">
-          <details class="language-menu">
+          <details class="sections-menu" name="header-menu">
+            <summary>
+              <span class="wordmark">{{header.text.001}}</span>
+              <span class="visually-hidden">{{header.sections}}</span>
+              <span class="chevron-slot" aria-hidden="true"><span class="menu-chevron"></span></span>
+            </summary>
+            <nav class="section-options" aria-label="{{header.sections}}">
+              <a href="#preview-title">{{walk.link}}</a>
+              <a href="#privacy-title">{{header.text.009}}</a>
+              <a href="#use-cases-title">{{header.text.010}}</a>
+              <a href="#downloads-title">{{header.text.011}}</a>
+              <a href="#install-notes-title">{{header.text.012}}</a>
+              <a href="#contact-title">{{header.text.013}}</a>
+            </nav>
+          </details>
+          <details class="language-menu" name="header-menu">
             {{header.markup.003}}
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <circle cx="12" cy="12" r="9" />
@@ -59,28 +72,6 @@
               {{header.markup.locale-extra-3}}{{header.text.locale-extra-3}}</a>
             </nav>
           </details>
-          <details class="nav-menu">
-            {{header.markup.010}}<span class="nav-menu-icon" aria-hidden="true">
-                <svg class="nav-menu-icon-open" viewBox="0 0 20 20" focusable="false">
-                  <path d="M4 6h12M4 10h12M4 14h12" />
-                </svg>
-                <svg class="nav-menu-icon-close" viewBox="0 0 20 20" focusable="false">
-                  <path d="M5 12l5-5 5 5" />
-                </svg>
-              </span></summary>
-            {{header.markup.011}}
-              <a href="#find">{{walk.find}}</a>
-              <a href="#read">{{walk.read}}</a>
-              <a href="#listen">{{walk.listen}}</a>
-              <a href="#features-title">{{header.text.008}}</a>
-              <a href="#privacy-title">{{header.text.009}}</a>
-              <a href="#use-cases-title">{{header.text.010}}</a>
-              <a href="#downloads-title">{{header.text.011}}</a>
-              <a href="#install-notes-title">{{header.text.012}}</a>
-              <a href="#contact-title">{{header.text.013}}</a>
-            </nav>
-          </details>
-
           {{header.markup.012}}
             <span class="theme-toggle-icon theme-toggle-icon-system" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
@@ -117,7 +108,7 @@
           <h1 id="intro-title">{{hero.read}} <em>{{hero.listen}}</em></h1>
           <p class="intro-copy">{{hero.copy}}</p>
           {{intro.markup.001}}
-            <a class="button-primary" href="#downloads-title">{{intro.text.004}}</a>
+            <a class="button-primary" href="#downloads-title">{{header.text.011}}</a>
             <a class="button-secondary" href="#preview-title">{{walk.link}}</a>
           </div>
           <figure class="passage-frame">
@@ -128,204 +119,96 @@
             </figure>
         </section>
 
-        <section class="walkthrough" aria-labelledby="preview-title">
-          <h2 id="preview-title">{{walk.title}}</h2>
-          <article class="walk-step" id="find">
-            <div>
-              <h3>{{walk.find}}</h3>
-              <p>{{walk.find.copy}}</p>
-            </div>
-            <figure class="passage-frame">
-              <figcaption>{{walk.placeholder}} · {{walk.find}}</figcaption>
-              <p class="book-title">{{walk.book}}</p>
-              <p class="query">{{features.text.003}} · <b>{{walk.query}}</b></p>
-              <p class="passage">{{walk.before}}<mark>{{walk.query}}</mark>{{walk.after}}</p>
-            </figure>
-          </article>
-          <article class="walk-step" id="read">
-            <div>
-              <h3>{{walk.read}}</h3>
-              <p>{{walk.read.copy}}</p>
-            </div>
-            <figure class="passage-frame">
-              <figcaption>{{walk.placeholder}} · {{walk.read}}</figcaption>
-              <p class="book-title">{{walk.book}}</p>
-              <p class="passage">{{walk.before}}<mark>{{walk.query}}</mark>{{walk.after}}</p>
-            </figure>
-          </article>
-          <article class="walk-step" id="listen">
-            <div>
-              <h3>{{walk.listen}}</h3>
-              <p>{{walk.listen.copy}}</p>
-            </div>
-            <figure class="passage-frame">
-              <figcaption>{{walk.placeholder}} · {{walk.listen}}</figcaption>
-              <p class="book-title">{{walk.book}}</p>
-              <blockquote>{{walk.before}}{{walk.query}}{{walk.after}}</blockquote>
-              <p class="playing"><span aria-hidden="true">♫</span> {{walk.playing}}</p>
-            </figure>
-          </article>
-        </section>
-
-        <section class="features" aria-labelledby="features-title">
-          <div class="features-header">
-            <h2 id="features-title" class="features-heading">{{features.text.001}}</h2>
-            <p>{{features.text.002}}</p>
+        <section aria-labelledby="preview-title">
+          <div class="walkthrough">
+            <h2 id="preview-title">{{walk.title}}</h2>
+            <article class="walk-step" id="find">
+              <div>
+                <h3>{{walk.find}}</h3>
+                <p>{{walk.find.copy}}</p>
+                <p>{{walk.find.detail}}</p>
+              </div>
+              <figure class="passage-frame">
+                <figcaption>{{walk.placeholder}} · {{walk.find}}</figcaption>
+                <p class="book-title">{{walk.book}}</p>
+                <p class="query">{{features.text.003}} · <b>{{walk.query}}</b></p>
+                <p class="passage">{{walk.before}}<mark>{{walk.query}}</mark>{{walk.after}}</p>
+              </figure>
+            </article>
+            <article class="walk-step" id="read">
+              <div>
+                <h3>{{walk.read}}</h3>
+                <p>{{walk.read.copy}}</p>
+                <p>{{walk.read.detail}}</p>
+              </div>
+              <figure class="passage-frame">
+                <figcaption>{{walk.placeholder}} · {{walk.read}}</figcaption>
+                <p class="book-title">{{walk.book}}</p>
+                <p class="passage">{{walk.before}}<mark>{{walk.query}}</mark>{{walk.after}}</p>
+              </figure>
+            </article>
+            <article class="walk-step" id="listen">
+              <div>
+                <h3>{{walk.listen}}</h3>
+                <p>{{walk.listen.copy}}</p>
+                <p>{{walk.listen.detail}}</p>
+              </div>
+              <figure class="passage-frame">
+                <figcaption>{{walk.placeholder}} · {{walk.listen}}</figcaption>
+                <p class="book-title">{{walk.book}}</p>
+                <blockquote>{{walk.before}}{{walk.query}}{{walk.after}}</blockquote>
+                <p class="playing"><span aria-hidden="true">♫</span> {{walk.playing}}</p>
+              </figure>
+            </article>
           </div>
-          <div class="feature-grid">
-            <div class="feature-card">
-              <span class="feature-label">{{features.text.003}}</span>
-              <h3>{{features.text.004}}</h3>
-              <p>{{features.text.005}}</p>
-            </div>
-            <div class="feature-card">
-              <span class="feature-label">{{features.text.006}}</span>
-              <h3>{{features.text.007}}</h3>
+
+          <section class="story-section story-pair" aria-labelledby="features-title">
+            <div>
+              <h3 id="features-title">{{library.title}}</h3>
               <p>{{features.text.008}}</p>
-            </div>
-            <div class="feature-card">
-              <span class="feature-label">{{features.text.009}}</span>
-              <h3>{{features.text.010}}</h3>
               <p>{{features.text.011}}</p>
             </div>
-          </div>
+            <figure class="story-capture">
+              <figcaption>{{walk.placeholder}}</figcaption>
+              <strong>{{library.scan}}</strong>
+              <p>{{walk.before}}<mark>{{walk.query}}</mark>{{walk.after}}</p>
+            </figure>
+          </section>
+
+          <section class="story-section story-pair" aria-labelledby="audiobooks-title">
+            <div>
+              <h3 id="audiobooks-title">{{audio.title}}</h3>
+              <p>{{audio.setup}}</p>
+              <p>{{audiobooks.text.010}}</p>
+              <a href="#voice-questions">{{faq.voices}}</a>
+            </div>
+            <figure class="story-capture">
+              <figcaption>{{walk.placeholder}}</figcaption>
+              <strong>{{audio.phone}}</strong>
+              <p>{{walk.book}} · {{walk.playing}}</p>
+            </figure>
+          </section>
         </section>
 
-        <section class="audiobooks" aria-labelledby="audiobooks-title">
-          <div class="section-label">
-            <h2 id="audiobooks-title">{{audiobooks.text.001}}</h2>
-          </div>
-          <div class="audiobook-content">
-            <div class="audiobook-lead">
-              <p class="eyebrow">{{audiobooks.text.002}}</p>
-              <h3>{{audiobooks.text.003}}</h3>
-              <p>{{audiobooks.text.004}}</p>
-            </div>
-
-            {{audiobooks.markup.001}}
-              <div>
-                <strong>{{audiobooks.text.005}}</strong>
-                <span>{{audiobooks.text.006}}</span>
-              </div>
-              <div>
-                <strong>{{audiobooks.text.007}}</strong>
-                <span>{{audiobooks.text.008}}</span>
-              </div>
-              <div>
-                <strong>{{audiobooks.text.009}}</strong>
-                <span>{{audiobooks.text.010}}</span>
-              </div>
-              <div>
-                <strong>{{audiobooks.text.011}}</strong>
-                <span>{{audiobooks.text.012}}</span>
-              </div>
-            </div>
-
-            <div class="model-notes">
-              <article>
-                <h4>{{audiobooks.text.013}}</h4>
-                <p>{{audiobooks.text.014}}</p>
-              </article>
-              <article>
-                <h4>{{audiobooks.text.015}}</h4>
-                <p>{{audiobooks.text.016}}</p>
-              </article>
-              <article>
-                <h4>{{audiobooks.text.017}}</h4>
-                <p>{{audiobooks.text.018}}</p>
-              </article>
-            </div>
-          </div>
+        <section class="story-section privacy-story" aria-labelledby="privacy-title">
+          <h2 id="privacy-title">{{privacy.text.003}}</h2>
+          <p>{{privacy.local}}</p>
+          <p>{{privacy.network}}</p>
         </section>
 
-        <section class="privacy" aria-labelledby="privacy-title">
-          <div class="section-label">
-            <h2 id="privacy-title">{{privacy.text.001}}</h2>
-          </div>
-          <div class="privacy-content">
-            <div class="privacy-copy">
-              <p class="eyebrow">{{privacy.text.002}}</p>
-              <h3>{{privacy.text.003}}</h3>
-              <p>{{privacy.text.004}}</p>
-            </div>
-            {{privacy.markup.001}}
-              <article>
-                <strong>{{privacy.text.005}}</strong>
-                <span>{{privacy.text.006}}</span>
-              </article>
-              <article>
-                <strong>{{privacy.text.007}}</strong>
-                <span>{{privacy.text.008}}</span>
-              </article>
-              <article>
-                <strong>{{privacy.text.009}}</strong>
-                <span>{{privacy.text.010}}</span>
-              </article>
-              <article>
-                <strong>{{privacy.text.011}}</strong>
-                <span>{{privacy.text.012}}</span>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section class="positioning" aria-labelledby="use-cases-title">
-          <div class="positioning-header">
-            <h2 id="use-cases-title">{{positioning.text.001}}</h2>
-            <p>{{positioning.text.002}}</p>
-          </div>
-          <div class="positioning-content">
-            <section class="positioning-panel" aria-labelledby="best-for-title">
-              <h3 id="best-for-title">{{positioning-panel.text.001}}</h3>
-              {{positioning-panel.markup.001}}
-                <article>
-                  <strong>{{positioning-panel.text.002}}</strong>
-                  <span>{{positioning-panel.text.003}}</span>
-                </article>
-                <article>
-                  <strong>{{positioning-panel.text.004}}</strong>
-                  <span>{{positioning-panel.text.005}}</span>
-                </article>
-                <article>
-                  <strong>{{positioning-panel.text.006}}</strong>
-                  <span>{{positioning-panel.text.007}}</span>
-                </article>
-                <article>
-                  <strong>{{positioning-panel.text.008}}</strong>
-                  <span>{{positioning-panel.text.009}}</span>
-                </article>
-              </div>
-            </section>
-
-            <section class="positioning-panel comparison" aria-labelledby="comparison-title">
-              <p class="eyebrow">{{positioning-panel.text.010}}</p>
-              <h3 id="comparison-title">{{positioning-panel.text.011}}</h3>
-              {{positioning-panel.markup.002}}
-                <article>
-                  <strong>{{positioning-panel.text.012}}</strong>
-                  <span>{{positioning-panel.text.013}}</span>
-                </article>
-                <article>
-                  <strong>{{positioning-panel.text.014}}</strong>
-                  <span>{{positioning-panel.text.015}}</span>
-                </article>
-                <article>
-                  <strong>{{positioning-panel.text.016}}</strong>
-                  <span>{{positioning-panel.text.017}}</span>
-                </article>
-                <article>
-                  <strong>{{positioning-panel.text.018}}</strong>
-                  <span>{{positioning-panel.text.019}}</span>
-                </article>
-              </div>
-            </section>
-          </div>
+        <section class="story-section" aria-labelledby="use-cases-title">
+          <h2 id="use-cases-title">{{positioning.text.001}}</h2>
+          <dl class="reader-examples">
+            <div><dt>{{positioning-panel.text.002}}</dt><dd>{{positioning-panel.text.003}}</dd></div>
+            <div><dt>{{positioning-panel.text.004}}</dt><dd>{{positioning-panel.text.005}}</dd></div>
+            <div><dt>{{positioning-panel.text.006}}</dt><dd>{{positioning-panel.text.007}}</dd></div>
+          </dl>
         </section>
 
         <section class="downloads" aria-labelledby="downloads-title">
           <div class="section-label"><h2 id="downloads-title">{{downloads.text.001}}</h2> <span class="version-badge" dir="ltr">{{release.tag}}</span></div>
           <div class="download-list">
-            <p class="download-list-intro">{{downloads.text.003}}</p>
+            <p class="download-list-intro">{{downloads.text.003}} <a href="#install-notes-title">{{header.text.012}}</a></p>
 
             {{downloads.markup.002}}
               <article>
@@ -554,19 +437,20 @@
           <details>
             <summary><strong>{{install-notes.text.003}}</strong></summary>
             <p>{{install-notes.text.004}}</p>
+            <p>{{search.setup}}</p>
           </details>
           <details>
             <summary><strong>{{install-notes.text.005}}</strong></summary>
-            <p>{{install-notes.text.006}}</p>
+            <p>{{privacy.network}}</p>
           </details>
-          <h3>{{faq.voices}}</h3>
+          <h3 id="voice-questions">{{faq.voices}}</h3>
           <details>
             <summary><strong>{{install-notes.text.019}}</strong></summary>
             <p>{{install-notes.text.020}}</p>
           </details>
           <details>
             <summary><strong>{{install-notes.text.021}}</strong></summary>
-            <p>{{install-notes.text.022}}</p>
+            <p>{{voice.languages}}</p>
           </details>
           <details>
             <summary><strong>{{install-notes.text.007}}</strong></summary>
@@ -574,7 +458,7 @@
           </details>
           <details>
             <summary><strong>{{install-notes.text.009}}</strong></summary>
-            <p>{{install-notes.text.010}}</p>
+            <p>{{voice.arabic}}</p>
           </details>
           <h3>{{faq.rights}}</h3>
           <details>
@@ -702,45 +586,35 @@
 
         <footer class="site-footer">
           <p class="footer-privacy">{{footer.text.001}}</p>
-          <p class="footer-meta">{{footer.text.002}}<a href="https://github.com/muhannadnouri/papercut.io/blob/main/LICENSE.md">{{footer.text.003}}</a>{{footer.text.004}}<a href="https://github.com/muhannadnouri/papercut.io#ai-audio-use-notice">{{footer.text.005}}</a>{{footer.text.006}}<a href="https://github.com/muhannadnouri/papercut.io">{{footer.text.007}}</a>
-          </p>
+          <div class="footer-utilities">
+            <p class="footer-meta">{{footer.text.002}}<a href="https://github.com/muhannadnouri/papercut.io/blob/main/LICENSE.md">{{footer.text.003}}</a>{{footer.text.004}}<a href="https://github.com/muhannadnouri/papercut.io#ai-audio-use-notice">{{footer.text.005}}</a>{{footer.text.006}}<a href="https://github.com/muhannadnouri/papercut.io">{{footer.text.007}}</a>
+            </p>
+
+          </div>
         </footer>
       </main>
     </div>
 
     <script>
       (() => {
-        document.querySelectorAll('.nav-menu, .language-menu').forEach((menu) => {
+        for (const menu of document.querySelectorAll('.site-header details')) {
           const toggle = menu.querySelector('summary')
-          const closeMenu = () => {
-            menu.removeAttribute('open')
-            toggle?.setAttribute('aria-expanded', 'false')
-          }
-
           menu.addEventListener('toggle', () => {
-            toggle?.setAttribute('aria-expanded', menu.open ? 'true' : 'false')
-            if (menu.open) {
-              document.querySelectorAll('.nav-menu[open], .language-menu[open]').forEach((other) => {
-                if (other !== menu) other.removeAttribute('open')
-              })
-            }
+            toggle.setAttribute('aria-expanded', String(menu.open))
           })
-
+          menu.addEventListener('click', (event) => {
+            if (event.target.closest('a')) menu.open = false
+          })
           document.addEventListener('pointerdown', (event) => {
-            if (menu.open && !menu.contains(event.target)) closeMenu()
+            if (menu.open && !menu.contains(event.target)) menu.open = false
           })
-
           document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && menu.open) {
-              closeMenu()
-              toggle?.focus()
+              menu.open = false
+              toggle.focus()
             }
           })
-
-          menu.querySelectorAll('a').forEach((link) => {
-            link.addEventListener('click', closeMenu)
-          })
-        })
+        }
       })()
 
       ;(() => {
@@ -776,6 +650,7 @@
         })
 
         applyTheme()
+        button.hidden = false
       })()
 
       ;(() => {

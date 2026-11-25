@@ -89,7 +89,16 @@ their respective download groups. System requirements and the link to release
 notes remain in the setup FAQ. The other FAQ groups cover library and privacy,
 voices and languages, and audio rights and sharing.
 
+The voice FAQ describes the application tag pinned by the website. Check that
+tag’s model catalog before changing language, model, or platform claims.
+Bundled English/Arabic PDF recognition works offline. Local voice generation
+requires downloading the chosen voice model first.
+
 ### Homepage walkthrough
+
+The Papercut icon links home. The wordmark and chevron share a section-menu trigger. The floating header also includes a language selector, a cycling theme button, and Download. The downloads section links to the FAQ.
+The hero and section menu link to How It Works, which groups the walkthrough, document library, and offline audiobooks. Privacy begins the next section. English navigation labels and FAQ group headings use title case. FAQ questions use sentence case. Other
+translations follow their own capitalization conventions.
 
 The primary action in the hero and floating navigation links to
 `#downloads-title`. The walkthrough keeps the existing `#preview-title` anchor
@@ -102,6 +111,28 @@ The current product frames are labeled placeholders. The hero and Listen step
 depict the same playback state so they can share a capture for each device
 size. Keep captions and walkthrough headings in the locale catalogs when the
 real captures arrive.
+
+### Screenshot checklist
+
+Import [Harbor Field Notes](fixtures/screenshots/Harbor%20Field%20Notes.epub) on both devices. Use the first sentence of *East Pier at Dawn* for the walkthrough. Generate and save the short audiobook before capturing playback. Import the [image-only PDF](fixtures/screenshots/East%20Pier%20Scan.pdf) after the search captures to keep the results uncluttered. The walkthrough follows
+*Harbor Field Notes* and the phrase “tide gauge” from a search result to the
+spoken sentence. Save full-resolution PNG masters without captions, frames,
+private files or notifications. Crop separately for the website.
+
+| Capture | Desktop | Android |
+| --- | --- | --- |
+| Find | Show the query, matching title and excerpt. | Use the same query with the keyboard dismissed. |
+| Read | Open that result with the passage and its context visible. | Show the same passage in the portrait reader. |
+| Listen and hero | Show the active passage and saved audiobook playback controls together. | Capture the same state in portrait. |
+| Scanned PDF | Show a recognized phrase selected on the original scanned page. Use one legible crop for both layouts. | Optional if the desktop crop is hard to read on a phone. |
+| Portable audiobook | Use the Android capture on both layouts. | Show the book title and playback controls on a clean lock screen. |
+
+For F-Droid, reuse the unframed Android Listen, Find and Read captures as
+`1.png`, `2.png`, and `3.png` under
+`fastlane/metadata/android/en-US/images/phoneScreenshots/` in the release
+revision. A populated Library is an optional fourth image. When localizing
+screenshots, prioritize an actual Arabic RTL reader capture. Keep explanatory
+captions in the website catalogs.
 
 ## Translation Rules
 
