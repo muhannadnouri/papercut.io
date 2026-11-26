@@ -118,7 +118,7 @@ Keep full-resolution PNG masters. Use the AppImage for desktop website shots, an
 4. **Android Find and Read — complete.** The exact-phrase query “took a second reading in the still water.” matches the passage beneath the Literata settings panel.
 5. **Android hero and Listen — complete.** Both themes show the opening paragraph paused on “tide” with the player visible.
 6. **Android lock screen — complete.** The clock and media card share one crop across themes.
-7. **F-Droid — prepared.** The three Android PNGs show Find, Listen and Read. Each pairs the light theme in the upper left with the dark theme in the lower right along a diagonal. They are under `fastlane/metadata/android/en-US/images/phoneScreenshots/` in listing order. Include them in the release revision.
+7. **F-Droid — prepared.** The six original Android PNGs show Find, Listen and Read in light mode (1–3), then in dark mode (4–6). They are under `fastlane/metadata/android/en-US/images/phoneScreenshots/` in listing order. Include them in the release revision.
 8. **iOS App Store.** Run the iOS build on a supported iPhone or simulator at an accepted screenshot size. Repeat the Find → Read → Listen actions and **capture once per scene**, in one theme. Supply iPad captures as applicable to the submitted build. [Apple review guidelines §2.3](https://developer.apple.com/app-store/review/guidelines/#accurate-metadata) · [App Store Connect screenshot sizes](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/)
 
 For website exports, use identical crop bounds for each light/dark pair and match the selected site theme. Keep captions in the website catalogs. When localizing the captures, prioritize an Arabic RTL reader shot.
