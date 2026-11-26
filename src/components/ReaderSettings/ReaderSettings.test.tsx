@@ -122,13 +122,29 @@ it('stays open for presses in the font list, which renders outside the panel', a
 })
 
 it('keeps a wide panel inside the viewport on narrow windows', async () => {
-  vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(600)
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(8, 8, 584, 640))
   vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(568)
-  vi.spyOn(button(), 'getBoundingClientRect').mockReturnValue(new DOMRect(470, 90, 40, 40))
+  button().getBoundingClientRect = () => new DOMRect(470, 90, 40, 40)
   await act(() => button().click())
   // Lining up with the button's end edge would put the panel at -58px; it is clamped to the 8px margin.
-  expect(panel()!.style.left).toBe('8px')
-  expect(panel()!.style.top).toBe('138px')
+  expect(panel()!.style.left).toBe('0px')
+  expect(panel()!.style.top).toBe('130px')
+})
+
+it('keeps an offscreen anchor and a low anchor inside the safe frame after rotation', async () => {
+  const frame = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+    .mockReturnValue(new DOMRect(8, 70, 386, 764))
+  button().getBoundingClientRect = () => new DOMRect(210, -80, 40, 40)
+  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(248)
+  await act(() => button().click())
+  expect(panel()!.style.top).toBe('0px')
+  expect(panel()!.style.maxHeight).toBe('764px')
+
+  frame.mockReturnValue(new DOMRect(70, 8, 740, 350))
+  button().getBoundingClientRect = () => new DOMRect(500, 288, 40, 40)
+  await act(() => window.dispatchEvent(new Event('resize')))
+  expect(panel()!.style.top).toBe('102px')
+  expect(panel()!.style.maxHeight).toBe('248px')
 })
 
 function SavedReaderSettings() {

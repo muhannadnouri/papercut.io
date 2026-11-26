@@ -72,22 +72,30 @@ function EnabledReaderSettings({
       return
     }
     const rect = button.getBoundingClientRect()
+    const frame = panel.parentElement!.getBoundingClientRect()
+    const viewport = window.visualViewport
+    const leftEdge = Math.max(frame.left, viewport?.offsetLeft ?? frame.left)
+    const topEdge = Math.max(frame.top, viewport?.offsetTop ?? frame.top)
+    const rightEdge = Math.min(frame.right, viewport ? viewport.offsetLeft + viewport.width : frame.right)
+    const bottomEdge = Math.min(frame.bottom, viewport ? viewport.offsetTop + viewport.height : frame.bottom)
+    panel.style.maxWidth = `${Math.max(0, rightEdge - leftEdge)}px`
+    panel.style.maxHeight = `${Math.max(0, bottomEdge - topEdge)}px`
     const width = panel.offsetWidth
-    const top = Math.max(8, rect.bottom + 8)
+    const top = Math.max(topEdge, Math.min(rect.bottom + 8, bottomEdge - panel.offsetHeight))
     // Line up with the button's end edge, but keep the whole panel on screen.
     const start = getComputedStyle(button).direction === 'rtl' ? rect.left : rect.right - width
-    const left = Math.min(Math.max(8, start), document.documentElement.clientWidth - width - 8)
+    const left = Math.max(leftEdge, Math.min(start, rightEdge - width))
     Object.assign(panel.style, {
-      top: `${top}px`,
-      left: `${Math.max(8, left)}px`,
-      maxHeight: `calc(100dvh - ${top + 8}px)`,
+      top: `${top - frame.top}px`,
+      left: `${left - frame.left}px`,
+      maxHeight: `${Math.max(0, bottomEdge - top)}px`,
     })
   }
 
   useLayoutEffect(() => {
     if (open) {
       place()
-      panelRef.current?.focus()
+      panelRef.current?.focus({ preventScroll: true })
     }
   }, [open])
 
@@ -127,12 +135,16 @@ function EnabledReaderSettings({
     document.addEventListener('pointercancel', cancelPress)
     document.addEventListener('keydown', closeOnEscape)
     window.addEventListener('resize', place)
+    window.visualViewport?.addEventListener('resize', place)
+    window.visualViewport?.addEventListener('scroll', place)
     return () => {
       document.removeEventListener('pointerdown', startPress)
       document.removeEventListener('pointerup', endPress)
       document.removeEventListener('pointercancel', cancelPress)
       document.removeEventListener('keydown', closeOnEscape)
       window.removeEventListener('resize', place)
+      window.visualViewport?.removeEventListener('resize', place)
+      window.visualViewport?.removeEventListener('scroll', place)
     }
   }, [open])
 
@@ -144,7 +156,7 @@ function EnabledReaderSettings({
         open={open}
         onClick={() => setOpen(!open)}
       />
-      {open && <section
+      {open && <div className="reader-settings-frame"><section
         ref={panelRef}
         className="reader-settings-popover"
         role="dialog"
@@ -220,7 +232,7 @@ function EnabledReaderSettings({
         />
 
         <button className="reader-settings-reset" type="button" onClick={onReset}>{t('reader.settings.reset')}</button>
-      </section>}
+      </section></div>}
     </div>
   )
 }

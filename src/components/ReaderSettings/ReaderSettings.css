@@ -47,9 +47,17 @@
 }
 
 /* Fixed and non-modal: the document keeps scrolling so setting changes can be judged across the page. */
-.reader-settings-popover {
+.reader-settings-frame {
   position: fixed;
+  inset: calc(env(safe-area-inset-top, 0px) + 8px) calc(env(safe-area-inset-right, 0px) + 8px)
+    calc(env(safe-area-inset-bottom, 0px) + 8px) calc(env(safe-area-inset-left, 0px) + 8px);
   z-index: 30;
+  pointer-events: none;
+}
+
+.reader-settings-popover {
+  position: absolute;
+  pointer-events: auto;
   overflow-y: auto;
   overscroll-behavior: contain;
   display: grid;

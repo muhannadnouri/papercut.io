@@ -22,6 +22,31 @@
   --reader-notice-bottom: calc(var(--reader-tools-bottom-inset) + max(calc(var(--reader-playback-offset, 0px) + var(--reader-actions-height, 3.4rem)), var(--reader-playback-height, 0px)) + 0.65rem);
 }
 
+/* The reflowable reader scrolls with the window. Keep moving content behind the status bar. */
+.app-reader:not(.app-reader-pdf)::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--reader-surface);
+  pointer-events: none;
+  z-index: 36;
+}
+
+.app-reader:not(.app-reader-pdf) > .doc-header {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+@supports (-webkit-touch-callout: none) {
+  /* Only the open inline menu needs its toolbar held in view. The floating player is independent. */
+  .app-reader:not(.app-reader-pdf) > .doc-header:has(.audio-menu-btn[aria-expanded="true"]) {
+    position: sticky;
+    top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
+    background: var(--reader-surface);
+  }
+}
+
 .app-reader-pdf {
   container: pdf-reader / inline-size;
   display: flex;
