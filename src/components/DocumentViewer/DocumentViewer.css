@@ -23,13 +23,11 @@
 }
 
 /* The reflowable reader scrolls with the window. Keep moving content behind the status bar. */
-.app-reader:not(.app-reader-pdf)::before {
-  content: "";
+.reader-status-area {
   position: fixed;
   inset: 0 0 auto;
   height: env(safe-area-inset-top, 0px);
   background: var(--reader-surface);
-  pointer-events: none;
   z-index: 36;
 }
 
@@ -845,6 +843,10 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 }
 
 @media (min-width: 768px) {
+  .app-reader:not(.app-reader-pdf) {
+    padding-top: max(clamp(1.25rem, 2.5vw, 2.5rem), calc(env(safe-area-inset-top, 0px) + 0.5rem));
+  }
+
   .app-reader-pdf:not(.app-reader-pdf-fullscreen) {
     padding-top: 0.75rem;
   }

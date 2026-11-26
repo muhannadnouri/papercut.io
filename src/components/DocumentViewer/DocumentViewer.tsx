@@ -605,6 +605,7 @@ export function DocumentViewer({
       onPointerMove={handleFullscreenPointerMove}
       onPointerUp={handleFullscreenPointerUp}
     >
+      {plugin.id !== 'pdf' && <div className="reader-status-area" aria-hidden="true" />}
       <header className="header doc-header">
         <div className="header-left">
           <button className="back-button" onClick={onClose}>

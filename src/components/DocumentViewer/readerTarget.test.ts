@@ -54,3 +54,22 @@ it('keeps an opening search hit and both toolbar rows clear of the status bar', 
     scroll.mockRestore()
   }
 })
+
+it('preserves both toolbar rows for an opening section or hash and jumps normally to a later section', () => {
+  const shell = document.createElement('div')
+  shell.className = 'app-reader'
+  shell.innerHTML = '<header class="doc-header" style="scroll-margin-top:62px"></header><section id="chapter"></section>'
+  const section = shell.querySelector('section')!
+  shell.querySelector('header')!.getBoundingClientRect = () => new DOMRect(0, 82, 390, 106)
+  const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+  try {
+    section.getBoundingClientRect = () => new DOMRect(0, 224, 390, 2000)
+    scrollToReaderElement(section)
+    expect(scroll).toHaveBeenLastCalledWith(expect.objectContaining({ top: 0 }))
+    section.getBoundingClientRect = () => new DOMRect(0, 1224, 390, 2000)
+    scrollToReaderElement(section)
+    expect(scroll).toHaveBeenLastCalledWith(expect.objectContaining({ top: 1104 }))
+  } finally {
+    scroll.mockRestore()
+  }
+})

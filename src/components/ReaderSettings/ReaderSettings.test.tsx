@@ -132,6 +132,7 @@ it('keeps a wide panel inside the viewport on narrow windows', async () => {
 })
 
 it('keeps an offscreen anchor and a low anchor inside the safe frame after rotation', async () => {
+  vi.stubGlobal('innerHeight', 874)
   const frame = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
     .mockReturnValue(new DOMRect(8, 70, 386, 764))
   button().getBoundingClientRect = () => new DOMRect(210, -80, 40, 40)
@@ -140,7 +141,10 @@ it('keeps an offscreen anchor and a low anchor inside the safe frame after rotat
   expect(panel()!.style.top).toBe('0px')
   expect(panel()!.style.maxHeight).toBe('764px')
 
-  frame.mockReturnValue(new DOMRect(70, 8, 740, 350))
+  // WebKit can report the old fixed-frame height while the layout viewport has rotated.
+  vi.stubGlobal('innerHeight', 400)
+  panel()!.parentElement!.style.bottom = '42px'
+  frame.mockReturnValue(new DOMRect(70, 8, 740, 764))
   button().getBoundingClientRect = () => new DOMRect(500, 288, 40, 40)
   await act(() => window.dispatchEvent(new Event('resize')))
   expect(panel()!.style.top).toBe('102px')

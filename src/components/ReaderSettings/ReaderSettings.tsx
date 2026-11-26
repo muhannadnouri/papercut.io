@@ -72,12 +72,19 @@ function EnabledReaderSettings({
       return
     }
     const rect = button.getBoundingClientRect()
-    const frame = panel.parentElement!.getBoundingClientRect()
+    const frameElement = panel.parentElement!
+    const frame = frameElement.getBoundingClientRect()
+    const inset = getComputedStyle(frameElement)
     const viewport = window.visualViewport
-    const leftEdge = Math.max(frame.left, viewport?.offsetLeft ?? frame.left)
-    const topEdge = Math.max(frame.top, viewport?.offsetTop ?? frame.top)
-    const rightEdge = Math.min(frame.right, viewport ? viewport.offsetLeft + viewport.width : frame.right)
-    const bottomEdge = Math.min(frame.bottom, viewport ? viewport.offsetTop + viewport.height : frame.bottom)
+    // During rotation WebKit can resize the visible viewport before the fixed frame.
+    const x = viewport?.offsetLeft ?? 0
+    const y = viewport?.offsetTop ?? 0
+    const widthAvailable = Math.min(window.innerWidth, viewport?.width ?? window.innerWidth)
+    const heightAvailable = Math.min(window.innerHeight, viewport?.height ?? window.innerHeight)
+    const leftEdge = Math.max(frame.left, x + (parseFloat(inset.left) || 0))
+    const topEdge = Math.max(frame.top, y + (parseFloat(inset.top) || 0))
+    const rightEdge = Math.min(frame.right, x + widthAvailable - (parseFloat(inset.right) || 0))
+    const bottomEdge = Math.min(frame.bottom, y + heightAvailable - (parseFloat(inset.bottom) || 0))
     panel.style.maxWidth = `${Math.max(0, rightEdge - leftEdge)}px`
     panel.style.maxHeight = `${Math.max(0, bottomEdge - topEdge)}px`
     const width = panel.offsetWidth
@@ -134,6 +141,11 @@ function EnabledReaderSettings({
     document.addEventListener('pointerup', endPress)
     document.addEventListener('pointercancel', cancelPress)
     document.addEventListener('keydown', closeOnEscape)
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(place) : null
+    const frame = panelRef.current?.parentElement
+    if (frame) {
+      observer?.observe(frame)
+    }
     window.addEventListener('resize', place)
     window.visualViewport?.addEventListener('resize', place)
     window.visualViewport?.addEventListener('scroll', place)
@@ -142,6 +154,7 @@ function EnabledReaderSettings({
       document.removeEventListener('pointerup', endPress)
       document.removeEventListener('pointercancel', cancelPress)
       document.removeEventListener('keydown', closeOnEscape)
+      observer?.disconnect()
       window.removeEventListener('resize', place)
       window.visualViewport?.removeEventListener('resize', place)
       window.visualViewport?.removeEventListener('scroll', place)
