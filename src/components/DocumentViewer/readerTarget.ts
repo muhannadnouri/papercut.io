@@ -125,11 +125,19 @@ function rangeForElement(element: Element): Range {
   return range
 }
 
-export function scrollToReaderRange(range: Range): void {
+export function scrollToReaderRange(range: Range, header: HTMLElement | null): void {
   const rect = range.getBoundingClientRect()
-  const targetTop = window.scrollY + rect.top
+  const scrollY = window.scrollY
+  let top = Math.max(scrollY + rect.top - window.innerHeight / 2, 0)
+  // Keep an opening match and the complete toolbar together when both fit.
+  if (header && top > 0 && scrollY + rect.bottom <= window.innerHeight) {
+    const safeTop = parseFloat(getComputedStyle(header).scrollMarginTop)
+    if (safeTop > 0 && top < scrollY + header.getBoundingClientRect().bottom - safeTop) {
+      top = 0
+    }
+  }
   window.scrollTo({
-    top: Math.max(targetTop - window.innerHeight / 2, 0),
+    top,
     behavior: readerScrollBehavior(),
   })
 }

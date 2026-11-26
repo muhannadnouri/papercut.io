@@ -8,6 +8,7 @@ import {
 import {
   readerSectionSelector,
   scrollToReaderElement,
+  scrollToReaderRange,
 } from './readerTarget'
 
 describe('reader search-result section targets', () => {
@@ -30,6 +31,25 @@ it('reveals an enclosing disclosure without expanding the summary destination or
   try {
     scrollToReaderElement(article.querySelector('h2')!)
     expect(Array.from(article.querySelectorAll('details'), details => details.open)).toEqual([true, false, false])
+  } finally {
+    scroll.mockRestore()
+  }
+})
+
+it('keeps an opening search hit and both toolbar rows clear of the status bar', () => {
+  const header = document.createElement('header')
+  header.style.scrollMarginTop = '62px'
+  header.getBoundingClientRect = () => new DOMRect(0, 82, 390, 106)
+  const range = document.createRange()
+  const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+  try {
+    range.getBoundingClientRect = () => new DOMRect(10, window.innerHeight / 2 + 42, 200, 24)
+    scrollToReaderRange(range, header)
+    expect(scroll).toHaveBeenLastCalledWith(expect.objectContaining({ top: 0 }))
+
+    range.getBoundingClientRect = () => new DOMRect(10, window.innerHeight / 2 + 300, 200, 24)
+    scrollToReaderRange(range, header)
+    expect(scroll).toHaveBeenLastCalledWith(expect.objectContaining({ top: 300 }))
   } finally {
     scroll.mockRestore()
   }

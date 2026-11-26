@@ -473,7 +473,7 @@ export function DocumentViewer({
           : null
       )
       if (target) {
-        scrollToReaderRange(target)
+        scrollToReaderRange(target, readerShellRef.current?.querySelector<HTMLElement>('.doc-header') ?? null)
       } else if (section) {
         scrollToReaderElement(section)
       } else if (searchTarget.hash) {
