@@ -1,21 +1,21 @@
 {
   "schemaVersion": 2,
   "scope": {
-    "appVersion": "1.10.2",
+    "appVersion": "1.11.0",
     "target": "aarch64-linux-android",
     "features": [
       "native-tts-shared",
       "experimental-search-embeddings"
     ],
-    "status": "Stage 4c paired catalog/artifact implementation candidate; owner accepted Stage 4a listening and Stage 4b smokes. Local archive assembly complete; immutable publication/public download validation and human install/UI gates pending. Native platform qualification remains a PR/merge gate.",
+    "status": "v1.11.0 release preparation. Android package notices verified against the updated locks. GitHub release asset digests match the catalog for both 7M voices and their source companion. Device acceptance and tagged APK reproduction are separate release checks.",
     "rust": "Resolved Android metadata candidates; runtime/build/dev metadata may coexist. Notices conservatively enumerate the resolved graph, not every compiled/shipped package. Review native subprojects separately.",
     "npm": "Production lockfile candidates, not a bundler-level inclusion claim. Native/WASM/model/data evidence is in the Android guide.",
-    "reviewedOn": "2026-11-15",
+    "reviewedOn": "2026-11-25",
     "method": "Static review evidence for native/WASM/model/data licensing decisions. Bulk Rust/npm/Maven dependency listings are regenerated on demand with standardRefresh instead of being stored here. inputHashes anchor this snapshot to the reviewed lockfiles; refresh after dependency changes."
   },
   "inputHashes": {
-    "cargoLock": "a2ca9597df689b99c3b1245c56ee2196c923a67e11424c46c0bdbbda4afc1fa9",
-    "packageLock": "6f38534a175a28b08262b5a276335daa3b7a0144a6bd3c2c4f4fa4b1ff788d43"
+    "cargoLock": "8cd15fed695048814050d68880181cb95f93f019df7e1fdec38944f3be7713ea",
+    "packageLock": "e537c35682b4c8cdc2afe6ee9641ed863d6ecf3fb97d10db214cab0df2d3fc43"
   },
   "standardRefresh": {
     "note": "Added 2026-11-03 when the bulk dependency arrays were replaced: regenerate graph listings for review with these standard commands rather than storing them.",
@@ -631,14 +631,14 @@
         "url": "https://github.com/muhannadnouri/papercut.io/releases/download/tts-distill-7m-fp32-2026-11-15/kokoro-7m-distill-en-fp32.tar.bz2",
         "sha256": "864a694715b41bde0cb711535664ecdb4f451464ac3684fff1c092e4b0f0b364",
         "bytes": 35634041,
-        "status": "Prepared release candidate, not published. Original model card declares Apache-2.0; unmodified converted files and GPL data provenance/notices are embedded. Companion Piper/eSpeak source required with publication."
+        "status": "Published with the Piper/eSpeak corresponding-source archive. The original model card declares Apache-2.0. The converted files include GPL data provenance and notices."
       },
       {
         "family": "kokoro",
         "url": "https://github.com/muhannadnouri/papercut.io/releases/download/tts-distill-7m-fp32-2026-11-15/nabra-7m-distill-ar-fp32.tar.bz2",
         "sha256": "2a98a1f637156d8b927be4311a3d94edbed0f18e888bd4363614ab2e5f73eabf",
         "bytes": 35583076,
-        "status": "Prepared release candidate, not published. Original model card declares Apache-2.0; unmodified converted files and GPL data provenance/notices are embedded. Companion Piper/eSpeak source required with publication."
+        "status": "Published with the Piper/eSpeak corresponding-source archive. The original model card declares Apache-2.0. The converted files include GPL data provenance and notices."
       }
     ],
     "embeddings": [

@@ -1461,7 +1461,7 @@ Stage status: Deferred
 - [ ] Add advanced table, equation, or layout analysis only after corpus data
       demonstrates the need.
 
-## v1.10.3: PDF Narration Hyphenation Repair
+## v1.11.0: PDF Narration Hyphenation Repair
 
 The line-end hyphen repair below is a staged follow-up to the released PDF
 pipeline. Search already joined eligible broken words, but narration retained
@@ -1506,7 +1506,7 @@ not audible or device acceptance.
 ### Stage 2: PDF-Only Regeneration Policy
 
 Stage status: Implemented; the owner reports Linux and Android debug smoke tests
-passing. Release-artifact validation remains part of the v1.10.3 release work.
+passing. Release-artifact validation remains part of the v1.11.0 release work.
 
 The accepted policy requires regeneration of affected PDF audiobooks rather
 than maintaining legacy playback/highlighting projections. Already generated
@@ -1591,16 +1591,14 @@ recorded below separately from automated text/source validation.
 
 - [x] Owner reports PDF audiobook and regeneration smoke tests passing on Linux.
 - [x] Owner reports smoke tests passing on Android using a debug build.
-- [ ] Run the release checks after Stage 2, then update release notes/version as
-      part of the v1.10.3 release work.
+- [ ] Run the release-artifact checks below for v1.11.0.
 
 These owner reports do not itemize every step below or establish acceptance of
 a release-signed/F-Droid artifact; they also predate the PR #94 key-normalization
 follow-up. The Android NDK lookup failure was local SDK
 selection: the shared build requires NDK `30.0.16248370`; selecting the existing
 pinned installation allowed the owner to build and smoke-test. No Android build
-script change or SDK downgrade is part of this fix. The application version
-remains `1.10.2` until the separate v1.10.3 release preparation.
+script change or SDK downgrade is part of this fix. The repair ships with v1.11.0.
 
 Manual reproduction/acceptance checklist for reviewers (use a build from
 `bug/pdf-tts-hyphen`):

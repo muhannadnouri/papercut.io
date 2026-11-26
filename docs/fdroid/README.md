@@ -1,11 +1,11 @@
 # F-Droid recipe preflight
 
-The [metadata](metadata/io.papercut.desktop.yml) is a **draft**, not a submission.
-`commit: v1.10.2`, `CurrentVersion` and the build version/code point at the
-planned **v1.10.2** release: confirm them against the tagged build before
-submitting, and repeat the clean buildserver proof on that tag. Add
-`AllowedAPKSigningKeys` with the validated production certificate SHA-256 before
-using `Binaries`. Never put a private key or password in metadata.
+The [metadata](metadata/io.papercut.desktop.yml) tracks the first-inclusion
+[merge request](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/56711)
+for the signed v1.10.2 APK. Its Android wrapper requires Node 22.22.1.
+The revised recipe installs that version from a signed Debian snapshot.
+The byte comparison recorded below applies to the original Node distribution.
+Repeat the clean build and signature comparison with the revised recipe.
 
 English/Arabic listings come from `fastlane/metadata/android/` in the app source.
 The production wrapper derives `PAPERCUT_BUILD_REVISION` from the checkout; a
@@ -121,9 +121,9 @@ Pagefind input for the manual build. The resulting unsigned APK matched the
 normal wrapper build byte-for-byte, and the temporary launcher was removed.
 See the [APK evidence](../android-production-packaging.md#shared-android-release-and-scanner-preflight-2026-11-05).
 
-The draft provisions the Debian compiler and utilities, SDK platform 36 and
-Build Tools 35.0.0 in `sudo`. It stages a SHA-256-checked Node 22.22.1
-distribution outside the source checkout before `npm ci`. It reuses the
+The original recipe provisioned the Debian compiler and utilities, SDK platform 36 and
+Build Tools 35.0.0 in `sudo`. The revised recipe installs Debian Node 22.22.1 and npm
+before `npm ci`. The tagged source uses the
 shared toolchain installer for SHA-256-checked CMake 4.4.5, Emscripten 4.0.15
 and emsdk's Node 22.16.0, plus the locked wasm-bindgen CLI. It selects
 the pinned Temurin 17 with the Android JDK
@@ -194,7 +194,7 @@ verification are later gates.
 
 For an unsigned test, copy the draft into a disposable fdroiddata workspace,
 remove `Binaries` from that copy, and use the commit being compared. Keep the
-release tag and certificate placeholders in the tracked draft. A GitHub PR
+published release commit and signing certificate in the tracked recipe. A GitHub PR
 merge commit needs an explicit fetch of `refs/pull/91/merge` before F-Droid can
 check it out from a regular clone. Release tags are fetched normally.
 
@@ -203,13 +203,13 @@ SDK from the draft's `sudo` block already installed. A dedicated F-Droid VM
 runs that block with `fdroid build --server`. The version/code target follows
 the checkout being compared: for the historical `a2e72e143e44daaa871e7503a71476c1b5c15c2a`
 comparison above that is 1.10.0 / 1010000 in the disposable copy, while the
-tracked draft stays at 1.10.1 / 1010001. The commands below target the
+inclusion recipe targets 1.10.2 / 1010002. The commands below target the
 tracked draft; substitute 1010000 only for that disposable historical copy.
 
 ```sh
 fdroid rewritemeta io.papercut.desktop
 fdroid lint -f io.papercut.desktop
-fdroid build --verbose --test --scan-binary --refresh-scanner io.papercut.desktop:1010001
+fdroid build --verbose --test --scan-binary --refresh-scanner io.papercut.desktop:1010002
 ```
 
 [fdroiddata CI build job](https://gitlab.com/fdroid/fdroiddata/-/blob/master/.gitlab-ci.yml) ·
@@ -220,74 +220,26 @@ these inputs separately with F-Droid maintainers.
 
 | Input | Provenance and review |
 | --- | --- |
-| Host toolchain | Debian packages and F-Droid's Android SDK catalog supply the base tools. Node, Temurin and CMake use exact upstream archives checked by SHA-256. The shared installer checks emsdk's Emscripten and Node archives before extraction, including cached copies. Rustup installs the pinned compiler and targets, and Cargo builds wasm-bindgen with its lockfile. Confirm the upstream binary toolchains against the [inclusion policy](https://f-droid.org/en/docs/Inclusion_Policy/). |
+| Host toolchain | Debian packages and F-Droid's Android SDK catalog supply the base tools. The signed Debian snapshot provides the host Node package. Temurin and CMake use exact upstream archives checked by SHA-256. The shared installer checks emsdk's Emscripten and Node archives before extraction, including cached copies. Rustup installs the pinned compiler and targets, and Cargo builds wasm-bindgen with its lockfile. Confirm the upstream binary toolchains against the [inclusion policy](https://f-droid.org/en/docs/Inclusion_Policy/). |
 | Tauri CLI | npm's lock pins the 2.12.4 host bindings with integrity hashes. The Linux `.node` files are ELF libraries even though the source scan left them in place. The host CLI orchestrates Gradle and Rust. Confirm its prebuilt treatment with reviewers. |
 | Sherpa and Android dependencies | Sherpa uses a fixed Git commit and its CMake dependency archives specify SHA-256 hashes. The pinned Maven ORT AAR is verified by the shared recipe and supplies the packaged ORT runtime. Other Android dependencies use the existing Google Maven and Maven Central configuration. |
 | PDF/OCR and Pagefind | Recipe Git commits and Tesseract submodules pin source trees. npm/Cargo locks identify package inputs. The extended Pagefind CLI also compiles Japanese UniDic from an archive fetched by Lindera 0.43.3. Lindera checks the archive's MD5. The audited copy's SHA-256 is `24ac75fe4e44d973b55e65847c35fa4aec2db7a41a07b49ca125146db9fc1189` and its COPYING offers BSD, GPL or LGPL terms. The dictionary is used by the host indexer. |
 
-## Next execution gates
+## Updating the inclusion MR
 
-1. Owner sets up or reuses the production signing key. For automated signing,
-   configure the protected GitHub `android-release` environment as well.
-   See [guide section 2](../android-production-packaging.md#2-owner-create-and-configure-the-signing-key).
-   Sign/install a candidate by file transfer (ADB optional), then complete
-   runtime and same-key/higher-code update tests before merging.
-2. Confirm the build-time inputs and host toolchain treatment with F-Droid
-   reviewers before submission. The unsigned CI-image comparison is complete.
-3. Release v1.10.2 is tagged and published; the fastlane changelogs are committed
-   and the production certificate fingerprint is recorded
-   (ffb4979cfe0b5e7ecd9051252aa55baee5ffaa46f32611b21aea4778c2398eb9). Remaining
-   before submission: screenshots (owner-scheduled) and the model-rights/listing
-   follow-ups.
-4. In an fdroiddata fork containing its `config/` directory, copy this metadata to
-   `metadata/io.papercut.desktop.yml`. Run with the selected buildserver tooling:
+The fdroiddata fork branch is `add-io-papercut-desktop`. Keep the release
+commit, Android version code, published APK URL and signing certificate in
+sync. Retain the two hash-verified OCR data exceptions when revising the recipe.
+Before updating the recipe to a new release:
 
-   ```sh
-   fdroid lint -f io.papercut.desktop
-   fdroid scanner --json io.papercut.desktop > papercut-scanner.json
-   fdroid build --verbose --test io.papercut.desktop
-   ```
-
-   Review the JSON findings as well as command status: fdroidserver 2.4.5's source
-   scanner does not reliably make source findings a nonzero CLI exit; the build
-   command refuses fatal scan findings. These commands are future gates, not a
-   claim that the current placeholders/build recipe can pass. Complete a clean
-   buildserver build and compare with the matching upstream signed APK using
-   production signature copying, as described in the production guide.
-
-## First inclusion MR (GitLab, browser-only)
-
-F-Droid lives on GitLab, so GitHub Desktop does not apply; the whole first
-inclusion fits in a browser and needs no git commands. The tag `v1.10.1` is
-retired — reference only v1.10.2.
-
-1. Fork [gitlab.com/fdroid/fdroiddata](https://gitlab.com/fdroid/fdroiddata)
-   with the Fork button. This creates `gitlab.com/<you>/fdroiddata`.
-2. Open `docs/fdroid/metadata/io.papercut.desktop.yml` at tag `v1.10.2` in the
-   Papercut repository and copy its contents. In the fork, open **Code → Web
-   IDE**, create the file `metadata/io.papercut.desktop.yml`, and paste. Then
-   add the signing-key line so F-Droid can verify the distributed APK:
-
-   ```yaml
-   AllowedAPKSigningKeys: ffb4979cfe0b5e7ecd9051252aa55baee5ffaa46f32611b21aea4778c2398eb9
-   ```
-
-   `Binaries` already resolves: `v%v` expands to the published
-   `Papercut_v1.10.2_android-arm64-v8a.apk`. Keep the draft's
-   `MaintainerNotes` and scanner exceptions; they document the recipe.
-3. Commit to a new branch (the Web IDE asks; e.g. `add-io-papercut-desktop`),
-   then start a merge request targeting `fdroid/fdroiddata` `master`. In the
-   description: introduce Papercut, link the v1.10.2 release, state the
-   licensing decisions (GPL-3.0-only declaration for Android, Kareem kept with
-   disclosure, Supertonic NonFreeAssets), and cite the reproducibility
-   evidence — the buildserver-style clean build reproduced the release's
-   unsigned signing input byte-for-byte (see the production guide's
-   reproducibility section).
-4. Respond to maintainer review. After merge, F-Droid builds and publishes;
-   later releases need no manual MR — `AutoUpdateMode: Version` with
-   `UpdateCheckMode: Tags` makes F-Droid's bots open the metadata updates
-   against each new tag, and the publisher already places every asset where
-   the metadata's `Binaries` URL expects it.
+1. Build and sign the tagged APK, verify its certificate, and test installation
+   over the previous production-signed version. See the
+   [Android production guide](../android-production-packaging.md).
+2. Run the metadata lint and build commands above in a provisioned fdroiddata
+   workspace. Compare the rebuilt APK with the signing input and verify the
+   published APK with F-Droid signature copying.
+3. Update the build entry to the verified commit and version code. The listing
+   and localized changelogs come from the tagged app source.
 
 ## Developer release paths
 
