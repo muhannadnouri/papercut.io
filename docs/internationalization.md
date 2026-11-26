@@ -106,7 +106,7 @@ and provides direct links to `#find`, `#read`, and `#listen`. Keep each
 translated example consistent across the search result, reader, and audiobook.
 The desktop images follow the selected theme, including the device preference in System mode. Each opens the matching full-resolution capture.
 The hero and Listen share one image. The PDF capture shows the original scanned page.
-The Android lock-screen frame is still a placeholder, and portrait walkthrough captures are pending.
+At widths up to 720 CSS pixels the walkthrough uses Android captures in the selected theme. The portable-audiobook section shows the Android lock-screen player.
 
 ### Screenshot checklist
 
@@ -115,12 +115,11 @@ Keep full-resolution PNG masters. Use the AppImage for desktop website shots, an
 1. **Prepare.** Import the [illustrated Harbor Field Notes EPUB](fixtures/screenshots/Harbor%20Field%20Notes.epub) into a clean demo library. Confirm the harbor image follows the opening paragraph of *East Pier at Dawn*. Generate and save this edition’s audiobook. Start in light mode. **Wait to capture.**
 2. **Desktop hero and Listen — complete.** Both themes show the highlighted word “tide,” the harbor image and the full player.
 3. **Desktop Read — complete.** Both themes show the “tide gauge” search match beside the open reader settings with Merriweather selected. The existing Find and scanned PDF pairs complete the desktop set.
-4. **Android Find.** In portrait, search for “tide gauge” and dismiss the keyboard. When the query, title and matching excerpt are visible, **capture light and dark**.
-5. **Android Read.** Tap that result, open **Aa** and choose Atkinson Hyperlegible. Keep the passage and family name visible. Collapse the family list if needed. **Capture light and dark**.
-6. **Android Listen.** Close **Aa**, play the opening paragraph and pause at “tide.” Frame the highlighted passage, harbor image and player together. **Capture light and dark** for the mobile hero and Listen.
-7. **Android lock screen.** Resume playback and lock the phone. Wake the screen. When the media card shows the book title and playback controls, with personal notifications cleared, **capture once** for the portable-audiobook section.
-8. **F-Droid.** Reuse one Android theme. Copy the original Listen, Find and Read PNGs to `fastlane/metadata/android/en-US/images/phoneScreenshots/` as `1.png`, `2.png` and `3.png` in the release revision. **No additional capture.** [F-Droid screenshot metadata](https://f-droid.org/en/docs/All_About_Descriptions_Graphics_and_Screenshots/)
-9. **iOS App Store.** Run the iOS build on a supported iPhone or simulator at an accepted screenshot size. Repeat the Find → Read → Listen actions and **capture once per scene**, in one theme. Supply iPad captures as applicable to the submitted build. [Apple review guidelines §2.3](https://developer.apple.com/app-store/review/guidelines/#accurate-metadata) · [App Store Connect screenshot sizes](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/)
+4. **Android Find and Read — complete.** The exact-phrase query “took a second reading in the still water.” matches the passage beneath the Literata settings panel.
+5. **Android hero and Listen — complete.** Both themes show the opening paragraph paused on “tide” with the player visible.
+6. **Android lock screen — complete.** The clock and media card share one crop across themes.
+7. **F-Droid — prepared.** The original light-theme Listen, Find and Read PNGs are under `fastlane/metadata/android/en-US/images/phoneScreenshots/` in listing order. Include them in the release revision.
+8. **iOS App Store.** Run the iOS build on a supported iPhone or simulator at an accepted screenshot size. Repeat the Find → Read → Listen actions and **capture once per scene**, in one theme. Supply iPad captures as applicable to the submitted build. [Apple review guidelines §2.3](https://developer.apple.com/app-store/review/guidelines/#accurate-metadata) · [App Store Connect screenshot sizes](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/)
 
 For website exports, use identical crop bounds for each light/dark pair and match the selected site theme. Keep captions in the website catalogs. When localizing the captures, prioritize an Arabic RTL reader shot.
 

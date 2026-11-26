@@ -111,9 +111,13 @@
             <a class="button-primary" href="#downloads-title">{{header.text.011}}</a>
             <a class="button-secondary" href="#preview-title">{{walk.link}}</a>
           </div>
-          <figure class="passage-frame">
+          <figure class="passage-frame capture-desktop">
             <a class="capture-light" href="{{capture.path}}/listen.webp"><img src="{{capture.path}}/listen.webp" width="2940" height="1600" alt="{{capture.listen}}"></a>
             <a class="capture-dark" href="{{capture.path}}/listen-dark.webp"><img src="{{capture.path}}/listen-dark.webp" width="2940" height="1600" alt="{{capture.listen}}"></a>
+          </figure>
+          <figure class="passage-frame capture-phone">
+            <a class="capture-light" href="{{capture.path}}/android-listen.webp"><img src="{{capture.path}}/android-listen.webp" width="900" height="1490" alt="{{capture.listen}}"></a>
+            <a class="capture-dark" href="{{capture.path}}/android-listen-dark.webp"><img src="{{capture.path}}/android-listen-dark.webp" width="900" height="1490" alt="{{capture.listen}}"></a>
           </figure>
         </section>
 
@@ -126,9 +130,13 @@
                 <p>{{walk.find.copy}}</p>
                 <p>{{walk.find.detail}}</p>
               </div>
-              <figure class="passage-frame">
+              <figure class="passage-frame capture-desktop">
                 <a class="capture-light" href="{{capture.path}}/find.webp"><img src="{{capture.path}}/find.webp" width="2180" height="925" alt="{{capture.find}}" loading="lazy"></a>
                 <a class="capture-dark" href="{{capture.path}}/find-dark.webp"><img src="{{capture.path}}/find-dark.webp" width="2180" height="925" alt="{{capture.find}}" loading="lazy"></a>
+              </figure>
+              <figure class="passage-frame capture-phone">
+                <a class="capture-light" href="{{capture.path}}/android-find.webp"><img src="{{capture.path}}/android-find.webp" width="900" height="1280" alt="{{capture.android.find}}" loading="lazy"></a>
+                <a class="capture-dark" href="{{capture.path}}/android-find-dark.webp"><img src="{{capture.path}}/android-find-dark.webp" width="900" height="1280" alt="{{capture.android.find}}" loading="lazy"></a>
               </figure>
             </article>
             <article class="walk-step" id="read">
@@ -137,9 +145,13 @@
                 <p>{{walk.read.copy}}</p>
                 <p>{{walk.read.detail}}</p>
               </div>
-              <figure class="passage-frame">
+              <figure class="passage-frame capture-desktop">
                 <a class="capture-light" href="{{capture.path}}/read.webp"><img src="{{capture.path}}/read.webp" width="2330" height="920" alt="{{capture.read}}" loading="lazy"></a>
                 <a class="capture-dark" href="{{capture.path}}/read-dark.webp"><img src="{{capture.path}}/read-dark.webp" width="2330" height="920" alt="{{capture.read}}" loading="lazy"></a>
+              </figure>
+              <figure class="passage-frame capture-phone">
+                <a class="capture-light" href="{{capture.path}}/android-read.webp"><img src="{{capture.path}}/android-read.webp" width="900" height="1225" alt="{{capture.android.read}}" loading="lazy"></a>
+                <a class="capture-dark" href="{{capture.path}}/android-read-dark.webp"><img src="{{capture.path}}/android-read-dark.webp" width="900" height="1225" alt="{{capture.android.read}}" loading="lazy"></a>
               </figure>
             </article>
             <article class="walk-step" id="listen">
@@ -148,9 +160,13 @@
                 <p>{{walk.listen.copy}}</p>
                 <p>{{walk.listen.detail}}</p>
               </div>
-              <figure class="passage-frame">
+              <figure class="passage-frame capture-desktop">
                 <a class="capture-light" href="{{capture.path}}/listen.webp"><img src="{{capture.path}}/listen.webp" width="2940" height="1600" alt="{{capture.listen}}" loading="lazy"></a>
                 <a class="capture-dark" href="{{capture.path}}/listen-dark.webp"><img src="{{capture.path}}/listen-dark.webp" width="2940" height="1600" alt="{{capture.listen}}" loading="lazy"></a>
+              </figure>
+              <figure class="passage-frame capture-phone">
+                <a class="capture-light" href="{{capture.path}}/android-listen.webp"><img src="{{capture.path}}/android-listen.webp" width="900" height="1490" alt="{{capture.listen}}" loading="lazy"></a>
+                <a class="capture-dark" href="{{capture.path}}/android-listen-dark.webp"><img src="{{capture.path}}/android-listen-dark.webp" width="900" height="1490" alt="{{capture.listen}}" loading="lazy"></a>
               </figure>
             </article>
           </div>
@@ -174,10 +190,8 @@
               <p>{{audiobooks.text.010}}</p>
               <a href="#voice-questions">{{faq.voices}}</a>
             </div>
-            <figure class="story-capture">
-              <figcaption>{{walk.placeholder}}</figcaption>
-              <strong>{{audio.phone}}</strong>
-              <p>{{walk.book}} · {{walk.playing}}</p>
+            <figure class="passage-frame">
+              <a href="{{capture.path}}/android-lock.webp"><img src="{{capture.path}}/android-lock.webp" width="900" height="750" alt="{{audio.phone}} · {{walk.book}}" loading="lazy"></a>
             </figure>
           </section>
         </section>

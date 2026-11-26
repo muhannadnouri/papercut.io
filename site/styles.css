@@ -382,6 +382,7 @@ h1 em {
 .intro .button-secondary:hover { text-decoration: underline; }
 
 .passage-frame { margin: 0; min-width: 0; }
+.capture-phone { display: none; }
 .passage-frame a { display: block; border-radius: 14px; }
 .passage-frame .capture-dark { display: none; }
 @media (prefers-color-scheme: dark) {
@@ -439,14 +440,6 @@ html[data-theme="dark"] .capture-dark { display: block; }
 .story-section p, .reader-examples dd { color: var(--muted); }
 .story-section a { color: var(--accent-text); text-decoration: underline; }
 .story-pair { display: grid; grid-template-columns: 1.2fr 1fr; align-items: center; gap: 32px; }
-.story-capture {
-  margin: 0;
-  padding: clamp(18px, 4vw, 32px);
-  background: var(--surface-muted);
-  border-radius: 14px;
-}
-.story-capture figcaption { margin-bottom: 12px; color: var(--quiet); font-size: 0.85rem; }
-.story-capture mark { background: var(--accent-soft); color: var(--accent-soft-text); }
 .contact {
   background: radial-gradient(ellipse 50% 50% at center,
     color-mix(in srgb, var(--accent-soft) 92%, var(--accent)), transparent);
@@ -1121,6 +1114,8 @@ html[data-theme-choice="dark"] .theme-toggle-icon-dark {
 }
 
 @media (max-width: 720px) {
+  .capture-desktop { display: none; }
+  .passage-frame.capture-phone { display: block; width: min(100%, 360px); margin-inline: auto; }
   .site-header { padding-inline-start: 6px; }
   .sections-menu summary { gap: 2px; }
   .header-actions { gap: 0; }
