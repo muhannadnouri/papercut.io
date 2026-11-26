@@ -47,6 +47,7 @@
 }
 
 .document-upload-actions {
+  margin-inline-end: auto;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;

@@ -56,7 +56,7 @@ it.skipIf(!browser)('groups Import and Manage in both views and restores focus a
           onDeleteLibraryFolder={noop} onMoveLibraryItems={noop} onRenameLibraryFolder={noop}/>);
         const manage = '.document-manage-btn';
         while (!q(manage)) await frame();
-        if ([360,412].includes(innerWidth)) {
+        if ([360,412,480].includes(innerWidth)) {
           q('#root').classList.add('app');
           const layouts = [];
           for (const locale of ['en','ar']) {
@@ -69,10 +69,12 @@ it.skipIf(!browser)('groups Import and Manage in both views and restores focus a
               const rects = buttons.map(button => button.getBoundingClientRect());
               const [first, manage, view, bookmark, audio] = rects;
               const edge = locale === 'ar' ? 'right' : 'left';
+              const end = locale === 'ar' ? 'left' : 'right';
               const filter = q('.document-filter-input').getBoundingClientRect();
               layouts.push({
                 locale, fontSize,
-                oneRow: rects.every(r => Math.abs(r.top-first.top) < 1),
+                oneRow: rects.every(r => Math.abs(r.top-first.top) < 1) &&
+                  Math.abs(first[edge]-filter[edge]) < 1 && Math.abs(audio[end]-filter[end]) < 1,
                 cleanWrap: manage.top === first.top && view.top >= first.bottom &&
                   Math.abs(view[edge]-first[edge]) < 1 && bookmark.top === view.top && (audio.top === view.top ||
                     (audio.top >= bookmark.bottom && Math.abs(audio[edge]-first[edge]) < 1)),
@@ -214,14 +216,14 @@ it.skipIf(!browser)('groups Import and Manage in both views and restores focus a
       },
     })
     cpSync(resolve('public/fonts/ui'), join(directory, 'dist/fonts/ui'), { recursive: true })
-    for (const width of [412, 360]) {
+    for (const width of [480, 412, 360]) {
       const layouts = await runBrowserFixture(join(directory, String(width)), join(directory, 'dist/index.html'), {
         width,
         mobile: true,
       })
       for (const locale of ['en', 'ar']) {
         for (const fontSize of [16, 24]) {
-          const oneRow = width === 412 && fontSize === 16
+          const oneRow = width >= 412 && fontSize === 16
           expect(layouts, width + 'px').toContainEqual({
             locale,
             fontSize,
