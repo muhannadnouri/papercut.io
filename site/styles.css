@@ -262,7 +262,9 @@ summary:focus-visible {
 .section-options, .language-options {
   position: absolute;
   top: 100%;
-  max-height: 65vh;
+  /* Reserve space for the sticky header, popup offset and bottom clearance. */
+  max-height: min(65vh, calc(100vh - 80px));
+  max-height: min(65dvh, calc(100dvh - 80px));
   overflow-y: auto;
   z-index: 10;
   display: grid;
@@ -397,7 +399,13 @@ html[data-theme="dark"] .capture-dark { display: block; }
   max-width: 640px;
   margin: 32px auto 0;
 }
-.intro .passage-frame img { box-shadow: 0 14px 38px var(--shadow-preview); }
+.intro .passage-frame a {
+  aspect-ratio: 2940 / 1600;
+  background-size: cover;
+  border: 1px solid var(--line);
+  box-shadow: 0 14px 38px var(--shadow-preview);
+}
+.intro .capture-phone a { aspect-ratio: 900 / 1490; }
 
 .walkthrough { padding: clamp(24px, 6vw, 58px); }
 .walkthrough h2 { margin: 0 0 24px; font-size: clamp(1.7rem, 4vw, 2.3rem); }
@@ -1204,8 +1212,7 @@ html[data-theme-choice="dark"] .theme-toggle-icon-dark {
   .site-header { max-width: calc(100% - 4px); padding-inline: 4px; gap: 4px; }
   .brand img { width: 28px; height: 28px; }
   .wordmark { font-size: 14px; }
-  .sections-menu summary { gap: 1px; padding-inline-start: 8px; }
-  .chevron-slot { width: 32px; }
-  .language-menu summary, .theme-toggle { min-width: 32px; width: 32px; }
+  .sections-menu summary { gap: 2px; padding-inline-start: 2px; }
+  .chevron-slot { width: 14px; }
   .download-pill { font-size: 13px; padding-inline: 8px; }
 }

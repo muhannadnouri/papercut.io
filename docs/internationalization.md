@@ -105,7 +105,7 @@ The primary action in the hero and floating navigation links to
 and provides direct links to `#find`, `#read`, and `#listen`. Keep each
 translated example consistent across the search result, reader, and audiobook.
 The desktop images follow the selected theme, including the device preference in System mode. Each opens the matching full-resolution capture.
-The hero and Listen share one image. The PDF capture shows the original scanned page.
+The hero and Listen share one image per theme and viewport. The hero uses a labeled link with a CSS background so only the displayed variant loads on first paint. The PDF capture shows the original scanned page.
 At widths up to 720 CSS pixels the walkthrough uses Android captures in the selected theme. The portable-audiobook section shows the Android lock-screen player.
 
 ### Screenshot checklist

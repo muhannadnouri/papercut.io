@@ -112,12 +112,12 @@
             <a class="button-secondary" href="#preview-title">使用方式</a>
           </div>
           <figure class="passage-frame capture-desktop">
-            <a class="capture-light" href="../assets/screenshots/listen.webp"><img src="../assets/screenshots/listen.webp" width="2940" height="1600" alt="朗读段落已高亮，并显示播放控件"></a>
-            <a class="capture-dark" href="../assets/screenshots/listen-dark.webp"><img src="../assets/screenshots/listen-dark.webp" width="2940" height="1600" alt="朗读段落已高亮，并显示播放控件"></a>
+            <a class="capture-light" href="../assets/screenshots/listen.webp" style="background-image: url('../assets/screenshots/listen.webp')" aria-label="朗读段落已高亮，并显示播放控件"></a>
+            <a class="capture-dark" href="../assets/screenshots/listen-dark.webp" style="background-image: url('../assets/screenshots/listen-dark.webp')" aria-label="朗读段落已高亮，并显示播放控件"></a>
           </figure>
           <figure class="passage-frame capture-phone">
-            <a class="capture-light" href="../assets/screenshots/android-listen.webp"><img src="../assets/screenshots/android-listen.webp" width="900" height="1490" alt="朗读段落已高亮，并显示播放控件"></a>
-            <a class="capture-dark" href="../assets/screenshots/android-listen-dark.webp"><img src="../assets/screenshots/android-listen-dark.webp" width="900" height="1490" alt="朗读段落已高亮，并显示播放控件"></a>
+            <a class="capture-light" href="../assets/screenshots/android-listen.webp" style="background-image: url('../assets/screenshots/android-listen.webp')" aria-label="朗读段落已高亮，并显示播放控件"></a>
+            <a class="capture-dark" href="../assets/screenshots/android-listen-dark.webp" style="background-image: url('../assets/screenshots/android-listen-dark.webp')" aria-label="朗读段落已高亮，并显示播放控件"></a>
           </figure>
         </section>
 
@@ -259,6 +259,7 @@
               <div class="platform-install">
                 <h3>安装说明</h3>
                 <p>请在浏览器或文件管理器的设置中启用<strong>安装未知应用</strong>，然后打开 APK。</p>
+                <p>正在使用从网站下载的早于 v1.10.2 的 APK？签名密钥已更换。卸载前，请将资料库导出到安全位置，或传输到另一台设备。记得选中要保留的有声书。书签和阅读偏好无法恢复。然后卸载旧版，安装新的 APK，再导入资料库或将其传回。</p>
               </div>
             </details>
 
@@ -353,7 +354,7 @@
               </article>
               <div class="platform-install">
                 <h3>安装说明</h3>
-                <p>需要运行 macOS 10.13 及以上版本的 Apple Silicon 或 Intel Mac。打开 <code>.dmg</code>，然后将 <strong>Papercut</strong> 拖入“应用程序”文件夹。正式发布版本已使用 Developer ID 签名并经过公证。如果您正在测试未签名的 CI 或本地开发版本，请在首次启动时右键单击（或按住 Control 单击）应用图标，然后选择<strong>打开</strong>。</p>
+                <p>需要运行 macOS 10.13 及以上版本的 Apple Silicon 或 Intel Mac。打开 <code>.dmg</code>，然后将 <strong>Papercut</strong> 拖入“应用程序”文件夹。正式发布版本已使用 Developer ID 签名并经过公证。在 macOS 15 或更高版本上，如果您信任未签名的 CI 或本地构建，请先尝试打开一次。如果系统阻止打开，请前往“系统设置”→“隐私与安全性”，如果看到相应选项，请选择<strong>仍要打开</strong>。</p>
                 <p>请选择与 Mac 匹配的版本：<strong>Apple Silicon</strong>（<code>_aarch64.dmg</code>）适用于 M 系列芯片；<strong>Intel</strong>（<code>_x64.dmg</code>）适用于 Intel Mac。</p>
               </div>
             </details>

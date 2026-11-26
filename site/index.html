@@ -112,12 +112,12 @@
             <a class="button-secondary" href="#preview-title">How It Works</a>
           </div>
           <figure class="passage-frame capture-desktop">
-            <a class="capture-light" href="assets/screenshots/listen.webp"><img src="assets/screenshots/listen.webp" width="2940" height="1600" alt="Narration highlights the passage with playback controls visible"></a>
-            <a class="capture-dark" href="assets/screenshots/listen-dark.webp"><img src="assets/screenshots/listen-dark.webp" width="2940" height="1600" alt="Narration highlights the passage with playback controls visible"></a>
+            <a class="capture-light" href="assets/screenshots/listen.webp" style="background-image: url('assets/screenshots/listen.webp')" aria-label="Narration highlights the passage with playback controls visible"></a>
+            <a class="capture-dark" href="assets/screenshots/listen-dark.webp" style="background-image: url('assets/screenshots/listen-dark.webp')" aria-label="Narration highlights the passage with playback controls visible"></a>
           </figure>
           <figure class="passage-frame capture-phone">
-            <a class="capture-light" href="assets/screenshots/android-listen.webp"><img src="assets/screenshots/android-listen.webp" width="900" height="1490" alt="Narration highlights the passage with playback controls visible"></a>
-            <a class="capture-dark" href="assets/screenshots/android-listen-dark.webp"><img src="assets/screenshots/android-listen-dark.webp" width="900" height="1490" alt="Narration highlights the passage with playback controls visible"></a>
+            <a class="capture-light" href="assets/screenshots/android-listen.webp" style="background-image: url('assets/screenshots/android-listen.webp')" aria-label="Narration highlights the passage with playback controls visible"></a>
+            <a class="capture-dark" href="assets/screenshots/android-listen-dark.webp" style="background-image: url('assets/screenshots/android-listen-dark.webp')" aria-label="Narration highlights the passage with playback controls visible"></a>
           </figure>
         </section>
 
@@ -259,6 +259,7 @@
               <div class="platform-install">
                 <h3>Installation</h3>
                 <p>Enable <strong>Install unknown apps</strong> in Settings for your browser or file manager, then open the APK.</p>
+                <p>Upgrading from a website APK older than v1.10.2? The signing key changed. Before uninstalling, export your library to a safe location or transfer it to another device. Include any audiobooks you want to keep. Bookmarks and reading preferences cannot be restored. Then uninstall, install the new APK and import or transfer your library back.</p>
               </div>
             </details>
 
@@ -353,7 +354,7 @@
               </article>
               <div class="platform-install">
                 <h3>Installation</h3>
-                <p>Requires macOS 10.13+ on Apple Silicon or Intel Macs. Open the <code>.dmg</code> and drag <strong>Papercut</strong> to your Applications folder. Official release builds are Developer ID signed and notarized. If you are testing an unsigned CI or local development artifact, right-click (or Control-click) the app icon and choose <strong>Open</strong> on first launch.</p>
+                <p>Requires macOS 10.13+ on Apple Silicon or Intel Macs. Open the <code>.dmg</code> and drag <strong>Papercut</strong> to your Applications folder. Official release builds are Developer ID signed and notarized. If you trust an unsigned CI or local build on macOS 15 or later, try opening it once. If blocked, go to System Settings → Privacy & Security and choose <strong>Open Anyway</strong> if available.</p>
                 <p>Pick the build that matches your Mac: <strong>Apple Silicon</strong> (<code>_aarch64.dmg</code>) for M-series chips, or <strong>Intel</strong> (<code>_x64.dmg</code>) for Intel-based Macs.</p>
               </div>
             </details>

@@ -112,12 +112,12 @@
             <a class="button-secondary" href="#preview-title">Cómo funciona</a>
           </div>
           <figure class="passage-frame capture-desktop">
-            <a class="capture-light" href="../assets/screenshots/listen.webp"><img src="../assets/screenshots/listen.webp" width="2940" height="1600" alt="Pasaje resaltado con los controles de reproducción visibles"></a>
-            <a class="capture-dark" href="../assets/screenshots/listen-dark.webp"><img src="../assets/screenshots/listen-dark.webp" width="2940" height="1600" alt="Pasaje resaltado con los controles de reproducción visibles"></a>
+            <a class="capture-light" href="../assets/screenshots/listen.webp" style="background-image: url('../assets/screenshots/listen.webp')" aria-label="Pasaje resaltado con los controles de reproducción visibles"></a>
+            <a class="capture-dark" href="../assets/screenshots/listen-dark.webp" style="background-image: url('../assets/screenshots/listen-dark.webp')" aria-label="Pasaje resaltado con los controles de reproducción visibles"></a>
           </figure>
           <figure class="passage-frame capture-phone">
-            <a class="capture-light" href="../assets/screenshots/android-listen.webp"><img src="../assets/screenshots/android-listen.webp" width="900" height="1490" alt="Pasaje resaltado con los controles de reproducción visibles"></a>
-            <a class="capture-dark" href="../assets/screenshots/android-listen-dark.webp"><img src="../assets/screenshots/android-listen-dark.webp" width="900" height="1490" alt="Pasaje resaltado con los controles de reproducción visibles"></a>
+            <a class="capture-light" href="../assets/screenshots/android-listen.webp" style="background-image: url('../assets/screenshots/android-listen.webp')" aria-label="Pasaje resaltado con los controles de reproducción visibles"></a>
+            <a class="capture-dark" href="../assets/screenshots/android-listen-dark.webp" style="background-image: url('../assets/screenshots/android-listen-dark.webp')" aria-label="Pasaje resaltado con los controles de reproducción visibles"></a>
           </figure>
         </section>
 
@@ -259,6 +259,7 @@
               <div class="platform-install">
                 <h3>Instalación</h3>
                 <p>Activa <strong>Instalar aplicaciones desconocidas</strong> en los ajustes de tu navegador o gestor de archivos y, después, abre el APK.</p>
+                <p>¿Usas un APK del sitio anterior a v1.10.2? La clave de firma cambió. Antes de desinstalar, exporta la biblioteca a un lugar seguro o transfiérela a otro dispositivo. Incluye los audiolibros que quieras conservar. Los marcadores y las preferencias de lectura no se podrán restaurar. Después, desinstala la aplicación, instala el nuevo APK y vuelve a importar o transferir la biblioteca.</p>
               </div>
             </details>
 
@@ -353,7 +354,7 @@
               </article>
               <div class="platform-install">
                 <h3>Instalación</h3>
-                <p>Requiere macOS 10.13 o posterior en equipos Mac con Apple Silicon o Intel. Abre el archivo <code>.dmg</code> y arrastra <strong>Papercut</strong> a la carpeta Aplicaciones. Las versiones oficiales están firmadas con Developer ID y notarizadas. Si pruebas un artefacto de CI o desarrollo local sin firmar, haz clic derecho (o Control-clic) en el icono de la aplicación y elige <strong>Abrir</strong> la primera vez que la abras.</p>
+                <p>Requiere macOS 10.13 o posterior en equipos Mac con Apple Silicon o Intel. Abre el archivo <code>.dmg</code> y arrastra <strong>Papercut</strong> a la carpeta Aplicaciones. Las versiones oficiales están firmadas con Developer ID y notarizadas. En macOS 15 o posterior, si confías en una compilación local o de CI sin firmar, intenta abrirla una vez. Si se bloquea, ve a Ajustes del Sistema → Privacidad y seguridad y selecciona <strong>Abrir igualmente</strong> si aparece la opción.</p>
                 <p>Elige la versión que corresponda a tu Mac: <strong>Apple Silicon</strong> (<code>_aarch64.dmg</code>) para procesadores de la serie M, o <strong>Intel</strong> (<code>_x64.dmg</code>) para equipos Mac con Intel.</p>
               </div>
             </details>

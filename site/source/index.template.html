@@ -112,12 +112,12 @@
             <a class="button-secondary" href="#preview-title">{{walk.link}}</a>
           </div>
           <figure class="passage-frame capture-desktop">
-            <a class="capture-light" href="{{capture.path}}/listen.webp"><img src="{{capture.path}}/listen.webp" width="2940" height="1600" alt="{{capture.listen}}"></a>
-            <a class="capture-dark" href="{{capture.path}}/listen-dark.webp"><img src="{{capture.path}}/listen-dark.webp" width="2940" height="1600" alt="{{capture.listen}}"></a>
+            <a class="capture-light" href="{{capture.path}}/listen.webp" style="background-image: url('{{capture.path}}/listen.webp')" aria-label="{{capture.listen}}"></a>
+            <a class="capture-dark" href="{{capture.path}}/listen-dark.webp" style="background-image: url('{{capture.path}}/listen-dark.webp')" aria-label="{{capture.listen}}"></a>
           </figure>
           <figure class="passage-frame capture-phone">
-            <a class="capture-light" href="{{capture.path}}/android-listen.webp"><img src="{{capture.path}}/android-listen.webp" width="900" height="1490" alt="{{capture.listen}}"></a>
-            <a class="capture-dark" href="{{capture.path}}/android-listen-dark.webp"><img src="{{capture.path}}/android-listen-dark.webp" width="900" height="1490" alt="{{capture.listen}}"></a>
+            <a class="capture-light" href="{{capture.path}}/android-listen.webp" style="background-image: url('{{capture.path}}/android-listen.webp')" aria-label="{{capture.listen}}"></a>
+            <a class="capture-dark" href="{{capture.path}}/android-listen-dark.webp" style="background-image: url('{{capture.path}}/android-listen-dark.webp')" aria-label="{{capture.listen}}"></a>
           </figure>
         </section>
 
@@ -259,6 +259,7 @@
               <div class="platform-install">
                 <h3>{{downloads.install}}</h3>
                 <p>{{install-notes.text.035}}<strong>{{install-notes.text.036}}</strong>{{install-notes.text.037}}</p>
+                <p>{{install.android-migration}}</p>
               </div>
             </details>
 
