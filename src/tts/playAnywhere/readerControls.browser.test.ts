@@ -1561,7 +1561,7 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
     expect(result.name.length).toBeGreaterThan(0)
   }, 30_000)
 
-  it.each(['idle', 'playing', 'paused'])('captures the %s viewport without loading feedback invalidating its layout snapshot', async status => {
+  it.each(['idle', 'idle-menu', 'playing', 'paused'])('captures the %s viewport without loading feedback invalidating its layout snapshot', async status => {
     const frame = join(directory, 'capture.html')
     writeFileSync(frame, `<!doctype html><html><meta charset="utf-8"><style>body{margin:0}${css}
       .doc-header{position:fixed;inset:0 0 auto;height:65px;background:white;z-index:2}
@@ -1569,7 +1569,25 @@ describe.skipIf(!browser)('Reader controls in Chromium', { timeout: 20_000 }, ()
       </style><div class="app-reader"><header class="doc-header"><div id="controls"></div></header>
       <main class="document-view"><article>${Array.from({length:40},(_,i)=>`<p>Passage ${i}. A saved book has a readable sentence with several words.</p>`).join('')}</article></main></div>
       <script>${bundle.replace(/<\/script/gi, '<\\/script')}</script><script>
-      (async()=>{await ReaderControls.mount('en',true,${JSON.stringify(status)},false,${JSON.stringify('unmapped')});while(!window.captureReady)await new Promise(requestAnimationFrame);scrollTo(0,700);await new Promise(requestAnimationFrame);${status === 'idle' ? "document.querySelector('.reader-passage-action').click()" : "document.querySelector('.audio-menu-btn').click();while(!document.querySelector('.audio-passage-here'))await new Promise(requestAnimationFrame);document.querySelector('.audio-passage-here').click()"}})();</script>`)
+      (async () => {
+        const scenario = ${JSON.stringify(status)};
+        await ReaderControls.mount('en', true, scenario === 'idle-menu' ? 'idle' : scenario, false, 'unmapped');
+        while (!window.captureReady) await new Promise(requestAnimationFrame);
+        scrollTo(0, 700);
+        await new Promise(requestAnimationFrame);
+        if (scenario === 'idle') {
+          document.querySelector('.reader-passage-action').click();
+          return;
+        }
+        document.querySelector('.audio-menu-btn').click();
+        while (!document.querySelector('.audio-passage-here')) await new Promise(requestAnimationFrame);
+        if (scenario === 'idle-menu') {
+          document.querySelector('.audio-compact-row .audio-primary-btn').click();
+          if (document.querySelector('.audio-chunk-menu')) throw Error('Inline Play left options open');
+        } else {
+          document.querySelector('.audio-passage-here').click();
+        }
+      })();</script>`)
     const result = await runBrowserFixture(directory, frame, 620)
     expect(result.status, JSON.stringify(result)).toBe('captured')
     expect(result.current).toBe(true)

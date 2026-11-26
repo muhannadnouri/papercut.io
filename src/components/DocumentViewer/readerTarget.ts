@@ -125,11 +125,22 @@ function rangeForElement(element: Element): Range {
   return range
 }
 
-export function scrollToReaderRange(range: Range): void {
-  const rect = range.getBoundingClientRect()
-  const targetTop = window.scrollY + rect.top
+export function scrollToReaderRange(range: Range, header: HTMLElement | null): void {
+  scrollToReaderTarget(range.getBoundingClientRect(), window.innerHeight / 2, header)
+}
+
+function scrollToReaderTarget(rect: DOMRect, offset: number, header: HTMLElement | null, targetBottom = rect.bottom): void {
+  const scrollY = window.scrollY
+  let top = Math.max(scrollY + rect.top - offset, 0)
+  // Keep an opening match and the complete toolbar together when both fit.
+  if (header && top > 0 && scrollY + targetBottom <= window.innerHeight) {
+    const safeTop = parseFloat(getComputedStyle(header).scrollMarginTop)
+    if (safeTop > 0 && top < scrollY + header.getBoundingClientRect().bottom - safeTop) {
+      top = 0
+    }
+  }
   window.scrollTo({
-    top: Math.max(targetTop - window.innerHeight / 2, 0),
+    top,
     behavior: readerScrollBehavior(),
   })
 }
@@ -142,11 +153,10 @@ export function scrollToReaderElement(element: Element): void {
       details.open = true
     }
   }
-  const targetTop = window.scrollY + element.getBoundingClientRect().top
-  window.scrollTo({
-    top: Math.max(targetTop - 120, 0),
-    behavior: readerScrollBehavior(),
-  })
+  const rect = element.getBoundingClientRect()
+  const header = element.closest('.app-reader')?.querySelector<HTMLElement>('.doc-header') ?? null
+  // An element jump reveals its opening, even when a section spans several screens.
+  scrollToReaderTarget(rect, 120, header, rect.top)
 }
 
 export function readerScrollBehavior(): ScrollBehavior {

@@ -22,6 +22,30 @@
   --reader-notice-bottom: calc(var(--reader-tools-bottom-inset) + max(calc(var(--reader-playback-offset, 0px) + var(--reader-actions-height, 3.4rem)), var(--reader-playback-height, 0px)) + 0.65rem);
 }
 
+/* The reflowable reader scrolls with the window. Keep moving content behind the status bar. */
+.reader-status-area {
+  position: fixed;
+  inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--reader-surface);
+  z-index: 36;
+}
+
+.app-reader:not(.app-reader-pdf) > .doc-header {
+  scroll-margin-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+@supports (-webkit-touch-callout: none) {
+  /* Only the open inline menu needs its toolbar held in view. The floating player is independent. */
+  .app-reader:not(.app-reader-pdf) > .doc-header:has(.audio-menu-btn[aria-expanded="true"]) {
+    position: sticky;
+    top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
+    background: var(--reader-surface);
+  }
+}
+
 .app-reader-pdf {
   container: pdf-reader / inline-size;
   display: flex;
@@ -819,6 +843,10 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 }
 
 @media (min-width: 768px) {
+  .app-reader:not(.app-reader-pdf) {
+    padding-top: max(clamp(1.25rem, 2.5vw, 2.5rem), calc(env(safe-area-inset-top, 0px) + 0.5rem));
+  }
+
   .app-reader-pdf:not(.app-reader-pdf-fullscreen) {
     padding-top: 0.75rem;
   }

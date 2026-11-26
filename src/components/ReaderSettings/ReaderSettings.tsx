@@ -72,22 +72,37 @@ function EnabledReaderSettings({
       return
     }
     const rect = button.getBoundingClientRect()
+    const frameElement = panel.parentElement!
+    const frame = frameElement.getBoundingClientRect()
+    const inset = getComputedStyle(frameElement)
+    const viewport = window.visualViewport
+    // During rotation WebKit can resize the visible viewport before the fixed frame.
+    const x = viewport?.offsetLeft ?? 0
+    const y = viewport?.offsetTop ?? 0
+    const widthAvailable = Math.min(window.innerWidth, viewport?.width ?? window.innerWidth)
+    const heightAvailable = Math.min(window.innerHeight, viewport?.height ?? window.innerHeight)
+    const leftEdge = Math.max(frame.left, x + (parseFloat(inset.left) || 0))
+    const topEdge = Math.max(frame.top, y + (parseFloat(inset.top) || 0))
+    const rightEdge = Math.min(frame.right, x + widthAvailable - (parseFloat(inset.right) || 0))
+    const bottomEdge = Math.min(frame.bottom, y + heightAvailable - (parseFloat(inset.bottom) || 0))
+    panel.style.maxWidth = `${Math.max(0, rightEdge - leftEdge)}px`
+    panel.style.maxHeight = `${Math.max(0, bottomEdge - topEdge)}px`
     const width = panel.offsetWidth
-    const top = Math.max(8, rect.bottom + 8)
+    const top = Math.max(topEdge, Math.min(rect.bottom + 8, bottomEdge - panel.offsetHeight))
     // Line up with the button's end edge, but keep the whole panel on screen.
     const start = getComputedStyle(button).direction === 'rtl' ? rect.left : rect.right - width
-    const left = Math.min(Math.max(8, start), document.documentElement.clientWidth - width - 8)
+    const left = Math.max(leftEdge, Math.min(start, rightEdge - width))
     Object.assign(panel.style, {
-      top: `${top}px`,
-      left: `${Math.max(8, left)}px`,
-      maxHeight: `calc(100dvh - ${top + 8}px)`,
+      top: `${top - frame.top}px`,
+      left: `${left - frame.left}px`,
+      maxHeight: `${Math.max(0, bottomEdge - top)}px`,
     })
   }
 
   useLayoutEffect(() => {
     if (open) {
       place()
-      panelRef.current?.focus()
+      panelRef.current?.focus({ preventScroll: true })
     }
   }, [open])
 
@@ -126,13 +141,23 @@ function EnabledReaderSettings({
     document.addEventListener('pointerup', endPress)
     document.addEventListener('pointercancel', cancelPress)
     document.addEventListener('keydown', closeOnEscape)
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(place) : null
+    const frame = panelRef.current?.parentElement
+    if (frame) {
+      observer?.observe(frame)
+    }
     window.addEventListener('resize', place)
+    window.visualViewport?.addEventListener('resize', place)
+    window.visualViewport?.addEventListener('scroll', place)
     return () => {
       document.removeEventListener('pointerdown', startPress)
       document.removeEventListener('pointerup', endPress)
       document.removeEventListener('pointercancel', cancelPress)
       document.removeEventListener('keydown', closeOnEscape)
+      observer?.disconnect()
       window.removeEventListener('resize', place)
+      window.visualViewport?.removeEventListener('resize', place)
+      window.visualViewport?.removeEventListener('scroll', place)
     }
   }, [open])
 
@@ -144,7 +169,7 @@ function EnabledReaderSettings({
         open={open}
         onClick={() => setOpen(!open)}
       />
-      {open && <section
+      {open && <div className="reader-settings-frame"><section
         ref={panelRef}
         className="reader-settings-popover"
         role="dialog"
@@ -220,7 +245,7 @@ function EnabledReaderSettings({
         />
 
         <button className="reader-settings-reset" type="button" onClick={onReset}>{t('reader.settings.reset')}</button>
-      </section>}
+      </section></div>}
     </div>
   )
 }

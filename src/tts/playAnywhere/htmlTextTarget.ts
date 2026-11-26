@@ -374,6 +374,7 @@ export function readerTextViewport(shell: HTMLElement): ViewerViewportBounds | n
   }
   // Reader tools and feedback can cover text even while audio is stopped.
   const controls = shell.querySelectorAll([
+    '.reader-status-area',
     '.doc-header',
     '.find-bar',
     '.audio-playback-dock',
@@ -388,7 +389,8 @@ export function readerTextViewport(shell: HTMLElement): ViewerViewportBounds | n
       rect.left >= bounds.right || rect.right <= bounds.left) {
       continue
     }
-    if (rect.top <= bounds.top && rect.bottom > bounds.top) {
+    const topControl = control.matches('.reader-status-area, .doc-header, .find-bar')
+    if ((topControl || rect.top <= bounds.top) && rect.bottom > bounds.top) {
       bounds = {
         ...bounds,
         top: rect.bottom,

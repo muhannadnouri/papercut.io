@@ -1,6 +1,7 @@
 // @vitest-environment node
 import {
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
@@ -162,6 +163,44 @@ describe.skipIf(!browser)('HTML viewport capture in a rendered browser', () => {
     expect(result.target.status).toBe('resolved')
     expect(result.target.chunkIndex).toBeGreaterThan(0)
   }, 30_000)
+
+  it('blocks taps and narration behind the status area, and reads below an open toolbar', async () => {
+    const css = readFileSync(resolve('src/components/DocumentViewer/DocumentViewer.css'), 'utf8')
+    const result = await run('<p><a href="#end">Covered phrase</a></p><div style="height:1600px"></div>', `
+      const header = shell.querySelector('.doc-header');
+      header.hidden = true;
+      header.style.display = 'none';
+      const guard = document.createElement('div');
+      guard.className = 'reader-status-area';
+      guard.style.height = '62px';
+      shell.prepend(guard);
+      const link = root.querySelector('a');
+      scrollTo(0, link.getBoundingClientRect().top - 35);
+      const rect = link.getBoundingClientRect();
+      const blocked = document.elementFromPoint(rect.left + 2, rect.top + 2) === guard;
+      const session = HtmlTargets.createHtmlTextTargetApi(root, bounds);
+      const hidden = await session.api.captureViewport();
+
+      header.hidden = false;
+      header.style.cssText = 'display:block;position:fixed;top:70px;height:106px';
+      const passage = document.createElement('p');
+      passage.textContent = 'The visible passage';
+      passage.style.marginTop = '160px';
+      link.closest('p').after(passage);
+      const visible = await session.api.captureViewport();
+      parent.postMessage({type:'capture-result',result:{blocked, hidden:plain(hidden), visible:plain(visible)}},'*');
+      session.dispose();
+    `, { css })
+    expect(result.blocked).toBe(true)
+    expect(result.hidden).toMatchObject({
+      status: 'unavailable',
+      reason: 'no-visible-text',
+    })
+    expect(result.visible).toMatchObject({
+      status: 'captured',
+      point: { segmentIndex: 1 },
+    })
+  })
 
   it('captures inside a long paragraph and supports the WebKit caret fallback', async () => {
     const result = await run(`<p>${'First sentence. Second sentence. '.repeat(180)}</p>`, `

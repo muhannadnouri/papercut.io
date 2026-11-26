@@ -280,6 +280,13 @@ export function AudioControls({
     flushSync(() => setChunkMenuOpen(false))
     menuButtonRef.current?.focus()
   }
+  const playFromInlineButton = () => {
+    if (chunkMenuOpen) {
+      flushSync(() => setChunkMenuOpen(false))
+    }
+    const play = playAnywhere?.onPlayFromHere ?? onRead
+    play()
+  }
   const toggleMenu = () => {
     if (!chunkMenuOpen) {
       snapshotSelection()
@@ -343,7 +350,7 @@ export function AudioControls({
           />
         )}
         {!showFloatingPlayback && canPlayAudiobook && (
-          <button ref={registerIdlePlay} className="audio-icon-btn audio-primary-btn" onClick={playAnywhere?.onPlayFromHere ?? onRead} disabled={playAnywhere?.pending && ttsState.status !== 'error'} aria-label={t(playAnywhere ? 'tts.playAnywhere.here' : 'tts.controls.playSaved')} title={t(playAnywhere ? 'tts.playAnywhere.description' : 'tts.controls.playSaved')}>
+          <button ref={registerIdlePlay} className="audio-icon-btn audio-primary-btn" onClick={playFromInlineButton} disabled={playAnywhere?.pending && ttsState.status !== 'error'} aria-label={t(playAnywhere ? 'tts.playAnywhere.here' : 'tts.controls.playSaved')} title={t(playAnywhere ? 'tts.playAnywhere.description' : 'tts.controls.playSaved')}>
             {playAnywhere?.pending ? <span className="spinner audio-save-spinner" aria-hidden="true" /> : <AudioIcon name="play" />}
           </button>
         )}
