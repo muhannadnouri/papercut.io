@@ -882,8 +882,20 @@
     padding: 0.65rem;
   }
 
+  .document-browser-panel .documents-list-header,
+  .document-browser-panel .document-upload-actions,
+  .document-browser-panel .document-view-options {
+    column-gap: 0.375rem;
+  }
+
+  .document-browser-panel .document-import-btn,
+  .document-browser-panel .audio-filter-toggle:not(.bookmark-filter-toggle) {
+    padding-inline: 0.35rem;
+  }
+
   .document-browser-panel .document-import-btn {
     width: auto;
+    min-width: 2.75rem;
     min-height: 2.75rem;
   }
 
@@ -898,7 +910,6 @@
   .document-browser-panel .document-view-options {
     max-width: 100%;
     flex-wrap: wrap;
-    margin-inline-start: auto;
   }
 
   .document-browser-panel .document-import-options {

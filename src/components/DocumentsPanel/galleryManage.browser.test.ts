@@ -1,5 +1,6 @@
 // @vitest-environment node
 import {
+  cpSync,
   mkdtempSync,
   rmSync,
   writeFileSync,
@@ -22,13 +23,14 @@ import {
 it.skipIf(!browser)('groups Import and Manage in both views and restores focus after Done', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'papercut-gallery-manage-'))
   try {
-    writeFileSync(join(directory, 'index.html'), `<!doctype html><meta charset="utf-8">
+    writeFileSync(join(directory, 'index.html'), `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
       <div id="root"></div><script type="module" src="./entry.tsx"></script>`)
     writeFileSync(join(directory, 'entry.tsx'), `
       import {createRoot} from ${JSON.stringify(resolve('node_modules/react-dom/client.js'))};
       import {DocumentsPanel} from ${JSON.stringify(resolve('src/components/DocumentsPanel/DocumentsPanel.tsx'))};
       import {changeAppLocale} from ${JSON.stringify(resolve('src/i18n/index.ts'))};
       import ${JSON.stringify(resolve('src/index.css'))};
+      import ${JSON.stringify(resolve('src/App.css'))};
       const q = selector => document.querySelector(selector);
       const frame = () => new Promise(requestAnimationFrame);
       async function check() {
@@ -54,6 +56,34 @@ it.skipIf(!browser)('groups Import and Manage in both views and restores focus a
           onDeleteLibraryFolder={noop} onMoveLibraryItems={noop} onRenameLibraryFolder={noop}/>);
         const manage = '.document-manage-btn';
         while (!q(manage)) await frame();
+        if ([360,412].includes(innerWidth)) {
+          q('#root').classList.add('app');
+          const layouts = [];
+          for (const locale of ['en','ar']) {
+            await changeAppLocale(locale);
+            for (const fontSize of [16,24]) {
+              document.documentElement.style.fontSize = fontSize + 'px';
+              await frame();
+              await document.fonts.ready;
+              const buttons = [...document.querySelectorAll('.documents-list-header button')];
+              const rects = buttons.map(button => button.getBoundingClientRect());
+              const [first, manage, view, bookmark, audio] = rects;
+              const edge = locale === 'ar' ? 'right' : 'left';
+              const filter = q('.document-filter-input').getBoundingClientRect();
+              layouts.push({
+                locale, fontSize,
+                oneRow: rects.every(r => Math.abs(r.top-first.top) < 1),
+                cleanWrap: manage.top === first.top && view.top >= first.bottom &&
+                  Math.abs(view[edge]-first[edge]) < 1 && bookmark.top === view.top && (audio.top === view.top ||
+                    (audio.top >= bookmark.bottom && Math.abs(audio[edge]-first[edge]) < 1)),
+                visible: rects.length === 5 && rects.every((r,i) => r.left >= filter.left-1 &&
+                  r.right <= filter.right+1 && r.width >= 44 && r.height >= 44 && buttons[i].scrollWidth <= buttons[i].clientWidth+1) &&
+                  ['svg','span'].every(selector => buttons[4].querySelector(selector).getBoundingClientRect().width > 0),
+              });
+            }
+          }
+          return layouts;
+        }
         const results = [];
         for (const index of [0,1,2]) {
           const category = () => document.querySelectorAll('.library-gallery-category')[index];
@@ -172,6 +202,8 @@ it.skipIf(!browser)('groups Import and Manage in both views and restores focus a
     `)
     await build({
       root: directory,
+      publicDir: resolve('public'),
+      build: { copyPublicDir: false },
       configFile: false,
       logLevel: 'silent',
       base: './',
@@ -181,6 +213,25 @@ it.skipIf(!browser)('groups Import and Manage in both views and restores focus a
         jsxDev: false,
       },
     })
+    cpSync(resolve('public/fonts/ui'), join(directory, 'dist/fonts/ui'), { recursive: true })
+    for (const width of [412, 360]) {
+      const layouts = await runBrowserFixture(join(directory, String(width)), join(directory, 'dist/index.html'), {
+        width,
+        mobile: true,
+      })
+      for (const locale of ['en', 'ar']) {
+        for (const fontSize of [16, 24]) {
+          const oneRow = width === 412 && fontSize === 16
+          expect(layouts, width + 'px').toContainEqual({
+            locale,
+            fontSize,
+            oneRow,
+            cleanWrap: !oneRow,
+            visible: true,
+          })
+        }
+      }
+    }
     for (const [width, direction] of [[900, 'ltr'], [644, 'ltr'], [591, 'ltr'], [460, 'ltr'], [320, 'rtl']] as const) {
       const result = await runBrowserFixture(join(directory, String(width)), join(directory, 'dist/index.html'), width,
         undefined, undefined, width === 900 ? ['Space'] : width === 320 ? ['Enter', 'Tab', 'Enter'] : undefined)
