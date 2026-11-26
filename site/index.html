@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme-choice="system">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -37,10 +37,24 @@
       <header class="site-header">
         <a class="brand" href="index.html" aria-label="Papercut home">
           <img src="assets/papercut-icon.png" alt="" width="36" height="36">
-          <span>Papercut</span>
         </a>
         <div class="header-actions">
-          <details class="language-menu">
+          <details class="sections-menu" name="header-menu">
+            <summary>
+              <span class="wordmark">Papercut</span>
+              <span class="visually-hidden">Page sections</span>
+              <span class="chevron-slot" aria-hidden="true"><span class="menu-chevron"></span></span>
+            </summary>
+            <nav class="section-options" aria-label="Page sections">
+              <a href="#preview-title">How It Works</a>
+              <a href="#privacy-title">Privacy</a>
+              <a href="#use-cases-title">Use Cases</a>
+              <a href="#downloads-title">Download</a>
+              <a href="#install-notes-title">FAQ</a>
+              <a href="#contact-title">Contact</a>
+            </nav>
+          </details>
+          <details class="language-menu" name="header-menu">
             <summary aria-label="Choose language" aria-expanded="false">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <circle cx="12" cy="12" r="9" />
@@ -58,27 +72,7 @@
               <a href="zh-CN/index.html" lang="zh-CN" hreflang="zh-CN">中文（简体）</a>
             </nav>
           </details>
-          <details class="nav-menu">
-            <summary aria-label="Toggle navigation" aria-expanded="false"><span class="nav-menu-icon" aria-hidden="true">
-                <svg class="nav-menu-icon-open" viewBox="0 0 20 20" focusable="false">
-                  <path d="M4 6h12M4 10h12M4 14h12" />
-                </svg>
-                <svg class="nav-menu-icon-close" viewBox="0 0 20 20" focusable="false">
-                  <path d="M5 12l5-5 5 5" />
-                </svg>
-              </span></summary>
-            <nav class="nav" aria-label="Main navigation">
-              <a href="#preview-title">Demo</a>
-              <a href="#features-title">Features</a>
-              <a href="#privacy-title">Privacy</a>
-              <a href="#use-cases-title">Use Cases</a>
-              <a href="#downloads-title">Download</a>
-              <a href="#install-notes-title">FAQ</a>
-              <a href="#contact-title">Contact</a>
-            </nav>
-          </details>
-
-          <button class="theme-toggle" type="button" aria-label="Theme: Use system theme. Switch to light theme." title="Theme: Use system theme. Click for light theme.">
+          <button hidden class="theme-toggle" type="button" aria-label="Theme: Use system theme. Switch to light theme." title="Theme: Use system theme. Click for light theme.">
             <span class="theme-toggle-icon theme-toggle-icon-system" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
                 <path d="M4 5.75A2.75 2.75 0 0 1 6.75 3h10.5A2.75 2.75 0 0 1 20 5.75v7.5A2.75 2.75 0 0 1 17.25 16H6.75A2.75 2.75 0 0 1 4 13.25v-7.5Z" />
@@ -105,223 +99,122 @@
               </svg>
             </span>
           </button>
+          <a class="download-pill" href="#downloads-title">Download</a>
         </div>
       </header>
 
       <main id="main-content">
         <section class="intro" aria-labelledby="intro-title">
-          <p class="eyebrow">Offline reader, search engine, and audiobook maker</p>
-          <h1 id="intro-title">Search, read, and listen to your documents offline</h1>
-          <p class="intro-copy">
-            Papercut is a desktop and mobile app for importing HTML, EPUB, PDF,
-            TXT, and Markdown files, searching indexed personal libraries, reading
-            locally, recognizing English or Arabic text in scanned pages, and
-            generating offline audiobooks you can export and carry with you.
-          </p>
+          <h1 id="intro-title">Read your documents. <em>Or listen to them.</em></h1>
+          <p class="intro-copy">Search your books, papers, and notes for a passage. Read it in context or listen to it on your device.</p>
           <div class="intro-actions" role="group" aria-label="Primary actions">
-            <a class="button-primary" href="#downloads-title">Download Papercut</a>
-            <a class="button-secondary" href="https://github.com/muhannadnouri/papercut.io">View on GitHub</a>
+            <a class="button-primary" href="#downloads-title">Download</a>
+            <a class="button-secondary" href="#preview-title">How It Works</a>
           </div>
-          <ul class="intro-trust" aria-label="Papercut trust signals">
-            <li>📚 Offline-First Library</li>
-            <li>🎧 Local AI Audiobooks</li>
-            <li>🔒 No Login Required</li>
-            <li>💻 Desktop & Mobile</li>
-          </ul>
+          <figure class="passage-frame capture-desktop">
+            <a class="capture-light" href="assets/screenshots/listen.webp" style="background-image: url('assets/screenshots/listen.webp')" aria-label="Narration highlights the passage with playback controls visible"></a>
+            <a class="capture-dark" href="assets/screenshots/listen-dark.webp" style="background-image: url('assets/screenshots/listen-dark.webp')" aria-label="Narration highlights the passage with playback controls visible"></a>
+          </figure>
+          <figure class="passage-frame capture-phone">
+            <a class="capture-light" href="assets/screenshots/android-listen.webp" style="background-image: url('assets/screenshots/android-listen.webp')" aria-label="Narration highlights the passage with playback controls visible"></a>
+            <a class="capture-dark" href="assets/screenshots/android-listen-dark.webp" style="background-image: url('assets/screenshots/android-listen-dark.webp')" aria-label="Narration highlights the passage with playback controls visible"></a>
+          </figure>
         </section>
 
-        <section class="preview" aria-labelledby="preview-title">
-          <div class="section-label">
-            <h2 id="preview-title">Demo</h2>
-          </div>
-          <div class="preview-grid">
-            <figure class="screenshot-preview">
-              <div class="screenshot-placeholder" role="img" aria-label="Placeholder for a future Papercut screenshot">
-                <span>Screenshot placeholder</span>
-                <small>Replace with JPEG or PNG</small>
+        <section aria-labelledby="preview-title">
+          <div class="walkthrough">
+            <h2 id="preview-title">From a search result to a spoken passage</h2>
+            <article class="walk-step" id="find">
+              <div>
+                <h3>Find</h3>
+                <p>Search the full text for a keyword or an exact phrase.</p>
+                <p>If you remember the idea, try embedding-based semantic search to find passages with a similar meaning.</p>
               </div>
-            </figure>
-
-            <aside class="audio-proof" aria-labelledby="audio-proof-title">
-              <p class="eyebrow">Voice sample</p>
-              <h3 id="audio-proof-title">Offline voice sample</h3>
-              <p>Reserve this space for a short Kokoro-generated English sample and an Arabic sample once final demo audio is ready.</p>
-              <div class="audio-placeholder" role="img" aria-label="Placeholder for future Papercut voice samples">
-                <span class="audio-placeholder-icon" aria-hidden="true"></span>
-                <span>Sample audio placeholder</span>
+              <figure class="passage-frame capture-desktop">
+                <a class="capture-light" href="assets/screenshots/find.webp"><img src="assets/screenshots/find.webp" width="2180" height="925" alt="One result for tide gauge in Harbor Field Notes" loading="lazy"></a>
+                <a class="capture-dark" href="assets/screenshots/find-dark.webp"><img src="assets/screenshots/find-dark.webp" width="2180" height="925" alt="One result for tide gauge in Harbor Field Notes" loading="lazy"></a>
+              </figure>
+              <figure class="passage-frame capture-phone">
+                <a class="capture-light" href="assets/screenshots/android-find.webp"><img src="assets/screenshots/android-find.webp" width="900" height="1280" alt="One exact phrase match in Harbor Field Notes" loading="lazy"></a>
+                <a class="capture-dark" href="assets/screenshots/android-find-dark.webp"><img src="assets/screenshots/android-find-dark.webp" width="900" height="1280" alt="One exact phrase match in Harbor Field Notes" loading="lazy"></a>
+              </figure>
+            </article>
+            <article class="walk-step" id="read">
+              <div>
+                <h3>Read</h3>
+                <p>Open the result at the passage and keep reading.</p>
+                <p>Bookmark the passage so you can return to it the next time you open the document.</p>
               </div>
-            </aside>
+              <figure class="passage-frame capture-desktop">
+                <a class="capture-light" href="assets/screenshots/read.webp"><img src="assets/screenshots/read.webp" width="2330" height="920" alt="The reader highlights tide gauge in the opening paragraph" loading="lazy"></a>
+                <a class="capture-dark" href="assets/screenshots/read-dark.webp"><img src="assets/screenshots/read-dark.webp" width="2330" height="920" alt="The reader highlights tide gauge in the opening paragraph" loading="lazy"></a>
+              </figure>
+              <figure class="passage-frame capture-phone">
+                <a class="capture-light" href="assets/screenshots/android-read.webp"><img src="assets/screenshots/android-read.webp" width="900" height="1225" alt="Literata reader settings above the highlighted passage" loading="lazy"></a>
+                <a class="capture-dark" href="assets/screenshots/android-read-dark.webp"><img src="assets/screenshots/android-read-dark.webp" width="900" height="1225" alt="Literata reader settings above the highlighted passage" loading="lazy"></a>
+              </figure>
+            </article>
+            <article class="walk-step" id="listen">
+              <div>
+                <h3>Listen</h3>
+                <p>Play your saved audiobook from this passage.</p>
+                <p>Follow the highlighted text as you listen, or let the narration continue while you read ahead.</p>
+              </div>
+              <figure class="passage-frame capture-desktop">
+                <a class="capture-light" href="assets/screenshots/listen.webp"><img src="assets/screenshots/listen.webp" width="2940" height="1600" alt="Narration highlights the passage with playback controls visible" loading="lazy"></a>
+                <a class="capture-dark" href="assets/screenshots/listen-dark.webp"><img src="assets/screenshots/listen-dark.webp" width="2940" height="1600" alt="Narration highlights the passage with playback controls visible" loading="lazy"></a>
+              </figure>
+              <figure class="passage-frame capture-phone">
+                <a class="capture-light" href="assets/screenshots/android-listen.webp"><img src="assets/screenshots/android-listen.webp" width="900" height="1490" alt="Narration highlights the passage with playback controls visible" loading="lazy"></a>
+                <a class="capture-dark" href="assets/screenshots/android-listen-dark.webp"><img src="assets/screenshots/android-listen-dark.webp" width="900" height="1490" alt="Narration highlights the passage with playback controls visible" loading="lazy"></a>
+              </figure>
+            </article>
           </div>
-        </section>
 
-        <section class="features" aria-labelledby="features-title">
-          <div class="features-header">
-            <h2 id="features-title" class="features-heading">Features</h2>
-            <p>Papercut works as a loop: import your documents, search across them, read what matters, and make portable audio when listening fits better.</p>
-          </div>
-          <div class="feature-grid">
-            <div class="feature-card">
-              <span class="feature-label">Search</span>
-              <h3>Find text across your whole library</h3>
-              <p>Search indexed content across hundreds of imported documents without internet or accounts. Exact and broad search help you recover notes, code references, research quotes, and manual sections.</p>
-            </div>
-            <div class="feature-card">
-              <span class="feature-label">Read</span>
-              <h3>Read HTML, EPUB, PDF, TXT, and Markdown files offline</h3>
+          <section class="story-section story-pair" aria-labelledby="features-title">
+            <div>
+              <h3 id="features-title">Bring Your Own Library</h3>
               <p>Bring your own documents into local HTML, EPUB, PDF, TXT, and Markdown readers. PDFs retain their original pages, while offline English and Arabic OCR can make scanned pages searchable and speakable.</p>
-            </div>
-            <div class="feature-card">
-              <span class="feature-label">Organize</span>
-              <h3>Keep documents, folders, and audio together</h3>
               <p>Import many files at once, browse covers or lists, organize folders, edit titles, save generated audio, and move selected documents and audiobooks between Papercut devices.</p>
             </div>
-          </div>
+            <figure class="passage-frame">
+              <a class="capture-light" href="assets/screenshots/scan.webp"><img src="assets/screenshots/scan.webp" width="2300" height="1785" alt="The scanned East Pier at Dawn page in the PDF reader" loading="lazy"></a>
+              <a class="capture-dark" href="assets/screenshots/scan-dark.webp"><img src="assets/screenshots/scan-dark.webp" width="2300" height="1785" alt="The scanned East Pier at Dawn page in the PDF reader" loading="lazy"></a>
+            </figure>
+          </section>
+
+          <section class="story-section story-pair" aria-labelledby="audiobooks-title">
+            <div>
+              <h3 id="audiobooks-title">Make Your Own Audiobooks</h3>
+              <p>Download a voice once, then generate and play audiobooks on your device without a subscription or usage fees.</p>
+              <p>Save audiobook bundles to share, transfer, or bring back into Papercut on another device.</p>
+              <a href="#voice-questions">Voices and Languages</a>
+            </div>
+            <figure class="passage-frame">
+              <a href="assets/screenshots/android-lock.webp"><img src="assets/screenshots/android-lock.webp" width="900" height="750" alt="Android lock-screen playback · Harbor Field Notes" loading="lazy"></a>
+            </figure>
+          </section>
         </section>
 
-        <section class="audiobooks" aria-labelledby="audiobooks-title">
-          <div class="section-label">
-            <h2 id="audiobooks-title">Offline Audiobooks</h2>
-          </div>
-          <div class="audiobook-content">
-            <div class="audiobook-lead">
-              <p class="eyebrow">Listen</p>
-              <h3>Generate audiobooks from documents in your library</h3>
-              <p>
-                When reading is not the right mode, Papercut can turn supported
-                documents into saved audio on your device. Voice models download
-                only when you choose to use audio; after that, generation and
-                playback work without internet.
-              </p>
-            </div>
-
-            <div class="audiobook-points" aria-label="Offline audiobook capabilities">
-              <div>
-                <strong>Private generation</strong>
-                <span>No cloud processing, document upload, or account required.</span>
-              </div>
-              <div>
-                <strong>No rental meter</strong>
-                <span>No subscription, API key, token limit, or per-character bill.</span>
-              </div>
-              <div>
-                <strong>Export and import</strong>
-                <span>Save audiobook bundles to share, transfer, or bring back into Papercut on another device.</span>
-              </div>
-              <div>
-                <strong>Listen anywhere</strong>
-                <span>Android supports background and lock-screen playback.</span>
-              </div>
-            </div>
-
-            <div class="model-notes">
-              <article>
-                <h4>Multilingual Kokoro voices</h4>
-                <p>Kokoro provides offline voices for English, Mandarin Chinese, Spanish, French, Hindi, Italian, and Brazilian Portuguese.</p>
-              </article>
-              <article>
-                <h4>Arabic voices</h4>
-                <p>Arabic uses separate offline Piper and Supertonic models. SILMA is also available on Linux x64 through an optional runtime download managed by Papercut.</p>
-              </article>
-              <article>
-                <h4>Offline model scope</h4>
-                <p>Today, offline models power audiobook generation. Search, import, and reading remain local document tools.</p>
-              </article>
-            </div>
-          </div>
+        <section class="story-section privacy-story" aria-labelledby="privacy-title">
+          <h2 id="privacy-title">Private by Default</h2>
+          <p>Import, search, reading, and audiobook generation run on your device. English and Arabic PDF recognition is bundled and works offline.</p>
+          <p>Downloads and external links use the internet. Direct transfers use the local network when you choose to send books or audio to another device.</p>
         </section>
 
-        <section class="privacy" aria-labelledby="privacy-title">
-          <div class="section-label">
-            <h2 id="privacy-title">Privacy Model</h2>
-          </div>
-          <div class="privacy-content">
-            <div class="privacy-copy">
-              <p class="eyebrow">Local-first by default</p>
-              <h3>Your library stays on your device</h3>
-              <p>
-                Papercut keeps imported documents, search, reading, and generated
-                audio local by default. Network access is limited to actions you
-                choose, such as downloading voice models or fetching release files.
-              </p>
-            </div>
-            <div class="privacy-grid" aria-label="Papercut privacy details">
-              <article>
-                <strong>Documents</strong>
-                <span>Imported HTML, EPUB, PDF, TXT, and Markdown files remain local.</span>
-              </article>
-              <article>
-                <strong>Search</strong>
-                <span>Library search runs against local document content.</span>
-              </article>
-              <article>
-                <strong>Audiobooks</strong>
-                <span>Generated audio stays local, and Papercut does not claim ownership of it.</span>
-              </article>
-              <article>
-                <strong>Network</strong>
-                <span>Used only when you download voice models, releases, or external resources you request.</span>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section class="positioning" aria-labelledby="use-cases-title">
-          <div class="positioning-header">
-            <h2 id="use-cases-title">Use Cases</h2>
-            <p>Papercut fits personal libraries built from saved documents, books, notes, manuals, and research material. It keeps search, reading, and listening close to the files you already use.</p>
-          </div>
-          <div class="positioning-content">
-            <section class="positioning-panel" aria-labelledby="best-for-title">
-              <h3 id="best-for-title">Who gets the most from Papercut?</h3>
-              <div class="use-case-list" aria-label="Papercut use cases">
-                <article>
-                  <strong>Developers</strong>
-                  <span>Search API docs, manuals, and saved references offline.</span>
-                </article>
-                <article>
-                  <strong>Researchers</strong>
-                  <span>Keep papers, notes, and long-form sources searchable and listenable.</span>
-                </article>
-                <article>
-                  <strong>Students</strong>
-                  <span>Turn reading packets, EPUBs, and PDFs—including recognized scans—into private study audio.</span>
-                </article>
-                <article>
-                  <strong>Offline-first readers</strong>
-                  <span>Prefer local tools, fewer accounts, and less cloud lock-in.</span>
-                </article>
-              </div>
-            </section>
-
-            <section class="positioning-panel comparison" aria-labelledby="comparison-title">
-              <p class="eyebrow">Compared with</p>
-              <h3 id="comparison-title">Why use Papercut instead?</h3>
-              <div class="comparison-list" aria-label="Papercut compared with alternatives">
-                <article>
-                  <strong>Cloud TTS services</strong>
-                  <span>No uploads, API keys, subscriptions, or usage meters.</span>
-                </article>
-                <article>
-                  <strong>Audiobook apps</strong>
-                  <span>Create audio from your own documents instead of buying from a catalog.</span>
-                </article>
-                <article>
-                  <strong>Document readers</strong>
-                  <span>Add cross-document search, library transfer, and offline audiobook generation.</span>
-                </article>
-                <article>
-                  <strong>AI reader apps</strong>
-                  <span>Keep library search, reading, and audiobook generation local instead of uploading documents into chat-first cloud tools.</span>
-                </article>
-              </div>
-            </section>
-          </div>
+        <section class="story-section" aria-labelledby="use-cases-title">
+          <h2 id="use-cases-title">Use Cases</h2>
+          <dl class="reader-examples">
+            <div><dt>Developers</dt><dd>Search API docs, manuals, and saved references offline.</dd></div>
+            <div><dt>Researchers</dt><dd>Keep papers, notes, and long-form sources searchable and listenable.</dd></div>
+            <div><dt>Students</dt><dd>Turn reading packets, EPUBs, and PDFs—including recognized scans—into private study audio.</dd></div>
+          </dl>
         </section>
 
         <section class="downloads" aria-labelledby="downloads-title">
-          <div class="section-label"><h2 id="downloads-title">Downloads</h2> <span class="version-badge">v1.10.2</span></div>
+          <div class="section-label"><h2 id="downloads-title">Downloads</h2> <span class="version-badge" dir="ltr">v1.10.2</span></div>
           <div class="download-list">
-            <p class="download-list-intro">Start with a recommended installer, or open a platform group for every package.</p>
+            <p class="download-list-intro">Start with a recommended installer, or open a platform group for every package. <a href="#install-notes-title">FAQ</a></p>
 
             <div class="quick-downloads" aria-label="Recommended downloads">
               <article>
@@ -359,10 +252,15 @@
                     <span class="download-kind">(.apk)</span>
                   </strong>
                   <span>Android arm64-v8a APK with native audiobook support. Requires Android 8.0+ / API 26+.</span>
-                  <code>Papercut_v1.10.2_android-arm64-v8a.apk</code>
+                  <code dir="ltr">Papercut_v1.10.2_android-arm64-v8a.apk</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_v1.10.2_android-arm64-v8a.apk" aria-label="Download Papercut Android APK">Download</a>
               </article>
+              <div class="platform-install">
+                <h3>Installation</h3>
+                <p>Enable <strong>Install unknown apps</strong> in Settings for your browser or file manager, then open the APK.</p>
+                <p>Upgrading from a website APK older than v1.10.2? The signing key changed. Before uninstalling, export your library to a safe location or transfer it to another device. Include any audiobooks you want to keep. Bookmarks and reading preferences cannot be restored. Then uninstall, install the new APK and import or transfer your library back.</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -391,7 +289,7 @@
                     <span class="download-kind">(AppImage)</span>
                   </strong>
                   <span>Portable Linux build for amd64 systems. Requires WebKitGTK and GStreamer; release artifacts are built on Ubuntu 24.04.</span>
-                  <code>Papercut_1.10.2_amd64.AppImage</code>
+                  <code dir="ltr">Papercut_1.10.2_amd64.AppImage</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_amd64.AppImage" aria-label="Download Papercut Linux AppImage">Download</a>
               </article>
@@ -403,7 +301,7 @@
                     <span class="download-kind">(.deb)</span> <span class="recommended-badge">Recommended</span>
                   </strong>
                   <span>Installer for Debian-based amd64 distributions (Ubuntu, Mint, etc.). Requires WebKitGTK and GStreamer.</span>
-                  <code>Papercut_1.10.2_amd64.deb</code>
+                  <code dir="ltr">Papercut_1.10.2_amd64.deb</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_amd64.deb" aria-label="Download Papercut Linux DEB">Download</a>
               </article>
@@ -415,10 +313,17 @@
                     <span class="download-kind">(.rpm)</span>
                   </strong>
                   <span>Installer for RPM-based x86_64 distributions (Fedora, openSUSE, etc.). Requires WebKitGTK and GStreamer.</span>
-                  <code>Papercut-1.10.2-1.x86_64.rpm</code>
+                  <code dir="ltr">Papercut-1.10.2-1.x86_64.rpm</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut-1.10.2-1.x86_64.rpm" aria-label="Download Papercut Linux RPM">Download</a>
               </article>
+              <div class="platform-install">
+                <h3>Installation</h3>
+                <p>Requires amd64 Linux with WebKitGTK and GStreamer available. Release artifacts are built on Ubuntu 24.04.</p>
+                <p><strong>Debian-based (Ubuntu, Mint):</strong> <code>sudo apt install ./Papercut_*.deb</code></p>
+                <p><strong>RPM-based (Fedora, openSUSE):</strong> <code>sudo rpm -i Papercut-*.rpm</code></p>
+                <p><strong>AppImage:</strong> make executable (<code>chmod +x</code>) and run directly. On Arch-based systems the AppImage may need <code>WEBKIT_DISABLE_COMPOSITING_MODE=1</code>; see the <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> for details.</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -431,7 +336,7 @@
                     <span class="download-kind">(.dmg)</span> <span class="recommended-badge">Apple Silicon</span>
                   </strong>
                   <span>Signed and notarized disk image for Apple Silicon (M1/M2/M3 and later). Requires macOS 10.13+.</span>
-                  <code>Papercut_1.10.2_aarch64.dmg</code>
+                  <code dir="ltr">Papercut_1.10.2_aarch64.dmg</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_aarch64.dmg" aria-label="Download Papercut macOS DMG for Apple Silicon">Download</a>
               </article>
@@ -443,10 +348,15 @@
                     <span class="download-kind">(.dmg)</span> <span class="recommended-badge">Intel</span>
                   </strong>
                   <span>Signed and notarized disk image for Intel-based Macs. Requires macOS 10.13+.</span>
-                  <code>Papercut_1.10.2_x64.dmg</code>
+                  <code dir="ltr">Papercut_1.10.2_x64.dmg</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_x64.dmg" aria-label="Download Papercut macOS DMG for Intel">Download</a>
               </article>
+              <div class="platform-install">
+                <h3>Installation</h3>
+                <p>Requires macOS 10.13+ on Apple Silicon or Intel Macs. Open the <code>.dmg</code> and drag <strong>Papercut</strong> to your Applications folder. Official release builds are Developer ID signed and notarized. If you trust an unsigned CI or local build on macOS 15 or later, try opening it once. If blocked, go to System Settings → Privacy & Security and choose <strong>Open Anyway</strong> if available.</p>
+                <p>Pick the build that matches your Mac: <strong>Apple Silicon</strong> (<code>_aarch64.dmg</code>) for M-series chips, or <strong>Intel</strong> (<code>_x64.dmg</code>) for Intel-based Macs.</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -459,7 +369,7 @@
                     <span class="download-kind">(.msi)</span> <span class="recommended-badge">Recommended</span>
                   </strong>
                   <span>Windows 10+ x64 installer package. Requires the Microsoft Edge WebView2 runtime.</span>
-                  <code>Papercut_1.10.2_x64_en-US.msi</code>
+                  <code dir="ltr">Papercut_1.10.2_x64_en-US.msi</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_x64_en-US.msi" aria-label="Download Papercut Windows MSI">Download</a>
               </article>
@@ -471,14 +381,18 @@
                     <span class="download-kind">(.exe)</span>
                   </strong>
                   <span>Windows 10+ x64 setup executable. Requires the Microsoft Edge WebView2 runtime.</span>
-                  <code>Papercut_1.10.2_x64-setup.exe</code>
+                  <code dir="ltr">Papercut_1.10.2_x64-setup.exe</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_x64-setup.exe" aria-label="Download Papercut Windows EXE setup">Download</a>
               </article>
+              <div class="platform-install">
+                <h3>Installation</h3>
+                <p>Requires Windows 10+ x64 and Microsoft Edge WebView2. Run the MSI or EXE installer and follow the setup prompts.</p>
+              </div>
             </details>
 
             <details class="download-group">
-              <summary class="download-group-header">Other downloads</summary>
+              <summary class="download-group-header">Other Downloads</summary>
               <article class="download-row">
                 <div>
                   <strong class="download-title">
@@ -487,7 +401,7 @@
                     <span class="download-kind">(SHA-256)</span>
                   </strong>
                   <span>SHA-256 hashes for release artifacts.</span>
-                  <code>SHA256SUMS.txt</code>
+                  <code dir="ltr">SHA256SUMS.txt</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/SHA256SUMS.txt" aria-label="Download Papercut SHA-256 checksums">Download</a>
               </article>
@@ -499,7 +413,7 @@
                     <span class="download-kind">(.zip)</span>
                   </strong>
                   <span>Source archive for the v1.10.2 release tag.</span>
-                  <code>v1.10.2.zip</code>
+                  <code dir="ltr">v1.10.2.zip</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/archive/refs/tags/v1.10.2.zip" aria-label="Download Papercut source code ZIP">Download</a>
               </article>
@@ -511,7 +425,7 @@
                     <span class="download-kind">(.tar.gz)</span>
                   </strong>
                   <span>Compressed source archive for the v1.10.2 release tag.</span>
-                  <code>v1.10.2.tar.gz</code>
+                  <code dir="ltr">v1.10.2.tar.gz</code>
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/archive/refs/tags/v1.10.2.tar.gz" aria-label="Download Papercut source code tarball">Download</a>
               </article>
@@ -522,22 +436,38 @@
         <section class="install-notes" aria-labelledby="install-notes-title">
           <h2 id="install-notes-title" class="install-notes-heading">FAQ</h2>
           <p>Practical details about offline audio, privacy, supported files, and installing Papercut on each platform.</p>
+          <h3>Library and Privacy</h3>
+          <details>
+            <summary><strong>Which document formats are supported?</strong></summary>
+            <p>Papercut imports HTML, EPUB, PDF, TXT, and Markdown files. PDFs with embedded text are searchable immediately; image-only and hybrid pages can be recognized on demand in English or Arabic with offline OCR. Supported Android devices can also scan pages or import photos into a PDF.</p>
+          </details>
           <details>
             <summary><strong>Does Papercut use AI for anything besides audiobooks?</strong></summary>
             <p>Yes. Papercut also uses bundled, on-device OCR to recognize English or Arabic text in image-only and hybrid PDF pages. OCR and audiobook generation do not upload your documents to a cloud service.</p>
+            <p>To search by meaning, download the optional search model, enable Semantic Search (Experimental), and build the index on your device. You can then search offline.</p>
           </details>
           <details>
             <summary><strong>When does Papercut need internet access?</strong></summary>
-            <p>Reading and search work offline. Network access is used when you choose to download a voice model, download a release, or open an external resource. If you do not use audiobook generation, voice model downloads are not needed.</p>
+            <p>Downloads and external links use the internet. Direct transfers use the local network when you choose to send books or audio to another device.</p>
+          </details>
+          <h3 id="voice-questions">Voices and Languages</h3>
+          <details>
+            <summary><strong>Which interface languages are available?</strong></summary>
+            <p>Papercut is available in English, Arabic, Simplified Chinese, Spanish, French, Hindi, Italian, and Brazilian Portuguese.</p>
+          </details>
+          <details>
+            <summary><strong>Which audiobook languages are available?</strong></summary>
+            <p>Kokoro supports English and offers experimental voices for Mandarin Chinese, Spanish, French, Hindi, Italian, and Brazilian Portuguese. Supertonic offers experimental English and Arabic voices.</p>
           </details>
           <details>
             <summary><strong>Why does English audiobook generation use Kokoro?</strong></summary>
-            <p>English voices use Kokoro because it currently offers strong quality among fully offline voice models. The goal is natural-sounding audio without cloud processing, subscriptions, API keys, or per-character billing.</p>
+            <p>Kokoro is the default English model. Once downloaded, it generates speech locally without an API key or per-character fees.</p>
           </details>
           <details>
             <summary><strong>How does Arabic audiobook support work?</strong></summary>
-            <p>Arabic is supported with separate offline models. Piper is the smaller cross-platform option, while SILMA is available on Linux x64 desktop through an optional runtime download.</p>
+            <p>Piper Kareem supports Arabic. Supertonic is an experimental alternative. SILMA requires an optional runtime on Linux x64.</p>
           </details>
+          <h3>Audio Rights and Sharing</h3>
           <details>
             <summary><strong>Who owns generated audio?</strong></summary>
             <p>Papercut does not claim ownership of generated audio. You are responsible for rights in the source text, any reference voice or recording used, and how exported audio is shared. Papercut saves audiobook output locally and does not upload it to a service.</p>
@@ -550,18 +480,7 @@
             <summary><strong>Can I clone or reference any voice?</strong></summary>
             <p>No. Reference-voice features should only be used with voices and recordings you have rights or permission to use.</p>
           </details>
-          <details>
-            <summary><strong>Which document formats are supported?</strong></summary>
-            <p>Papercut imports HTML, EPUB, PDF, TXT, and Markdown files. PDFs with embedded text are searchable immediately; image-only and hybrid pages can be recognized on demand in English or Arabic with offline OCR. Supported Android devices can also scan pages or import photos into a PDF.</p>
-          </details>
-          <details>
-            <summary><strong>Which interface languages are available?</strong></summary>
-            <p>Papercut is available in English, Arabic, Simplified Chinese, Spanish, French, Hindi, Italian, and Brazilian Portuguese.</p>
-          </details>
-          <details>
-            <summary><strong>Which audiobook languages are available?</strong></summary>
-            <p>Kokoro provides voices for English, Mandarin Chinese, Spanish, French, Hindi, Italian, and Brazilian Portuguese. Arabic uses separate offline Piper and Supertonic models, with SILMA available on Linux x64 through an optional runtime.</p>
-          </details>
+          <h3>Setup and Support</h3>
           <details>
             <summary><strong>What are the system requirements?</strong></summary>
             <p><strong>Android:</strong> Android 8.0 / API 26+ on arm64-v8a devices.</p>
@@ -571,28 +490,8 @@
             <p><strong>Windows:</strong> Windows 10+ x64 with the Microsoft Edge WebView2 runtime.</p>
           </details>
           <details>
-            <summary><strong>Android</strong></summary>
-            <p>Enable <strong>Install unknown apps</strong> in Settings for your browser or file manager, then open the APK. Reading and search work offline. Network access is only used if you choose to download a voice model; if you do not use audiobook generation, network access is not needed.</p>
-          </details>
-          <details>
-            <summary><strong>Linux</strong></summary>
-            <p>Requires amd64 Linux with WebKitGTK and GStreamer available. Release artifacts are built on Ubuntu 24.04.</p>
-            <p><strong>Debian-based (Ubuntu, Mint):</strong> <code>sudo apt install ./Papercut_*.deb</code></p>
-            <p><strong>RPM-based (Fedora, openSUSE):</strong> <code>sudo rpm -i Papercut-*.rpm</code></p>
-            <p><strong>AppImage:</strong> make executable (<code>chmod +x</code>) and run directly. On Arch-based systems the AppImage may need <code>WEBKIT_DISABLE_COMPOSITING_MODE=1</code>; see the <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> for details.</p>
-          </details>
-          <details>
-            <summary><strong>macOS</strong></summary>
-            <p>Requires macOS 10.13+ on Apple Silicon or Intel Macs. Open the <code>.dmg</code> and drag <strong>Papercut</strong> to your Applications folder. Official release builds are Developer ID signed and notarized. If you are testing an unsigned CI or local development artifact, right-click (or Control-click) the app icon and choose <strong>Open</strong> on first launch.</p>
-            <p>Pick the build that matches your Mac: <strong>Apple Silicon</strong> (<code>_aarch64.dmg</code>) for M-series chips, or <strong>Intel</strong> (<code>_x64.dmg</code>) for Intel-based Macs.</p>
-          </details>
-          <details>
-            <summary><strong>Windows</strong></summary>
-            <p>Requires Windows 10+ on x64 hardware and the Microsoft Edge WebView2 runtime. The MSI installer handles setup automatically. If you prefer the portable EXE, run it directly. No admin rights needed.</p>
-          </details>
-          <details>
             <summary><strong>Where can I find docs, releases, and source code?</strong></summary>
-            <p>Start with the <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> for setup help and platform details. See what's new in the <a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.10.2.md">release notes</a>, browse <a href="https://github.com/muhannadnouri/papercut.io/releases/latest">all releases</a>, or contribute on <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>.</p>
+            <p>Start with the <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> for setup help and platform details. See what's new in the <a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.10.2.md">release notes</a>, browse <a href="https://github.com/muhannadnouri/papercut.io/releases">all releases</a>, or contribute on <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>.</p>
           </details>
         </section>
 
@@ -700,51 +599,41 @@
 
         <footer class="site-footer">
           <p class="footer-privacy">Open Source 🧩 · No Subscriptions 💳✂️</p>
-          <p class="footer-meta">
+          <div class="footer-utilities">
+            <p class="footer-meta">
             &copy; 2026 Muhannad Nouri &middot;
             <a href="https://github.com/muhannadnouri/papercut.io/blob/main/LICENSE.md">MIT License</a>
             &middot;
             <a href="https://github.com/muhannadnouri/papercut.io#ai-audio-use-notice">AI Audio Use Notice</a>
             &middot;
             <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>
-          </p>
+            </p>
+
+          </div>
         </footer>
       </main>
     </div>
 
     <script>
       (() => {
-        document.querySelectorAll('.nav-menu, .language-menu').forEach((menu) => {
+        for (const menu of document.querySelectorAll('.site-header details')) {
           const toggle = menu.querySelector('summary')
-          const closeMenu = () => {
-            menu.removeAttribute('open')
-            toggle?.setAttribute('aria-expanded', 'false')
-          }
-
           menu.addEventListener('toggle', () => {
-            toggle?.setAttribute('aria-expanded', menu.open ? 'true' : 'false')
-            if (menu.open) {
-              document.querySelectorAll('.nav-menu[open], .language-menu[open]').forEach((other) => {
-                if (other !== menu) other.removeAttribute('open')
-              })
-            }
+            toggle.setAttribute('aria-expanded', String(menu.open))
           })
-
+          menu.addEventListener('click', (event) => {
+            if (event.target.closest('a')) menu.open = false
+          })
           document.addEventListener('pointerdown', (event) => {
-            if (menu.open && !menu.contains(event.target)) closeMenu()
+            if (menu.open && !menu.contains(event.target)) menu.open = false
           })
-
           document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && menu.open) {
-              closeMenu()
-              toggle?.focus()
+              menu.open = false
+              toggle.focus()
             }
           })
-
-          menu.querySelectorAll('a').forEach((link) => {
-            link.addEventListener('click', closeMenu)
-          })
-        })
+        }
       })()
 
       ;(() => {
@@ -780,6 +669,7 @@
         })
 
         applyTheme()
+        button.hidden = false
       })()
 
       ;(() => {

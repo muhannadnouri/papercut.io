@@ -37,10 +37,24 @@
       <header class="site-header">
         {{header.markup.001}}
           {{header.markup.002}}
-          <span>{{header.text.001}}</span>
         </a>
         <div class="header-actions">
-          <details class="language-menu">
+          <details class="sections-menu" name="header-menu">
+            <summary>
+              <span class="wordmark">{{header.text.001}}</span>
+              <span class="visually-hidden">{{header.sections}}</span>
+              <span class="chevron-slot" aria-hidden="true"><span class="menu-chevron"></span></span>
+            </summary>
+            <nav class="section-options" aria-label="{{header.sections}}">
+              <a href="#preview-title">{{walk.link}}</a>
+              <a href="#privacy-title">{{header.text.009}}</a>
+              <a href="#use-cases-title">{{header.text.010}}</a>
+              <a href="#downloads-title">{{header.text.011}}</a>
+              <a href="#install-notes-title">{{header.text.012}}</a>
+              <a href="#contact-title">{{header.text.013}}</a>
+            </nav>
+          </details>
+          <details class="language-menu" name="header-menu">
             {{header.markup.003}}
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <circle cx="12" cy="12" r="9" />
@@ -58,26 +72,6 @@
               {{header.markup.locale-extra-3}}{{header.text.locale-extra-3}}</a>
             </nav>
           </details>
-          <details class="nav-menu">
-            {{header.markup.010}}<span class="nav-menu-icon" aria-hidden="true">
-                <svg class="nav-menu-icon-open" viewBox="0 0 20 20" focusable="false">
-                  <path d="M4 6h12M4 10h12M4 14h12" />
-                </svg>
-                <svg class="nav-menu-icon-close" viewBox="0 0 20 20" focusable="false">
-                  <path d="M5 12l5-5 5 5" />
-                </svg>
-              </span></summary>
-            {{header.markup.011}}
-              <a href="#preview-title">{{header.text.007}}</a>
-              <a href="#features-title">{{header.text.008}}</a>
-              <a href="#privacy-title">{{header.text.009}}</a>
-              <a href="#use-cases-title">{{header.text.010}}</a>
-              <a href="#downloads-title">{{header.text.011}}</a>
-              <a href="#install-notes-title">{{header.text.012}}</a>
-              <a href="#contact-title">{{header.text.013}}</a>
-            </nav>
-          </details>
-
           {{header.markup.012}}
             <span class="theme-toggle-icon theme-toggle-icon-system" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
@@ -105,233 +99,146 @@
               </svg>
             </span>
           </button>
+          <a class="download-pill" href="#downloads-title">{{header.text.011}}</a>
         </div>
       </header>
 
       <main id="main-content">
         <section class="intro" aria-labelledby="intro-title">
-          <p class="eyebrow">{{intro.text.001}}</p>
-          <h1 id="intro-title">{{intro.text.002}}</h1>
-          <p class="intro-copy">{{intro.text.003}}</p>
+          <h1 id="intro-title">{{hero.read}} <em>{{hero.listen}}</em></h1>
+          <p class="intro-copy">{{hero.copy}}</p>
           {{intro.markup.001}}
-            <a class="button-primary" href="#downloads-title">{{intro.text.004}}</a>
-            <a class="button-secondary" href="https://github.com/muhannadnouri/papercut.io">{{intro.text.005}}</a>
+            <a class="button-primary" href="#downloads-title">{{header.text.011}}</a>
+            <a class="button-secondary" href="#preview-title">{{walk.link}}</a>
           </div>
-          {{intro.markup.002}}
-            <li>{{intro.text.006}}</li>
-            <li>{{intro.text.007}}</li>
-            <li>{{intro.text.008}}</li>
-            <li>{{intro.text.009}}</li>
-          </ul>
+          <figure class="passage-frame capture-desktop">
+            <a class="capture-light" href="{{capture.path}}/listen.webp" style="background-image: url('{{capture.path}}/listen.webp')" aria-label="{{capture.listen}}"></a>
+            <a class="capture-dark" href="{{capture.path}}/listen-dark.webp" style="background-image: url('{{capture.path}}/listen-dark.webp')" aria-label="{{capture.listen}}"></a>
+          </figure>
+          <figure class="passage-frame capture-phone">
+            <a class="capture-light" href="{{capture.path}}/android-listen.webp" style="background-image: url('{{capture.path}}/android-listen.webp')" aria-label="{{capture.listen}}"></a>
+            <a class="capture-dark" href="{{capture.path}}/android-listen-dark.webp" style="background-image: url('{{capture.path}}/android-listen-dark.webp')" aria-label="{{capture.listen}}"></a>
+          </figure>
         </section>
 
-        <section class="preview" aria-labelledby="preview-title">
-          <div class="section-label">
-            <h2 id="preview-title">{{preview.text.001}}</h2>
-          </div>
-          <div class="preview-grid">
-            <figure class="screenshot-preview">
-              {{preview.markup.001}}
-                <span>{{preview.text.002}}</span>
-                <small>{{preview.text.003}}</small>
+        <section aria-labelledby="preview-title">
+          <div class="walkthrough">
+            <h2 id="preview-title">{{walk.title}}</h2>
+            <article class="walk-step" id="find">
+              <div>
+                <h3>{{walk.find}}</h3>
+                <p>{{walk.find.copy}}</p>
+                <p>{{walk.find.detail}}</p>
               </div>
-            </figure>
-
-            <aside class="audio-proof" aria-labelledby="audio-proof-title">
-              <p class="eyebrow">{{preview.text.004}}</p>
-              <h3 id="audio-proof-title">{{preview.text.005}}</h3>
-              <p>{{preview.text.006}}</p>
-              {{preview.markup.002}}
-                <span class="audio-placeholder-icon" aria-hidden="true"></span>
-                <span>{{preview.text.007}}</span>
+              <figure class="passage-frame capture-desktop">
+                <a class="capture-light" href="{{capture.path}}/find.webp"><img src="{{capture.path}}/find.webp" width="2180" height="925" alt="{{capture.find}}" loading="lazy"></a>
+                <a class="capture-dark" href="{{capture.path}}/find-dark.webp"><img src="{{capture.path}}/find-dark.webp" width="2180" height="925" alt="{{capture.find}}" loading="lazy"></a>
+              </figure>
+              <figure class="passage-frame capture-phone">
+                <a class="capture-light" href="{{capture.path}}/android-find.webp"><img src="{{capture.path}}/android-find.webp" width="900" height="1280" alt="{{capture.android.find}}" loading="lazy"></a>
+                <a class="capture-dark" href="{{capture.path}}/android-find-dark.webp"><img src="{{capture.path}}/android-find-dark.webp" width="900" height="1280" alt="{{capture.android.find}}" loading="lazy"></a>
+              </figure>
+            </article>
+            <article class="walk-step" id="read">
+              <div>
+                <h3>{{walk.read}}</h3>
+                <p>{{walk.read.copy}}</p>
+                <p>{{walk.read.detail}}</p>
               </div>
-            </aside>
+              <figure class="passage-frame capture-desktop">
+                <a class="capture-light" href="{{capture.path}}/read.webp"><img src="{{capture.path}}/read.webp" width="2330" height="920" alt="{{capture.read}}" loading="lazy"></a>
+                <a class="capture-dark" href="{{capture.path}}/read-dark.webp"><img src="{{capture.path}}/read-dark.webp" width="2330" height="920" alt="{{capture.read}}" loading="lazy"></a>
+              </figure>
+              <figure class="passage-frame capture-phone">
+                <a class="capture-light" href="{{capture.path}}/android-read.webp"><img src="{{capture.path}}/android-read.webp" width="900" height="1225" alt="{{capture.android.read}}" loading="lazy"></a>
+                <a class="capture-dark" href="{{capture.path}}/android-read-dark.webp"><img src="{{capture.path}}/android-read-dark.webp" width="900" height="1225" alt="{{capture.android.read}}" loading="lazy"></a>
+              </figure>
+            </article>
+            <article class="walk-step" id="listen">
+              <div>
+                <h3>{{walk.listen}}</h3>
+                <p>{{walk.listen.copy}}</p>
+                <p>{{walk.listen.detail}}</p>
+              </div>
+              <figure class="passage-frame capture-desktop">
+                <a class="capture-light" href="{{capture.path}}/listen.webp"><img src="{{capture.path}}/listen.webp" width="2940" height="1600" alt="{{capture.listen}}" loading="lazy"></a>
+                <a class="capture-dark" href="{{capture.path}}/listen-dark.webp"><img src="{{capture.path}}/listen-dark.webp" width="2940" height="1600" alt="{{capture.listen}}" loading="lazy"></a>
+              </figure>
+              <figure class="passage-frame capture-phone">
+                <a class="capture-light" href="{{capture.path}}/android-listen.webp"><img src="{{capture.path}}/android-listen.webp" width="900" height="1490" alt="{{capture.listen}}" loading="lazy"></a>
+                <a class="capture-dark" href="{{capture.path}}/android-listen-dark.webp"><img src="{{capture.path}}/android-listen-dark.webp" width="900" height="1490" alt="{{capture.listen}}" loading="lazy"></a>
+              </figure>
+            </article>
           </div>
-        </section>
 
-        <section class="features" aria-labelledby="features-title">
-          <div class="features-header">
-            <h2 id="features-title" class="features-heading">{{features.text.001}}</h2>
-            <p>{{features.text.002}}</p>
-          </div>
-          <div class="feature-grid">
-            <div class="feature-card">
-              <span class="feature-label">{{features.text.003}}</span>
-              <h3>{{features.text.004}}</h3>
-              <p>{{features.text.005}}</p>
-            </div>
-            <div class="feature-card">
-              <span class="feature-label">{{features.text.006}}</span>
-              <h3>{{features.text.007}}</h3>
+          <section class="story-section story-pair" aria-labelledby="features-title">
+            <div>
+              <h3 id="features-title">{{library.title}}</h3>
               <p>{{features.text.008}}</p>
-            </div>
-            <div class="feature-card">
-              <span class="feature-label">{{features.text.009}}</span>
-              <h3>{{features.text.010}}</h3>
               <p>{{features.text.011}}</p>
             </div>
-          </div>
+            <figure class="passage-frame">
+              <a class="capture-light" href="{{capture.path}}/scan.webp"><img src="{{capture.path}}/scan.webp" width="2300" height="1785" alt="{{capture.scan}}" loading="lazy"></a>
+              <a class="capture-dark" href="{{capture.path}}/scan-dark.webp"><img src="{{capture.path}}/scan-dark.webp" width="2300" height="1785" alt="{{capture.scan}}" loading="lazy"></a>
+            </figure>
+          </section>
+
+          <section class="story-section story-pair" aria-labelledby="audiobooks-title">
+            <div>
+              <h3 id="audiobooks-title">{{audio.title}}</h3>
+              <p>{{audio.setup}}</p>
+              <p>{{audiobooks.text.010}}</p>
+              <a href="#voice-questions">{{faq.voices}}</a>
+            </div>
+            <figure class="passage-frame">
+              <a href="{{capture.path}}/android-lock.webp"><img src="{{capture.path}}/android-lock.webp" width="900" height="750" alt="{{audio.phone}} · {{walk.book}}" loading="lazy"></a>
+            </figure>
+          </section>
         </section>
 
-        <section class="audiobooks" aria-labelledby="audiobooks-title">
-          <div class="section-label">
-            <h2 id="audiobooks-title">{{audiobooks.text.001}}</h2>
-          </div>
-          <div class="audiobook-content">
-            <div class="audiobook-lead">
-              <p class="eyebrow">{{audiobooks.text.002}}</p>
-              <h3>{{audiobooks.text.003}}</h3>
-              <p>{{audiobooks.text.004}}</p>
-            </div>
-
-            {{audiobooks.markup.001}}
-              <div>
-                <strong>{{audiobooks.text.005}}</strong>
-                <span>{{audiobooks.text.006}}</span>
-              </div>
-              <div>
-                <strong>{{audiobooks.text.007}}</strong>
-                <span>{{audiobooks.text.008}}</span>
-              </div>
-              <div>
-                <strong>{{audiobooks.text.009}}</strong>
-                <span>{{audiobooks.text.010}}</span>
-              </div>
-              <div>
-                <strong>{{audiobooks.text.011}}</strong>
-                <span>{{audiobooks.text.012}}</span>
-              </div>
-            </div>
-
-            <div class="model-notes">
-              <article>
-                <h4>{{audiobooks.text.013}}</h4>
-                <p>{{audiobooks.text.014}}</p>
-              </article>
-              <article>
-                <h4>{{audiobooks.text.015}}</h4>
-                <p>{{audiobooks.text.016}}</p>
-              </article>
-              <article>
-                <h4>{{audiobooks.text.017}}</h4>
-                <p>{{audiobooks.text.018}}</p>
-              </article>
-            </div>
-          </div>
+        <section class="story-section privacy-story" aria-labelledby="privacy-title">
+          <h2 id="privacy-title">{{privacy.text.003}}</h2>
+          <p>{{privacy.local}}</p>
+          <p>{{privacy.network}}</p>
         </section>
 
-        <section class="privacy" aria-labelledby="privacy-title">
-          <div class="section-label">
-            <h2 id="privacy-title">{{privacy.text.001}}</h2>
-          </div>
-          <div class="privacy-content">
-            <div class="privacy-copy">
-              <p class="eyebrow">{{privacy.text.002}}</p>
-              <h3>{{privacy.text.003}}</h3>
-              <p>{{privacy.text.004}}</p>
-            </div>
-            {{privacy.markup.001}}
-              <article>
-                <strong>{{privacy.text.005}}</strong>
-                <span>{{privacy.text.006}}</span>
-              </article>
-              <article>
-                <strong>{{privacy.text.007}}</strong>
-                <span>{{privacy.text.008}}</span>
-              </article>
-              <article>
-                <strong>{{privacy.text.009}}</strong>
-                <span>{{privacy.text.010}}</span>
-              </article>
-              <article>
-                <strong>{{privacy.text.011}}</strong>
-                <span>{{privacy.text.012}}</span>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section class="positioning" aria-labelledby="use-cases-title">
-          <div class="positioning-header">
-            <h2 id="use-cases-title">{{positioning.text.001}}</h2>
-            <p>{{positioning.text.002}}</p>
-          </div>
-          <div class="positioning-content">
-            <section class="positioning-panel" aria-labelledby="best-for-title">
-              <h3 id="best-for-title">{{positioning-panel.text.001}}</h3>
-              {{positioning-panel.markup.001}}
-                <article>
-                  <strong>{{positioning-panel.text.002}}</strong>
-                  <span>{{positioning-panel.text.003}}</span>
-                </article>
-                <article>
-                  <strong>{{positioning-panel.text.004}}</strong>
-                  <span>{{positioning-panel.text.005}}</span>
-                </article>
-                <article>
-                  <strong>{{positioning-panel.text.006}}</strong>
-                  <span>{{positioning-panel.text.007}}</span>
-                </article>
-                <article>
-                  <strong>{{positioning-panel.text.008}}</strong>
-                  <span>{{positioning-panel.text.009}}</span>
-                </article>
-              </div>
-            </section>
-
-            <section class="positioning-panel comparison" aria-labelledby="comparison-title">
-              <p class="eyebrow">{{positioning-panel.text.010}}</p>
-              <h3 id="comparison-title">{{positioning-panel.text.011}}</h3>
-              {{positioning-panel.markup.002}}
-                <article>
-                  <strong>{{positioning-panel.text.012}}</strong>
-                  <span>{{positioning-panel.text.013}}</span>
-                </article>
-                <article>
-                  <strong>{{positioning-panel.text.014}}</strong>
-                  <span>{{positioning-panel.text.015}}</span>
-                </article>
-                <article>
-                  <strong>{{positioning-panel.text.016}}</strong>
-                  <span>{{positioning-panel.text.017}}</span>
-                </article>
-                <article>
-                  <strong>{{positioning-panel.text.018}}</strong>
-                  <span>{{positioning-panel.text.019}}</span>
-                </article>
-              </div>
-            </section>
-          </div>
+        <section class="story-section" aria-labelledby="use-cases-title">
+          <h2 id="use-cases-title">{{positioning.text.001}}</h2>
+          <dl class="reader-examples">
+            <div><dt>{{positioning-panel.text.002}}</dt><dd>{{positioning-panel.text.003}}</dd></div>
+            <div><dt>{{positioning-panel.text.004}}</dt><dd>{{positioning-panel.text.005}}</dd></div>
+            <div><dt>{{positioning-panel.text.006}}</dt><dd>{{positioning-panel.text.007}}</dd></div>
+          </dl>
         </section>
 
         <section class="downloads" aria-labelledby="downloads-title">
-          <div class="section-label"><h2 id="downloads-title">{{downloads.text.001}}</h2> {{downloads.markup.001}}{{downloads.text.002}}</span></div>
+          <div class="section-label"><h2 id="downloads-title">{{downloads.text.001}}</h2> <span class="version-badge" dir="ltr">{{release.tag}}</span></div>
           <div class="download-list">
-            <p class="download-list-intro">{{downloads.text.003}}</p>
+            <p class="download-list-intro">{{downloads.text.003}} <a href="#install-notes-title">{{header.text.012}}</a></p>
 
             {{downloads.markup.002}}
               <article>
                 <strong><span aria-hidden="true">{{downloads.text.004}}</span>{{downloads.text.005}}</strong>
                 <span>{{downloads.text.006}}</span>
-                {{downloads.markup.003}}{{downloads.text.007}}</a>
+                <a href="{{release.apk.url}}" aria-label="{{downloads.label.003}}">{{downloads.text.007}}</a>
               </article>
               <article>
                 <strong><span aria-hidden="true">{{downloads.text.008}}</span>{{downloads.text.009}}</strong>
                 <span>{{downloads.text.010}}</span>
-                {{downloads.markup.004}}{{downloads.text.011}}</a>
+                <a href="{{release.msi.url}}" aria-label="{{downloads.label.004}}">{{downloads.text.011}}</a>
               </article>
               <article>
                 <strong><span aria-hidden="true">{{downloads.text.012}}</span>{{downloads.text.013}}</strong>
                 <span>{{downloads.text.014}}</span>
                 <div class="split-actions">
-                  {{downloads.markup.005}}{{downloads.text.015}}</a>
-                  {{downloads.markup.006}}{{downloads.text.016}}</a>
+                  <a href="{{release.mac-arm.url}}" aria-label="{{downloads.label.005}}">{{downloads.text.015}}</a>
+                  <a href="{{release.mac-intel.url}}" aria-label="{{downloads.label.006}}">{{downloads.text.016}}</a>
                 </div>
               </article>
               <article>
                 <strong><span aria-hidden="true">{{downloads.text.017}}</span>{{downloads.text.018}}</strong>
                 <span>{{downloads.text.019}}</span>
-                {{downloads.markup.007}}{{downloads.text.020}}</a>
+                <a href="{{release.deb.url}}" aria-label="{{downloads.label.007}}">{{downloads.text.020}}</a>
               </article>
             </div>
 
@@ -345,10 +252,15 @@
                     <span class="download-kind">{{downloads.text.024}}</span>
                   </strong>
                   <span>{{downloads.text.025}}</span>
-                  {{downloads.markup.008}}{{downloads.text.026}}</code>
+                  <code dir="ltr">{{release.apk.name}}</code>
                 </div>
-                {{downloads.markup.009}}{{downloads.text.027}}</a>
+                <a href="{{release.apk.url}}" aria-label="{{downloads.label.009}}">{{downloads.text.027}}</a>
               </article>
+              <div class="platform-install">
+                <h3>{{downloads.install}}</h3>
+                <p>{{install-notes.text.035}}<strong>{{install-notes.text.036}}</strong>{{install-notes.text.037}}</p>
+                <p>{{install.android-migration}}</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -377,9 +289,9 @@
                     <span class="download-kind">{{downloads.text.038}}</span>
                   </strong>
                   <span>{{downloads.text.039}}</span>
-                  {{downloads.markup.010}}{{downloads.text.040}}</code>
+                  <code dir="ltr">{{release.appimage.name}}</code>
                 </div>
-                {{downloads.markup.011}}{{downloads.text.041}}</a>
+                <a href="{{release.appimage.url}}" aria-label="{{downloads.label.011}}">{{downloads.text.041}}</a>
               </article>
               <article class="download-row">
                 <div>
@@ -389,9 +301,9 @@
                     <span class="download-kind">{{downloads.text.044}}</span> <span class="recommended-badge">{{downloads.text.045}}</span>
                   </strong>
                   <span>{{downloads.text.046}}</span>
-                  {{downloads.markup.012}}{{downloads.text.047}}</code>
+                  <code dir="ltr">{{release.deb.name}}</code>
                 </div>
-                {{downloads.markup.013}}{{downloads.text.048}}</a>
+                <a href="{{release.deb.url}}" aria-label="{{downloads.label.013}}">{{downloads.text.048}}</a>
               </article>
               <article class="download-row">
                 <div>
@@ -401,10 +313,17 @@
                     <span class="download-kind">{{downloads.text.051}}</span>
                   </strong>
                   <span>{{downloads.text.052}}</span>
-                  {{downloads.markup.014}}{{downloads.text.053}}</code>
+                  <code dir="ltr">{{release.rpm.name}}</code>
                 </div>
-                {{downloads.markup.015}}{{downloads.text.054}}</a>
+                <a href="{{release.rpm.url}}" aria-label="{{downloads.label.015}}">{{downloads.text.054}}</a>
               </article>
+              <div class="platform-install">
+                <h3>{{downloads.install}}</h3>
+                <p>{{install-notes.text.039}}</p>
+                <p><strong>{{install-notes.text.040}}</strong> {{install-notes.markup.001}}{{install-notes.text.041}}</code></p>
+                <p><strong>{{install-notes.text.042}}</strong> {{install-notes.markup.002}}{{install-notes.text.043}}</code></p>
+                <p><strong>{{install-notes.text.044}}</strong>{{install-notes.text.045}}{{install-notes.markup.003}}{{install-notes.text.046}}</code>{{install-notes.text.047}}{{install-notes.markup.004}}{{install-notes.text.048}}</code>{{install-notes.text.049}}<a href="https://github.com/muhannadnouri/papercut.io#readme">{{install-notes.text.050}}</a>{{install-notes.text.051}}</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -417,9 +336,9 @@
                     <span class="download-kind">{{downloads.text.058}}</span> <span class="recommended-badge">{{downloads.text.059}}</span>
                   </strong>
                   <span>{{downloads.text.060}}</span>
-                  {{downloads.markup.016}}{{downloads.text.061}}</code>
+                  <code dir="ltr">{{release.mac-arm.name}}</code>
                 </div>
-                {{downloads.markup.017}}{{downloads.text.062}}</a>
+                <a href="{{release.mac-arm.url}}" aria-label="{{downloads.label.017}}">{{downloads.text.062}}</a>
               </article>
               <article class="download-row">
                 <div>
@@ -429,10 +348,15 @@
                     <span class="download-kind">{{downloads.text.065}}</span> <span class="recommended-badge">{{downloads.text.066}}</span>
                   </strong>
                   <span>{{downloads.text.067}}</span>
-                  {{downloads.markup.018}}{{downloads.text.068}}</code>
+                  <code dir="ltr">{{release.mac-intel.name}}</code>
                 </div>
-                {{downloads.markup.019}}{{downloads.text.069}}</a>
+                <a href="{{release.mac-intel.url}}" aria-label="{{downloads.label.019}}">{{downloads.text.069}}</a>
               </article>
+              <div class="platform-install">
+                <h3>{{downloads.install}}</h3>
+                <p>{{install-notes.text.053}}{{install-notes.markup.005}}{{install-notes.text.054}}</code>{{install-notes.text.055}}<strong>{{install-notes.text.056}}</strong>{{install-notes.text.057}}<strong>{{install-notes.text.058}}</strong>{{install-notes.text.059}}</p>
+                <p>{{install-notes.text.060}}<strong>{{install-notes.text.061}}</strong>{{install-notes.text.062}}{{install-notes.markup.006}}{{install-notes.text.063}}</code>{{install-notes.text.064}}<strong>{{install-notes.text.065}}</strong>{{install-notes.text.066}}{{install-notes.markup.007}}{{install-notes.text.067}}</code>{{install-notes.text.068}}</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -445,9 +369,9 @@
                     <span class="download-kind">{{downloads.text.073}}</span> <span class="recommended-badge">{{downloads.text.074}}</span>
                   </strong>
                   <span>{{downloads.text.075}}</span>
-                  {{downloads.markup.020}}{{downloads.text.076}}</code>
+                  <code dir="ltr">{{release.msi.name}}</code>
                 </div>
-                {{downloads.markup.021}}{{downloads.text.077}}</a>
+                <a href="{{release.msi.url}}" aria-label="{{downloads.label.021}}">{{downloads.text.077}}</a>
               </article>
               <article class="download-row">
                 <div>
@@ -457,10 +381,14 @@
                     <span class="download-kind">{{downloads.text.080}}</span>
                   </strong>
                   <span>{{downloads.text.081}}</span>
-                  {{downloads.markup.022}}{{downloads.text.082}}</code>
+                  <code dir="ltr">{{release.exe.name}}</code>
                 </div>
-                {{downloads.markup.023}}{{downloads.text.083}}</a>
+                <a href="{{release.exe.url}}" aria-label="{{downloads.label.023}}">{{downloads.text.083}}</a>
               </article>
+              <div class="platform-install">
+                <h3>{{downloads.install}}</h3>
+                <p>{{install-notes.text.070}}</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -473,9 +401,9 @@
                     <span class="download-kind">{{downloads.text.087}}</span>
                   </strong>
                   <span>{{downloads.text.088}}</span>
-                  {{downloads.markup.024}}{{downloads.text.089}}</code>
+                  <code dir="ltr">{{release.checksums.name}}</code>
                 </div>
-                {{downloads.markup.025}}{{downloads.text.090}}</a>
+                <a href="{{release.checksums.url}}" aria-label="{{downloads.label.025}}">{{downloads.text.090}}</a>
               </article>
               <article class="download-row">
                 <div>
@@ -485,9 +413,9 @@
                     <span class="download-kind">{{downloads.text.093}}</span>
                   </strong>
                   <span>{{downloads.text.094}}</span>
-                  {{downloads.markup.026}}{{downloads.text.095}}</code>
+                  <code dir="ltr">{{release.zip.name}}</code>
                 </div>
-                {{downloads.markup.027}}{{downloads.text.096}}</a>
+                <a href="{{release.zip.url}}" aria-label="{{downloads.label.027}}">{{downloads.text.096}}</a>
               </article>
               <article class="download-row">
                 <div>
@@ -497,9 +425,9 @@
                     <span class="download-kind">{{downloads.text.099}}</span>
                   </strong>
                   <span>{{downloads.text.100}}</span>
-                  {{downloads.markup.028}}{{downloads.text.101}}</code>
+                  <code dir="ltr">{{release.tar.name}}</code>
                 </div>
-                {{downloads.markup.029}}{{downloads.text.102}}</a>
+                <a href="{{release.tar.url}}" aria-label="{{downloads.label.029}}">{{downloads.text.102}}</a>
               </article>
             </details>
           </div>
@@ -508,13 +436,28 @@
         <section class="install-notes" aria-labelledby="install-notes-title">
           <h2 id="install-notes-title" class="install-notes-heading">{{install-notes.text.001}}</h2>
           <p>{{install-notes.text.002}}</p>
+          <h3>{{faq.library}}</h3>
+          <details>
+            <summary><strong>{{install-notes.text.017}}</strong></summary>
+            <p>{{install-notes.text.018}}</p>
+          </details>
           <details>
             <summary><strong>{{install-notes.text.003}}</strong></summary>
             <p>{{install-notes.text.004}}</p>
+            <p>{{search.setup}}</p>
           </details>
           <details>
             <summary><strong>{{install-notes.text.005}}</strong></summary>
-            <p>{{install-notes.text.006}}</p>
+            <p>{{privacy.network}}</p>
+          </details>
+          <h3 id="voice-questions">{{faq.voices}}</h3>
+          <details>
+            <summary><strong>{{install-notes.text.019}}</strong></summary>
+            <p>{{install-notes.text.020}}</p>
+          </details>
+          <details>
+            <summary><strong>{{install-notes.text.021}}</strong></summary>
+            <p>{{voice.languages}}</p>
           </details>
           <details>
             <summary><strong>{{install-notes.text.007}}</strong></summary>
@@ -522,8 +465,9 @@
           </details>
           <details>
             <summary><strong>{{install-notes.text.009}}</strong></summary>
-            <p>{{install-notes.text.010}}</p>
+            <p>{{voice.arabic}}</p>
           </details>
+          <h3>{{faq.rights}}</h3>
           <details>
             <summary><strong>{{install-notes.text.011}}</strong></summary>
             <p>{{install-notes.text.012}}</p>
@@ -536,18 +480,7 @@
             <summary><strong>{{install-notes.text.015}}</strong></summary>
             <p>{{install-notes.text.016}}</p>
           </details>
-          <details>
-            <summary><strong>{{install-notes.text.017}}</strong></summary>
-            <p>{{install-notes.text.018}}</p>
-          </details>
-          <details>
-            <summary><strong>{{install-notes.text.019}}</strong></summary>
-            <p>{{install-notes.text.020}}</p>
-          </details>
-          <details>
-            <summary><strong>{{install-notes.text.021}}</strong></summary>
-            <p>{{install-notes.text.022}}</p>
-          </details>
+          <h3>{{faq.help}}</h3>
           <details>
             <summary><strong>{{install-notes.text.023}}</strong></summary>
             <p><strong>{{install-notes.text.024}}</strong>{{install-notes.text.025}}</p>
@@ -557,28 +490,8 @@
             <p><strong>{{install-notes.text.032}}</strong>{{install-notes.text.033}}</p>
           </details>
           <details>
-            <summary><strong>{{install-notes.text.034}}</strong></summary>
-            <p>{{install-notes.text.035}}<strong>{{install-notes.text.036}}</strong>{{install-notes.text.037}}</p>
-          </details>
-          <details>
-            <summary><strong>{{install-notes.text.038}}</strong></summary>
-            <p>{{install-notes.text.039}}</p>
-            <p><strong>{{install-notes.text.040}}</strong> {{install-notes.markup.001}}{{install-notes.text.041}}</code></p>
-            <p><strong>{{install-notes.text.042}}</strong> {{install-notes.markup.002}}{{install-notes.text.043}}</code></p>
-            <p><strong>{{install-notes.text.044}}</strong>{{install-notes.text.045}}{{install-notes.markup.003}}{{install-notes.text.046}}</code>{{install-notes.text.047}}{{install-notes.markup.004}}{{install-notes.text.048}}</code>{{install-notes.text.049}}<a href="https://github.com/muhannadnouri/papercut.io#readme">{{install-notes.text.050}}</a>{{install-notes.text.051}}</p>
-          </details>
-          <details>
-            <summary><strong>{{install-notes.text.052}}</strong></summary>
-            <p>{{install-notes.text.053}}{{install-notes.markup.005}}{{install-notes.text.054}}</code>{{install-notes.text.055}}<strong>{{install-notes.text.056}}</strong>{{install-notes.text.057}}<strong>{{install-notes.text.058}}</strong>{{install-notes.text.059}}</p>
-            <p>{{install-notes.text.060}}<strong>{{install-notes.text.061}}</strong>{{install-notes.text.062}}{{install-notes.markup.006}}{{install-notes.text.063}}</code>{{install-notes.text.064}}<strong>{{install-notes.text.065}}</strong>{{install-notes.text.066}}{{install-notes.markup.007}}{{install-notes.text.067}}</code>{{install-notes.text.068}}</p>
-          </details>
-          <details>
-            <summary><strong>{{install-notes.text.069}}</strong></summary>
-            <p>{{install-notes.text.070}}</p>
-          </details>
-          <details>
             <summary><strong>{{install-notes.text.071}}</strong></summary>
-            <p>{{install-notes.text.072}}<a href="https://github.com/muhannadnouri/papercut.io#readme">{{install-notes.text.073}}</a>{{install-notes.text.074}}<a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.10.2.md">{{install-notes.text.075}}</a>{{install-notes.text.076}}<a href="https://github.com/muhannadnouri/papercut.io/releases/latest">{{install-notes.text.077}}</a>{{install-notes.text.078}}<a href="https://github.com/muhannadnouri/papercut.io">{{install-notes.text.079}}</a>{{install-notes.text.080}}</p>
+            <p>{{install-notes.text.072}}<a href="https://github.com/muhannadnouri/papercut.io#readme">{{install-notes.text.073}}</a>{{install-notes.text.074}}<a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/{{release.tag}}.md">{{install-notes.text.075}}</a>{{install-notes.text.076}}<a href="https://github.com/muhannadnouri/papercut.io/releases">{{install-notes.text.077}}</a>{{install-notes.text.078}}<a href="https://github.com/muhannadnouri/papercut.io">{{install-notes.text.079}}</a>{{install-notes.text.080}}</p>
           </details>
         </section>
 
@@ -680,45 +593,35 @@
 
         <footer class="site-footer">
           <p class="footer-privacy">{{footer.text.001}}</p>
-          <p class="footer-meta">{{footer.text.002}}<a href="https://github.com/muhannadnouri/papercut.io/blob/main/LICENSE.md">{{footer.text.003}}</a>{{footer.text.004}}<a href="https://github.com/muhannadnouri/papercut.io#ai-audio-use-notice">{{footer.text.005}}</a>{{footer.text.006}}<a href="https://github.com/muhannadnouri/papercut.io">{{footer.text.007}}</a>
-          </p>
+          <div class="footer-utilities">
+            <p class="footer-meta">{{footer.text.002}}<a href="https://github.com/muhannadnouri/papercut.io/blob/main/LICENSE.md">{{footer.text.003}}</a>{{footer.text.004}}<a href="https://github.com/muhannadnouri/papercut.io#ai-audio-use-notice">{{footer.text.005}}</a>{{footer.text.006}}<a href="https://github.com/muhannadnouri/papercut.io">{{footer.text.007}}</a>
+            </p>
+
+          </div>
         </footer>
       </main>
     </div>
 
     <script>
       (() => {
-        document.querySelectorAll('.nav-menu, .language-menu').forEach((menu) => {
+        for (const menu of document.querySelectorAll('.site-header details')) {
           const toggle = menu.querySelector('summary')
-          const closeMenu = () => {
-            menu.removeAttribute('open')
-            toggle?.setAttribute('aria-expanded', 'false')
-          }
-
           menu.addEventListener('toggle', () => {
-            toggle?.setAttribute('aria-expanded', menu.open ? 'true' : 'false')
-            if (menu.open) {
-              document.querySelectorAll('.nav-menu[open], .language-menu[open]').forEach((other) => {
-                if (other !== menu) other.removeAttribute('open')
-              })
-            }
+            toggle.setAttribute('aria-expanded', String(menu.open))
           })
-
+          menu.addEventListener('click', (event) => {
+            if (event.target.closest('a')) menu.open = false
+          })
           document.addEventListener('pointerdown', (event) => {
-            if (menu.open && !menu.contains(event.target)) closeMenu()
+            if (menu.open && !menu.contains(event.target)) menu.open = false
           })
-
           document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && menu.open) {
-              closeMenu()
-              toggle?.focus()
+              menu.open = false
+              toggle.focus()
             }
           })
-
-          menu.querySelectorAll('a').forEach((link) => {
-            link.addEventListener('click', closeMenu)
-          })
-        })
+        }
       })()
 
       ;(() => {
@@ -754,6 +657,7 @@
         })
 
         applyTheme()
+        button.hidden = false
       })()
 
       ;(() => {

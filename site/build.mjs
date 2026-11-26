@@ -7,6 +7,8 @@ import {
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { release } from './source/release.mjs'
+
 const outputDir = path.dirname(fileURLToPath(import.meta.url))
 const sourceDir = path.join(outputDir, 'source')
 const template = await readFile(path.join(sourceDir, 'index.template.html'), 'utf8')
@@ -17,11 +19,12 @@ for (const localeFile of localeFiles) {
   const locale = JSON.parse(await readFile(path.join(localeDir, localeFile), 'utf8'))
   const used = new Set()
   const output = template.replace(/\{\{([a-z0-9.-]+)\}\}/g, (_, key) => {
+    if (Object.hasOwn(release, key)) return release[key]
     if (!Object.hasOwn(locale.values, key)) {
       throw new Error(`${localeFile}: missing value for ${key}`)
     }
     used.add(key)
-    return locale.values[key]
+    return locale.values[key].replaceAll('{{release.tag}}', release['release.tag'])
   })
   const unused = Object.keys(locale.values).filter((key) => !used.has(key))
   if (unused.length) {

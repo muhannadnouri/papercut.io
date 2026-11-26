@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ar" dir="rtl" data-theme-choice="system">
+<html lang="ar" dir="rtl">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -37,10 +37,24 @@
       <header class="site-header">
         <a class="brand" href="index.html" aria-label="الصفحة الرئيسية لـ Papercut">
           <img src="../assets/papercut-icon.png" alt="" width="36" height="36">
-          <span>Papercut</span>
         </a>
         <div class="header-actions">
-          <details class="language-menu">
+          <details class="sections-menu" name="header-menu">
+            <summary>
+              <span class="wordmark">Papercut</span>
+              <span class="visually-hidden">أقسام الصفحة</span>
+              <span class="chevron-slot" aria-hidden="true"><span class="menu-chevron"></span></span>
+            </summary>
+            <nav class="section-options" aria-label="أقسام الصفحة">
+              <a href="#preview-title">كيف يعمل</a>
+              <a href="#privacy-title">الخصوصية</a>
+              <a href="#use-cases-title">الاستخدامات</a>
+              <a href="#downloads-title">التنزيل</a>
+              <a href="#install-notes-title">الأسئلة الشائعة</a>
+              <a href="#contact-title">تواصل معنا</a>
+            </nav>
+          </details>
+          <details class="language-menu" name="header-menu">
             <summary aria-label="اختيار اللغة" aria-expanded="false">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <circle cx="12" cy="12" r="9" />
@@ -58,27 +72,7 @@
               <a href="../zh-CN/index.html" lang="zh-CN" dir="ltr" hreflang="zh-CN">中文（简体）</a>
             </nav>
           </details>
-          <details class="nav-menu">
-            <summary aria-label="فتح قائمة التنقل" aria-expanded="false"><span class="nav-menu-icon" aria-hidden="true">
-                <svg class="nav-menu-icon-open" viewBox="0 0 20 20" focusable="false">
-                  <path d="M4 6h12M4 10h12M4 14h12" />
-                </svg>
-                <svg class="nav-menu-icon-close" viewBox="0 0 20 20" focusable="false">
-                  <path d="M5 12l5-5 5 5" />
-                </svg>
-              </span></summary>
-            <nav class="nav" aria-label="التنقل الرئيسي">
-              <a href="#preview-title">العرض</a>
-              <a href="#features-title">الميزات</a>
-              <a href="#privacy-title">الخصوصية</a>
-              <a href="#use-cases-title">الاستخدامات</a>
-              <a href="#downloads-title">التنزيل</a>
-              <a href="#install-notes-title">الأسئلة الشائعة</a>
-              <a href="#contact-title">تواصل معنا</a>
-            </nav>
-          </details>
-
-          <button class="theme-toggle" type="button" aria-label="السمة: استخدام سمة النظام. التبديل إلى السمة الفاتحة." title="السمة: استخدام سمة النظام. انقر للتبديل إلى السمة الفاتحة.">
+          <button hidden class="theme-toggle" type="button" aria-label="السمة: استخدام سمة النظام. التبديل إلى السمة الفاتحة." title="السمة: استخدام سمة النظام. انقر للتبديل إلى السمة الفاتحة.">
             <span class="theme-toggle-icon theme-toggle-icon-system" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
                 <path d="M4 5.75A2.75 2.75 0 0 1 6.75 3h10.5A2.75 2.75 0 0 1 20 5.75v7.5A2.75 2.75 0 0 1 17.25 16H6.75A2.75 2.75 0 0 1 4 13.25v-7.5Z" />
@@ -105,222 +99,122 @@
               </svg>
             </span>
           </button>
+          <a class="download-pill" href="#downloads-title">التنزيل</a>
         </div>
       </header>
 
       <main id="main-content">
         <section class="intro" aria-labelledby="intro-title">
-          <p class="eyebrow">قارئ ومحرك بحث ومنشئ كتب صوتية بلا اتصال</p>
-          <h1 id="intro-title">ابحث واقرأ واستمع إلى مستنداتك بلا اتصال</h1>
-          <p class="intro-copy">
-            Papercut تطبيق لسطح المكتب والهاتف المحمول يتيح استيراد ملفات HTML وEPUB
-            وPDF وTXT وMarkdown، والبحث في مكتبتك الشخصية المفهرسة، والقراءة محليًا،
-            والتعرف على النص الإنجليزي أو العربي في الصفحات الممسوحة، وإنشاء كتب صوتية بلا اتصال.
-          </p>
+          <h1 id="intro-title">اقرأ مستنداتك. <em>أو استمع إليها.</em></h1>
+          <p class="intro-copy">ابحث عن مقطع في كتبك وأوراقك وملاحظاتك. اقرأه في سياقه أو استمع إليه على جهازك.</p>
           <div class="intro-actions" role="group" aria-label="الإجراءات الرئيسية">
-            <a class="button-primary" href="#downloads-title">نزّل Papercut</a>
-            <a class="button-secondary" href="https://github.com/muhannadnouri/papercut.io">عرض على GitHub</a>
+            <a class="button-primary" href="#downloads-title">التنزيل</a>
+            <a class="button-secondary" href="#preview-title">كيف يعمل</a>
           </div>
-          <ul class="intro-trust" aria-label="مزايا الثقة في Papercut">
-            <li>📚 مكتبة تعمل بلا اتصال</li>
-            <li>🎧 كتب صوتية محلية بالذكاء الاصطناعي</li>
-            <li>🔒 لا يتطلب تسجيل الدخول</li>
-            <li>💻 سطح المكتب والهاتف المحمول</li>
-          </ul>
+          <figure class="passage-frame capture-desktop">
+            <a class="capture-light" href="../assets/screenshots/listen.webp" style="background-image: url('../assets/screenshots/listen.webp')" aria-label="المقطع مميز أثناء السرد وتظهر عناصر التحكم بالتشغيل"></a>
+            <a class="capture-dark" href="../assets/screenshots/listen-dark.webp" style="background-image: url('../assets/screenshots/listen-dark.webp')" aria-label="المقطع مميز أثناء السرد وتظهر عناصر التحكم بالتشغيل"></a>
+          </figure>
+          <figure class="passage-frame capture-phone">
+            <a class="capture-light" href="../assets/screenshots/android-listen.webp" style="background-image: url('../assets/screenshots/android-listen.webp')" aria-label="المقطع مميز أثناء السرد وتظهر عناصر التحكم بالتشغيل"></a>
+            <a class="capture-dark" href="../assets/screenshots/android-listen-dark.webp" style="background-image: url('../assets/screenshots/android-listen-dark.webp')" aria-label="المقطع مميز أثناء السرد وتظهر عناصر التحكم بالتشغيل"></a>
+          </figure>
         </section>
 
-        <section class="preview" aria-labelledby="preview-title">
-          <div class="section-label">
-            <h2 id="preview-title">العرض</h2>
-          </div>
-          <div class="preview-grid">
-            <figure class="screenshot-preview">
-              <div class="screenshot-placeholder" role="img" aria-label="مكان مخصص لصورة مستقبلية من Papercut">
-                <span>مكان مخصص لصورة</span>
-                <small>استبدله بصورة JPEG أو PNG</small>
+        <section aria-labelledby="preview-title">
+          <div class="walkthrough">
+            <h2 id="preview-title">من نتيجة البحث إلى سماع المقطع</h2>
+            <article class="walk-step" id="find">
+              <div>
+                <h3>ابحث</h3>
+                <p>ابحث في النص الكامل عن كلمة أو عبارة مطابقة.</p>
+                <p>إذا كنت تتذكر الفكرة، فجرّب البحث الدلالي القائم على التمثيلات المتجهية للعثور على مقاطع ذات معنى مشابه.</p>
               </div>
-            </figure>
-
-            <aside class="audio-proof" aria-labelledby="audio-proof-title">
-              <p class="eyebrow">عينة صوتية</p>
-              <h3 id="audio-proof-title">عينة صوتية بلا اتصال</h3>
-              <p>هذا المكان مخصص لعينة إنجليزية قصيرة مولّدة بـ Kokoro وعينة عربية عند تجهيز الصوت النهائي للعرض.</p>
-              <div class="audio-placeholder" role="img" aria-label="مكان مخصص لعينات صوتية مستقبلية من Papercut">
-                <span class="audio-placeholder-icon" aria-hidden="true"></span>
-                <span>مكان مخصص لعينة صوتية</span>
+              <figure class="passage-frame capture-desktop">
+                <a class="capture-light" href="../assets/screenshots/find.webp"><img src="../assets/screenshots/find.webp" width="2180" height="925" alt="نتيجة واحدة للبحث عن tide gauge في Harbor Field Notes" loading="lazy"></a>
+                <a class="capture-dark" href="../assets/screenshots/find-dark.webp"><img src="../assets/screenshots/find-dark.webp" width="2180" height="925" alt="نتيجة واحدة للبحث عن tide gauge في Harbor Field Notes" loading="lazy"></a>
+              </figure>
+              <figure class="passage-frame capture-phone">
+                <a class="capture-light" href="../assets/screenshots/android-find.webp"><img src="../assets/screenshots/android-find.webp" width="900" height="1280" alt="نتيجة واحدة تطابق العبارة في Harbor Field Notes" loading="lazy"></a>
+                <a class="capture-dark" href="../assets/screenshots/android-find-dark.webp"><img src="../assets/screenshots/android-find-dark.webp" width="900" height="1280" alt="نتيجة واحدة تطابق العبارة في Harbor Field Notes" loading="lazy"></a>
+              </figure>
+            </article>
+            <article class="walk-step" id="read">
+              <div>
+                <h3>اقرأ</h3>
+                <p>افتح النتيجة عند المقطع وتابع القراءة.</p>
+                <p>أضف إشارة مرجعية إلى المقطع لتعود إليه عند فتح المستند مرة أخرى.</p>
               </div>
-            </aside>
+              <figure class="passage-frame capture-desktop">
+                <a class="capture-light" href="../assets/screenshots/read.webp"><img src="../assets/screenshots/read.webp" width="2330" height="920" alt="يعرض القارئ عبارة tide gauge مميزة في الفقرة الأولى" loading="lazy"></a>
+                <a class="capture-dark" href="../assets/screenshots/read-dark.webp"><img src="../assets/screenshots/read-dark.webp" width="2330" height="920" alt="يعرض القارئ عبارة tide gauge مميزة في الفقرة الأولى" loading="lazy"></a>
+              </figure>
+              <figure class="passage-frame capture-phone">
+                <a class="capture-light" href="../assets/screenshots/android-read.webp"><img src="../assets/screenshots/android-read.webp" width="900" height="1225" alt="إعدادات خط Literata فوق المقطع المميز" loading="lazy"></a>
+                <a class="capture-dark" href="../assets/screenshots/android-read-dark.webp"><img src="../assets/screenshots/android-read-dark.webp" width="900" height="1225" alt="إعدادات خط Literata فوق المقطع المميز" loading="lazy"></a>
+              </figure>
+            </article>
+            <article class="walk-step" id="listen">
+              <div>
+                <h3>استمع</h3>
+                <p>شغّل كتابك الصوتي المحفوظ بدءًا من هذا المقطع.</p>
+                <p>تابع النص المميز أثناء الاستماع، أو تقدّم في القراءة بينما يستمر السرد.</p>
+              </div>
+              <figure class="passage-frame capture-desktop">
+                <a class="capture-light" href="../assets/screenshots/listen.webp"><img src="../assets/screenshots/listen.webp" width="2940" height="1600" alt="المقطع مميز أثناء السرد وتظهر عناصر التحكم بالتشغيل" loading="lazy"></a>
+                <a class="capture-dark" href="../assets/screenshots/listen-dark.webp"><img src="../assets/screenshots/listen-dark.webp" width="2940" height="1600" alt="المقطع مميز أثناء السرد وتظهر عناصر التحكم بالتشغيل" loading="lazy"></a>
+              </figure>
+              <figure class="passage-frame capture-phone">
+                <a class="capture-light" href="../assets/screenshots/android-listen.webp"><img src="../assets/screenshots/android-listen.webp" width="900" height="1490" alt="المقطع مميز أثناء السرد وتظهر عناصر التحكم بالتشغيل" loading="lazy"></a>
+                <a class="capture-dark" href="../assets/screenshots/android-listen-dark.webp"><img src="../assets/screenshots/android-listen-dark.webp" width="900" height="1490" alt="المقطع مميز أثناء السرد وتظهر عناصر التحكم بالتشغيل" loading="lazy"></a>
+              </figure>
+            </article>
           </div>
-        </section>
 
-        <section class="features" aria-labelledby="features-title">
-          <div class="features-header">
-            <h2 id="features-title" class="features-heading">الميزات</h2>
-            <p>يعمل Papercut كحلقة متكاملة: استورد مستنداتك، وابحث فيها، واقرأ ما يهمك، وأنشئ صوتًا محمولًا عندما يكون الاستماع أنسب.</p>
-          </div>
-          <div class="feature-grid">
-            <div class="feature-card">
-              <span class="feature-label">البحث</span>
-              <h3>اعثر على النص في مكتبتك كلها</h3>
-              <p>ابحث في المحتوى المفهرس عبر مئات المستندات المستوردة دون إنترنت أو حسابات. يساعدك البحث الدقيق والواسع على استرجاع الملاحظات ومراجع الشيفرة واقتباسات الأبحاث وأقسام الأدلة.</p>
-            </div>
-            <div class="feature-card">
-              <span class="feature-label">القراءة</span>
-              <h3>اقرأ ملفات HTML وEPUB وPDF وTXT وMarkdown بلا اتصال</h3>
+          <section class="story-section story-pair" aria-labelledby="features-title">
+            <div>
+              <h3 id="features-title">أحضر مكتبتك معك</h3>
               <p>أضف مستنداتك إلى قارئات HTML وEPUB وPDF وTXT وMarkdown المحلية. تحتفظ ملفات PDF بصفحاتها الأصلية، ويمكن للتعرف الضوئي بلا اتصال جعل الصفحات الممسوحة بالإنجليزية أو العربية قابلة للبحث والاستماع.</p>
-            </div>
-            <div class="feature-card">
-              <span class="feature-label">التنظيم</span>
-              <h3>احتفظ بالمستندات والمجلدات والصوت معًا</h3>
               <p>استورد ملفات كثيرة دفعة واحدة، وتصفح الأغلفة أو القوائم، ونظّم المجلدات، وعدّل العناوين، واحفظ الصوت المولّد، وانقل المستندات والكتب الصوتية المختارة بين أجهزة Papercut.</p>
             </div>
-          </div>
+            <figure class="passage-frame">
+              <a class="capture-light" href="../assets/screenshots/scan.webp"><img src="../assets/screenshots/scan.webp" width="2300" height="1785" alt="صفحة East Pier at Dawn الممسوحة ضوئيًا في قارئ PDF" loading="lazy"></a>
+              <a class="capture-dark" href="../assets/screenshots/scan-dark.webp"><img src="../assets/screenshots/scan-dark.webp" width="2300" height="1785" alt="صفحة East Pier at Dawn الممسوحة ضوئيًا في قارئ PDF" loading="lazy"></a>
+            </figure>
+          </section>
+
+          <section class="story-section story-pair" aria-labelledby="audiobooks-title">
+            <div>
+              <h3 id="audiobooks-title">أنشئ كتبك الصوتية</h3>
+              <p>نزّل صوتًا مرة واحدة، ثم أنشئ كتبًا صوتية وشغّلها على جهازك بلا اشتراك أو رسوم استخدام.</p>
+              <p>احفظ حزم الكتب الصوتية لمشاركتها أو نقلها أو استيرادها مجددًا إلى Papercut على جهاز آخر.</p>
+              <a href="#voice-questions">الأصوات واللغات</a>
+            </div>
+            <figure class="passage-frame">
+              <a href="../assets/screenshots/android-lock.webp"><img src="../assets/screenshots/android-lock.webp" width="900" height="750" alt="التشغيل من شاشة القفل في Android · ملاحظات ميدانية من الميناء" loading="lazy"></a>
+            </figure>
+          </section>
         </section>
 
-        <section class="audiobooks" aria-labelledby="audiobooks-title">
-          <div class="section-label">
-            <h2 id="audiobooks-title">الكتب الصوتية بلا اتصال</h2>
-          </div>
-          <div class="audiobook-content">
-            <div class="audiobook-lead">
-              <p class="eyebrow">استمع</p>
-              <h3>أنشئ كتبًا صوتية من مستندات مكتبتك</h3>
-              <p>
-                عندما لا تكون القراءة هي الخيار الأنسب، يستطيع Papercut تحويل
-                المستندات المدعومة إلى صوت محفوظ على جهازك. لا تُنزّل النماذج
-                الصوتية إلا عند اختيارك استخدام الصوت؛ وبعد ذلك يعمل التوليد
-                والتشغيل بلا إنترنت.
-              </p>
-            </div>
-
-            <div class="audiobook-points" aria-label="إمكانات الكتب الصوتية بلا اتصال">
-              <div>
-                <strong>إنشاء خاص</strong>
-                <span>لا معالجة سحابية ولا رفع للمستندات ولا حاجة إلى حساب.</span>
-              </div>
-              <div>
-                <strong>دون رسوم استخدام</strong>
-                <span>لا اشتراك ولا مفتاح API ولا حد للرموز ولا رسوم لكل حرف.</span>
-              </div>
-              <div>
-                <strong>تصدير واستيراد</strong>
-                <span>احفظ حزم الكتب الصوتية لمشاركتها أو نقلها أو استيرادها مجددًا إلى Papercut على جهاز آخر.</span>
-              </div>
-              <div>
-                <strong>استمع في أي مكان</strong>
-                <span>يدعم Android التشغيل في الخلفية ومن شاشة القفل.</span>
-              </div>
-            </div>
-
-            <div class="model-notes">
-              <article>
-                <h4>أصوات Kokoro متعددة اللغات</h4>
-                <p>يوفر Kokoro أصواتًا بلا اتصال للإنجليزية والصينية المندرينية والإسبانية والفرنسية والهندية والإيطالية والبرتغالية البرازيلية.</p>
-              </article>
-              <article>
-                <h4>الأصوات العربية</h4>
-                <p>تستخدم العربية نماذج Piper وSupertonic منفصلة بلا اتصال. ويتوفر SILMA أيضًا على Linux x64 عبر تنزيل اختياري لبيئة التشغيل يديره Papercut.</p>
-              </article>
-              <article>
-                <h4>نطاق النماذج بلا اتصال</h4>
-                <p>تُستخدم النماذج بلا اتصال حاليًا لإنشاء الكتب الصوتية. ويظل البحث والاستيراد والقراءة أدوات محلية للمستندات.</p>
-              </article>
-            </div>
-          </div>
+        <section class="story-section privacy-story" aria-labelledby="privacy-title">
+          <h2 id="privacy-title">الخصوصية بشكل افتراضي</h2>
+          <p>يجري الاستيراد والبحث والقراءة وإنشاء الكتب الصوتية على جهازك. يتضمن التطبيق التعرف على النصوص الإنجليزية والعربية في ملفات PDF دون اتصال.</p>
+          <p>تستخدم التنزيلات والروابط الخارجية الإنترنت. عند اختيار إرسال كتب أو صوت إلى جهاز آخر، يستخدم النقل المباشر الشبكة المحلية.</p>
         </section>
 
-        <section class="privacy" aria-labelledby="privacy-title">
-          <div class="section-label">
-            <h2 id="privacy-title">نموذج الخصوصية</h2>
-          </div>
-          <div class="privacy-content">
-            <div class="privacy-copy">
-              <p class="eyebrow">محلي أولًا بصورة افتراضية</p>
-              <h3>تبقى مكتبتك على جهازك</h3>
-              <p>
-                يحتفظ Papercut بالمستندات المستوردة والبحث والقراءة والصوت المولّد
-                محليًا بصورة افتراضية. ويقتصر الوصول إلى الشبكة على الإجراءات التي
-                تختارها، مثل تنزيل النماذج الصوتية أو ملفات الإصدارات.
-              </p>
-            </div>
-            <div class="privacy-grid" aria-label="تفاصيل خصوصية Papercut">
-              <article>
-                <strong>المستندات</strong>
-                <span>تبقى ملفات HTML وEPUB وPDF وTXT وMarkdown المستوردة محلية.</span>
-              </article>
-              <article>
-                <strong>البحث</strong>
-                <span>يعمل البحث في المكتبة على محتوى المستندات المحلي.</span>
-              </article>
-              <article>
-                <strong>الكتب الصوتية</strong>
-                <span>يبقى الصوت المولّد محليًا، ولا يدّعي Papercut ملكيته.</span>
-              </article>
-              <article>
-                <strong>الشبكة</strong>
-                <span>تُستخدم فقط عند تنزيل النماذج الصوتية أو الإصدارات أو الموارد الخارجية التي تطلبها.</span>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section class="positioning" aria-labelledby="use-cases-title">
-          <div class="positioning-header">
-            <h2 id="use-cases-title">الاستخدامات</h2>
-            <p>يناسب Papercut المكتبات الشخصية المبنية من المستندات والكتب والملاحظات والأدلة والمواد البحثية المحفوظة. فهو يبقي البحث والقراءة والاستماع قريبًا من الملفات التي تستخدمها بالفعل.</p>
-          </div>
-          <div class="positioning-content">
-            <section class="positioning-panel" aria-labelledby="best-for-title">
-              <h3 id="best-for-title">من يستفيد أكثر من Papercut؟</h3>
-              <div class="use-case-list" aria-label="استخدامات Papercut">
-                <article>
-                  <strong>المطورون</strong>
-                  <span>ابحث في وثائق API والأدلة والمراجع المحفوظة بلا اتصال.</span>
-                </article>
-                <article>
-                  <strong>الباحثون</strong>
-                  <span>اجعل الأوراق والملاحظات والمصادر المطوّلة قابلة للبحث والاستماع.</span>
-                </article>
-                <article>
-                  <strong>الطلاب</strong>
-                  <span>حوّل حزم القراءة وملفات EPUB وPDF، بما فيها الصفحات الممسوحة التي تم التعرف عليها، إلى صوت دراسي خاص.</span>
-                </article>
-                <article>
-                  <strong>القراء الذين يفضلون العمل بلا اتصال</strong>
-                  <span>استخدم أدوات محلية وحسابات أقل واعتمادًا أقل على السحابة.</span>
-                </article>
-              </div>
-            </section>
-
-            <section class="positioning-panel comparison" aria-labelledby="comparison-title">
-              <p class="eyebrow">مقارنةً بـ</p>
-              <h3 id="comparison-title">لماذا تستخدم Papercut بدلًا من ذلك؟</h3>
-              <div class="comparison-list" aria-label="مقارنة Papercut بالبدائل">
-                <article>
-                  <strong>خدمات تحويل النص إلى كلام السحابية</strong>
-                  <span>لا رفع للملفات ولا مفاتيح API ولا اشتراكات ولا عدّادات استخدام.</span>
-                </article>
-                <article>
-                  <strong>تطبيقات الكتب الصوتية</strong>
-                  <span>أنشئ صوتًا من مستنداتك بدلًا من الشراء من فهرس.</span>
-                </article>
-                <article>
-                  <strong>قارئات المستندات</strong>
-                  <span>احصل على البحث عبر المستندات ونقل المكتبة وإنشاء الكتب الصوتية بلا اتصال.</span>
-                </article>
-                <article>
-                  <strong>تطبيقات القراءة بالذكاء الاصطناعي</strong>
-                  <span>أبقِ بحث المكتبة والقراءة وإنشاء الكتب الصوتية محليًا بدلًا من رفع المستندات إلى أدوات سحابية تتمحور حول المحادثة.</span>
-                </article>
-              </div>
-            </section>
-          </div>
+        <section class="story-section" aria-labelledby="use-cases-title">
+          <h2 id="use-cases-title">الاستخدامات</h2>
+          <dl class="reader-examples">
+            <div><dt>المطورون</dt><dd>ابحث في وثائق API والأدلة والمراجع المحفوظة بلا اتصال.</dd></div>
+            <div><dt>الباحثون</dt><dd>اجعل الأوراق والملاحظات والمصادر المطوّلة قابلة للبحث والاستماع.</dd></div>
+            <div><dt>الطلاب</dt><dd>حوّل حزم القراءة وملفات EPUB وPDF، بما فيها الصفحات الممسوحة التي تم التعرف عليها، إلى صوت دراسي خاص.</dd></div>
+          </dl>
         </section>
 
         <section class="downloads" aria-labelledby="downloads-title">
           <div class="section-label"><h2 id="downloads-title">التنزيلات</h2> <span class="version-badge" dir="ltr">v1.10.2</span></div>
           <div class="download-list">
-            <p class="download-list-intro">ابدأ بمثبّت موصى به، أو افتح مجموعة المنصة لعرض كل الحزم.</p>
+            <p class="download-list-intro">ابدأ بمثبّت موصى به، أو افتح مجموعة المنصة لعرض كل الحزم. <a href="#install-notes-title">الأسئلة الشائعة</a></p>
 
             <div class="quick-downloads" aria-label="التنزيلات الموصى بها">
               <article>
@@ -362,6 +256,11 @@
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_v1.10.2_android-arm64-v8a.apk" aria-label="تنزيل Papercut بصيغة APK لنظام Android">تنزيل</a>
               </article>
+              <div class="platform-install">
+                <h3>التثبيت</h3>
+                <p>فعّل <strong>تثبيت التطبيقات غير المعروفة</strong> في إعدادات المتصفح أو مدير الملفات، ثم افتح ملف APK.</p>
+                <p>هل تستخدم ملف APK من الموقع أقدم من v1.10.2؟ تغيّر مفتاح التوقيع. قبل إزالة التطبيق، صدّر مكتبتك إلى مكان آمن أو انقلها إلى جهاز آخر. أدرج الكتب الصوتية التي تريد الاحتفاظ بها. لا يمكن استعادة الإشارات المرجعية أو تفضيلات القراءة. بعد ذلك أزل التطبيق وثبّت ملف APK الجديد ثم استورد مكتبتك أو انقلها مجددًا إلى الجهاز.</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -418,6 +317,13 @@
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut-1.10.2-1.x86_64.rpm" aria-label="تنزيل Papercut بصيغة RPM لنظام Linux">تنزيل</a>
               </article>
+              <div class="platform-install">
+                <h3>التثبيت</h3>
+                <p>يتطلب Linux بمعمارية amd64 مع توفر WebKitGTK وGStreamer. وتُبنى ملفات الإصدار على Ubuntu 24.04.</p>
+                <p><strong>التوزيعات المبنية على Debian مثل Ubuntu وMint:</strong> <code dir="ltr">sudo apt install ./Papercut_*.deb</code></p>
+                <p><strong>التوزيعات المبنية على RPM مثل Fedora وopenSUSE:</strong> <code dir="ltr">sudo rpm -i Papercut-*.rpm</code></p>
+                <p><strong>AppImage:</strong> اجعله قابلًا للتنفيذ باستخدام <code dir="ltr">chmod +x</code> ثم شغّله مباشرة. قد يحتاج AppImage على الأنظمة المبنية على Arch إلى <code dir="ltr">WEBKIT_DISABLE_COMPOSITING_MODE=1</code>؛ راجع ملف <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> للتفاصيل.</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -446,6 +352,11 @@
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_x64.dmg" aria-label="تنزيل Papercut لنظام macOS على Intel">تنزيل</a>
               </article>
+              <div class="platform-install">
+                <h3>التثبيت</h3>
+                <p>يتطلب macOS 10.13 أو أحدث على أجهزة Mac بمعالجات Apple Silicon أو Intel. افتح ملف <code dir="ltr">.dmg</code> واسحب <strong>Papercut</strong> إلى مجلد التطبيقات. إصدارات النشر الرسمية موقّعة بمعرّف مطور وموثّقة. على macOS 15 أو أحدث، إذا كنت تثق بنسخة محلية أو نسخة CI غير موقّعة، فحاول فتحها مرة واحدة. إذا حُظر فتحها، فانتقل إلى إعدادات النظام ← الخصوصية والأمان واختر <strong>فتح على أي حال</strong> إذا كان الخيار متاحًا.</p>
+                <p>اختر الإصدار المطابق لجهازك: <strong>Apple Silicon</strong> ‏(<code dir="ltr">_aarch64.dmg</code>) لشرائح الفئة M، أو <strong>Intel</strong> ‏(<code dir="ltr">_x64.dmg</code>) لأجهزة Mac المبنية على Intel.</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -474,6 +385,10 @@
                 </div>
                 <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.10.2/Papercut_1.10.2_x64-setup.exe" aria-label="تنزيل مثبّت Papercut بصيغة EXE لنظام Windows">تنزيل</a>
               </article>
+              <div class="platform-install">
+                <h3>التثبيت</h3>
+                <p>يتطلب Windows 10 أو أحدث بنظام x64 وMicrosoft Edge WebView2. شغّل مثبّت MSI أو EXE واتبع التعليمات.</p>
+              </div>
             </details>
 
             <details class="download-group">
@@ -521,22 +436,38 @@
         <section class="install-notes" aria-labelledby="install-notes-title">
           <h2 id="install-notes-title" class="install-notes-heading">الأسئلة الشائعة</h2>
           <p>تفاصيل عملية عن الصوت بلا اتصال والخصوصية والملفات المدعومة وتثبيت Papercut على كل منصة.</p>
+          <h3>المكتبة والخصوصية</h3>
+          <details>
+            <summary><strong>ما تنسيقات المستندات المدعومة؟</strong></summary>
+            <p>يستورد Papercut ملفات HTML وEPUB وPDF وTXT وMarkdown. تكون ملفات PDF ذات النص المضمّن قابلة للبحث فورًا، ويمكن التعرف على الصفحات المصورة والمختلطة بالإنجليزية أو العربية عند الطلب دون اتصال. ويمكن لأجهزة Android المدعومة أيضًا مسح الصفحات أو استيراد الصور إلى ملف PDF.</p>
+          </details>
           <details>
             <summary><strong>هل يستخدم Papercut الذكاء الاصطناعي في شيء غير الكتب الصوتية؟</strong></summary>
             <p>نعم. يستخدم Papercut أيضًا التعرف الضوئي المضمّن على الجهاز للتعرف على النص الإنجليزي أو العربي في صفحات PDF المصورة والمختلطة. لا يرفع التعرف الضوئي أو إنشاء الكتب الصوتية مستنداتك إلى خدمة سحابية.</p>
+            <p>للبحث بالمعنى، نزّل نموذج البحث الاختياري وفعّل البحث الدلالي التجريبي وأنشئ الفهرس على جهازك. بعدها يمكنك البحث دون اتصال.</p>
           </details>
           <details>
             <summary><strong>متى يحتاج Papercut إلى الاتصال بالإنترنت؟</strong></summary>
-            <p>تعمل القراءة والبحث بلا اتصال. يُستخدم اتصال الشبكة عندما تختار تنزيل نموذج صوتي أو إصدار أو فتح مورد خارجي. وإذا لم تستخدم إنشاء الكتب الصوتية فلن تحتاج إلى تنزيل النماذج الصوتية.</p>
+            <p>تستخدم التنزيلات والروابط الخارجية الإنترنت. عند اختيار إرسال كتب أو صوت إلى جهاز آخر، يستخدم النقل المباشر الشبكة المحلية.</p>
+          </details>
+          <h3 id="voice-questions">الأصوات واللغات</h3>
+          <details>
+            <summary><strong>ما لغات الواجهة المتوفرة؟</strong></summary>
+            <p>يتوفر Papercut بالإنجليزية والعربية والصينية المبسطة والإسبانية والفرنسية والهندية والإيطالية والبرتغالية البرازيلية.</p>
+          </details>
+          <details>
+            <summary><strong>ما لغات الكتب الصوتية المتوفرة؟</strong></summary>
+            <p>يدعم Kokoro الإنجليزية ويوفر أصواتًا تجريبية للصينية المندرينية والإسبانية والفرنسية والهندية والإيطالية والبرتغالية البرازيلية. ويوفر Supertonic أصواتًا تجريبية للإنجليزية والعربية.</p>
           </details>
           <details>
             <summary><strong>لماذا تستخدم الكتب الصوتية الإنجليزية Kokoro؟</strong></summary>
-            <p>تستخدم الأصوات الإنجليزية Kokoro لأنه يقدم حاليًا جودة قوية بين النماذج الصوتية التي تعمل بلا اتصال تمامًا. والهدف هو صوت طبيعي دون معالجة سحابية أو اشتراكات أو مفاتيح API أو رسوم لكل حرف.</p>
+            <p>Kokoro هو النموذج الافتراضي للإنجليزية. بعد تنزيله يولّد الكلام محليًا دون مفتاح API أو رسوم لكل حرف.</p>
           </details>
           <details>
             <summary><strong>كيف يعمل دعم الكتب الصوتية العربية؟</strong></summary>
-            <p>تُدعم العربية بنماذج مستقلة تعمل بلا اتصال. Piper هو الخيار الأصغر متعدد المنصات، بينما يتوفر SILMA على سطح مكتب Linux x64 عبر تنزيل اختياري لبيئة التشغيل.</p>
+            <p>يدعم Piper Kareem العربية، وSupertonic بديل تجريبي. يتطلب SILMA بيئة تشغيل اختيارية على Linux x64.</p>
           </details>
+          <h3>حقوق الصوت ومشاركته</h3>
           <details>
             <summary><strong>من يملك الصوت المولّد؟</strong></summary>
             <p>لا يدّعي Papercut ملكية الصوت المولّد. أنت مسؤول عن حقوق النص المصدر وأي صوت مرجعي أو تسجيل مستخدم وطريقة مشاركة الصوت المصدّر. يحفظ Papercut ناتج الكتاب الصوتي محليًا ولا يرفعه إلى خدمة.</p>
@@ -549,18 +480,7 @@
             <summary><strong>هل يمكنني استنساخ أي صوت أو استخدامه كمرجع؟</strong></summary>
             <p>لا. يجب استخدام ميزات الصوت المرجعي فقط مع الأصوات والتسجيلات التي تملك حقوق استخدامها أو إذنًا بذلك.</p>
           </details>
-          <details>
-            <summary><strong>ما تنسيقات المستندات المدعومة؟</strong></summary>
-            <p>يستورد Papercut ملفات HTML وEPUB وPDF وTXT وMarkdown. تكون ملفات PDF ذات النص المضمّن قابلة للبحث فورًا، ويمكن التعرف على الصفحات المصورة والمختلطة بالإنجليزية أو العربية عند الطلب دون اتصال. ويمكن لأجهزة Android المدعومة أيضًا مسح الصفحات أو استيراد الصور إلى ملف PDF.</p>
-          </details>
-          <details>
-            <summary><strong>ما لغات الواجهة المتوفرة؟</strong></summary>
-            <p>يتوفر Papercut بالإنجليزية والعربية والصينية المبسطة والإسبانية والفرنسية والهندية والإيطالية والبرتغالية البرازيلية.</p>
-          </details>
-          <details>
-            <summary><strong>ما لغات الكتب الصوتية المتوفرة؟</strong></summary>
-            <p>يوفر Kokoro أصواتًا للإنجليزية والصينية المندرينية والإسبانية والفرنسية والهندية والإيطالية والبرتغالية البرازيلية. وتستخدم العربية نماذج Piper وSupertonic مستقلة بلا اتصال، مع توفر SILMA على Linux x64 عبر بيئة تشغيل اختيارية.</p>
-          </details>
+          <h3>الإعداد والدعم</h3>
           <details>
             <summary><strong>ما متطلبات النظام؟</strong></summary>
             <p><strong>Android:</strong> ‏Android 8.0 / API 26 أو أحدث على أجهزة arm64-v8a.</p>
@@ -570,28 +490,8 @@
             <p><strong>Windows:</strong> ‏Windows 10 أو أحدث بمعمارية x64 مع بيئة تشغيل Microsoft Edge WebView2.</p>
           </details>
           <details>
-            <summary><strong>Android</strong></summary>
-            <p>فعّل <strong>تثبيت التطبيقات غير المعروفة</strong> في إعدادات المتصفح أو مدير الملفات، ثم افتح ملف APK. تعمل القراءة والبحث بلا اتصال. ولا يُستخدم اتصال الشبكة إلا إذا اخترت تنزيل نموذج صوتي؛ وإذا لم تستخدم إنشاء الكتب الصوتية فلن تحتاج إلى الشبكة.</p>
-          </details>
-          <details>
-            <summary><strong>Linux</strong></summary>
-            <p>يتطلب Linux بمعمارية amd64 مع توفر WebKitGTK وGStreamer. وتُبنى ملفات الإصدار على Ubuntu 24.04.</p>
-            <p><strong>التوزيعات المبنية على Debian مثل Ubuntu وMint:</strong> <code dir="ltr">sudo apt install ./Papercut_*.deb</code></p>
-            <p><strong>التوزيعات المبنية على RPM مثل Fedora وopenSUSE:</strong> <code dir="ltr">sudo rpm -i Papercut-*.rpm</code></p>
-            <p><strong>AppImage:</strong> اجعله قابلًا للتنفيذ باستخدام <code dir="ltr">chmod +x</code> ثم شغّله مباشرة. قد يحتاج AppImage على الأنظمة المبنية على Arch إلى <code dir="ltr">WEBKIT_DISABLE_COMPOSITING_MODE=1</code>؛ راجع ملف <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> للتفاصيل.</p>
-          </details>
-          <details>
-            <summary><strong>macOS</strong></summary>
-            <p>يتطلب macOS 10.13 أو أحدث على أجهزة Mac بمعالجات Apple Silicon أو Intel. افتح ملف <code dir="ltr">.dmg</code> واسحب <strong>Papercut</strong> إلى مجلد التطبيقات. إصدارات النشر الرسمية موقّعة بمعرّف مطور وموثّقة. إذا كنت تختبر ملفًا غير موقّع من CI أو تطوير محلي، فانقر بزر الفأرة الأيمن أو مع الضغط على Control على أيقونة التطبيق واختر <strong>فتح</strong> عند التشغيل الأول.</p>
-            <p>اختر الإصدار المطابق لجهازك: <strong>Apple Silicon</strong> ‏(<code dir="ltr">_aarch64.dmg</code>) لشرائح الفئة M، أو <strong>Intel</strong> ‏(<code dir="ltr">_x64.dmg</code>) لأجهزة Mac المبنية على Intel.</p>
-          </details>
-          <details>
-            <summary><strong>Windows</strong></summary>
-            <p>يتطلب Windows 10 أو أحدث على أجهزة x64 وبيئة تشغيل Microsoft Edge WebView2. يتولى مثبّت MSI الإعداد تلقائيًا. وإذا كنت تفضل ملف EXE المحمول فشغّله مباشرة. لا يلزم امتلاك صلاحيات المسؤول.</p>
-          </details>
-          <details>
             <summary><strong>أين أجد الوثائق والإصدارات والشيفرة المصدرية؟</strong></summary>
-            <p>ابدأ بملف <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> للمساعدة في الإعداد وتفاصيل المنصات. اطّلع على الجديد في <a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.10.2.md">ملاحظات الإصدار</a>، أو تصفح <a href="https://github.com/muhannadnouri/papercut.io/releases/latest">كل الإصدارات</a>، أو ساهم عبر <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>.</p>
+            <p>ابدأ بملف <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> للمساعدة في الإعداد وتفاصيل المنصات. اطّلع على الجديد في <a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.10.2.md">ملاحظات الإصدار</a>، أو تصفح <a href="https://github.com/muhannadnouri/papercut.io/releases">كل الإصدارات</a>، أو ساهم عبر <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>.</p>
           </details>
         </section>
 
@@ -699,51 +599,41 @@
 
         <footer class="site-footer">
           <p class="footer-privacy">مفتوح المصدر 🧩 · بلا اشتراكات 💳✂️</p>
-          <p class="footer-meta">
+          <div class="footer-utilities">
+            <p class="footer-meta">
             &copy; 2026 Muhannad Nouri &middot;
             <a href="https://github.com/muhannadnouri/papercut.io/blob/main/LICENSE.md">رخصة MIT</a>
             &middot;
             <a href="https://github.com/muhannadnouri/papercut.io#ai-audio-use-notice">تنبيه استخدام الصوت المولّد</a>
             &middot;
             <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>
-          </p>
+            </p>
+
+          </div>
         </footer>
       </main>
     </div>
 
     <script>
       (() => {
-        document.querySelectorAll('.nav-menu, .language-menu').forEach((menu) => {
+        for (const menu of document.querySelectorAll('.site-header details')) {
           const toggle = menu.querySelector('summary')
-          const closeMenu = () => {
-            menu.removeAttribute('open')
-            toggle?.setAttribute('aria-expanded', 'false')
-          }
-
           menu.addEventListener('toggle', () => {
-            toggle?.setAttribute('aria-expanded', menu.open ? 'true' : 'false')
-            if (menu.open) {
-              document.querySelectorAll('.nav-menu[open], .language-menu[open]').forEach((other) => {
-                if (other !== menu) other.removeAttribute('open')
-              })
-            }
+            toggle.setAttribute('aria-expanded', String(menu.open))
           })
-
+          menu.addEventListener('click', (event) => {
+            if (event.target.closest('a')) menu.open = false
+          })
           document.addEventListener('pointerdown', (event) => {
-            if (menu.open && !menu.contains(event.target)) closeMenu()
+            if (menu.open && !menu.contains(event.target)) menu.open = false
           })
-
           document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && menu.open) {
-              closeMenu()
-              toggle?.focus()
+              menu.open = false
+              toggle.focus()
             }
           })
-
-          menu.querySelectorAll('a').forEach((link) => {
-            link.addEventListener('click', closeMenu)
-          })
-        })
+        }
       })()
 
       ;(() => {
@@ -779,6 +669,7 @@
         })
 
         applyTheme()
+        button.hidden = false
       })()
 
       ;(() => {

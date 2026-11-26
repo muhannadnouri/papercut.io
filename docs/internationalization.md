@@ -77,6 +77,52 @@ Website language names do not use the application's experimental labels. Those
 labels describe the app locale review status, not whether a visitor can open a
 localized marketing page.
 
+### Downloads and FAQs
+
+The build resolves version badges, filenames, archive and installer URLs, and the
+release-note link from `site/source/release.mjs`. Catalogs own the translated
+download labels and may use `{{release.tag}}` in a versioned description.
+Recommended buttons and full platform listings reference the same assets.
+
+Installation instructions for Android, Linux, macOS and Windows live inside
+their respective download groups. System requirements and the link to release
+notes remain in the setup FAQ. The other FAQ groups cover library and privacy,
+voices and languages, and audio rights and sharing.
+
+The voice FAQ describes the application tag pinned by the website. Check that
+tag’s model catalog before changing language, model, or platform claims.
+Bundled English/Arabic PDF recognition works offline. Local voice generation
+requires downloading the chosen voice model first.
+
+### Homepage walkthrough
+
+The Papercut icon links home. The wordmark and chevron share a section-menu trigger. The floating header also includes a language selector, a cycling theme button, and Download. The downloads section links to the FAQ.
+The hero and section menu link to How It Works, which groups the walkthrough, document library, and offline audiobooks. Privacy begins the next section. English navigation labels and FAQ group headings use title case. FAQ questions use sentence case. Other
+translations follow their own capitalization conventions.
+
+The primary action in the hero and floating navigation links to
+`#downloads-title`. The walkthrough keeps the existing `#preview-title` anchor
+and provides direct links to `#find`, `#read`, and `#listen`. Keep each
+translated example consistent across the search result, reader, and audiobook.
+The desktop images follow the selected theme, including the device preference in System mode. Each opens the matching full-resolution capture.
+The hero and Listen share one image per theme and viewport. The hero uses a labeled link with a CSS background so only the displayed variant loads on first paint. The PDF capture shows the original scanned page.
+At widths up to 720 CSS pixels the walkthrough uses Android captures in the selected theme. The portable-audiobook section shows the Android lock-screen player.
+
+### Screenshot checklist
+
+Keep full-resolution PNG masters. Use the AppImage for desktop website shots, an Android phone or emulator for the portrait website and F-Droid shots, and the iOS build on an iPhone or simulator for the App Store. A narrow AppImage is fine for a website layout preview. Use the same book, query and scenes across platforms.
+
+1. **Prepare.** Import the [illustrated Harbor Field Notes EPUB](fixtures/screenshots/Harbor%20Field%20Notes.epub) into a clean demo library. Confirm the harbor image follows the opening paragraph of *East Pier at Dawn*. Generate and save this edition’s audiobook. Start in light mode. **Wait to capture.**
+2. **Desktop hero and Listen — complete.** Both themes show the highlighted word “tide,” the harbor image and the full player.
+3. **Desktop Read — complete.** Both themes show the “tide gauge” search match beside the open reader settings with Merriweather selected. The existing Find and scanned PDF pairs complete the desktop set.
+4. **Android Find and Read — complete.** The exact-phrase query “took a second reading in the still water.” matches the passage beneath the Literata settings panel.
+5. **Android hero and Listen — complete.** Both themes show the opening paragraph paused on “tide” with the player visible.
+6. **Android lock screen — complete.** The clock and media card share one crop across themes.
+7. **F-Droid — prepared.** The six original Android PNGs show Find, Listen and Read in light mode (1–3), then in dark mode (4–6). They are under `fastlane/metadata/android/en-US/images/phoneScreenshots/` in listing order. Include them in the release revision.
+8. **iOS App Store.** Run the iOS build on a supported iPhone or simulator at an accepted screenshot size. Repeat the Find → Read → Listen actions and **capture once per scene**, in one theme. Supply iPad captures as applicable to the submitted build. [Apple review guidelines §2.3](https://developer.apple.com/app-store/review/guidelines/#accurate-metadata) · [App Store Connect screenshot sizes](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/)
+
+For website exports, use identical crop bounds for each light/dark pair and match the selected site theme. Keep captions in the website catalogs. When localizing the captures, prioritize an Arabic RTL reader shot.
+
 ## Translation Rules
 
 - Use semantic keys rather than English sentences as keys.

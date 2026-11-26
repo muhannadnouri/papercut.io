@@ -2,7 +2,7 @@
 
 This palette is a testable baseline for the static landing page and a future reference for the React app theme tokens.
 
-The static site supports system, light, and dark previews. It defaults to the visitor's system preference and lets visitors cycle themes without persisting the choice across refreshes.
+The static site supports system, light, and dark previews. It defaults to the visitor's system preference and cycles through system, light, and dark with an icon button in the floating header without persisting the choice across refreshes.
 
 ## Goals
 
@@ -74,7 +74,7 @@ Papercut uses a Slate + Indigo palette.
 - Use `--muted` for body copy, descriptions, and secondary metadata.
 - Use `--quiet` only for nonessential labels and small metadata.
 - Use `--soft-line` for decorative dividers.
-- Use `--line` for card borders and section separation.
+- Use `--line` for card borders. Use whitespace between homepage sections and a softer echo of the hero glow around the Contact form. On wide screens, a faint dot grid fades out before the reading column.
 - Use `--control-border` for inputs, menus, topic chips, icon buttons, and other interactive controls.
 - Use `--accent` for primary actions.
 - Use `--accent-text` for links, icons, secondary-button hover text, and selected borders.

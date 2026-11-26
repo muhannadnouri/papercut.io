@@ -279,7 +279,7 @@ sudo apt install ./src-tauri/target/release/bundle/deb/Papercut_1.9.0_amd64.deb
 
 If you previously used `sudo dpkg -i ...` and the app did not launch, run `sudo apt -f install` once to finish installing missing dependencies, then reinstall the newly generated `.deb`.
 
-**macOS Gatekeeper:** Official release `.dmg` artifacts are built per-architecture and the release workflow signs, notarizes, and verifies them through the protected `apple-release` GitHub Environment. CI or local builds without Apple signing secrets are development artifacts and may still require right-click (or Control-click) > **Open** on first launch. Release artifact names are `Papercut_<version>_aarch64.dmg` for Apple Silicon and `Papercut_<version>_x64.dmg` for Intel. Pick the one matching your Mac. Native sherpa-onnx TTS dylibs are bundled inside the `.app` resources and resolved via an `@loader_path/../Resources` rpath, so no separate runtime library install is needed.
+**macOS Gatekeeper:** Official release `.dmg` artifacts are built per-architecture and the release workflow signs, notarizes, and verifies them through the protected `apple-release` GitHub Environment. For a trusted unsigned CI or local build on macOS 15 or later, try opening the app once. If Gatekeeper blocks it, go to **System Settings → Privacy & Security** and choose **Open Anyway** if available. Release artifact names are `Papercut_<version>_aarch64.dmg` for Apple Silicon and `Papercut_<version>_x64.dmg` for Intel. Pick the one matching your Mac. Native sherpa-onnx TTS dylibs are bundled inside the `.app` resources and resolved via an `@loader_path/../Resources` rpath, so no separate runtime library install is needed.
 
 **AppImage troubleshooting:** `npm run desktop` sets `NO_STRIP=1` because the `linuxdeploy` tool used to bundle the AppImage can fail when its bundled `strip` cannot handle the host ELF format. If AppImage packaging reports `Could not find dependency: libwebkit2gtk-4.1.so.0`, the build is running in an environment that cannot see host WebKitGTK libraries. If the build succeeds but `npm run verify:appimage-media` reports missing files, install the GStreamer base and good plugin packages above and rebuild. The desktop build wrapper handles Flatpak editor terminals by re-running the build on the host; outside Flatpak, install the Linux system dependencies above and rerun `npm run desktop`. Tauri's AppImage media bundling is fully supported on Ubuntu build systems, and Papercut builds and verifies its Linux release artifacts on Ubuntu 24.04 CI.
 
@@ -313,11 +313,11 @@ npm run build
 Commit the changed version files together with the release changes.
 Create or update `RELEASE_NOTES/vX.Y.Z.md`, and prefer a new patch tag instead of replacing a published tag if release validation finds an installer/runtime packaging issue.
 
-After the release is published, update the version badges, download filenames/URLs,
-and source archive links in every `site/source/locales/*.json` catalog, plus the
-release-note link in `site/source/index.template.html`.
-Verify installer filenames against the published release assets, run
-`node site/build.mjs`, and commit the catalogs with the regenerated HTML pages.
+After publishing an app release, update the pinned version in
+`site/source/release.mjs`. Verify its filenames against the assets on that
+specific GitHub tag. Voice models also have releases in this repository.
+If a package name changes, edit its entry in the same file. Run
+`node site/build.mjs` and commit the release data and regenerated locale pages.
 Merge the site update and verify the Netlify deployment and live download links;
 publishing an app release alone does not update the website's pinned links.
 
@@ -377,6 +377,8 @@ It prepares the source-built inputs and builds an unsigned arm64 APK for
 Android API 26+ with native TTS and search. Once the inputs are prepared,
 `npm run android:apk:release` rebuilds the APK. The guide covers production
 signing, verification, source and license evidence, and F-Droid submission.
+
+If you installed a website APK older than v1.10.2, the signing key changed. Before uninstalling, [export or transfer your library](docs/library-transfer.md) off the device, including any audiobooks you want to keep. Bookmarks and reading preferences cannot be restored. Install the new APK and import the library or transfer it back.
 
 To sideload on an Android device, enable **Install unknown apps** in Settings and transfer the `.apk` file directly (via USB, ADB, or file share).
 
