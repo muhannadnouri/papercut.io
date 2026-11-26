@@ -2,15 +2,34 @@
 
 The [metadata](metadata/io.papercut.desktop.yml) tracks the first-inclusion
 [merge request](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/56711)
-for the signed v1.10.2 APK. Its Android wrapper requires Node 22.22.1.
-The revised recipe installs that version from a signed Debian snapshot.
-The byte comparison recorded below applies to the original Node distribution.
-Repeat the clean build and signature comparison with the revised recipe.
+for the signed v1.11.0 APK (version code 1011000). Its Android wrapper uses
+Node 22.22.1 from a signed Debian snapshot. The Pagefind build uses the
+checksum-pinned Node that ships with the Emscripten SDK. Its gzip implementation
+produces the same bytes as the release workflow for the embedded search WASM.
+The recipe removes two prebuilt
+WebAssembly files brought in by WebdriverIO's browser drivers before scanning.
+After the build, it applies the ZIP alignment used by Android's signer so
+F-Droid can copy the release signature onto the rebuilt APK.
 
 English/Arabic listings come from `fastlane/metadata/android/` in the app source.
 The production wrapper derives `PAPERCUT_BUILD_REVISION` from the checkout; a
 no-Git source export needs the explicit matching release commit, as described in
 the [production guide](../android-production-packaging.md#reproducibility-protocol).
+
+## v1.11.0 release verification
+
+A clean checkout of `0de2a6ba3d6f70e1939e18820367928a226efbaf` in the
+provisioned F-Droid buildserver image reproduced both release files.
+Before postbuild alignment, `cmp` matched the rebuilt APK to the APK inside
+the [release workflow’s android-unsigned-input artifact](https://github.com/muhannadnouri/papercut.io/actions/runs/45754441839/artifacts/15088074048).
+After alignment and F-Droid signature copying, `cmp` matched the
+[published APK](https://github.com/muhannadnouri/papercut.io/releases/download/v1.11.0/Papercut_v1.11.0_android-arm64-v8a.apk).
+Android’s `apksigner verify` confirmed the certificate pinned in the recipe.
+
+| Compared files | Shared SHA-256 |
+| --- | --- |
+| Raw rebuild and workflow signing input | `691da588a3009a79158927a04f37553bddfe171900028f93c06f13b38387cd24` |
+| Signature-copied rebuild and published APK | `e66cd7dfc7da4d93e91545af8bd25dfab6cf721f293719878e579dcce0595adf` |
 
 ## Checked 2026-11-05
 
@@ -203,13 +222,13 @@ SDK from the draft's `sudo` block already installed. A dedicated F-Droid VM
 runs that block with `fdroid build --server`. The version/code target follows
 the checkout being compared: for the historical `a2e72e143e44daaa871e7503a71476c1b5c15c2a`
 comparison above that is 1.10.0 / 1010000 in the disposable copy, while the
-inclusion recipe targets 1.10.2 / 1010002. The commands below target the
+inclusion recipe targets 1.11.0 / 1011000. The commands below target the
 tracked draft; substitute 1010000 only for that disposable historical copy.
 
 ```sh
 fdroid rewritemeta io.papercut.desktop
 fdroid lint -f io.papercut.desktop
-fdroid build --verbose --test --scan-binary --refresh-scanner io.papercut.desktop:1010002
+fdroid build --verbose --test --scan-binary --refresh-scanner io.papercut.desktop:1011000
 ```
 
 [fdroiddata CI build job](https://gitlab.com/fdroid/fdroiddata/-/blob/master/.gitlab-ci.yml) ·

@@ -16,9 +16,9 @@ Repo: https://github.com/muhannadnouri/papercut.io
 Binaries: https://github.com/muhannadnouri/papercut.io/releases/download/v%v/Papercut_v%v_android-arm64-v8a.apk
 
 Builds:
-  - versionName: 1.10.2
-    versionCode: 1010002
-    commit: 1709c857618217d35420ca31fc686e822848ca9d
+  - versionName: 1.11.0
+    versionCode: 1011000
+    commit: 0de2a6ba3d6f70e1939e18820367928a226efbaf
     sudo:
       - apt-get update
       - apt-get install -y --no-install-recommends autoconf automake build-essential
@@ -30,7 +30,11 @@ Builds:
         npm
       - sdkmanager --sdk_root=/opt/android-sdk "platforms;android-36" "build-tools;35.0.0"
     output: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+    srclibs:
+      - reproducible-apk-tools@v0.3.0
     prebuild:
+      - sed -i '/build-source-pagefind[.]js$/s|^node |.cache/android-production/emsdk/node/22.16.0_64bit/bin/node
+        |' scripts/fdroid/build-android-release.sh
       - npm ci
       - find node_modules/tesseract.js-core -maxdepth 1 -name 'tesseract-core*.wasm.js'
         -type f -delete
@@ -39,6 +43,8 @@ Builds:
       - node_modules/@tesseract.js-data/ara/4.0.0_best_int/ara.traineddata.gz
       - node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz
     scandelete:
+      - node_modules/@zip.js/zip.js/dist/zip-module.wasm
+      - node_modules/@zip.js/zip.js/lib/core/streams/zlib-wasm/zlib-streams.wasm
       - node_modules/@esbuild/linux-x64/bin/esbuild
       - node_modules/esbuild/bin/esbuild
       - node_modules/@pagefind/linux-x64/bin/pagefind_extended
@@ -57,11 +63,15 @@ Builds:
       - task_gradle=$(command -v gradle)
       - PAPERCUT_GRADLE="$task_gradle" bash scripts/fdroid/build-android-release.sh
     ndk: 30.0.16248370
+    postbuild:
+      - mv $$OUT$$ unaligned.apk
+      - $$reproducible-apk-tools$$/zipalign.py --page-size 16 --pad-like-apksigner
+        --replace unaligned.apk $$OUT$$
 
 AllowedAPKSigningKeys: ffb4979cfe0b5e7ecd9051252aa55baee5ffaa46f32611b21aea4778c2398eb9
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
 UpdateCheckData: src-tauri/tauri.android.conf.json|versionCode"\s*:\s*([0-9]+)|src-tauri/tauri.conf.json|version"\s*:\s*"([^"]+)"
-CurrentVersion: 1.10.2
-CurrentVersionCode: 1010002
+CurrentVersion: 1.11.0
+CurrentVersionCode: 1011000
