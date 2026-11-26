@@ -36,7 +36,8 @@ if (process.env.CI && !browser) {
   throw new Error('Viewport capture tests require Chrome/Chromium; set CHROME_BIN.')
 }
 
-export async function runBrowserFixture(directory: string, frame: string, width = 620, screenshotPath?: string, accessibilityPath?: string, keys?: ('Enter' | 'Tab' | 'Escape' | 'Space' | 'ArrowDown')[]) {
+export async function runBrowserFixture(directory: string, frame: string, viewport: number | { width: number;
+  mobile: true } = 620, screenshotPath?: string, accessibilityPath?: string, keys?: ('Enter' | 'Tab' | 'Escape' | 'Space' | 'ArrowDown')[]) {
   // A DevTools pipe waits for real asynchronous layout; dump-dom virtual time can stop between RAFs.
   const child = spawn(browser!, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-background-networking',
     '--allow-file-access-from-files', '--disable-dev-shm-usage', '--no-first-run', '--remote-debugging-pipe',
@@ -109,10 +110,10 @@ export async function runBrowserFixture(directory: string, frame: string, width 
     const sessionId = String(session.sessionId)
     await send('Page.enable', {}, sessionId)
     await send('Emulation.setDeviceMetricsOverride', {
-      width: width,
+      width: typeof viewport === 'number' ? viewport : viewport.width,
       height: 600,
       deviceScaleFactor: 1,
-      mobile: false,
+      mobile: typeof viewport !== 'number' && viewport.mobile,
     }, sessionId)
     await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.captureResult=new Promise(resolve=>{addEventListener('message',({data})=>{if(data?.type==='capture-result')resolve(JSON.stringify(data.result))});addEventListener('error',event=>resolve(JSON.stringify({error:event.message})));addEventListener('unhandledrejection',event=>resolve(JSON.stringify({error:String(event.reason)})))});` }, sessionId)
     await send('Page.navigate', { url: pathToFileURL(frame).href }, sessionId)
