@@ -24,7 +24,11 @@ failed initialization requires restarting the app.
 
 Desktop native libraries are official checksum-pinned archives. iOS uses separate
 Sherpa/ORT static XCFramework archives plus unchanged pinned upstream Piper source
-built by its iOS recipe. Cargo now uses unchanged published Rust bindings with
+built by its iOS recipe. All iOS Piper slices compile eSpeak with a 1024-byte
+data-path buffer. Its 255-byte default truncated the verified Kokoro data
+directory in a standard iPhone simulator container. The native regression
+probe in `scripts/ios/tests/piper-long-path.c` checks the directory actually
+selected and checks that a fixture phrase produces phonemes. Cargo now uses unchanged published Rust bindings with
 root `.cargo/config.toml` links overrides; `src-tauri/build/` owns pinned archive
 preparation, platform linking and runtime staging. The inactive tracked vendor
 crate has been retired after platform build/inference qualification. The

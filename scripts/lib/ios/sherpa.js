@@ -14,6 +14,7 @@ import { join } from "node:path"
 import { source } from "../../fdroid/source-build.js"
 import { PIPER_SOURCE_REVISION } from "../constants.js"
 import { downloadFile } from "../download.js"
+import { ROOT } from "../paths.js"
 import { run } from "../process.js"
 import {
   ORT_IOS_ARCHIVE,
@@ -125,7 +126,7 @@ async function piperFramework() {
   const checkout = await source("piper-phonemize-1.5.9", "https://github.com/csukuangfj/piper-phonemize.git", PIPER_SOURCE_REVISION)
   const framework = join(checkout, "build-ios/piper-phonemize.xcframework")
   // Source identity is checked above on every build; the upstream script rebuilds missing outputs with CMake.
-  await run("bash", [join(checkout, "build-ios.sh")], { cwd: checkout })
+  await run("bash", [join(ROOT, "scripts/ios/build-piper.sh"), checkout], { cwd: checkout })
   return framework
 }
 
