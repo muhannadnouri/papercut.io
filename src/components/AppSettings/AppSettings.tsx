@@ -345,6 +345,21 @@ export function AppSettings({
 
           <section className="app-settings-section app-settings-about" aria-labelledby="app-settings-about">
             <h3 id="app-settings-about">{t('settings.about')}</h3>
+            <a
+              className="app-settings-data-action app-settings-row"
+              href="https://trypapercut.app/privacy/"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(event) => {
+                if (tauriRuntime) {
+                  event.preventDefault()
+                  void openExternalUrl(event.currentTarget.href)
+                }
+              }}
+            >
+              <span>{t('settings.privacyPolicy')}</span>
+              <span className="app-settings-chevron" aria-hidden="true" />
+            </a>
             <button
               type="button"
               className="app-settings-data-action app-settings-row"

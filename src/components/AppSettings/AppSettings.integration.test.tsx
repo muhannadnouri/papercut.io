@@ -17,6 +17,7 @@ import {
 import { invoke } from '@tauri-apps/api/core'
 import { AppSettings } from './AppSettings'
 import type { SemanticSearchController } from '../../search-semantic/useSemanticSearch'
+import { openExternalUrl } from '../../utils/openExternalUrl'
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
 vi.mock('../../i18n', () => ({
@@ -34,6 +35,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 vi.mock('@tauri-apps/api/app', () => ({ getVersion: async () => '1.9.2' }))
 vi.mock('@tauri-apps/api/event', () => ({ listen: async () => () => {} }))
 vi.mock('@tauri-apps/api/webview', () => ({ getCurrentWebview: () => ({ setZoom: async () => {} }) }))
+vi.mock('../../utils/openExternalUrl', () => ({ openExternalUrl: vi.fn() }))
 
 let root: Root
 let container: HTMLDivElement
@@ -131,6 +133,15 @@ function assertNoPreparationStarted() {
   expect(semantic.setEnabled).not.toHaveBeenCalled()
   expect(vi.mocked(invoke).mock.calls.every(([command]) => ['search_embedding_status', 'search_embedding_cache_status'].includes(command))).toBe(true)
 }
+
+it('opens the public privacy policy from About using the native opener', async () => {
+  await click(container.querySelector('.app-settings-btn')!)
+  const policy = container.querySelector<HTMLAnchorElement>('.app-settings-about a')!
+  expect(policy.textContent).toBe('settings.privacyPolicy')
+  expect(policy.href).toBe('https://trypapercut.app/privacy/')
+  await click(policy)
+  expect(openExternalUrl).toHaveBeenCalledWith(policy.href)
+})
 
 it('opens search from its named status row without starting work and refreshes the description on Back', async () => {
   await act(() => container.querySelector<HTMLButtonElement>('.app-settings-btn')!.focus())

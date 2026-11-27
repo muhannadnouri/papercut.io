@@ -1,5 +1,5 @@
 // Pin the published application release; voice models have independent GitHub releases.
-const version = '1.11.0'
+const version = '1.11.1'
 const tag = `v${version}`
 const repository = 'https://github.com/muhannadnouri/papercut.io'
 const download = `${repository}/releases/download/${tag}`

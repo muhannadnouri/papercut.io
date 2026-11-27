@@ -447,6 +447,15 @@ html[data-theme="dark"] .capture-dark { display: block; }
 .story-pair h3 { margin: 0; }
 .story-section p, .reader-examples dd { color: var(--muted); }
 .story-section a { color: var(--accent-text); text-decoration: underline; }
+.privacy-policy {
+  max-inline-size: 72ch;
+  margin-inline: auto;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+.privacy-policy h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.15; }
+.privacy-policy h2 { margin-block-start: 1.75em; }
+.contact-note a { text-decoration: underline; }
 .story-pair { display: grid; grid-template-columns: 1.2fr 1fr; align-items: center; gap: 32px; }
 .contact {
   background: radial-gradient(ellipse 50% 50% at center,
