@@ -134,9 +134,13 @@ function assertNoPreparationStarted() {
   expect(vi.mocked(invoke).mock.calls.every(([command]) => ['search_embedding_status', 'search_embedding_cache_status'].includes(command))).toBe(true)
 }
 
-it('opens the public privacy policy from About using the native opener', async () => {
+it('opens the public privacy policy from Privacy & Legal using the native opener', async () => {
   await click(container.querySelector('.app-settings-btn')!)
-  const policy = container.querySelector<HTMLAnchorElement>('.app-settings-about a')!
+  const about = container.querySelector('.app-settings-about')!
+  expect(about.textContent).not.toContain('settings.privacyPolicy')
+  await click(about.querySelector('button')!)
+  const notices = container.querySelector('[aria-label="settings.privacyAndLegal"]')!
+  const policy = notices.querySelector<HTMLAnchorElement>('a.app-settings-legal-notice-link')!
   expect(policy.textContent).toBe('settings.privacyPolicy')
   expect(policy.href).toBe('https://trypapercut.app/privacy/')
   await click(policy)
@@ -169,7 +173,7 @@ it('keeps related destinations together and the developer label directly operabl
   ])
   expect(data.querySelector('.app-settings-erase-action')).not.toBeNull()
   const about = container.querySelector('.app-settings-about')!
-  expect(about.textContent).toContain('settings.legalAndNotices')
+  expect(about.textContent).toContain('settings.privacyAndLegal')
   expect(about.querySelector('.app-settings-version')?.textContent).toBe('settings.version1.9.2')
   expect(container.querySelector('.app-settings-developer h3')).toBeNull()
   const developer = container.querySelector<HTMLLabelElement>('.app-setting-toggle')!

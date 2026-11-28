@@ -161,7 +161,7 @@ export function AppSettings({
         <AppDialog
           key={selectedLegalNotice ?? 'legal-notices'}
           className="app-settings-legal-dialog"
-          title={selectedNotice?.title ?? t('settings.legalAndNotices')}
+          title={selectedNotice?.title ?? t('settings.privacyAndLegal')}
           showCloseButton
           onCancel={closeSettings}
           onBack={() => {
@@ -175,7 +175,22 @@ export function AppSettings({
           {selectedLegalNotice ? (
             <LegalNoticeContent source={LEGAL_NOTICE_CONTENT[selectedLegalNotice]} />
           ) : (
-            <nav className="app-settings-legal-notices" aria-label={t('settings.legalAndNotices')}>
+            <nav className="app-settings-legal-notices" aria-label={t('settings.privacyAndLegal')}>
+              <a
+                className="app-settings-legal-notice-link"
+                href="https://trypapercut.app/privacy/"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(event) => {
+                  if (tauriRuntime) {
+                    event.preventDefault()
+                    void openExternalUrl(event.currentTarget.href)
+                  }
+                }}
+              >
+                <span>{t('settings.privacyPolicy')}</span>
+                <span className="app-settings-chevron" aria-hidden="true" />
+              </a>
               {legalNotices.map((notice) => (
                 <button
                   key={notice.id}
@@ -345,27 +360,12 @@ export function AppSettings({
 
           <section className="app-settings-section app-settings-about" aria-labelledby="app-settings-about">
             <h3 id="app-settings-about">{t('settings.about')}</h3>
-            <a
-              className="app-settings-data-action app-settings-row"
-              href="https://trypapercut.app/privacy/"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(event) => {
-                if (tauriRuntime) {
-                  event.preventDefault()
-                  void openExternalUrl(event.currentTarget.href)
-                }
-              }}
-            >
-              <span>{t('settings.privacyPolicy')}</span>
-              <span className="app-settings-chevron" aria-hidden="true" />
-            </a>
             <button
               type="button"
               className="app-settings-data-action app-settings-row"
               onClick={() => setLegalNoticesOpen(true)}
             >
-              <span>{t('settings.legalAndNotices')}</span>
+              <span>{t('settings.privacyAndLegal')}</span>
               <span className="app-settings-chevron" aria-hidden="true" />
             </button>
             <div className="app-settings-version">
