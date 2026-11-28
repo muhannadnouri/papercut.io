@@ -1,21 +1,21 @@
 {
   "schemaVersion": 2,
   "scope": {
-    "appVersion": "1.11.1",
+    "appVersion": "1.11.2",
     "target": "aarch64-linux-android",
     "features": [
       "native-tts-shared",
       "experimental-search-embeddings"
     ],
-    "status": "v1.11.1 release preparation. The lockfiles differ from v1.11.0 only in the Papercut package version. Device acceptance and tagged APK reproduction are separate release checks.",
+    "status": "v1.11.2 release preparation. The lockfiles differ from v1.11.1 only in the Papercut package version. Device acceptance and tagged APK reproduction are separate release checks.",
     "rust": "Resolved Android metadata candidates; runtime/build/dev metadata may coexist. Notices conservatively enumerate the resolved graph, not every compiled/shipped package. Review native subprojects separately.",
     "npm": "Production lockfile candidates, not a bundler-level inclusion claim. Native/WASM/model/data evidence is in the Android guide.",
     "reviewedOn": "2026-11-27",
     "method": "Static review evidence for native/WASM/model/data licensing decisions. Bulk Rust/npm/Maven dependency listings are regenerated on demand with standardRefresh instead of being stored here. inputHashes anchor this snapshot to the reviewed lockfiles; refresh after dependency changes."
   },
   "inputHashes": {
-    "cargoLock": "2567ec63d32e057d10dd2b2ebf58bc9c23409e7f0f8eac834ae687cbcf1822e9",
-    "packageLock": "c43e9add4a851a1209449ce94e3ec9f55de85e8a64f83d88c04d855e95decb80"
+    "cargoLock": "79a982c7c8c22e85135bce2e04caa28c85533253618bc1b4350bd627cdf9b1f4",
+    "packageLock": "7100c96a1497157e9b76a126f28c1a2a5315b6dd098550edcb63ec7ecc007585"
   },
   "standardRefresh": {
     "note": "Added 2026-11-03 when the bulk dependency arrays were replaced: regenerate graph listings for review with these standard commands rather than storing them.",
